@@ -12,4 +12,12 @@
 /captures
 .externalNativeBuild
 .cxx
+update.sh
 local.properties
+.env
+secrets.*
+.venv
+venv
+key.properties
+*.jks
+*.keystore
