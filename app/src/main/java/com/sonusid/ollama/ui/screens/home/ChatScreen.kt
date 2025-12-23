@@ -184,12 +184,25 @@ fun Home(
             AlertDialog(onDismissRequest = { showModelSelectionDialog = false },
                 title = { Text("Select Model") },
                 text = {
-                    Column {
-                        availableModels.forEach { model ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = model.name == selectedModel,
+                    val modelListState = rememberLazyListState()
+
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 400.dp),
+                        state = modelListState,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(availableModels) { model ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = model.name == selectedModel,
                                     onClick = { selectedModel = model.name })
-                                Text(model.name)
+                                Text(
+                                    text = model.name,
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                         }
                     }
@@ -226,5 +239,4 @@ fun Home(
         }
     }
 }
-
 
