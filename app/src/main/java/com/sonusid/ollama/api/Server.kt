@@ -21,7 +21,8 @@ object RetrofitClient {
 
     fun initialize(baseUrlDao: BaseUrlDao) {
         runBlocking {
-            val baseUrlFromDb = baseUrlDao.getBaseUrl()
+            val baseUrlFromDb = baseUrlDao.getActiveBaseUrl()
+                ?: baseUrlDao.getBaseUrls().firstOrNull()
             BASE_URL = baseUrlFromDb?.url ?: BASE_URL // Use default if DB is empty
 
         }
