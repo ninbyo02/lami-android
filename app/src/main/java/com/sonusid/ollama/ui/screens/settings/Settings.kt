@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -189,7 +189,7 @@ fun Settings(navgationController: NavController) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
                                     }) {
-                                        Icon(Icons.Filled.Remove, contentDescription = "Remove server")
+                                        Icon(Icons.Filled.Delete, contentDescription = "Remove server")
                                     }
                                 }
                             }
