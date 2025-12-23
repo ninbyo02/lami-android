@@ -3,7 +3,6 @@ package com.sonusid.ollama.ui.screens.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Process
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,8 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
+import com.sonusid.ollama.db.repository.BaseUrlRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,13 +76,13 @@ fun Settings(navgationController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
-    val baseUrlDao = db.baseUrlDao()
+    val baseUrlRepository = remember { BaseUrlRepository(db.baseUrlDao()) }
     val snackbarHostState: SnackbarHostState = rememberSnackbarHostState()
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     val maxServers = 5
 
     LaunchedEffect(Unit) {
-        val storedUrls = withContext(Dispatchers.IO) { baseUrlDao.getAll() }
+        val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
         val hasActive = storedUrls.any { it.isActive }
         val initialList = if (storedUrls.isNotEmpty()) {
             storedUrls.mapIndexed { index, baseUrl ->
@@ -223,13 +224,10 @@ fun Settings(navgationController: NavController) {
                                     )
                                 }
                                 withContext(Dispatchers.IO) {
-                                    baseUrlDao.replaceBaseUrls(inputsToSave)
+                                    baseUrlRepository.replaceAll(inputsToSave)
+                                    RetrofitClient.refreshBaseUrl(baseUrlRepository)
                                 }
-                                val intent =
-                                    context.packageManager.getLaunchIntentForPackage(context.packageName)
-                                intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                context.startActivity(intent)
-                                Process.killProcess(Process.myPid())
+                                snackbarHostState.showSnackbar("サーバー設定を保存しました")
                             }
                         },
                         modifier = Modifier.weight(1f)
