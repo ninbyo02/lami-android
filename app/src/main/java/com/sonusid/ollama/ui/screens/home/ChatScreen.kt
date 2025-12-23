@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.screens.home
 
-import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -187,7 +188,11 @@ fun Home(
                     val modelListState = rememberLazyListState()
 
                     LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.6f)
+                            .padding(top = 8.dp)
+                            .clipToBounds(),
                         state = modelListState,
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -239,4 +244,3 @@ fun Home(
         }
     }
 }
-
