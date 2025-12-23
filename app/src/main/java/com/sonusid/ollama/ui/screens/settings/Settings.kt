@@ -12,25 +12,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.rememberSnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +55,14 @@ import okhttp3.Request
 import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
+import java.util.UUID
+
+private data class ServerInput(
+    val localId: String = UUID.randomUUID().toString(),
+    val id: Int? = null,
+    val url: String,
+    val isActive: Boolean = false
+)
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -63,13 +76,31 @@ fun Settings(navgationController: NavController) {
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
     val baseUrlDao = db.baseUrlDao()
-    var gateway by remember { mutableStateOf("localhost:11434") }
-    var valid by remember { mutableStateOf(true) }
+    val snackbarHostState: SnackbarHostState = rememberSnackbarHostState()
+    val serverInputs = remember { mutableStateListOf<ServerInput>() }
+    val maxServers = 5
+
     LaunchedEffect(Unit) {
-        val storedUrl = baseUrlDao.getBaseUrl()
-        if (storedUrl != null) {
-            gateway = storedUrl.url
+        val storedUrls = withContext(Dispatchers.IO) { baseUrlDao.getBaseUrls() }
+        val hasActive = storedUrls.any { it.isActive }
+        val initialList = if (storedUrls.isNotEmpty()) {
+            storedUrls.mapIndexed { index, baseUrl ->
+                ServerInput(
+                    id = baseUrl.id,
+                    url = baseUrl.url,
+                    isActive = if (hasActive) baseUrl.isActive else index == 0
+                )
+            }
+        } else {
+            listOf(
+                ServerInput(
+                    url = "localhost:11434",
+                    isActive = true
+                )
+            )
         }
+        serverInputs.clear()
+        serverInputs.addAll(initialList)
     }
 
     Scaffold(
@@ -86,6 +117,7 @@ fun Settings(navgationController: NavController) {
                 title = { Text("Settings") }
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             Row(
                 modifier = Modifier
@@ -96,64 +128,140 @@ fun Settings(navgationController: NavController) {
         }
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.padding(paddingValues)) {
+            itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = serverInput.isActive,
+                        onClick = {
+                            serverInputs.indices.forEach { i ->
+                                val current = serverInputs[i]
+                                serverInputs[i] = current.copy(isActive = i == index)
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    OutlinedTextField(
+                        value = serverInput.url,
+                        onValueChange = { newValue ->
+                            serverInputs[index] = serverInput.copy(url = newValue)
+                        },
+                        placeholder = { Text("localhost:11434") },
+                        label = { Text("Server ${index + 1}") },
+                        singleLine = true,
+                        isError = serverInput.url.isBlank(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 4.dp),
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = {
+                                    if (serverInputs.size >= maxServers) {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("追加できるサーバー数は最大${maxServers}件です")
+                                        }
+                                    } else {
+                                        serverInputs.add(
+                                            ServerInput(
+                                                url = "",
+                                                isActive = false
+                                            )
+                                        )
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.Add, contentDescription = "Add server")
+                                }
+                                if (serverInputs.size > 1) {
+                                    IconButton(onClick = {
+                                        if (serverInputs.size <= 1) {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("最低1件のサーバーを残してください")
+                                            }
+                                            return@IconButton
+                                        }
+                                        val wasActive = serverInputs[index].isActive
+                                        serverInputs.removeAt(index)
+                                        if (wasActive && serverInputs.isNotEmpty()) {
+                                            serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                        }
+                                    }) {
+                                        Icon(Icons.Filled.Remove, contentDescription = "Remove server")
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+            }
             item {
-                OutlinedTextField(
-                    value = gateway,
-                    onValueChange = { gateway = it },
-                    placeholder = { Text("localhost:11434") },
-                    label = { Text("Server") },
-                    singleLine = true,
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                    shape = CircleShape,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = if (valid) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.error,
-                        focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    suffix = {
-                        IconButton(onClick = {
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
                             scope.launch {
-                                val baseUrl =
-                                    BaseUrl(url = gateway)
-                                baseUrlDao.insertBaseUrl(baseUrl)
+                                if (serverInputs.any { it.url.isBlank() }) {
+                                    snackbarHostState.showSnackbar("空のURLを保存できません")
+                                    return@launch
+                                }
+                                if (serverInputs.none { it.isActive }) {
+                                    serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                }
+                                val inputsToSave = serverInputs.mapIndexed { _, input ->
+                                    BaseUrl(
+                                        id = input.id ?: 0,
+                                        url = input.url.trim(),
+                                        isActive = input.isActive
+                                    )
+                                }
+                                withContext(Dispatchers.IO) {
+                                    baseUrlDao.replaceBaseUrls(inputsToSave)
+                                }
                                 val intent =
                                     context.packageManager.getLaunchIntentForPackage(context.packageName)
-                                intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK) // Important flags
+                                intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                                 context.startActivity(intent)
                                 Process.killProcess(Process.myPid())
-
                             }
-                        }, modifier = Modifier.size(25.dp)) {
-                            Icon(
-                                painter = painterResource(R.drawable.save),
-                                contentDescription = "Save Address"
-                            )
-                        }
-                    }
-                )
-            }
-            item {
-                ElevatedButton(
-                    onClick = {
-                        navgationController.navigate("about")
-                    }, modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp, horizontal = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start,
+                        },
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
-                            painterResource(R.drawable.about),
-                            contentDescription = "About",
-                            modifier = Modifier.size(20.dp)
+                            painter = painterResource(R.drawable.save),
+                            contentDescription = "Save"
                         )
-                        Spacer(Modifier.width(20.dp))
-                        Text("About")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("保存")
+                    }
+                    ElevatedButton(
+                        onClick = {
+                            navgationController.navigate("about")
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.about),
+                                contentDescription = "About",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(20.dp))
+                            Text("About")
+                        }
                     }
                 }
             }
