@@ -7,7 +7,6 @@ import com.sonusid.ollama.UiState
 import com.sonusid.ollama.api.OllamaRequest
 import com.sonusid.ollama.api.OllamaResponse
 import com.sonusid.ollama.api.RetrofitClient
-import com.sonusid.ollama.api.RetrofitClient.BASE_URL
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
@@ -93,8 +92,9 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
             _uiState.value = UiState.Loading
             try {
                 val response = withContext(Dispatchers.IO) {
+                    val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
                     val url =
-                        URL("http://${BASE_URL}/api/tags") // Replace with your Ollama server URL
+                        URL("${baseUrl}/api/tags")
                     val connection = url.openConnection() as HttpURLConnection
                     connection.requestMethod = "GET"
                     val inputStream = connection.inputStream

@@ -1,15 +1,16 @@
 package com.sonusid.ollama.api
 
-import com.sonusid.ollama.db.dao.BaseUrlDao
-import kotlinx.coroutines.runBlocking
+import com.sonusid.ollama.db.repository.BaseUrlProvider
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
-
-    var BASE_URL: String = "localhost:11434/" // Default URL
+    private const val DEFAULT_BASE_URL = "http://localhost:11434/" // Default URL
+    private var baseUrl: String = DEFAULT_BASE_URL
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(120, TimeUnit.SECONDS)
@@ -17,24 +18,42 @@ object RetrofitClient {
         .writeTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    private var retrofit: Retrofit? = null // Make retrofit nullable
+    private var retrofit: Retrofit? = null
+    private val retrofitMutex = Mutex()
 
-    fun initialize(baseUrlDao: BaseUrlDao) {
-        runBlocking {
-            val baseUrlFromDb = baseUrlDao.getActive()
-                ?: baseUrlDao.getAll().firstOrNull()
-            BASE_URL = baseUrlFromDb?.url ?: BASE_URL // Use default if DB is empty
-
+    suspend fun initialize(baseUrlProvider: BaseUrlProvider) {
+        retrofitMutex.withLock {
+            val activeUrl = baseUrlProvider.getActiveOrFirst()?.url
+            val resolvedBaseUrl = normalizeBaseUrl(activeUrl)
+            if (retrofit == null || baseUrl != resolvedBaseUrl) {
+                baseUrl = resolvedBaseUrl
+                retrofit = Retrofit.Builder()
+                    .baseUrl(baseUrl)
+                    .client(client)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+            }
         }
-
-        retrofit = Retrofit.Builder() // Initialize retrofit here
-            .baseUrl("http://${BASE_URL}")
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
     }
 
-    val instance: OllamaApiService by lazy {
-        retrofit?.create(OllamaApiService::class.java) ?: error("RetrofitClient must be initialized!")
+    suspend fun refreshBaseUrl(baseUrlProvider: BaseUrlProvider) {
+        initialize(baseUrlProvider)
+    }
+
+    fun currentBaseUrl(): String = baseUrl
+
+    val instance: OllamaApiService
+        get() = retrofit?.create(OllamaApiService::class.java)
+            ?: error("RetrofitClient must be initialized!")
+
+    private fun normalizeBaseUrl(activeUrl: String?): String {
+        val cleanedUrl = activeUrl?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_BASE_URL.trimEnd('/')
+        val withScheme = if (cleanedUrl.startsWith("http://") || cleanedUrl.startsWith("https://")) {
+            cleanedUrl
+        } else {
+            "http://$cleanedUrl"
+        }
+        return "$withScheme/"
     }
 }

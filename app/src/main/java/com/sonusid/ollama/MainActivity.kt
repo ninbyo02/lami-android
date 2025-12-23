@@ -17,7 +17,7 @@ import androidx.navigation.navArgument
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.ChatDatabase
-import com.sonusid.ollama.db.dao.BaseUrlDao
+import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.ui.screens.chats.Chats
 import com.sonusid.ollama.ui.screens.home.Home
@@ -26,6 +26,7 @@ import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: OllamaViewModel
@@ -42,8 +43,10 @@ class MainActivity : ComponentActivity() {
         val factory = OllamaViewModelFactory(repository)
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
         val baseUrlDataBase = AppDatabase.getDatabase(this) // 'this' is the Application context
-        val baseUrlDao = baseUrlDataBase.baseUrlDao() // Get the DAO instance
-        RetrofitClient.initialize(baseUrlDao)
+        val baseUrlRepository = BaseUrlRepository(baseUrlDataBase.baseUrlDao())
+        runBlocking {
+            RetrofitClient.initialize(baseUrlRepository)
+        }
 
         setContent {
             // Initialise navigation
