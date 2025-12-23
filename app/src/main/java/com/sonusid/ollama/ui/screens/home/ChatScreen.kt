@@ -10,9 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -185,28 +184,43 @@ fun Home(
             AlertDialog(onDismissRequest = { showModelSelectionDialog = false },
                 title = { Text("Select Model") },
                 text = {
-                    val modelListState = rememberLazyListState()
+                    var isDropdownExpanded by remember { mutableStateOf(false) }
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.6f)
-                            .padding(top = 8.dp)
-                            .clipToBounds(),
-                        state = modelListState,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ExposedDropdownMenuBox(
+                        expanded = isDropdownExpanded,
+                        onExpandedChange = { isDropdownExpanded = !isDropdownExpanded },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(availableModels) { model ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = model.name == selectedModel,
-                                    onClick = { selectedModel = model.name })
-                                Text(
-                                    text = model.name,
-                                    modifier = Modifier.weight(1f)
+                        OutlinedTextField(
+                            value = selectedModel ?: "",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(text = "Model") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded)
+                            },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = isDropdownExpanded,
+                            onDismissRequest = { isDropdownExpanded = false }
+                        ) {
+                            availableModels.forEach { model ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = model.name,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedModel = model.name
+                                        isDropdownExpanded = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                                 )
                             }
                         }
