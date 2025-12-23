@@ -81,7 +81,7 @@ fun Settings(navgationController: NavController) {
     val maxServers = 5
 
     LaunchedEffect(Unit) {
-        val storedUrls = withContext(Dispatchers.IO) { baseUrlDao.getBaseUrls() }
+        val storedUrls = withContext(Dispatchers.IO) { baseUrlDao.getAll() }
         val hasActive = storedUrls.any { it.isActive }
         val initialList = if (storedUrls.isNotEmpty()) {
             storedUrls.mapIndexed { index, baseUrl ->
