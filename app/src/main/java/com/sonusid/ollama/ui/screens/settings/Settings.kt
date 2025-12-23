@@ -65,19 +65,6 @@ fun Settings(navgationController: NavController) {
     val baseUrlDao = db.baseUrlDao()
     var gateway by remember { mutableStateOf("localhost:11434") }
     var valid by remember { mutableStateOf(true) }
-    var social = listOf<SettingsData>(
-        SettingsData(url = "https://github.com/sonusid1325", name = "GitHub", R.drawable.github),
-        SettingsData(
-            url = "https://github.com/sponsors/sonusid1325",
-            name = "GitHub Sponsor",
-            R.drawable.sponsor
-        ),
-        SettingsData(
-            url = "https://buymeacoffee.com/sonusid1325",
-            name = "Buy me Coffee",
-            R.drawable.coffee
-        ),
-    )
     LaunchedEffect(Unit) {
         val storedUrl = baseUrlDao.getBaseUrl()
         if (storedUrl != null) {
@@ -118,8 +105,7 @@ fun Settings(navgationController: NavController) {
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(10.dp)
-                        .padding(top = 0.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     shape = CircleShape,
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedBorderColor = if (valid) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.error,
@@ -147,37 +133,12 @@ fun Settings(navgationController: NavController) {
                     }
                 )
             }
-            items(social.size) { index ->
-                val value = social[index]
-                ElevatedButton(
-                    onClick = {
-                        openUrl(context, value.url)
-                    }, modifier = Modifier
-                        .padding(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp, horizontal = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start,
-                    ) {
-                        Icon(
-                            painterResource(value.logo),
-                            contentDescription = value.name,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(20.dp))
-                        Text(value.name)
-                    }
-                }
-            }
             item {
                 ElevatedButton(
                     onClick = {
                         navgationController.navigate("about")
                     }, modifier = Modifier
-                        .padding(10.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Row(
                         modifier = Modifier
