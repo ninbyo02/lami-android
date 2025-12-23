@@ -29,7 +29,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.rememberSnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -77,7 +76,7 @@ fun Settings(navgationController: NavController) {
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
     val baseUrlRepository = remember { BaseUrlRepository(db.baseUrlDao()) }
-    val snackbarHostState: SnackbarHostState = rememberSnackbarHostState()
+    val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     val maxServers = 5
 
