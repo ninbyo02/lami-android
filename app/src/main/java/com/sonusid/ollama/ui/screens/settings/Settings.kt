@@ -94,7 +94,7 @@ fun Settings(navgationController: NavController) {
         } else {
             listOf(
                 ServerInput(
-                    url = "localhost:11434",
+                    url = "http://localhost:11434",
                     isActive = true
                 )
             )
@@ -150,10 +150,10 @@ fun Settings(navgationController: NavController) {
                         onValueChange = { newValue ->
                             serverInputs[index] = serverInput.copy(url = newValue)
                         },
-                        placeholder = { Text("localhost:11434") },
+                        placeholder = { Text("http://host:port") },
                         label = { Text("Server ${index + 1}") },
                         singleLine = true,
-                        isError = serverInput.url.isBlank(),
+                        isError = !isValidUrlFormat(serverInput.url.trim()),
                         modifier = Modifier
                             .weight(1f)
                             .padding(vertical = 4.dp),
@@ -167,7 +167,7 @@ fun Settings(navgationController: NavController) {
                                     } else {
                                         serverInputs.add(
                                             ServerInput(
-                                                url = "",
+                                                url = "http://localhost:11434",
                                                 isActive = false
                                             )
                                         )
@@ -212,13 +212,27 @@ fun Settings(navgationController: NavController) {
                                     snackbarHostState.showSnackbar("空のURLを保存できません")
                                     return@launch
                                 }
+                                if (serverInputs.any { !isValidUrlFormat(it.url.trim()) }) {
+                                    snackbarHostState.showSnackbar("URLは http://host:port 形式で入力してください")
+                                    return@launch
+                                }
                                 if (serverInputs.none { it.isActive }) {
                                     serverInputs[0] = serverInputs[0].copy(isActive = true)
                                 }
-                                val inputsToSave = serverInputs.mapIndexed { _, input ->
+                                val trimmedInputs = serverInputs.map { input ->
+                                    input.copy(url = input.url.trim())
+                                }
+                                val invalidServer = withContext(Dispatchers.IO) {
+                                    trimmedInputs.firstOrNull { input -> !isValidURL(input.url) }
+                                }
+                                if (invalidServer != null) {
+                                    snackbarHostState.showSnackbar("接続できないURLがあります。入力内容を確認してください")
+                                    return@launch
+                                }
+                                val inputsToSave = trimmedInputs.mapIndexed { _, input ->
                                     BaseUrl(
                                         id = input.id ?: 0,
-                                        url = input.url.trim(),
+                                        url = input.url,
                                         isActive = input.isActive
                                     )
                                 }
@@ -266,21 +280,28 @@ fun Settings(navgationController: NavController) {
     }
 }
 
-suspend fun isValidURL(urlString: String): Boolean = withContext(Dispatchers.IO) {
-    try {
-        val url = URL(urlString) // Check URL format
+suspend fun isValidURL(urlString: String): Boolean {
+    return try {
+        val url = URL(urlString)
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
 
-        val response = client.newCall(request).execute()  // Make a request (empty)
-        response.close() // Important: Close the response
-        response.isSuccessful // Check if the response indicates success (2xx or 3xx status codes)
-
+        client.newCall(request).execute().use { response ->
+            response.isSuccessful
+        }
     } catch (e: MalformedURLException) {
-        false // Invalid URL format
+        false
     } catch (e: IOException) {
-        false // Network error or other IO issues
+        false
     }
+}
+
+private fun isValidUrlFormat(urlString: String): Boolean {
+    if (urlString.isBlank()) return false
+    return runCatching {
+        val url = URL(urlString)
+        url.protocol in listOf("http", "https") && url.host.isNotBlank()
+    }.getOrElse { false }
 }
 
 @Preview(showBackground = true)
