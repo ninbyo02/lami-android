@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
+import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
@@ -57,15 +59,19 @@ import com.sonusid.ollama.viewmodels.OllamaViewModel
 fun Home(
     navHostController: NavHostController,
     viewModel: OllamaViewModel,
-    chatId: Int = viewModel.chats.value.last().chatId + 1,
+    chatId: Int? = null,
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
+    val chats by viewModel.chats.collectAsState()
+    var effectiveChatId by rememberSaveable { mutableStateOf<Int?>(chatId) }
+    var isCreatingChat by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by remember { mutableStateOf("") }
     remember { mutableStateListOf<String>() }
     var prompt: String by remember { mutableStateOf("") }
-    val allChats = viewModel.allMessages(chatId).collectAsState(initial = emptyList())
+    val allChatsState = effectiveChatId?.let { viewModel.allMessages(it).collectAsState(initial = emptyList()) }
+    val allChats = allChatsState?.value.orEmpty()
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -75,9 +81,23 @@ fun Home(
     val listState = rememberLazyListState()
 
 
-    LaunchedEffect(allChats.value.size) {
-        if (allChats.value.isNotEmpty()) {
-            listState.animateScrollToItem(allChats.value.size - 1)
+    LaunchedEffect(chatId, chats) {
+        val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
+        effectiveChatId = resolvedChatId
+
+        if (resolvedChatId == null && !isCreatingChat) {
+            isCreatingChat = true
+            viewModel.insertChat(Chat(title = "New Chat"))
+        }
+
+        if (resolvedChatId != null) {
+            isCreatingChat = false
+        }
+    }
+
+    LaunchedEffect(allChats.size) {
+        if (allChats.isNotEmpty()) {
+            listState.animateScrollToItem(allChats.size - 1)
         }
     }
 
@@ -85,21 +105,30 @@ fun Home(
         viewModel.loadAvailableModels()
     }
 
-    LaunchedEffect(uiState) {
+    LaunchedEffect(uiState, effectiveChatId) {
         if (toggle) {
+            val currentChatId = effectiveChatId
             when (uiState) {
                 is UiState.Success -> {
                     val response = (uiState as UiState.Success).outputText
-                    viewModel.insert(Message(message = response, chatId = chatId, isSendbyMe = false))
+                    if (currentChatId != null) {
+                        viewModel.insert(
+                            Message(message = response, chatId = currentChatId, isSendbyMe = false)
+                        )
+                    }
                     placeholder = "Enter your prompt..."
                 }
 
                 is UiState.Error -> {
-                    viewModel.insert(
-                        Message(
-                            message = (uiState as UiState.Error).errorMessage, chatId = chatId, isSendbyMe = false
+                    if (currentChatId != null) {
+                        viewModel.insert(
+                            Message(
+                                message = (uiState as UiState.Error).errorMessage,
+                                chatId = currentChatId,
+                                isSendbyMe = false
+                            )
                         )
-                    )
+                    }
                     placeholder = "Enter your prompt..."
                 }
 
@@ -179,24 +208,31 @@ fun Home(
                 ElevatedButton(
                     contentPadding = PaddingValues(0.dp),
                     onClick = {
-                        if (selectedModel != null) {
-                            if (userPrompt.isNotEmpty()) {
-                                placeholder = "I'm thinking ... "
-                                viewModel.insert(Message(chatId = chatId, message = userPrompt, isSendbyMe = true))
-                                toggle = true
-                                prompt = userPrompt
+                        val currentChatId = effectiveChatId
+                        if (currentChatId != null) {
+                            if (selectedModel != null) {
+                                if (userPrompt.isNotEmpty()) {
+                                    placeholder = "I'm thinking ... "
+                                    viewModel.insert(
+                                        Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                    )
+                                    toggle = true
+                                    prompt = userPrompt
+                                    userPrompt = ""
+                                    viewModel.sendPrompt(prompt, selectedModel)
+                                    prompt = ""
+                                }
+                            } else {
+                                viewModel.insert(Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true))
                                 userPrompt = ""
-                                viewModel.sendPrompt(prompt, selectedModel)
-                                prompt = ""
+                                viewModel.insert(
+                                    Message(
+                                        chatId = currentChatId, message = "Please Choose a model", isSendbyMe = false
+                                    )
+                                )
                             }
                         } else {
-                            viewModel.insert(Message(chatId = chatId, message = userPrompt, isSendbyMe = true))
-                            userPrompt = ""
-                            viewModel.insert(
-                                Message(
-                                    chatId = chatId, message = "Please Choose a model", isSendbyMe = false
-                                )
-                            )
+                            placeholder = "Setting up a new chat ..."
                         }
                     }) {
                     Icon(
@@ -253,7 +289,17 @@ fun Home(
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
-            if (allChats.value.isEmpty()) {
+            if (effectiveChatId == null) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.size(12.dp))
+                    Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
+                }
+            } else if (allChats.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -268,8 +314,8 @@ fun Home(
                         .padding(16.dp),
                     state = listState
                 ) {
-                    items(allChats.value.size) { index ->
-                        ChatBubble(allChats.value[index].message, allChats.value[index].isSendbyMe)
+                    items(allChats.size) { index ->
+                        ChatBubble(allChats[index].message, allChats[index].isSendbyMe)
                     }
                 }
             }

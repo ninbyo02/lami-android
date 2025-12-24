@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                             startDestination = "chats"
                         ) {
                             composable("home") {
-                                Home(navController, viewModel, 0)
+                                Home(navController, viewModel)
                             }
                             composable("chats") {
                                 Chats(navController, viewModel)
@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
                                 route = "chat/{chatID}",
                                 arguments = listOf(navArgument("chatID") { type = NavType.IntType })
                             ) { backStackEntry ->
-                                val chatId = backStackEntry.arguments?.getInt("chatID") ?: 0
+                                val chatId = backStackEntry.arguments?.getInt("chatID")?.takeIf { it != 0 }
                                 Home(navController, viewModel, chatId)
                             }
                             composable("setting") {
