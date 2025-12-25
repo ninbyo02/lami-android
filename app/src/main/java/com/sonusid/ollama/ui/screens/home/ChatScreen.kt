@@ -39,7 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -72,7 +71,6 @@ fun Home(
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by remember { mutableStateOf("") }
-    remember { mutableStateListOf<String>() }
     var prompt: String by remember { mutableStateOf("") }
     val allChatsState = effectiveChatId?.let { viewModel.allMessages(it).collectAsState(initial = emptyList()) }
     val allChats = allChatsState?.value.orEmpty()
@@ -80,7 +78,7 @@ fun Home(
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSheet by rememberSaveable { mutableStateOf(false) }
-    var selectedModel by remember { mutableStateOf<String?>(null) }
+    val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -110,6 +108,13 @@ fun Home(
 
     LaunchedEffect(Unit) {
         viewModel.loadAvailableModels()
+    }
+
+    LaunchedEffect(availableModels) {
+        if (availableModels.size == 1) {
+            viewModel.updateSelectedModel(availableModels.first().name)
+            showSheet = false
+        }
     }
 
     LaunchedEffect(uiState, effectiveChatId) {
@@ -172,7 +177,7 @@ fun Home(
                 }) {
                     Text(
                         if (selectedModel.isNullOrEmpty()) {
-                            "Ollama"
+                            "Select model"
                         } else {
                             selectedModel.toString()
                         }, fontSize = 20.sp
@@ -279,7 +284,7 @@ fun Home(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    selectedModel = model.name
+                                    viewModel.updateSelectedModel(model.name)
                                     showSheet = false
                                 },
                             verticalAlignment = Alignment.CenterVertically
@@ -287,7 +292,7 @@ fun Home(
                             RadioButton(
                                 selected = selectedModel == model.name,
                                 onClick = {
-                                    selectedModel = model.name
+                                    viewModel.updateSelectedModel(model.name)
                                     showSheet = false
                                 }
                             )

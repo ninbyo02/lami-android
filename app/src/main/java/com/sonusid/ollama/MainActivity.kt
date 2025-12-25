@@ -19,6 +19,7 @@ import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.ChatDatabase
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ChatRepository
+import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.screens.chats.Chats
 import com.sonusid.ollama.ui.screens.home.Home
 import com.sonusid.ollama.ui.screens.settings.About
@@ -38,12 +39,13 @@ class MainActivity : ComponentActivity() {
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
         val repository =
             ChatRepository(chatDao = database.chatDao(), messageDao = database.messageDao())
+        val baseUrlDataBase = AppDatabase.getDatabase(this) // 'this' is the Application context
+        val modelPreferenceRepository = ModelPreferenceRepository(baseUrlDataBase.modelPreferenceDao())
+        val baseUrlRepository = BaseUrlRepository(baseUrlDataBase.baseUrlDao())
 
         // Initialize ViewModel with Factory
-        val factory = OllamaViewModelFactory(repository)
+        val factory = OllamaViewModelFactory(repository, modelPreferenceRepository)
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
-        val baseUrlDataBase = AppDatabase.getDatabase(this) // 'this' is the Application context
-        val baseUrlRepository = BaseUrlRepository(baseUrlDataBase.baseUrlDao())
         runBlocking {
             RetrofitClient.initialize(baseUrlRepository)
         }

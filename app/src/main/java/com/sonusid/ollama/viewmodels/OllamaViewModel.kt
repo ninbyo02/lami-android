@@ -10,6 +10,7 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
+import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,10 @@ import java.net.URL
 
 data class ModelInfo(val name: String)
 
-class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
+class OllamaViewModel(
+    private val repository: ChatRepository,
+    private val modelPreferenceRepository: ModelPreferenceRepository,
+) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
@@ -34,6 +38,8 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
+    private val _selectedModel = MutableStateFlow<String?>(null)
+    val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -121,12 +127,53 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
                     availableModels
                 }
                 _availableModels.value = models
+                refreshSelectedModel(models)
                 _uiState.value = UiState.Initial
             } catch (e: Exception) {
                 Log.e("OllamaError", "Error loading models: ${e.message}")
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
                 _uiState.value = UiState.Error("Failed to load models: $message")
+            }
+        }
+    }
+
+    private suspend fun refreshSelectedModel(models: List<ModelInfo>) {
+        val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+        val savedModel = withContext(Dispatchers.IO) {
+            modelPreferenceRepository.getSelectedModel(baseUrl)
+        }?.takeIf { modelName -> models.any { it.name == modelName } }
+        val preferredModel = when {
+            models.size == 1 -> models.first().name
+            savedModel != null -> savedModel
+            else -> null
+        }
+        _selectedModel.value = preferredModel
+        withContext(Dispatchers.IO) {
+            if (preferredModel != null) {
+                modelPreferenceRepository.setSelectedModel(baseUrl, preferredModel)
+            } else {
+                modelPreferenceRepository.clearSelectedModel(baseUrl)
+            }
+        }
+    }
+
+    fun updateSelectedModel(modelName: String) {
+        viewModelScope.launch {
+            val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+            _selectedModel.value = modelName
+            withContext(Dispatchers.IO) {
+                modelPreferenceRepository.setSelectedModel(baseUrl, modelName)
+            }
+        }
+    }
+
+    fun clearSelectedModel() {
+        viewModelScope.launch {
+            val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+            _selectedModel.value = null
+            withContext(Dispatchers.IO) {
+                modelPreferenceRepository.clearSelectedModel(baseUrl)
             }
         }
     }
