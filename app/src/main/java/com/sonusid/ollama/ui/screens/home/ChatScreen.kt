@@ -107,9 +107,12 @@ fun Home(
         }
     }
 
-    LaunchedEffect(availableModels) {
+    LaunchedEffect(availableModels, selectedModel) {
         if (availableModels.size == 1) {
-            viewModel.updateSelectedModel(availableModels.first().name)
+            val singleModelName = availableModels.first().name
+            if (selectedModel != singleModelName) {
+                viewModel.updateSelectedModel(singleModelName)
+            }
             showSheet = false
         }
     }
