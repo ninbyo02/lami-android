@@ -32,6 +32,7 @@ data class ModelInfo(val name: String)
 class OllamaViewModel(
     private val repository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
+    private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
@@ -43,9 +44,12 @@ class OllamaViewModel(
     val chats: StateFlow<List<Chat>> = _chats
     private val _selectedModel = MutableStateFlow<String?>(null)
     val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
+    private val _isLoadingModels = MutableStateFlow(false)
+    val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
 
     init {
+        applyInitialSelectedModel(initialSelectedModel)
         viewModelScope.launch {
             repository.allChats.collect {
                 _chats.value = it
@@ -55,6 +59,12 @@ class OllamaViewModel(
             baseUrl.collectLatest {
                 loadAvailableModels()
             }
+        }
+    }
+
+    fun applyInitialSelectedModel(initialModelName: String? = null) {
+        if (!initialModelName.isNullOrBlank()) {
+            _selectedModel.value = initialModelName
         }
     }
 
@@ -104,7 +114,7 @@ class OllamaViewModel(
     fun loadAvailableModels() {
 
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
+            _isLoadingModels.value = true
             try {
                 val models = withContext(Dispatchers.IO) {
                     val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
@@ -143,6 +153,8 @@ class OllamaViewModel(
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
                 _uiState.value = UiState.Error("Failed to load models: $message")
+            } finally {
+                _isLoadingModels.value = false
             }
         }
     }
@@ -152,20 +164,29 @@ class OllamaViewModel(
         val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
         val savedModel = withContext(Dispatchers.IO) {
             modelPreferenceRepository.getSelectedModel(baseUrl)
-        }?.takeIf { modelName -> models.any { it.name == modelName } }
+        }
+        val savedModelAvailable = savedModel?.takeIf { modelName -> models.any { it.name == modelName } }
+        val currentSelection = _selectedModel.value?.takeIf { modelName -> models.any { it.name == modelName } }
         if (models.size == 1) {
             // 単一モデルのみ取得できた場合は、永続化済みの選択は保持したままUI上のみで一時選択する
             _selectedModel.value = models.first().name
             return
         }
 
-        val preferredModel = savedModel
-        _selectedModel.value = preferredModel
-        withContext(Dispatchers.IO) {
-            if (preferredModel != null) {
-                modelPreferenceRepository.setSelectedModel(baseUrl, preferredModel)
-            } else {
-                modelPreferenceRepository.clearSelectedModel(baseUrl)
+        when {
+            savedModelAvailable != null -> {
+                _selectedModel.value = savedModelAvailable
+                withContext(Dispatchers.IO) {
+                    modelPreferenceRepository.setSelectedModel(baseUrl, savedModelAvailable)
+                }
+            }
+
+            currentSelection != null -> {
+                _selectedModel.value = currentSelection
+            }
+
+            !savedModel.isNullOrBlank() -> {
+                clearSelectedModelForBaseUrl(baseUrl)
             }
         }
     }
@@ -184,10 +205,14 @@ class OllamaViewModel(
     fun clearSelectedModel() {
         viewModelScope.launch {
             val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
-            _selectedModel.value = null
-            withContext(Dispatchers.IO) {
-                modelPreferenceRepository.clearSelectedModel(baseUrl)
-            }
+            clearSelectedModelForBaseUrl(baseUrl)
+        }
+    }
+
+    private suspend fun clearSelectedModelForBaseUrl(baseUrl: String) {
+        _selectedModel.value = null
+        withContext(Dispatchers.IO) {
+            modelPreferenceRepository.clearSelectedModel(baseUrl)
         }
     }
 

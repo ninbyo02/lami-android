@@ -46,10 +46,19 @@ class MainActivity : ComponentActivity() {
         val initializationState = runBlocking {
             RetrofitClient.initialize(baseUrlRepository)
         }
-        baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
+        val resolvedBaseUrl = initializationState.baseUrl.trimEnd('/')
+        baseUrlRepository.updateActiveBaseUrl(resolvedBaseUrl)
+        val initialSelectedModel = runBlocking {
+            modelPreferenceRepository.getSelectedModel(resolvedBaseUrl)
+        }
 
         // Initialize ViewModel with Factory
-        val factory = OllamaViewModelFactory(repository, modelPreferenceRepository, baseUrlRepository.activeBaseUrl)
+        val factory = OllamaViewModelFactory(
+            repository,
+            modelPreferenceRepository,
+            initialSelectedModel,
+            baseUrlRepository.activeBaseUrl
+        )
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
 
         setContent {
