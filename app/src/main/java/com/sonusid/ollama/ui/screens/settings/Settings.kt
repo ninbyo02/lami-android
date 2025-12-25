@@ -128,14 +128,14 @@ fun Settings(navgationController: NavController) {
                         .align(Alignment.TopCenter)
                         .padding(horizontal = 16.dp, vertical = 16.dp),
                     snackbar = { snackbarData ->
-                        val isConnectionError =
-                            snackbarData.message.contains("接続できないURLがあります")
+                        val message = snackbarData.visuals.message
+                        val isConnectionError = message.contains("接続できないURLがあります")
                         Snackbar(
                             containerColor = MaterialTheme.colorScheme.inverseSurface,
-                            contentColor = if (isConnectionError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onInverseSurface,
+                            contentColor = if (isConnectionError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.inverseOnSurface,
                             actionColor = MaterialTheme.colorScheme.primary
                         ) {
-                            Text(snackbarData.message)
+                            Text(message)
                         }
                     }
                 )
