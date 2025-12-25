@@ -35,9 +35,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -83,7 +86,9 @@ fun Settings(navgationController: NavController) {
     val baseUrlRepository = remember { BaseUrlRepository(db.baseUrlDao()) }
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
+    var invalidConnections by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     val maxServers = 5
+    val serverInputIds = serverInputs.map { it.localId }
 
     LaunchedEffect(Unit) {
         val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
@@ -106,6 +111,10 @@ fun Settings(navgationController: NavController) {
         }
         serverInputs.clear()
         serverInputs.addAll(initialList)
+    }
+
+    LaunchedEffect(serverInputIds) {
+        invalidConnections = invalidConnections.filterKeys { key -> key in serverInputIds }
     }
 
     Scaffold(
@@ -188,10 +197,16 @@ fun Settings(navgationController: NavController) {
                         placeholder = { Text("http://host:port") },
                         label = { Text("Server ${index + 1}") },
                         singleLine = true,
-                        isError = !isValidUrlFormat(serverInput.url.trim()),
+                        isError = !isValidUrlFormat(serverInput.url.trim()) ||
+                            invalidConnections[serverInput.localId] == true,
                         modifier = Modifier
                             .weight(1f)
                             .padding(vertical = 4.dp),
+                        supportingText = {
+                            if (invalidConnections[serverInput.localId] == true) {
+                                Text("接続できません")
+                            }
+                        },
                         trailingIcon = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = {
@@ -219,7 +234,12 @@ fun Settings(navgationController: NavController) {
                                             return@IconButton
                                         }
                                         val wasActive = serverInputs[index].isActive
+                                        val updatedInvalidConnections =
+                                            invalidConnections.toMutableMap().apply {
+                                                remove(serverInput.localId)
+                                            }
                                         serverInputs.removeAt(index)
+                                        invalidConnections = updatedInvalidConnections
                                         if (wasActive && serverInputs.isNotEmpty()) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
@@ -257,13 +277,18 @@ fun Settings(navgationController: NavController) {
                                 val trimmedInputs = serverInputs.map { input ->
                                     input.copy(url = input.url.trim())
                                 }
-                                val invalidServer = withContext(Dispatchers.IO) {
-                                    trimmedInputs.firstOrNull { input -> !isValidURL(input.url) }
+                                val validationResults = withContext(Dispatchers.IO) {
+                                    trimmedInputs.map { input ->
+                                        val isValid = isValidURL(input.url)
+                                        input.localId to !isValid
+                                    }.toMap()
                                 }
-                                if (invalidServer != null) {
+                                invalidConnections = validationResults
+                                if (validationResults.values.any { it }) {
                                     snackbarHostState.showSnackbar("接続できないURLがあります。入力内容を確認してください")
                                     return@launch
                                 }
+                                invalidConnections = emptyMap()
                                 val inputsToSave = trimmedInputs.mapIndexed { _, input ->
                                     BaseUrl(
                                         id = input.id ?: 0,
