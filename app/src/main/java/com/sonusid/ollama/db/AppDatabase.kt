@@ -7,11 +7,14 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sonusid.ollama.db.dao.BaseUrlDao
+import com.sonusid.ollama.db.dao.ModelPreferenceDao
 import com.sonusid.ollama.db.entity.BaseUrl
+import com.sonusid.ollama.db.entity.SelectedModel
 
-@Database(entities = [BaseUrl::class], version = 2, exportSchema = false)
+@Database(entities = [BaseUrl::class, SelectedModel::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun baseUrlDao(): BaseUrlDao
+    abstract fun modelPreferenceDao(): ModelPreferenceDao
 
     companion object {
         @Volatile
@@ -37,6 +40,19 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE `base_url_new` RENAME TO `base_url`")
             }
         }
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `selected_model` (
+                        `baseUrl` TEXT NOT NULL,
+                        `modelName` TEXT NOT NULL,
+                        PRIMARY KEY(`baseUrl`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -44,8 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "app_database"
-                )
-                    .addMigrations(MIGRATION_1_2)
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance
