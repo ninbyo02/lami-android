@@ -44,11 +44,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
@@ -82,6 +84,7 @@ fun Home(
     val availableModels by viewModel.availableModels.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
 
 
@@ -211,29 +214,28 @@ fun Home(
             suffix = {
                 ElevatedButton(
                     contentPadding = PaddingValues(0.dp),
+                    enabled = !selectedModel.isNullOrBlank(),
                     onClick = {
+                        if (selectedModel.isNullOrBlank()) {
+                            showSheet = true
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("モデルを選択してください")
+                            }
+                            return@ElevatedButton
+                        }
+
                         val currentChatId = effectiveChatId
                         if (currentChatId != null) {
-                            if (selectedModel != null) {
-                                if (userPrompt.isNotEmpty()) {
-                                    placeholder = "I'm thinking ... "
-                                    viewModel.insert(
-                                        Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                    )
-                                    toggle = true
-                                    prompt = userPrompt
-                                    userPrompt = ""
-                                    viewModel.sendPrompt(prompt, selectedModel)
-                                    prompt = ""
-                                }
-                            } else {
-                                viewModel.insert(Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true))
-                                userPrompt = ""
+                            if (userPrompt.isNotEmpty()) {
+                                placeholder = "I'm thinking ... "
                                 viewModel.insert(
-                                    Message(
-                                        chatId = currentChatId, message = "Please Choose a model", isSendbyMe = false
-                                    )
+                                    Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
                                 )
+                                toggle = true
+                                prompt = userPrompt
+                                userPrompt = ""
+                                viewModel.sendPrompt(prompt, selectedModel)
+                                prompt = ""
                             }
                         } else {
                             placeholder = "Setting up a new chat ..."
