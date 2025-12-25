@@ -49,9 +49,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.api.BaseUrlInitializationState
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
@@ -71,7 +73,7 @@ import java.net.MalformedURLException
 import java.net.URL
 import java.util.UUID
 
-private data class ServerInput(
+internal data class ServerInput(
     val localId: String = UUID.randomUUID().toString(),
     val id: Int? = null,
     val url: String,
@@ -169,7 +171,7 @@ fun Settings(navgationController: NavController) {
                         .padding(top = 72.dp, start = 16.dp, end = 16.dp),
                     snackbar = { snackbarData ->
                         val message = snackbarData.visuals.message
-                        val isConnectionError = message.contains("接続できないURLがあります")
+                        val isConnectionError = message.contains("接続できません")
                         Snackbar(
                             containerColor = if (isConnectionError) {
                                 MaterialTheme.colorScheme.surface
@@ -333,34 +335,30 @@ fun Settings(navgationController: NavController) {
                                 if (serverInputs.none { it.isActive }) {
                                     serverInputs[0] = serverInputs[0].copy(isActive = true)
                                 }
+                                val inputsForValidation = getNormalizedInputs()
                                 val validationResults = withContext(Dispatchers.IO) {
-                                    normalizedInputs.map { input ->
-                                        val validation = isValidURL(input.url)
-                                        input.localId to !validation.isValid
-                                    }.toMap()
+                                    validateActiveConnections(inputsForValidation, ::isValidURL)
                                 }
                                 invalidConnections = validationResults
                                 if (validationResults.values.any { it }) {
-                                    snackbarHostState.showSnackbar("接続できないURLがあります。入力内容を確認してください")
+                                    snackbarHostState.showSnackbar("選択中のサーバーに接続できません。入力内容を確認してください")
                                     return@launch
                                 }
                                 invalidConnections = emptyMap()
                                 duplicateUrls = emptyMap()
-                                val inputsToSave = normalizedInputs.mapIndexed { _, input ->
+                                val inputsToSave = inputsForValidation.mapIndexed { _, input ->
                                     BaseUrl(
                                         id = input.id ?: 0,
                                         url = input.url,
                                         isActive = input.isActive
                                     )
                                 }
-                                val initializationState = withContext(Dispatchers.IO) {
-                                    baseUrlRepository.replaceAll(inputsToSave)
-                                    RetrofitClient.refreshBaseUrl(
-                                        baseUrlRepository,
-                                        modelPreferenceRepository
-                                    )
-                                }
-                                baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
+                                val initializationState = saveServers(
+                                    inputsToSave,
+                                    baseUrlRepository,
+                                    modelPreferenceRepository,
+                                    RetrofitClient::refreshBaseUrl
+                                )
                                 snackbarHostState.showSnackbar("サーバー設定を保存しました")
                             }
                         },
@@ -417,6 +415,33 @@ suspend fun isValidURL(urlString: String): UrlValidationResult {
     } catch (e: IOException) {
         formatResult.copy(isValid = false)
     }
+}
+
+@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+internal suspend fun validateActiveConnections(
+    inputs: List<ServerInput>,
+    validateConnection: suspend (String) -> UrlValidationResult
+): Map<String, Boolean> {
+    val activeInputs = inputs.filter { it.isActive }
+    return activeInputs.associate { input ->
+        val validation = validateConnection(input.url)
+        input.localId to !validation.isValid
+    }
+}
+
+@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+internal suspend fun saveServers(
+    inputsToSave: List<BaseUrl>,
+    baseUrlRepository: BaseUrlRepository,
+    modelPreferenceRepository: ModelPreferenceRepository,
+    refreshBaseUrl: suspend (BaseUrlRepository, ModelPreferenceRepository) -> BaseUrlInitializationState
+): BaseUrlInitializationState {
+    val initializationState = withContext(Dispatchers.IO) {
+        baseUrlRepository.replaceAll(inputsToSave)
+        refreshBaseUrl(baseUrlRepository, modelPreferenceRepository)
+    }
+    baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
+    return initializationState
 }
 
 @Preview(showBackground = true)
