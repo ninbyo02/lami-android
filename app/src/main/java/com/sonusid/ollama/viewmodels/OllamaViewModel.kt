@@ -100,12 +100,15 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
                         URL("${baseUrl}/api/tags")
                     val connection = url.openConnection() as HttpURLConnection
                     connection.requestMethod = "GET"
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 10000
                     val responseCode = connection.responseCode
-                    val responseStream = if (responseCode in 200..299) {
-                        connection.inputStream
-                    } else {
-                        connection.errorStream
-                    }
+                    val responseStream =
+                        if (responseCode in 200..299) {
+                            connection.inputStream
+                        } else {
+                            connection.errorStream
+                        } ?: throw java.io.IOException("Failed to read response stream (HTTP $responseCode)")
                     val response =
                         responseStream.bufferedReader().use { it.readText() }
                     if (responseCode !in 200..299) {
@@ -121,13 +124,12 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
                     availableModels
                 }
                 _availableModels.value = models
-
+                _uiState.value = UiState.Initial
             } catch (e: Exception) {
                 Log.e("OllamaError", "Error loading models: ${e.message}")
                 _availableModels.value = emptyList()
-                _uiState.value = UiState.Error(e.message ?: "Unknown error")
-            } finally {
-                _uiState.value = UiState.Initial
+                val message = e.message ?: "Unknown error"
+                _uiState.value = UiState.Error("Failed to load models: $message")
             }
         }
     }
