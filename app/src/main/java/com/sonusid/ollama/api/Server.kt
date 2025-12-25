@@ -9,6 +9,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import android.util.Log
+import com.sonusid.ollama.util.normalizeUrlInput
+import com.sonusid.ollama.util.validateUrlFormat
 import java.util.concurrent.TimeUnit
 import java.net.URL
 
@@ -60,7 +62,8 @@ object RetrofitClient {
             ?: error("RetrofitClient must be initialized!")
 
     private fun normalizeBaseUrl(activeUrl: String?): String {
-        val cleanedUrl = activeUrl?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() }
+        val normalizedInput = normalizeUrlInput(activeUrl ?: "")
+        val cleanedUrl = normalizedInput.trimEnd('/').takeIf { it.isNotBlank() }
             ?: DEFAULT_BASE_URL.trimEnd('/')
         val withScheme = if (cleanedUrl.startsWith("http://") || cleanedUrl.startsWith("https://")) {
             cleanedUrl
@@ -71,8 +74,11 @@ object RetrofitClient {
     }
 
     private fun isValidBaseUrl(url: String): Boolean {
-        return url.toHttpUrlOrNull() != null && runCatching {
-            URL(url)
+        val validation = validateUrlFormat(url)
+        if (!validation.isValid) return false
+        val normalized = validation.normalizedUrl
+        return normalized.toHttpUrlOrNull() != null && runCatching {
+            URL(normalized)
         }.isSuccess
     }
 

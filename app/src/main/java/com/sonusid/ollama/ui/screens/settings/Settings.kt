@@ -55,6 +55,10 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
+import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
+import com.sonusid.ollama.util.UrlValidationResult
+import com.sonusid.ollama.util.normalizeUrlInput
+import com.sonusid.ollama.util.validateUrlFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -192,12 +196,13 @@ fun Settings(navgationController: NavController) {
                     OutlinedTextField(
                         value = serverInput.url,
                         onValueChange = { newValue ->
-                            serverInputs[index] = serverInput.copy(url = newValue)
+                            val normalized = normalizeUrlInput(newValue)
+                            serverInputs[index] = serverInput.copy(url = normalized)
                         },
                         placeholder = { Text("http://host:port") },
                         label = { Text("Server ${index + 1}") },
                         singleLine = true,
-                        isError = !isValidUrlFormat(serverInput.url.trim()) ||
+                        isError = !validateUrlFormat(serverInput.url).isValid ||
                             invalidConnections[serverInput.localId] == true,
                         modifier = Modifier
                             .weight(1f)
@@ -267,20 +272,20 @@ fun Settings(navgationController: NavController) {
                                     snackbarHostState.showSnackbar("空のURLを保存できません")
                                     return@launch
                                 }
-                                if (serverInputs.any { !isValidUrlFormat(it.url.trim()) }) {
-                                    snackbarHostState.showSnackbar("URLは http://host:port 形式で入力してください")
+                                val normalizedInputs = serverInputs.map { input ->
+                                    input.copy(url = normalizeUrlInput(input.url))
+                                }
+                                if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
+                                    snackbarHostState.showSnackbar(PORT_ERROR_MESSAGE)
                                     return@launch
                                 }
                                 if (serverInputs.none { it.isActive }) {
                                     serverInputs[0] = serverInputs[0].copy(isActive = true)
                                 }
-                                val trimmedInputs = serverInputs.map { input ->
-                                    input.copy(url = input.url.trim())
-                                }
                                 val validationResults = withContext(Dispatchers.IO) {
-                                    trimmedInputs.map { input ->
-                                        val isValid = isValidURL(input.url)
-                                        input.localId to !isValid
+                                    normalizedInputs.map { input ->
+                                        val validation = isValidURL(input.url)
+                                        input.localId to !validation.isValid
                                     }.toMap()
                                 }
                                 invalidConnections = validationResults
@@ -289,7 +294,7 @@ fun Settings(navgationController: NavController) {
                                     return@launch
                                 }
                                 invalidConnections = emptyMap()
-                                val inputsToSave = trimmedInputs.mapIndexed { _, input ->
+                                val inputsToSave = normalizedInputs.mapIndexed { _, input ->
                                     BaseUrl(
                                         id = input.id ?: 0,
                                         url = input.url,
@@ -340,28 +345,22 @@ fun Settings(navgationController: NavController) {
     }
 }
 
-suspend fun isValidURL(urlString: String): Boolean {
+suspend fun isValidURL(urlString: String): UrlValidationResult {
+    val formatResult = validateUrlFormat(urlString)
+    if (!formatResult.isValid) return formatResult
     return try {
-        val url = URL(urlString)
+        val url = URL(formatResult.normalizedUrl)
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
 
         client.newCall(request).execute().use { response ->
-            response.isSuccessful
+            formatResult.copy(isValid = response.isSuccessful)
         }
     } catch (e: MalformedURLException) {
-        false
+        formatResult.copy(isValid = false, errorMessage = PORT_ERROR_MESSAGE)
     } catch (e: IOException) {
-        false
+        formatResult.copy(isValid = false)
     }
-}
-
-private fun isValidUrlFormat(urlString: String): Boolean {
-    if (urlString.isBlank()) return false
-    return runCatching {
-        val url = URL(urlString)
-        url.protocol in listOf("http", "https") && url.host.isNotBlank()
-    }.getOrElse { false }
 }
 
 @Preview(showBackground = true)
