@@ -359,7 +359,35 @@ fun Settings(navgationController: NavController) {
                                     modelPreferenceRepository,
                                     RetrofitClient::refreshBaseUrl
                                 )
-                                snackbarHostState.showSnackbar("サーバー設定を保存しました")
+                                if (initializationState.usedFallback) {
+                                    val fallbackMessage = initializationState.errorMessage
+                                        ?: "有効なURLがないためデフォルトにフォールバックしました"
+                                    snackbarHostState.showSnackbar(fallbackMessage)
+                                    val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
+                                    val hasActive = storedUrls.any { it.isActive }
+                                    serverInputs.clear()
+                                    serverInputs.addAll(
+                                        storedUrls.mapIndexed { index, baseUrl ->
+                                            ServerInput(
+                                                id = baseUrl.id,
+                                                url = baseUrl.url,
+                                                isActive = if (hasActive) baseUrl.isActive else index == 0
+                                            )
+                                        }
+                                    )
+                                    invalidConnections = emptyMap()
+                                    val normalizedInputs = getNormalizedInputs()
+                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                } else {
+                                    val normalizedActiveBaseUrl =
+                                        normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
+                                    serverInputs.indices.forEach { i ->
+                                        val current = serverInputs[i]
+                                        val normalized = normalizeUrlInput(current.url).trimEnd('/')
+                                        serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                    }
+                                    snackbarHostState.showSnackbar("サーバー設定を保存しました")
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f)
