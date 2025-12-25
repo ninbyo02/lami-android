@@ -130,12 +130,15 @@ fun Settings(navgationController: NavController) {
                     snackbar = { snackbarData ->
                         val message = snackbarData.visuals.message
                         val isConnectionError = message.contains("接続できないURLがあります")
-                        Snackbar(
-                            containerColor = MaterialTheme.colorScheme.inverseSurface,
-                            contentColor = if (isConnectionError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.inverseOnSurface,
-                            actionColor = MaterialTheme.colorScheme.primary
-                        ) {
-                            Text(message)
+                        Snackbar {
+                            Text(
+                                text = message,
+                                color = if (isConnectionError) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
                         }
                     }
                 )
