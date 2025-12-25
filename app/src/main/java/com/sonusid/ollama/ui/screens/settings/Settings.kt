@@ -31,6 +31,7 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -91,8 +92,25 @@ fun Settings(navgationController: NavController) {
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     var invalidConnections by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
+
+    fun getNormalizedInputs(): List<ServerInput> {
+        return serverInputs.map { input ->
+            input.copy(url = normalizeUrlInput(input.url))
+        }
+    }
+
+    fun detectDuplicateUrls(normalizedInputs: List<ServerInput>): Map<String, Boolean> {
+        return normalizedInputs
+            .groupBy { it.url }
+            .filter { it.value.size > 1 }
+            .flatMap { (_, inputs) ->
+                inputs.map { it.localId to true }
+            }
+            .toMap()
+    }
 
     LaunchedEffect(Unit) {
         val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
@@ -115,10 +133,14 @@ fun Settings(navgationController: NavController) {
         }
         serverInputs.clear()
         serverInputs.addAll(initialList)
+        val normalizedInputs = getNormalizedInputs()
+        duplicateUrls = detectDuplicateUrls(normalizedInputs)
     }
 
     LaunchedEffect(serverInputIds) {
         invalidConnections = invalidConnections.filterKeys { key -> key in serverInputIds }
+        val normalizedInputs = getNormalizedInputs()
+        duplicateUrls = detectDuplicateUrls(normalizedInputs)
     }
 
     Scaffold(
@@ -198,20 +220,38 @@ fun Settings(navgationController: NavController) {
                         onValueChange = { newValue ->
                             val normalized = normalizeUrlInput(newValue)
                             serverInputs[index] = serverInput.copy(url = normalized)
+                            val normalizedInputs = getNormalizedInputs()
+                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
                         },
                         placeholder = { Text("http://host:port") },
                         label = { Text("Server ${index + 1}") },
                         singleLine = true,
-                        isError = !validateUrlFormat(serverInput.url).isValid ||
+                        isError = duplicateUrls[serverInput.localId] == true ||
+                            !validateUrlFormat(serverInput.url).isValid ||
                             invalidConnections[serverInput.localId] == true,
                         modifier = Modifier
                             .weight(1f)
                             .padding(vertical = 4.dp),
                         supportingText = {
-                            if (invalidConnections[serverInput.localId] == true) {
-                                Text("接続できません")
+                            when {
+                                duplicateUrls[serverInput.localId] == true -> {
+                                    Text(
+                                        text = "このURLは既に追加されています",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                invalidConnections[serverInput.localId] == true -> {
+                                    Text("接続できません")
+                                }
                             }
                         },
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            errorBorderColor = MaterialTheme.colorScheme.error,
+                            errorCursorColor = MaterialTheme.colorScheme.error,
+                            errorLabelColor = MaterialTheme.colorScheme.error,
+                            errorLeadingIconColor = MaterialTheme.colorScheme.error,
+                            errorTrailingIconColor = MaterialTheme.colorScheme.error
+                        ),
                         trailingIcon = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = {
@@ -226,6 +266,8 @@ fun Settings(navgationController: NavController) {
                                                 isActive = false
                                             )
                                         )
+                                        val normalizedInputs = getNormalizedInputs()
+                                        duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                     }
                                 }) {
                                     Icon(Icons.Filled.Add, contentDescription = "Add server")
@@ -245,6 +287,8 @@ fun Settings(navgationController: NavController) {
                                             }
                                         serverInputs.removeAt(index)
                                         invalidConnections = updatedInvalidConnections
+                                        val normalizedInputs = getNormalizedInputs()
+                                        duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         if (wasActive && serverInputs.isNotEmpty()) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
@@ -272,8 +316,13 @@ fun Settings(navgationController: NavController) {
                                     snackbarHostState.showSnackbar("空のURLを保存できません")
                                     return@launch
                                 }
-                                val normalizedInputs = serverInputs.map { input ->
-                                    input.copy(url = normalizeUrlInput(input.url))
+                                val normalizedInputs = getNormalizedInputs()
+                                val duplicates = detectDuplicateUrls(normalizedInputs)
+                                duplicateUrls = duplicates
+                                if (duplicates.isNotEmpty()) {
+                                    invalidConnections = emptyMap()
+                                    snackbarHostState.showSnackbar("同じURLは複数登録できません")
+                                    return@launch
                                 }
                                 if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
                                     snackbarHostState.showSnackbar(PORT_ERROR_MESSAGE)
@@ -294,6 +343,7 @@ fun Settings(navgationController: NavController) {
                                     return@launch
                                 }
                                 invalidConnections = emptyMap()
+                                duplicateUrls = emptyMap()
                                 val inputsToSave = normalizedInputs.mapIndexed { _, input ->
                                     BaseUrl(
                                         id = input.id ?: 0,
