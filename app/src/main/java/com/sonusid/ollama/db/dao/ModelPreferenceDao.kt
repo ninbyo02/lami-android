@@ -16,4 +16,13 @@ interface ModelPreferenceDao {
 
     @Query("DELETE FROM selected_model WHERE baseUrl = :baseUrl")
     suspend fun deleteByBaseUrl(baseUrl: String)
+
+    @Query("SELECT baseUrl FROM selected_model")
+    suspend fun getAllBaseUrls(): List<String>
+
+    @Query("DELETE FROM selected_model WHERE baseUrl NOT IN (:baseUrls)")
+    suspend fun deleteAllExcept(baseUrls: List<String>)
+
+    @Query("DELETE FROM selected_model")
+    suspend fun clearAll()
 }

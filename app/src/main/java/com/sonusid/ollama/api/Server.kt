@@ -1,7 +1,8 @@
 package com.sonusid.ollama.api
 
-import com.sonusid.ollama.db.repository.BaseUrlProvider
 import com.sonusid.ollama.db.entity.BaseUrl
+import com.sonusid.ollama.db.repository.BaseUrlProvider
+import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
@@ -34,7 +35,7 @@ object RetrofitClient {
     private var retrofit: Retrofit? = null
     private val retrofitMutex = Mutex()
 
-    suspend fun initialize(baseUrlProvider: BaseUrlProvider): BaseUrlInitializationState {
+    suspend fun initialize(baseUrlProvider: BaseUrlProvider, modelPreferenceRepository: ModelPreferenceRepository? = null): BaseUrlInitializationState {
         return retrofitMutex.withLock {
             val state = resolveBaseUrl(baseUrlProvider)
             if (retrofit == null || baseUrl != state.baseUrl) {
@@ -46,12 +47,13 @@ object RetrofitClient {
                     .build()
             }
             lastInitializationState = state
+            modelPreferenceRepository?.pruneMissingBaseUrls(getAllBaseUrls(baseUrlProvider))
             state
         }
     }
 
-    suspend fun refreshBaseUrl(baseUrlProvider: BaseUrlProvider): BaseUrlInitializationState =
-        initialize(baseUrlProvider)
+    suspend fun refreshBaseUrl(baseUrlProvider: BaseUrlProvider, modelPreferenceRepository: ModelPreferenceRepository? = null): BaseUrlInitializationState =
+        initialize(baseUrlProvider, modelPreferenceRepository)
 
     fun currentBaseUrl(): String = baseUrl
 
@@ -130,5 +132,9 @@ object RetrofitClient {
             usedFallback = usedFallback,
             errorMessage = if (usedFallback) errorMessage else null
         )
+    }
+
+    private suspend fun getAllBaseUrls(baseUrlProvider: BaseUrlProvider): List<String> {
+        return baseUrlProvider.getAll().map { it.url.trimEnd('/') }
     }
 }

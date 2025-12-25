@@ -56,6 +56,7 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
+import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.UrlValidationResult
 import com.sonusid.ollama.util.normalizeUrlInput
@@ -89,6 +90,7 @@ fun Settings(navgationController: NavController) {
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
     val baseUrlRepository = remember { BaseUrlRepository(db.baseUrlDao()) }
+    val modelPreferenceRepository = remember { ModelPreferenceRepository(db.modelPreferenceDao()) }
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     var invalidConnections by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
@@ -353,7 +355,10 @@ fun Settings(navgationController: NavController) {
                                 }
                                 val initializationState = withContext(Dispatchers.IO) {
                                     baseUrlRepository.replaceAll(inputsToSave)
-                                    RetrofitClient.refreshBaseUrl(baseUrlRepository)
+                                    RetrofitClient.refreshBaseUrl(
+                                        baseUrlRepository,
+                                        modelPreferenceRepository
+                                    )
                                 }
                                 baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
                                 snackbarHostState.showSnackbar("サーバー設定を保存しました")
