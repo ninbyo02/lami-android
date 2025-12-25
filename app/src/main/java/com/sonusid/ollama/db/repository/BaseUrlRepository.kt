@@ -16,8 +16,7 @@ interface BaseUrlProvider {
 }
 
 class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
-    private val _activeBaseUrl = MutableStateFlow(DEFAULT_BASE_URL.trimEnd('/'))
-    val activeBaseUrl: StateFlow<String> = _activeBaseUrl.asStateFlow()
+    val activeBaseUrl: StateFlow<String> = activeBaseUrlFlow
 
     override suspend fun getAll(): List<BaseUrl> = baseUrlDao.getAll()
 
@@ -25,10 +24,12 @@ class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
 
     override suspend fun replaceAll(baseUrls: List<BaseUrl>) {
         baseUrlDao.replaceBaseUrls(baseUrls)
+        refreshActiveBaseUrl()
     }
 
     suspend fun setActive(id: Int) {
         baseUrlDao.setActive(id)
+        refreshActiveBaseUrl()
     }
 
     suspend fun refreshActiveBaseUrl() {
@@ -37,10 +38,12 @@ class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
     }
 
     fun updateActiveBaseUrl(baseUrl: String) {
-        _activeBaseUrl.update { baseUrl.trimEnd('/') }
+        activeBaseUrlState.update { baseUrl.trimEnd('/') }
     }
 
     private companion object {
         const val DEFAULT_BASE_URL = "http://localhost:11434/"
+        val activeBaseUrlState = MutableStateFlow(DEFAULT_BASE_URL.trimEnd('/'))
+        val activeBaseUrlFlow: StateFlow<String> = activeBaseUrlState.asStateFlow()
     }
 }
