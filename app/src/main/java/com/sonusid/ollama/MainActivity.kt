@@ -43,12 +43,14 @@ class MainActivity : ComponentActivity() {
         val modelPreferenceRepository = ModelPreferenceRepository(baseUrlDataBase.modelPreferenceDao())
         val baseUrlRepository = BaseUrlRepository(baseUrlDataBase.baseUrlDao())
 
-        // Initialize ViewModel with Factory
-        val factory = OllamaViewModelFactory(repository, modelPreferenceRepository)
-        viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
-        runBlocking {
+        val initializationState = runBlocking {
             RetrofitClient.initialize(baseUrlRepository)
         }
+        baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
+
+        // Initialize ViewModel with Factory
+        val factory = OllamaViewModelFactory(repository, modelPreferenceRepository, baseUrlRepository.activeBaseUrl)
+        viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
 
         setContent {
             // Initialise navigation

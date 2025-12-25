@@ -80,6 +80,7 @@ fun Home(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
+    val baseUrl by viewModel.baseUrl.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -106,7 +107,7 @@ fun Home(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(baseUrl) {
         viewModel.loadAvailableModels()
     }
 
