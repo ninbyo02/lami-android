@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -126,17 +128,24 @@ fun Settings(navgationController: NavController) {
                     hostState = snackbarHostState,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(top = 72.dp, horizontal = 16.dp),
                     snackbar = { snackbarData ->
                         val message = snackbarData.visuals.message
                         val isConnectionError = message.contains("接続できないURLがあります")
-                        Snackbar {
+                        Snackbar(
+                            containerColor = if (isConnectionError) {
+                                MaterialTheme.colorScheme.surface
+                            } else {
+                                MaterialTheme.colorScheme.inverseSurface
+                            }
+                        ) {
                             Text(
                                 text = message,
                                 color = if (isConnectionError) {
                                     MaterialTheme.colorScheme.error
                                 } else {
-                                    MaterialTheme.colorScheme.onSurface
+                                    Color.White
                                 }
                             )
                         }
