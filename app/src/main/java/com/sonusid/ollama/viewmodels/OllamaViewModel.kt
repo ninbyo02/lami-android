@@ -34,6 +34,7 @@ class OllamaViewModel(
     private val modelPreferenceRepository: ModelPreferenceRepository,
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
+    private val shouldAutoLoadModels: Boolean = true,
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
@@ -55,9 +56,11 @@ class OllamaViewModel(
                 _chats.value = it
             }
         }
-        viewModelScope.launch {
-            baseUrl.collectLatest {
-                loadAvailableModels()
+        if (shouldAutoLoadModels) {
+            viewModelScope.launch {
+                baseUrl.collectLatest {
+                    loadAvailableModels()
+                }
             }
         }
     }
@@ -168,8 +171,11 @@ class OllamaViewModel(
         val savedModelAvailable = savedModel?.takeIf { modelName -> models.any { it.name == modelName } }
         val currentSelection = _selectedModel.value?.takeIf { modelName -> models.any { it.name == modelName } }
         if (models.size == 1) {
-            // 単一モデルのみ取得できた場合は、永続化済みの選択は保持したままUI上のみで一時選択する
-            _selectedModel.value = models.first().name
+            val singleModel = models.first().name
+            _selectedModel.value = singleModel
+            withContext(Dispatchers.IO) {
+                modelPreferenceRepository.setSelectedModel(baseUrl, singleModel)
+            }
             return
         }
 
@@ -185,7 +191,7 @@ class OllamaViewModel(
                 _selectedModel.value = currentSelection
             }
 
-            !savedModel.isNullOrBlank() -> {
+            else -> {
                 clearSelectedModelForBaseUrl(baseUrl)
             }
         }
