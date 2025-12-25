@@ -129,7 +129,7 @@ fun Settings(navgationController: NavController) {
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
-                        .padding(top = 72.dp, horizontal = 16.dp),
+                        .padding(top = 72.dp, start = 16.dp, end = 16.dp),
                     snackbar = { snackbarData ->
                         val message = snackbarData.visuals.message
                         val isConnectionError = message.contains("接続できないURLがあります")
