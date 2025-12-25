@@ -80,7 +80,7 @@ fun Home(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
-    val baseUrl by viewModel.baseUrl.collectAsState()
+    val isLoadingModels by viewModel.isLoadingModels.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -105,10 +105,6 @@ fun Home(
         if (allChats.isNotEmpty()) {
             listState.animateScrollToItem(allChats.size - 1)
         }
-    }
-
-    LaunchedEffect(baseUrl) {
-        viewModel.loadAvailableModels()
     }
 
     LaunchedEffect(availableModels) {
@@ -176,13 +172,22 @@ fun Home(
                 TextButton(onClick = {
                     showSheet = true
                 }) {
-                    Text(
-                        if (selectedModel.isNullOrEmpty()) {
-                            "Select model"
-                        } else {
-                            selectedModel.toString()
-                        }, fontSize = 20.sp
-                    ) // Display selected model
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (selectedModel.isNullOrEmpty()) {
+                                "Select model"
+                            } else {
+                                selectedModel.toString()
+                            }, fontSize = 20.sp
+                        ) // Display selected model
+                        if (isLoadingModels) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
                 }
 
                 IconButton(onClick = {
