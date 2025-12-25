@@ -4,8 +4,8 @@ import com.sonusid.ollama.db.repository.BaseUrlProvider
 import com.sonusid.ollama.db.entity.BaseUrl
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import android.util.Log
@@ -71,7 +71,7 @@ object RetrofitClient {
     }
 
     private fun isValidBaseUrl(url: String): Boolean {
-        return HttpUrl.parse(url) != null && runCatching {
+        return url.toHttpUrlOrNull() != null && runCatching {
             URL(url)
         }.isSuccess
     }
