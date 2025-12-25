@@ -4,8 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -117,7 +120,27 @@ fun Settings(navgationController: NavController) {
                 title = { Text("Settings") }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            Box(modifier = Modifier.fillMaxSize()) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    snackbar = { snackbarData ->
+                        val isConnectionError =
+                            snackbarData.message.contains("接続できないURLがあります")
+                        Snackbar(
+                            containerColor = MaterialTheme.colorScheme.inverseSurface,
+                            contentColor = if (isConnectionError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onInverseSurface,
+                            actionColor = MaterialTheme.colorScheme.primary
+                        ) {
+                            Text(snackbarData.message)
+                        }
+                    }
+                )
+            }
+        },
         bottomBar = {
             Row(
                 modifier = Modifier
