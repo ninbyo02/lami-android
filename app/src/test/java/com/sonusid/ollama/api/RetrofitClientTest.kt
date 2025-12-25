@@ -57,8 +57,7 @@ class RetrofitClientTest {
     fun `initialize falls back to default when stored url is invalid`() = runBlocking {
         val provider = FakeBaseUrlProvider(
             listOf(
-                BaseUrl(id = 1, url = "http://localhost：１１４３４", isActive = true),
-                BaseUrl(id = 2, url = "not a url", isActive = false)
+                BaseUrl(id = 1, url = "not a url", isActive = false)
             )
         )
 
@@ -71,5 +70,23 @@ class RetrofitClientTest {
         val savedUrl = provider.baseUrls.first()
         assertEquals("http://localhost:11434/", savedUrl.url)
         assertTrue(savedUrl.isActive)
+    }
+
+    @Test
+    fun `initialize normalizes full width port and colon`() = runBlocking {
+        val provider = FakeBaseUrlProvider(
+            listOf(
+                BaseUrl(id = 1, url = "http://localhost：１１４３４", isActive = true),
+                BaseUrl(id = 2, url = "https：／／example．com：９９９９", isActive = false)
+            )
+        )
+
+        val state = RetrofitClient.initialize(provider)
+
+        assertEquals("http://localhost:11434/", RetrofitClient.currentBaseUrl())
+        assertEquals("http://localhost:11434/", state.baseUrl)
+        assertTrue(provider.baseUrls.first { it.id == 1 }.isActive)
+        assertEquals("http://localhost:11434/", provider.baseUrls.first { it.id == 1 }.url)
+        assertEquals("https://example.com:9999/", provider.baseUrls.first { it.id == 2 }.url)
     }
 }
