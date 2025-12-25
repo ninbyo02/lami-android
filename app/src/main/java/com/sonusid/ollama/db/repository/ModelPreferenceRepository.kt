@@ -14,4 +14,13 @@ class ModelPreferenceRepository(private val modelPreferenceDao: ModelPreferenceD
     suspend fun clearSelectedModel(baseUrl: String) {
         modelPreferenceDao.deleteByBaseUrl(baseUrl)
     }
+
+    suspend fun pruneMissingBaseUrls(validBaseUrls: List<String>) {
+        val uniqueBaseUrls = validBaseUrls.map { it.trimEnd('/') }.distinct()
+        if (uniqueBaseUrls.isEmpty()) {
+            modelPreferenceDao.clearAll()
+            return
+        }
+        modelPreferenceDao.deleteAllExcept(uniqueBaseUrls)
+    }
 }

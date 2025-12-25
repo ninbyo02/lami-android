@@ -118,9 +118,9 @@ class OllamaViewModel(
 
         viewModelScope.launch {
             _isLoadingModels.value = true
+            val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
             try {
                 val models = withContext(Dispatchers.IO) {
-                    val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
                     val url =
                         URL("${baseUrl}/api/tags")
                     val connection = url.openConnection() as HttpURLConnection
@@ -156,6 +156,7 @@ class OllamaViewModel(
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
                 _uiState.value = UiState.Error("Failed to load models: $message")
+                clearSelectedModelForBaseUrl(baseUrl)
             } finally {
                 _isLoadingModels.value = false
             }

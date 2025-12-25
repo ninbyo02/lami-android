@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
         val baseUrlRepository = BaseUrlRepository(baseUrlDataBase.baseUrlDao())
 
         val initializationState = runBlocking {
-            RetrofitClient.initialize(baseUrlRepository)
+            RetrofitClient.initialize(baseUrlRepository, modelPreferenceRepository)
         }
         val resolvedBaseUrl = initializationState.baseUrl.trimEnd('/')
         baseUrlRepository.updateActiveBaseUrl(resolvedBaseUrl)
