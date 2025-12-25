@@ -11,6 +11,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -138,16 +139,19 @@ class OllamaViewModel(
         }
     }
 
-    private suspend fun refreshSelectedModel(models: List<ModelInfo>) {
+    @VisibleForTesting
+    internal suspend fun refreshSelectedModel(models: List<ModelInfo>) {
         val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
         val savedModel = withContext(Dispatchers.IO) {
             modelPreferenceRepository.getSelectedModel(baseUrl)
         }?.takeIf { modelName -> models.any { it.name == modelName } }
-        val preferredModel = when {
-            models.size == 1 -> models.first().name
-            savedModel != null -> savedModel
-            else -> null
+        if (models.size == 1) {
+            // 単一モデルのみ取得できた場合は、永続化済みの選択は保持したままUI上のみで一時選択する
+            _selectedModel.value = models.first().name
+            return
         }
+
+        val preferredModel = savedModel
         _selectedModel.value = preferredModel
         withContext(Dispatchers.IO) {
             if (preferredModel != null) {
@@ -162,6 +166,7 @@ class OllamaViewModel(
         viewModelScope.launch {
             val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
             _selectedModel.value = modelName
+            // 永続化はユーザーが明示的に updateSelectedModel を呼び出した場合のみ行う
             withContext(Dispatchers.IO) {
                 modelPreferenceRepository.setSelectedModel(baseUrl, modelName)
             }
