@@ -180,11 +180,11 @@ fun Home(
                 }
 
                 IconButton(onClick = {
-                    showSheet = true
+                    navHostController.navigate("setting")
                 }) {
                     Icon(
                         painter = painterResource(R.drawable.settings),
-                        contentDescription = "settings",
+                        contentDescription = "設定",
                         modifier = Modifier.size(30.dp)
                     )
                 }
