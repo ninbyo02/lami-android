@@ -124,6 +124,7 @@ fun Home(
                         )
                     }
                     placeholder = "Enter your prompt..."
+                    viewModel.resetUiState()
                 }
 
                 is UiState.Error -> {
@@ -137,6 +138,7 @@ fun Home(
                         )
                     }
                     placeholder = "Enter your prompt..."
+                    viewModel.resetUiState()
                 }
 
                 else -> {

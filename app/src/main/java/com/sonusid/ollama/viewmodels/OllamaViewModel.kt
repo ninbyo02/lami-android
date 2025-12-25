@@ -70,18 +70,15 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
                                 _uiState.value = UiState.Error(
                                     error.ifEmpty { "Failed to generate response" })
                             }
-                            _uiState.value = UiState.Initial
                         }
 
                         override fun onFailure(call: Call<OllamaResponse>, t: Throwable) {
                             Log.e("OllamaError", "Request failed: ${t.message}")
                             _uiState.value = UiState.Error(t.message ?: "Unknown error")
-                            _uiState.value = UiState.Initial
                         }
                     })
             } else {
                 _uiState.value = UiState.Success("Please Choose A model")
-                _uiState.value = UiState.Initial
             }
         }
     }
@@ -145,6 +142,10 @@ class OllamaViewModel(private val repository: ChatRepository) : ViewModel() {
 
     fun delete(message: Message) = viewModelScope.launch {
         repository.delete(message)
+    }
+
+    fun resetUiState() {
+        _uiState.value = UiState.Initial
     }
 
 }
