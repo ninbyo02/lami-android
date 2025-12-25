@@ -351,10 +351,11 @@ fun Settings(navgationController: NavController) {
                                         isActive = input.isActive
                                     )
                                 }
-                                withContext(Dispatchers.IO) {
+                                val initializationState = withContext(Dispatchers.IO) {
                                     baseUrlRepository.replaceAll(inputsToSave)
                                     RetrofitClient.refreshBaseUrl(baseUrlRepository)
                                 }
+                                baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
                                 snackbarHostState.showSnackbar("サーバー設定を保存しました")
                             }
                         },

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -31,6 +32,7 @@ data class ModelInfo(val name: String)
 class OllamaViewModel(
     private val repository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
+    baseUrlFlow: StateFlow<String>,
 ) : ViewModel() {
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
@@ -41,11 +43,17 @@ class OllamaViewModel(
     val chats: StateFlow<List<Chat>> = _chats
     private val _selectedModel = MutableStateFlow<String?>(null)
     val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
+    val baseUrl: StateFlow<String> = baseUrlFlow
 
     init {
         viewModelScope.launch {
             repository.allChats.collect {
                 _chats.value = it
+            }
+        }
+        viewModelScope.launch {
+            baseUrl.collectLatest {
+                loadAvailableModels()
             }
         }
     }
