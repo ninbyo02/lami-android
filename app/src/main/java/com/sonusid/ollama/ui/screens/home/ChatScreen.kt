@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -79,6 +81,8 @@ fun Home(
     var selectedModel by remember { mutableStateOf<String?>(null) }
     val availableModels by viewModel.availableModels.collectAsState()
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage = (uiState as? UiState.Error)?.errorMessage
 
 
     LaunchedEffect(chatId, chats) {
@@ -181,7 +185,7 @@ fun Home(
                 }
             }
         })
-    }, bottomBar = {
+    }, snackbarHost = { SnackbarHost(snackbarHostState) }, bottomBar = {
         OutlinedTextField(
             interactionSource = interactionSource,
             label = {
@@ -257,6 +261,12 @@ fun Home(
             }
         }
 
+        LaunchedEffect(errorMessage) {
+            if (errorMessage != null) {
+                snackbarHostState.showSnackbar(errorMessage)
+            }
+        }
+
         if (showSheet) {
             ModalBottomSheet(sheetState = sheetState, onDismissRequest = { showSheet = false }) {
                 LazyColumn {
@@ -325,6 +335,25 @@ fun Home(
                     modifier = Modifier
                         .align(Alignment.Center)
                 )
+            }
+
+            if (errorMessage != null) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    ElevatedButton(onClick = { viewModel.loadAvailableModels() }) {
+                        Text("再試行")
+                    }
+                }
             }
         }
     }
