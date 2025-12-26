@@ -6,15 +6,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
@@ -117,6 +119,7 @@ fun LamiSprite(
     state: LamiState,
     sizeDp: Dp,
     modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(8.dp),
 ) {
     val backgroundColor = when (state) {
         LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer
@@ -131,16 +134,20 @@ fun LamiSprite(
         LamiState.IDLE -> LamiSpriteStatus.Idle
     }
 
+    val contentPadding = 6.dp
+    val spriteSize = sizeDp - (contentPadding * 2)
+
     Box(
         modifier = modifier
             .size(sizeDp)
-            .background(backgroundColor, CircleShape)
-            .padding(4.dp),
+            .background(backgroundColor, shape)
+            .padding(contentPadding),
         contentAlignment = Alignment.Center
     ) {
         LamiStatusSprite(
             status = spriteStatus,
-            sizeDp = sizeDp - 8.dp
+            sizeDp = spriteSize,
+            modifier = Modifier.clip(shape)
         )
     }
 }
