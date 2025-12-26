@@ -109,27 +109,27 @@ fun LamiAvatar(
             onDismissRequest = { showMenu = false }
         ) {
             DropdownMenuItem(
-                text = { Text("接続先: ${baseUrl.ifBlank { \"未設定\" }}") },
+                text = { Text("""接続先: ${baseUrl.ifBlank { "未設定" }}""") },
                 onClick = { }
             )
             DropdownMenuItem(
-                text = { Text("モデル: ${selectedModel ?: \"未選択\"}") },
+                text = { Text("""モデル: ${selectedModel ?: "未選択"}""") },
                 onClick = { }
             )
             DropdownMenuItem(
-                text = { Text("フォールバック: ${if (fallbackActive) \"ON\" else \"OFF\"}") },
+                text = { Text("""フォールバック: ${if (fallbackActive) "ON" else "OFF"}""") },
                 onClick = { }
             )
             if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
                 DropdownMenuItem(
-                    text = { Text("理由: $fallbackMessage") },
+                    text = { Text("""理由: $fallbackMessage""") },
                     onClick = { }
                 )
             }
             DropdownMenuItem(text = { Text("最終更新: $lastUpdated") }, onClick = { })
             if (showStatusDetails) {
                 DropdownMenuItem(
-                    text = { Text("エラー概要: ${lastError ?: \"なし\"}") },
+                    text = { Text("""エラー概要: ${lastError ?: "なし"}""") },
                     onClick = { }
                 )
             }
