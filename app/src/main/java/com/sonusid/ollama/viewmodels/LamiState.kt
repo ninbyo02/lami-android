@@ -13,6 +13,7 @@ enum class LamiState {
     IDLE,
     THINKING,
     ERROR,
+    RESPONDING,
 }
 
 fun mapToLamiState(uiState: UiState, selectedModel: String?): LamiState {
