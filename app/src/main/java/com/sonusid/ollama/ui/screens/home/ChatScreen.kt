@@ -24,7 +24,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +54,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +81,7 @@ fun Home(
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
+    val activeBaseUrl by viewModel.baseUrl.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -153,57 +154,62 @@ fun Home(
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+        TopAppBar(
+            navigationIcon = {
+                LamiAvatar(
+                    baseUrl = activeBaseUrl,
+                    selectedModel = selectedModel,
+                    lastError = errorMessage,
+                    onNavigateSettings = { navHostController.navigate("setting") }
+                )
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    TextButton(onClick = { showSheet = true }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (selectedModel.isNullOrEmpty()) {
+                                    "Select model"
+                                } else {
+                                    selectedModel.toString()
+                                },
+                                fontSize = 20.sp
+                            )
+                            if (isLoadingModels) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            actions = {
                 IconButton(onClick = {
                     navHostController.navigate("chats")
                 }) {
                     Icon(
                         painter = painterResource(R.drawable.logo),
-                        contentDescription = "logo",
-                        modifier = Modifier.size(30.dp)
+                        contentDescription = "チャット一覧",
+                        modifier = Modifier.size(26.dp)
                     )
                 }
-
-                // Model selection button:
-                TextButton(onClick = {
-                    showSheet = true
-                }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            if (selectedModel.isNullOrEmpty()) {
-                                "Select model"
-                            } else {
-                                selectedModel.toString()
-                            }, fontSize = 20.sp
-                        ) // Display selected model
-                        if (isLoadingModels) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    }
-                }
-
                 IconButton(onClick = {
                     navHostController.navigate("setting")
                 }) {
                     Icon(
                         painter = painterResource(R.drawable.settings),
                         contentDescription = "設定",
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
-        })
+        )
     }, snackbarHost = { SnackbarHost(snackbarHostState) }, bottomBar = {
         OutlinedTextField(
             interactionSource = interactionSource,

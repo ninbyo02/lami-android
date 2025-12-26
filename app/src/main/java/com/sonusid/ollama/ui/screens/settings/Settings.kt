@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,7 @@ import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
+import com.sonusid.ollama.ui.components.LamiAvatar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -107,6 +109,9 @@ fun Settings(navgationController: NavController) {
     var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
+    val activeBaseUrl by baseUrlRepository.activeBaseUrl.collectAsState()
+    var selectedModelName by remember { mutableStateOf<String?>(null) }
+    val lastErrorSummary = connectionStatuses.values.firstOrNull { !it.isReachable }?.errorMessage
 
     fun getNormalizedInputs(): List<ServerInput> {
         return serverInputs.map { input ->
@@ -155,15 +160,29 @@ fun Settings(navgationController: NavController) {
         duplicateUrls = detectDuplicateUrls(normalizedInputs)
     }
 
+    LaunchedEffect(activeBaseUrl) {
+        selectedModelName = withContext(Dispatchers.IO) {
+            modelPreferenceRepository.getSelectedModel(activeBaseUrl.trimEnd('/'))
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = { navgationController.popBackStack() }) {
-                        Icon(
-                            painterResource(R.drawable.back),
-                            "exit"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LamiAvatar(
+                            baseUrl = activeBaseUrl,
+                            selectedModel = selectedModelName,
+                            lastError = lastErrorSummary,
+                            onNavigateSettings = { navgationController.navigate("setting") }
                         )
+                        IconButton(onClick = { navgationController.popBackStack() }) {
+                            Icon(
+                                painterResource(R.drawable.back),
+                                "exit"
+                            )
+                        }
                     }
                 },
                 title = { Text("Settings") }
