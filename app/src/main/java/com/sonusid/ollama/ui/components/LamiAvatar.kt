@@ -35,7 +35,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -98,7 +97,6 @@ fun LamiAvatar(
             painter = painterResource(R.drawable.logo),
             contentDescription = "Lami avatar",
             contentScale = ContentScale.FillBounds,
-            filterQuality = FilterQuality.None,
             modifier = Modifier
                 .fillMaxWidth()
                 .drawWithContent { drawContent() }
