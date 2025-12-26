@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.components
 
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,14 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
 import com.sonusid.ollama.viewmodels.LamiState
 import kotlin.math.roundToInt
@@ -37,7 +40,7 @@ fun LamiSprite(
     columns: Int,
     modifier: Modifier = Modifier,
 ) {
-    val bitmap: ImageBitmap = ImageBitmap.imageResource(id = spriteRes)
+    val bitmap = rememberSpriteSheet(spriteRes)
     val resolvedFrameWidth = frameWidth.takeIf { it > 0 } ?: bitmap.width
     val resolvedFrameHeight = frameHeight.takeIf { it > 0 } ?: bitmap.height
 
@@ -72,7 +75,7 @@ fun LamiSprite3x3(
     sizeDp: Dp = 48.dp,
     modifier: Modifier = Modifier,
 ) {
-    val bitmap: ImageBitmap = remember { ImageBitmap.imageResource(id = R.drawable.lami_sprite_3x3_288) }
+    val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
     val safeFrameIndex = frameIndex.coerceAtLeast(0)
     val col = safeFrameIndex % 3
     val row = safeFrameIndex / 3
@@ -97,6 +100,16 @@ fun LamiSprite3x3(
                 paint = paint
             )
         }
+    }
+}
+
+@Composable
+private fun rememberSpriteSheet(@DrawableRes resId: Int): ImageBitmap {
+    val context = LocalContext.current
+    return remember(resId) {
+        BitmapFactory
+            .decodeResource(context.resources, resId)
+            .asImageBitmap()
     }
 }
 
