@@ -28,6 +28,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
     val activeBaseUrl by viewModel.baseUrl.collectAsState()
+
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
     var chatTitle by remember { mutableStateOf("") }
@@ -41,6 +42,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         baseUrl = activeBaseUrl,
                         selectedModel = selectedModel,
                         lastError = lastError,
+
                         onNavigateSettings = { navController.navigate("setting") }
                     )
                 },

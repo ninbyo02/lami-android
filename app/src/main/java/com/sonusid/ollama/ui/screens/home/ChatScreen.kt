@@ -214,14 +214,19 @@ fun Home(
     }, snackbarHost = { SnackbarHost(snackbarHostState) }, bottomBar = {
         OutlinedTextField(
             interactionSource = interactionSource,
-            label = {
-                Row {
+            leadingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LamiSprite(state = mappedState, sizeDp = 32.dp)
+                    Spacer(Modifier.width(8.dp))
                     Icon(
                         painterResource(R.drawable.logo),
                         contentDescription = "Logo",
-                        Modifier.size(25.dp)
+                        modifier = Modifier.size(25.dp)
                     )
-                    Spacer(Modifier.width(5.dp))
+                }
+            },
+            label = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Ask llama")
                 }
             },
@@ -361,7 +366,6 @@ fun Home(
                         .align(Alignment.Center)
                 )
             }
-
             if (errorMessage != null) {
                 Column(
                     modifier = Modifier

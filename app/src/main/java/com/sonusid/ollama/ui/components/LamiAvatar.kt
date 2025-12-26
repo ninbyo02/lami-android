@@ -44,6 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.viewmodels.LamiStatus
+import com.sonusid.ollama.viewmodels.mapToLamiState
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,6 +58,7 @@ fun LamiAvatar(
     baseUrl: String,
     selectedModel: String?,
     lastError: String?,
+    lamiStatus: LamiStatus = LamiStatus.CONNECTING,
     modifier: Modifier = Modifier,
     onNavigateSettings: (() -> Unit)? = null,
 ) {
@@ -72,6 +76,17 @@ fun LamiAvatar(
     val initializationState = RetrofitClient.getLastInitializationState()
     val fallbackActive = initializationState?.usedFallback == true
     val fallbackMessage = initializationState?.errorMessage
+    val statusLabel = remember(lamiStatus) {
+        when (lamiStatus) {
+            LamiStatus.CONNECTING -> "接続中"
+            LamiStatus.READY -> "接続良好"
+            LamiStatus.DEGRADED -> "フォールバック中"
+            LamiStatus.NO_MODELS -> "モデルなし"
+            LamiStatus.OFFLINE -> "オフライン"
+            LamiStatus.ERROR -> "エラー"
+            LamiStatus.TALKING -> "話し中"
+        }
+    }
 
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive) {
         lastUpdated = formatter.format(Date())
@@ -107,6 +122,10 @@ fun LamiAvatar(
             onDismissRequest = { showMenu = false }
         ) {
             DropdownMenuItem(
+                text = { Text("""状態: $statusLabel""") },
+                onClick = { }
+            )
+            DropdownMenuItem(
                 text = { Text("""接続先: ${baseUrl.ifBlank { "未設定" }}""") },
                 onClick = { }
             )
@@ -138,6 +157,12 @@ fun LamiAvatar(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
+
+                val currentState = mapToLamiState(
+                    lamiStatus = lamiStatus,
+                    selectedModel = selectedModel,
+                    lastError = lastError
+                )
                 Column(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -147,7 +172,24 @@ fun LamiAvatar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            LamiSprite(
+                                state = currentState,
+                                sizeDp = 64.dp
+                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text(
+                                    text = statusLabel,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
                         IconButton(onClick = {
                             onNavigateSettings?.invoke()
                             showSheet = false

@@ -1,6 +1,6 @@
 package com.sonusid.ollama.viewmodels
-
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonusid.ollama.UiState
@@ -11,7 +11,6 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
-import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,9 +25,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.net.HttpURLConnection
 import java.net.URL
-
 data class ModelInfo(val name: String)
-
 class OllamaViewModel(
     private val repository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -40,6 +37,8 @@ class OllamaViewModel(
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
         _uiState.asStateFlow()
+    private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
+    val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
@@ -77,6 +76,7 @@ class OllamaViewModel(
     fun sendPrompt(prompt: String, model: String?) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
+
             val request = OllamaRequest(model = model.toString(), prompt = prompt)
 
             if (model != null) {
@@ -92,6 +92,7 @@ class OllamaViewModel(
                                 } ?: run {
                                     _uiState.value = UiState.Error("Empty response")
                                 }
+
                             } else {
                                 val error =
                                     response.errorBody()?.string().orEmpty()
@@ -208,36 +209,3 @@ class OllamaViewModel(
             }
         }
     }
-
-    fun clearSelectedModel() {
-        viewModelScope.launch {
-            val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
-            clearSelectedModelForBaseUrl(baseUrl)
-        }
-    }
-
-    private suspend fun clearSelectedModelForBaseUrl(baseUrl: String) {
-        _selectedModel.value = null
-        withContext(Dispatchers.IO) {
-            modelPreferenceRepository.clearSelectedModel(baseUrl)
-        }
-    }
-
-
-    fun insertChat(chat: Chat) = viewModelScope.launch {
-        repository.newChat(chat)
-    }
-
-    fun insert(message: Message) = viewModelScope.launch {
-        repository.insert(message)
-    }
-
-    fun delete(message: Message) = viewModelScope.launch {
-        repository.delete(message)
-    }
-
-    fun resetUiState() {
-        _uiState.value = UiState.Initial
-    }
-
-}

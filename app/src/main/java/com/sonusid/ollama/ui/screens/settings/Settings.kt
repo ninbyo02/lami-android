@@ -1,5 +1,4 @@
 package com.sonusid.ollama.ui.screens.settings
-
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -97,7 +96,7 @@ fun openUrl(context: Context, url: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Settings(navgationController: NavController) {
+fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val db = AppDatabase.getDatabase(context)
@@ -170,6 +169,7 @@ fun Settings(navgationController: NavController) {
         topBar = {
             TopAppBar(
                 navigationIcon = {
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LamiAvatar(
                             baseUrl = activeBaseUrl,
