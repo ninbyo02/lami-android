@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.viewmodels.LamiStatus
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,6 +56,7 @@ fun LamiAvatar(
     baseUrl: String,
     selectedModel: String?,
     lastError: String?,
+    lamiStatus: LamiStatus = LamiStatus.CONNECTING,
     modifier: Modifier = Modifier,
     onNavigateSettings: (() -> Unit)? = null,
 ) {
@@ -72,6 +74,17 @@ fun LamiAvatar(
     val initializationState = RetrofitClient.getLastInitializationState()
     val fallbackActive = initializationState?.usedFallback == true
     val fallbackMessage = initializationState?.errorMessage
+    val statusLabel = remember(lamiStatus) {
+        when (lamiStatus) {
+            LamiStatus.CONNECTING -> "接続中"
+            LamiStatus.READY -> "接続良好"
+            LamiStatus.DEGRADED -> "フォールバック中"
+            LamiStatus.NO_MODELS -> "モデルなし"
+            LamiStatus.OFFLINE -> "オフライン"
+            LamiStatus.ERROR -> "エラー"
+            LamiStatus.TALKING -> "話し中"
+        }
+    }
 
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive) {
         lastUpdated = formatter.format(Date())
@@ -106,6 +119,10 @@ fun LamiAvatar(
             expanded = showMenu,
             onDismissRequest = { showMenu = false }
         ) {
+            DropdownMenuItem(
+                text = { Text("""状態: $statusLabel""") },
+                onClick = { }
+            )
             DropdownMenuItem(
                 text = { Text("""接続先: ${baseUrl.ifBlank { "未設定" }}""") },
                 onClick = { }

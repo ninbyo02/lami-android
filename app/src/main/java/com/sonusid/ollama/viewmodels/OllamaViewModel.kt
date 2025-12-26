@@ -1,6 +1,7 @@
 package com.sonusid.ollama.viewmodels
 
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonusid.ollama.UiState
@@ -11,7 +12,6 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
-import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +36,16 @@ class OllamaViewModel(
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
 ) : ViewModel() {
+    private val _gatewayStatus = MutableStateFlow(
+        GatewayStatusState(
+            isConnecting = shouldAutoLoadModels,
+            usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback == true,
+            lastError = null
+        )
+    )
+    val gatewayStatus: StateFlow<GatewayStatusState> = _gatewayStatus.asStateFlow()
+    private val _lamiStatus = MutableStateFlow(mapToLamiStatus(_gatewayStatus.value))
+    val lamiStatus: StateFlow<LamiStatus> = _lamiStatus.asStateFlow()
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
@@ -49,6 +59,12 @@ class OllamaViewModel(
     val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
 
+    private fun updateGatewayStatus(transform: (GatewayStatusState) -> GatewayStatusState) {
+        val updated = transform(_gatewayStatus.value)
+        _gatewayStatus.value = updated
+        _lamiStatus.value = mapToLamiStatus(updated)
+    }
+
     init {
         applyInitialSelectedModel(initialSelectedModel)
         viewModelScope.launch {
@@ -58,6 +74,9 @@ class OllamaViewModel(
         }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
+                updateGatewayStatus { status ->
+                    status.copy(isConnecting = true, lastError = null)
+                }
                 baseUrl.collectLatest {
                     loadAvailableModels()
                 }
@@ -120,6 +139,14 @@ class OllamaViewModel(
             _isLoadingModels.value = true
             val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
             try {
+                updateGatewayStatus { state ->
+                    state.copy(
+                        isConnecting = true,
+                        lastError = null,
+                        usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback
+                            ?: state.usedFallback
+                    )
+                }
                 val models = withContext(Dispatchers.IO) {
                     val url =
                         URL("${baseUrl}/api/tags")
@@ -149,6 +176,16 @@ class OllamaViewModel(
                     availableModels
                 }
                 _availableModels.value = models
+                updateGatewayStatus { state ->
+                    state.copy(
+                        isConnecting = false,
+                        isOnline = true,
+                        hasModels = models.isNotEmpty(),
+                        usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback
+                            ?: state.usedFallback,
+                        lastError = null
+                    )
+                }
                 refreshSelectedModel(models)
                 _uiState.value = UiState.Initial
             } catch (e: Exception) {
@@ -157,6 +194,16 @@ class OllamaViewModel(
                 val message = e.message ?: "Unknown error"
                 _uiState.value = UiState.Error("Failed to load models: $message")
                 clearSelectedModelForBaseUrl(baseUrl)
+                updateGatewayStatus { state ->
+                    state.copy(
+                        isConnecting = false,
+                        isOnline = false,
+                        hasModels = false,
+                        usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback
+                            ?: state.usedFallback,
+                        lastError = message
+                    )
+                }
             } finally {
                 _isLoadingModels.value = false
             }
@@ -238,6 +285,10 @@ class OllamaViewModel(
 
     fun resetUiState() {
         _uiState.value = UiState.Initial
+    }
+
+    fun setTtsPlaying(isPlaying: Boolean) {
+        updateGatewayStatus { state -> state.copy(isTtsPlaying = isPlaying) }
     }
 
 }
