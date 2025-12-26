@@ -55,6 +55,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
@@ -87,6 +88,7 @@ fun Home(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
+    val mappedState by viewModel.lamiState.collectAsState()
 
 
     LaunchedEffect(chatId, chats) {

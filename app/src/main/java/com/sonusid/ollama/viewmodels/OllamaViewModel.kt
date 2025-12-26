@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -27,7 +28,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 data class ModelInfo(val name: String)
 class OllamaViewModel(
-    private val repository: ChatRepository,
+    private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
@@ -40,10 +41,13 @@ class OllamaViewModel(
     private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
     val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
 
-    private val _chats = MutableStateFlow<List<Chat>>(emptyList())
-    val chats: StateFlow<List<Chat>> = _chats
     private val _selectedModel = MutableStateFlow<String?>(null)
     val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
+    private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
+    val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
+
+    private val _chats = MutableStateFlow<List<Chat>>(emptyList())
+    val chats: StateFlow<List<Chat>> = _chats
     private val _isLoadingModels = MutableStateFlow(false)
     val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
@@ -51,7 +55,14 @@ class OllamaViewModel(
     init {
         applyInitialSelectedModel(initialSelectedModel)
         viewModelScope.launch {
-            repository.allChats.collect {
+            combine(_uiState, _selectedModel) { uiState, selectedModel ->
+                mapToLamiState(uiState, selectedModel)
+            }.collect { mappedState ->
+                _lamiState.value = mappedState
+            }
+        }
+        viewModelScope.launch {
+            chatRepository.allChats.collect {
                 _chats.value = it
             }
         }
@@ -70,7 +81,23 @@ class OllamaViewModel(
         }
     }
 
-    fun allMessages(chatId: Int): Flow<List<Message>> = repository.getMessages(chatId)
+    fun allMessages(chatId: Int): Flow<List<Message>> = chatRepository.getMessages(chatId)
+
+    fun insert(message: Message) {
+        viewModelScope.launch {
+            chatRepository.insert(message)
+        }
+    }
+
+    fun insertChat(chat: Chat) {
+        viewModelScope.launch {
+            chatRepository.newChat(chat)
+        }
+    }
+
+    fun resetUiState() {
+        _uiState.value = UiState.Initial
+    }
 
 
     fun sendPrompt(prompt: String, model: String?) {
@@ -196,6 +223,13 @@ class OllamaViewModel(
             else -> {
                 clearSelectedModelForBaseUrl(baseUrl)
             }
+        }
+    }
+
+    private suspend fun clearSelectedModelForBaseUrl(baseUrl: String) {
+        _selectedModel.value = null
+        withContext(Dispatchers.IO) {
+            modelPreferenceRepository.clearSelectedModel(baseUrl)
         }
     }
 
