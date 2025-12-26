@@ -70,17 +70,15 @@ fun LamiSprite(
     sizeDp: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val (backgroundColor, tint) = remember(state) {
-        when (state) {
-            LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer to
-                MaterialTheme.colorScheme.onSecondaryContainer
+    val (backgroundColor, tint) = when (state) {
+        LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer to
+            MaterialTheme.colorScheme.onSecondaryContainer
 
-            LamiState.ERROR -> MaterialTheme.colorScheme.errorContainer to
-                MaterialTheme.colorScheme.onErrorContainer
+        LamiState.ERROR -> MaterialTheme.colorScheme.errorContainer to
+            MaterialTheme.colorScheme.onErrorContainer
 
-            LamiState.IDLE -> MaterialTheme.colorScheme.primaryContainer to
-                MaterialTheme.colorScheme.onPrimaryContainer
-        }
+        LamiState.IDLE -> MaterialTheme.colorScheme.primaryContainer to
+            MaterialTheme.colorScheme.onPrimaryContainer
     }
 
     Box(
