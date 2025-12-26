@@ -58,7 +58,6 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,18 +85,12 @@ fun Home(
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
     val activeBaseUrl by viewModel.baseUrl.collectAsState()
+    val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val mappedState by viewModel.lamiState.collectAsState()
-    val spriteStatus = remember(uiState, mappedState, errorMessage) {
-        mapToLamiSpriteStatus(
-            uiState = uiState,
-            lamiState = mappedState,
-            lastError = errorMessage
-        )
-    }
 
 
     LaunchedEffect(chatId, chats) {
@@ -206,7 +199,7 @@ fun Home(
                     navHostController.navigate("chats")
                 }) {
                     LamiStatusSprite(
-                        status = spriteStatus,
+                        status = lamiStatusState,
                         sizeDp = 40.dp
                     )
                 }
@@ -229,7 +222,7 @@ fun Home(
                     LamiSprite(state = mappedState, sizeDp = 32.dp)
                     Spacer(Modifier.width(8.dp))
                     LamiStatusSprite(
-                        status = spriteStatus,
+                        status = lamiStatusState,
                         sizeDp = 36.dp
                     )
                 }
@@ -355,7 +348,7 @@ fun Home(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     LamiStatusSprite(
-                        status = spriteStatus,
+                        status = lamiStatusState,
                         sizeDp = 96.dp
                     )
                 }

@@ -20,7 +20,6 @@ import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,17 +28,10 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val allChats = viewModel.chats.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
-    val mappedState by viewModel.lamiState.collectAsState()
     val activeBaseUrl by viewModel.baseUrl.collectAsState()
+    val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
-    val spriteStatus = remember(uiState, mappedState, lastError) {
-        mapToLamiSpriteStatus(
-            uiState = uiState,
-            lamiState = mappedState,
-            lastError = lastError
-        )
-    }
     var showDialog by remember { mutableStateOf(false) }
     var chatTitle by remember { mutableStateOf("") }
     println(allChats.value)
@@ -91,7 +83,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 LamiStatusSprite(
-                    status = spriteStatus,
+                    status = lamiStatusState,
                     sizeDp = 96.dp
                 )
                 Spacer(Modifier.height(60.dp))
@@ -152,7 +144,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             LamiStatusSprite(
-                                status = spriteStatus,
+                                status = lamiStatusState,
                                 sizeDp = 32.dp
                             )
                             Spacer(Modifier.width(5.dp))
