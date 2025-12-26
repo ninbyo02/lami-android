@@ -258,8 +258,10 @@ fun Settings(navgationController: NavController) {
                                     Text(message, color = MaterialTheme.colorScheme.error)
                                 }
                                 connectionStatuses[serverInput.localId]?.warningMessage != null -> {
-                                    val message = connectionStatuses[serverInput.localId]?.warningMessage ?: return@when
-                                    Text(message)
+                                    val message = connectionStatuses[serverInput.localId]?.warningMessage
+                                    if (message != null) {
+                                        Text(message)
+                                    }
                                 }
                             }
                         },
