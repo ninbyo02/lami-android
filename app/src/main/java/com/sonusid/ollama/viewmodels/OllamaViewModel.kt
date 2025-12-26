@@ -46,15 +46,17 @@ class OllamaViewModel(
     val gatewayStatus: StateFlow<GatewayStatusState> = _gatewayStatus.asStateFlow()
     private val _lamiStatus = MutableStateFlow(mapToLamiStatus(_gatewayStatus.value))
     val lamiStatus: StateFlow<LamiStatus> = _lamiStatus.asStateFlow()
+    private val _selectedModel = MutableStateFlow<String?>(null)
+    val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
         _uiState.asStateFlow()
+    private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
+    val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
-    private val _selectedModel = MutableStateFlow<String?>(null)
-    val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
     private val _isLoadingModels = MutableStateFlow(false)
     val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
@@ -67,6 +69,7 @@ class OllamaViewModel(
 
     init {
         applyInitialSelectedModel(initialSelectedModel)
+        updateLamiState()
         viewModelScope.launch {
             repository.allChats.collect {
                 _chats.value = it
@@ -87,6 +90,7 @@ class OllamaViewModel(
     fun applyInitialSelectedModel(initialModelName: String? = null) {
         if (!initialModelName.isNullOrBlank()) {
             _selectedModel.value = initialModelName
+            updateLamiState(selectedModel = initialModelName)
         }
     }
 
@@ -96,6 +100,7 @@ class OllamaViewModel(
     fun sendPrompt(prompt: String, model: String?) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
+            updateLamiState()
             val request = OllamaRequest(model = model.toString(), prompt = prompt)
 
             if (model != null) {
@@ -111,21 +116,25 @@ class OllamaViewModel(
                                 } ?: run {
                                     _uiState.value = UiState.Error("Empty response")
                                 }
+                                updateLamiState()
                             } else {
                                 val error =
                                     response.errorBody()?.string().orEmpty()
                                 _uiState.value = UiState.Error(
                                     error.ifEmpty { "Failed to generate response" })
+                                updateLamiState()
                             }
                         }
 
                         override fun onFailure(call: Call<OllamaResponse>, t: Throwable) {
                             Log.e("OllamaError", "Request failed: ${t.message}")
                             _uiState.value = UiState.Error(t.message ?: "Unknown error")
+                            updateLamiState()
                         }
                     })
             } else {
-                _uiState.value = UiState.Success("Please Choose A model")
+                _uiState.value = UiState.Error("Please choose a model")
+                updateLamiState()
             }
         }
     }
@@ -188,11 +197,13 @@ class OllamaViewModel(
                 }
                 refreshSelectedModel(models)
                 _uiState.value = UiState.Initial
+                updateLamiState()
             } catch (e: Exception) {
                 Log.e("OllamaError", "Error loading models: ${e.message}")
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
                 _uiState.value = UiState.Error("Failed to load models: $message")
+                updateLamiState()
                 clearSelectedModelForBaseUrl(baseUrl)
                 updateGatewayStatus { state ->
                     state.copy(
@@ -224,6 +235,7 @@ class OllamaViewModel(
             withContext(Dispatchers.IO) {
                 modelPreferenceRepository.setSelectedModel(baseUrl, singleModel)
             }
+            updateLamiState(selectedModel = singleModel)
             return
         }
 
@@ -233,10 +245,12 @@ class OllamaViewModel(
                 withContext(Dispatchers.IO) {
                     modelPreferenceRepository.setSelectedModel(baseUrl, savedModelAvailable)
                 }
+                updateLamiState(selectedModel = savedModelAvailable)
             }
 
             currentSelection != null -> {
                 _selectedModel.value = currentSelection
+                updateLamiState(selectedModel = currentSelection)
             }
 
             else -> {
@@ -253,6 +267,7 @@ class OllamaViewModel(
             withContext(Dispatchers.IO) {
                 modelPreferenceRepository.setSelectedModel(baseUrl, modelName)
             }
+            updateLamiState(selectedModel = modelName)
         }
     }
 
@@ -265,6 +280,7 @@ class OllamaViewModel(
 
     private suspend fun clearSelectedModelForBaseUrl(baseUrl: String) {
         _selectedModel.value = null
+        updateLamiState(selectedModel = null)
         withContext(Dispatchers.IO) {
             modelPreferenceRepository.clearSelectedModel(baseUrl)
         }
@@ -285,10 +301,17 @@ class OllamaViewModel(
 
     fun resetUiState() {
         _uiState.value = UiState.Initial
+        updateLamiState()
     }
 
     fun setTtsPlaying(isPlaying: Boolean) {
         updateGatewayStatus { state -> state.copy(isTtsPlaying = isPlaying) }
     }
 
+    private fun updateLamiState(
+        uiState: UiState = _uiState.value,
+        selectedModel: String? = _selectedModel.value,
+    ) {
+        _lamiState.value = mapToLamiState(uiState, selectedModel)
+    }
 }
