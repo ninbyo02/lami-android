@@ -13,12 +13,15 @@ import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
+import com.sonusid.ollama.viewmodels.bucket
 import kotlinx.coroutines.delay
 
 enum class LamiSpriteStatus {
     Idle,
     Thinking,
-    Speaking,
+    TalkShort,
+    TalkLong,
+    TalkCalm,
     Error,
 }
 
@@ -30,15 +33,23 @@ data class AnimSpec(
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimSpec(
         frames = listOf(0, 1, 2, 1),
-        frameMs = 180L
+        frameMs = 220L
     ),
     LamiSpriteStatus.Thinking to AnimSpec(
         frames = listOf(3, 4, 5, 4),
-        frameMs = 150L
+        frameMs = 160L
     ),
-    LamiSpriteStatus.Speaking to AnimSpec(
+    LamiSpriteStatus.TalkShort to AnimSpec(
         frames = listOf(6, 7, 8, 7),
         frameMs = 120L
+    ),
+    LamiSpriteStatus.TalkLong to AnimSpec(
+        frames = listOf(6, 7, 8, 7, 6),
+        frameMs = 160L
+    ),
+    LamiSpriteStatus.TalkCalm to AnimSpec(
+        frames = listOf(0, 1, 0, 2),
+        frameMs = 360L
     ),
     LamiSpriteStatus.Error to AnimSpec(
         frames = listOf(8, 7, 8, 7),
@@ -98,8 +109,18 @@ fun mapToLamiSpriteStatus(
     isSpeaking: Boolean = false,
     lastError: String? = null,
 ): LamiSpriteStatus {
-    if (isSpeaking || lamiState == LamiState.RESPONDING) {
-        return LamiSpriteStatus.Speaking
+    val speakingStatus = when {
+        lamiState is LamiState.Speaking -> when (bucket(lamiState.textLength)) {
+            1 -> LamiSpriteStatus.TalkShort
+            2 -> LamiSpriteStatus.TalkLong
+            3 -> LamiSpriteStatus.TalkCalm
+            else -> LamiSpriteStatus.Idle
+        }
+        isSpeaking -> LamiSpriteStatus.TalkShort
+        else -> null
+    }
+    if (speakingStatus != null) {
+        return speakingStatus
     }
 
     when (uiState) {
@@ -113,14 +134,19 @@ fun mapToLamiSpriteStatus(
     }
 
     when (lamiState) {
-        LamiState.THINKING -> return LamiSpriteStatus.Thinking
-        LamiState.ERROR -> return LamiSpriteStatus.Error
-        LamiState.IDLE -> return LamiSpriteStatus.Idle
+        is LamiState.Thinking -> return LamiSpriteStatus.Thinking
+        is LamiState.Speaking -> return when (bucket(lamiState.textLength)) {
+            1 -> LamiSpriteStatus.TalkShort
+            2 -> LamiSpriteStatus.TalkLong
+            3 -> LamiSpriteStatus.TalkCalm
+            else -> LamiSpriteStatus.Idle
+        }
+        LamiState.Idle -> return LamiSpriteStatus.Idle
         else -> Unit
     }
 
     return when (lamiStatus) {
-        LamiStatus.TALKING -> LamiSpriteStatus.Speaking
+        LamiStatus.TALKING -> LamiSpriteStatus.TalkLong
         LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
         LamiStatus.READY, LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
         LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.Error

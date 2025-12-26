@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -40,7 +41,10 @@ class OllamaViewModel(
         _uiState.asStateFlow()
     private val _selectedModel = MutableStateFlow<String?>(null)
     val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
-    private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
+    private val _lamiUiState =
+        MutableStateFlow(LamiUiState(state = mapToLamiState(_uiState.value, _selectedModel.value)))
+    val lamiUiState: StateFlow<LamiUiState> = _lamiUiState.asStateFlow()
+    private val _lamiState = MutableStateFlow(_lamiUiState.value.state)
     val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
     private val _lamiAnimationStatus =
         MutableStateFlow(mapToAnimationLamiStatus(_lamiState.value, _uiState.value, _selectedModel.value))
@@ -55,16 +59,14 @@ class OllamaViewModel(
     init {
         applyInitialSelectedModel(initialSelectedModel)
         viewModelScope.launch {
-            combine(_uiState, _selectedModel) { uiState, selectedModel ->
-                mapToLamiState(uiState, selectedModel)
-            }.collect { mappedState ->
-                _lamiState.value = mappedState
+            lamiUiState.collect { state ->
+                _lamiState.value = state.state
             }
         }
         viewModelScope.launch {
-            combine(_lamiState, _uiState, _selectedModel) { lamiState, uiState, selectedModel ->
+            combine(lamiUiState, _uiState, _selectedModel) { lamiUiState, uiState, selectedModel ->
                 mapToAnimationLamiStatus(
-                    lamiState = lamiState,
+                    lamiState = lamiUiState.state,
                     uiState = uiState,
                     selectedModel = selectedModel,
                 )
@@ -110,9 +112,37 @@ class OllamaViewModel(
         _uiState.value = UiState.Initial
     }
 
+    fun onUserInteraction() {
+        _lamiUiState.update {
+            it.copy(lastInteractionTimeMs = System.currentTimeMillis())
+        }
+    }
+
+    fun onPromptSubmitted() {
+        val now = System.currentTimeMillis()
+        _lamiUiState.value = LamiUiState(state = LamiState.Thinking, lastInteractionTimeMs = now)
+    }
+
+    fun onResponseReceived(textLength: Int) {
+        val now = System.currentTimeMillis()
+        _lamiUiState.value = LamiUiState(state = LamiState.Speaking(textLength), lastInteractionTimeMs = now)
+    }
+
+    fun moveToIdleIfStale(referenceTimeMs: Long, idleTimeoutMs: Long) {
+        val snapshot = _lamiUiState.value
+        if (snapshot.state is LamiState.Thinking) {
+            return
+        }
+        val elapsed = System.currentTimeMillis() - referenceTimeMs
+        if (snapshot.lastInteractionTimeMs == referenceTimeMs && elapsed >= idleTimeoutMs) {
+            _lamiUiState.value =
+                LamiUiState(state = LamiState.Idle, lastInteractionTimeMs = System.currentTimeMillis())
+        }
+    }
 
     fun sendPrompt(prompt: String, model: String?) {
         viewModelScope.launch {
+            onPromptSubmitted()
             _uiState.value = UiState.Loading
 
             val request = OllamaRequest(model = model.toString(), prompt = prompt)
@@ -126,14 +156,17 @@ class OllamaViewModel(
                         ) {
                             if (response.isSuccessful) {
                                 response.body()?.response?.let { output ->
+                                    onResponseReceived(output.length)
                                     _uiState.value = UiState.Success(output)
                                 } ?: run {
+                                    onResponseReceived(0)
                                     _uiState.value = UiState.Error("Empty response")
                                 }
 
                             } else {
                                 val error =
                                     response.errorBody()?.string().orEmpty()
+                                onResponseReceived(error.length)
                                 _uiState.value = UiState.Error(
                                     error.ifEmpty { "Failed to generate response" })
                             }
@@ -141,10 +174,12 @@ class OllamaViewModel(
 
                         override fun onFailure(call: Call<OllamaResponse>, t: Throwable) {
                             Log.e("OllamaError", "Request failed: ${t.message}")
+                            onResponseReceived(t.message?.length ?: 0)
                             _uiState.value = UiState.Error(t.message ?: "Unknown error")
                         }
                     })
             } else {
+                onResponseReceived("Please Choose A model".length)
                 _uiState.value = UiState.Success("Please Choose A model")
             }
         }

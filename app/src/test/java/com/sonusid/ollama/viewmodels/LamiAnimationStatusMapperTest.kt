@@ -7,12 +7,11 @@ import org.junit.Test
 class LamiAnimationStatusMapperTest {
 
     @Test
-    fun `prioritizes talking when tts is playing`() {
+    fun `prioritizes talking when speaking state`() {
         val result = mapToAnimationLamiStatus(
-            lamiState = LamiState.RESPONDING,
+            lamiState = LamiState.Speaking(12),
             uiState = UiState.Loading,
             selectedModel = "llama3",
-            isTtsPlaying = true,
         )
 
         assertEquals(LamiStatus.TALKING, result)
@@ -21,7 +20,7 @@ class LamiAnimationStatusMapperTest {
     @Test
     fun `returns connecting when loading`() {
         val result = mapToAnimationLamiStatus(
-            lamiState = LamiState.THINKING,
+            lamiState = LamiState.Thinking,
             uiState = UiState.Loading,
             selectedModel = "llama3",
         )
@@ -32,7 +31,7 @@ class LamiAnimationStatusMapperTest {
     @Test
     fun `returns error when uiState has error`() {
         val result = mapToAnimationLamiStatus(
-            lamiState = LamiState.IDLE,
+            lamiState = LamiState.Idle,
             uiState = UiState.Error("network"),
             selectedModel = "llama3",
         )
@@ -43,7 +42,7 @@ class LamiAnimationStatusMapperTest {
     @Test
     fun `returns no models when selection missing`() {
         val result = mapToAnimationLamiStatus(
-            lamiState = LamiState.IDLE,
+            lamiState = LamiState.Idle,
             uiState = UiState.Success("ok"),
             selectedModel = null,
         )
@@ -54,7 +53,7 @@ class LamiAnimationStatusMapperTest {
     @Test
     fun `returns ready on normal path`() {
         val result = mapToAnimationLamiStatus(
-            lamiState = LamiState.IDLE,
+            lamiState = LamiState.Idle,
             uiState = UiState.Success("ok"),
             selectedModel = "llama3",
         )
