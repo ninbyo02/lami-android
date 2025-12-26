@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.viewmodels.LamiStatus
+import com.sonusid.ollama.viewmodels.mapToLamiState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -155,6 +156,11 @@ fun LamiAvatar(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
+                val currentState = mapToLamiState(
+                    lamiStatus = lamiStatus,
+                    selectedModel = selectedModel,
+                    lastError = lastError
+                )
                 Column(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -164,7 +170,24 @@ fun LamiAvatar(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            LamiSprite(
+                                state = currentState,
+                                sizeDp = 64.dp
+                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                Text(
+                                    text = statusLabel,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
                         IconButton(onClick = {
                             onNavigateSettings?.invoke()
                             showSheet = false
