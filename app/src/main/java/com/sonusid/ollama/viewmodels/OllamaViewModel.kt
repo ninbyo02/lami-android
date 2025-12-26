@@ -38,9 +38,6 @@ class OllamaViewModel(
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
         _uiState.asStateFlow()
-    private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
-    val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
-
     private val _selectedModel = MutableStateFlow<String?>(null)
     val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
     private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
