@@ -74,6 +74,9 @@ fun LamiSprite(
         LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer to
             MaterialTheme.colorScheme.onSecondaryContainer
 
+        LamiState.RESPONDING -> MaterialTheme.colorScheme.tertiaryContainer to
+            MaterialTheme.colorScheme.onTertiaryContainer
+
         LamiState.ERROR -> MaterialTheme.colorScheme.errorContainer to
             MaterialTheme.colorScheme.onErrorContainer
 
