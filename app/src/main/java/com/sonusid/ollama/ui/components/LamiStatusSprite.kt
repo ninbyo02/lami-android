@@ -9,6 +9,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.UiState
+import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.LamiStatus
 import kotlinx.coroutines.delay
 
 enum class LamiSpriteStatus {
@@ -48,7 +51,7 @@ fun LamiStatusSprite(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
 ) {
-    val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 56.dp) }
+    val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val animSpec = statusAnimationMap[status] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
 
     var currentFrameIndex by remember(status) {
@@ -69,4 +72,46 @@ fun LamiStatusSprite(
         sizeDp = constrainedSize,
         modifier = modifier
     )
+}
+
+fun mapToLamiSpriteStatus(
+    lamiStatus: LamiStatus? = null,
+    uiState: UiState? = null,
+    lamiState: LamiState? = null,
+    isSpeaking: Boolean = false,
+    lastError: String? = null,
+): LamiSpriteStatus {
+    if (isSpeaking || lamiState == LamiState.RESPONDING) {
+        return LamiSpriteStatus.Speaking
+    }
+
+    when (uiState) {
+        UiState.Loading -> return LamiSpriteStatus.Thinking
+        is UiState.Error -> return if (!lastError.isNullOrBlank()) {
+            LamiSpriteStatus.Error
+        } else {
+            LamiSpriteStatus.Idle
+        }
+        else -> Unit
+    }
+
+    when (lamiState) {
+        LamiState.THINKING -> return LamiSpriteStatus.Thinking
+        LamiState.ERROR -> return LamiSpriteStatus.Error
+        LamiState.IDLE -> return LamiSpriteStatus.Idle
+        else -> Unit
+    }
+
+    return when (lamiStatus) {
+        LamiStatus.TALKING -> LamiSpriteStatus.Speaking
+        LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
+        LamiStatus.READY, LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
+        LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.Error
+        LamiStatus.OFFLINE -> if (lastError.isNullOrBlank()) {
+            LamiSpriteStatus.Idle
+        } else {
+            LamiSpriteStatus.Error
+        }
+        null -> LamiSpriteStatus.Idle
+    }
 }

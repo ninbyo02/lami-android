@@ -4,23 +4,20 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -28,6 +25,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
+import com.sonusid.ollama.ui.components.LamiSpriteStatus
+import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.viewmodels.LamiState
 import kotlin.math.roundToInt
 
@@ -119,18 +118,17 @@ fun LamiSprite(
     sizeDp: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val (backgroundColor, tint) = when (state) {
-        LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer to
-            MaterialTheme.colorScheme.onSecondaryContainer
-
-        LamiState.RESPONDING -> MaterialTheme.colorScheme.tertiaryContainer to
-            MaterialTheme.colorScheme.onTertiaryContainer
-
-        LamiState.ERROR -> MaterialTheme.colorScheme.errorContainer to
-            MaterialTheme.colorScheme.onErrorContainer
-
-        LamiState.IDLE -> MaterialTheme.colorScheme.primaryContainer to
-            MaterialTheme.colorScheme.onPrimaryContainer
+    val backgroundColor = when (state) {
+        LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer
+        LamiState.RESPONDING -> MaterialTheme.colorScheme.tertiaryContainer
+        LamiState.ERROR -> MaterialTheme.colorScheme.errorContainer
+        LamiState.IDLE -> MaterialTheme.colorScheme.primaryContainer
+    }
+    val spriteStatus = when (state) {
+        LamiState.THINKING -> LamiSpriteStatus.Thinking
+        LamiState.RESPONDING -> LamiSpriteStatus.Speaking
+        LamiState.ERROR -> LamiSpriteStatus.Error
+        LamiState.IDLE -> LamiSpriteStatus.Idle
     }
 
     Box(
@@ -140,11 +138,9 @@ fun LamiSprite(
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "Lami sprite $state",
-            tint = tint,
-            modifier = Modifier.fillMaxSize()
+        LamiStatusSprite(
+            status = spriteStatus,
+            sizeDp = sizeDp - 8.dp
         )
     }
 }

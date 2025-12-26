@@ -33,6 +33,8 @@ import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.ui.components.LamiAvatar
+import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,10 +72,10 @@ fun About(navController: NavController) {
                     .clip(shape = CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    painterResource(R.drawable.logo),
-                    "logo",
-                    Modifier
+                LamiStatusSprite(
+                    status = mapToLamiSpriteStatus(),
+                    sizeDp = 100.dp,
+                    modifier = Modifier
                         .background(
                             MaterialTheme.colorScheme.surfaceBright
                         )
