@@ -15,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -59,6 +61,40 @@ fun LamiSprite(
                 dstOffset = IntOffset(0, 0),
                 dstSize = IntSize(dstW, dstH),
                 paint = Paint()
+            )
+        }
+    }
+}
+
+@Composable
+fun LamiSprite3x3(
+    frameIndex: Int,
+    sizeDp: Dp = 48.dp,
+    modifier: Modifier = Modifier,
+) {
+    val bitmap: ImageBitmap = remember { ImageBitmap.imageResource(id = R.drawable.lami_sprite_3x3_288) }
+    val safeFrameIndex = frameIndex.coerceAtLeast(0)
+    val col = safeFrameIndex % 3
+    val row = safeFrameIndex / 3
+
+    val srcOffset = IntOffset(x = col * 96, y = row * 96)
+    val srcSize = IntSize(width = 96, height = 96)
+    val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
+
+    val dstSize = with(LocalDensity.current) {
+        val sizePx = sizeDp.roundToPx().coerceAtLeast(1)
+        IntSize(sizePx, sizePx)
+    }
+
+    Canvas(modifier = modifier.size(sizeDp)) {
+        drawIntoCanvas { canvas ->
+            canvas.drawImageRect(
+                image = bitmap,
+                srcOffset = srcOffset,
+                srcSize = srcSize,
+                dstOffset = IntOffset.Zero,
+                dstSize = dstSize,
+                paint = paint
             )
         }
     }
