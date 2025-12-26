@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +72,22 @@ fun LamiStatusSprite(
         frameIndex = currentFrameIndex,
         sizeDp = constrainedSize,
         modifier = modifier
+    )
+}
+
+@Composable
+fun LamiStatusSprite(
+    status: State<LamiStatus>,
+    modifier: Modifier = Modifier,
+    sizeDp: Dp = 48.dp,
+) {
+    val spriteStatus = remember(status.value) {
+        mapToLamiSpriteStatus(lamiStatus = status.value)
+    }
+    LamiStatusSprite(
+        status = spriteStatus,
+        modifier = modifier,
+        sizeDp = sizeDp,
     )
 }
 

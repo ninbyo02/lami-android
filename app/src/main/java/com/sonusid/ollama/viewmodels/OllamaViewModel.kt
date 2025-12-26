@@ -42,6 +42,9 @@ class OllamaViewModel(
     val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
     private val _lamiState = MutableStateFlow(mapToLamiState(_uiState.value, _selectedModel.value))
     val lamiState: StateFlow<LamiState> = _lamiState.asStateFlow()
+    private val _lamiAnimationStatus =
+        MutableStateFlow(mapToAnimationLamiStatus(_lamiState.value, _uiState.value, _selectedModel.value))
+    val lamiAnimationStatus: StateFlow<LamiStatus> = _lamiAnimationStatus.asStateFlow()
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
@@ -56,6 +59,17 @@ class OllamaViewModel(
                 mapToLamiState(uiState, selectedModel)
             }.collect { mappedState ->
                 _lamiState.value = mappedState
+            }
+        }
+        viewModelScope.launch {
+            combine(_lamiState, _uiState, _selectedModel) { lamiState, uiState, selectedModel ->
+                mapToAnimationLamiStatus(
+                    lamiState = lamiState,
+                    uiState = uiState,
+                    selectedModel = selectedModel,
+                )
+            }.collect { mappedStatus ->
+                _lamiAnimationStatus.value = mappedStatus
             }
         }
         viewModelScope.launch {
