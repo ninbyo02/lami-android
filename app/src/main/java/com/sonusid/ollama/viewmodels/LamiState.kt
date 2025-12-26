@@ -16,6 +16,7 @@ fun mapToLamiState(uiState: UiState, selectedModel: String?): LamiState {
         UiState.Loading -> LamiState.THINKING
         is UiState.Error -> LamiState.IDLE
         is UiState.Success -> LamiState.IDLE
+        is UiState.ModelsLoaded -> LamiState.IDLE
         UiState.Initial -> LamiState.IDLE
     }
 }
