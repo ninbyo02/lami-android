@@ -60,7 +60,6 @@ import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
-import com.sonusid.ollama.util.UrlValidationResult
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
 import kotlinx.coroutines.Dispatchers
@@ -71,7 +70,16 @@ import okhttp3.Request
 import java.io.IOException
 import java.net.MalformedURLException
 import java.net.URL
+import java.util.concurrent.TimeUnit
 import java.util.UUID
+
+internal data class ConnectionValidationResult(
+    val normalizedUrl: String,
+    val isSuccess: Boolean,
+    val isReachable: Boolean,
+    val warningMessage: String? = null,
+    val errorMessage: String? = null
+)
 
 internal data class ServerInput(
     val localId: String = UUID.randomUUID().toString(),
@@ -95,7 +103,7 @@ fun Settings(navgationController: NavController) {
     val modelPreferenceRepository = remember { ModelPreferenceRepository(db.modelPreferenceDao()) }
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
-    var invalidConnections by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    var connectionStatuses by remember { mutableStateOf<Map<String, ConnectionValidationResult>>(emptyMap()) }
     var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
@@ -142,7 +150,7 @@ fun Settings(navgationController: NavController) {
     }
 
     LaunchedEffect(serverInputIds) {
-        invalidConnections = invalidConnections.filterKeys { key -> key in serverInputIds }
+        connectionStatuses = connectionStatuses.filterKeys { key -> key in serverInputIds }
         val normalizedInputs = getNormalizedInputs()
         duplicateUrls = detectDuplicateUrls(normalizedInputs)
     }
@@ -232,7 +240,7 @@ fun Settings(navgationController: NavController) {
                         singleLine = true,
                         isError = duplicateUrls[serverInput.localId] == true ||
                             !validateUrlFormat(serverInput.url).isValid ||
-                            invalidConnections[serverInput.localId] == true,
+                            connectionStatuses[serverInput.localId]?.isReachable == false,
                         modifier = Modifier
                             .weight(1f)
                             .padding(vertical = 4.dp),
@@ -244,8 +252,14 @@ fun Settings(navgationController: NavController) {
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 }
-                                invalidConnections[serverInput.localId] == true -> {
-                                    Text("接続できません")
+                                connectionStatuses[serverInput.localId]?.isReachable == false -> {
+                                    val message = connectionStatuses[serverInput.localId]?.errorMessage
+                                        ?: "接続できません"
+                                    Text(message, color = MaterialTheme.colorScheme.error)
+                                }
+                                connectionStatuses[serverInput.localId]?.warningMessage != null -> {
+                                    val message = connectionStatuses[serverInput.localId]?.warningMessage ?: return@when
+                                    Text(message)
                                 }
                             }
                         },
@@ -286,11 +300,11 @@ fun Settings(navgationController: NavController) {
                                         }
                                         val wasActive = serverInputs[index].isActive
                                         val updatedInvalidConnections =
-                                            invalidConnections.toMutableMap().apply {
+                                            connectionStatuses.toMutableMap().apply {
                                                 remove(serverInput.localId)
                                             }
                                         serverInputs.removeAt(index)
-                                        invalidConnections = updatedInvalidConnections
+                                        connectionStatuses = updatedInvalidConnections
                                         val normalizedInputs = getNormalizedInputs()
                                         duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         if (wasActive && serverInputs.isNotEmpty()) {
@@ -324,7 +338,7 @@ fun Settings(navgationController: NavController) {
                                 val duplicates = detectDuplicateUrls(normalizedInputs)
                                 duplicateUrls = duplicates
                                 if (duplicates.isNotEmpty()) {
-                                    invalidConnections = emptyMap()
+                                    connectionStatuses = emptyMap()
                                     snackbarHostState.showSnackbar("同じURLは複数登録できません")
                                     return@launch
                                 }
@@ -339,12 +353,19 @@ fun Settings(navgationController: NavController) {
                                 val validationResults = withContext(Dispatchers.IO) {
                                     validateActiveConnections(inputsForValidation, ::isValidURL)
                                 }
-                                invalidConnections = validationResults
-                                if (validationResults.values.any { it }) {
+                                connectionStatuses = validationResults
+                                val unreachableConnections = validationResults.filterValues { !it.isReachable }
+                                val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
+                                if (unreachableConnections.isNotEmpty()) {
                                     snackbarHostState.showSnackbar("選択中のサーバーに接続できません。入力内容を確認してください")
                                     return@launch
                                 }
-                                invalidConnections = emptyMap()
+                                if (warningMessages.isNotEmpty()) {
+                                    snackbarHostState.showSnackbar(warningMessages.joinToString("\n"))
+                                }
+                                connectionStatuses = validationResults.mapValues { entry ->
+                                    entry.value.copy(errorMessage = null)
+                                }
                                 duplicateUrls = emptyMap()
                                 val inputsToSave = inputsForValidation.mapIndexed { _, input ->
                                     BaseUrl(
@@ -375,7 +396,7 @@ fun Settings(navgationController: NavController) {
                                             )
                                         }
                                     )
-                                    invalidConnections = emptyMap()
+                                    connectionStatuses = emptyMap()
                                     val normalizedInputs = getNormalizedInputs()
                                     duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                 } else {
@@ -427,33 +448,70 @@ fun Settings(navgationController: NavController) {
     }
 }
 
-suspend fun isValidURL(urlString: String): UrlValidationResult {
+suspend fun isValidURL(urlString: String): ConnectionValidationResult {
     val formatResult = validateUrlFormat(urlString)
-    if (!formatResult.isValid) return formatResult
+    if (!formatResult.isValid) {
+        return ConnectionValidationResult(
+            normalizedUrl = formatResult.normalizedUrl,
+            isSuccess = false,
+            isReachable = false,
+            errorMessage = formatResult.errorMessage
+        )
+    }
     return try {
-        val url = URL(formatResult.normalizedUrl)
-        val client = OkHttpClient()
-        val request = Request.Builder().url(url).build()
+        val baseUrl = formatResult.normalizedUrl.trimEnd('/')
+        val requestUrl = URL("$baseUrl/api/tags")
+        val client = OkHttpClient.Builder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
+        val request = Request.Builder().url(requestUrl).get().build()
 
         client.newCall(request).execute().use { response ->
-            formatResult.copy(isValid = response.isSuccessful)
+            val code = response.code
+            val isSuccess = code in 200..299
+            val warningMessage = when (code) {
+                301, 302 -> "${requestUrl.host} はリダイレクトを返しました (HTTP $code)。認証やプロキシ設定を確認してください"
+                401 -> "${requestUrl.host} に認証が必要です (HTTP $code)。"
+                else -> null
+            }
+
+            ConnectionValidationResult(
+                normalizedUrl = formatResult.normalizedUrl,
+                isSuccess = isSuccess,
+                isReachable = isSuccess || warningMessage != null,
+                warningMessage = warningMessage,
+                errorMessage = if (!isSuccess && warningMessage == null) "接続できません (HTTP $code)" else null
+            )
         }
     } catch (e: MalformedURLException) {
-        formatResult.copy(isValid = false, errorMessage = PORT_ERROR_MESSAGE)
+        ConnectionValidationResult(
+            normalizedUrl = formatResult.normalizedUrl,
+            isSuccess = false,
+            isReachable = false,
+            errorMessage = PORT_ERROR_MESSAGE
+        )
     } catch (e: IOException) {
-        formatResult.copy(isValid = false)
+        ConnectionValidationResult(
+            normalizedUrl = formatResult.normalizedUrl,
+            isSuccess = false,
+            isReachable = false,
+            errorMessage = "接続できません"
+        )
     }
 }
 
 @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
 internal suspend fun validateActiveConnections(
     inputs: List<ServerInput>,
-    validateConnection: suspend (String) -> UrlValidationResult
-): Map<String, Boolean> {
+    validateConnection: suspend (String) -> ConnectionValidationResult
+): Map<String, ConnectionValidationResult> {
     val activeInputs = inputs.filter { it.isActive }
     return activeInputs.associate { input ->
         val validation = validateConnection(input.url)
-        input.localId to !validation.isValid
+        input.localId to validation
     }
 }
 
