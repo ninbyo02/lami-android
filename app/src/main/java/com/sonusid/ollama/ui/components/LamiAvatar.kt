@@ -117,7 +117,7 @@ fun LamiAvatar(
                 onClick = { }
             )
             DropdownMenuItem(
-                text = { Text("フォールバック: ${if (fallbackActive) "ON" else "OFF"}") },
+                text = { Text("フォールバック: ${if (fallbackActive) \"ON\" else \"OFF\"}") },
                 onClick = { }
             )
             if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
