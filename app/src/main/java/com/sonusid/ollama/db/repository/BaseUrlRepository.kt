@@ -12,7 +12,7 @@ interface BaseUrlProvider {
 
     suspend fun getAll(): List<BaseUrl>
 
-    suspend fun replaceAll(baseUrls: List<BaseUrl>)
+    suspend fun replaceAll(baseUrls: List<BaseUrl>, refreshActive: Boolean = true)
 }
 
 class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
@@ -22,9 +22,11 @@ class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
 
     override suspend fun getActiveOrFirst(): BaseUrl? = baseUrlDao.getActive() ?: baseUrlDao.getAll().firstOrNull()
 
-    override suspend fun replaceAll(baseUrls: List<BaseUrl>) {
+    override suspend fun replaceAll(baseUrls: List<BaseUrl>, refreshActive: Boolean) {
         baseUrlDao.replaceBaseUrls(baseUrls)
-        refreshActiveBaseUrl()
+        if (refreshActive) {
+            refreshActiveBaseUrl()
+        }
     }
 
     suspend fun setActive(id: Int) {

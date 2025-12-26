@@ -61,6 +61,31 @@ class SettingsTest {
         assertTrue(baseUrlDao.baseUrls.first { it.url == "http://primary:1234" }.isActive)
         assertFalse(baseUrlDao.baseUrls.first { it.url == "http://secondary:1234" }.isActive)
     }
+
+    @Test
+    fun `saveServers updates active flow after retrofit client refresh`() = runBlocking {
+        val baseUrlDao = FakeBaseUrlDao()
+        val baseUrlRepository = BaseUrlRepository(baseUrlDao)
+        val modelPreferenceRepository = ModelPreferenceRepository(FakeModelPreferenceDao())
+        val inputsToSave = listOf(
+            BaseUrl(id = 0, url = "http://primary:1234", isActive = true),
+            BaseUrl(id = 0, url = "http://secondary:1234", isActive = false)
+        )
+        val retrofitClient = StubRetrofitClient()
+
+        val state = saveServers(
+            inputsToSave,
+            baseUrlRepository,
+            modelPreferenceRepository
+        ) { repo, modelRepo ->
+            retrofitClient.refreshBaseUrl(repo, modelRepo)
+        }
+
+        assertEquals(1, retrofitClient.refreshCalls)
+        assertEquals("http://primary:1234", state.baseUrl)
+        assertEquals("http://primary:1234", baseUrlRepository.activeBaseUrl.value)
+        assertEquals(baseUrlRepository.activeBaseUrl.value, retrofitClient.currentBaseUrl())
+    }
 }
 
 private class FakeBaseUrlDao : BaseUrlDao {
@@ -135,4 +160,23 @@ private class FakeModelPreferenceDao : ModelPreferenceDao {
     override suspend fun deleteAllExcept(baseUrls: List<String>) {}
 
     override suspend fun clearAll() {}
+}
+
+private class StubRetrofitClient {
+    private var currentBaseUrl: String = "http://stub-initial:11434"
+    var refreshCalls: Int = 0
+        private set
+
+    suspend fun refreshBaseUrl(
+        baseUrlRepository: BaseUrlRepository,
+        modelPreferenceRepository: ModelPreferenceRepository
+    ): BaseUrlInitializationState {
+        refreshCalls++
+        val activeUrl = baseUrlRepository.getActiveOrFirst()?.url ?: currentBaseUrl
+        val normalized = activeUrl.trimEnd('/')
+        currentBaseUrl = normalized
+        return BaseUrlInitializationState(baseUrl = normalized, usedFallback = false)
+    }
+
+    fun currentBaseUrl(): String = currentBaseUrl
 }

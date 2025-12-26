@@ -525,7 +525,7 @@ internal suspend fun saveServers(
     refreshBaseUrl: suspend (BaseUrlRepository, ModelPreferenceRepository) -> BaseUrlInitializationState
 ): BaseUrlInitializationState {
     val initializationState = withContext(Dispatchers.IO) {
-        baseUrlRepository.replaceAll(inputsToSave)
+        baseUrlRepository.replaceAll(inputsToSave, refreshActive = false)
         refreshBaseUrl(baseUrlRepository, modelPreferenceRepository)
     }
     baseUrlRepository.updateActiveBaseUrl(initializationState.baseUrl)
