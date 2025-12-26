@@ -11,7 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +61,7 @@ fun LamiAvatar(
     lastError: String?,
     lamiStatus: LamiStatus = LamiStatus.CONNECTING,
     modifier: Modifier = Modifier,
+    avatarShape: Shape = RoundedCornerShape(8.dp),
     onNavigateSettings: (() -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -107,7 +109,7 @@ fun LamiAvatar(
     Box(
         modifier = modifier
             .size(avatarSize.dp)
-            .clip(CircleShape)
+            .clip(avatarShape)
             .combinedClickable(
                 role = Role.Button,
                 onClick = {
