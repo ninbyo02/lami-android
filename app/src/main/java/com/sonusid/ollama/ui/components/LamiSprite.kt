@@ -3,9 +3,7 @@ package com.sonusid.ollama.ui.components
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawImage
 import androidx.compose.ui.res.imageResource
@@ -22,27 +20,28 @@ fun LamiSprite(
     columns: Int,
     modifier: Modifier = Modifier,
 ) {
-    val spriteSheet = remember(spriteRes) { ImageBitmap.imageResource(id = spriteRes) }
+    // IMPORTANT: imageResource is @Composable -> must be here, NOT inside Canvas draw lambda
+    val bitmap: ImageBitmap = ImageBitmap.imageResource(id = spriteRes)
+
+    val cols = columns.coerceAtLeast(1)
+    val safeFrame = frameIndex.coerceAtLeast(0)
+    val col = safeFrame % cols
+    val row = safeFrame / cols
+
+    val srcX = col * frameWidth
+    val srcY = row * frameHeight
 
     Canvas(modifier = modifier) {
-        if (frameWidth <= 0 || frameHeight <= 0 || columns <= 0) return@Canvas
-        if (size.width <= 0f || size.height <= 0f) return@Canvas
-
-        val columnIndex = frameIndex % columns
-        val rowIndex = frameIndex / columns
-
-        val srcOffset = IntOffset(columnIndex * frameWidth, rowIndex * frameHeight)
-        val srcSize = IntSize(frameWidth, frameHeight)
-
-        val dstWidth = size.width.roundToInt().coerceAtLeast(1)
-        val dstHeight = size.height.roundToInt().coerceAtLeast(1)
-
+        // drawImage is available only in DrawScope (this lambda)
         drawImage(
-            image = spriteSheet,
-            srcOffset = srcOffset,
-            srcSize = srcSize,
-            dstSize = IntSize(dstWidth, dstHeight),
-            filterQuality = FilterQuality.None,
+            image = bitmap,
+            srcOffset = IntOffset(srcX, srcY),
+            srcSize = IntSize(frameWidth, frameHeight),
+            dstOffset = IntOffset.Zero,
+            dstSize = IntSize(
+                size.width.roundToInt().coerceAtLeast(1),
+                size.height.roundToInt().coerceAtLeast(1),
+            ),
         )
     }
 }
