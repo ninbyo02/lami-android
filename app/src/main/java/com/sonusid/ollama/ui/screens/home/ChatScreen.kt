@@ -57,6 +57,8 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.LamiAvatar
+import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +91,13 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val mappedState by viewModel.lamiState.collectAsState()
+    val spriteStatus = remember(uiState, mappedState, errorMessage) {
+        mapToLamiSpriteStatus(
+            uiState = uiState,
+            lamiState = mappedState,
+            lastError = errorMessage
+        )
+    }
 
 
     LaunchedEffect(chatId, chats) {
@@ -196,10 +205,9 @@ fun Home(
                 IconButton(onClick = {
                     navHostController.navigate("chats")
                 }) {
-                    Icon(
-                        painter = painterResource(R.drawable.logo),
-                        contentDescription = "チャット一覧",
-                        modifier = Modifier.size(26.dp)
+                    LamiStatusSprite(
+                        status = spriteStatus,
+                        sizeDp = 40.dp
                     )
                 }
                 IconButton(onClick = {
@@ -220,10 +228,9 @@ fun Home(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LamiSprite(state = mappedState, sizeDp = 32.dp)
                     Spacer(Modifier.width(8.dp))
-                    Icon(
-                        painterResource(R.drawable.logo),
-                        contentDescription = "Logo",
-                        modifier = Modifier.size(25.dp)
+                    LamiStatusSprite(
+                        status = spriteStatus,
+                        sizeDp = 36.dp
                     )
                 }
             },
@@ -347,7 +354,10 @@ fun Home(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(painterResource(R.drawable.logo), "logo", modifier = Modifier.size(100.dp))
+                    LamiStatusSprite(
+                        status = spriteStatus,
+                        sizeDp = 96.dp
+                    )
                 }
             } else {
                 LazyColumn(

@@ -1,7 +1,6 @@
 package com.sonusid.ollama.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -44,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.mapToLamiState
 
@@ -76,6 +76,18 @@ fun LamiAvatar(
     val initializationState = RetrofitClient.getLastInitializationState()
     val fallbackActive = initializationState?.usedFallback == true
     val fallbackMessage = initializationState?.errorMessage
+    val avatarSpriteStatus = remember(lamiStatus, selectedModel, lastError) {
+        val currentState = mapToLamiState(
+            lamiStatus = lamiStatus,
+            selectedModel = selectedModel,
+            lastError = lastError
+        )
+        mapToLamiSpriteStatus(
+            lamiStatus = lamiStatus,
+            lamiState = currentState,
+            lastError = lastError
+        )
+    }
     val statusLabel = remember(lamiStatus) {
         when (lamiStatus) {
             LamiStatus.CONNECTING -> "接続中"
@@ -108,10 +120,9 @@ fun LamiAvatar(
                 }
             )
     ) {
-        Image(
-            painter = painterResource(R.drawable.logo),
-            contentDescription = "Lami avatar",
-            contentScale = ContentScale.FillBounds,
+        LamiStatusSprite(
+            status = avatarSpriteStatus,
+            sizeDp = avatarSize.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .drawWithContent { drawContent() }
