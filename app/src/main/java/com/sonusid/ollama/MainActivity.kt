@@ -17,8 +17,9 @@ import androidx.navigation.navArgument
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.ChatDatabase
-import com.sonusid.ollama.db.dao.BaseUrlDao
+import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ChatRepository
+import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.screens.chats.Chats
 import com.sonusid.ollama.ui.screens.home.Home
 import com.sonusid.ollama.ui.screens.settings.About
@@ -26,6 +27,7 @@ import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: OllamaViewModel
@@ -37,13 +39,27 @@ class MainActivity : ComponentActivity() {
         val database = ChatDatabase.Companion.getDatabase(applicationContext)
         val repository =
             ChatRepository(chatDao = database.chatDao(), messageDao = database.messageDao())
+        val baseUrlDataBase = AppDatabase.getDatabase(this) // 'this' is the Application context
+        val modelPreferenceRepository = ModelPreferenceRepository(baseUrlDataBase.modelPreferenceDao())
+        val baseUrlRepository = BaseUrlRepository(baseUrlDataBase.baseUrlDao())
+
+        val initializationState = runBlocking {
+            RetrofitClient.initialize(baseUrlRepository, modelPreferenceRepository)
+        }
+        val resolvedBaseUrl = initializationState.baseUrl.trimEnd('/')
+        baseUrlRepository.updateActiveBaseUrl(resolvedBaseUrl)
+        val initialSelectedModel = runBlocking {
+            modelPreferenceRepository.getSelectedModel(resolvedBaseUrl)
+        }
 
         // Initialize ViewModel with Factory
-        val factory = OllamaViewModelFactory(repository)
+        val factory = OllamaViewModelFactory(
+            repository,
+            modelPreferenceRepository,
+            initialSelectedModel,
+            baseUrlRepository.activeBaseUrl
+        )
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
-        val baseUrlDataBase = AppDatabase.getDatabase(this) // 'this' is the Application context
-        val baseUrlDao = baseUrlDataBase.baseUrlDao() // Get the DAO instance
-        RetrofitClient.initialize(baseUrlDao)
 
         setContent {
             // Initialise navigation
@@ -56,7 +72,7 @@ class MainActivity : ComponentActivity() {
                             startDestination = "chats"
                         ) {
                             composable("home") {
-                                Home(navController, viewModel, 0)
+                                Home(navController, viewModel)
                             }
                             composable("chats") {
                                 Chats(navController, viewModel)
@@ -65,7 +81,7 @@ class MainActivity : ComponentActivity() {
                                 route = "chat/{chatID}",
                                 arguments = listOf(navArgument("chatID") { type = NavType.IntType })
                             ) { backStackEntry ->
-                                val chatId = backStackEntry.arguments?.getInt("chatID") ?: 0
+                                val chatId = backStackEntry.arguments?.getInt("chatID")?.takeIf { it != 0 }
                                 Home(navController, viewModel, chatId)
                             }
                             composable("setting") {

@@ -1,7 +1,7 @@
 package com.sonusid.ollama.ui.screens.chats
 
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -16,48 +16,45 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
+import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val allChats = viewModel.chats.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val selectedModel by viewModel.selectedModel.collectAsState()
+    val activeBaseUrl by viewModel.baseUrl.collectAsState()
+    val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
     var chatTitle by remember { mutableStateOf("") }
     println(allChats.value)
 
     Scaffold(
         topBar = {
-            TopAppBar(title = {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    IconButton(onClick = {
-
-                    }) {
-                        Icon(
-                            painter = painterResource(R.drawable.logo),
-                            contentDescription = "logo",
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                    Text("Ollama", fontSize = 20.sp)
-                    IconButton(onClick = {
-                        navController.navigate("setting")
-                    }) {
+            TopAppBar(
+                navigationIcon = {
+                    LamiAvatar(
+                        baseUrl = activeBaseUrl,
+                        selectedModel = selectedModel,
+                        lastError = lastError,
+                        onNavigateSettings = { navController.navigate("setting") }
+                    )
+                },
+                title = { Text("Ollama", fontSize = 20.sp) },
+                actions = {
+                    IconButton(onClick = { navController.navigate("setting") }) {
                         Icon(
                             painter = painterResource(R.drawable.settings),
                             contentDescription = "settings",
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
-            })
+            )
         },
         floatingActionButton = {
             FloatingActionButton(
@@ -156,4 +153,3 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
         )
     }
 }
-
