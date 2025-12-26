@@ -3,11 +3,11 @@ package com.sonusid.ollama.ui.screens.home
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -18,22 +18,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,24 +44,23 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.ui.components.LamiSprite
-import com.sonusid.ollama.ui.components.LamiAvatar
-import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,13 +86,11 @@ fun Home(
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
-    val activeBaseUrl by viewModel.baseUrl.collectAsState()
-    val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
-    val mappedState by viewModel.lamiState.collectAsState()
+    val lamiUiState by viewModel.lamiUiState.collectAsState()
 
 
     LaunchedEffect(chatId, chats) {
@@ -158,22 +158,38 @@ fun Home(
         }
     }
 
+    LaunchedEffect(lamiUiState.lastInteractionTimeMs, lamiUiState.state) {
+        val referenceTime = lamiUiState.lastInteractionTimeMs
+        val idleTimeoutMs = 6_000L
+        delay(idleTimeoutMs)
+        viewModel.moveToIdleIfStale(referenceTime, idleTimeoutMs)
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            viewModel.onUserInteraction()
+        }
+    }
+
     Scaffold(topBar = {
         TopAppBar(
             navigationIcon = {
-                LamiAvatar(
-                    baseUrl = activeBaseUrl,
-                    selectedModel = selectedModel,
-                    lastError = errorMessage,
-                    onNavigateSettings = { navHostController.navigate("setting") }
-                )
+                Box(modifier = Modifier.padding(start = 12.dp)) {
+                    LamiSprite(
+                        state = lamiUiState.state,
+                        sizeDp = 48.dp
+                    )
+                }
             },
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Start
                 ) {
-                    TextButton(onClick = { showSheet = true }) {
+                    TextButton(onClick = {
+                        viewModel.onUserInteraction()
+                        showSheet = true
+                    }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 if (selectedModel.isNullOrEmpty()) {
@@ -196,14 +212,17 @@ fun Home(
             },
             actions = {
                 IconButton(onClick = {
+                    viewModel.onUserInteraction()
                     navHostController.navigate("chats")
                 }) {
-                    LamiStatusSprite(
-                        status = lamiStatusState,
-                        sizeDp = 40.dp
+                    Icon(
+                        imageVector = Icons.Filled.List,
+                        contentDescription = "チャット一覧",
+                        modifier = Modifier.size(26.dp)
                     )
                 }
                 IconButton(onClick = {
+                    viewModel.onUserInteraction()
                     navHostController.navigate("setting")
                 }) {
                     Icon(
@@ -218,14 +237,11 @@ fun Home(
         OutlinedTextField(
             interactionSource = interactionSource,
             leadingIcon = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    LamiSprite(state = mappedState, sizeDp = 32.dp)
-                    Spacer(Modifier.width(8.dp))
-                    LamiStatusSprite(
-                        status = lamiStatusState,
-                        sizeDp = 36.dp
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Filled.Mic,
+                    contentDescription = "音声入力",
+                    modifier = Modifier.size(22.dp)
+                )
             },
             label = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -233,7 +249,10 @@ fun Home(
                 }
             },
             value = userPrompt,
-            onValueChange = { userPrompt = it },
+            onValueChange = {
+                userPrompt = it
+                viewModel.onUserInteraction()
+            },
             shape = CircleShape,
             modifier = Modifier
                 .fillMaxWidth()
@@ -246,6 +265,7 @@ fun Home(
                     contentPadding = PaddingValues(0.dp),
                     enabled = !selectedModel.isNullOrBlank(),
                     onClick = {
+                        viewModel.onUserInteraction()
                         if (selectedModel.isNullOrBlank()) {
                             showSheet = true
                             coroutineScope.launch {
@@ -307,6 +327,7 @@ fun Home(
                             Modifier
                                 .fillMaxWidth()
                                 .clickable {
+                                    viewModel.onUserInteraction()
                                     viewModel.updateSelectedModel(model.name)
                                     showSheet = false
                                 },
@@ -315,6 +336,7 @@ fun Home(
                             RadioButton(
                                 selected = selectedModel == model.name,
                                 onClick = {
+                                    viewModel.onUserInteraction()
                                     viewModel.updateSelectedModel(model.name)
                                     showSheet = false
                                 }
@@ -347,9 +369,9 @@ fun Home(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    LamiStatusSprite(
-                        status = lamiStatusState,
-                        sizeDp = 96.dp
+                    Text(
+                        text = "最初のメッセージを送信して会話を始めましょう",
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             } else {

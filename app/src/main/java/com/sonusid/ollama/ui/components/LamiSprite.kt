@@ -27,9 +27,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
-import com.sonusid.ollama.ui.components.LamiSpriteStatus
-import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import kotlin.math.roundToInt
 
 @Composable
@@ -122,17 +121,11 @@ fun LamiSprite(
     shape: Shape = RoundedCornerShape(8.dp),
 ) {
     val backgroundColor = when (state) {
-        LamiState.THINKING -> MaterialTheme.colorScheme.secondaryContainer
-        LamiState.RESPONDING -> MaterialTheme.colorScheme.tertiaryContainer
-        LamiState.ERROR -> MaterialTheme.colorScheme.errorContainer
-        LamiState.IDLE -> MaterialTheme.colorScheme.primaryContainer
+        is LamiState.Thinking -> MaterialTheme.colorScheme.secondaryContainer
+        is LamiState.Speaking -> MaterialTheme.colorScheme.tertiaryContainer
+        LamiState.Idle -> MaterialTheme.colorScheme.primaryContainer
     }
-    val spriteStatus = when (state) {
-        LamiState.THINKING -> LamiSpriteStatus.Thinking
-        LamiState.RESPONDING -> LamiSpriteStatus.Speaking
-        LamiState.ERROR -> LamiSpriteStatus.Error
-        LamiState.IDLE -> LamiSpriteStatus.Idle
-    }
+    val spriteStatus = mapToLamiSpriteStatus(lamiState = state)
 
     val contentPadding = 6.dp
     val spriteSize = sizeDp - (contentPadding * 2)
