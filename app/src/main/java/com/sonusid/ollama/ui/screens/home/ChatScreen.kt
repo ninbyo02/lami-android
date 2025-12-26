@@ -57,6 +57,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.ui.components.LamiCornerAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -173,14 +174,6 @@ fun Home(
 
     Scaffold(topBar = {
         TopAppBar(
-            navigationIcon = {
-                Box(modifier = Modifier.padding(start = 12.dp)) {
-                    LamiSprite(
-                        state = lamiUiState.state,
-                        sizeDp = 48.dp
-                    )
-                }
-            },
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -410,6 +403,13 @@ fun Home(
                         Text("再試行")
                     }
                 }
+            }
+
+            LamiCornerAvatar {
+                LamiSprite(
+                    state = lamiUiState.state,
+                    sizeDp = 64.dp
+                )
             }
         }
     }

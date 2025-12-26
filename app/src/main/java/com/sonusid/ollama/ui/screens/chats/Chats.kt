@@ -18,7 +18,7 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.ui.components.LamiAvatar
+import com.sonusid.ollama.ui.components.LamiCornerAvatar
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
@@ -39,15 +39,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = {
-                    LamiAvatar(
-                        baseUrl = activeBaseUrl,
-                        selectedModel = selectedModel,
-                        lastError = lastError,
-
-                        onNavigateSettings = { navController.navigate("setting") }
-                    )
-                },
                 title = { Text("Ollama", fontSize = 20.sp) },
                 actions = {
                     IconButton(onClick = { navController.navigate("setting") }) {
@@ -74,44 +65,54 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             }
         }
     ) { paddingValues ->
-        if (allChats.value.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                LamiStatusSprite(
-                    status = lamiStatusState,
-                    sizeDp = 96.dp
-                )
-                Spacer(Modifier.height(60.dp))
-                Text("Click on + to start a new chat")
-            }
-        } else {
-            LazyColumn(
-                Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize()
-                    .padding(10.dp)
-            ) {
-                items(allChats.value.size) { index ->
-                    ElevatedButton(
-                        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 10.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(80.dp)
-                            .padding(10.dp)
-                            .size(40.dp),
-                        onClick = {
-                            navController.navigate("chat/${allChats.value[index].chatId}")
-                        }) {
-                        Row(Modifier.padding(10.dp)) { Text("${allChats.value[index].title}.") }
+        Box(
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize()
+        ) {
+            if (allChats.value.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LamiStatusSprite(
+                        status = lamiStatusState,
+                        sizeDp = 96.dp
+                    )
+                    Spacer(Modifier.height(60.dp))
+                    Text("Click on + to start a new chat")
+                }
+            } else {
+                LazyColumn(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(10.dp)
+                ) {
+                    items(allChats.value.size) { index ->
+                        ElevatedButton(
+                            elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 10.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .padding(10.dp)
+                                .size(40.dp),
+                            onClick = {
+                                navController.navigate("chat/${allChats.value[index].chatId}")
+                            }) {
+                            Row(Modifier.padding(10.dp)) { Text("${allChats.value[index].title}.") }
+                        }
                     }
                 }
+            }
+
+            LamiCornerAvatar {
+                LamiStatusSprite(
+                    status = lamiStatusState,
+                    sizeDp = 64.dp
+                )
             }
         }
     }
