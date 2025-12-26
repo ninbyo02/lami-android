@@ -56,7 +56,6 @@ import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.ui.components.LamiAvatar
-import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,8 +83,6 @@ fun Home(
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
     val activeBaseUrl by viewModel.baseUrl.collectAsState()
-    val lamiStatus by viewModel.lamiStatus.collectAsState()
-    val mappedState by viewModel.lamiState.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -164,7 +161,6 @@ fun Home(
                     baseUrl = activeBaseUrl,
                     selectedModel = selectedModel,
                     lastError = errorMessage,
-                    lamiStatus = lamiStatus,
                     onNavigateSettings = { navHostController.navigate("setting") }
                 )
             },
@@ -370,7 +366,6 @@ fun Home(
                         .align(Alignment.Center)
                 )
             }
-
             if (errorMessage != null) {
                 Column(
                     modifier = Modifier

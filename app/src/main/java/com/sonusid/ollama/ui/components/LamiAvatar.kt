@@ -46,6 +46,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.mapToLamiState
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -156,6 +157,7 @@ fun LamiAvatar(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
+
                 val currentState = mapToLamiState(
                     lamiStatus = lamiStatus,
                     selectedModel = selectedModel,

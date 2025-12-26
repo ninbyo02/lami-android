@@ -1,5 +1,4 @@
 package com.sonusid.ollama.viewmodels
-
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
@@ -26,9 +25,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.net.HttpURLConnection
 import java.net.URL
-
 data class ModelInfo(val name: String)
-
 class OllamaViewModel(
     private val repository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
@@ -36,18 +33,6 @@ class OllamaViewModel(
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
 ) : ViewModel() {
-    private val _gatewayStatus = MutableStateFlow(
-        GatewayStatusState(
-            isConnecting = shouldAutoLoadModels,
-            usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback == true,
-            lastError = null
-        )
-    )
-    val gatewayStatus: StateFlow<GatewayStatusState> = _gatewayStatus.asStateFlow()
-    private val _lamiStatus = MutableStateFlow(mapToLamiStatus(_gatewayStatus.value))
-    val lamiStatus: StateFlow<LamiStatus> = _lamiStatus.asStateFlow()
-    private val _selectedModel = MutableStateFlow<String?>(null)
-    val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
     private val _uiState: MutableStateFlow<UiState> =
         MutableStateFlow(UiState.Initial)
     val uiState: StateFlow<UiState> =
@@ -57,19 +42,14 @@ class OllamaViewModel(
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
+    private val _selectedModel = MutableStateFlow<String?>(null)
+    val selectedModel: StateFlow<String?> = _selectedModel.asStateFlow()
     private val _isLoadingModels = MutableStateFlow(false)
     val isLoadingModels: StateFlow<Boolean> = _isLoadingModels.asStateFlow()
     val baseUrl: StateFlow<String> = baseUrlFlow
 
-    private fun updateGatewayStatus(transform: (GatewayStatusState) -> GatewayStatusState) {
-        val updated = transform(_gatewayStatus.value)
-        _gatewayStatus.value = updated
-        _lamiStatus.value = mapToLamiStatus(updated)
-    }
-
     init {
         applyInitialSelectedModel(initialSelectedModel)
-        updateLamiState()
         viewModelScope.launch {
             repository.allChats.collect {
                 _chats.value = it
@@ -77,9 +57,6 @@ class OllamaViewModel(
         }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
-                updateGatewayStatus { status ->
-                    status.copy(isConnecting = true, lastError = null)
-                }
                 baseUrl.collectLatest {
                     loadAvailableModels()
                 }
@@ -90,7 +67,6 @@ class OllamaViewModel(
     fun applyInitialSelectedModel(initialModelName: String? = null) {
         if (!initialModelName.isNullOrBlank()) {
             _selectedModel.value = initialModelName
-            updateLamiState(selectedModel = initialModelName)
         }
     }
 
@@ -100,7 +76,7 @@ class OllamaViewModel(
     fun sendPrompt(prompt: String, model: String?) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
-            updateLamiState()
+
             val request = OllamaRequest(model = model.toString(), prompt = prompt)
 
             if (model != null) {
@@ -116,25 +92,22 @@ class OllamaViewModel(
                                 } ?: run {
                                     _uiState.value = UiState.Error("Empty response")
                                 }
-                                updateLamiState()
+
                             } else {
                                 val error =
                                     response.errorBody()?.string().orEmpty()
                                 _uiState.value = UiState.Error(
                                     error.ifEmpty { "Failed to generate response" })
-                                updateLamiState()
                             }
                         }
 
                         override fun onFailure(call: Call<OllamaResponse>, t: Throwable) {
                             Log.e("OllamaError", "Request failed: ${t.message}")
                             _uiState.value = UiState.Error(t.message ?: "Unknown error")
-                            updateLamiState()
                         }
                     })
             } else {
-                _uiState.value = UiState.Error("Please choose a model")
-                updateLamiState()
+                _uiState.value = UiState.Success("Please Choose A model")
             }
         }
     }
@@ -148,14 +121,6 @@ class OllamaViewModel(
             _isLoadingModels.value = true
             val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
             try {
-                updateGatewayStatus { state ->
-                    state.copy(
-                        isConnecting = true,
-                        lastError = null,
-                        usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback
-                            ?: state.usedFallback
-                    )
-                }
                 val models = withContext(Dispatchers.IO) {
                     val url =
                         URL("${baseUrl}/api/tags")
@@ -185,36 +150,14 @@ class OllamaViewModel(
                     availableModels
                 }
                 _availableModels.value = models
-                updateGatewayStatus { state ->
-                    state.copy(
-                        isConnecting = false,
-                        isOnline = true,
-                        hasModels = models.isNotEmpty(),
-                        usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback
-                            ?: state.usedFallback,
-                        lastError = null
-                    )
-                }
                 refreshSelectedModel(models)
                 _uiState.value = UiState.Initial
-                updateLamiState()
             } catch (e: Exception) {
                 Log.e("OllamaError", "Error loading models: ${e.message}")
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
                 _uiState.value = UiState.Error("Failed to load models: $message")
-                updateLamiState()
                 clearSelectedModelForBaseUrl(baseUrl)
-                updateGatewayStatus { state ->
-                    state.copy(
-                        isConnecting = false,
-                        isOnline = false,
-                        hasModels = false,
-                        usedFallback = RetrofitClient.getLastInitializationState()?.usedFallback
-                            ?: state.usedFallback,
-                        lastError = message
-                    )
-                }
             } finally {
                 _isLoadingModels.value = false
             }
@@ -235,7 +178,6 @@ class OllamaViewModel(
             withContext(Dispatchers.IO) {
                 modelPreferenceRepository.setSelectedModel(baseUrl, singleModel)
             }
-            updateLamiState(selectedModel = singleModel)
             return
         }
 
@@ -245,12 +187,10 @@ class OllamaViewModel(
                 withContext(Dispatchers.IO) {
                     modelPreferenceRepository.setSelectedModel(baseUrl, savedModelAvailable)
                 }
-                updateLamiState(selectedModel = savedModelAvailable)
             }
 
             currentSelection != null -> {
                 _selectedModel.value = currentSelection
-                updateLamiState(selectedModel = currentSelection)
             }
 
             else -> {
@@ -267,51 +207,5 @@ class OllamaViewModel(
             withContext(Dispatchers.IO) {
                 modelPreferenceRepository.setSelectedModel(baseUrl, modelName)
             }
-            updateLamiState(selectedModel = modelName)
         }
     }
-
-    fun clearSelectedModel() {
-        viewModelScope.launch {
-            val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
-            clearSelectedModelForBaseUrl(baseUrl)
-        }
-    }
-
-    private suspend fun clearSelectedModelForBaseUrl(baseUrl: String) {
-        _selectedModel.value = null
-        updateLamiState(selectedModel = null)
-        withContext(Dispatchers.IO) {
-            modelPreferenceRepository.clearSelectedModel(baseUrl)
-        }
-    }
-
-
-    fun insertChat(chat: Chat) = viewModelScope.launch {
-        repository.newChat(chat)
-    }
-
-    fun insert(message: Message) = viewModelScope.launch {
-        repository.insert(message)
-    }
-
-    fun delete(message: Message) = viewModelScope.launch {
-        repository.delete(message)
-    }
-
-    fun resetUiState() {
-        _uiState.value = UiState.Initial
-        updateLamiState()
-    }
-
-    fun setTtsPlaying(isPlaying: Boolean) {
-        updateGatewayStatus { state -> state.copy(isTtsPlaying = isPlaying) }
-    }
-
-    private fun updateLamiState(
-        uiState: UiState = _uiState.value,
-        selectedModel: String? = _selectedModel.value,
-    ) {
-        _lamiState.value = mapToLamiState(uiState, selectedModel)
-    }
-}
