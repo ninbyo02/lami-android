@@ -209,3 +209,4 @@ class OllamaViewModel(
             }
         }
     }
+} // クラスの閉じ忘れを補完
