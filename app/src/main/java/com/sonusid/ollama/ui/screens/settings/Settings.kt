@@ -450,7 +450,7 @@ fun Settings(navgationController: NavController) {
     }
 }
 
-suspend fun isValidURL(urlString: String): ConnectionValidationResult {
+internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
     val formatResult = validateUrlFormat(urlString)
     if (!formatResult.isValid) {
         return ConnectionValidationResult(
