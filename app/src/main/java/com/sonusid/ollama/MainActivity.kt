@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -23,6 +25,8 @@ import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.screens.chats.Chats
 import com.sonusid.ollama.ui.screens.home.Home
 import com.sonusid.ollama.ui.screens.settings.About
+import com.sonusid.ollama.ui.screens.settings.SettingsData
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
@@ -61,10 +65,13 @@ class MainActivity : ComponentActivity() {
         )
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
 
+        val settingsPreferences = SettingsPreferences(applicationContext)
+
         setContent {
+            val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
             // Initialise navigation
             val navController = rememberNavController()
-            OllamaTheme {
+            OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
                         NavHost(

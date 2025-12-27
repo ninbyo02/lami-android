@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -106,6 +108,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     var connectionStatuses by remember { mutableStateOf<Map<String, ConnectionValidationResult>>(emptyMap()) }
     var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    val settingsPreferences = remember { SettingsPreferences(context) }
+    val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
     val activeBaseUrl by baseUrlRepository.activeBaseUrl.collectAsState()
@@ -229,6 +233,32 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         }
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.padding(paddingValues)) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text("ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "システムカラーに合わせて配色を自動調整します",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settingsData.useDynamicColor,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                        }
+                    )
+                }
+            }
             itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
                 Row(
                     modifier = Modifier
