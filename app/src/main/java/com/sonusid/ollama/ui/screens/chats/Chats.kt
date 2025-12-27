@@ -65,19 +65,28 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             }
         }
     ) { paddingValues ->
-        val contentModifier = Modifier
-            .fillMaxSize()
-            .padding(top = LamiStatusPanelContentTopPadding)
-
-        Box(
+        Column(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
+            Spacer(modifier = Modifier.height(TopAppBarSpacer))
+            LamiStatusPanel(
+                status = lamiStatusState.value,
+                lamiState = lamiUiState.state,
+                modifier = Modifier
+                    .padding(start = 16.dp),
+                spriteSize = 64.dp
+            )
+
+            Spacer(modifier = Modifier.height(ContentSpacing))
+
             if (allChats.value.isEmpty()) {
                 Column(
-                    modifier = contentModifier,
-                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = true),
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     LamiStatusSprite(
@@ -89,7 +98,9 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 }
             } else {
                 LazyColumn(
-                    modifier = contentModifier
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = true)
                         .padding(10.dp)
                 ) {
                     items(allChats.value.size) { index ->
@@ -110,15 +121,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     }
                 }
             }
-
-            LamiStatusPanel(
-                status = lamiStatusState.value,
-                lamiState = lamiUiState.state,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = TopAppBarHeight),
-                spriteSize = 64.dp
-            )
         }
     }
 
@@ -166,5 +168,5 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     }
 }
 
-private val TopAppBarHeight = 64.dp
-private val LamiStatusPanelContentTopPadding = 112.dp
+private val TopAppBarSpacer = 8.dp
+private val ContentSpacing = 12.dp
