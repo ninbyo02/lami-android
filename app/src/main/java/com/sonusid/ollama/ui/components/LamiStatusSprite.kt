@@ -62,6 +62,7 @@ fun LamiStatusSprite(
     status: LamiSpriteStatus,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    contentOffsetDp: Dp = 2.dp,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val animSpec = statusAnimationMap[status] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
@@ -82,7 +83,8 @@ fun LamiStatusSprite(
     LamiSprite3x3(
         frameIndex = currentFrameIndex,
         sizeDp = constrainedSize,
-        modifier = modifier
+        modifier = modifier,
+        contentOffsetDp = contentOffsetDp
     )
 }
 
@@ -91,6 +93,7 @@ fun LamiStatusSprite(
     status: State<LamiStatus>,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    contentOffsetDp: Dp = 2.dp,
 ) {
     val spriteStatus = remember(status.value) {
         mapToLamiSpriteStatus(lamiStatus = status.value)
@@ -99,6 +102,7 @@ fun LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
         sizeDp = sizeDp,
+        contentOffsetDp = contentOffsetDp,
     )
 }
 
