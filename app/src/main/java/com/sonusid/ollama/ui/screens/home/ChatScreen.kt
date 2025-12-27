@@ -313,8 +313,11 @@ fun Home(
                         .padding(16.dp),
                     state = listState
                 ) {
-                    items(allChats.size) { index ->
-                        ChatBubble(allChats[index].message, allChats[index].isSendbyMe)
+                    items(
+                        items = allChats,
+                        key = { message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                    ) { message ->
+                        ChatBubble(message.message, message.isSendbyMe)
                     }
                 }
             }
