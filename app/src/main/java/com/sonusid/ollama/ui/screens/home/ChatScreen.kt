@@ -285,7 +285,6 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
-                .padding(top = TopAppBarHeight)
 
             if (effectiveChatId == null) {
                 Column(
