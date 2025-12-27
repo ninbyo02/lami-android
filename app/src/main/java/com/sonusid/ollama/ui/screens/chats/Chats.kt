@@ -18,8 +18,8 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
+import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.ui.components.LamiStatusPanel
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,6 +28,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val allChats = viewModel.chats.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
+    val availableModels by viewModel.availableModels.collectAsState()
+    val baseUrl by viewModel.baseUrl.collectAsState()
     val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
     val lamiUiState by viewModel.lamiUiState.collectAsState()
 
@@ -39,7 +41,18 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     Scaffold(
         topBar = {
         TopAppBar(
-            title = {},
+            title = {
+                LamiHeaderStatus(
+                    baseUrl = baseUrl,
+                    selectedModel = selectedModel,
+                    lastError = lastError,
+                    lamiStatus = lamiStatusState.value,
+                    lamiState = lamiUiState.state,
+                    availableModels = availableModels,
+                    onSelectModel = { viewModel.updateSelectedModel(it) },
+                    onNavigateSettings = { navController.navigate("setting") }
+                )
+            },
             actions = {
                     IconButton(onClick = { navController.navigate("setting") }) {
                         Icon(
@@ -71,14 +84,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 .fillMaxSize()
         ) {
             Spacer(modifier = Modifier.height(TopAppBarSpacer))
-            LamiStatusPanel(
-                status = lamiStatusState.value,
-                lamiState = lamiUiState.state,
-                modifier = Modifier
-                    .padding(start = 16.dp),
-                spriteSize = 64.dp
-            )
-
             Spacer(modifier = Modifier.height(ContentSpacing))
 
             if (allChats.value.isEmpty()) {
