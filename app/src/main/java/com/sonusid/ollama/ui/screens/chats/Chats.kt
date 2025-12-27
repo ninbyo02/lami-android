@@ -65,6 +65,10 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             }
         }
     ) { paddingValues ->
+        val contentModifier = Modifier
+            .fillMaxSize()
+            .padding(top = LamiStatusPanelContentTopPadding)
+
         Box(
             modifier = Modifier
                 .padding(paddingValues)
@@ -72,7 +76,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
         ) {
             if (allChats.value.isEmpty()) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = contentModifier,
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -85,8 +89,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 }
             } else {
                 LazyColumn(
-                    Modifier
-                        .fillMaxSize()
+                    modifier = contentModifier
                         .padding(10.dp)
                 ) {
                     items(allChats.value.size) { index ->
@@ -113,8 +116,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 lamiState = lamiUiState.state,
                 spriteSize = 64.dp,
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 24.dp)
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = TopAppBarHeight)
             )
         }
     }
@@ -162,3 +165,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
         )
     }
 }
+
+private val TopAppBarHeight = 64.dp
+private val LamiStatusPanelContentTopPadding = 112.dp
