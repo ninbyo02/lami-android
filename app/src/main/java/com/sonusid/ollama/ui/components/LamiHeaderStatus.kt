@@ -1,0 +1,89 @@
+package com.sonusid.ollama.ui.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.LamiStatus
+import com.sonusid.ollama.viewmodels.ModelInfo
+
+@Composable
+fun LamiHeaderStatus(
+    baseUrl: String,
+    selectedModel: String?,
+    lastError: String?,
+    lamiStatus: LamiStatus,
+    lamiState: LamiState,
+    availableModels: List<ModelInfo>,
+    onSelectModel: (String) -> Unit,
+    onNavigateSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val statusUi = rememberLamiStatusUi(
+        status = lamiStatus,
+        lamiState = lamiState,
+        selectedModel = selectedModel
+    )
+    val modelLabel = remember(selectedModel) {
+        selectedModel?.takeIf { it.isNotBlank() }?.let { "Model: $it" }
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        LamiAvatar(
+            baseUrl = baseUrl,
+            selectedModel = selectedModel,
+            lastError = lastError,
+            lamiStatus = lamiStatus,
+            availableModels = availableModels,
+            initialAvatarSize = 64.dp,
+            minAvatarSize = 48.dp,
+            maxAvatarSize = 64.dp,
+            onSelectModel = onSelectModel,
+            onNavigateSettings = onNavigateSettings
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "Lami Chat",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = statusUi.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = statusUi.titleColor
+                )
+                modelLabel?.let { label ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            statusUi.subtitle?.let { subtitle ->
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
