@@ -23,6 +23,7 @@ enum class LamiSpriteStatus {
     TalkLong,
     TalkCalm,
     Error,
+    Offline,
 }
 
 data class AnimSpec(
@@ -32,28 +33,32 @@ data class AnimSpec(
 
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimSpec(
-        frames = listOf(0, 1, 2, 1),
-        frameMs = 220L
+        frames = listOf(0, 1, 0, 2),
+        frameMs = 240L
     ),
     LamiSpriteStatus.Thinking to AnimSpec(
-        frames = listOf(3, 4, 5, 4),
-        frameMs = 160L
+        frames = listOf(3, 4, 5, 4, 3),
+        frameMs = 180L
     ),
     LamiSpriteStatus.TalkShort to AnimSpec(
-        frames = listOf(6, 7, 8, 7),
+        frames = listOf(6, 7, 6),
         frameMs = 120L
     ),
     LamiSpriteStatus.TalkLong to AnimSpec(
-        frames = listOf(6, 7, 8, 7, 6),
-        frameMs = 160L
+        frames = listOf(6, 7, 8, 7, 6, 7, 8, 7),
+        frameMs = 150L
     ),
     LamiSpriteStatus.TalkCalm to AnimSpec(
-        frames = listOf(0, 1, 0, 2),
-        frameMs = 360L
+        frames = listOf(6, 7, 8, 7, 8),
+        frameMs = 220L
     ),
     LamiSpriteStatus.Error to AnimSpec(
-        frames = listOf(8, 7, 8, 7),
-        frameMs = 220L
+        frames = listOf(5, 4, 5, 4),
+        frameMs = 200L
+    ),
+    LamiSpriteStatus.Offline to AnimSpec(
+        frames = listOf(2, 5, 8, 5),
+        frameMs = 280L
     ),
 )
 
@@ -112,14 +117,20 @@ fun mapToLamiSpriteStatus(
     lamiState: LamiState? = null,
     isSpeaking: Boolean = false,
     lastError: String? = null,
+    talkingTextLength: Int? = null,
 ): LamiSpriteStatus {
-    val speakingStatus = when {
-        lamiState is LamiState.Speaking -> when (bucket(lamiState.textLength)) {
+    val speakingBucket = when (lamiState) {
+        is LamiState.Speaking -> bucket(lamiState.textLength)
+        else -> talkingTextLength?.let { bucket(it) }
+    }
+    val speakingStatus = speakingBucket?.let { bucketValue ->
+        when (bucketValue) {
             1 -> LamiSpriteStatus.TalkShort
             2 -> LamiSpriteStatus.TalkLong
             3 -> LamiSpriteStatus.TalkCalm
-            else -> LamiSpriteStatus.Idle
+            else -> null
         }
+    } ?: when {
         isSpeaking -> LamiSpriteStatus.TalkShort
         else -> null
     }
@@ -150,12 +161,18 @@ fun mapToLamiSpriteStatus(
     }
 
     return when (lamiStatus) {
-        LamiStatus.TALKING -> LamiSpriteStatus.TalkLong
+        LamiStatus.TALKING -> speakingStatus
+            ?: when (speakingBucket) {
+                1 -> LamiSpriteStatus.TalkShort
+                2 -> LamiSpriteStatus.TalkLong
+                3 -> LamiSpriteStatus.TalkCalm
+                else -> LamiSpriteStatus.TalkLong
+            }
         LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
         LamiStatus.READY, LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
         LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.Error
         LamiStatus.OFFLINE -> if (lastError.isNullOrBlank()) {
-            LamiSpriteStatus.Idle
+            LamiSpriteStatus.Offline
         } else {
             LamiSpriteStatus.Error
         }
