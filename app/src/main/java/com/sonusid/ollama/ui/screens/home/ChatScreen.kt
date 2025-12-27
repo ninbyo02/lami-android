@@ -346,9 +346,13 @@ fun Home(
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
+            val contentModifier = Modifier
+                .fillMaxSize()
+                .padding(top = LamiStatusPanelContentTopPadding)
+
             if (effectiveChatId == null) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = contentModifier,
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -358,7 +362,7 @@ fun Home(
                 }
             } else if (allChats.isEmpty()) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = contentModifier,
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -369,8 +373,7 @@ fun Home(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = contentModifier
                         .padding(16.dp),
                     state = listState
                 ) {
@@ -410,9 +413,12 @@ fun Home(
                 lamiState = lamiUiState.state,
                 spriteSize = 64.dp,
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 24.dp)
+                    .align(Alignment.TopStart)
+                    .padding(start = 16.dp, top = TopAppBarHeight)
             )
         }
     }
 }
+
+private val TopAppBarHeight = 64.dp
+private val LamiStatusPanelContentTopPadding = 112.dp
