@@ -57,8 +57,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
-import com.sonusid.ollama.ui.components.LamiCornerAvatar
-import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.ui.components.LamiStatusPanel
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -87,6 +86,7 @@ fun Home(
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val isLoadingModels by viewModel.isLoadingModels.collectAsState()
+    val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -405,12 +405,14 @@ fun Home(
                 }
             }
 
-            LamiCornerAvatar {
-                LamiSprite(
-                    state = lamiUiState.state,
-                    sizeDp = 64.dp
-                )
-            }
+            LamiStatusPanel(
+                status = lamiAnimationStatus,
+                lamiState = lamiUiState.state,
+                spriteSize = 64.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, bottom = 24.dp)
+            )
         }
     }
 }

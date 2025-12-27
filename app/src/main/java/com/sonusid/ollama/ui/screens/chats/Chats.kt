@@ -18,8 +18,8 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.ui.components.LamiCornerAvatar
 import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.ui.components.LamiStatusPanel
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,8 +28,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val allChats = viewModel.chats.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
-    val activeBaseUrl by viewModel.baseUrl.collectAsState()
     val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
+    val lamiUiState by viewModel.lamiUiState.collectAsState()
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
@@ -108,12 +108,14 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 }
             }
 
-            LamiCornerAvatar {
-                LamiStatusSprite(
-                    status = lamiStatusState,
-                    sizeDp = 64.dp
-                )
-            }
+            LamiStatusPanel(
+                status = lamiStatusState.value,
+                lamiState = lamiUiState.state,
+                spriteSize = 64.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, bottom = 24.dp)
+            )
         }
     }
 
