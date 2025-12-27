@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.viewmodels.LamiState
@@ -61,6 +62,8 @@ fun LamiHeaderStatus(
                 text = "Lami Chat",
                 style = MaterialTheme.typography.titleMedium
             )
+            val subtitleText = statusUi.subtitle.orEmpty()
+            val subtitleAlpha = if (statusUi.subtitle == null) 0f else 1f
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -82,16 +85,15 @@ fun LamiHeaderStatus(
                     )
                 }
             }
-            statusUi.subtitle?.let { subtitle ->
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitleText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alpha(subtitleAlpha)
+            )
         }
     }
 }
