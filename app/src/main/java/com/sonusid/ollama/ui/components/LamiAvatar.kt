@@ -147,9 +147,16 @@ fun LamiAvatar(
                 text = { Text("""接続先: ${baseUrl.ifBlank { "未設定" }}""") },
                 onClick = { }
             )
+            val canSelectModel = availableModels.size > 1
             DropdownMenuItem(
                 text = { Text("""モデル: ${selectedModel ?: "未選択"}""") },
-                onClick = { }
+                onClick = {
+                    if (canSelectModel) {
+                        showSheet = true
+                        showMenu = false
+                    }
+                },
+                enabled = canSelectModel
             )
             DropdownMenuItem(
                 text = { Text("""フォールバック: ${if (fallbackActive) "ON" else "OFF"}""") },
