@@ -124,6 +124,9 @@ fun LamiSprite(
     sizeDp: Dp,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(8.dp),
+    animationsEnabled: Boolean = true,
+    replacementEnabled: Boolean = true,
+    blinkEffectEnabled: Boolean = true,
 ) {
     val backgroundColor = when (state) {
         is LamiState.Thinking -> MaterialTheme.colorScheme.secondaryContainer
@@ -145,7 +148,10 @@ fun LamiSprite(
         LamiStatusSprite(
             status = spriteStatus,
             sizeDp = spriteSize,
-            modifier = Modifier.clip(shape)
+            modifier = Modifier.clip(shape),
+            animationsEnabled = animationsEnabled,
+            replacementEnabled = replacementEnabled,
+            blinkEffectEnabled = blinkEffectEnabled,
         )
     }
 }

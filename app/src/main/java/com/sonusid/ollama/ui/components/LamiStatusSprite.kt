@@ -73,15 +73,36 @@ fun LamiStatusSprite(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
     contentOffsetDp: Dp = 2.dp,
+    animationsEnabled: Boolean = true,
+    replacementEnabled: Boolean = true,
+    blinkEffectEnabled: Boolean = true,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
-    val animSpec = statusAnimationMap[status] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
+    val blinkDisabledAnimationMap = remember {
+        statusAnimationMap + (LamiSpriteStatus.ReadyBlink to statusAnimationMap.getValue(LamiSpriteStatus.Idle))
+    }
+    val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
+        when {
+            !replacementEnabled -> LamiSpriteStatus.Idle
+            !blinkEffectEnabled && status == LamiSpriteStatus.ReadyBlink -> LamiSpriteStatus.Idle
+            else -> status
+        }
+    }
 
-    var currentFrameIndex by remember(status) {
+    val animSpec = remember(resolvedStatus, blinkEffectEnabled) {
+        val map = if (blinkEffectEnabled) statusAnimationMap else blinkDisabledAnimationMap
+        map[resolvedStatus] ?: map.getValue(LamiSpriteStatus.Idle)
+    }
+
+    var currentFrameIndex by remember(resolvedStatus) {
         mutableStateOf(animSpec.frames.firstOrNull() ?: 0)
     }
 
-    LaunchedEffect(status) {
+    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
+        currentFrameIndex = animSpec.frames.firstOrNull() ?: 0
+        if (!animationsEnabled || animSpec.frames.isEmpty()) {
+            return@LaunchedEffect
+        }
         var index = 0
         while (true) {
             currentFrameIndex = animSpec.frames.getOrNull(index % animSpec.frames.size) ?: 0
@@ -104,6 +125,9 @@ fun LamiStatusSprite(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
     contentOffsetDp: Dp = 2.dp,
+    animationsEnabled: Boolean = true,
+    replacementEnabled: Boolean = true,
+    blinkEffectEnabled: Boolean = true,
 ) {
     val spriteStatus = remember(status.value) {
         mapToLamiSpriteStatus(lamiStatus = status.value)
@@ -113,6 +137,9 @@ fun LamiStatusSprite(
         modifier = modifier,
         sizeDp = sizeDp,
         contentOffsetDp = contentOffsetDp,
+        animationsEnabled = animationsEnabled,
+        replacementEnabled = replacementEnabled,
+        blinkEffectEnabled = blinkEffectEnabled,
     )
 }
 
