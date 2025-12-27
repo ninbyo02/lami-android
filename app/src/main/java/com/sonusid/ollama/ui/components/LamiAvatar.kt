@@ -60,6 +60,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
@@ -86,6 +87,9 @@ fun LamiAvatar(
     availableModels: List<ModelInfo> = emptyList(),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
+    initialAvatarSize: Dp = 36.dp,
+    minAvatarSize: Dp = 32.dp,
+    maxAvatarSize: Dp = 64.dp,
     onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
 ) {
@@ -96,7 +100,14 @@ fun LamiAvatar(
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
     var blinkEffectEnabled by rememberSaveable { mutableStateOf(false) }
     var showStatusDetails by rememberSaveable { mutableStateOf(true) }
-    var avatarSize by rememberSaveable { mutableStateOf(36) }
+    val clampedInitialSize = initialAvatarSize.value
+        .roundToInt()
+        .coerceIn(minAvatarSize.value.roundToInt(), maxAvatarSize.value.roundToInt())
+    var avatarSize by rememberSaveable(
+        inputs = arrayOf(minAvatarSize.value, maxAvatarSize.value, clampedInitialSize)
+    ) {
+        mutableStateOf(clampedInitialSize)
+    }
     var lastUpdated by rememberSaveable { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val formatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
@@ -387,10 +398,13 @@ fun LamiAvatar(
                                 value = avatarSize.toFloat(),
                                 onValueChange = { value ->
                                     val snapped = (value.roundToInt() / 2) * 2
-                                    avatarSize = snapped.coerceIn(32, 40)
+                                    avatarSize = snapped.coerceIn(
+                                        minAvatarSize.value.roundToInt(),
+                                        maxAvatarSize.value.roundToInt()
+                                    )
                                 },
-                                valueRange = 32f..40f,
-                                steps = 3
+                                valueRange = minAvatarSize.value..maxAvatarSize.value,
+                                steps = 0
                             )
                         }
                     }

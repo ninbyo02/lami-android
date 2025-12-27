@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -52,8 +51,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
-import com.sonusid.ollama.ui.components.LamiAvatar
-import com.sonusid.ollama.ui.components.LamiStatusPanel
+import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -168,27 +166,19 @@ fun Home(
     Scaffold(topBar = {
         TopAppBar(
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    LamiAvatar(
-                        baseUrl = baseUrl,
-                        selectedModel = selectedModel,
-                        lastError = errorMessage,
-                        lamiStatus = lamiAnimationStatus,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
-                        },
-                        onNavigateSettings = { navHostController.navigate("setting") }
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("Lami Chat", fontSize = 20.sp)
-                        if (!selectedModel.isNullOrBlank()) {
-                            Text("モデル: $selectedModel", fontSize = 12.sp)
-                        }
-                    }
-                }
+                LamiHeaderStatus(
+                    baseUrl = baseUrl,
+                    selectedModel = selectedModel,
+                    lastError = errorMessage,
+                    lamiStatus = lamiAnimationStatus,
+                    lamiState = lamiUiState.state,
+                    availableModels = availableModels,
+                    onSelectModel = { modelName ->
+                        viewModel.onUserInteraction()
+                        viewModel.updateSelectedModel(modelName)
+                    },
+                    onNavigateSettings = { navHostController.navigate("setting") }
+                )
             },
             actions = {
                 IconButton(onClick = {
@@ -295,7 +285,7 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
-                .padding(top = LamiStatusPanelContentTopPadding)
+                .padding(top = TopAppBarHeight)
 
             if (effectiveChatId == null) {
                 Column(
@@ -355,18 +345,8 @@ fun Home(
                 }
             }
 
-            LamiStatusPanel(
-                status = lamiAnimationStatus,
-                lamiState = lamiUiState.state,
-                spriteSize = 64.dp,
-                selectedModel = selectedModel,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = TopAppBarHeight)
-            )
         }
     }
 }
 
 private val TopAppBarHeight = 64.dp
-private val LamiStatusPanelContentTopPadding = 112.dp
