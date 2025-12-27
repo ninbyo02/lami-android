@@ -3,8 +3,6 @@ package com.sonusid.ollama.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,7 +55,7 @@ fun LamiHeaderStatus(
             onSelectModel = onSelectModel,
             onNavigateSettings = onNavigateSettings
         )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = modelLabel ?: "Model",
                 style = MaterialTheme.typography.titleMedium,
@@ -78,10 +76,11 @@ fun LamiHeaderStatus(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitleText,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 0.95f
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
