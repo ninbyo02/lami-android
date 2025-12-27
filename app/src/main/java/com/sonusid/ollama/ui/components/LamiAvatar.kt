@@ -163,7 +163,10 @@ fun LamiAvatar(
             sizeDp = avatarSize.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .drawWithContent { drawContent() }
+                .drawWithContent { drawContent() },
+            animationsEnabled = animationsEnabled,
+            replacementEnabled = replacementEnabled,
+            blinkEffectEnabled = blinkEffectEnabled
         )
 
         DropdownMenu(
@@ -250,21 +253,26 @@ fun LamiAvatar(
                             ) {
                                 LamiSprite(
                                     state = currentState,
-                                    sizeDp = 64.dp
+                                    sizeDp = 64.dp,
+                                    animationsEnabled = animationsEnabled,
+                                    replacementEnabled = replacementEnabled,
+                                    blinkEffectEnabled = blinkEffectEnabled
                                 )
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            text = statusLabel,
-                                            fontSize = 14.sp
-                                        )
-                                        Text(
-                                            text = "最終更新: $lastUpdated",
-                                            fontSize = 12.sp
-                                        )
+                                    if (showStatusDetails) {
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = statusLabel,
+                                                fontSize = 14.sp
+                                            )
+                                            Text(
+                                                text = "最終更新: $lastUpdated",
+                                                fontSize = 12.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -285,7 +293,9 @@ fun LamiAvatar(
                     if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
                         item { StatusInfoItem(label = "フォールバック理由", value = fallbackMessage) }
                     }
-                    item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
+                    if (showStatusDetails) {
+                        item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
+                    }
                     item { Divider() }
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
