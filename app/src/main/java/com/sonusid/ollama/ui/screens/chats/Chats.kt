@@ -114,11 +114,10 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             LamiStatusPanel(
                 status = lamiStatusState.value,
                 lamiState = lamiUiState.state,
-                spriteSize = 64.dp,
-                selectedModel = selectedModel,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = TopAppBarHeight)
+                    .padding(start = 16.dp, top = TopAppBarHeight),
+                spriteSize = 64.dp
             )
         }
     }
