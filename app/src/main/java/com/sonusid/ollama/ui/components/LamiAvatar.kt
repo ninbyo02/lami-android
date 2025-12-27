@@ -9,9 +9,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
@@ -20,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -28,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,9 +52,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
@@ -182,137 +200,204 @@ fun LamiAvatar(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
+                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.7f
+                val listState: LazyListState = rememberLazyListState()
+                var searchQuery by rememberSaveable { mutableStateOf("") }
+                val filteredModels by remember(availableModels, searchQuery) {
+                    derivedStateOf {
+                        availableModels.filter { model ->
+                            searchQuery.isBlank() || model.name.contains(searchQuery, ignoreCase = true)
+                        }
+                    }
+                }
 
                 val currentState = mapToLamiState(
                     lamiStatus = lamiStatus,
                     selectedModel = selectedModel,
                     lastError = lastError
                 )
-                Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = sheetMaxHeight),
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                    item {
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            LamiSprite(
-                                state = currentState,
-                                sizeDp = 64.dp
-                            )
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text(
-                                        text = statusLabel,
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "最終更新: $lastUpdated",
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
-                        IconButton(onClick = {
-                            onNavigateSettings?.invoke()
-                            showSheet = false
-                        }) {
-                            Icon(
-                                painter = painterResource(R.drawable.settings),
-                                contentDescription = "設定を開く"
-                            )
-                        }
-                    }
-                    StatusInfoItem(label = "接続先", value = baseUrl.ifBlank { "未設定" })
-                    StatusInfoItem(label = "選択モデル", value = selectedModel ?: "未選択")
-                    StatusInfoItem(label = "フォールバック", value = if (fallbackActive) "ON" else "OFF")
-                    if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                        StatusInfoItem(label = "フォールバック理由", value = fallbackMessage)
-                    }
-                    StatusInfoItem(label = "エラー概要", value = lastError ?: "なし")
-                    Divider()
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
-                        if (availableModels.isEmpty()) {
-                            Text("モデルを取得できませんでした")
-                        } else {
-                            availableModels.forEach { model ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                LamiSprite(
+                                    state = currentState,
+                                    sizeDp = 64.dp
+                                )
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(
-                                            selected = selectedModel == model.name,
-                                            onClick = {
-                                                onSelectModel(model.name)
-                                                showSheet = false
-                                            }
+                                    Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            text = statusLabel,
+                                            fontSize = 14.sp
                                         )
                                         Text(
-                                            text = model.name,
-                                            modifier = Modifier.padding(start = 8.dp)
+                                            text = "最終更新: $lastUpdated",
+                                            fontSize = 12.sp
                                         )
                                     }
-                                    if (selectedModel == model.name) {
-                                        Text("選択中", fontSize = 12.sp)
+                                }
+                            }
+                            IconButton(onClick = {
+                                onNavigateSettings?.invoke()
+                                showSheet = false
+                            }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.settings),
+                                    contentDescription = "設定を開く"
+                                )
+                            }
+                        }
+                    }
+                    item { StatusInfoItem(label = "接続先", value = baseUrl.ifBlank { "未設定" }) }
+                    item { StatusInfoItem(label = "選択モデル", value = selectedModel ?: "未選択") }
+                    item { StatusInfoItem(label = "フォールバック", value = if (fallbackActive) "ON" else "OFF") }
+                    if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
+                        item { StatusInfoItem(label = "フォールバック理由", value = fallbackMessage) }
+                    }
+                    item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
+                    item { Divider() }
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
+                            OutlinedTextField(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = searchQuery,
+                                onValueChange = { query -> searchQuery = query },
+                                placeholder = { Text("モデルを検索") },
+                                singleLine = true,
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "モデル検索"
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (searchQuery.isNotBlank()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "検索文字列をクリア"
+                                            )
+                                        }
                                     }
+                                },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { listState.animateScrollToItem(0) })
+                            )
+                        }
+                    }
+                    if (filteredModels.isEmpty()) {
+                        item { Text("モデルを取得できませんでした") }
+                    } else {
+                        items(filteredModels, key = { model -> model.name }) { model ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .selectable(
+                                        selected = selectedModel == model.name,
+                                        onClick = {
+                                            onSelectModel(model.name)
+                                            showSheet = false
+                                        },
+                                        role = Role.RadioButton
+                                    )
+                                    .semantics {
+                                        contentDescription = "モデル ${model.name} を選択"
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(
+                                        selected = selectedModel == model.name,
+                                        onClick = {
+                                            onSelectModel(model.name)
+                                            showSheet = false
+                                        },
+                                        modifier = Modifier.semantics { contentDescription = "モデル ${model.name}" }
+                                    )
+                                    Text(
+                                        text = model.name,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                }
+                                if (selectedModel == model.name) {
+                                    Text("選択中", fontSize = 12.sp)
                                 }
                             }
                         }
                     }
-                    ToggleRow(
-                        label = "アニメーション",
-                        checked = animationsEnabled,
-                        onCheckedChange = { animationsEnabled = it }
-                    )
-                    ToggleRow(
-                        label = "置換",
-                        checked = replacementEnabled,
-                        onCheckedChange = { replacementEnabled = it }
-                    )
-                    ToggleRow(
-                        label = "点滅エフェクト",
-                        checked = blinkEffectEnabled,
-                        onCheckedChange = { blinkEffectEnabled = it }
-                    )
-                    ToggleRow(
-                        label = "ステータス詳細表示",
-                        checked = showStatusDetails,
-                        onCheckedChange = { showStatusDetails = it }
-                    )
-                    Column {
-                        Text("表示サイズ (${avatarSize}dp)", fontWeight = FontWeight.SemiBold)
-                        Slider(
-                            value = avatarSize.toFloat(),
-                            onValueChange = { value ->
-                                val snapped = (value.roundToInt() / 2) * 2
-                                avatarSize = snapped.coerceIn(32, 40)
-                            },
-                            valueRange = 32f..40f,
-                            steps = 3
+                    item {
+                        ToggleRow(
+                            label = "アニメーション",
+                            checked = animationsEnabled,
+                            onCheckedChange = { animationsEnabled = it }
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            onNavigateSettings?.invoke()
-                            showSheet = false
+                    item {
+                        ToggleRow(
+                            label = "置換",
+                            checked = replacementEnabled,
+                            onCheckedChange = { replacementEnabled = it }
+                        )
+                    }
+                    item {
+                        ToggleRow(
+                            label = "点滅エフェクト",
+                            checked = blinkEffectEnabled,
+                            onCheckedChange = { blinkEffectEnabled = it }
+                        )
+                    }
+                    item {
+                        ToggleRow(
+                            label = "ステータス詳細表示",
+                            checked = showStatusDetails,
+                            onCheckedChange = { showStatusDetails = it }
+                        )
+                    }
+                    item {
+                        Column {
+                            Text("表示サイズ (${avatarSize}dp)", fontWeight = FontWeight.SemiBold)
+                            Slider(
+                                value = avatarSize.toFloat(),
+                                onValueChange = { value ->
+                                    val snapped = (value.roundToInt() / 2) * 2
+                                    avatarSize = snapped.coerceIn(32, 40)
+                                },
+                                valueRange = 32f..40f,
+                                steps = 3
+                            )
                         }
-                    ) {
-                        Text("設定画面へ移動")
+                    }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                    item {
+                        TextButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                onNavigateSettings?.invoke()
+                                showSheet = false
+                            }
+                        ) {
+                            Text("設定画面へ移動")
+                        }
                     }
                 }
             }
