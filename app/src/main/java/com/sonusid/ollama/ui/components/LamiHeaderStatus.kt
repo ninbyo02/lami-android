@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
@@ -30,11 +31,12 @@ fun LamiHeaderStatus(
 ) {
     val statusUi = rememberLamiStatusUi(
         status = lamiStatus,
-        lamiState = lamiState,
-        selectedModel = selectedModel
+        lamiState = lamiState
     )
     val modelLabel = remember(selectedModel) {
-        selectedModel?.takeIf { it.isNotBlank() }?.let { "Model: $it" }
+        selectedModel
+            ?.takeIf { it.isNotBlank() }
+            ?.let { modelName -> "Model: $modelName" }
     }
 
     Row(
@@ -66,13 +68,17 @@ fun LamiHeaderStatus(
                 Text(
                     text = statusUi.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = statusUi.titleColor
+                    color = statusUi.titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 modelLabel?.let { label ->
                     Text(
                         text = label,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -81,7 +87,9 @@ fun LamiHeaderStatus(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
