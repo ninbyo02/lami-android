@@ -38,9 +38,9 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Ollama", fontSize = 20.sp) },
-                actions = {
+        TopAppBar(
+            title = {},
+            actions = {
                     IconButton(onClick = { navController.navigate("setting") }) {
                         Icon(
                             painter = painterResource(R.drawable.settings),
