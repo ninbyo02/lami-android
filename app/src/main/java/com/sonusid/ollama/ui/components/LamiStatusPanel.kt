@@ -33,10 +33,9 @@ fun LamiStatusPanel(
     lamiState: LamiState,
     modifier: Modifier = Modifier,
     spriteSize: Dp = 56.dp,
-    selectedModel: String? = null,
 ) {
     val statusState = rememberUpdatedState(status)
-    val statusUi = rememberLamiStatusUi(status, lamiState, selectedModel)
+    val statusUi = rememberLamiStatusUi(status, lamiState)
 
     Surface(
         modifier = modifier,
@@ -77,7 +76,6 @@ fun LamiStatusPanel(
 fun rememberLamiStatusUi(
     status: LamiStatus,
     lamiState: LamiState,
-    selectedModel: String? = null,
 ): LamiStatusUi {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -112,14 +110,7 @@ fun rememberLamiStatusUi(
         else -> colorScheme.onSurface
     }
 
-    val modelLabel = selectedModel?.takeIf { it.isNotBlank() }
-    val subtitleParts = mutableListOf(stateLabel?.let { statusLabel } ?: statusLabel)
-    modelLabel?.let { modelName ->
-        subtitleParts.add("Model: $modelName")
-    }
-    val subtitle = subtitleParts
-        .joinToString(" • ")
-        .takeIf { it != title }
+    val subtitle = statusLabel.takeIf { it != title }
 
     return LamiStatusUi(
         title = title,
