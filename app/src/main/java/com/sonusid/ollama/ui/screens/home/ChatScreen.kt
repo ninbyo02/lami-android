@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.screens.home
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,17 +26,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,6 +52,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiStatusPanel
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -81,12 +77,10 @@ fun Home(
     val allChats = allChatsState?.value.orEmpty()
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showSheet by rememberSaveable { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
-    val isLoadingModels by viewModel.isLoadingModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
+    val baseUrl by viewModel.baseUrl.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -120,7 +114,6 @@ fun Home(
             if (selectedModel != singleModelName) {
                 viewModel.updateSelectedModel(singleModelName)
             }
-            showSheet = false
         }
     }
 
@@ -175,30 +168,24 @@ fun Home(
     Scaffold(topBar = {
         TopAppBar(
             title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    TextButton(onClick = {
-                        viewModel.onUserInteraction()
-                        showSheet = true
-                    }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                if (selectedModel.isNullOrEmpty()) {
-                                    "Select model"
-                                } else {
-                                    selectedModel.toString()
-                                },
-                                fontSize = 20.sp
-                            )
-                            if (isLoadingModels) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LamiAvatar(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = errorMessage,
+                        lamiStatus = lamiAnimationStatus,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navHostController.navigate("setting") }
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Lami Chat", fontSize = 20.sp)
+                        if (!selectedModel.isNullOrBlank()) {
+                            Text("モデル: $selectedModel", fontSize = 12.sp)
                         }
                     }
                 }
@@ -260,7 +247,6 @@ fun Home(
                     onClick = {
                         viewModel.onUserInteraction()
                         if (selectedModel.isNullOrBlank()) {
-                            showSheet = true
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar("モデルを選択してください")
                             }
@@ -296,48 +282,9 @@ fun Home(
             )
         )
     }) { paddingValues ->
-
-        LaunchedEffect(showSheet) {
-            if (showSheet) {
-                sheetState.show()
-            } else {
-                sheetState.hide()
-                showSheet = false
-            }
-        }
-
         LaunchedEffect(errorMessage) {
             if (errorMessage != null) {
                 snackbarHostState.showSnackbar(errorMessage)
-            }
-        }
-
-        if (showSheet) {
-            ModalBottomSheet(sheetState = sheetState, onDismissRequest = { showSheet = false }) {
-                LazyColumn {
-                    items(availableModels) { model ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.onUserInteraction()
-                                    viewModel.updateSelectedModel(model.name)
-                                    showSheet = false
-                                },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedModel == model.name,
-                                onClick = {
-                                    viewModel.onUserInteraction()
-                                    viewModel.updateSelectedModel(model.name)
-                                    showSheet = false
-                                }
-                            )
-                            Text(model.name, Modifier.padding(start = 8.dp))
-                        }
-                    }
-                }
             }
         }
 
@@ -412,6 +359,7 @@ fun Home(
                 status = lamiAnimationStatus,
                 lamiState = lamiUiState.state,
                 spriteSize = 64.dp,
+                selectedModel = selectedModel,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(start = 16.dp, top = TopAppBarHeight)

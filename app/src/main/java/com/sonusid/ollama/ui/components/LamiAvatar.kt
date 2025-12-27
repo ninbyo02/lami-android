@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,10 +45,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.viewmodels.LamiStatus
+import com.sonusid.ollama.viewmodels.ModelInfo
+import com.sonusid.ollama.viewmodels.mapToLamiState
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
-import com.sonusid.ollama.viewmodels.LamiStatus
-import com.sonusid.ollama.viewmodels.mapToLamiState
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,8 +63,10 @@ fun LamiAvatar(
     selectedModel: String?,
     lastError: String?,
     lamiStatus: LamiStatus = LamiStatus.CONNECTING,
+    availableModels: List<ModelInfo> = emptyList(),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
+    onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -197,10 +202,16 @@ fun LamiAvatar(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                Text(
-                                    text = statusLabel,
-                                    fontSize = 14.sp
-                                )
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = statusLabel,
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = "最終更新: $lastUpdated",
+                                        fontSize = 12.sp
+                                    )
+                                }
                             }
                         }
                         IconButton(onClick = {
@@ -211,6 +222,47 @@ fun LamiAvatar(
                                 painter = painterResource(R.drawable.settings),
                                 contentDescription = "設定を開く"
                             )
+                        }
+                    }
+                    StatusInfoItem(label = "接続先", value = baseUrl.ifBlank { "未設定" })
+                    StatusInfoItem(label = "選択モデル", value = selectedModel ?: "未選択")
+                    StatusInfoItem(label = "フォールバック", value = if (fallbackActive) "ON" else "OFF")
+                    if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
+                        StatusInfoItem(label = "フォールバック理由", value = fallbackMessage)
+                    }
+                    StatusInfoItem(label = "エラー概要", value = lastError ?: "なし")
+                    Divider()
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
+                        if (availableModels.isEmpty()) {
+                            Text("モデルを取得できませんでした")
+                        } else {
+                            availableModels.forEach { model ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(
+                                            selected = selectedModel == model.name,
+                                            onClick = {
+                                                onSelectModel(model.name)
+                                                showSheet = false
+                                            }
+                                        )
+                                        Text(
+                                            text = model.name,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        )
+                                    }
+                                    if (selectedModel == model.name) {
+                                        Text("選択中", fontSize = 12.sp)
+                                    }
+                                }
+                            }
                         }
                     }
                     ToggleRow(
@@ -277,5 +329,16 @@ private fun ToggleRow(
             checked = checked,
             onCheckedChange = onCheckedChange
         )
+    }
+}
+
+@Composable
+private fun StatusInfoItem(
+    label: String,
+    value: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, fontWeight = FontWeight.SemiBold)
+        Text(value, fontSize = 13.sp)
     }
 }
