@@ -64,7 +64,6 @@ import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
-import com.sonusid.ollama.ui.components.LamiAvatar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -112,9 +111,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
-    val activeBaseUrl by baseUrlRepository.activeBaseUrl.collectAsState()
-    var selectedModelName by remember { mutableStateOf<String?>(null) }
-    val lastErrorSummary = connectionStatuses.values.firstOrNull { !it.isReachable }?.errorMessage
 
     fun getNormalizedInputs(): List<ServerInput> {
         return serverInputs.map { input ->
@@ -163,30 +159,15 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         duplicateUrls = detectDuplicateUrls(normalizedInputs)
     }
 
-    LaunchedEffect(activeBaseUrl) {
-        selectedModelName = withContext(Dispatchers.IO) {
-            modelPreferenceRepository.getSelectedModel(activeBaseUrl.trimEnd('/'))
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        LamiAvatar(
-                            baseUrl = activeBaseUrl,
-                            selectedModel = selectedModelName,
-                            lastError = lastErrorSummary,
-                            onNavigateSettings = { navgationController.navigate("setting") }
+                    IconButton(onClick = { navgationController.popBackStack() }) {
+                        Icon(
+                            painterResource(R.drawable.back),
+                            "exit"
                         )
-                        IconButton(onClick = { navgationController.popBackStack() }) {
-                            Icon(
-                                painterResource(R.drawable.back),
-                                "exit"
-                            )
-                        }
                     }
                 },
                 title = { Text("Settings") }
