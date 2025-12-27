@@ -24,6 +24,7 @@ enum class LamiSpriteStatus {
     TalkCalm,
     Error,
     Offline,
+    ReadyBlink,
 }
 
 data class AnimSpec(
@@ -37,20 +38,20 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimSpec> = mapOf(
         frameMs = 240L
     ),
     LamiSpriteStatus.Thinking to AnimSpec(
-        frames = listOf(3, 4, 5, 4, 3),
-        frameMs = 180L
+        frames = listOf(4, 2, 4, 1, 4),
+        frameMs = 170L
     ),
     LamiSpriteStatus.TalkShort to AnimSpec(
-        frames = listOf(6, 7, 6),
+        frames = listOf(6, 1, 6, 2),
         frameMs = 120L
     ),
     LamiSpriteStatus.TalkLong to AnimSpec(
-        frames = listOf(6, 7, 8, 7, 6, 7, 8, 7),
-        frameMs = 150L
+        frames = listOf(6, 1, 4, 3, 6, 1, 4, 3),
+        frameMs = 140L
     ),
     LamiSpriteStatus.TalkCalm to AnimSpec(
-        frames = listOf(6, 7, 8, 7, 8),
-        frameMs = 220L
+        frames = listOf(6, 7, 8, 7, 6),
+        frameMs = 200L
     ),
     LamiSpriteStatus.Error to AnimSpec(
         frames = listOf(5, 4, 5, 4),
@@ -59,6 +60,10 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimSpec> = mapOf(
     LamiSpriteStatus.Offline to AnimSpec(
         frames = listOf(2, 5, 8, 5),
         frameMs = 280L
+    ),
+    LamiSpriteStatus.ReadyBlink to AnimSpec(
+        frames = listOf(0, 7, 8, 7, 0),
+        frameMs = 160L
     ),
 )
 
@@ -169,7 +174,8 @@ fun mapToLamiSpriteStatus(
                 else -> LamiSpriteStatus.TalkLong
             }
         LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
-        LamiStatus.READY, LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
+        LamiStatus.READY -> LamiSpriteStatus.ReadyBlink
+        LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
         LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.Error
         LamiStatus.OFFLINE -> if (lastError.isNullOrBlank()) {
             LamiSpriteStatus.Offline
