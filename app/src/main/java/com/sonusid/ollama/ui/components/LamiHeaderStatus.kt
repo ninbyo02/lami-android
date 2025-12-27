@@ -59,8 +59,10 @@ fun LamiHeaderStatus(
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "Lami Chat",
-                style = MaterialTheme.typography.titleMedium
+                text = modelLabel ?: "Model",
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             val subtitleText = statusUi.subtitle.orEmpty()
             val subtitleAlpha = if (statusUi.subtitle == null) 0f else 1f
@@ -75,15 +77,6 @@ fun LamiHeaderStatus(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                modelLabel?.let { label ->
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
