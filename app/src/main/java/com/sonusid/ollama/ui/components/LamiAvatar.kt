@@ -45,6 +45,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +69,7 @@ import com.sonusid.ollama.viewmodels.ModelInfo
 import com.sonusid.ollama.viewmodels.mapToLamiState
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import kotlinx.coroutines.launch
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -202,6 +204,7 @@ fun LamiAvatar(
             ) {
                 val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.7f
                 val listState: LazyListState = rememberLazyListState()
+                val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
                 val filteredModels by remember(availableModels, searchQuery) {
                     derivedStateOf {
@@ -299,7 +302,11 @@ fun LamiAvatar(
                                     }
                                 },
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(onSearch = { listState.animateScrollToItem(0) })
+                                keyboardActions = KeyboardActions(
+                                    onSearch = {
+                                        scope.launch { listState.animateScrollToItem(0) }
+                                    }
+                                )
                             )
                         }
                     }
