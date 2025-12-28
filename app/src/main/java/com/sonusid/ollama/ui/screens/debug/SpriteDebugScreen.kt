@@ -1,11 +1,12 @@
 package com.sonusid.ollama.ui.screens.debug
+import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.os.Parcelable
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -185,13 +186,14 @@ class SpriteDebugViewModel(
         recomputeMatches()
     }
 
-    fun setSpriteSheet(bitmap: Bitmap) {
+    fun setSpriteSheet(bitmap: Bitmap?) {
         spriteSheetBitmap = bitmap
-        _sheetBitmap.value = bitmap.asImageBitmap()
+        _sheetBitmap.value = bitmap?.asImageBitmap()
         val current = _uiState.value
+        val targetBitmap = bitmap ?: return
         if (current.boxes.isEmpty() || current.boxes.all { it.width == 0f }) {
             _uiState.update {
-                it.copy(boxes = SpriteDebugState.defaultBoxes(IntSize(bitmap.width, bitmap.height))).withMatches()
+                it.copy(boxes = SpriteDebugState.defaultBoxes(IntSize(targetBitmap.width, targetBitmap.height))).withMatches()
             }
         } else {
             recomputeMatches()
@@ -405,15 +407,29 @@ class SpriteDebugViewModel(
     }
 }
 
+private fun createPlaceholderBitmap(): Bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+
+private fun loadSpriteBitmap(context: Context): Bitmap? {
+    val drawable = AppCompatResources.getDrawable(context, R.drawable.logo) ?: return createPlaceholderBitmap()
+    val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: return createPlaceholderBitmap()
+    val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: return createPlaceholderBitmap()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(bitmap)
+    drawable.setBounds(0, 0, width, height)
+    drawable.draw(canvas)
+    return bitmap
+}
+
 @Composable
 fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
     val context = LocalContext.current
-    val spriteBitmap = remember {
-        BitmapFactory.decodeResource(context.resources, R.drawable.logo).copy(Bitmap.Config.ARGB_8888, true)
+    val spriteBitmap = remember { loadSpriteBitmap(context) }
+    LaunchedEffect(spriteBitmap) {
+        val bitmap = spriteBitmap ?: return@LaunchedEffect
+        viewModel.setSpriteSheet(bitmap)
     }
-    LaunchedEffect(spriteBitmap) { viewModel.setSpriteSheet(spriteBitmap) }
 
     var rememberedState by rememberSaveable { mutableStateOf(uiState) }
 
@@ -433,7 +449,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
     ) {
         SpriteSheetCanvas(
             uiState = uiState,
-            spriteBitmap = sheetBitmap ?: spriteBitmap.asImageBitmap(),
+            spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: createPlaceholderBitmap().asImageBitmap(),
             onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
             onStroke = { offset -> viewModel.applyStroke(offset) },
         )
