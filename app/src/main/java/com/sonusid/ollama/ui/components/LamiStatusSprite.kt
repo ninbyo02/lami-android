@@ -163,15 +163,9 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         ),
     ),
     LamiSpriteStatus.ErrorLight to AnimationSpec(
-        frames = listOf(5, 4, 5, 4, 5),
-        frameDuration = FrameDurationSpec(minMs = 150L, maxMs = 220L, jitterFraction = 0.1f),
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(5, 7, 5),
-                frequency = InsertionFrequency.ByTime(3_000L..6_000L),
-                exclusive = true,
-            ),
-        ),
+        frames = listOf(5, 7, 5),
+        frameDuration = FrameDurationSpec(minMs = 360L, maxMs = 420L, jitterFraction = 0f),
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorHeavy to AnimationSpec(
         frames = listOf(5, 4, 5, 4, 5),
