@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.chats
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val baseUrl by viewModel.baseUrl.collectAsState()
     val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
     val lamiUiState by viewModel.lamiUiState.collectAsState()
+    val context = LocalContext.current
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
@@ -52,7 +55,14 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
                     onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                    onOpenSpriteDebug = { navController.navigate(Routes.SPRITE_DEBUG_TOOLS) }
+                    onOpenSpriteDebug = {
+                        val targetRoute = Routes.SPRITE_DEBUG_ENTRY
+                        if (navController.graph.findNode(targetRoute) != null) {
+                            navController.navigate(targetRoute)
+                        } else {
+                            Toast.makeText(context, "Sprite Debug 画面が未登録です", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
             },
             actions = {

@@ -8,10 +8,30 @@ object Routes {
     const val CHAT_WITH_ID = "$CHAT/{$CHAT_ID_ARG}"
     const val SETTINGS = "setting"
     const val ABOUT = "about"
-    const val SPRITE_DEBUG = "sprite_debug"
+    const val SPRITE_DEBUG_ENTRY = "spriteDebug"
     const val SPRITE_DEBUG_CANVAS = "sprite_debug_canvas"
     const val SPRITE_DEBUG_SETTINGS = "sprite_debug_settings"
     const val SPRITE_DEBUG_TOOLS = "sprite_debug_tools"
 
     fun chat(chatId: Int): String = "$CHAT/$chatId"
+}
+
+sealed interface SpriteDebugRoute {
+    val route: String
+
+    data object Entry : SpriteDebugRoute {
+        override val route: String = Routes.SPRITE_DEBUG_ENTRY
+    }
+
+    data object Canvas : SpriteDebugRoute {
+        override val route: String = Routes.SPRITE_DEBUG_CANVAS
+    }
+
+    data object Settings : SpriteDebugRoute {
+        override val route: String = Routes.SPRITE_DEBUG_SETTINGS
+    }
+
+    data object Tools : SpriteDebugRoute {
+        override val route: String = Routes.SPRITE_DEBUG_TOOLS
+    }
 }

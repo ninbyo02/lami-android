@@ -302,7 +302,16 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { navgationController.navigate(Routes.SPRITE_DEBUG_TOOLS) }
+                                .clickable {
+                                    val targetRoute = Routes.SPRITE_DEBUG_ENTRY
+                                    if (navgationController.graph.findNode(targetRoute) != null) {
+                                        navgationController.navigate(targetRoute)
+                                    } else {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Sprite Debug 画面が未登録です")
+                                        }
+                                    }
+                                }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
