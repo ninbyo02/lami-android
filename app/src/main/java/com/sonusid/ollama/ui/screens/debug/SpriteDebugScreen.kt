@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -957,72 +958,81 @@ private fun AdjustTabContent(
         LoadingCanvasPlaceholder(modifier = Modifier.fillMaxSize())
         return
     }
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SpriteSheetCanvas(
-            uiState = uiState,
-            spriteBitmap = spriteBitmap,
-            onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
-            onStroke = { offset -> viewModel.applyStroke(offset) },
-            onBoxSelected = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        SheetPreview(
-            uiState = uiState,
-            spriteBitmap = spriteBitmap,
-            onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
-        )
-        ControlPanel(
-            uiState = uiState,
-            onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
-            onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
-            onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
-            onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
-            onStepChange = { step -> onRememberedStateChange(rememberedState.copy(step = step)) },
-            onSnapToggle = { viewModel.toggleSnap() },
-            onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
-            onThresholdChange = { viewModel.updateThreshold(it) },
-            onAutoSearchOne = { viewModel.autoSearchSingle() },
-            onAutoSearchAll = { viewModel.autoSearchAll() },
-            onReset = { viewModel.resetBoxes() },
-            onEditingModeChange = { viewModel.setEditingMode(it) },
-            onBrushSizeChange = { viewModel.setBrushSize(it) },
-            onUndo = { viewModel.undo() },
-            onRedo = { viewModel.redo() },
-            isAnalyzing = isAnalyzing,
-            onCancelAnalysis = { viewModel.cancelAnalysis() },
-        )
-        MatchList(uiState = uiState)
-        DebugPersistencePanel(
-            stateJson = stateJson,
-            onStateJsonChange = onStateJsonChange,
-            analysisJson = analysisJson,
-            onAnalysisJsonChange = onAnalysisJsonChange,
-            onApplyState = { json ->
-                if (viewModel.importStateFromJson(json)) {
-                    scope.launch { snackbarHostState.showSnackbar("SpriteDebugState を復元しました") }
-                } else {
-                    onError("State JSON の解析に失敗しました")
-                }
-            },
-            onApplyAnalysis = { json ->
-                if (json.isBlank()) {
-                    onError("計算結果 JSON が空です")
-                } else if (viewModel.importAnalysisResultFromJson(json)) {
-                    scope.launch { snackbarHostState.showSnackbar("解析結果を適用しました") }
-                } else {
-                    onError("解析結果 JSON の解析に失敗しました")
-                }
-            },
-            clipboardManager = clipboardManager,
-            snackbarHostState = snackbarHostState,
-            scope = scope,
-        )
+        item {
+            SpriteSheetCanvas(
+                uiState = uiState,
+                spriteBitmap = spriteBitmap,
+                onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
+                onStroke = { offset -> viewModel.applyStroke(offset) },
+                onBoxSelected = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(280.dp),
+            )
+        }
+        item {
+            SheetPreview(
+                uiState = uiState,
+                spriteBitmap = spriteBitmap,
+                onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+            )
+        }
+        item {
+            ControlPanel(
+                uiState = uiState,
+                onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+                onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
+                onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
+                onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+                onStepChange = { step -> onRememberedStateChange(rememberedState.copy(step = step)) },
+                onSnapToggle = { viewModel.toggleSnap() },
+                onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
+                onThresholdChange = { viewModel.updateThreshold(it) },
+                onAutoSearchOne = { viewModel.autoSearchSingle() },
+                onAutoSearchAll = { viewModel.autoSearchAll() },
+                onReset = { viewModel.resetBoxes() },
+                onEditingModeChange = { viewModel.setEditingMode(it) },
+                onBrushSizeChange = { viewModel.setBrushSize(it) },
+                onUndo = { viewModel.undo() },
+                onRedo = { viewModel.redo() },
+                isAnalyzing = isAnalyzing,
+                onCancelAnalysis = { viewModel.cancelAnalysis() },
+            )
+        }
+        item { MatchList(uiState = uiState) }
+        item {
+            DebugPersistencePanel(
+                stateJson = stateJson,
+                onStateJsonChange = onStateJsonChange,
+                analysisJson = analysisJson,
+                onAnalysisJsonChange = onAnalysisJsonChange,
+                onApplyState = { json ->
+                    if (viewModel.importStateFromJson(json)) {
+                        scope.launch { snackbarHostState.showSnackbar("SpriteDebugState を復元しました") }
+                    } else {
+                        onError("State JSON の解析に失敗しました")
+                    }
+                },
+                onApplyAnalysis = { json ->
+                    if (json.isBlank()) {
+                        onError("計算結果 JSON が空です")
+                    } else if (viewModel.importAnalysisResultFromJson(json)) {
+                        scope.launch { snackbarHostState.showSnackbar("解析結果を適用しました") }
+                    } else {
+                        onError("解析結果 JSON の解析に失敗しました")
+                    }
+                },
+                clipboardManager = clipboardManager,
+                snackbarHostState = snackbarHostState,
+                scope = scope,
+            )
+        }
     }
 }
 
@@ -1317,7 +1327,7 @@ private fun SpriteSheetCanvas(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(1.6f)
+            .aspectRatio(1.6f, matchHeightConstraintsFirst = true)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) {
@@ -1612,9 +1622,7 @@ private fun ControlPanel(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(
-            modifier = Modifier
-                .padding(12.dp)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             LazyRow(
