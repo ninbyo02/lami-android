@@ -130,18 +130,18 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         ),
     ),
     LamiSpriteStatus.TalkLong to AnimationSpec(
-        frames = listOf(0, 1, 2, 1, 0, 2, 1, 0),
-        frameDuration = FrameDurationSpec(minMs = 130L, maxMs = 180L, jitterFraction = 0.1f),
+        frames = listOf(0, 4, 6, 4, 4, 6, 4, 0),
+        frameDuration = FrameDurationSpec(minMs = 170L, maxMs = 210L, jitterFraction = 0.1f),
         loop = true,
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(0, 1, 0),
-                frequency = InsertionFrequency.ByLoops(1..2),
+                frames = listOf(1),
+                frequency = InsertionFrequency.ByLoops(2..4),
                 exclusive = true,
             ),
             InsertionSpec(
-                frames = listOf(0, 2, 0),
-                frequency = InsertionFrequency.ByLoops(2..4),
+                frames = listOf(8),
+                frequency = InsertionFrequency.ByLoops(3..6),
                 exclusive = true,
             ),
         ),
