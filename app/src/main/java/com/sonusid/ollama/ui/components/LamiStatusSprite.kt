@@ -95,12 +95,12 @@ data class AnimationSpec(
 
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimationSpec(
-        frames = listOf(4, 3, 4, 5, 4),
+        frames = listOf(0, 8, 0, 5, 0),
         frameDuration = FrameDurationSpec(minMs = 420L, maxMs = 560L, jitterFraction = 0.2f),
         loop = true,
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(4, 7, 8, 7, 4),
+                frames = listOf(0, 0, 8, 0),
                 frequency = InsertionFrequency.ByTime(8_000L..15_000L),
                 exclusive = false,
             ),
