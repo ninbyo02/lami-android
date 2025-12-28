@@ -2386,6 +2386,8 @@ private fun EditToolbar(
     }
 }
 
+}
+
 @Composable
 private fun MatchList(uiState: SpriteDebugState) {
     ElevatedCard(
