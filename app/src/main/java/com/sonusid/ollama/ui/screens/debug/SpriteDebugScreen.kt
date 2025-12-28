@@ -821,11 +821,11 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     }
     val shouldShowLoading = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Loading
     val shouldShowError = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Error
-    LaunchedEffect(shouldShowLoading, sheetBitmap, loadedSpriteBitmap) {
-        if (shouldShowLoading) {
-            Log.d(
+    LaunchedEffect(shouldShowError, sheetBitmap, loadedSpriteBitmap) {
+        if (shouldShowError) {
+            Log.w(
                 SPRITE_DEBUG_TAG,
-                "Canvas initialization skipped. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${loadedSpriteBitmap?.width}x${loadedSpriteBitmap?.height}",
+                "Canvas initialization failed. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${loadedSpriteBitmap?.width}x${loadedSpriteBitmap?.height}",
             )
             snackbarHostState.showSnackbar("Canvas初期化に失敗しました")
         }
