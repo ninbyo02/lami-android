@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
                                 SpriteDebugSettingsScreen(navController)
                             }
                             navigation(
-                                route = Routes.SPRITE_DEBUG,
+                                route = Routes.SPRITE_DEBUG_ENTRY,
                                 startDestination = Routes.SPRITE_DEBUG_TOOLS,
                             ) {
                                 composable(Routes.SPRITE_DEBUG_CANVAS) { backStackEntry ->
@@ -139,7 +139,7 @@ private fun rememberSpriteDebugViewModel(
     navController: NavHostController,
     backStackEntry: NavBackStackEntry,
 ): SpriteDebugViewModel {
-    val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.SPRITE_DEBUG) }
+    val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.SPRITE_DEBUG_ENTRY) }
     val context = LocalContext.current
     return viewModel(
         viewModelStoreOwner = parentEntry,
