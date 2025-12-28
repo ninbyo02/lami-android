@@ -56,6 +56,30 @@ We welcome contributions! Feel free to **fork the repository** and submit **pull
 - Ensure UI/UX consistency with Jetpack Compose.
 - Keep performance optimizations in mind.
 
+## 開発環境セットアップ
+
+ローカルでの確認と自動化フローに参加するための最小手順です。
+
+1. 必要ツールのインストール
+   ```bash
+   pip install --upgrade pre-commit commitizen
+   pre-commit install --hook-type pre-commit --hook-type commit-msg
+   ```
+2. Android SDK の準備（未設定の場合）
+   ```bash
+   sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+   ```
+3. テスト実行
+   ```bash
+   ./gradlew test
+   ```
+4. 変更前の自動フォーマット
+   ```bash
+   pre-commit run --all-files
+   ```
+
+GitHub Actions でも `./gradlew test` を実行する CI を用意しているため、プルリクエスト作成時に自動でユニットテストが走ります。
+
 ## License
 
 This project is licensed under the **MIT License**.
