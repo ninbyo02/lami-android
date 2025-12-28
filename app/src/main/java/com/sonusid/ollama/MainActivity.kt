@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
@@ -139,8 +140,9 @@ private fun rememberSpriteDebugViewModel(
     backStackEntry: NavBackStackEntry,
 ): SpriteDebugViewModel {
     val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.SPRITE_DEBUG) }
+    val context = LocalContext.current
     return viewModel(
         viewModelStoreOwner = parentEntry,
-        factory = SpriteDebugViewModel.provideFactory(parentEntry),
+        factory = SpriteDebugViewModel.provideFactory(parentEntry, context),
     )
 }

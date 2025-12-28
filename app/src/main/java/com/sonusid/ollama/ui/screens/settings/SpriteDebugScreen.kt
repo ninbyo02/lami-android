@@ -12,8 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,10 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.ui.screens.settings.copyJsonToClipboard
+import com.sonusid.ollama.ui.screens.settings.pasteJsonFromClipboard
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,8 +123,12 @@ fun SpriteDebugScreen(
                 Button(
                     onClick = {
                         jsonText = config.toJson()
-                        clipboardManager.setText(AnnotatedString(jsonText))
-                        scope.launch { snackbarHostState.showSnackbar("クリップボードへコピーしました") }
+                        copyJsonToClipboard(
+                            clipboardManager = clipboardManager,
+                            scope = scope,
+                            snackbarHostState = snackbarHostState,
+                            json = jsonText,
+                        )
                     },
                     modifier = Modifier.weight(1f)
                 ) {
@@ -133,12 +138,11 @@ fun SpriteDebugScreen(
                 }
                 Button(
                     onClick = {
-                        val clipText = clipboardManager.getText()?.text
-                        if (clipText.isNullOrBlank()) {
-                            showError("クリップボードが空です")
-                        } else {
-                            handleApply(clipText)
-                        }
+                        pasteJsonFromClipboard(
+                            clipboardManager = clipboardManager,
+                            onPaste = { clipText -> handleApply(clipText) },
+                            onEmpty = { showError("クリップボードが空です") },
+                        )
                     },
                     modifier = Modifier.weight(1f)
                 ) {
