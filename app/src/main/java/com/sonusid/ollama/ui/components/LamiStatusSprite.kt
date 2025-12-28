@@ -39,6 +39,7 @@ enum class LamiSpriteStatus {
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
 // 0:95, 1:95, 2:95, 3:94, 4:94, 5:94, 6:90, 7:90, 8:90。
 // 下端を 95px に揃えるための補正量（+ は下方向シフト）。
+@Suppress("unused")
 private val spriteFrameYOffsetPx: Map<Int, Int> = mapOf(
     0 to 0,
     1 to 0,
@@ -226,7 +227,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
-    frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
+    frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {
@@ -253,17 +254,25 @@ fun LamiStatusSprite(
     var currentFrameIndex by remember(resolvedStatus) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, 8) ?: 0)
     }
-    val targetFrameYOffsetPx = frameYOffsetPxMap[currentFrameIndex] ?: 0
+    val measuredFrameYOffsetPxMap = remember(measuredFrameMaps) {
+        measuredFrameMaps.toFrameYOffsetPxMap()
+    }
+    val resolvedFrameYOffsetPxMap = remember(frameYOffsetPxMap, measuredFrameYOffsetPxMap) {
+        measuredFrameYOffsetPxMap.toMutableMap().apply {
+            putAll(frameYOffsetPxMap)
+        }
+    }
+    val targetFrameYOffsetPx = resolvedFrameYOffsetPxMap[currentFrameIndex] ?: 0
     val animatedFrameYOffsetPx by animateIntAsState(
         targetValue = targetFrameYOffsetPx,
         label = "frameYOffsetPx",
     )
     val animatedFrameYOffsetPxMap = remember(
-        frameYOffsetPxMap,
+        resolvedFrameYOffsetPxMap,
         currentFrameIndex,
         animatedFrameYOffsetPx,
     ) {
-        frameYOffsetPxMap.toMutableMap().apply {
+        resolvedFrameYOffsetPxMap.toMutableMap().apply {
             put(currentFrameIndex, animatedFrameYOffsetPx)
         }
     }
@@ -386,7 +395,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
-    frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
+    frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {
@@ -422,7 +431,7 @@ fun LamiStatusSprite(
     lastError: String? = null,
     retryCount: Int = 0,
     talkingTextLength: Int? = null,
-    frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
+    frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {

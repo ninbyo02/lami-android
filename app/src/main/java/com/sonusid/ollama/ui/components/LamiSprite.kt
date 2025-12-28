@@ -132,6 +132,21 @@ data class LamiSpriteFrameMaps(
     val sizeMap: Map<Int, IntSize>,
 )
 
+fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
+    val bottoms = offsetMap.mapNotNull { (index, offset) ->
+        val size = sizeMap[index] ?: return@mapNotNull null
+        val bottom = offset.y + size.height - 1
+        index to bottom
+    }
+    if (bottoms.isEmpty()) {
+        return emptyMap()
+    }
+    val baselineBottom = bottoms.maxOf { it.second }
+    return bottoms.associate { (index, bottom) ->
+        index to (baselineBottom - bottom)
+    }
+}
+
 @Composable
 fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
     val context = LocalContext.current
