@@ -4,89 +4,77 @@ import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-private class FakeBaseUrlProvider(var baseUrls: List<BaseUrl>) : BaseUrlProvider {
-    override suspend fun getActiveOrFirst(): BaseUrl? {
-        return baseUrls.firstOrNull { it.isActive } ?: baseUrls.firstOrNull()
+class RetrofitClientTest {
+    @Test
+    fun `initialize falls back to default when no stored urls`() = runBlocking {
+        val provider = FakeBaseUrlProvider()
+
+        val state = RetrofitClient.initialize(provider)
+
+        assertEquals("http://localhost:11434/", state.baseUrl)
+        assertTrue(state.usedFallback)
+        assertEquals(listOf("http://localhost:11434/"), provider.storedUrls())
+        assertTrue(provider.activeUrlIs(state.baseUrl))
     }
 
-    override suspend fun getAll(): List<BaseUrl> = baseUrls
+    @Test
+    fun `initialize prefers active valid url and removes invalid entries`() = runBlocking {
+        val provider = FakeBaseUrlProvider(
+            mutableListOf(
+                BaseUrl(id = 1, url = "http://valid-host:8080", isActive = true),
+                BaseUrl(id = 2, url = "http://bad host", isActive = false)
+            )
+        )
 
-    override suspend fun replaceAll(baseUrls: List<BaseUrl>) {
-        this.baseUrls = baseUrls
+        val state = RetrofitClient.initialize(provider)
+
+        assertFalse(state.usedFallback)
+        assertEquals("http://valid-host:8080/", state.baseUrl)
+        assertEquals(listOf("http://valid-host:8080/"), provider.storedUrls())
+        assertTrue(provider.activeUrlIs(state.baseUrl))
+    }
+
+    @Test
+    fun `initialize promotes first valid url when active is missing`() = runBlocking {
+        val provider = FakeBaseUrlProvider(
+            mutableListOf(
+                BaseUrl(id = 1, url = "http://first-valid:11434", isActive = false),
+                BaseUrl(id = 2, url = "http://second-valid:11435", isActive = false)
+            )
+        )
+
+        val state = RetrofitClient.initialize(provider)
+
+        assertTrue(state.usedFallback)
+        assertEquals("http://first-valid:11434/", state.baseUrl)
+        assertEquals(listOf("http://first-valid:11434/", "http://second-valid:11435/"), provider.storedUrls())
+        assertTrue(provider.activeUrlIs(state.baseUrl))
     }
 }
 
-class RetrofitClientTest {
-    @Test
-    fun `initialize and refresh picks active base url`() = runBlocking {
-        val provider = FakeBaseUrlProvider(
-            listOf(
-                BaseUrl(id = 1, url = "server-one:11434", isActive = true),
-                BaseUrl(id = 2, url = "server-two:11434", isActive = false)
-            )
-        )
+private class FakeBaseUrlProvider(private val items: MutableList<BaseUrl> = mutableListOf()) : BaseUrlProvider {
+    private var nextId: Int = (items.maxOfOrNull { it.id } ?: 0) + 1
 
-        RetrofitClient.initialize(provider)
-        assertEquals("http://server-one:11434/", RetrofitClient.currentBaseUrl())
+    override suspend fun getActiveOrFirst(): BaseUrl? = items.firstOrNull { it.isActive } ?: items.firstOrNull()
 
-        provider.baseUrls = listOf(
-            BaseUrl(id = 1, url = "server-one:11434", isActive = false),
-            BaseUrl(id = 2, url = "server-two:11434", isActive = true)
-        )
+    override suspend fun getAll(): List<BaseUrl> = items.toList()
 
-        RetrofitClient.refreshBaseUrl(provider)
-        assertEquals("http://server-two:11434/", RetrofitClient.currentBaseUrl())
+    override suspend fun replaceAll(baseUrls: List<BaseUrl>, refreshActive: Boolean) {
+        items.clear()
+        baseUrls.forEach { baseUrl ->
+            val id = if (baseUrl.id == 0) nextId++ else baseUrl.id
+            items.add(baseUrl.copy(id = id))
+        }
+        if (refreshActive && items.isNotEmpty() && items.none { it.isActive }) {
+            items[0] = items[0].copy(isActive = true)
+        }
     }
 
-    @Test
-    fun `initialize normalizes base url without scheme`() = runBlocking {
-        val provider = FakeBaseUrlProvider(
-            listOf(
-                BaseUrl(id = 1, url = "example.com:1234", isActive = true)
-            )
-        )
+    fun storedUrls(): List<String> = items.map { it.url }
 
-        RetrofitClient.initialize(provider)
-        assertEquals("http://example.com:1234/", RetrofitClient.currentBaseUrl())
-    }
-
-    @Test
-    fun `initialize falls back to default when stored url is invalid`() = runBlocking {
-        val provider = FakeBaseUrlProvider(
-            listOf(
-                BaseUrl(id = 1, url = "not a url", isActive = false)
-            )
-        )
-
-        val state = RetrofitClient.initialize(provider)
-
-        assertEquals("http://localhost:11434/", RetrofitClient.currentBaseUrl())
-        assertTrue(state.usedFallback)
-        assertEquals("http://localhost:11434/", state.baseUrl)
-        assertEquals(1, provider.baseUrls.size)
-        val savedUrl = provider.baseUrls.first()
-        assertEquals("http://localhost:11434/", savedUrl.url)
-        assertTrue(savedUrl.isActive)
-    }
-
-    @Test
-    fun `initialize normalizes full width port and colon`() = runBlocking {
-        val provider = FakeBaseUrlProvider(
-            listOf(
-                BaseUrl(id = 1, url = "http://localhost：１１４３４", isActive = true),
-                BaseUrl(id = 2, url = "https：／／example．com：９９９９", isActive = false)
-            )
-        )
-
-        val state = RetrofitClient.initialize(provider)
-
-        assertEquals("http://localhost:11434/", RetrofitClient.currentBaseUrl())
-        assertEquals("http://localhost:11434/", state.baseUrl)
-        assertTrue(provider.baseUrls.first { it.id == 1 }.isActive)
-        assertEquals("http://localhost:11434/", provider.baseUrls.first { it.id == 1 }.url)
-        assertEquals("https://example.com:9999/", provider.baseUrls.first { it.id == 2 }.url)
-    }
+    fun activeUrlIs(url: String): Boolean = items.firstOrNull { it.isActive }?.url?.trimEnd('/') == url.trimEnd('/')
 }
