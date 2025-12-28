@@ -1717,6 +1717,7 @@ private fun PreviewGridCanvas(
     val outlineColor = MaterialTheme.colorScheme.outlineVariant
     val activeColor = MaterialTheme.colorScheme.tertiary
     val selectedColor = MaterialTheme.colorScheme.primaryContainer
+    val centerColor = MaterialTheme.colorScheme.secondary
     Box(
         modifier = modifier
             .aspectRatio(1f)
@@ -1761,7 +1762,6 @@ private fun PreviewGridCanvas(
                 )
             }
             if (showCenterLine) {
-                val centerColor = MaterialTheme.colorScheme.secondary
                 drawLine(
                     color = centerColor,
                     start = Offset(size.width / 2f, 0f),
