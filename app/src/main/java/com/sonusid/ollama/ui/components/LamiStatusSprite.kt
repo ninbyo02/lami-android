@@ -33,6 +33,18 @@ enum class LamiSpriteStatus {
     ReadyBlink,
 }
 
+private val spriteFrameYOffsetPx: Map<Int, Int> = mapOf(
+    0 to -5,
+    1 to -5,
+    2 to -5,
+    3 to -3,
+    4 to -2,
+    5 to -2,
+    6 to 0,
+    7 to 0,
+    8 to 0,
+)
+
 data class FrameDurationSpec(
     val minMs: Long,
     val maxMs: Long,
@@ -186,9 +198,11 @@ fun LamiStatusSprite(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
     contentOffsetDp: Dp = 2.dp,
+    contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
@@ -300,7 +314,9 @@ fun LamiStatusSprite(
         frameIndex = currentFrameIndex,
         sizeDp = constrainedSize,
         modifier = modifier,
-        contentOffsetDp = contentOffsetDp
+        contentOffsetDp = contentOffsetDp,
+        contentOffsetYDp = contentOffsetYDp,
+        frameYOffsetPxMap = frameYOffsetPxMap,
     )
 }
 
@@ -310,9 +326,11 @@ fun LamiStatusSprite(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
     contentOffsetDp: Dp = 2.dp,
+    contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
 ) {
     val spriteStatus = remember(status.value) {
         mapToLamiSpriteStatus(lamiStatus = status.value)
@@ -322,9 +340,11 @@ fun LamiStatusSprite(
         modifier = modifier,
         sizeDp = sizeDp,
         contentOffsetDp = contentOffsetDp,
+        contentOffsetYDp = contentOffsetYDp,
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        frameYOffsetPxMap = frameYOffsetPxMap,
     )
 }
 
@@ -334,6 +354,7 @@ fun LamiStatusSprite(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
     contentOffsetDp: Dp = 2.dp,
+    contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
@@ -341,6 +362,7 @@ fun LamiStatusSprite(
     lastError: String? = null,
     retryCount: Int = 0,
     talkingTextLength: Int? = null,
+    frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
 ) {
     var previousAnimationStatus by remember {
         mutableStateOf(status.value)
@@ -386,9 +408,11 @@ fun LamiStatusSprite(
         modifier = modifier,
         sizeDp = sizeDp,
         contentOffsetDp = contentOffsetDp,
+        contentOffsetYDp = contentOffsetYDp,
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        frameYOffsetPxMap = frameYOffsetPxMap,
     )
 }
 

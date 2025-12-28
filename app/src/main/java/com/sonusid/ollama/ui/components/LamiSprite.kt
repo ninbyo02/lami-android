@@ -75,6 +75,8 @@ fun LamiSprite3x3(
     sizeDp: Dp = 48.dp,
     modifier: Modifier = Modifier,
     contentOffsetDp: Dp = 0.dp,
+    contentOffsetYDp: Dp = 0.dp,
+    frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
 ) {
     val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
     val safeFrameIndex = frameIndex.coerceAtLeast(0)
@@ -91,7 +93,14 @@ fun LamiSprite3x3(
     }
 
     val dstOffset = with(LocalDensity.current) {
-        IntOffset(x = contentOffsetDp.roundToPx(), y = 0)
+        val baseOffsetX = contentOffsetDp.roundToPx()
+        val baseOffsetY = contentOffsetYDp.roundToPx()
+        val frameYOffsetPx = frameYOffsetPxMap[safeFrameIndex] ?: 0
+        val scaleY = dstSize.height.toFloat() / srcSize.height
+        IntOffset(
+            x = baseOffsetX,
+            y = baseOffsetY + (frameYOffsetPx * scaleY).roundToInt()
+        )
     }
 
     Canvas(modifier = modifier.size(sizeDp)) {
