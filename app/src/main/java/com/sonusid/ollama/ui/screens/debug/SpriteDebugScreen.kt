@@ -22,14 +22,18 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -41,11 +45,16 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PaddingValues
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -73,6 +82,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -456,47 +468,49 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
     LaunchedEffect(rememberedState.selectedBoxIndex) { viewModel.selectBox(rememberedState.selectedBoxIndex) }
     LaunchedEffect(rememberedState.step) { viewModel.updateStep(rememberedState.step) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        SpriteSheetCanvas(
-            uiState = uiState,
-            spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
-            onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
-            onStroke = { offset -> viewModel.applyStroke(offset) },
-        )
-        ControlPanel(
-            uiState = uiState,
-            onSelectBox = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
-            onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
-            onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
-            onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
-            onStepChange = { step -> rememberedState = rememberedState.copy(step = step) },
-            onSnapToggle = { viewModel.toggleSnap() },
-            onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
-            onThresholdChange = { viewModel.updateThreshold(it) },
-            onAutoSearchOne = { viewModel.autoSearchSingle() },
-            onAutoSearchAll = { viewModel.autoSearchAll() },
-            onReset = { viewModel.resetBoxes() },
-            onEditingModeChange = { viewModel.setEditingMode(it) },
-            onBrushSizeChange = { viewModel.setBrushSize(it) },
-            onUndo = { viewModel.undo() },
-            onRedo = { viewModel.redo() },
-        )
-        MatchList(uiState = uiState)
-        PreviewPanel(
-            uiState = uiState,
-            viewModel = viewModel,
-            rememberedState = rememberedState,
-            sheetBitmap = sheetBitmap,
-            onUpdatePreviewSpeed = { speed -> viewModel.updatePreviewSpeed(speed) },
-            onToggleOnion = { viewModel.toggleOnionSkin(it) },
-            onToggleCenter = { viewModel.toggleCenterLine(it) },
-        )
+    Scaffold { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SpriteSheetCanvas(
+                uiState = uiState,
+                spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
+                onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
+                onStroke = { offset -> viewModel.applyStroke(offset) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            )
+            SpriteControlPanel(
+                uiState = uiState,
+                viewModel = viewModel,
+                rememberedState = rememberedState,
+                sheetBitmap = sheetBitmap,
+                onSelectBox = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
+                onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
+                onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
+                onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+                onStepChange = { step -> rememberedState = rememberedState.copy(step = step) },
+                onSnapToggle = { viewModel.toggleSnap() },
+                onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
+                onThresholdChange = { viewModel.updateThreshold(it) },
+                onAutoSearchOne = { viewModel.autoSearchSingle() },
+                onAutoSearchAll = { viewModel.autoSearchAll() },
+                onReset = { viewModel.resetBoxes() },
+                onEditingModeChange = { viewModel.setEditingMode(it) },
+                onBrushSizeChange = { viewModel.setBrushSize(it) },
+                onUndo = { viewModel.undo() },
+                onRedo = { viewModel.redo() },
+                onUpdatePreviewSpeed = { speed -> viewModel.updatePreviewSpeed(speed) },
+                onToggleOnion = { viewModel.toggleOnionSkin(it) },
+                onToggleCenter = { viewModel.toggleCenterLine(it) },
+            )
+        }
     }
 }
 
@@ -506,6 +520,7 @@ private fun SpriteSheetCanvas(
     spriteBitmap: ImageBitmap,
     onDragBox: (Offset) -> Unit,
     onStroke: (Offset) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val intrinsicSize = Size(spriteBitmap.width.toFloat(), spriteBitmap.height.toFloat())
     var layoutSize by remember { mutableStateOf(Size.Zero) }
@@ -517,7 +532,7 @@ private fun SpriteSheetCanvas(
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1.6f)
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
@@ -602,6 +617,69 @@ private fun SpriteSheetCanvas(
 }
 
 @Composable
+private fun SpriteControlPanel(
+    uiState: SpriteDebugState,
+    viewModel: SpriteDebugViewModel,
+    rememberedState: SpriteDebugState,
+    sheetBitmap: ImageBitmap?,
+    onSelectBox: (Int) -> Unit,
+    onNudge: (Int, Int) -> Unit,
+    onUpdateX: (Float?) -> Unit,
+    onUpdateY: (Float?) -> Unit,
+    onStepChange: (Int) -> Unit,
+    onSnapToggle: () -> Unit,
+    onSearchRadiusChange: (Float) -> Unit,
+    onThresholdChange: (Float) -> Unit,
+    onAutoSearchOne: () -> Unit,
+    onAutoSearchAll: () -> Unit,
+    onReset: () -> Unit,
+    onEditingModeChange: (SpriteEditMode) -> Unit,
+    onBrushSizeChange: (Float) -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    onUpdatePreviewSpeed: (Long) -> Unit,
+    onToggleOnion: (Boolean) -> Unit,
+    onToggleCenter: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ControlPanel(
+            uiState = uiState,
+            onSelectBox = onSelectBox,
+            onNudge = onNudge,
+            onUpdateX = onUpdateX,
+            onUpdateY = onUpdateY,
+            onStepChange = onStepChange,
+            onSnapToggle = onSnapToggle,
+            onSearchRadiusChange = onSearchRadiusChange,
+            onThresholdChange = onThresholdChange,
+            onAutoSearchOne = onAutoSearchOne,
+            onAutoSearchAll = onAutoSearchAll,
+            onReset = onReset,
+            onEditingModeChange = onEditingModeChange,
+            onBrushSizeChange = onBrushSizeChange,
+            onUndo = onUndo,
+            onRedo = onRedo,
+        )
+        MatchList(uiState = uiState)
+        PreviewPanel(
+            uiState = uiState,
+            viewModel = viewModel,
+            rememberedState = rememberedState,
+            sheetBitmap = sheetBitmap,
+            onUpdatePreviewSpeed = onUpdatePreviewSpeed,
+            onToggleOnion = onToggleOnion,
+            onToggleCenter = onToggleCenter,
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun ControlPanel(
     uiState: SpriteDebugState,
     onSelectBox: (Int) -> Unit,
@@ -625,46 +703,78 @@ private fun ControlPanel(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(9) { index ->
-                    Button(onClick = { onSelectBox(index) }, enabled = index != uiState.selectedBoxIndex) {
-                        Text(text = "Box ${index + 1}")
-                    }
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+            ) {
+                itemsIndexed(uiState.boxes) { index, _ ->
+                    FilterChip(
+                        selected = uiState.selectedBoxIndex == index,
+                        onClick = { onSelectBox(index) },
+                        label = { Text(text = "Box ${index + 1}") },
+                        modifier = Modifier.semantics { contentDescription = "Box ${index + 1} を選択" },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                CoordinateField("X", uiState.boxes.getOrNull(uiState.selectedBoxIndex)?.x) { value ->
-                    onUpdateX(value)
-                }
-                CoordinateField("Y", uiState.boxes.getOrNull(uiState.selectedBoxIndex)?.y) { value ->
-                    onUpdateY(value)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CoordinateField(
+                        label = "X",
+                        value = uiState.boxes.getOrNull(uiState.selectedBoxIndex)?.x,
+                        modifier = Modifier.weight(1f),
+                    ) { value ->
+                        onUpdateX(value)
+                    }
+                    CoordinateField(
+                        label = "Y",
+                        value = uiState.boxes.getOrNull(uiState.selectedBoxIndex)?.y,
+                        modifier = Modifier.weight(1f),
+                    ) { value ->
+                        onUpdateY(value)
+                    }
                 }
                 StepSelector(step = uiState.step, onStepChange = onStepChange)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Snap")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = "スナップ")
                     Switch(checked = uiState.snapToGrid, onCheckedChange = { onSnapToggle() })
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "微調整")
-                listOf(1, 2, 4).forEach { step ->
-                    IconButton(onClick = { onNudge(-step, 0) }) { Text(text = "-${step}") }
-                    IconButton(onClick = { onNudge(step, 0) }) { Text(text = "+${step}") }
-                    IconButton(onClick = { onNudge(0, -step) }) { Text(text = "^${step}") }
-                    IconButton(onClick = { onNudge(0, step) }) { Text(text = "v${step}") }
+            AdjustmentRow(onNudge = onNudge)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(text = "探索半径 ${uiState.searchRadius.toInt()}px")
+                    Slider(
+                        value = uiState.searchRadius,
+                        onValueChange = onSearchRadiusChange,
+                        valueRange = 0f..32f,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(text = "Sobel閾値 ${"%.2f".format(uiState.sobelThreshold)}")
+                    Slider(
+                        value = uiState.sobelThreshold,
+                        onValueChange = onThresholdChange,
+                        valueRange = 0f..1f,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "探索半径 ${uiState.searchRadius.toInt()}px")
-                Slider(value = uiState.searchRadius, onValueChange = onSearchRadiusChange, valueRange = 0f..32f)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "Sobel閾値 ${"%.2f".format(uiState.sobelThreshold)}")
-                Slider(value = uiState.sobelThreshold, onValueChange = onThresholdChange, valueRange = 0f..1f)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onAutoSearchOne) { Text(text = "選択のみ自動探索") }
-                Button(onClick = onAutoSearchAll) { Text(text = "全体自動探索") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(onClick = onAutoSearchOne, modifier = Modifier.weight(1f)) { Text(text = "選択のみ自動探索") }
+                Button(onClick = onAutoSearchAll, modifier = Modifier.weight(1f)) { Text(text = "全体自動探索") }
                 TextButton(onClick = onReset) { Text(text = "リセット") }
             }
             EditToolbar(
@@ -679,9 +789,39 @@ private fun ControlPanel(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AdjustmentRow(onNudge: (Int, Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "微調整")
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(1, 2, 4).forEach { step ->
+                AdjustmentButton(label = "-$step") { onNudge(-step, 0) }
+                AdjustmentButton(label = "+$step") { onNudge(step, 0) }
+                AdjustmentButton(label = "↑$step") { onNudge(0, -step) }
+                AdjustmentButton(label = "↓$step") { onNudge(0, step) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdjustmentButton(label: String, onClick: () -> Unit) {
+    FilledTonalButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(text = label)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CoordinateField(label: String, value: Float?, onValueChange: (Float?) -> Unit) {
+private fun CoordinateField(label: String, value: Float?, modifier: Modifier = Modifier, onValueChange: (Float?) -> Unit) {
     var text by rememberSaveable(value) { mutableStateOf(value?.toInt()?.toString().orEmpty()) }
     OutlinedTextField(
         value = text,
@@ -689,7 +829,7 @@ private fun CoordinateField(label: String, value: Float?, onValueChange: (Float?
             text = it
             onValueChange(it.toFloatOrNull())
         },
-        modifier = Modifier.size(width = 120.dp, height = 64.dp),
+        modifier = modifier.fillMaxWidth(),
         label = { Text(text = label) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = TextFieldDefaults.outlinedTextFieldColors(),
@@ -697,14 +837,20 @@ private fun CoordinateField(label: String, value: Float?, onValueChange: (Float?
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepSelector(step: Int, onStepChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Text(text = "ステップ ${step}px")
-        listOf(1, 2, 4, 8).forEach { candidate ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Checkbox(checked = candidate == step, onCheckedChange = { onStepChange(candidate) })
-                Text(text = candidate.toString())
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(1, 2, 4, 8).forEach { candidate ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Checkbox(checked = candidate == step, onCheckedChange = { onStepChange(candidate) })
+                    Text(text = candidate.toString())
+                }
             }
         }
     }
@@ -799,7 +945,7 @@ private fun PreviewPanel(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilledIconButton(onClick = { playing = !playing }) {
                     Icon(imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "play")
                 }
@@ -808,12 +954,27 @@ private fun PreviewPanel(
                     value = rememberedState.previewSpeedMs.toFloat(),
                     onValueChange = { onUpdatePreviewSpeed(it.toLong()) },
                     valueRange = 120f..2000f,
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(text = "オニオンスキン")
                     Switch(checked = uiState.onionSkin, onCheckedChange = onToggleOnion)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(text = "中心線")
                     Switch(checked = uiState.showCenterLine, onCheckedChange = onToggleCenter)
                 }
