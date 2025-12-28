@@ -112,8 +112,10 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
+import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.copyJsonToClipboard
 import com.sonusid.ollama.ui.screens.settings.pasteJsonFromClipboard
 import com.sonusid.ollama.util.SpriteAnalysis
@@ -137,13 +139,6 @@ private const val SPRITE_DEBUG_TAG = "SpriteDebug"
 private const val DEFAULT_SPRITE_SIZE = 288
 val SpriteBoxCountKey = SemanticsPropertyKey<Int>("SpriteBoxCount")
 var SemanticsPropertyReceiver.spriteBoxCount by SpriteBoxCountKey
-
-@Parcelize
-data class SpriteSheetConfig(
-    val rows: Int = 3,
-    val cols: Int = 3,
-    val order: List<Int> = List(9) { it },
-) : Parcelable
 
 @Parcelize
 data class SpriteBox(
@@ -185,15 +180,35 @@ data class SpriteDebugState(
     val brushSize: Float = 6f,
     val matchScores: List<SpriteMatchScore> = emptyList(),
     val bestMatchIndices: List<Int> = emptyList(),
-    val spriteSheetConfig: SpriteSheetConfig = SpriteSheetConfig(),
+    val spriteSheetConfig: SpriteSheetConfig = SpriteSheetConfig.default3x3(),
 ) : Parcelable {
     companion object {
-        fun defaultBoxes(size: IntSize, config: SpriteSheetConfig = SpriteSheetConfig()): List<SpriteBox> {
-            val cellWidth = size.width / config.cols.toFloat()
-            val cellHeight = size.height / config.rows.toFloat()
-            return config.order.mapIndexed { index, order ->
-                val col = order % config.cols
-                val row = order / config.cols
+        fun defaultBoxes(size: IntSize, config: SpriteSheetConfig = SpriteSheetConfig.default3x3()): List<SpriteBox> {
+            val sheetWidth = (config.frameWidth * config.cols).takeIf { it > 0 } ?: size.width
+            val sheetHeight = (config.frameHeight * config.rows).takeIf { it > 0 } ?: size.height
+            val scaleX = (size.width / sheetWidth.toFloat()).takeIf { it.isFinite() && it > 0f } ?: 1f
+            val scaleY = (size.height / sheetHeight.toFloat()).takeIf { it.isFinite() && it > 0f } ?: 1f
+            val orderedBoxes = config.boxes
+                .takeIf { it.isNotEmpty() }
+                ?.sortedBy { it.frameIndex }
+                ?.mapIndexed { index, box ->
+                    SpriteBox(
+                        index = index,
+                        x = box.x * scaleX,
+                        y = box.y * scaleY,
+                        width = box.width * scaleX,
+                        height = box.height * scaleY,
+                    )
+                }
+            if (!orderedBoxes.isNullOrEmpty()) return orderedBoxes
+            val rows = config.rows.takeIf { it > 0 } ?: 3
+            val cols = config.cols.takeIf { it > 0 } ?: 3
+            val cellWidth = (size.width / cols.toFloat()).takeIf { it.isFinite() && it > 0f } ?: 1f
+            val cellHeight = (size.height / rows.toFloat()).takeIf { it.isFinite() && it > 0f } ?: 1f
+            val total = (rows * cols).takeIf { it > 0 } ?: 9
+            return List(total) { index ->
+                val col = index % cols
+                val row = index / cols
                 SpriteBox(
                     index = index,
                     x = col * cellWidth,
@@ -286,6 +301,7 @@ private fun SpriteSheetScale.isValid(): Boolean = scale.isFinite() && offset.x.i
 class SpriteDebugViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val dataStore: SpriteDebugDataStore,
+    private val settingsPreferences: SettingsPreferences,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val gson: Gson = Gson(),
@@ -313,6 +329,7 @@ class SpriteDebugViewModel(
         }
         viewModelScope.launch(ioDispatcher) {
             restorePersistedState()
+            observeSpriteSheetConfig()
         }
     }
 
@@ -440,7 +457,12 @@ class SpriteDebugViewModel(
 
     fun resetBoxes() {
         val bitmap = spriteSheetBitmap ?: return
-        updateState { copy(boxes = SpriteDebugState.defaultBoxes(IntSize(bitmap.width, bitmap.height))) }
+        updateState {
+            copy(
+                boxes = SpriteDebugState.defaultBoxes(IntSize(bitmap.width, bitmap.height), spriteSheetConfig),
+                selectedBoxIndex = 0,
+            )
+        }
     }
 
     private fun startAnalysis(focusIndex: Int?, applyOffsetsForAll: Boolean) {
@@ -580,9 +602,8 @@ class SpriteDebugViewModel(
             .ensureBoxes(IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE))
 
     private fun updateState(block: SpriteDebugState.() -> SpriteDebugState) {
-        val targetSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
         _uiState.update { current ->
-            block(current).ensureBoxes(targetSize)
+            block(current).ensureBoxes(targetSpriteSize())
         }
         persistStateAsync()
     }
@@ -651,7 +672,7 @@ class SpriteDebugViewModel(
     private suspend fun restorePersistedState() {
         val persistedState = dataStore.readState()
         val persistedResult = dataStore.readAnalysisResult()
-        val targetSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+        val targetSize = targetSpriteSize()
         if (persistedState != null) {
             _uiState.update { persistedState.ensureBoxes(targetSize) }
         }
@@ -660,9 +681,27 @@ class SpriteDebugViewModel(
         }
     }
 
+    private suspend fun observeSpriteSheetConfig() {
+        settingsPreferences.spriteSheetConfig.collect { config ->
+            val validatedConfig = config.takeIf { it.validate() == null } ?: SpriteSheetConfig.default3x3()
+            val targetSize = targetSpriteSize()
+            _uiState.update { current ->
+                val shouldResetBoxes = validatedConfig != current.spriteSheetConfig
+                val updatedBoxes = if (shouldResetBoxes) SpriteDebugState.defaultBoxes(targetSize, validatedConfig) else current.boxes
+                current.copy(
+                    spriteSheetConfig = validatedConfig,
+                    boxes = updatedBoxes,
+                    selectedBoxIndex = if (shouldResetBoxes) 0 else current.selectedBoxIndex,
+                ).ensureBoxes(targetSize)
+            }
+        }
+    }
+
     private fun persistStateAsync(state: SpriteDebugState = _uiState.value) {
         viewModelScope.launch(ioDispatcher) { dataStore.saveState(state) }
     }
+
+    private fun targetSpriteSize(): IntSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
 
     private fun persistAnalysisResult(result: SpriteAnalysis.SpriteAnalysisResult) {
         viewModelScope.launch(ioDispatcher) { dataStore.saveAnalysisResult(result) }
@@ -704,17 +743,18 @@ class SpriteDebugViewModel(
                     return SpriteDebugViewModel(
                         savedStateHandle = handle,
                         dataStore = SpriteDebugPreferences(context.applicationContext),
+                        settingsPreferences = SettingsPreferences(context.applicationContext),
                     ) as T
                 }
             }
     }
 
     private fun SpriteDebugState.ensureBoxes(targetSize: IntSize): SpriteDebugState {
-        val expectedSize = max(9, spriteSheetConfig.order.size.takeIf { it > 0 } ?: spriteSheetConfig.rows * spriteSheetConfig.cols)
+        val expectedSize = max(1, spriteSheetConfig.boxes.takeIf { it.isNotEmpty() }?.size ?: (spriteSheetConfig.rows * spriteSheetConfig.cols))
         val needsDefaultBoxes = boxes.size < expectedSize || boxes.any { it.width <= 0f || it.height <= 0f }
         val refreshedBoxes = if (needsDefaultBoxes) {
-            val defaults = SpriteDebugState.defaultBoxes(targetSize)
-            Log.d(SPRITE_DEBUG_TAG, "Normalized ROI to ${defaults.size} items (fallback to default grid)")
+            val defaults = SpriteDebugState.defaultBoxes(targetSize, spriteSheetConfig)
+            Log.d(SPRITE_DEBUG_TAG, "Normalized ROI to ${defaults.size} items (synced with spriteSheetConfig)")
             defaults
         } else {
             Log.d(SPRITE_DEBUG_TAG, "Normalized ROI to ${boxes.size} items")
@@ -734,7 +774,7 @@ class SpriteDebugViewModel(
                 height = height.coerceAtMost((maxHeight - y).coerceAtLeast(1f)),
             )
         }
-        val boundedIndex = selectedBoxIndex.coerceIn(0, 8)
+        val boundedIndex = selectedBoxIndex.coerceIn(0, constrainedBoxes.lastIndex.coerceAtLeast(0))
         return copy(boxes = constrainedBoxes, selectedBoxIndex = boundedIndex)
     }
 
