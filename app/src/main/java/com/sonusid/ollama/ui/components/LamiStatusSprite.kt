@@ -111,41 +111,46 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         ),
     ),
     LamiSpriteStatus.TalkShort to AnimationSpec(
-        frames = listOf(6, 2, 6, 3, 6),
-        frameDuration = FrameDurationSpec(minMs = 110L, maxMs = 160L, jitterFraction = 0.1f),
+        frames = listOf(0, 6, 2, 0, 6, 3, 0),
+        frameDuration = FrameDurationSpec(minMs = 140L, maxMs = 200L, jitterFraction = 0.1f),
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(6, 1, 6),
+                frames = listOf(0, 6, 1, 0),
                 frequency = InsertionFrequency.ByProbability(0.2f),
                 exclusive = false,
             ),
         ),
     ),
     LamiSpriteStatus.TalkLong to AnimationSpec(
-        frames = listOf(6, 3, 6, 4, 6, 3, 6, 4),
-        frameDuration = FrameDurationSpec(minMs = 120L, maxMs = 180L, jitterFraction = 0.1f),
+        frames = listOf(0, 6, 2, 0, 6, 3, 0, 6, 4, 0),
+        frameDuration = FrameDurationSpec(minMs = 160L, maxMs = 220L, jitterFraction = 0.1f),
         loop = true,
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(1),
-                frequency = InsertionFrequency.ByLoops(2..4),
+                frames = listOf(0, 6, 0),
+                frequency = InsertionFrequency.ByLoops(1..2),
                 exclusive = true,
             ),
             InsertionSpec(
-                frames = listOf(8),
-                frequency = InsertionFrequency.ByLoops(3..6),
+                frames = listOf(0, 5, 0),
+                frequency = InsertionFrequency.ByLoops(2..4),
                 exclusive = true,
             ),
         ),
     ),
     LamiSpriteStatus.TalkCalm to AnimationSpec(
-        frames = listOf(6, 2, 6, 1, 6, 0, 6),
+        frames = listOf(0, 6, 2, 0, 6, 1, 0, 6, 0),
         frameDuration = FrameDurationSpec(minMs = 180L, maxMs = 260L, jitterFraction = 0.2f),
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(6, 8, 6),
+                frames = listOf(0, 6, 8, 6, 0),
                 frequency = InsertionFrequency.ByTime(5_000L..9_000L),
                 exclusive = false,
+            ),
+            InsertionSpec(
+                frames = listOf(0, 6, 0),
+                frequency = InsertionFrequency.ByLoops(1..2),
+                exclusive = true,
             ),
         ),
     ),
