@@ -82,6 +82,7 @@ data class InsertionSpec(
     val frames: List<Int>,
     val frequency: InsertionFrequency,
     val exclusive: Boolean = false,
+    val frameDuration: FrameDurationSpec? = null,
 )
 
 data class AnimationSpec(
@@ -198,13 +199,18 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         loop = false,
     ),
     LamiSpriteStatus.ReadyBlink to AnimationSpec(
-        frames = listOf(4, 7, 8, 7, 4, 4, 4),
-        frameDuration = FrameDurationSpec(minMs = 60L, maxMs = 90L, jitterFraction = 0.15f),
+        frames = listOf(0),
+        frameDuration = FrameDurationSpec(minMs = 700L, maxMs = 1_200L, jitterFraction = 0.15f),
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(4, 7, 8, 7, 4, 4, 4),
-                frequency = InsertionFrequency.ByTime(5_000L..9_000L),
+                frames = listOf(0, 7, 8, 7, 0),
+                frequency = InsertionFrequency.ByTime(3_500L..5_500L),
                 exclusive = false,
+                frameDuration = FrameDurationSpec(
+                    minMs = 35L,
+                    maxMs = 55L,
+                    jitterFraction = 0.1f,
+                ),
             ),
         ),
     ),
@@ -305,10 +311,14 @@ fun LamiStatusSprite(
             insertionSpec.toState(System.currentTimeMillis())
         }
 
-        suspend fun playFrames(frames: List<Int>) {
+        suspend fun playFrames(
+            frames: List<Int>,
+            frameDurationSpec: FrameDurationSpec? = null,
+        ) {
+            val durationSpec = frameDurationSpec ?: animSpec.frameDuration
             for (frame in frames) {
                 currentFrameIndex = frame.coerceIn(0, 8)
-                delay(animSpec.frameDuration.draw(random))
+                delay(durationSpec.draw(random))
             }
         }
 
@@ -328,7 +338,10 @@ fun LamiStatusSprite(
                 }
 
                 if (triggeredInsertion != null) {
-                    playFrames(triggeredInsertion.spec.frames)
+                    playFrames(
+                        frames = triggeredInsertion.spec.frames,
+                        frameDurationSpec = triggeredInsertion.spec.frameDuration,
+                    )
                     resetInsertionState(triggeredInsertion)
                     if (triggeredInsertion.spec.exclusive) {
                         continue
