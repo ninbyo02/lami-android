@@ -19,6 +19,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,6 +99,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
+import kotlin.math.hypot
 
 private const val SPRITE_DEBUG_TAG = "SpriteDebug"
 private const val DEFAULT_SPRITE_SIZE = 288
@@ -162,6 +164,9 @@ data class SpriteDebugState(
         }
     }
 }
+
+private fun SpriteBox.containsPoint(point: Offset): Boolean =
+    point.x in x..(x + width) && point.y in y..(y + height)
 
 private data class SpriteSheetScale(
     val scale: Float,
@@ -482,6 +487,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
                 spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
                 onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
                 onStroke = { offset -> viewModel.applyStroke(offset) },
+                onBoxSelected = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -520,6 +526,7 @@ private fun SpriteSheetCanvas(
     spriteBitmap: ImageBitmap,
     onDragBox: (Offset) -> Unit,
     onStroke: (Offset) -> Unit,
+    onBoxSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val intrinsicSize = Size(spriteBitmap.width.toFloat(), spriteBitmap.height.toFloat())
@@ -575,6 +582,22 @@ private fun SpriteSheetCanvas(
                         } else {
                             onStroke(scale.canvasToImage(change.position))
                         }
+                    }
+                }
+                .pointerInput(uiState.boxes, scale) {
+                    detectTapGestures { tapOffset ->
+                        val imageOffset = scale.canvasToImage(tapOffset)
+                        val containingBox = uiState.boxes.minByOrNull { box ->
+                            if (box.containsPoint(imageOffset)) 0f else Float.POSITIVE_INFINITY
+                        }?.takeIf { it.containsPoint(imageOffset) }
+
+                        val nearestBox = uiState.boxes.minByOrNull { box ->
+                            val center = Offset(box.x + box.width / 2f, box.y + box.height / 2f)
+                            hypot(center.x - imageOffset.x, center.y - imageOffset.y)
+                        }
+
+                        val targetBox = containingBox ?: nearestBox
+                        targetBox?.let { onBoxSelected(it.index) }
                     }
                 },
         ) {
