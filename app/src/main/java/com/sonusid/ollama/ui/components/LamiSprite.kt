@@ -83,8 +83,8 @@ fun LamiSprite3x3(
     val col = safeFrameIndex % 3
     val row = safeFrameIndex / 3
 
-    val srcOffset = IntOffset(x = (col * 96) + 1, y = (row * 96) + 1)
-    val srcSize = IntSize(width = 94, height = 94)
+    val srcOffset = IntOffset(x = col * 96, y = row * 96)
+    val srcSize = IntSize(width = 96, height = 96)
     val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
 
     val dstSize = with(LocalDensity.current) {

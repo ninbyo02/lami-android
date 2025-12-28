@@ -34,9 +34,9 @@ enum class LamiSpriteStatus {
 }
 
 private val spriteFrameYOffsetPx: Map<Int, Int> = mapOf(
-    0 to -5,
-    1 to -5,
-    2 to -5,
+    0 to -6,
+    1 to -6,
+    2 to -6,
     3 to -3,
     4 to -2,
     5 to -2,
