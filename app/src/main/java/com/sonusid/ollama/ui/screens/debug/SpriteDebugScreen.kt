@@ -1532,7 +1532,7 @@ private fun PreviewTabContent(
                                 imageVector = if (controlsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                                 contentDescription = "プレビューパネルを切り替え",
                             )
-                        
+                        }
                     }
                     AnimatedVisibility(visible = controlsExpanded) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2400,8 +2400,6 @@ private fun EditToolbar(
             Slider(value = brushSize, onValueChange = onBrushSizeChange, valueRange = 1f..32f)
         }
     }
-}
-
 }
 
 @Composable
