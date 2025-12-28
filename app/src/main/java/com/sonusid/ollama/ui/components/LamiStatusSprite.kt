@@ -229,14 +229,31 @@ fun LamiStatusSprite(
     frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
+    autoCropTransparentArea: Boolean = false,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val measuredFrameMaps = rememberLamiSprite3x3FrameMaps()
-    val resolvedFrameSrcOffsetMap = remember(frameSrcOffsetMap, measuredFrameMaps) {
-        if (frameSrcOffsetMap.isNotEmpty()) frameSrcOffsetMap else measuredFrameMaps.offsetMap
+    val resolvedFrameSrcOffsetMap = remember(
+        autoCropTransparentArea,
+        frameSrcOffsetMap,
+        measuredFrameMaps,
+    ) {
+        if (!autoCropTransparentArea) {
+            emptyMap()
+        } else if (frameSrcOffsetMap.isNotEmpty()) {
+            frameSrcOffsetMap
+        } else {
+            measuredFrameMaps.offsetMap
+        }
     }
-    val resolvedFrameSrcSizeMap = remember(frameSrcSizeMap, measuredFrameMaps) {
-        if (frameSrcSizeMap.isNotEmpty()) frameSrcSizeMap else measuredFrameMaps.sizeMap
+    val resolvedFrameSrcSizeMap = remember(autoCropTransparentArea, frameSrcSizeMap, measuredFrameMaps) {
+        if (!autoCropTransparentArea) {
+            emptyMap()
+        } else if (frameSrcSizeMap.isNotEmpty()) {
+            frameSrcSizeMap
+        } else {
+            measuredFrameMaps.sizeMap
+        }
     }
     val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
         when {
@@ -373,6 +390,7 @@ fun LamiStatusSprite(
         frameYOffsetPxMap = animatedFrameYOffsetPxMap,
         frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
         frameSrcSizeMap = resolvedFrameSrcSizeMap,
+        autoCropTransparentArea = autoCropTransparentArea,
     )
 }
 
@@ -389,6 +407,7 @@ fun LamiStatusSprite(
     frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
+    autoCropTransparentArea: Boolean = false,
 ) {
     val spriteStatus = remember(status.value) {
         mapToLamiSpriteStatus(lamiStatus = status.value)
@@ -405,6 +424,7 @@ fun LamiStatusSprite(
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
+        autoCropTransparentArea = autoCropTransparentArea,
     )
 }
 
@@ -425,6 +445,7 @@ fun LamiStatusSprite(
     frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
+    autoCropTransparentArea: Boolean = false,
 ) {
     var previousAnimationStatus by remember {
         mutableStateOf(status.value)
@@ -477,6 +498,7 @@ fun LamiStatusSprite(
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
+        autoCropTransparentArea = autoCropTransparentArea,
     )
 }
 
