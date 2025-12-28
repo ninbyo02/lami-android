@@ -22,6 +22,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -78,6 +79,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -183,6 +185,18 @@ private data class SpriteSheetScale(
     )
 
     fun imageSizeToCanvas(size: Size): Size = Size(width = size.width * scale, height = size.height * scale)
+}
+
+private fun calculateScale(intrinsicSize: Size, layoutSize: Size): SpriteSheetScale {
+    val scaleRatio = if (layoutSize == Size.Zero) 1f else minOf(
+        layoutSize.width / intrinsicSize.width,
+        layoutSize.height / intrinsicSize.height,
+    )
+    val offset = Offset(
+        (layoutSize.width - intrinsicSize.width * scaleRatio) / 2f,
+        (layoutSize.height - intrinsicSize.height * scaleRatio) / 2f,
+    )
+    return SpriteSheetScale(scaleRatio, offset)
 }
 
 class SpriteDebugViewModel(
@@ -479,7 +493,8 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .padding(12.dp),
+                .padding(12.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SpriteSheetCanvas(
@@ -489,8 +504,12 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
                 onStroke = { offset -> viewModel.applyStroke(offset) },
                 onBoxSelected = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                    .fillMaxWidth(),
+            )
+            SheetPreview(
+                uiState = uiState,
+                spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
+                onSelectBox = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
             )
             SpriteControlPanel(
                 uiState = uiState,
@@ -554,17 +573,7 @@ private fun SpriteSheetCanvas(
                 .onSizeChanged { layoutSize = Size(it.width.toFloat(), it.height.toFloat()) },
         )
 
-        val scale = remember(layoutSize, intrinsicSize) {
-            val scaleRatio = if (layoutSize == Size.Zero) 1f else minOf(
-                layoutSize.width / intrinsicSize.width,
-                layoutSize.height / intrinsicSize.height,
-            )
-            val offset = Offset(
-                (layoutSize.width - intrinsicSize.width * scaleRatio) / 2f,
-                (layoutSize.height - intrinsicSize.height * scaleRatio) / 2f,
-            )
-            SpriteSheetScale(scaleRatio, offset)
-        }
+        val scale = remember(layoutSize, intrinsicSize) { calculateScale(intrinsicSize, layoutSize) }
 
         val selectedColor = MaterialTheme.colorScheme.primary
         val normalColor = MaterialTheme.colorScheme.outlineVariant
@@ -634,6 +643,147 @@ private fun SpriteSheetCanvas(
                     end = Offset(size.width, size.height / 2f),
                     strokeWidth = 2f,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetPreview(
+    uiState: SpriteDebugState,
+    spriteBitmap: ImageBitmap,
+    onSelectBox: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val intrinsicSize = Size(spriteBitmap.width.toFloat(), spriteBitmap.height.toFloat())
+    var layoutSize by remember { mutableStateOf(Size.Zero) }
+    val selectedColor = MaterialTheme.colorScheme.primary
+    val normalColor = MaterialTheme.colorScheme.outlineVariant
+    val bestColor = MaterialTheme.colorScheme.tertiary
+    val centerLineColor = MaterialTheme.colorScheme.error
+    val onionColor = MaterialTheme.colorScheme.tertiary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(text = "シート全体プレビュー", style = MaterialTheme.typography.titleMedium)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.6f)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(6.dp),
+                ) {
+                    Image(
+                        bitmap = spriteBitmap,
+                        contentDescription = "Sprite sheet overview",
+                        modifier = Modifier
+                            .matchParentSize()
+                            .onSizeChanged { layoutSize = Size(it.width.toFloat(), it.height.toFloat()) },
+                        contentScale = ContentScale.Fit,
+                    )
+                    val scale = remember(layoutSize, intrinsicSize) { calculateScale(intrinsicSize, layoutSize) }
+                    Canvas(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .pointerInput(uiState.selectedBoxIndex, uiState.boxes) {
+                                detectTapGestures { tapOffset ->
+                                    val imageTap = scale.canvasToImage(tapOffset)
+                                    val containing = uiState.boxes.firstOrNull { box ->
+                                        imageTap.x in box.x..(box.x + box.width) && imageTap.y in box.y..(box.y + box.height)
+                                    }
+                                    val nearest = containing ?: uiState.boxes.minByOrNull { box ->
+                                        val cx = box.x + box.width / 2f
+                                        val cy = box.y + box.height / 2f
+                                        val dx = cx - imageTap.x
+                                        val dy = cy - imageTap.y
+                                        dx * dx + dy * dy
+                                    }
+                                    nearest?.let { onSelectBox(it.index) }
+                                }
+                            },
+                    ) {
+                        val step = 96f
+                        var x = 0f
+                        while (x <= spriteBitmap.width) {
+                            val start = scale.imageToCanvas(Offset(x, 0f))
+                            val end = scale.imageToCanvas(Offset(x, spriteBitmap.height.toFloat()))
+                            drawLine(color = gridColor, start = start, end = end, strokeWidth = 1f)
+                            x += step
+                        }
+                        var y = 0f
+                        while (y <= spriteBitmap.height) {
+                            val start = scale.imageToCanvas(Offset(0f, y))
+                            val end = scale.imageToCanvas(Offset(spriteBitmap.width.toFloat(), y))
+                            drawLine(color = gridColor, start = start, end = end, strokeWidth = 1f)
+                            y += step
+                        }
+
+                        uiState.boxes.forEach { box ->
+                            val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
+                            val size = scale.imageSizeToCanvas(Size(box.width, box.height))
+                            val color = when {
+                                box.index == uiState.selectedBoxIndex -> selectedColor
+                                uiState.bestMatchIndices.contains(box.index) -> bestColor
+                                else -> normalColor
+                            }
+                            drawRect(
+                                color = color.copy(alpha = if (box.index == uiState.selectedBoxIndex) 0.3f else 0.18f),
+                                topLeft = topLeft,
+                                size = size,
+                            )
+                            drawRect(
+                                color = color,
+                                topLeft = topLeft,
+                                size = size,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = if (box.index == uiState.selectedBoxIndex) 3f else 1.5f),
+                            )
+                        }
+
+                        if (uiState.onionSkin && uiState.boxes.isNotEmpty()) {
+                            val prev = uiState.boxes.getOrNull(uiState.selectedBoxIndex - 1)
+                            val next = uiState.boxes.getOrNull(uiState.selectedBoxIndex + 1)
+                            listOfNotNull(prev, next).forEach { box ->
+                                val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
+                                val size = scale.imageSizeToCanvas(Size(box.width, box.height))
+                                drawRect(
+                                    color = onionColor.copy(alpha = 0.2f),
+                                    topLeft = topLeft,
+                                    size = size,
+                                )
+                            }
+                        }
+
+                        if (uiState.showCenterLine) {
+                            val verticalStart = scale.imageToCanvas(Offset(spriteBitmap.width / 2f, 0f))
+                            val verticalEnd = scale.imageToCanvas(Offset(spriteBitmap.width / 2f, spriteBitmap.height.toFloat()))
+                            val horizontalStart = scale.imageToCanvas(Offset(0f, spriteBitmap.height / 2f))
+                            val horizontalEnd = scale.imageToCanvas(
+                                Offset(spriteBitmap.width.toFloat(), spriteBitmap.height / 2f),
+                            )
+                            drawLine(
+                                color = centerLineColor,
+                                start = verticalStart,
+                                end = verticalEnd,
+                                strokeWidth = 2f,
+                            )
+                            drawLine(
+                                color = centerLineColor,
+                                start = horizontalStart,
+                                end = horizontalEnd,
+                                strokeWidth = 2f,
+                            )
+                        }
+                    }
+                }
             }
         }
     }
