@@ -54,7 +54,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -65,6 +64,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -1835,6 +1835,7 @@ private fun ControlPanel(
                 }
             }
             FineTunePadXY(
+                step = uiState.step,
                 onAdjustX = { delta -> onNudge(delta, 0) },
                 onAdjustY = { delta -> onNudge(0, delta) },
             )
@@ -1883,45 +1884,52 @@ private fun ControlPanel(
 }
 
 @Composable
-private fun FineTunePadXY(onAdjustX: (Int) -> Unit, onAdjustY: (Int) -> Unit) {
-    val steps = listOf(1, 2, 4)
+private fun FineTunePadXY(step: Int, onAdjustX: (Int) -> Unit, onAdjustY: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = "微調整")
+        Text(text = "微調整（ステップ：${step}px）")
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Column(
+            AdjustmentButton(
+                label = "← ${step}px",
+                contentDescription = "${step}ピクセル左に移動",
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                steps.forEach { step ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AdjustmentButton(label = "←$step", modifier = Modifier.weight(1f)) { onAdjustX(-step) }
-                        AdjustmentButton(label = "→$step", modifier = Modifier.weight(1f)) { onAdjustX(step) }
-                    }
-                }
-            }
-            Column(
+            ) { onAdjustX(-step) }
+            AdjustmentButton(
+                label = "↑ ${step}px",
+                contentDescription = "${step}ピクセル上に移動",
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                steps.forEach { step ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AdjustmentButton(label = "↑$step", modifier = Modifier.weight(1f)) { onAdjustY(-step) }
-                        AdjustmentButton(label = "↓$step", modifier = Modifier.weight(1f)) { onAdjustY(step) }
-                    }
-                }
-            }
+            ) { onAdjustY(-step) }
+            AdjustmentButton(
+                label = "↓ ${step}px",
+                contentDescription = "${step}ピクセル下に移動",
+                modifier = Modifier.weight(1f),
+            ) { onAdjustY(step) }
+            AdjustmentButton(
+                label = "→ ${step}px",
+                contentDescription = "${step}ピクセル右に移動",
+                modifier = Modifier.weight(1f),
+            ) { onAdjustX(step) }
         }
     }
 }
 
 @Composable
-private fun AdjustmentButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun AdjustmentButton(
+    label: String,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    onClick: () -> Unit,
+) {
+    val semanticsModifier = if (contentDescription != null) {
+        modifier.semantics { this.contentDescription = contentDescription }
+    } else {
+        modifier
+    }
     FilledTonalButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = semanticsModifier,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Text(text = label)
@@ -1950,15 +1958,20 @@ private fun CoordinateField(label: String, value: Float?, modifier: Modifier = M
 @Composable
 private fun StepSelector(step: Int, onStepChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(text = "ステップ ${step}px")
+        Text(text = "ステップ（px）")
+        Text(text = "${step}px を選択中", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             listOf(1, 2, 4, 8).forEach { candidate ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Checkbox(checked = candidate == step, onCheckedChange = { onStepChange(candidate) })
-                    Text(text = candidate.toString())
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.semantics { contentDescription = "${candidate}ピクセルに変更" },
+                ) {
+                    RadioButton(selected = candidate == step, onClick = { onStepChange(candidate) })
+                    Text(text = "$candidate px")
                 }
             }
         }
