@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -104,6 +103,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
@@ -151,7 +151,22 @@ data class SpriteBox(
     val height: Float,
 ) : Parcelable
 
-enum class SpriteEditMode { None, Pen, Eraser }
+enum class SpriteEditMode { None, Pen, Eraser, Selection }
+
+@Parcelize
+data class SelectionArea(
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val width: Float = 0f,
+    val height: Float = 0f,
+) : Parcelable {
+    fun toBox(index: Int = -1): SpriteBox = SpriteBox(index = index, x = x, y = y, width = width, height = height)
+}
+
+private fun SpriteBox.toSelection(): SelectionArea = SelectionArea(x = x, y = y, width = width, height = height)
+
+@Parcelize
+enum class ResizeHandle : Parcelable { TopLeft, TopRight, BottomLeft, BottomRight }
 
 @Parcelize
 data class MatchOffset(
@@ -180,6 +195,8 @@ data class SpriteDebugState(
     val onionSkin: Boolean = false,
     val showCenterLine: Boolean = false,
     val brushSize: Float = 6f,
+    val selection: SelectionArea? = null,
+    val activeHandle: ResizeHandle? = null,
     val matchScores: List<SpriteMatchScore> = emptyList(),
     val bestMatchIndices: List<Int> = emptyList(),
     val spriteSheetConfig: SpriteSheetConfig = SpriteSheetConfig.default3x3(),
@@ -322,6 +339,7 @@ class SpriteDebugViewModel(
     private val redoStack = ArrayDeque<Bitmap>()
     private var spriteSheetBitmap: Bitmap? = null
     private var analysisJob: Job? = null
+    private var selectionAnchor: Offset? = null
 
     init {
         viewModelScope.launch {
@@ -439,6 +457,106 @@ class SpriteDebugViewModel(
         replaceBox(newBox)
     }
 
+    private fun currentAspectRatio(): Float {
+        val box = _uiState.value.boxes.getOrNull(_uiState.value.selectedBoxIndex) ?: return 0f
+        val ratio = if (box.width > 0f) box.height / box.width else 0f
+        return ratio.takeIf { it.isFinite() && it > 0f } ?: 0f
+    }
+
+    private fun clampToImage(offset: Offset): Offset {
+        val bitmap = spriteSheetBitmap ?: return offset
+        return Offset(
+            x = offset.x.coerceIn(0f, bitmap.width.toFloat()),
+            y = offset.y.coerceIn(0f, bitmap.height.toFloat()),
+        )
+    }
+
+    fun beginSelection(anchor: Offset) {
+        val clamped = clampToImage(anchor)
+        selectionAnchor = clamped
+        _uiState.update { current ->
+            current.copy(selection = SelectionArea(x = clamped.x, y = clamped.y, width = 0f, height = 0f), activeHandle = null)
+        }
+    }
+
+    fun updateSelectionArea(current: Offset) {
+        val anchor = selectionAnchor ?: return
+        val bitmap = spriteSheetBitmap ?: return
+        val clamped = clampToImage(current)
+        val dx = clamped.x - anchor.x
+        val dy = clamped.y - anchor.y
+        var width = kotlin.math.abs(dx)
+        var height = kotlin.math.abs(dy)
+        val ratio = currentAspectRatio()
+        if (ratio > 0f) {
+            height = width * ratio
+        }
+        var x = if (dx >= 0) anchor.x else anchor.x - width
+        var y = if (dy >= 0) anchor.y else anchor.y - height
+        width = width.coerceAtLeast(1f)
+        height = height.coerceAtLeast(1f)
+        val maxWidth = (bitmap.width - x).coerceAtLeast(1f)
+        val maxHeight = (bitmap.height - y).coerceAtLeast(1f)
+        width = width.coerceIn(1f, maxWidth)
+        height = height.coerceIn(1f, maxHeight)
+        x = x.coerceIn(0f, bitmap.width - width)
+        y = y.coerceIn(0f, bitmap.height - height)
+        _uiState.update { current ->
+            current.copy(selection = SelectionArea(x = x, y = y, width = width, height = height))
+        }
+    }
+
+    fun endSelection() {
+        selectionAnchor = null
+    }
+
+    fun applySelectionToBox() {
+        val selection = _uiState.value.selection ?: return
+        val bitmap = spriteSheetBitmap ?: return
+        val selected = _uiState.value.boxes.getOrNull(_uiState.value.selectedBoxIndex) ?: return
+        val width = selection.width.coerceIn(1f, bitmap.width.toFloat())
+        val height = selection.height.coerceIn(1f, bitmap.height.toFloat())
+        val x = selection.x.coerceIn(0f, bitmap.width - width)
+        val y = selection.y.coerceIn(0f, bitmap.height - height)
+        replaceBox(selected.copy(x = x, y = y, width = width, height = height))
+    }
+
+    fun copySelectionToClipboard(manager: ClipboardManager) {
+        val selection = _uiState.value.selection ?: _uiState.value.boxes.getOrNull(_uiState.value.selectedBoxIndex)?.toSelection()
+        selection ?: return
+        val json = gson.toJson(selection.toBox(index = _uiState.value.selectedBoxIndex))
+        manager.setText(AnnotatedString(json))
+    }
+
+    fun pasteSelectionFromClipboard(manager: ClipboardManager): Boolean {
+        val json = manager.getText()?.text ?: return false
+        val parsed = runCatching { gson.fromJson(json, SpriteBox::class.java) }.getOrNull() ?: return false
+        val clamped = clampBox(parsed)
+        replaceOrAddBox(clamped)
+        _uiState.update { current -> current.copy(selection = SelectionArea(clamped.x, clamped.y, clamped.width, clamped.height)) }
+        return true
+    }
+
+    private fun clampBox(box: SpriteBox): SpriteBox {
+        val bitmap = spriteSheetBitmap ?: return box
+        val width = box.width.coerceIn(1f, bitmap.width.toFloat())
+        val height = box.height.coerceIn(1f, bitmap.height.toFloat())
+        val x = box.x.coerceIn(0f, bitmap.width - width)
+        val y = box.y.coerceIn(0f, bitmap.height - height)
+        return box.copy(x = x, y = y, width = width, height = height)
+    }
+
+    private fun replaceOrAddBox(box: SpriteBox) {
+        val state = _uiState.value
+        val target = state.selectedBoxIndex
+        val updated = if (target in state.boxes.indices) {
+            state.boxes.toMutableList().apply { this[target] = box.copy(index = target) }
+        } else {
+            state.boxes + box.copy(index = state.boxes.size)
+        }
+        _uiState.update { current -> current.copy(boxes = updated) }
+    }
+
     fun autoSearchSingle() {
         val state = _uiState.value
         if (state.boxes.size < 2) return
@@ -491,8 +609,13 @@ class SpriteDebugViewModel(
                     useIoU = true,
                     dispatcher = defaultDispatcher,
                 )
-                applyOffsetsFromResult(result, focusIndex, applyOffsetsForAll)
-                applyAnalysisResult(result, highlightIndex = focusIndex)
+                applyAnalysisResult(
+                    result = result,
+                    highlightIndex = focusIndex,
+                    applyOffsets = true,
+                    applyOffsetsForAll = applyOffsetsForAll,
+                    focusIndex = focusIndex,
+                )
             } finally {
                 _isAnalyzing.value = false
             }
@@ -649,7 +772,13 @@ class SpriteDebugViewModel(
         result: SpriteAnalysis.SpriteAnalysisResult,
         highlightIndex: Int? = null,
         persist: Boolean = true,
+        applyOffsets: Boolean = false,
+        applyOffsetsForAll: Boolean = true,
+        focusIndex: Int? = null,
     ) {
+        if (applyOffsets) {
+            applyOffsetsFromResult(result, focusIndex, applyOffsetsForAll)
+        }
         _analysisResult.value = result
         val scores = result.scores.mapIndexed { index, score ->
             val offset = result.bestOffsets.getOrNull(index)
@@ -725,7 +854,7 @@ class SpriteDebugViewModel(
 
     fun importAnalysisResultFromJson(json: String): Boolean {
         val parsed = runCatching { gson.fromJson(json, SpriteAnalysis.SpriteAnalysisResult::class.java) }.getOrNull() ?: return false
-        applyAnalysisResult(parsed)
+        applyAnalysisResult(parsed, applyOffsets = true, applyOffsetsForAll = true, focusIndex = null)
         return true
     }
 
@@ -884,8 +1013,9 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         ) {
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("調整") })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("プレビュー") })
-                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("ギャラリー") })
+                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("編集") })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("プレビュー") })
+                Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 }, text = { Text("ギャラリー") })
             }
             when (selectedTab) {
                 0 -> when {
@@ -912,6 +1042,19 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                     )
                 }
                 1 -> when {
+                    shouldShowLoading -> LoadingCanvasPlaceholder()
+                    shouldShowError -> SpriteLoadError(
+                        onRetry = viewModel::reloadSpriteSheet,
+                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
+                    )
+                    else -> EditTabContent(
+                        uiState = uiState,
+                        spriteBitmap = resolvedBitmap!!,
+                        onRememberedStateChange = { rememberedState = it },
+                        viewModel = viewModel,
+                    )
+                }
+                2 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
                         onRetry = viewModel::reloadSpriteSheet,
@@ -959,80 +1102,180 @@ private fun AdjustTabContent(
         LoadingCanvasPlaceholder(modifier = Modifier.fillMaxSize())
         return
     }
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            SpriteSheetCanvas(
-                uiState = uiState,
-                spriteBitmap = spriteBitmap,
-                onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
-                onStroke = { offset -> viewModel.applyStroke(offset) },
-                onBoxSelected = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            val maxCanvasWidth = maxWidth - 32.dp
+            val maxCanvasHeight = maxHeight - 48.dp
+            val canvasSize = remember(maxCanvasWidth, maxCanvasHeight) { minOf(maxCanvasWidth, maxCanvasHeight * 1.6f) }
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(280.dp),
-            )
+                    .width(canvasSize)
+                    .height(canvasSize / 1.6f)
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                SpriteSheetCanvas(
+                    uiState = uiState,
+                    spriteBitmap = spriteBitmap,
+                    onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
+                    onStroke = { offset -> viewModel.applyStroke(offset) },
+                    onStartSelection = viewModel::beginSelection,
+                    onUpdateSelection = viewModel::updateSelectionArea,
+                    onEndSelection = viewModel::endSelection,
+                    onBoxSelected = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
-        item {
-            SheetPreview(
-                uiState = uiState,
-                spriteBitmap = spriteBitmap,
-                onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
-            )
+        ControlPanel(
+            uiState = uiState,
+            onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+            onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
+            onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
+            onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+            onStepChange = { step -> onRememberedStateChange(rememberedState.copy(step = step)) },
+            onSnapToggle = { viewModel.toggleSnap() },
+            onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
+            onThresholdChange = { viewModel.updateThreshold(it) },
+            onAutoSearchOne = { viewModel.autoSearchSingle() },
+            onAutoSearchAll = { viewModel.autoSearchAll() },
+            onReset = { viewModel.resetBoxes() },
+            isAnalyzing = isAnalyzing,
+            onCancelAnalysis = { viewModel.cancelAnalysis() },
+        )
+        MatchList(uiState = uiState)
+        DebugPersistencePanel(
+            stateJson = stateJson,
+            onStateJsonChange = onStateJsonChange,
+            analysisJson = analysisJson,
+            onAnalysisJsonChange = onAnalysisJsonChange,
+            onApplyState = { json ->
+                if (viewModel.importStateFromJson(json)) {
+                    scope.launch { snackbarHostState.showSnackbar("SpriteDebugState を復元しました") }
+                } else {
+                    onError("State JSON の解析に失敗しました")
+                }
+            },
+            onApplyAnalysis = { json ->
+                if (json.isBlank()) {
+                    onError("計算結果 JSON が空です")
+                } else if (viewModel.importAnalysisResultFromJson(json)) {
+                    scope.launch { snackbarHostState.showSnackbar("解析結果を適用しました") }
+                } else {
+                    onError("解析結果 JSON の解析に失敗しました")
+                }
+            },
+            clipboardManager = clipboardManager,
+            snackbarHostState = snackbarHostState,
+            scope = scope,
+        )
+    }
+}
+
+@Composable
+private fun EditTabContent(
+    uiState: SpriteDebugState,
+    spriteBitmap: ImageBitmap,
+    onRememberedStateChange: (SpriteDebugState) -> Unit,
+    viewModel: SpriteDebugViewModel,
+) {
+    val clipboardManager = LocalClipboardManager.current
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            val maxCanvasWidth = maxWidth - 32.dp
+            val maxCanvasHeight = maxHeight - 48.dp
+            val canvasWidth = remember(maxCanvasWidth, maxCanvasHeight) { minOf(maxCanvasWidth, maxCanvasHeight * 1.6f) }
+            Box(
+                modifier = Modifier
+                    .width(canvasWidth)
+                    .height(canvasWidth / 1.6f),
+            ) {
+                SpriteSheetCanvas(
+                    uiState = uiState,
+                    spriteBitmap = spriteBitmap,
+                    onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
+                    onStroke = { offset -> viewModel.applyStroke(offset) },
+                    onStartSelection = viewModel::beginSelection,
+                    onUpdateSelection = viewModel::updateSelectionArea,
+                    onEndSelection = viewModel::endSelection,
+                    onBoxSelected = { index -> onRememberedStateChange(uiState.copy(selectedBoxIndex = index)) },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
-        item {
-            ControlPanel(
-                uiState = uiState,
-                onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
-                onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
-                onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
-                onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
-                onStepChange = { step -> onRememberedStateChange(rememberedState.copy(step = step)) },
-                onSnapToggle = { viewModel.toggleSnap() },
-                onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
-                onThresholdChange = { viewModel.updateThreshold(it) },
-                onAutoSearchOne = { viewModel.autoSearchSingle() },
-                onAutoSearchAll = { viewModel.autoSearchAll() },
-                onReset = { viewModel.resetBoxes() },
-                onEditingModeChange = { viewModel.setEditingMode(it) },
-                onBrushSizeChange = { viewModel.setBrushSize(it) },
-                onUndo = { viewModel.undo() },
-                onRedo = { viewModel.redo() },
-                isAnalyzing = isAnalyzing,
-                onCancelAnalysis = { viewModel.cancelAnalysis() },
-            )
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(text = "編集ツール", style = MaterialTheme.typography.titleMedium)
+                EditToolbar(
+                    editingMode = uiState.editingMode,
+                    brushSize = uiState.brushSize,
+                    onEditingModeChange = { mode ->
+                        viewModel.setEditingMode(mode)
+                        if (mode == SpriteEditMode.None) {
+                            viewModel.endSelection()
+                        }
+                    },
+                    onBrushSizeChange = viewModel::setBrushSize,
+                    onUndo = viewModel::undo,
+                    onRedo = viewModel::redo,
+                )
+                SelectionActions(
+                    hasSelection = uiState.selection != null,
+                    onApplySelection = viewModel::applySelectionToBox,
+                    onCopy = { viewModel.copySelectionToClipboard(clipboardManager) },
+                    onPaste = { viewModel.pasteSelectionFromClipboard(clipboardManager) },
+                )
+            }
         }
-        item { MatchList(uiState = uiState) }
-        item {
-            DebugPersistencePanel(
-                stateJson = stateJson,
-                onStateJsonChange = onStateJsonChange,
-                analysisJson = analysisJson,
-                onAnalysisJsonChange = onAnalysisJsonChange,
-                onApplyState = { json ->
-                    if (viewModel.importStateFromJson(json)) {
-                        scope.launch { snackbarHostState.showSnackbar("SpriteDebugState を復元しました") }
-                    } else {
-                        onError("State JSON の解析に失敗しました")
-                    }
-                },
-                onApplyAnalysis = { json ->
-                    if (json.isBlank()) {
-                        onError("計算結果 JSON が空です")
-                    } else if (viewModel.importAnalysisResultFromJson(json)) {
-                        scope.launch { snackbarHostState.showSnackbar("解析結果を適用しました") }
-                    } else {
-                        onError("解析結果 JSON の解析に失敗しました")
-                    }
-                },
-                clipboardManager = clipboardManager,
-                snackbarHostState = snackbarHostState,
-                scope = scope,
-            )
+    }
+}
+
+@Composable
+private fun SelectionActions(
+    hasSelection: Boolean,
+    onApplySelection: () -> Unit,
+    onCopy: () -> Unit,
+    onPaste: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(onClick = onApplySelection, enabled = hasSelection, modifier = Modifier.weight(1f)) {
+            Text(text = "選択範囲を適用")
+        }
+        Button(onClick = onCopy, modifier = Modifier.weight(1f)) {
+            Text(text = "コピー")
+        }
+        Button(onClick = { onPaste() }, modifier = Modifier.weight(1f)) {
+            Text(text = "ペースト")
         }
     }
 }
@@ -1073,27 +1316,9 @@ private fun PreviewTabContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp),
-        ) {
-            itemsIndexed(uiState.boxes) { index, _ ->
-                FilterChip(
-                    selected = uiState.selectedBoxIndex == index,
-                    onClick = { onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
-                    label = { Text(text = "Box ${index + 1}") },
-                    modifier = Modifier.semantics { contentDescription = "Box ${index + 1} を選択" },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                )
-            }
-        }
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1220,6 +1445,14 @@ private fun GalleryTabContent() {
     val selectedStatus = remember(selectedStatusName) {
         runCatching { LamiSpriteStatus.valueOf(selectedStatusName) }.getOrDefault(LamiSpriteStatus.Idle)
     }
+    val statusDescriptions = remember {
+        mapOf(
+            LamiSpriteStatus.Idle to "待機中のスプライトアニメーションです。",
+            LamiSpriteStatus.Speaking to "発話中のフレーム遷移を確認できます。",
+            LamiSpriteStatus.Listening to "リッスン状態のサンプルを再生します。",
+            LamiSpriteStatus.Thinking to "思考状態のニュアンスを確認します。",
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -1243,9 +1476,13 @@ private fun GalleryTabContent() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LamiStatusSprite(status = selectedStatus, sizeDp = 96.dp)
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val description = statusDescriptions[selectedStatus] ?: "詳細情報なし"
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.semantics { contentDescription = description },
+                    ) {
                         Text(text = "選択中: ${selectedStatus.name}", style = MaterialTheme.typography.titleMedium)
-                        Text(text = "ステータスセットを切り替えてプレビューを確認できます。")
+                        Text(text = description)
                     }
                 }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1313,6 +1550,9 @@ private fun SpriteSheetCanvas(
     spriteBitmap: ImageBitmap,
     onDragBox: (Offset) -> Unit,
     onStroke: (Offset) -> Unit,
+    onStartSelection: (Offset) -> Unit = {},
+    onUpdateSelection: (Offset) -> Unit = {},
+    onEndSelection: () -> Unit = {},
     onBoxSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1329,7 +1569,9 @@ private fun SpriteSheetCanvas(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1.6f, matchHeightConstraintsFirst = true)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+            .padding(16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Image(
@@ -1337,7 +1579,7 @@ private fun SpriteSheetCanvas(
             contentDescription = "Sprite sheet",
             modifier = Modifier
                 .fillMaxSize()
-                .padding(6.dp)
+                .padding(12.dp)
                 .onSizeChanged { layoutSize = Size(it.width.toFloat(), it.height.toFloat()) },
         )
 
@@ -1363,26 +1605,57 @@ private fun SpriteSheetCanvas(
                     spriteBoxCount = uiState.boxes.size
                 }
                 .pointerInput(uiState.selectedBoxIndex, uiState.snapToGrid, uiState.editingMode) {
-                    detectDragGestures { change, dragAmount ->
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            val imageOffset = scale.canvasToImage(offset)
+                            if (uiState.editingMode == SpriteEditMode.Selection) {
+                                onStartSelection(imageOffset)
+                            }
+                        },
+                        onDragEnd = {
+                            if (uiState.editingMode == SpriteEditMode.Selection) {
+                                onEndSelection()
+                            }
+                        },
+                        onDragCancel = {
+                            if (uiState.editingMode == SpriteEditMode.Selection) {
+                                onEndSelection()
+                            }
+                        },
+                    ) { change, dragAmount ->
                         change.consume()
                         val safeScale = scale.scale.coerceAtLeast(0.01f)
-                        if (uiState.editingMode == SpriteEditMode.None) {
-                            val deltaImage = Offset(dragAmount.x / safeScale, dragAmount.y / safeScale)
-                            if (!deltaImage.isFiniteOffset()) {
-                                Log.w(SPRITE_DEBUG_TAG, "Ignoring non-finite drag delta: dragAmount=$dragAmount safeScale=$safeScale")
-                                return@detectDragGestures
+                        when (uiState.editingMode) {
+                            SpriteEditMode.None -> {
+                                val deltaImage = Offset(dragAmount.x / safeScale, dragAmount.y / safeScale)
+                                if (!deltaImage.isFiniteOffset()) {
+                                    Log.w(SPRITE_DEBUG_TAG, "Ignoring non-finite drag delta: dragAmount=$dragAmount safeScale=$safeScale")
+                                    return@detectDragGestures
+                                }
+                                onDragBox(deltaImage)
                             }
-                            onDragBox(deltaImage)
-                        } else {
-                            val imageOffset = scale.canvasToImage(change.position)
-                            if (!imageOffset.isFiniteOffset()) {
-                                Log.w(
-                                    SPRITE_DEBUG_TAG,
-                                    "Ignoring non-finite stroke position: position=${change.position} safeScale=$safeScale offset=${scale.offset}",
-                                )
-                                return@detectDragGestures
+                            SpriteEditMode.Pen, SpriteEditMode.Eraser -> {
+                                val imageOffset = scale.canvasToImage(change.position)
+                                if (!imageOffset.isFiniteOffset()) {
+                                    Log.w(
+                                        SPRITE_DEBUG_TAG,
+                                        "Ignoring non-finite stroke position: position=${change.position} safeScale=$safeScale offset=${scale.offset}",
+                                    )
+                                    return@detectDragGestures
+                                }
+                                onStroke(imageOffset)
                             }
-                            onStroke(imageOffset)
+                            SpriteEditMode.Selection -> {
+                                val imageOffset = scale.canvasToImage(change.position)
+                                if (!imageOffset.isFiniteOffset()) {
+                                    Log.w(
+                                        SPRITE_DEBUG_TAG,
+                                        "Ignoring non-finite selection drag: position=${change.position} safeScale=$safeScale offset=${scale.offset}",
+                                    )
+                                    return@detectDragGestures
+                                }
+                                onUpdateSelection(imageOffset)
+                            }
                         }
                     }
                 }
@@ -1428,6 +1701,21 @@ private fun SpriteSheetCanvas(
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = if (box.index == uiState.selectedBoxIndex) 3f else 1.5f),
                 )
             }
+            uiState.selection?.let { selection ->
+                val topLeft = scale.imageToCanvas(Offset(selection.x, selection.y))
+                val size = scale.imageSizeToCanvas(Size(selection.width, selection.height))
+                drawRect(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
+                    topLeft = topLeft,
+                    size = size,
+                )
+                drawRect(
+                    color = MaterialTheme.colorScheme.secondary,
+                    topLeft = topLeft,
+                    size = size,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f),
+                )
+            }
             if (uiState.showCenterLine) {
                 drawLine(
                     color = centerLineColor,
@@ -1441,156 +1729,6 @@ private fun SpriteSheetCanvas(
                     end = Offset(size.width, size.height / 2f),
                     strokeWidth = 2f,
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SheetPreview(
-    uiState: SpriteDebugState,
-    spriteBitmap: ImageBitmap,
-    onSelectBox: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val intrinsicSize = Size(spriteBitmap.width.toFloat(), spriteBitmap.height.toFloat())
-    var layoutSize by remember { mutableStateOf(Size.Zero) }
-    val selectedColor = MaterialTheme.colorScheme.primary
-    val normalColor = MaterialTheme.colorScheme.outlineVariant
-    val bestColor = MaterialTheme.colorScheme.tertiary
-    val centerLineColor = MaterialTheme.colorScheme.error
-    val onionColor = MaterialTheme.colorScheme.tertiary
-    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(text = "シート全体プレビュー", style = MaterialTheme.typography.titleMedium)
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1.6f)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(6.dp),
-                ) {
-                    Image(
-                        bitmap = spriteBitmap,
-                        contentDescription = "Sprite sheet overview",
-                        modifier = Modifier
-                            .matchParentSize()
-                            .onSizeChanged { layoutSize = Size(it.width.toFloat(), it.height.toFloat()) },
-                        contentScale = ContentScale.Fit,
-                    )
-                    val scale = remember(layoutSize, intrinsicSize) { calculateScale(intrinsicSize, layoutSize) }
-                    val isScaleValid = remember(scale) { scale.isValid() && scale.scale > 0f }
-                    if (!isScaleValid) {
-                        LaunchedEffect(scale) {
-                            Log.d(SPRITE_DEBUG_TAG, "Sheet preview skipped due to invalid scale: $scale")
-                        }
-                        LoadingCanvasPlaceholder(modifier = Modifier.matchParentSize())
-                        return@BoxWithConstraints
-                    }
-                    Canvas(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .pointerInput(uiState.selectedBoxIndex, uiState.boxes) {
-                                detectTapGestures { tapOffset ->
-                                    val imageTap = scale.canvasToImage(tapOffset)
-                                    val containing = uiState.boxes.firstOrNull { box ->
-                                        imageTap.x in box.x..(box.x + box.width) && imageTap.y in box.y..(box.y + box.height)
-                                    }
-                                    val nearest = containing ?: uiState.boxes.minByOrNull { box ->
-                                        val cx = box.x + box.width / 2f
-                                        val cy = box.y + box.height / 2f
-                                        val dx = cx - imageTap.x
-                                        val dy = cy - imageTap.y
-                                        dx * dx + dy * dy
-                                    }
-                                    nearest?.let { onSelectBox(it.index) }
-                                }
-                            },
-                    ) {
-                        if (!scale.isValid()) return@Canvas
-                        val step = 96f
-                        var x = 0f
-                        while (x <= spriteBitmap.width) {
-                            val start = scale.imageToCanvas(Offset(x, 0f))
-                            val end = scale.imageToCanvas(Offset(x, spriteBitmap.height.toFloat()))
-                            drawLine(color = gridColor, start = start, end = end, strokeWidth = 1f)
-                            x += step
-                        }
-                        var y = 0f
-                        while (y <= spriteBitmap.height) {
-                            val start = scale.imageToCanvas(Offset(0f, y))
-                            val end = scale.imageToCanvas(Offset(spriteBitmap.width.toFloat(), y))
-                            drawLine(color = gridColor, start = start, end = end, strokeWidth = 1f)
-                            y += step
-                        }
-
-                        uiState.boxes.forEach { box ->
-                            val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
-                            val size = scale.imageSizeToCanvas(Size(box.width, box.height))
-                            val color = when {
-                                box.index == uiState.selectedBoxIndex -> selectedColor
-                                uiState.bestMatchIndices.contains(box.index) -> bestColor
-                                else -> normalColor
-                            }
-                            drawRect(
-                                color = color.copy(alpha = if (box.index == uiState.selectedBoxIndex) 0.3f else 0.18f),
-                                topLeft = topLeft,
-                                size = size,
-                            )
-                            drawRect(
-                                color = color,
-                                topLeft = topLeft,
-                                size = size,
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = if (box.index == uiState.selectedBoxIndex) 3f else 1.5f),
-                            )
-                        }
-
-                        if (uiState.onionSkin && uiState.boxes.isNotEmpty()) {
-                            val prev = uiState.boxes.getOrNull(uiState.selectedBoxIndex - 1)
-                            val next = uiState.boxes.getOrNull(uiState.selectedBoxIndex + 1)
-                            listOfNotNull(prev, next).forEach { box ->
-                                val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
-                                val size = scale.imageSizeToCanvas(Size(box.width, box.height))
-                                drawRect(
-                                    color = onionColor.copy(alpha = 0.2f),
-                                    topLeft = topLeft,
-                                    size = size,
-                                )
-                            }
-                        }
-
-                        if (uiState.showCenterLine) {
-                            val verticalStart = scale.imageToCanvas(Offset(spriteBitmap.width / 2f, 0f))
-                            val verticalEnd = scale.imageToCanvas(Offset(spriteBitmap.width / 2f, spriteBitmap.height.toFloat()))
-                            val horizontalStart = scale.imageToCanvas(Offset(0f, spriteBitmap.height / 2f))
-                            val horizontalEnd = scale.imageToCanvas(
-                                Offset(spriteBitmap.width.toFloat(), spriteBitmap.height / 2f),
-                            )
-                            drawLine(
-                                color = centerLineColor,
-                                start = verticalStart,
-                                end = verticalEnd,
-                                strokeWidth = 2f,
-                            )
-                            drawLine(
-                                color = centerLineColor,
-                                start = horizontalStart,
-                                end = horizontalEnd,
-                                strokeWidth = 2f,
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -1611,10 +1749,6 @@ private fun ControlPanel(
     onAutoSearchOne: () -> Unit,
     onAutoSearchAll: () -> Unit,
     onReset: () -> Unit,
-    onEditingModeChange: (SpriteEditMode) -> Unit,
-    onBrushSizeChange: (Float) -> Unit,
-    onUndo: () -> Unit,
-    onRedo: () -> Unit,
     isAnalyzing: Boolean,
     onCancelAnalysis: () -> Unit,
 ) {
@@ -1714,14 +1848,6 @@ private fun ControlPanel(
                 Button(onClick = onAutoSearchAll, modifier = Modifier.weight(1f), enabled = !isAnalyzing) { Text(text = "全体自動探索") }
                 TextButton(onClick = onReset) { Text(text = "リセット") }
             }
-            EditToolbar(
-                editingMode = uiState.editingMode,
-                brushSize = uiState.brushSize,
-                onEditingModeChange = onEditingModeChange,
-                onBrushSizeChange = onBrushSizeChange,
-                onUndo = onUndo,
-                onRedo = onRedo,
-            )
         }
     }
 }
@@ -1826,6 +1952,9 @@ private fun EditToolbar(
             }
             Button(onClick = { onEditingModeChange(SpriteEditMode.Eraser) }, enabled = editingMode != SpriteEditMode.Eraser) {
                 Text(text = "消しゴム")
+            }
+            Button(onClick = { onEditingModeChange(SpriteEditMode.Selection) }, enabled = editingMode != SpriteEditMode.Selection) {
+                Text(text = "選択")
             }
             TextButton(onClick = { onEditingModeChange(SpriteEditMode.None) }) { Text(text = "終了") }
             IconButton(onClick = onUndo) { Text(text = "Undo") }
