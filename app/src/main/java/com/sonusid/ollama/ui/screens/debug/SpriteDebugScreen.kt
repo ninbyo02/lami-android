@@ -81,7 +81,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -119,6 +118,9 @@ import com.google.gson.Gson
 import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.sprite.LamiSpriteSheetRepository
+import com.sonusid.ollama.sprite.SpriteSheetLoadResult
+import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
@@ -334,6 +336,7 @@ class SpriteDebugViewModel(
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val gson: Gson = Gson(),
+    private val spriteSheetRepository: LamiSpriteSheetRepository = LamiSpriteSheetRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(initializeState())
     val uiState: StateFlow<SpriteDebugState> = _uiState.asStateFlow()
@@ -343,8 +346,6 @@ class SpriteDebugViewModel(
     val isAnalyzing: StateFlow<Boolean> = _isAnalyzing.asStateFlow()
     private val _sheetBitmap = MutableStateFlow<ImageBitmap?>(null)
     val sheetBitmap: StateFlow<ImageBitmap?> = _sheetBitmap.asStateFlow()
-    private val _reloadSignal = MutableStateFlow(0)
-    val reloadSignal: StateFlow<Int> = _reloadSignal.asStateFlow()
     private val undoStack = ArrayDeque<Bitmap>()
     private val redoStack = ArrayDeque<Bitmap>()
     private var spriteSheetBitmap: Bitmap? = null
@@ -361,6 +362,12 @@ class SpriteDebugViewModel(
             restorePersistedState()
             observeSpriteSheetConfig()
         }
+        viewModelScope.launch {
+            spriteSheetRepository.state.collect { result ->
+                val data = (result as? SpriteSheetLoadResult.Success)?.data ?: return@collect
+                setSpriteSheet(data.bitmap)
+            }
+        }
     }
 
     fun setSpriteSheet(bitmap: Bitmap?) {
@@ -372,8 +379,10 @@ class SpriteDebugViewModel(
         persistStateAsync()
     }
 
-    fun reloadSpriteSheet() {
-        _reloadSignal.update { it + 1 }
+    fun reloadSpriteSheet(context: Context) {
+        viewModelScope.launch(ioDispatcher) {
+            spriteSheetRepository.reload(context)
+        }
     }
 
     fun loadSpriteSheetFromUri(context: Context, uri: Uri, onResult: (Boolean) -> Unit = {}) {
@@ -943,30 +952,12 @@ class SpriteDebugViewModel(
 private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
-private sealed interface SpriteBitmapLoadState {
-    object Loading : SpriteBitmapLoadState
-    data class Success(val bitmap: Bitmap) : SpriteBitmapLoadState
-    data class Error(val throwable: Throwable? = null) : SpriteBitmapLoadState
-}
-
-private suspend fun loadSpriteBitmap(context: Context): Bitmap? = withContext(Dispatchers.IO) {
-    val resources = context.resources
-    val spriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.lami_sprite_3x3_288)
-    if (spriteBitmap != null && spriteBitmap.width > 0 && spriteBitmap.height > 0) {
-        Log.d(SPRITE_DEBUG_TAG, "Loaded sprite sheet lami_sprite_3x3_288 (${spriteBitmap.width}x${spriteBitmap.height})")
-        return@withContext spriteBitmap
-    }
-    Log.w(SPRITE_DEBUG_TAG, "Failed to decode sprite sheet. Sprite bitmap is null or empty.")
-    return@withContext null
-}
-
 @Composable
 fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
     val analysisResult by viewModel.analysisResult.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
-    val reloadSignal by viewModel.reloadSignal.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -974,26 +965,9 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val gson = remember { Gson() }
     var stateJson by remember(uiState) { mutableStateOf(gson.toJson(uiState)) }
     var analysisJson by remember(analysisResult) { mutableStateOf(analysisResult?.let { gson.toJson(it) }.orEmpty()) }
-    val spriteLoadState by produceState<SpriteBitmapLoadState>(
-        initialValue = SpriteBitmapLoadState.Loading,
-        key1 = context,
-        key2 = reloadSignal,
-    ) {
-        value = SpriteBitmapLoadState.Loading
-        val bitmap = try {
-            loadSpriteBitmap(context)
-        } catch (exception: Exception) {
-            Log.e(SPRITE_DEBUG_TAG, "Failed to load sprite sheet resource", exception)
-            value = SpriteBitmapLoadState.Error(exception)
-            return@produceState
-        }
-        if (bitmap != null) {
-            viewModel.setSpriteSheet(bitmap)
-            value = SpriteBitmapLoadState.Success(bitmap)
-        } else {
-            value = SpriteBitmapLoadState.Error()
-        }
-    }
+    val spriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
+    val spriteSheetState by rememberLamiSpriteSheetState(spriteSheetConfig)
+    val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
     val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         viewModel.loadSpriteSheetFromUri(context, uri) { success ->
@@ -1030,17 +1004,17 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    val loadedSpriteBitmap = (spriteLoadState as? SpriteBitmapLoadState.Success)?.bitmap
-    val resolvedBitmap = remember(sheetBitmap, loadedSpriteBitmap) {
-        (sheetBitmap ?: loadedSpriteBitmap?.asImageBitmap())?.takeIf { it.width > 0 && it.height > 0 }
+    val resolvedBitmap = remember(sheetBitmap, spriteSheetData) {
+        (sheetBitmap ?: spriteSheetData?.imageBitmap)?.takeIf { it.width > 0 && it.height > 0 }
     }
-    val shouldShowLoading = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Loading
-    val shouldShowError = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Error
-    LaunchedEffect(shouldShowError, sheetBitmap, loadedSpriteBitmap) {
+    val isLoadInProgress = spriteSheetState is SpriteSheetLoadResult.Loading || spriteSheetState is SpriteSheetLoadResult.Idle
+    val shouldShowLoading = resolvedBitmap == null && isLoadInProgress
+    val shouldShowError = resolvedBitmap == null && spriteSheetState is SpriteSheetLoadResult.Error
+    LaunchedEffect(shouldShowError, sheetBitmap, spriteSheetData) {
         if (shouldShowError) {
             Log.w(
                 SPRITE_DEBUG_TAG,
-                "Canvas initialization failed. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${loadedSpriteBitmap?.width}x${loadedSpriteBitmap?.height}",
+                "Canvas initialization failed. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${spriteSheetData?.bitmap?.width}x${spriteSheetData?.bitmap?.height}",
             )
             snackbarHostState.showSnackbar("Canvas初期化に失敗しました")
         }
@@ -1065,7 +1039,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 0 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                     else -> AdjustTabContent(
@@ -1088,7 +1062,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 1 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                     else -> EditTabContent(
@@ -1101,7 +1075,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 2 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                     else -> PreviewTabContent(
@@ -1118,7 +1092,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 }
                 else -> if (shouldShowError) {
                     SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                 } else {
