@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.components
 
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -34,15 +35,15 @@ enum class LamiSpriteStatus {
 }
 
 private val spriteFrameYOffsetPx: Map<Int, Int> = mapOf(
-    0 to -6,
-    1 to -6,
-    2 to -3,
-    3 to -3,
-    4 to -2,
-    5 to -2,
-    6 to 0,
-    7 to 0,
-    8 to 0,
+    0 to -2,
+    1 to -2,
+    2 to -1,
+    3 to -1,
+    4 to 0,
+    5 to 0,
+    6 to 1,
+    7 to 1,
+    8 to 1,
 )
 
 data class FrameDurationSpec(
@@ -225,6 +226,20 @@ fun LamiStatusSprite(
     var currentFrameIndex by remember(resolvedStatus) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, 8) ?: 0)
     }
+    val targetFrameYOffsetPx = frameYOffsetPxMap[currentFrameIndex] ?: 0
+    val animatedFrameYOffsetPx by animateIntAsState(
+        targetValue = targetFrameYOffsetPx,
+        label = "frameYOffsetPx",
+    )
+    val animatedFrameYOffsetPxMap = remember(
+        frameYOffsetPxMap,
+        currentFrameIndex,
+        animatedFrameYOffsetPx,
+    ) {
+        frameYOffsetPxMap.toMutableMap().apply {
+            put(currentFrameIndex, animatedFrameYOffsetPx)
+        }
+    }
 
     LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
         currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, 8) ?: 0
@@ -321,7 +336,7 @@ fun LamiStatusSprite(
         modifier = modifier,
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
-        frameYOffsetPxMap = frameYOffsetPxMap,
+        frameYOffsetPxMap = animatedFrameYOffsetPxMap,
     )
 }
 
