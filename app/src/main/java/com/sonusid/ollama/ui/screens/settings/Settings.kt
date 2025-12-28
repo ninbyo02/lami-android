@@ -225,7 +225,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ElevatedButton(
-                        onClick = { navgationController.navigate("sprite_debug") },
+                        onClick = { navgationController.navigate("sprite_debug_settings") },
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
@@ -507,7 +507,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         }
                     }
                     ElevatedButton(
-                        onClick = { navgationController.navigate("sprite_debug") },
+                        onClick = { navgationController.navigate("sprite_debug_tools") },
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
