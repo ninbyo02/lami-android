@@ -177,7 +177,8 @@ fun Home(
                         viewModel.onUserInteraction()
                         viewModel.updateSelectedModel(modelName)
                     },
-                    onNavigateSettings = { navHostController.navigate("setting") }
+                    onNavigateSettings = { navHostController.navigate("setting") },
+                    onOpenSpriteDebug = { navHostController.navigate("spriteDebug") }
                 )
             },
             actions = {
