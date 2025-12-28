@@ -875,7 +875,12 @@ private fun ControlPanel(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp),
@@ -920,7 +925,10 @@ private fun ControlPanel(
                     Switch(checked = uiState.snapToGrid, onCheckedChange = { onSnapToggle() })
                 }
             }
-            AdjustmentRow(onNudge = onNudge)
+            FineTunePadXY(
+                onAdjustX = { delta -> onNudge(delta, 0) },
+                onAdjustY = { delta -> onNudge(0, delta) },
+            )
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(text = "探索半径 ${uiState.searchRadius.toInt()}px")
@@ -962,30 +970,46 @@ private fun ControlPanel(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AdjustmentRow(onNudge: (Int, Int) -> Unit) {
+private fun FineTunePadXY(onAdjustX: (Int) -> Unit, onAdjustY: (Int) -> Unit) {
+    val steps = listOf(1, 2, 4)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = "微調整")
-        FlowRow(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            listOf(1, 2, 4).forEach { step ->
-                AdjustmentButton(label = "-$step") { onNudge(-step, 0) }
-                AdjustmentButton(label = "+$step") { onNudge(step, 0) }
-                AdjustmentButton(label = "↑$step") { onNudge(0, -step) }
-                AdjustmentButton(label = "↓$step") { onNudge(0, step) }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                steps.forEach { step ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AdjustmentButton(label = "←$step", modifier = Modifier.weight(1f)) { onAdjustX(-step) }
+                        AdjustmentButton(label = "→$step", modifier = Modifier.weight(1f)) { onAdjustX(step) }
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                steps.forEach { step ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AdjustmentButton(label = "↑$step", modifier = Modifier.weight(1f)) { onAdjustY(-step) }
+                        AdjustmentButton(label = "↓$step", modifier = Modifier.weight(1f)) { onAdjustY(step) }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AdjustmentButton(label: String, onClick: () -> Unit) {
+private fun AdjustmentButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     FilledTonalButton(
         onClick = onClick,
+        modifier = modifier,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Text(text = label)
