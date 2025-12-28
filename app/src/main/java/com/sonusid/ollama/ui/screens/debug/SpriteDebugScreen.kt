@@ -1083,6 +1083,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                         viewModel = viewModel,
                         rememberedState = rememberedState,
                         sheetBitmap = resolvedBitmap,
+                        isAnalyzing = isAnalyzing,
                         onRememberedStateChange = { rememberedState = it },
                     )
                 }
@@ -1409,6 +1410,7 @@ private fun PreviewTabContent(
     viewModel: SpriteDebugViewModel,
     rememberedState: SpriteDebugState,
     sheetBitmap: ImageBitmap?,
+    isAnalyzing: Boolean,
     onRememberedStateChange: (SpriteDebugState) -> Unit,
 ) {
     val hasSheetBitmap = sheetBitmap?.let { it.width > 0 && it.height > 0 } == true
@@ -1416,6 +1418,7 @@ private fun PreviewTabContent(
         LoadingCanvasPlaceholder(modifier = Modifier.fillMaxSize())
         return
     }
+    val clipboardManager = LocalClipboardManager.current
     var playing by rememberSaveable { mutableStateOf(false) }
     var frameIndex by rememberSaveable { mutableIntStateOf(0) }
     var controlsExpanded by rememberSaveable { mutableStateOf(true) }
@@ -1436,126 +1439,237 @@ private fun PreviewTabContent(
         label = "glow",
     )
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+        val isWideLayout = maxWidth >= 960.dp
+        val spacing = 12.dp
+
+        val previewSection: @Composable () -> Unit = {
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                Text(text = "プレビュー", style = MaterialTheme.typography.titleMedium)
-                if (frames.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                            .border(2.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = glow), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Image(
-                            bitmap = frames[frameIndex % frames.size],
-                            contentDescription = "frame",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit,
-                        )
-                        if (uiState.onionSkin && frames.size > 1) {
-                            val previous = frames[(frameIndex - 1 + frames.size) % frames.size]
-                            val next = frames[(frameIndex + 1) % frames.size]
-                            Image(bitmap = previous, contentDescription = "onion-prev", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
-                            Image(bitmap = next, contentDescription = "onion-next", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
-                        }
-                        if (uiState.showCenterLine) {
-                            val previewCenterLineColor = MaterialTheme.colorScheme.secondary
-                            Canvas(modifier = Modifier.matchParentSize()) {
-                                drawLine(
-                                    color = previewCenterLineColor,
-                                    start = Offset(size.width / 2f, 0f),
-                                    end = Offset(size.width / 2f, size.height),
-                                    strokeWidth = 2f,
-                                )
-                                drawLine(
-                                    color = previewCenterLineColor,
-                                    start = Offset(0f, size.height / 2f),
-                                    end = Offset(size.width, size.height / 2f),
-                                    strokeWidth = 2f,
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Text(text = "ROIが見つかりません", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    FilledIconButton(onClick = { playing = !playing }) {
-                        Icon(imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "play")
-                    }
-                    Text(text = "速度 ${rememberedState.previewSpeedMs}ms", modifier = Modifier.weight(1f))
-                    IconButton(onClick = { controlsExpanded = !controlsExpanded }) {
-                        Icon(
-                            imageVector = if (controlsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                            contentDescription = "プレビューパネルを切り替え",
-                        )
-                    }
-                }
-                AnimatedVisibility(visible = controlsExpanded) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Slider(
-                            value = rememberedState.previewSpeedMs.toFloat(),
-                            onValueChange = {
-                                val speed = it.toLong()
-                                onRememberedStateChange(rememberedState.copy(previewSpeedMs = speed))
-                                viewModel.updatePreviewSpeed(speed)
-                            },
-                            valueRange = 120f..2000f,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(text = "プレビュー", style = MaterialTheme.typography.titleMedium)
+                    if (frames.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                .border(2.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = glow), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(text = "オニオンスキン")
-                                Switch(checked = uiState.onionSkin, onCheckedChange = { viewModel.toggleOnionSkin(it) })
-                            }
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(text = "中心線")
-                                Switch(checked = uiState.showCenterLine, onCheckedChange = { viewModel.toggleCenterLine(it) })
-                            }
-                        }
-                        TextButton(onClick = { previewListExpanded = !previewListExpanded }) {
-                            Icon(
-                                imageVector = if (previewListExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                                contentDescription = "プレビュー順を開閉",
+                            Image(
+                                bitmap = frames[frameIndex % frames.size],
+                                contentDescription = "frame",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
                             )
-                            Text(text = "プレビュー順を表示")
+                            if (uiState.onionSkin && frames.size > 1) {
+                                val previous = frames[(frameIndex - 1 + frames.size) % frames.size]
+                                val next = frames[(frameIndex + 1) % frames.size]
+                                Image(bitmap = previous, contentDescription = "onion-prev", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
+                                Image(bitmap = next, contentDescription = "onion-next", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
+                            }
+                            if (uiState.showCenterLine) {
+                                val previewCenterLineColor = MaterialTheme.colorScheme.secondary
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    drawLine(
+                                        color = previewCenterLineColor,
+                                        start = Offset(size.width / 2f, 0f),
+                                        end = Offset(size.width / 2f, size.height),
+                                        strokeWidth = 2f,
+                                    )
+                                    drawLine(
+                                        color = previewCenterLineColor,
+                                        start = Offset(0f, size.height / 2f),
+                                        end = Offset(size.width, size.height / 2f),
+                                        strokeWidth = 2f,
+                                    )
+                                }
+                            }
                         }
-                        AnimatedVisibility(visible = previewListExpanded) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                uiState.boxes.forEach { box ->
-                                    Text(text = "Frame ${box.index + 1} (${box.x.toInt()}, ${box.y.toInt()})")
+                    } else {
+                        Text(text = "ROIが見つかりません", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        FilledIconButton(onClick = { playing = !playing }) {
+                            Icon(imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "play")
+                        }
+                        Text(text = "速度 ${rememberedState.previewSpeedMs}ms", modifier = Modifier.weight(1f))
+                        IconButton(onClick = { controlsExpanded = !controlsExpanded }) {
+                            Icon(
+                                imageVector = if (controlsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                contentDescription = "プレビューパネルを切り替え",
+                            )
+                        }
+                    }
+                    AnimatedVisibility(visible = controlsExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Slider(
+                                value = rememberedState.previewSpeedMs.toFloat(),
+                                onValueChange = {
+                                    val speed = it.toLong()
+                                    onRememberedStateChange(rememberedState.copy(previewSpeedMs = speed))
+                                    viewModel.updatePreviewSpeed(speed)
+                                },
+                                valueRange = 120f..2000f,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(text = "オニオンスキン")
+                                    Switch(checked = uiState.onionSkin, onCheckedChange = { viewModel.toggleOnionSkin(it) })
+                                }
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(text = "中心線")
+                                    Switch(checked = uiState.showCenterLine, onCheckedChange = { viewModel.toggleCenterLine(it) })
+                                }
+                            }
+                            TextButton(onClick = { previewListExpanded = !previewListExpanded }) {
+                                Icon(
+                                    imageVector = if (previewListExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = "プレビュー順を開閉",
+                                )
+                                Text(text = "プレビュー順を表示")
+                            }
+                            AnimatedVisibility(visible = previewListExpanded) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    uiState.boxes.forEach { box ->
+                                        Text(text = "Frame ${box.index + 1} (${box.x.toInt()}, ${box.y.toInt()})")
+                                    }
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+
+        val editorSection: @Composable () -> Unit = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(spacing),
+            ) {
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val maxCanvasWidth = maxWidth - 32.dp
+                    val maxCanvasHeight = maxHeight - 48.dp
+                    val canvasWidth = remember(maxCanvasWidth, maxCanvasHeight) { minOf(maxCanvasWidth, maxCanvasHeight * 1.6f) }
+                    Box(
+                        modifier = Modifier
+                            .width(canvasWidth)
+                            .height(canvasWidth / 1.6f),
+                    ) {
+                        SpriteSheetCanvas(
+                            uiState = uiState,
+                            spriteBitmap = sheetBitmap!!,
+                            onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
+                            onStroke = { offset -> viewModel.applyStroke(offset) },
+                            onStartSelection = viewModel::beginSelection,
+                            onUpdateSelection = viewModel::updateSelectionArea,
+                            onEndSelection = viewModel::endSelection,
+                            onBoxSelected = { index ->
+                                viewModel.selectBox(index)
+                                onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index))
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(text = "編集ツール", style = MaterialTheme.typography.titleMedium)
+                        EditToolbar(
+                            editingMode = uiState.editingMode,
+                            brushSize = uiState.brushSize,
+                            onEditingModeChange = { mode ->
+                                viewModel.setEditingMode(mode)
+                                if (mode == SpriteEditMode.None) {
+                                    viewModel.endSelection()
+                                }
+                            },
+                            onBrushSizeChange = viewModel::setBrushSize,
+                            onUndo = viewModel::undo,
+                            onRedo = viewModel::redo,
+                        )
+                        SelectionActions(
+                            hasSelection = uiState.selection != null,
+                            onApplySelection = viewModel::applySelectionToBox,
+                            onCopy = { viewModel.copySelectionToClipboard(clipboardManager) },
+                            onPaste = { viewModel.pasteSelectionFromClipboard(clipboardManager) },
+                        )
+                    }
+                }
+                ControlPanel(
+                    uiState = uiState,
+                    onSelectBox = { index ->
+                        viewModel.selectBox(index)
+                        onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index))
+                    },
+                    onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
+                    onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
+                    onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+                    onStepChange = { step ->
+                        onRememberedStateChange(rememberedState.copy(step = step))
+                        viewModel.updateStep(step)
+                    },
+                    onSnapToggle = { viewModel.toggleSnap() },
+                    onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
+                    onThresholdChange = { viewModel.updateThreshold(it) },
+                    onAutoSearchOne = { viewModel.autoSearchSingle() },
+                    onAutoSearchAll = { viewModel.autoSearchAll() },
+                    onReset = { viewModel.resetBoxes() },
+                    isAnalyzing = isAnalyzing,
+                    onCancelAnalysis = { viewModel.cancelAnalysis() },
+                )
+            }
+        }
+
+        if (isWideLayout) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(spacing),
+            ) {
+                Box(modifier = Modifier.weight(1f)) { previewSection() }
+                Box(modifier = Modifier.weight(1f)) { editorSection() }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(spacing),
+            ) {
+                previewSection()
+                editorSection()
             }
         }
     }
