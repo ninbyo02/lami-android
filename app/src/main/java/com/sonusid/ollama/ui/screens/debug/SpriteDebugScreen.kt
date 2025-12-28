@@ -6,7 +6,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.os.Parcelable
-import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -410,7 +410,7 @@ class SpriteDebugViewModel(
 private fun createPlaceholderBitmap(): Bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
 
 private fun loadSpriteBitmap(context: Context): Bitmap? {
-    val drawable = AppCompatResources.getDrawable(context, R.drawable.logo) ?: return createPlaceholderBitmap()
+    val drawable = ContextCompat.getDrawable(context, R.drawable.logo) ?: return createPlaceholderBitmap()
     val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: return createPlaceholderBitmap()
     val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: return createPlaceholderBitmap()
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
