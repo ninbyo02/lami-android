@@ -147,20 +147,9 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         ),
     ),
     LamiSpriteStatus.TalkCalm to AnimationSpec(
-        frames = listOf(3, 4, 5, 4, 3, 4, 3),
-        frameDuration = FrameDurationSpec(minMs = 150L, maxMs = 210L, jitterFraction = 0.1f),
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(4, 5, 4),
-                frequency = InsertionFrequency.ByTime(3_000L..6_000L),
-                exclusive = false,
-            ),
-            InsertionSpec(
-                frames = listOf(3, 4, 3),
-                frequency = InsertionFrequency.ByLoops(1..2),
-                exclusive = true,
-            ),
-        ),
+        frames = listOf(7, 4, 7, 8, 7),
+        frameDuration = FrameDurationSpec(minMs = 240L, maxMs = 320L, jitterFraction = 0.1f),
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorLight to AnimationSpec(
         frames = listOf(5, 4, 5, 4, 5),
