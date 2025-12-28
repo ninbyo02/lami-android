@@ -410,9 +410,9 @@ class SpriteDebugViewModel(
 private fun createPlaceholderBitmap(): Bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
 
 private fun loadSpriteBitmap(context: Context): Bitmap? {
-    val drawable = ContextCompat.getDrawable(context, R.drawable.logo) ?: return createPlaceholderBitmap()
-    val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: return createPlaceholderBitmap()
-    val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: return createPlaceholderBitmap()
+    val drawable = AppCompatResources.getDrawable(context, R.drawable.logo) ?: return createPlaceholderBitmap()
+    val width: Int = drawable.intrinsicWidth.takeIf { it > 0 } ?: return createPlaceholderBitmap()
+    val height: Int = drawable.intrinsicHeight.takeIf { it > 0 } ?: return createPlaceholderBitmap()
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     drawable.setBounds(0, 0, width, height)
