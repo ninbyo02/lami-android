@@ -18,6 +18,7 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
@@ -51,7 +52,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
                     onNavigateSettings = { navController.navigate("setting") },
-                    onOpenSpriteDebug = { navController.navigate("spriteDebug") }
+                    onOpenSpriteDebug = { navController.navigate(Routes.SPRITE_DEBUG) }
                 )
             },
             actions = {

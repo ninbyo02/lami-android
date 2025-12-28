@@ -22,6 +22,7 @@ import com.sonusid.ollama.db.ChatDatabase
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.screens.chats.Chats
 import com.sonusid.ollama.ui.screens.debug.SpriteDebugScreen
 import com.sonusid.ollama.ui.screens.home.Home
@@ -97,13 +98,13 @@ class MainActivity : ComponentActivity() {
                             composable("setting") {
                                 Settings(navController)
                             }
-                            composable("sprite_debug") {
+                            composable(Routes.SPRITE_DEBUG) {
                                 SpriteDebugScreen(navController)
                             }
                             composable("about") {
                                 About(navController)
                             }
-                            composable("sprite_debug") {
+                            composable(Routes.SPRITE_DEBUG) {
                                 SpriteDebugTools(navController)
 
                             }
