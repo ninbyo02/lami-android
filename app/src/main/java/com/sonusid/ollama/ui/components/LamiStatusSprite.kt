@@ -70,72 +70,108 @@ data class AnimationSpec(
     val frames: List<Int>,
     val frameDuration: FrameDurationSpec,
     val loop: Boolean = true,
-    val insertion: InsertionSpec? = null,
+    val insertions: List<InsertionSpec> = emptyList(),
 )
 
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimationSpec(
-        frames = listOf(0, 1, 0, 2),
-        frameDuration = FrameDurationSpec(minMs = 210L, maxMs = 260L),
+        frames = listOf(0, 8, 0, 5, 0),
+        frameDuration = FrameDurationSpec(minMs = 420L, maxMs = 560L, jitterFraction = 0.2f),
         loop = true,
-        insertion = InsertionSpec(
-            frames = listOf(0, 7, 8, 7, 0),
-            frequency = InsertionFrequency.ByTime(8_000L..15_000L),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(0, 0, 8, 0),
+                frequency = InsertionFrequency.ByTime(8_000L..15_000L),
+                exclusive = false,
+            ),
         ),
     ),
     LamiSpriteStatus.Thinking to AnimationSpec(
-        frames = listOf(4, 2, 4, 1, 4),
-        frameDuration = FrameDurationSpec(minMs = 150L, maxMs = 190L),
+        frames = listOf(4, 2, 4, 3, 4, 2, 4),
+        frameDuration = FrameDurationSpec(minMs = 240L, maxMs = 320L, jitterFraction = 0.15f),
         loop = true,
-        insertion = InsertionSpec(
-            frames = listOf(4, 5, 4),
-            frequency = InsertionFrequency.ByLoops(4..8),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(4, 5, 4),
+                frequency = InsertionFrequency.ByLoops(3..6),
+                exclusive = false,
+            ),
         ),
     ),
     LamiSpriteStatus.TalkShort to AnimationSpec(
-        frames = listOf(6, 1, 6, 2),
-        frameDuration = FrameDurationSpec(minMs = 100L, maxMs = 150L),
+        frames = listOf(6, 2, 6, 3, 6),
+        frameDuration = FrameDurationSpec(minMs = 110L, maxMs = 160L, jitterFraction = 0.1f),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(6, 1, 6),
+                frequency = InsertionFrequency.ByProbability(0.2f),
+                exclusive = false,
+            ),
+        ),
     ),
     LamiSpriteStatus.TalkLong to AnimationSpec(
-        frames = listOf(6, 1, 4, 3, 6, 1, 4, 3),
-        frameDuration = FrameDurationSpec(minMs = 120L, maxMs = 170L),
+        frames = listOf(6, 3, 6, 4, 6, 3, 6, 4),
+        frameDuration = FrameDurationSpec(minMs = 120L, maxMs = 180L, jitterFraction = 0.1f),
         loop = true,
-        insertion = InsertionSpec(
-            frames = listOf(6, 7, 8, 7),
-            frequency = InsertionFrequency.ByProbability(0.125f),
-            exclusive = true,
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(1),
+                frequency = InsertionFrequency.ByLoops(2..4),
+                exclusive = true,
+            ),
+            InsertionSpec(
+                frames = listOf(8),
+                frequency = InsertionFrequency.ByLoops(3..6),
+                exclusive = true,
+            ),
         ),
     ),
     LamiSpriteStatus.TalkCalm to AnimationSpec(
-        frames = listOf(6, 7, 8, 7, 6),
-        frameDuration = FrameDurationSpec(minMs = 180L, maxMs = 220L, jitterFraction = 0.1f),
+        frames = listOf(6, 2, 6, 1, 6, 0, 6),
+        frameDuration = FrameDurationSpec(minMs = 180L, maxMs = 260L, jitterFraction = 0.2f),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(6, 8, 6),
+                frequency = InsertionFrequency.ByTime(5_000L..9_000L),
+                exclusive = false,
+            ),
+        ),
     ),
     LamiSpriteStatus.ErrorLight to AnimationSpec(
-        frames = listOf(5, 4, 5, 4),
-        frameDuration = FrameDurationSpec(minMs = 180L, maxMs = 230L),
+        frames = listOf(5, 4, 5, 4, 5),
+        frameDuration = FrameDurationSpec(minMs = 150L, maxMs = 220L, jitterFraction = 0.1f),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(5, 7, 5),
+                frequency = InsertionFrequency.ByTime(3_000L..6_000L),
+                exclusive = true,
+            ),
+        ),
     ),
     LamiSpriteStatus.ErrorHeavy to AnimationSpec(
-        frames = listOf(5, 8, 5, 4, 5, 8),
-        frameDuration = FrameDurationSpec(minMs = 160L, maxMs = 200L),
-        insertion = InsertionSpec(
-            frames = listOf(8, 5),
-            frequency = InsertionFrequency.ByLoops(2..3),
-            exclusive = true,
+        frames = listOf(5, 8, 5, 4, 5, 8, 5),
+        frameDuration = FrameDurationSpec(minMs = 140L, maxMs = 200L, jitterFraction = 0.1f),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(8, 8, 5, 8),
+                frequency = InsertionFrequency.ByLoops(2..3),
+                exclusive = true,
+            ),
         ),
     ),
     LamiSpriteStatus.OfflineEnter to AnimationSpec(
-        frames = listOf(2, 5, 8),
-        frameDuration = FrameDurationSpec(minMs = 240L, maxMs = 300L),
+        frames = listOf(0, 8, 8),
+        frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = false,
     ),
     LamiSpriteStatus.OfflineLoop to AnimationSpec(
-        frames = listOf(8, 5, 2, 5),
-        frameDuration = FrameDurationSpec(minMs = 260L, maxMs = 320L),
+        frames = listOf(8, 8),
+        frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = true,
     ),
     LamiSpriteStatus.OfflineExit to AnimationSpec(
-        frames = listOf(5, 2, 0),
-        frameDuration = FrameDurationSpec(minMs = 240L, maxMs = 300L),
+        frames = listOf(8, 0),
+        frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = false,
     ),
     LamiSpriteStatus.ReadyBlink to AnimationSpec(
@@ -178,12 +214,40 @@ fun LamiStatusSprite(
         }
 
         val random = Random(System.currentTimeMillis())
-        var loopsUntilInsertion = (animSpec.insertion?.frequency as? InsertionFrequency.ByLoops)?.loopRange?.let {
-            random.nextInt(it.first, it.last + 1)
+
+        data class InsertionState(
+            val spec: InsertionSpec,
+            var loopsUntilInsertion: Int? = null,
+            var nextInsertionAtMs: Long? = null,
+        )
+
+        fun InsertionSpec.toState(now: Long): InsertionState {
+            val initialLoops = (frequency as? InsertionFrequency.ByLoops)?.loopRange?.let {
+                random.nextInt(it.first, it.last + 1)
+            }
+            val initialNextInsertion = (frequency as? InsertionFrequency.ByTime)?.msRange?.let {
+                now + random.nextLong(it.first, it.last + 1)
+            }
+            return InsertionState(
+                spec = this,
+                loopsUntilInsertion = initialLoops,
+                nextInsertionAtMs = initialNextInsertion,
+            )
         }
-        var nextInsertionAtMs = (animSpec.insertion?.frequency as? InsertionFrequency.ByTime)?.msRange?.let {
-            val now = System.currentTimeMillis()
-            now + random.nextLong(it.first, it.last + 1)
+
+        fun resetInsertionState(state: InsertionState) {
+            when (val frequency = state.spec.frequency) {
+                is InsertionFrequency.ByLoops -> state.loopsUntilInsertion =
+                    random.nextInt(frequency.loopRange.first, frequency.loopRange.last + 1)
+                is InsertionFrequency.ByTime -> state.nextInsertionAtMs =
+                    System.currentTimeMillis() +
+                        random.nextLong(frequency.msRange.first, frequency.msRange.last + 1)
+                is InsertionFrequency.ByProbability -> Unit
+            }
+        }
+
+        val insertionStates = animSpec.insertions.map { insertionSpec ->
+            insertionSpec.toState(System.currentTimeMillis())
         }
 
         suspend fun playFrames(frames: List<Int>) {
@@ -195,39 +259,24 @@ fun LamiStatusSprite(
 
         while (true) {
             for (frame in animSpec.frames) {
-                val insertionSpec = animSpec.insertion
-                val shouldInsert = insertionSpec?.let { spec ->
-                    when (val frequency = spec.frequency) {
-                        is InsertionFrequency.ByProbability -> random.nextFloat() < frequency.probability
-                        is InsertionFrequency.ByLoops -> (loopsUntilInsertion ?: Int.MAX_VALUE) <= 0
+                val triggeredInsertion = insertionStates.firstOrNull { state ->
+                    when (val frequency = state.spec.frequency) {
+                        is InsertionFrequency.ByProbability ->
+                            random.nextFloat() < frequency.probability
+                        is InsertionFrequency.ByLoops ->
+                            (state.loopsUntilInsertion ?: Int.MAX_VALUE) <= 0
                         is InsertionFrequency.ByTime -> {
-                            val now = System.currentTimeMillis()
-                            nextInsertionAtMs?.let { now >= it } == true
+                            val scheduledAt = state.nextInsertionAtMs
+                            scheduledAt != null && System.currentTimeMillis() >= scheduledAt
                         }
                     }
-                } ?: false
+                }
 
-                if (shouldInsert && insertionSpec != null) {
-                    playFrames(insertionSpec.frames)
-                    if (insertionSpec.exclusive) {
-                        when (val frequency = insertionSpec.frequency) {
-                            is InsertionFrequency.ByLoops -> loopsUntilInsertion =
-                                random.nextInt(frequency.loopRange.first, frequency.loopRange.last + 1)
-                            is InsertionFrequency.ByTime -> nextInsertionAtMs =
-                                System.currentTimeMillis() + random.nextLong(
-                                    frequency.msRange.first,
-                                    frequency.msRange.last + 1
-                                )
-                            is InsertionFrequency.ByProbability -> Unit
-                        }
+                if (triggeredInsertion != null) {
+                    playFrames(triggeredInsertion.spec.frames)
+                    resetInsertionState(triggeredInsertion)
+                    if (triggeredInsertion.spec.exclusive) {
                         continue
-                    }
-                    when (val frequency = insertionSpec.frequency) {
-                        is InsertionFrequency.ByLoops -> loopsUntilInsertion =
-                            random.nextInt(frequency.loopRange.first, frequency.loopRange.last + 1)
-                        is InsertionFrequency.ByTime -> nextInsertionAtMs = System.currentTimeMillis() +
-                            random.nextLong(frequency.msRange.first, frequency.msRange.last + 1)
-                        is InsertionFrequency.ByProbability -> Unit
                     }
                 }
 
@@ -239,8 +288,10 @@ fun LamiStatusSprite(
                 break
             }
 
-            if (loopsUntilInsertion != null) {
-                loopsUntilInsertion = loopsUntilInsertion!! - 1
+            insertionStates.forEach { state ->
+                if (state.spec.frequency is InsertionFrequency.ByLoops) {
+                    state.loopsUntilInsertion = (state.loopsUntilInsertion ?: Int.MAX_VALUE) - 1
+                }
             }
         }
     }
