@@ -1,11 +1,13 @@
 package com.sonusid.ollama.ui.screens.debug
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.os.Parcelable
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -85,6 +87,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 
+private const val SPRITE_DEBUG_TAG = "SpriteDebug"
+private const val DEFAULT_SPRITE_SIZE = 288
+
 @Parcelize
 data class SpriteSheetConfig(
     val rows: Int = 3,
@@ -113,7 +118,7 @@ data class SpriteMatchScore(
 @Parcelize
 data class SpriteDebugState(
     val selectedBoxIndex: Int = 0,
-    val boxes: List<SpriteBox> = defaultBoxes(IntSize(256, 256)),
+    val boxes: List<SpriteBox> = defaultBoxes(IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)),
     val step: Int = 1,
     val snapToGrid: Boolean = false,
     val searchRadius: Float = 6f,
@@ -404,18 +409,30 @@ class SpriteDebugViewModel(
     }
 }
 
-private fun createPlaceholderBitmap(): Bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
-
-private fun loadSpriteBitmap(context: Context): Bitmap? {
-    val drawable = ContextCompat.getDrawable(context, R.drawable.logo) ?: return createPlaceholderBitmap()
-    val width: Int = drawable.intrinsicWidth
-    val height: Int = drawable.intrinsicHeight
-    if (width <= 0 || height <= 0) return createPlaceholderBitmap()
+private fun createPlaceholderBitmap(context: Context): Bitmap {
+    val drawable = ContextCompat.getDrawable(context, R.drawable.logo)
+    if (drawable == null) {
+        Log.w(SPRITE_DEBUG_TAG, "Logo drawable not found. Using blank placeholder.")
+        return Bitmap.createBitmap(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE, Bitmap.Config.ARGB_8888)
+    }
+    val width: Int = drawable.intrinsicWidth.takeIf { it > 0 } ?: DEFAULT_SPRITE_SIZE
+    val height: Int = drawable.intrinsicHeight.takeIf { it > 0 } ?: DEFAULT_SPRITE_SIZE
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     drawable.setBounds(0, 0, width, height)
     drawable.draw(canvas)
     return bitmap
+}
+
+private fun loadSpriteBitmap(context: Context): Bitmap? {
+    val resources = context.resources
+    val spriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.lami_sprite_3x3_288)
+    if (spriteBitmap != null) {
+        Log.d(SPRITE_DEBUG_TAG, "Loaded sprite sheet lami_sprite_3x3_288 (${spriteBitmap.width}x${spriteBitmap.height})")
+        return spriteBitmap
+    }
+    Log.w(SPRITE_DEBUG_TAG, "Failed to decode sprite sheet. Falling back to logo placeholder.")
+    return createPlaceholderBitmap(context)
 }
 
 @Composable
@@ -424,6 +441,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
     val context = LocalContext.current
     val spriteBitmap = remember { loadSpriteBitmap(context) }
+    val placeholderBitmap = remember { createPlaceholderBitmap(context) }
     LaunchedEffect(spriteBitmap) {
         val bitmap = spriteBitmap ?: return@LaunchedEffect
         viewModel.setSpriteSheet(bitmap)
@@ -447,7 +465,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
     ) {
         SpriteSheetCanvas(
             uiState = uiState,
-            spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: createPlaceholderBitmap().asImageBitmap(),
+            spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
             onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
             onStroke = { offset -> viewModel.applyStroke(offset) },
         )
@@ -491,6 +509,12 @@ private fun SpriteSheetCanvas(
 ) {
     val intrinsicSize = Size(spriteBitmap.width.toFloat(), spriteBitmap.height.toFloat())
     var layoutSize by remember { mutableStateOf(Size.Zero) }
+    LaunchedEffect(intrinsicSize) {
+        Log.d(
+            SPRITE_DEBUG_TAG,
+            "Rendering sprite sheet size=${intrinsicSize.width.toInt()}x${intrinsicSize.height.toInt()} config=${uiState.spriteSheetConfig.rows}x${uiState.spriteSheetConfig.cols}",
+        )
+    }
 
     Box(
         modifier = Modifier
