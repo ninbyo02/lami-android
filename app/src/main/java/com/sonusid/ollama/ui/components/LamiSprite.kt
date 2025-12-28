@@ -31,6 +31,8 @@ import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import com.sonusid.ollama.ui.components.drawFramePlaceholder
+import com.sonusid.ollama.ui.components.drawFrameRegion
 import kotlin.math.roundToInt
 
 @Composable
@@ -103,7 +105,10 @@ fun LamiSprite3x3(
     } else {
         IntSize(width = 96, height = 96)
     }
-    val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
+    val paint = rememberFramePaint(filterQuality = FilterQuality.None)
+    val frameRegion = remember(srcOffset, srcSize) {
+        SpriteFrameRegion(srcOffset = srcOffset, srcSize = srcSize)
+    }
 
     val dstSize = with(LocalDensity.current) {
         val sizePx = sizeDp.roundToPx().coerceAtLeast(1)
@@ -122,16 +127,14 @@ fun LamiSprite3x3(
     }
 
     Canvas(modifier = modifier.size(sizeDp)) {
-        drawIntoCanvas { canvas ->
-            canvas.drawImageRect(
-                image = bitmap,
-                srcOffset = srcOffset,
-                srcSize = srcSize,
-                dstOffset = dstOffset,
-                dstSize = dstSize,
-                paint = paint
-            )
-        }
+        drawFrameRegion(
+            sheet = bitmap,
+            region = frameRegion,
+            dstSize = dstSize,
+            dstOffset = dstOffset,
+            filterQuality = paint.filterQuality,
+            placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
+        )
     }
 }
 
