@@ -200,21 +200,61 @@ data class SpriteDebugState(
 private fun SpriteBox.containsPoint(point: Offset): Boolean =
     point.x in x..(x + width) && point.y in y..(y + height)
 
+private fun Offset.isFiniteOffset(): Boolean = x.isFinite() && y.isFinite()
+
+private fun Size.isFiniteSize(): Boolean = width.isFinite() && height.isFinite()
+
 private data class SpriteSheetScale(
     val scale: Float,
     val offset: Offset,
 ) {
-    fun imageToCanvas(offsetImage: Offset): Offset = Offset(
-        x = offset.x + offsetImage.x * scale,
-        y = offset.y + offsetImage.y * scale,
-    )
+    fun imageToCanvas(offsetImage: Offset): Offset {
+        val safeScale = scale.coerceAtLeast(0.01f)
+        if (!offset.isFiniteOffset() || !offsetImage.isFiniteOffset()) {
+            Log.w(SPRITE_DEBUG_TAG, "imageToCanvas received non-finite input: offset=$offset offsetImage=$offsetImage safeScale=$safeScale")
+            return Offset.Zero
+        }
+        val result = Offset(
+            x = offset.x + offsetImage.x * safeScale,
+            y = offset.y + offsetImage.y * safeScale,
+        )
+        if (!result.isFiniteOffset()) {
+            Log.w(SPRITE_DEBUG_TAG, "imageToCanvas produced non-finite result: offset=$offset offsetImage=$offsetImage safeScale=$safeScale")
+            return Offset.Zero
+        }
+        return result
+    }
 
-    fun canvasToImage(offsetCanvas: Offset): Offset = Offset(
-        x = (offsetCanvas.x - offset.x) / scale,
-        y = (offsetCanvas.y - offset.y) / scale,
-    )
+    fun canvasToImage(offsetCanvas: Offset): Offset {
+        val safeScale = scale.coerceAtLeast(0.01f)
+        if (!offsetCanvas.isFiniteOffset() || !offset.isFiniteOffset()) {
+            Log.w(SPRITE_DEBUG_TAG, "canvasToImage received non-finite input: offsetCanvas=$offsetCanvas offset=$offset safeScale=$safeScale")
+            return Offset.Zero
+        }
+        val result = Offset(
+            x = (offsetCanvas.x - offset.x) / safeScale,
+            y = (offsetCanvas.y - offset.y) / safeScale,
+        )
+        if (!result.isFiniteOffset()) {
+            Log.w(SPRITE_DEBUG_TAG, "canvasToImage produced non-finite result: offsetCanvas=$offsetCanvas offset=$offset safeScale=$safeScale")
+            return Offset.Zero
+        }
+        return result
+    }
 
-    fun imageSizeToCanvas(size: Size): Size = Size(width = size.width * scale, height = size.height * scale)
+    fun imageSizeToCanvas(size: Size): Size {
+        val safeScale = scale.coerceAtLeast(0.01f)
+        if (!size.isFiniteSize()) {
+            Log.w(SPRITE_DEBUG_TAG, "imageSizeToCanvas received non-finite input: size=$size safeScale=$safeScale")
+            return Size.Zero
+        }
+        val result = Size(width = size.width * safeScale, height = size.height * safeScale)
+        if (!result.isFiniteSize()) {
+            Log.w(SPRITE_DEBUG_TAG, "imageSizeToCanvas produced non-finite result: size=$size safeScale=$safeScale")
+            return Size.Zero
+        }
+        return result
+    }
 }
 
 private fun calculateScale(intrinsicSize: Size, layoutSize: Size): SpriteSheetScale {
@@ -1091,16 +1131,34 @@ private fun SpriteSheetCanvas(
                 .pointerInput(uiState.selectedBoxIndex, uiState.snapToGrid, uiState.editingMode) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
+                        val safeScale = scale.scale.coerceAtLeast(0.01f)
                         if (uiState.editingMode == SpriteEditMode.None) {
-                            onDragBox(Offset(dragAmount.x / scale.scale, dragAmount.y / scale.scale))
+                            val deltaImage = Offset(dragAmount.x / safeScale, dragAmount.y / safeScale)
+                            if (!deltaImage.isFiniteOffset()) {
+                                Log.w(SPRITE_DEBUG_TAG, "Ignoring non-finite drag delta: dragAmount=$dragAmount safeScale=$safeScale")
+                                return@detectDragGestures
+                            }
+                            onDragBox(deltaImage)
                         } else {
-                            onStroke(scale.canvasToImage(change.position))
+                            val imageOffset = scale.canvasToImage(change.position)
+                            if (!imageOffset.isFiniteOffset()) {
+                                Log.w(
+                                    SPRITE_DEBUG_TAG,
+                                    "Ignoring non-finite stroke position: position=${change.position} safeScale=$safeScale offset=${scale.offset}",
+                                )
+                                return@detectDragGestures
+                            }
+                            onStroke(imageOffset)
                         }
                     }
                 }
                 .pointerInput(uiState.boxes, scale) {
                     detectTapGestures { tapOffset ->
                         val imageOffset = scale.canvasToImage(tapOffset)
+                        if (!imageOffset.isFiniteOffset()) {
+                            Log.w(SPRITE_DEBUG_TAG, "Ignoring non-finite tap: tapOffset=$tapOffset scale=${scale.scale} offset=${scale.offset}")
+                            return@detectTapGestures
+                        }
                         val containingBox = uiState.boxes.minByOrNull { box ->
                             if (box.containsPoint(imageOffset)) 0f else Float.POSITIVE_INFINITY
                         }?.takeIf { it.containsPoint(imageOffset) }
