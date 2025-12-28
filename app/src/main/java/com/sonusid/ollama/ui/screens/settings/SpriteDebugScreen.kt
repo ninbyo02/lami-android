@@ -75,10 +75,11 @@ fun SpriteDebugScreen(
             showError(validationError)
             return
         }
-        jsonText = json
+        val normalized = SpriteSheetConfig.default3x3()
+        jsonText = normalized.toJson()
         scope.launch {
-            settingsPreferences.saveSpriteSheetConfig(parsed)
-            snackbarHostState.showSnackbar("スプライト設定を保存しました")
+            settingsPreferences.saveSpriteSheetConfig(normalized)
+            snackbarHostState.showSnackbar("スプライト設定を保存しました（3x3 に固定）")
         }
     }
 
