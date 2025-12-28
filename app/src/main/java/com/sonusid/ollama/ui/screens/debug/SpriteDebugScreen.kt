@@ -1,5 +1,4 @@
 package com.sonusid.ollama.ui.screens.debug
-
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
