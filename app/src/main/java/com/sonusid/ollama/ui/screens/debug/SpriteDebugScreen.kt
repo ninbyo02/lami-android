@@ -202,7 +202,7 @@ private fun calculateScale(intrinsicSize: Size, layoutSize: Size): SpriteSheetSc
 class SpriteDebugViewModel(
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(savedStateHandle.get<SpriteDebugState>(KEY_STATE) ?: SpriteDebugState())
+    private val _uiState = MutableStateFlow(initializeState())
     val uiState: StateFlow<SpriteDebugState> = _uiState.asStateFlow()
     private val _sheetBitmap = MutableStateFlow<ImageBitmap?>(null)
     val sheetBitmap: StateFlow<ImageBitmap?> = _sheetBitmap.asStateFlow()
@@ -400,6 +400,14 @@ class SpriteDebugViewModel(
         val updated = state.boxes.toMutableList().apply { this[state.selectedBoxIndex] = box }
         updateState { copy(boxes = updated) }
     }
+
+    private fun initializeState(): SpriteDebugState =
+        runCatching { savedStateHandle.get<SpriteDebugState>(KEY_STATE) }
+            .onFailure { throwable ->
+                Log.w(SPRITE_DEBUG_TAG, "Failed to restore sprite debug state. Resetting to default.", throwable)
+                savedStateHandle.remove<SpriteDebugState>(KEY_STATE)
+            }
+            .getOrNull() ?: SpriteDebugState()
 
     private fun updateState(block: SpriteDebugState.() -> SpriteDebugState) {
         _uiState.update { block(it).withMatches() }
