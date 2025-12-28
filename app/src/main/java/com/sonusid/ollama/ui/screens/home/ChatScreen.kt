@@ -51,6 +51,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -178,7 +179,7 @@ fun Home(
                         viewModel.updateSelectedModel(modelName)
                     },
                     onNavigateSettings = { navHostController.navigate("setting") },
-                    onOpenSpriteDebug = { navHostController.navigate("spriteDebug") }
+                    onOpenSpriteDebug = { navHostController.navigate(Routes.SPRITE_DEBUG) }
                 )
             },
             actions = {
