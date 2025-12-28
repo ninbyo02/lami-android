@@ -506,6 +506,11 @@ private fun SpriteSheetCanvas(
             SpriteSheetScale(scaleRatio, offset)
         }
 
+        val selectedColor = MaterialTheme.colorScheme.primary
+        val normalColor = MaterialTheme.colorScheme.outlineVariant
+        val bestColor = MaterialTheme.colorScheme.tertiary
+        val centerLineColor = MaterialTheme.colorScheme.error
+
         Canvas(
             modifier = Modifier
                 .matchParentSize()
@@ -520,9 +525,6 @@ private fun SpriteSheetCanvas(
                     }
                 },
         ) {
-            val selectedColor = MaterialTheme.colorScheme.primary
-            val normalColor = MaterialTheme.colorScheme.outlineVariant
-            val bestColor = MaterialTheme.colorScheme.tertiary
             uiState.boxes.forEach { box ->
                 val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
                 val size = scale.imageSizeToCanvas(Size(box.width, box.height))
@@ -545,13 +547,13 @@ private fun SpriteSheetCanvas(
             }
             if (uiState.showCenterLine) {
                 drawLine(
-                    color = MaterialTheme.colorScheme.error,
+                    color = centerLineColor,
                     start = Offset(size.width / 2f, 0f),
                     end = Offset(size.width / 2f, size.height),
                     strokeWidth = 2f,
                 )
                 drawLine(
-                    color = MaterialTheme.colorScheme.error,
+                    color = centerLineColor,
                     start = Offset(0f, size.height / 2f),
                     end = Offset(size.width, size.height / 2f),
                     strokeWidth = 2f,
@@ -793,15 +795,16 @@ private fun PreviewPanel(
                             Image(bitmap = previous, contentDescription = "onion", modifier = Modifier.fillMaxSize(), alpha = 0.3f)
                         }
                         if (uiState.showCenterLine) {
+                            val previewCenterLineColor = MaterialTheme.colorScheme.secondary
                             Canvas(modifier = Modifier.matchParentSize()) {
                                 drawLine(
-                                    color = MaterialTheme.colorScheme.secondary,
+                                    color = previewCenterLineColor,
                                     start = Offset(size.width / 2f, 0f),
                                     end = Offset(size.width / 2f, size.height),
                                     strokeWidth = 2f,
                                 )
                                 drawLine(
-                                    color = MaterialTheme.colorScheme.secondary,
+                                    color = previewCenterLineColor,
                                     start = Offset(0f, size.height / 2f),
                                     end = Offset(size.width, size.height / 2f),
                                     strokeWidth = 2f,
