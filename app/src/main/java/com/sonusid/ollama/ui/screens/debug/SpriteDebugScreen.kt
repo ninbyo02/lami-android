@@ -1126,6 +1126,18 @@ private fun AdjustTabContent(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        var previewFrames by remember { mutableStateOf(emptyList<ImageBitmap>()) }
+        var selectedPreview by remember { mutableStateOf<ImageBitmap?>(null) }
+        var lastLoggedIndex by remember { mutableStateOf<Int?>(null) }
+        LaunchedEffect(uiState.selectedBoxIndex, uiState.boxes, spriteBitmap) {
+            val frames = viewModel.previewFrames()
+            previewFrames = frames
+            selectedPreview = frames.getOrNull(uiState.selectedBoxIndex)
+            if (selectedPreview == null && lastLoggedIndex != uiState.selectedBoxIndex) {
+                Log.w(SPRITE_DEBUG_TAG, "画像プレビューの生成に失敗しました index=${uiState.selectedBoxIndex}")
+                lastLoggedIndex = uiState.selectedBoxIndex
+            }
+        }
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1153,6 +1165,99 @@ private fun AdjustTabContent(
                     onBoxSelected = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+        }
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(text = "プレビュー", style = MaterialTheme.typography.titleMedium)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val preview = selectedPreview
+                    if (preview != null) {
+                        Image(
+                            bitmap = preview,
+                            contentDescription = "選択中のボックスプレビュー",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Text(text = "画像が未設定", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = "3x3 プレビューグリッド", style = MaterialTheme.typography.titleSmall)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val gridRange = 0 until 9
+                        gridRange.chunked(3).forEach { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                row.forEach { index ->
+                                    val frame = previewFrames.getOrNull(index)
+                                    val isSelected = uiState.selectedBoxIndex == index
+                                    val borderColor = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outlineVariant
+                                    }
+                                    val containerColor = if (isSelected) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(containerColor)
+                                            .border(
+                                                width = if (isSelected) 2.dp else 1.dp,
+                                                color = borderColor,
+                                                shape = RoundedCornerShape(8.dp),
+                                            ),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        frame?.let {
+                                            Image(
+                                                bitmap = it,
+                                                contentDescription = "Box${index + 1} プレビュー",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        } ?: Text(
+                                            text = "未設定",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(4.dp),
+                                        )
+                                        Text(
+                                            text = "Box${index + 1}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            modifier = Modifier
+                                                .align(Alignment.BottomStart)
+                                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         ControlPanel(
