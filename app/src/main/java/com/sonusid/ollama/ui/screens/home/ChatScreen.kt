@@ -179,7 +179,7 @@ fun Home(
                         viewModel.updateSelectedModel(modelName)
                     },
                     onNavigateSettings = { navHostController.navigate("setting") },
-                    onOpenSpriteDebug = { navHostController.navigate(Routes.SPRITE_DEBUG) }
+                    onOpenSpriteDebug = { navHostController.navigate("sprite_debug") }
                 )
             },
             actions = {

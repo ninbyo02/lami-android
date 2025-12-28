@@ -52,7 +52,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
                     onNavigateSettings = { navController.navigate("setting") },
-                    onOpenSpriteDebug = { navController.navigate(Routes.SPRITE_DEBUG) }
+                    onOpenSpriteDebug = { navController.navigate("sprite_debug") }
                 )
             },
             actions = {
