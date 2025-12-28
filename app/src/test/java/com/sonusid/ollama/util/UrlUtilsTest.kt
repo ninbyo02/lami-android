@@ -39,4 +39,12 @@ class UrlUtilsTest {
         assertFalse(missingSchemeResult.isValid)
         assertEquals(PORT_ERROR_MESSAGE, missingSchemeResult.errorMessage)
     }
+
+    @Test
+    fun `validateUrlFormat rejects urls with mixed width port numbers`() {
+        val result = validateUrlFormat("http://localhost:1３434")
+
+        assertFalse(result.isValid)
+        assertEquals(PORT_ERROR_MESSAGE, result.errorMessage)
+    }
 }
