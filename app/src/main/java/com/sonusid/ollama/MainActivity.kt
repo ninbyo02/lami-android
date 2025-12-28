@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Column(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
+                    Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                         NavHost(
                             navController = navController,
                             startDestination = Routes.CHATS
