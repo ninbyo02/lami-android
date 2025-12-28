@@ -1,14 +1,13 @@
-# Ollama Mobile (Android) Client
+# LAMI Mobile (Android) クライアント
 
-A minimal and efficient Android client for running Ollama AI models on your device. Built using **Jetpack Compose**, this application provides a smooth and intuitive experience for interacting with AI models on mobile.
+ローカルで動く個人用アシスタント「LAMI（ラミィ）」の Android 向けクライアントです。**Jetpack Compose** で構築された表情付き UI を備え、ローカル LLM との接続はオプションとして選択できます。ネットワークに依存せず動作し、プライバシーを尊重したまま日常的なタスクを手元でこなせます。
 
 ## Features
 
-- **Lightweight & Fast**: Optimized for mobile devices with a minimal UI.
-- **Runs Locally**: No cloud dependency, runs directly on your Android device.
-- **User-Friendly Interface**: Simple yet powerful design for easy AI interaction.
-- **Customizable Models**: Load and switch between different AI models.
-- **Offline Support**: Works even without an internet connection.
+- **軽量・高速**: モバイル向けに最適化されたミニマルな UI。
+- **ローカル完結**: インターネット非依存で動作し、プライバシーを確保。
+- **表情豊かなインターフェース**: スプライトアニメーションによるリアクションで操作が直感的。
+- **接続先を選べる**: ローカル LLM 連携はオプション。オフラインでも基本機能は利用可能。
 
 ## Screenshots
 
@@ -28,24 +27,48 @@ A minimal and efficient Android client for running Ollama AI models on your devi
 <img src="Screenshots/10.png" width="250" />  
 <img src="Screenshots/11.png" width="250" />  
 
+## スプライトアニメーション（状態駆動）
+
+LAMI は内部状態に応じてスプライトを切り替え、ユーザーへのフィードバックを視覚的に提示します。各状態はイベントドリブンに遷移し、UI 反応を統一的に管理します。
+
+- **Idle**: 待機中。入力がない時の基本表情。
+- **Thinking**: 入力を処理中。思案するアニメーションで進行状況を示唆。
+- **TalkShort**: 短い応答を再生中。レスポンスが軽い場合に使用。
+- **TalkLong**: 長めの応答を再生中。ストリーミング出力や説明が続くケース。
+- **TalkCalm**: 穏やかなトーンで応答。落ち着いた会話モードを示す。
+- **ErrorLight**: 軽微なエラー。リトライ可能な入力不備など。
+- **ErrorHeavy**: 致命的エラー。接続不可やモデル異常時に強調。
+- **Offline**: ネットワーク未接続またはモデル未起動を明示。
+
+状態は単一のステートマシンで管理され、UI とバックエンドのイベントを疎結合に保つことで拡張性とテスト容易性を確保しています。
+
 ## Installation
 
-1. **Download** the latest APK from [GitHub Releases](#).
-2. **Install** the APK on your Android device.
-3. **Launch the application** and start interacting with AI models.
+1. **Download** the latest APK from [GitHub Releases](#)。
+2. **Install** the APK on your Android device。
+3. **Launch the application** and start interacting with the LAMI assistant。
 
 ## Requirements
 
 - Android 13 or higher
 - Minimum 4GB RAM (Recommended: 6GB+ for better performance)
-- Ollama AI models installed on your device
+- （オプション）ローカル LLM 環境を用意する場合は、端末上でモデルが動作する設定を済ませてください。
 
 ## Usage
 
 1. Open the application.
-2. Load or switch between AI models.
-3. Start a new conversation or continue an existing chat.
-4. Adjust settings as needed for a personalized experience.
+2. （任意）ローカル LLM への接続を有効化し、モデルをロード。
+3. 新規チャットを開始するか、既存スレッドを再開。
+4. スプライトの表情や通知を確認しつつ、必要に応じて設定を調整。
+
+## 将来拡張
+
+- **音声同期**: 音声合成のタイムスタンプと連動した口パク・まばたき表現。
+- **感情表現の強化**: センチメント解析に基づく表情・ポーズの自動変化。
+- **リッチな状態管理**: ユーザー行動や通知と連動した新規ステートの追加（例: Listening, Busy）。
+- **プラグイン連携**: ローカル API や外部サービスと安全に統合できる拡張ポイントの提供。
+
+利用者は音声や表情を通じたリッチな対話を、開発者はステートマシンとスプライトセットを拡張することで独自の体験を構築できます。
 
 ## Contributing
 
