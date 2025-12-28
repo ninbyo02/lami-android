@@ -9,6 +9,7 @@ import android.graphics.PorterDuffXfermode
 import android.os.Parcelable
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -43,6 +44,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,6 +63,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
@@ -95,6 +100,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
+import com.sonusid.ollama.ui.components.LamiSpriteStatus
+import com.sonusid.ollama.ui.components.LamiStatusSprite
 import java.util.ArrayDeque
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -502,6 +509,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val context = LocalContext.current
     val spriteBitmap = remember { loadSpriteBitmap(context) }
     val placeholderBitmap = remember { createPlaceholderBitmap(context) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(spriteBitmap) {
         val bitmap = spriteBitmap ?: return@LaunchedEffect
         viewModel.setSpriteSheet(bitmap)
@@ -521,49 +529,306 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
-                .padding(12.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(innerPadding),
         ) {
-            SpriteSheetCanvas(
-                uiState = uiState,
-                spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
-                onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
-                onStroke = { offset -> viewModel.applyStroke(offset) },
-                onBoxSelected = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("調整") })
+                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("プレビュー") })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("ギャラリー") })
+            }
+            when (selectedTab) {
+                0 -> AdjustTabContent(
+                    uiState = uiState,
+                    rememberedState = rememberedState,
+                    spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
+                    onRememberedStateChange = { rememberedState = it },
+                    viewModel = viewModel,
+                )
+                1 -> PreviewTabContent(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    rememberedState = rememberedState,
+                    sheetBitmap = sheetBitmap,
+                    onRememberedStateChange = { rememberedState = it },
+                )
+                else -> GalleryTabContent()
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdjustTabContent(
+    uiState: SpriteDebugState,
+    rememberedState: SpriteDebugState,
+    spriteBitmap: ImageBitmap,
+    onRememberedStateChange: (SpriteDebugState) -> Unit,
+    viewModel: SpriteDebugViewModel,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SpriteSheetCanvas(
+            uiState = uiState,
+            spriteBitmap = spriteBitmap,
+            onDragBox = { deltaImage -> viewModel.updateBoxPosition(deltaImage) },
+            onStroke = { offset -> viewModel.applyStroke(offset) },
+            onBoxSelected = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        SheetPreview(
+            uiState = uiState,
+            spriteBitmap = spriteBitmap,
+            onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+        )
+        ControlPanel(
+            uiState = uiState,
+            onSelectBox = { index -> onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+            onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
+            onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
+            onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+            onStepChange = { step -> onRememberedStateChange(rememberedState.copy(step = step)) },
+            onSnapToggle = { viewModel.toggleSnap() },
+            onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
+            onThresholdChange = { viewModel.updateThreshold(it) },
+            onAutoSearchOne = { viewModel.autoSearchSingle() },
+            onAutoSearchAll = { viewModel.autoSearchAll() },
+            onReset = { viewModel.resetBoxes() },
+            onEditingModeChange = { viewModel.setEditingMode(it) },
+            onBrushSizeChange = { viewModel.setBrushSize(it) },
+            onUndo = { viewModel.undo() },
+            onRedo = { viewModel.redo() },
+        )
+        MatchList(uiState = uiState)
+    }
+}
+
+@Composable
+private fun PreviewTabContent(
+    uiState: SpriteDebugState,
+    viewModel: SpriteDebugViewModel,
+    rememberedState: SpriteDebugState,
+    sheetBitmap: ImageBitmap?,
+    onRememberedStateChange: (SpriteDebugState) -> Unit,
+) {
+    var playing by rememberSaveable { mutableStateOf(false) }
+    var frameIndex by rememberSaveable { mutableIntStateOf(0) }
+    var controlsExpanded by rememberSaveable { mutableStateOf(true) }
+    var previewListExpanded by rememberSaveable { mutableStateOf(false) }
+    val frames = remember(uiState.boxes, rememberedState.previewSpeedMs, sheetBitmap) { viewModel.previewFrames() }
+
+    LaunchedEffect(playing, frames.size, rememberedState.previewSpeedMs) {
+        while (playing && frames.isNotEmpty()) {
+            delay(rememberedState.previewSpeedMs)
+            frameIndex = (frameIndex + 1) % frames.size
+        }
+    }
+
+    val glow by rememberInfiniteTransition(label = "preview-glow").animateFloat(
+        initialValue = 0.7f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = androidx.compose.animation.core.tween(900, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "glow",
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp),
+        ) {
+            itemsIndexed(uiState.boxes) { index, _ ->
+                FilterChip(
+                    selected = uiState.selectedBoxIndex == index,
+                    onClick = { onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index)) },
+                    label = { Text(text = "Box ${index + 1}") },
+                    modifier = Modifier.semantics { contentDescription = "Box ${index + 1} を選択" },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+            }
+        }
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth(),
-            )
-            SheetPreview(
-                uiState = uiState,
-                spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
-                onSelectBox = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
-            )
-            SpriteControlPanel(
-                uiState = uiState,
-                viewModel = viewModel,
-                rememberedState = rememberedState,
-                sheetBitmap = sheetBitmap,
-                onSelectBox = { index -> rememberedState = rememberedState.copy(selectedBoxIndex = index) },
-                onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
-                onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
-                onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
-                onStepChange = { step -> rememberedState = rememberedState.copy(step = step) },
-                onSnapToggle = { viewModel.toggleSnap() },
-                onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
-                onThresholdChange = { viewModel.updateThreshold(it) },
-                onAutoSearchOne = { viewModel.autoSearchSingle() },
-                onAutoSearchAll = { viewModel.autoSearchAll() },
-                onReset = { viewModel.resetBoxes() },
-                onEditingModeChange = { viewModel.setEditingMode(it) },
-                onBrushSizeChange = { viewModel.setBrushSize(it) },
-                onUndo = { viewModel.undo() },
-                onRedo = { viewModel.redo() },
-                onUpdatePreviewSpeed = { speed -> viewModel.updatePreviewSpeed(speed) },
-                onToggleOnion = { viewModel.toggleOnionSkin(it) },
-                onToggleCenter = { viewModel.toggleCenterLine(it) },
-            )
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(text = "プレビュー", style = MaterialTheme.typography.titleMedium)
+                if (frames.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                            .border(2.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = glow), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Image(
+                            bitmap = frames[frameIndex % frames.size],
+                            contentDescription = "frame",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit,
+                        )
+                        if (uiState.onionSkin && frames.size > 1) {
+                            val previous = frames[(frameIndex - 1 + frames.size) % frames.size]
+                            val next = frames[(frameIndex + 1) % frames.size]
+                            Image(bitmap = previous, contentDescription = "onion-prev", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
+                            Image(bitmap = next, contentDescription = "onion-next", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
+                        }
+                        if (uiState.showCenterLine) {
+                            val previewCenterLineColor = MaterialTheme.colorScheme.secondary
+                            Canvas(modifier = Modifier.matchParentSize()) {
+                                drawLine(
+                                    color = previewCenterLineColor,
+                                    start = Offset(size.width / 2f, 0f),
+                                    end = Offset(size.width / 2f, size.height),
+                                    strokeWidth = 2f,
+                                )
+                                drawLine(
+                                    color = previewCenterLineColor,
+                                    start = Offset(0f, size.height / 2f),
+                                    end = Offset(size.width, size.height / 2f),
+                                    strokeWidth = 2f,
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(text = "ROIが見つかりません", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilledIconButton(onClick = { playing = !playing }) {
+                        Icon(imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "play")
+                    }
+                    Text(text = "速度 ${rememberedState.previewSpeedMs}ms", modifier = Modifier.weight(1f))
+                    IconButton(onClick = { controlsExpanded = !controlsExpanded }) {
+                        Icon(
+                            imageVector = if (controlsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "プレビューパネルを切り替え",
+                        )
+                    }
+                }
+                AnimatedVisibility(visible = controlsExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Slider(
+                            value = rememberedState.previewSpeedMs.toFloat(),
+                            onValueChange = {
+                                val speed = it.toLong()
+                                onRememberedStateChange(rememberedState.copy(previewSpeedMs = speed))
+                                viewModel.updatePreviewSpeed(speed)
+                            },
+                            valueRange = 120f..2000f,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(text = "オニオンスキン")
+                                Switch(checked = uiState.onionSkin, onCheckedChange = { viewModel.toggleOnionSkin(it) })
+                            }
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(text = "中心線")
+                                Switch(checked = uiState.showCenterLine, onCheckedChange = { viewModel.toggleCenterLine(it) })
+                            }
+                        }
+                        TextButton(onClick = { previewListExpanded = !previewListExpanded }) {
+                            Icon(
+                                imageVector = if (previewListExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                contentDescription = "プレビュー順を開閉",
+                            )
+                            Text(text = "プレビュー順を表示")
+                        }
+                        AnimatedVisibility(visible = previewListExpanded) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                uiState.boxes.forEach { box ->
+                                    Text(text = "Frame ${box.index + 1} (${box.x.toInt()}, ${box.y.toInt()})")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GalleryTabContent() {
+    val statuses = remember { LamiSpriteStatus.values() }
+    var selectedStatusName by rememberSaveable { mutableStateOf(LamiSpriteStatus.Idle.name) }
+    val selectedStatus = remember(selectedStatusName) {
+        runCatching { LamiSpriteStatus.valueOf(selectedStatusName) }.getOrDefault(LamiSpriteStatus.Idle)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(text = "ギャラリー (ステータスセット切替)", style = MaterialTheme.typography.titleMedium)
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LamiStatusSprite(status = selectedStatus, sizeDp = 96.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(text = "選択中: ${selectedStatus.name}", style = MaterialTheme.typography.titleMedium)
+                        Text(text = "ステータスセットを切り替えてプレビューを確認できます。")
+                    }
+                }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(statuses) { status ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        ) {
+                            LamiStatusSprite(status = status, sizeDp = 64.dp)
+                            Text(status.name, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                            TextButton(onClick = { selectedStatusName = status.name }) {
+                                Text(if (selectedStatus == status) "選択中" else "選択")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -819,68 +1084,6 @@ private fun SheetPreview(
 }
 
 @Composable
-private fun SpriteControlPanel(
-    uiState: SpriteDebugState,
-    viewModel: SpriteDebugViewModel,
-    rememberedState: SpriteDebugState,
-    sheetBitmap: ImageBitmap?,
-    onSelectBox: (Int) -> Unit,
-    onNudge: (Int, Int) -> Unit,
-    onUpdateX: (Float?) -> Unit,
-    onUpdateY: (Float?) -> Unit,
-    onStepChange: (Int) -> Unit,
-    onSnapToggle: () -> Unit,
-    onSearchRadiusChange: (Float) -> Unit,
-    onThresholdChange: (Float) -> Unit,
-    onAutoSearchOne: () -> Unit,
-    onAutoSearchAll: () -> Unit,
-    onReset: () -> Unit,
-    onEditingModeChange: (SpriteEditMode) -> Unit,
-    onBrushSizeChange: (Float) -> Unit,
-    onUndo: () -> Unit,
-    onRedo: () -> Unit,
-    onUpdatePreviewSpeed: (Long) -> Unit,
-    onToggleOnion: (Boolean) -> Unit,
-    onToggleCenter: (Boolean) -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        ControlPanel(
-            uiState = uiState,
-            onSelectBox = onSelectBox,
-            onNudge = onNudge,
-            onUpdateX = onUpdateX,
-            onUpdateY = onUpdateY,
-            onStepChange = onStepChange,
-            onSnapToggle = onSnapToggle,
-            onSearchRadiusChange = onSearchRadiusChange,
-            onThresholdChange = onThresholdChange,
-            onAutoSearchOne = onAutoSearchOne,
-            onAutoSearchAll = onAutoSearchAll,
-            onReset = onReset,
-            onEditingModeChange = onEditingModeChange,
-            onBrushSizeChange = onBrushSizeChange,
-            onUndo = onUndo,
-            onRedo = onRedo,
-        )
-        MatchList(uiState = uiState)
-        PreviewPanel(
-            uiState = uiState,
-            viewModel = viewModel,
-            rememberedState = rememberedState,
-            sheetBitmap = sheetBitmap,
-            onUpdatePreviewSpeed = onUpdatePreviewSpeed,
-            onToggleOnion = onToggleOnion,
-            onToggleCenter = onToggleCenter,
-        )
-    }
-}
-
-@Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun ControlPanel(
     uiState: SpriteDebugState,
@@ -1131,119 +1334,6 @@ private fun MatchList(uiState: SpriteDebugState) {
                             Text(text = "${score.from}→${score.to}")
                             Text(text = "Score: ${"%.2f".format(score.score)}")
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PreviewPanel(
-    uiState: SpriteDebugState,
-    viewModel: SpriteDebugViewModel,
-    rememberedState: SpriteDebugState,
-    sheetBitmap: ImageBitmap?,
-    onUpdatePreviewSpeed: (Long) -> Unit,
-    onToggleOnion: (Boolean) -> Unit,
-    onToggleCenter: (Boolean) -> Unit,
-) {
-    var playing by rememberSaveable { mutableStateOf(false) }
-    var frameIndex by rememberSaveable { mutableIntStateOf(0) }
-    val frames = remember(uiState.boxes, rememberedState.previewSpeedMs, sheetBitmap) { viewModel.previewFrames() }
-
-    LaunchedEffect(playing, frames.size, rememberedState.previewSpeedMs) {
-        while (playing && frames.isNotEmpty()) {
-            delay(rememberedState.previewSpeedMs)
-            frameIndex = (frameIndex + 1) % frames.size
-        }
-    }
-
-    val glow by rememberInfiniteTransition(label = "preview-glow").animateFloat(
-        initialValue = 0.7f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(animation = androidx.compose.animation.core.tween(900, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
-        label = "glow",
-    )
-
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledIconButton(onClick = { playing = !playing }) {
-                    Icon(imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "play")
-                }
-                Text(text = "速度 ${rememberedState.previewSpeedMs}ms")
-                Slider(
-                    value = rememberedState.previewSpeedMs.toFloat(),
-                    onValueChange = { onUpdatePreviewSpeed(it.toLong()) },
-                    valueRange = 120f..2000f,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(text = "オニオンスキン")
-                    Switch(checked = uiState.onionSkin, onCheckedChange = onToggleOnion)
-                }
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(text = "中心線")
-                    Switch(checked = uiState.showCenterLine, onCheckedChange = onToggleCenter)
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (frames.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(200.dp)
-                            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-                            .border(2.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = glow), RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Image(bitmap = frames[frameIndex % frames.size], contentDescription = "frame", modifier = Modifier.fillMaxSize())
-                        if (uiState.onionSkin && frames.size > 1) {
-                            val previous = frames[(frameIndex - 1 + frames.size) % frames.size]
-                            Image(bitmap = previous, contentDescription = "onion", modifier = Modifier.fillMaxSize(), alpha = 0.3f)
-                        }
-                        if (uiState.showCenterLine) {
-                            val previewCenterLineColor = MaterialTheme.colorScheme.secondary
-                            Canvas(modifier = Modifier.matchParentSize()) {
-                                drawLine(
-                                    color = previewCenterLineColor,
-                                    start = Offset(size.width / 2f, 0f),
-                                    end = Offset(size.width / 2f, size.height),
-                                    strokeWidth = 2f,
-                                )
-                                drawLine(
-                                    color = previewCenterLineColor,
-                                    start = Offset(0f, size.height / 2f),
-                                    end = Offset(size.width, size.height / 2f),
-                                    strokeWidth = 2f,
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Text(text = "ROIが見つかりません", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = "プレビュー順")
-                    uiState.boxes.forEach { box ->
-                        Text(text = "Frame ${box.index + 1} (${box.x.toInt()}, ${box.y.toInt()})")
                     }
                 }
             }
