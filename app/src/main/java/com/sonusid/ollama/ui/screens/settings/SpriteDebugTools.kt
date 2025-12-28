@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,19 +41,20 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiSprite3x3
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.rememberLamiSprite3x3FrameMaps
 import com.sonusid.ollama.ui.components.toFrameYOffsetPxMap
+import com.sonusid.ollama.ui.screens.debug.SpriteDebugViewModel
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpriteDebugTools(navController: NavController) {
+fun SpriteDebugTools(navController: NavController, viewModel: SpriteDebugViewModel) {
     val statuses = remember { LamiSpriteStatus.values() }
     var selectedStatus by rememberSaveable { mutableStateOf(LamiSpriteStatus.Idle) }
     var spriteSize by rememberSaveable { mutableStateOf(96f) }
@@ -63,6 +65,7 @@ fun SpriteDebugTools(navController: NavController) {
     var contentOffset by rememberSaveable { mutableStateOf(0f) }
     var contentOffsetY by rememberSaveable { mutableStateOf(0f) }
     var rawFrameIndex by rememberSaveable { mutableStateOf(0f) }
+    val spriteDebugState by viewModel.uiState.collectAsState()
 
     val frameMaps = rememberLamiSprite3x3FrameMaps()
     val frameYOffsetMap = remember(frameMaps) { frameMaps.toFrameYOffsetPxMap() }
@@ -167,6 +170,16 @@ fun SpriteDebugTools(navController: NavController) {
                             ControlSwitch("置換", replacementEnabled) { replacementEnabled = it }
                             ControlSwitch("点滅", blinkEffectEnabled) { blinkEffectEnabled = it }
                             ControlSwitch("透過自動トリム", autoCropTransparentArea) { autoCropTransparentArea = it }
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Sprite Debug ROI: ${spriteDebugState.boxes.size}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(onClick = { navController.navigate(Routes.SPRITE_DEBUG_CANVAS) }) {
+                                Text("キャンバスビューを開く")
+                            }
                         }
                     }
                 }
