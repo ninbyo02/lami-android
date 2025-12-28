@@ -51,12 +51,12 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     lamiState = lamiUiState.state,
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
-                    onNavigateSettings = { navController.navigate("setting") },
-                    onOpenSpriteDebug = { navController.navigate("sprite_debug") }
+                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOpenSpriteDebug = { navController.navigate(Routes.SPRITE_DEBUG) }
                 )
             },
             actions = {
-                    IconButton(onClick = { navController.navigate("setting") }) {
+                    IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
                         Icon(
                             painter = painterResource(R.drawable.settings),
                             contentDescription = "settings",
@@ -121,7 +121,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                                 .padding(10.dp)
                                 .size(40.dp),
                             onClick = {
-                                navController.navigate("chat/${allChats.value[index].chatId}")
+                                navController.navigate(Routes.chat(allChats.value[index].chatId))
                             }) {
                             Row(Modifier.padding(10.dp)) { Text("${allChats.value[index].title}.") }
                         }

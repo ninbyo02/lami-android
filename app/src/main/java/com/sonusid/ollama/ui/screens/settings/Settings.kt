@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.BaseUrlInitializationState
 import com.sonusid.ollama.api.RetrofitClient
@@ -225,7 +226,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     ElevatedButton(
-                        onClick = { navgationController.navigate("sprite_debug_settings") },
+                        onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) },
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
@@ -486,7 +487,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     }
                     ElevatedButton(
                         onClick = {
-                            navgationController.navigate("about")
+                            navgationController.navigate(Routes.ABOUT)
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -507,7 +508,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         }
                     }
                     ElevatedButton(
-                        onClick = { navgationController.navigate("sprite_debug_tools") },
+                        onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_TOOLS) },
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(

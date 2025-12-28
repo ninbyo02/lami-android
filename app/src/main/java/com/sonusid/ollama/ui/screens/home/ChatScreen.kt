@@ -178,14 +178,14 @@ fun Home(
                         viewModel.onUserInteraction()
                         viewModel.updateSelectedModel(modelName)
                     },
-                    onNavigateSettings = { navHostController.navigate("setting") },
-                    onOpenSpriteDebug = { navHostController.navigate("sprite_debug") }
+                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                    onOpenSpriteDebug = { navHostController.navigate(Routes.SPRITE_DEBUG) }
                 )
             },
             actions = {
                 IconButton(onClick = {
                     viewModel.onUserInteraction()
-                    navHostController.navigate("chats")
+                    navHostController.navigate(Routes.CHATS)
                 }) {
                     Icon(
                         imageVector = Icons.Filled.List,
@@ -195,7 +195,7 @@ fun Home(
                 }
                 IconButton(onClick = {
                     viewModel.onUserInteraction()
-                    navHostController.navigate("setting")
+                    navHostController.navigate(Routes.SETTINGS)
                 }) {
                     Icon(
                         painter = painterResource(R.drawable.settings),
