@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
@@ -215,6 +216,36 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         }
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.padding(paddingValues)) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ElevatedButton(
+                        onClick = { navgationController.navigate("sprite_debug") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
+                        ) {
+                            Icon(
+                                Icons.Filled.BugReport,
+                                contentDescription = "Sprite Debug",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(20.dp))
+                            Text("Sprite Debug")
+                        }
+                    }
+                }
+            }
             item {
                 Row(
                     modifier = Modifier
