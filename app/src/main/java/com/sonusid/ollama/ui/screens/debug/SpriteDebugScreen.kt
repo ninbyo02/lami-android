@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +62,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
@@ -75,6 +78,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -87,6 +91,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -98,12 +104,20 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.util.SpriteAnalysis
+import com.sonusid.ollama.ui.screens.settings.copyJsonToClipboard
+import com.sonusid.ollama.ui.screens.settings.pasteJsonFromClipboard
 import java.util.ArrayDeque
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -134,10 +148,17 @@ data class SpriteBox(
 enum class SpriteEditMode { None, Pen, Eraser }
 
 @Parcelize
+data class MatchOffset(
+    val dx: Int = 0,
+    val dy: Int = 0,
+) : Parcelable
+
+@Parcelize
 data class SpriteMatchScore(
     val from: Int,
     val to: Int,
     val score: Float,
+    val offset: MatchOffset = MatchOffset(),
 ) : Parcelable
 
 @Parcelize
@@ -210,14 +231,23 @@ private fun calculateScale(intrinsicSize: Size, layoutSize: Size): SpriteSheetSc
 
 class SpriteDebugViewModel(
     private val savedStateHandle: SavedStateHandle,
+    private val dataStore: SpriteDebugDataStore,
+    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val gson: Gson = Gson(),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(initializeState())
     val uiState: StateFlow<SpriteDebugState> = _uiState.asStateFlow()
+    private val _analysisResult = MutableStateFlow<SpriteAnalysis.SpriteAnalysisResult?>(null)
+    val analysisResult: StateFlow<SpriteAnalysis.SpriteAnalysisResult?> = _analysisResult.asStateFlow()
+    private val _isAnalyzing = MutableStateFlow(false)
+    val isAnalyzing: StateFlow<Boolean> = _isAnalyzing.asStateFlow()
     private val _sheetBitmap = MutableStateFlow<ImageBitmap?>(null)
     val sheetBitmap: StateFlow<ImageBitmap?> = _sheetBitmap.asStateFlow()
     private val undoStack = ArrayDeque<Bitmap>()
     private val redoStack = ArrayDeque<Bitmap>()
     private var spriteSheetBitmap: Bitmap? = null
+    private var analysisJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -225,14 +255,18 @@ class SpriteDebugViewModel(
                 savedStateHandle[KEY_STATE] = state
             }
         }
-        recomputeMatches()
+        viewModelScope.launch(ioDispatcher) {
+            restorePersistedState()
+        }
     }
 
     fun setSpriteSheet(bitmap: Bitmap?) {
         spriteSheetBitmap = bitmap
         _sheetBitmap.value = bitmap?.asImageBitmap()
         val targetSize = bitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
-        _uiState.update { current -> current.ensureBoxes(targetSize).withMatches() }
+        _uiState.update { current -> current.ensureBoxes(targetSize) }
+        clearAnalysis()
+        persistStateAsync()
     }
 
     fun selectBox(index: Int) {
@@ -307,35 +341,58 @@ class SpriteDebugViewModel(
     }
 
     fun autoSearchSingle() {
-        val bitmap = spriteSheetBitmap ?: return
         val state = _uiState.value
-        val selected = state.boxes.getOrNull(state.selectedBoxIndex) ?: return
-        val bestOffset = Offset(state.searchRadius / 2f, -state.searchRadius / 2f)
-        val candidate = selected.copy(
-            x = (selected.x + bestOffset.x).coerceIn(0f, bitmap.width - selected.width),
-            y = (selected.y + bestOffset.y).coerceIn(0f, bitmap.height - selected.height),
-        )
-        replaceBox(candidate)
+        if (state.boxes.size < 2) return
+        val focusIndex = state.selectedBoxIndex.coerceIn(0, state.boxes.lastIndex - 1)
+        startAnalysis(focusIndex = focusIndex, applyOffsetsForAll = false)
     }
 
     fun autoSearchAll() {
-        val bitmap = spriteSheetBitmap ?: return
-        val state = _uiState.value
-        if (state.boxes.any { bitmap.width - it.width < 0f || bitmap.height - it.height < 0f }) return
-        val updated = state.boxes.map { box ->
-            val deltaX = ((box.index % state.spriteSheetConfig.cols) - 1) * state.step.toFloat()
-            val deltaY = ((box.index / state.spriteSheetConfig.cols) - 1) * state.step.toFloat()
-            box.copy(
-                x = (box.x + deltaX).coerceIn(0f, bitmap.width - box.width),
-                y = (box.y + deltaY).coerceIn(0f, bitmap.height - box.height),
-            )
-        }
-        updateState { copy(boxes = updated) }
+        if (_uiState.value.boxes.size < 2) return
+        startAnalysis(focusIndex = null, applyOffsetsForAll = true)
+    }
+
+    fun cancelAnalysis() {
+        analysisJob?.cancel()
+        analysisJob = null
+        _isAnalyzing.value = false
     }
 
     fun resetBoxes() {
         val bitmap = spriteSheetBitmap ?: return
         updateState { copy(boxes = SpriteDebugState.defaultBoxes(IntSize(bitmap.width, bitmap.height))) }
+    }
+
+    private fun startAnalysis(focusIndex: Int?, applyOffsetsForAll: Boolean) {
+        val frames = extractFrameBitmaps()
+        if (frames.size < 2) return
+        analysisJob?.cancel()
+        analysisJob = viewModelScope.launch(defaultDispatcher) {
+            _isAnalyzing.value = true
+            try {
+                val roiWidth = frames.first().width
+                val roiHeight = frames.first().height
+                val centerX = roiWidth / 2
+                val centerY = roiHeight / 2
+                val searchRadius = _uiState.value.searchRadius.toInt().coerceAtLeast(1)
+                val threshold = (_uiState.value.sobelThreshold * 1024f).coerceAtLeast(1f)
+                val result = SpriteAnalysis.analyzeConsecutiveFrames(
+                    frames = frames,
+                    centerX = centerX,
+                    centerY = centerY,
+                    roiWidth = roiWidth,
+                    roiHeight = roiHeight,
+                    searchRadius = searchRadius,
+                    threshold = threshold,
+                    useIoU = true,
+                    dispatcher = defaultDispatcher,
+                )
+                applyOffsetsFromResult(result, focusIndex, applyOffsetsForAll)
+                applyAnalysisResult(result, highlightIndex = focusIndex)
+            } finally {
+                _isAnalyzing.value = false
+            }
+        }
     }
 
     fun applyStroke(positionOnImage: Offset) {
@@ -395,6 +452,17 @@ class SpriteDebugViewModel(
         }
     }
 
+    private fun extractFrameBitmaps(): List<Bitmap> {
+        val bitmap = spriteSheetBitmap ?: return emptyList()
+        return _uiState.value.boxes.mapNotNull { box ->
+            val x = box.x.toInt().coerceAtLeast(0).coerceAtMost(bitmap.width - 1)
+            val y = box.y.toInt().coerceAtLeast(0).coerceAtMost(bitmap.height - 1)
+            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(bitmap.width - x)
+            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(bitmap.height - y)
+            runCatching { Bitmap.createBitmap(bitmap, x, y, width, height) }.getOrNull()
+        }
+    }
+
     private fun snapDelta(delta: Offset, step: Int): Offset {
         val snappedX = (delta.x / step).toInt() * step
         val snappedY = (delta.y / step).toInt() * step
@@ -416,33 +484,114 @@ class SpriteDebugViewModel(
             .getOrNull()
             .orEmptyState()
             .ensureBoxes(IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE))
-            .withMatches()
 
     private fun updateState(block: SpriteDebugState.() -> SpriteDebugState) {
-        _uiState.update { block(it).withMatches() }
-    }
-
-    private fun SpriteDebugState.withMatches(): SpriteDebugState {
-        val (scores, best) = calculateMatchScores(boxes, sobelThreshold)
-        return copy(matchScores = scores, bestMatchIndices = best)
-    }
-
-    private fun calculateMatchScores(boxes: List<SpriteBox>, sobelThreshold: Float): Pair<List<SpriteMatchScore>, List<Int>> {
-        val scores = boxes.zipWithNext { current, next ->
-            val distance = (kotlin.math.abs(current.x - next.x) + kotlin.math.abs(current.y - next.y)).coerceAtLeast(1f)
-            val thresholdWeight = (1f - sobelThreshold.coerceIn(0f, 1f))
-            val similarity = (1f / distance * thresholdWeight).coerceIn(0f, 1f)
-            SpriteMatchScore(current.index + 1, next.index + 1, similarity)
+        val targetSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+        _uiState.update { current ->
+            block(current).ensureBoxes(targetSize)
         }
-        val bestScore = scores.maxOfOrNull { it.score }
-        val bestIndices = if (bestScore != null) {
-            scores.filter { it.score == bestScore }.flatMap { listOf(it.from - 1, it.to - 1) }
-        } else emptyList()
-        return scores to bestIndices
+        persistStateAsync()
     }
 
-    private fun recomputeMatches() {
-        _uiState.update { it.withMatches() }
+    private fun applyOffsetsFromResult(
+        result: SpriteAnalysis.SpriteAnalysisResult,
+        focusIndex: Int?,
+        applyOffsetsForAll: Boolean,
+    ) {
+        val bitmap = spriteSheetBitmap ?: return
+        val applicable = if (applyOffsetsForAll) {
+            result.bestOffsets.indices.toSet()
+        } else {
+            focusIndex?.let { setOf(it) } ?: emptySet()
+        }
+        if (applicable.isEmpty()) return
+        updateState {
+            val updated = boxes.mapIndexed { index, box ->
+                val offsetIndex = index - 1
+                if (offsetIndex in applicable) {
+                    val offset = result.bestOffsets.getOrNull(offsetIndex)
+                    if (offset != null) {
+                        val maxX = bitmap.width - box.width
+                        val maxY = bitmap.height - box.height
+                        box.copy(
+                            x = (box.x + offset.dx).coerceIn(0f, maxX),
+                            y = (box.y + offset.dy).coerceIn(0f, maxY),
+                        )
+                    } else {
+                        box
+                    }
+                } else {
+                    box
+                }
+            }
+            copy(boxes = updated)
+        }
+    }
+
+    private fun applyAnalysisResult(
+        result: SpriteAnalysis.SpriteAnalysisResult,
+        highlightIndex: Int? = null,
+        persist: Boolean = true,
+    ) {
+        _analysisResult.value = result
+        val scores = result.scores.mapIndexed { index, score ->
+            val offset = result.bestOffsets.getOrNull(index)
+            SpriteMatchScore(
+                from = index + 1,
+                to = index + 2,
+                score = score,
+                offset = offset?.let { MatchOffset(it.dx, it.dy) } ?: MatchOffset(),
+            )
+        }
+        val targetHighlight = highlightIndex ?: result.scores.withIndex().maxByOrNull { it.value }?.index
+        val bestIndices = targetHighlight?.let { listOf(it + 1) } ?: emptyList()
+        _uiState.update { current ->
+            current.copy(matchScores = scores, bestMatchIndices = bestIndices)
+        }
+        persistStateAsync()
+        if (persist) {
+            persistAnalysisResult(result)
+        }
+    }
+
+    private suspend fun restorePersistedState() {
+        val persistedState = dataStore.readState()
+        val persistedResult = dataStore.readAnalysisResult()
+        val targetSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+        if (persistedState != null) {
+            _uiState.update { persistedState.ensureBoxes(targetSize) }
+        }
+        if (persistedResult != null) {
+            applyAnalysisResult(persistedResult, persist = false)
+        }
+    }
+
+    private fun persistStateAsync(state: SpriteDebugState = _uiState.value) {
+        viewModelScope.launch(ioDispatcher) { dataStore.saveState(state) }
+    }
+
+    private fun persistAnalysisResult(result: SpriteAnalysis.SpriteAnalysisResult) {
+        viewModelScope.launch(ioDispatcher) { dataStore.saveAnalysisResult(result) }
+    }
+
+    private fun clearAnalysis() {
+        _analysisResult.value = null
+        _uiState.update { it.copy(matchScores = emptyList(), bestMatchIndices = emptyList()) }
+        persistStateAsync()
+        viewModelScope.launch(ioDispatcher) { dataStore.clearAnalysis() }
+    }
+
+    fun importStateFromJson(json: String): Boolean {
+        val parsed = runCatching { gson.fromJson(json, SpriteDebugState::class.java) }.getOrNull() ?: return false
+        _uiState.update { parsed.ensureBoxes(spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)) }
+        persistStateAsync()
+        return true
+    }
+
+    fun importAnalysisResultFromJson(json: String): Boolean {
+        val parsed = runCatching { gson.fromJson(json, SpriteAnalysis.SpriteAnalysisResult::class.java) }.getOrNull() ?: return false
+        applyAnalysisResult(parsed)
+        return true
     }
 
     private fun pushUndo(current: Bitmap) {
@@ -455,10 +604,13 @@ class SpriteDebugViewModel(
     companion object {
         private const val KEY_STATE = "sprite_debug_state"
 
-        fun provideFactory(owner: SavedStateRegistryOwner): ViewModelProvider.Factory =
+        fun provideFactory(owner: SavedStateRegistryOwner, context: Context): ViewModelProvider.Factory =
             object : AbstractSavedStateViewModelFactory(owner, null) {
                 override fun <T : ViewModel> create(key: String, modelClass: Class<T>, handle: SavedStateHandle): T {
-                    return SpriteDebugViewModel(handle) as T
+                    return SpriteDebugViewModel(
+                        savedStateHandle = handle,
+                        dataStore = SpriteDebugPreferences(context.applicationContext),
+                    ) as T
                 }
             }
     }
@@ -506,7 +658,15 @@ private fun loadSpriteBitmap(context: Context): Bitmap? {
 fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
+    val analysisResult by viewModel.analysisResult.collectAsState()
+    val isAnalyzing by viewModel.isAnalyzing.collectAsState()
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val gson = remember { Gson() }
+    var stateJson by remember(uiState) { mutableStateOf(gson.toJson(uiState)) }
+    var analysisJson by remember(analysisResult) { mutableStateOf(analysisResult?.let { gson.toJson(it) }.orEmpty()) }
     val spriteBitmap = remember { loadSpriteBitmap(context) }
     val placeholderBitmap = remember { createPlaceholderBitmap(context) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -524,7 +684,13 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     LaunchedEffect(rememberedState.selectedBoxIndex) { viewModel.selectBox(rememberedState.selectedBoxIndex) }
     LaunchedEffect(rememberedState.step) { viewModel.updateStep(rememberedState.step) }
 
-    Scaffold { innerPadding ->
+    fun showError(message: String) {
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -543,6 +709,15 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                     spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
                     onRememberedStateChange = { rememberedState = it },
                     viewModel = viewModel,
+                    isAnalyzing = isAnalyzing,
+                    clipboardManager = clipboardManager,
+                    snackbarHostState = snackbarHostState,
+                    scope = scope,
+                    stateJson = stateJson,
+                    onStateJsonChange = { stateJson = it },
+                    analysisJson = analysisJson,
+                    onAnalysisJsonChange = { analysisJson = it },
+                    onError = ::showError,
                 )
                 1 -> PreviewTabContent(
                     uiState = uiState,
@@ -564,6 +739,15 @@ private fun AdjustTabContent(
     spriteBitmap: ImageBitmap,
     onRememberedStateChange: (SpriteDebugState) -> Unit,
     viewModel: SpriteDebugViewModel,
+    isAnalyzing: Boolean,
+    clipboardManager: ClipboardManager,
+    snackbarHostState: SnackbarHostState,
+    scope: CoroutineScope,
+    stateJson: String,
+    onStateJsonChange: (String) -> Unit,
+    analysisJson: String,
+    onAnalysisJsonChange: (String) -> Unit,
+    onError: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -602,8 +786,35 @@ private fun AdjustTabContent(
             onBrushSizeChange = { viewModel.setBrushSize(it) },
             onUndo = { viewModel.undo() },
             onRedo = { viewModel.redo() },
+            isAnalyzing = isAnalyzing,
+            onCancelAnalysis = { viewModel.cancelAnalysis() },
         )
         MatchList(uiState = uiState)
+        DebugPersistencePanel(
+            stateJson = stateJson,
+            onStateJsonChange = onStateJsonChange,
+            analysisJson = analysisJson,
+            onAnalysisJsonChange = onAnalysisJsonChange,
+            onApplyState = { json ->
+                if (viewModel.importStateFromJson(json)) {
+                    scope.launch { snackbarHostState.showSnackbar("SpriteDebugState を復元しました") }
+                } else {
+                    onError("State JSON の解析に失敗しました")
+                }
+            },
+            onApplyAnalysis = { json ->
+                if (json.isBlank()) {
+                    onError("計算結果 JSON が空です")
+                } else if (viewModel.importAnalysisResultFromJson(json)) {
+                    scope.launch { snackbarHostState.showSnackbar("解析結果を適用しました") }
+                } else {
+                    onError("解析結果 JSON の解析に失敗しました")
+                }
+            },
+            clipboardManager = clipboardManager,
+            snackbarHostState = snackbarHostState,
+            scope = scope,
+        )
     }
 }
 
@@ -1102,6 +1313,8 @@ private fun ControlPanel(
     onBrushSizeChange: (Float) -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
+    isAnalyzing: Boolean,
+    onCancelAnalysis: () -> Unit,
 ) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -1181,13 +1394,24 @@ private fun ControlPanel(
                     )
                 }
             }
+            if (isAnalyzing) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    Text(text = "自動探索を実行中...", modifier = Modifier.weight(1f))
+                    TextButton(onClick = onCancelAnalysis) { Text(text = "キャンセル") }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Button(onClick = onAutoSearchOne, modifier = Modifier.weight(1f)) { Text(text = "選択のみ自動探索") }
-                Button(onClick = onAutoSearchAll, modifier = Modifier.weight(1f)) { Text(text = "全体自動探索") }
+                Button(onClick = onAutoSearchOne, modifier = Modifier.weight(1f), enabled = !isAnalyzing) { Text(text = "選択のみ自動探索") }
+                Button(onClick = onAutoSearchAll, modifier = Modifier.weight(1f), enabled = !isAnalyzing) { Text(text = "全体自動探索") }
                 TextButton(onClick = onReset) { Text(text = "リセット") }
             }
             EditToolbar(
@@ -1324,7 +1548,7 @@ private fun MatchList(uiState: SpriteDebugState) {
             Text(text = "一致率一覧", style = MaterialTheme.typography.titleMedium)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(uiState.matchScores) { score ->
-                    val isBest = uiState.bestMatchIndices.contains(score.from - 1) || uiState.bestMatchIndices.contains(score.to - 1)
+                    val isBest = uiState.bestMatchIndices.contains(score.to - 1)
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = if (isBest) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface,
@@ -1333,8 +1557,109 @@ private fun MatchList(uiState: SpriteDebugState) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text(text = "${score.from}→${score.to}")
                             Text(text = "Score: ${"%.2f".format(score.score)}")
+                            Text(text = "dx=${score.offset.dx}, dy=${score.offset.dy}")
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DebugPersistencePanel(
+    stateJson: String,
+    onStateJsonChange: (String) -> Unit,
+    analysisJson: String,
+    onAnalysisJsonChange: (String) -> Unit,
+    onApplyState: (String) -> Unit,
+    onApplyAnalysis: (String) -> Unit,
+    clipboardManager: ClipboardManager,
+    snackbarHostState: SnackbarHostState,
+    scope: CoroutineScope,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        JsonTransferCard(
+            title = "SpriteDebugState JSON",
+            jsonText = stateJson,
+            onJsonChange = onStateJsonChange,
+            onApply = onApplyState,
+            clipboardManager = clipboardManager,
+            snackbarHostState = snackbarHostState,
+            scope = scope,
+            emptyClipboardMessage = "クリップボードが空です",
+        )
+        JsonTransferCard(
+            title = "解析結果 JSON",
+            jsonText = analysisJson,
+            onJsonChange = onAnalysisJsonChange,
+            onApply = onApplyAnalysis,
+            clipboardManager = clipboardManager,
+            snackbarHostState = snackbarHostState,
+            scope = scope,
+            emptyClipboardMessage = "クリップボードが空です",
+        )
+    }
+}
+
+@Composable
+private fun JsonTransferCard(
+    title: String,
+    jsonText: String,
+    onJsonChange: (String) -> Unit,
+    onApply: (String) -> Unit,
+    clipboardManager: ClipboardManager,
+    snackbarHostState: SnackbarHostState,
+    scope: CoroutineScope,
+    emptyClipboardMessage: String,
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = jsonText,
+                onValueChange = onJsonChange,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 4,
+                label = { Text(text = "JSON") },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = {
+                        copyJsonToClipboard(
+                            clipboardManager = clipboardManager,
+                            scope = scope,
+                            snackbarHostState = snackbarHostState,
+                            json = jsonText,
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(text = "コピー")
+                }
+                Button(
+                    onClick = {
+                        pasteJsonFromClipboard(
+                            clipboardManager = clipboardManager,
+                            onPaste = { pasted -> onJsonChange(pasted) },
+                            onEmpty = { scope.launch { snackbarHostState.showSnackbar(emptyClipboardMessage) } },
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(text = "貼り付け")
+                }
+                Button(
+                    onClick = { onApply(jsonText) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(text = "適用")
                 }
             }
         }
