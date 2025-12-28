@@ -1427,7 +1427,9 @@ private fun PreviewTabContent(
     var controlsExpanded by rememberSaveable { mutableStateOf(true) }
     var previewListExpanded by rememberSaveable { mutableStateOf(false) }
     val frames = remember(uiState.boxes, rememberedState.previewSpeedMs, sheetBitmap) { viewModel.previewFrames() }
-    val gridBoxes = remember(uiState.boxes) { uiState.boxes.take(gridRows * gridColumns) }
+    val gridRows = uiState.spriteSheetConfig.rows.takeIf { it > 0 } ?: 3
+    val gridColumns = uiState.spriteSheetConfig.cols.takeIf { it > 0 } ?: 3
+    val gridBoxes = uiState.boxes.take(gridRows * gridColumns)
     val activeFrameIndex = remember(frameIndex, frames) { if (frames.isEmpty()) -1 else frameIndex % frames.size }
     val onPreviewBoxSelected: (Int) -> Unit = { index ->
         viewModel.selectBox(index)
@@ -1505,6 +1507,18 @@ private fun PreviewTabContent(
                                 }
                             }
                         }
+                        PreviewGridCanvas(
+                            frames = frames,
+                            boxes = gridBoxes,
+                            rows = gridRows,
+                            columns = gridColumns,
+                            selectedBoxIndex = uiState.selectedBoxIndex,
+                            playingFrameIndex = activeFrameIndex,
+                            showCenterLine = uiState.showCenterLine,
+                            glow = glow,
+                            onBoxSelected = onPreviewBoxSelected,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     } else {
                         Text(text = "ROIが見つかりません", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     }
@@ -1688,6 +1702,8 @@ private fun PreviewTabContent(
 private fun PreviewGridCanvas(
     frames: List<ImageBitmap>,
     boxes: List<SpriteBox>,
+    rows: Int,
+    columns: Int,
     selectedBoxIndex: Int,
     playingFrameIndex: Int,
     showCenterLine: Boolean,
@@ -1696,8 +1712,8 @@ private fun PreviewGridCanvas(
     modifier: Modifier = Modifier,
 ) {
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    val columns = 3
-    val rows = 3
+    val safeColumns = columns.takeIf { it > 0 } ?: 3
+    val safeRows = rows.takeIf { it > 0 } ?: 3
     val outlineColor = MaterialTheme.colorScheme.outlineVariant
     val activeColor = MaterialTheme.colorScheme.tertiary
     val selectedColor = MaterialTheme.colorScheme.primaryContainer
@@ -1712,21 +1728,21 @@ private fun PreviewGridCanvas(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(boxes, canvasSize) {
+                .pointerInput(boxes, canvasSize, safeColumns, safeRows) {
                     detectTapGestures { offset ->
                         if (canvasSize.width == 0 || canvasSize.height == 0) return@detectTapGestures
-                        val cellWidth = canvasSize.width / columns.toFloat()
-                        val cellHeight = canvasSize.height / rows.toFloat()
-                        val column = (offset.x / cellWidth).toInt().coerceIn(0, columns - 1)
-                        val row = (offset.y / cellHeight).toInt().coerceIn(0, rows - 1)
-                        val tappedIndex = row * columns + column
+                        val cellWidth = canvasSize.width / safeColumns.toFloat()
+                        val cellHeight = canvasSize.height / safeRows.toFloat()
+                        val column = (offset.x / cellWidth).toInt().coerceIn(0, safeColumns - 1)
+                        val row = (offset.y / cellHeight).toInt().coerceIn(0, safeRows - 1)
+                        val tappedIndex = row * safeColumns + column
                         boxes.getOrNull(tappedIndex)?.let { onBoxSelected(it.index) }
                     }
                 },
         ) {
-            val cellWidth = size.width / columns
-            val cellHeight = size.height / rows
-            for (column in 1 until columns) {
+            val cellWidth = size.width / safeColumns
+            val cellHeight = size.height / safeRows
+            for (column in 1 until safeColumns) {
                 val x = cellWidth * column
                 drawLine(
                     color = outlineColor,
@@ -1735,7 +1751,7 @@ private fun PreviewGridCanvas(
                     strokeWidth = 2f,
                 )
             }
-            for (row in 1 until rows) {
+            for (row in 1 until safeRows) {
                 val y = cellHeight * row
                 drawLine(
                     color = outlineColor,
@@ -1762,8 +1778,8 @@ private fun PreviewGridCanvas(
             boxes.forEachIndexed { localIndex, box ->
                 val frameIndex = box.index
                 val frameBitmap = frames.getOrNull(frameIndex) ?: frames.getOrNull(localIndex)
-                val row = localIndex / columns
-                val column = localIndex % columns
+                val row = localIndex / safeColumns
+                val column = localIndex % safeColumns
                 val topLeft = Offset(column * cellWidth, row * cellHeight)
                 val cellSize = Size(cellWidth, cellHeight)
                 frameBitmap?.let { image ->
