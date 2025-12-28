@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
                                 About(navController)
                             }
                             composable("spriteDebug") {
-                                SpriteDebugScreen(navController)
+                                SpriteDebugScreen()
                             }
                         }
                     }
