@@ -2201,11 +2201,13 @@ private fun ControlPanel(
                 contentPadding = PaddingValues(horizontal = 12.dp),
             ) {
                 itemsIndexed(uiState.boxes) { index, _ ->
+                    val frameLabel = stringResource(R.string.sprite_frame_label, index + 1)
+                    val frameCd = stringResource(R.string.sprite_frame_select_cd, index + 1)
                     FilterChip(
                         selected = uiState.selectedBoxIndex == index,
                         onClick = { onSelectBox(index) },
-                        label = { Text(text = stringResource(R.string.sprite_frame_label, index + 1)) },
-                        modifier = Modifier.semantics { contentDescription = stringResource(R.string.sprite_frame_select_cd, index + 1) },
+                        label = { Text(text = frameLabel) },
+                        modifier = Modifier.semantics { contentDescription = frameCd },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
