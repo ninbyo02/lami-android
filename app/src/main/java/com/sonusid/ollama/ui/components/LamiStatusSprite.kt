@@ -10,6 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.viewmodels.LamiState
@@ -216,8 +218,17 @@ fun LamiStatusSprite(
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
     frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
+    frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
+    frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
+    val measuredFrameMaps = rememberLamiSprite3x3FrameMaps()
+    val resolvedFrameSrcOffsetMap = remember(frameSrcOffsetMap, measuredFrameMaps) {
+        if (frameSrcOffsetMap.isNotEmpty()) frameSrcOffsetMap else measuredFrameMaps.offsetMap
+    }
+    val resolvedFrameSrcSizeMap = remember(frameSrcSizeMap, measuredFrameMaps) {
+        if (frameSrcSizeMap.isNotEmpty()) frameSrcSizeMap else measuredFrameMaps.sizeMap
+    }
     val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
         when {
             !replacementEnabled -> LamiSpriteStatus.Idle
@@ -344,6 +355,8 @@ fun LamiStatusSprite(
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
         frameYOffsetPxMap = animatedFrameYOffsetPxMap,
+        frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
+        frameSrcSizeMap = resolvedFrameSrcSizeMap,
     )
 }
 
@@ -358,6 +371,8 @@ fun LamiStatusSprite(
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
     frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
+    frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
+    frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {
     val spriteStatus = remember(status.value) {
         mapToLamiSpriteStatus(lamiStatus = status.value)
@@ -372,6 +387,8 @@ fun LamiStatusSprite(
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
         frameYOffsetPxMap = frameYOffsetPxMap,
+        frameSrcOffsetMap = frameSrcOffsetMap,
+        frameSrcSizeMap = frameSrcSizeMap,
     )
 }
 
@@ -390,6 +407,8 @@ fun LamiStatusSprite(
     retryCount: Int = 0,
     talkingTextLength: Int? = null,
     frameYOffsetPxMap: Map<Int, Int> = spriteFrameYOffsetPx,
+    frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
+    frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {
     var previousAnimationStatus by remember {
         mutableStateOf(status.value)
@@ -440,6 +459,8 @@ fun LamiStatusSprite(
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
         frameYOffsetPxMap = frameYOffsetPxMap,
+        frameSrcOffsetMap = frameSrcOffsetMap,
+        frameSrcSizeMap = frameSrcSizeMap,
     )
 }
 
