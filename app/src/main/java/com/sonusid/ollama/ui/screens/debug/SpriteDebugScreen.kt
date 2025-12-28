@@ -8,7 +8,6 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.os.Parcelable
 import android.util.Log
-import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -218,16 +217,21 @@ private data class SpriteSheetScale(
 }
 
 private fun calculateScale(intrinsicSize: Size, layoutSize: Size): SpriteSheetScale {
-    val scaleRatio = if (layoutSize == Size.Zero) 1f else minOf(
-        layoutSize.width / intrinsicSize.width,
-        layoutSize.height / intrinsicSize.height,
-    )
+    val intrinsicWidth = intrinsicSize.width
+    val intrinsicHeight = intrinsicSize.height
+    val layoutWidth = layoutSize.width
+    val layoutHeight = layoutSize.height
+    val hasInvalidSize = intrinsicWidth <= 0f || intrinsicHeight <= 0f || layoutWidth <= 0f || layoutHeight <= 0f
+    val rawScale = if (hasInvalidSize) 0f else minOf(layoutWidth / intrinsicWidth, layoutHeight / intrinsicHeight)
+    val scaleRatio = maxOf(0.01f, rawScale)
     val offset = Offset(
         (layoutSize.width - intrinsicSize.width * scaleRatio) / 2f,
         (layoutSize.height - intrinsicSize.height * scaleRatio) / 2f,
     )
     return SpriteSheetScale(scaleRatio, offset)
 }
+
+private fun SpriteSheetScale.isValid(): Boolean = scale.isFinite() && offset.x.isFinite() && offset.y.isFinite()
 
 class SpriteDebugViewModel(
     private val savedStateHandle: SavedStateHandle,
@@ -628,30 +632,15 @@ class SpriteDebugViewModel(
     private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
-private fun createPlaceholderBitmap(context: Context): Bitmap {
-    val drawable = ContextCompat.getDrawable(context, R.drawable.logo)
-    if (drawable == null) {
-        Log.w(SPRITE_DEBUG_TAG, "Logo drawable not found. Using blank placeholder.")
-        return Bitmap.createBitmap(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE, Bitmap.Config.ARGB_8888)
-    }
-    val width: Int = drawable.intrinsicWidth.takeIf { it > 0 } ?: DEFAULT_SPRITE_SIZE
-    val height: Int = drawable.intrinsicHeight.takeIf { it > 0 } ?: DEFAULT_SPRITE_SIZE
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val canvas = AndroidCanvas(bitmap)
-    drawable.setBounds(0, 0, width, height)
-    drawable.draw(canvas)
-    return bitmap
-}
-
 private fun loadSpriteBitmap(context: Context): Bitmap? {
     val resources = context.resources
     val spriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.lami_sprite_3x3_288)
-    if (spriteBitmap != null) {
+    if (spriteBitmap != null && spriteBitmap.width > 0 && spriteBitmap.height > 0) {
         Log.d(SPRITE_DEBUG_TAG, "Loaded sprite sheet lami_sprite_3x3_288 (${spriteBitmap.width}x${spriteBitmap.height})")
         return spriteBitmap
     }
-    Log.w(SPRITE_DEBUG_TAG, "Failed to decode sprite sheet. Falling back to logo placeholder.")
-    return createPlaceholderBitmap(context)
+    Log.w(SPRITE_DEBUG_TAG, "Failed to decode sprite sheet. Sprite bitmap is null or empty.")
+    return null
 }
 
 @Composable
@@ -668,7 +657,6 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     var stateJson by remember(uiState) { mutableStateOf(gson.toJson(uiState)) }
     var analysisJson by remember(analysisResult) { mutableStateOf(analysisResult?.let { gson.toJson(it) }.orEmpty()) }
     val spriteBitmap = remember { loadSpriteBitmap(context) }
-    val placeholderBitmap = remember { createPlaceholderBitmap(context) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(spriteBitmap) {
         val bitmap = spriteBitmap ?: return@LaunchedEffect
@@ -688,6 +676,20 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
+    val resolvedBitmap = remember(sheetBitmap, spriteBitmap) {
+        (sheetBitmap ?: spriteBitmap?.asImageBitmap())?.takeIf { it.width > 0 && it.height > 0 }
+    }
+    val shouldShowLoading = resolvedBitmap == null
+    LaunchedEffect(shouldShowLoading, sheetBitmap, spriteBitmap) {
+        if (shouldShowLoading) {
+            Log.d(
+                SPRITE_DEBUG_TAG,
+                "Canvas initialization skipped. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${spriteBitmap?.width}x${spriteBitmap?.height}",
+            )
+            snackbarHostState.showSnackbar("Canvas初期化に失敗しました")
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
@@ -703,27 +705,31 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("ギャラリー") })
             }
             when (selectedTab) {
-                0 -> AdjustTabContent(
-                    uiState = uiState,
-                    rememberedState = rememberedState,
-                    spriteBitmap = sheetBitmap ?: spriteBitmap?.asImageBitmap() ?: placeholderBitmap.asImageBitmap(),
-                    onRememberedStateChange = { rememberedState = it },
-                    viewModel = viewModel,
-                    isAnalyzing = isAnalyzing,
-                    clipboardManager = clipboardManager,
-                    snackbarHostState = snackbarHostState,
-                    scope = scope,
-                    stateJson = stateJson,
-                    onStateJsonChange = { stateJson = it },
-                    analysisJson = analysisJson,
-                    onAnalysisJsonChange = { analysisJson = it },
-                    onError = ::showError,
-                )
+                0 -> if (shouldShowLoading) {
+                    LoadingCanvasPlaceholder()
+                } else {
+                    AdjustTabContent(
+                        uiState = uiState,
+                        rememberedState = rememberedState,
+                        spriteBitmap = resolvedBitmap!!,
+                        onRememberedStateChange = { rememberedState = it },
+                        viewModel = viewModel,
+                        isAnalyzing = isAnalyzing,
+                        clipboardManager = clipboardManager,
+                        snackbarHostState = snackbarHostState,
+                        scope = scope,
+                        stateJson = stateJson,
+                        onStateJsonChange = { stateJson = it },
+                        analysisJson = analysisJson,
+                        onAnalysisJsonChange = { analysisJson = it },
+                        onError = ::showError,
+                    )
+                }
                 1 -> PreviewTabContent(
                     uiState = uiState,
                     viewModel = viewModel,
                     rememberedState = rememberedState,
-                    sheetBitmap = sheetBitmap,
+                    sheetBitmap = resolvedBitmap,
                     onRememberedStateChange = { rememberedState = it },
                 )
                 else -> GalleryTabContent()
@@ -749,6 +755,10 @@ private fun AdjustTabContent(
     onAnalysisJsonChange: (String) -> Unit,
     onError: (String) -> Unit,
 ) {
+    if (spriteBitmap.width <= 0 || spriteBitmap.height <= 0) {
+        LoadingCanvasPlaceholder(modifier = Modifier.fillMaxSize())
+        return
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -826,6 +836,11 @@ private fun PreviewTabContent(
     sheetBitmap: ImageBitmap?,
     onRememberedStateChange: (SpriteDebugState) -> Unit,
 ) {
+    val hasSheetBitmap = sheetBitmap?.let { it.width > 0 && it.height > 0 } == true
+    if (!hasSheetBitmap) {
+        LoadingCanvasPlaceholder(modifier = Modifier.fillMaxSize())
+        return
+    }
     var playing by rememberSaveable { mutableStateOf(false) }
     var frameIndex by rememberSaveable { mutableIntStateOf(0) }
     var controlsExpanded by rememberSaveable { mutableStateOf(true) }
@@ -1045,6 +1060,19 @@ private fun GalleryTabContent() {
 }
 
 @Composable
+private fun LoadingCanvasPlaceholder(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator()
+            Text(text = "キャンバスを初期化しています…")
+        }
+    }
+}
+
+@Composable
 private fun SpriteSheetCanvas(
     uiState: SpriteDebugState,
     spriteBitmap: ImageBitmap,
@@ -1084,37 +1112,48 @@ private fun SpriteSheetCanvas(
         val normalColor = MaterialTheme.colorScheme.outlineVariant
         val bestColor = MaterialTheme.colorScheme.tertiary
         val centerLineColor = MaterialTheme.colorScheme.error
+        val isScaleValid = remember(scale) { scale.isValid() && scale.scale > 0f }
+        if (!isScaleValid) {
+            LaunchedEffect(scale) {
+                Log.d(SPRITE_DEBUG_TAG, "Canvas rendering skipped due to invalid scale: $scale")
+            }
+            LoadingCanvasPlaceholder()
+            return@Box
+        }
 
-        Canvas(
-            modifier = Modifier
-                .matchParentSize()
-                .pointerInput(uiState.selectedBoxIndex, uiState.snapToGrid, uiState.editingMode) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        if (uiState.editingMode == SpriteEditMode.None) {
-                            onDragBox(Offset(dragAmount.x / scale.scale, dragAmount.y / scale.scale))
-                        } else {
-                            onStroke(scale.canvasToImage(change.position))
-                        }
+        val canvasModifier = Modifier
+            .matchParentSize()
+            .pointerInput(uiState.selectedBoxIndex, uiState.snapToGrid, uiState.editingMode, scale) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    if (uiState.editingMode == SpriteEditMode.None) {
+                        onDragBox(Offset(dragAmount.x / scale.scale, dragAmount.y / scale.scale))
+                    } else {
+                        onStroke(scale.canvasToImage(change.position))
                     }
                 }
-                .pointerInput(uiState.boxes, scale) {
-                    detectTapGestures { tapOffset ->
-                        val imageOffset = scale.canvasToImage(tapOffset)
-                        val containingBox = uiState.boxes.minByOrNull { box ->
-                            if (box.containsPoint(imageOffset)) 0f else Float.POSITIVE_INFINITY
-                        }?.takeIf { it.containsPoint(imageOffset) }
+            }
+            .pointerInput(uiState.boxes, scale) {
+                detectTapGestures { tapOffset ->
+                    val imageOffset = scale.canvasToImage(tapOffset)
+                    val containingBox = uiState.boxes.minByOrNull { box ->
+                        if (box.containsPoint(imageOffset)) 0f else Float.POSITIVE_INFINITY
+                    }?.takeIf { it.containsPoint(imageOffset) }
 
-                        val nearestBox = uiState.boxes.minByOrNull { box ->
-                            val center = Offset(box.x + box.width / 2f, box.y + box.height / 2f)
-                            hypot(center.x - imageOffset.x, center.y - imageOffset.y)
-                        }
-
-                        val targetBox = containingBox ?: nearestBox
-                        targetBox?.let { onBoxSelected(it.index) }
+                    val nearestBox = uiState.boxes.minByOrNull { box ->
+                        val center = Offset(box.x + box.width / 2f, box.y + box.height / 2f)
+                        hypot(center.x - imageOffset.x, center.y - imageOffset.y)
                     }
-                },
+
+                    val targetBox = containingBox ?: nearestBox
+                    targetBox?.let { onBoxSelected(it.index) }
+                }
+            }
+
+        Canvas(
+            modifier = canvasModifier,
         ) {
+            if (!scale.isValid()) return@Canvas
             uiState.boxes.forEach { box ->
                 val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
                 val size = scale.imageSizeToCanvas(Size(box.width, box.height))
@@ -1196,6 +1235,14 @@ private fun SheetPreview(
                         contentScale = ContentScale.Fit,
                     )
                     val scale = remember(layoutSize, intrinsicSize) { calculateScale(intrinsicSize, layoutSize) }
+                    val isScaleValid = remember(scale) { scale.isValid() && scale.scale > 0f }
+                    if (!isScaleValid) {
+                        LaunchedEffect(scale) {
+                            Log.d(SPRITE_DEBUG_TAG, "Sheet preview skipped due to invalid scale: $scale")
+                        }
+                        LoadingCanvasPlaceholder(modifier = Modifier.matchParentSize())
+                        return@BoxWithConstraints
+                    }
                     Canvas(
                         modifier = Modifier
                             .matchParentSize()
@@ -1216,6 +1263,7 @@ private fun SheetPreview(
                                 }
                             },
                     ) {
+                        if (!scale.isValid()) return@Canvas
                         val step = 96f
                         var x = 0f
                         while (x <= spriteBitmap.width) {
