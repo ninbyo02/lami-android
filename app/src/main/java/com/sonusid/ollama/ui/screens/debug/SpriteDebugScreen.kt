@@ -489,8 +489,14 @@ class SpriteDebugViewModel(
         return _uiState.value.boxes.mapNotNull { box ->
             val x = box.x.toInt().coerceAtLeast(0).coerceAtMost(bitmap.width - 1)
             val y = box.y.toInt().coerceAtLeast(0).coerceAtMost(bitmap.height - 1)
-            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(bitmap.width - x)
-            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(bitmap.height - y)
+            val remainingWidth = bitmap.width - x
+            val remainingHeight = bitmap.height - y
+            if (remainingWidth <= 0 || remainingHeight <= 0) return@mapNotNull null
+            val maxWidth = remainingWidth.coerceAtLeast(1)
+            val maxHeight = remainingHeight.coerceAtLeast(1)
+            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(maxWidth)
+            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(maxHeight)
+            if (width <= 0 || height <= 0) return@mapNotNull null
             runCatching {
                 Bitmap.createBitmap(bitmap, x, y, width, height).asImageBitmap()
             }.getOrNull()
@@ -502,8 +508,14 @@ class SpriteDebugViewModel(
         return _uiState.value.boxes.mapNotNull { box ->
             val x = box.x.toInt().coerceAtLeast(0).coerceAtMost(bitmap.width - 1)
             val y = box.y.toInt().coerceAtLeast(0).coerceAtMost(bitmap.height - 1)
-            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(bitmap.width - x)
-            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(bitmap.height - y)
+            val remainingWidth = bitmap.width - x
+            val remainingHeight = bitmap.height - y
+            if (remainingWidth <= 0 || remainingHeight <= 0) return@mapNotNull null
+            val maxWidth = remainingWidth.coerceAtLeast(1)
+            val maxHeight = remainingHeight.coerceAtLeast(1)
+            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(maxWidth)
+            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(maxHeight)
+            if (width <= 0 || height <= 0) return@mapNotNull null
             runCatching { Bitmap.createBitmap(bitmap, x, y, width, height) }.getOrNull()
         }
     }
@@ -673,8 +685,22 @@ class SpriteDebugViewModel(
             Log.d(SPRITE_DEBUG_TAG, "Normalized ROI to ${boxes.size} items")
             boxes
         }
+        val constrainedBoxes = refreshedBoxes.map { box ->
+            val maxWidth = targetSize.width.toFloat().coerceAtLeast(1f)
+            val maxHeight = targetSize.height.toFloat().coerceAtLeast(1f)
+            val width = box.width.coerceAtLeast(1f).coerceAtMost(maxWidth)
+            val height = box.height.coerceAtLeast(1f).coerceAtMost(maxHeight)
+            val x = box.x.coerceIn(0f, (maxWidth - width).coerceAtLeast(0f))
+            val y = box.y.coerceIn(0f, (maxHeight - height).coerceAtLeast(0f))
+            box.copy(
+                x = x,
+                y = y,
+                width = width.coerceAtMost((maxWidth - x).coerceAtLeast(1f)),
+                height = height.coerceAtMost((maxHeight - y).coerceAtLeast(1f)),
+            )
+        }
         val boundedIndex = selectedBoxIndex.coerceIn(0, 8)
-        return copy(boxes = refreshedBoxes, selectedBoxIndex = boundedIndex)
+        return copy(boxes = constrainedBoxes, selectedBoxIndex = boundedIndex)
     }
 
     private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
