@@ -125,6 +125,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 import kotlin.math.hypot
+import kotlin.math.max
 
 private const val SPRITE_DEBUG_TAG = "SpriteDebug"
 private const val DEFAULT_SPRITE_SIZE = 288
@@ -270,7 +271,7 @@ class SpriteDebugViewModel(
     }
 
     fun selectBox(index: Int) {
-        val bounded = index.coerceIn(0, _uiState.value.boxes.lastIndex)
+        val bounded = index.coerceIn(0, 8)
         updateState { copy(selectedBoxIndex = bounded) }
     }
 
@@ -471,7 +472,9 @@ class SpriteDebugViewModel(
 
     private fun replaceBox(box: SpriteBox) {
         val state = _uiState.value
-        val updated = state.boxes.toMutableList().apply { this[state.selectedBoxIndex] = box }
+        val targetIndex = state.selectedBoxIndex
+        val existing = state.boxes.getOrNull(targetIndex) ?: return
+        val updated = state.boxes.toMutableList().apply { this[targetIndex] = box.copy(index = existing.index) }
         updateState { copy(boxes = updated) }
     }
 
@@ -616,12 +619,17 @@ class SpriteDebugViewModel(
     }
 
     private fun SpriteDebugState.ensureBoxes(targetSize: IntSize): SpriteDebugState {
-        val expectedSize = spriteSheetConfig.order.size.takeIf { it > 0 } ?: spriteSheetConfig.rows * spriteSheetConfig.cols
+        val expectedSize = max(9, spriteSheetConfig.order.size.takeIf { it > 0 } ?: spriteSheetConfig.rows * spriteSheetConfig.cols)
         val needsDefaultBoxes = boxes.size < expectedSize || boxes.any { it.width <= 0f || it.height <= 0f }
         val refreshedBoxes = if (needsDefaultBoxes) {
-            SpriteDebugState.defaultBoxes(targetSize, spriteSheetConfig)
-        } else boxes
-        val boundedIndex = refreshedBoxes.lastIndex.coerceAtLeast(0).let { index -> selectedBoxIndex.coerceIn(0, index) }
+            val defaults = SpriteDebugState.defaultBoxes(targetSize)
+            Log.d(SPRITE_DEBUG_TAG, "Normalized ROI to ${defaults.size} items (fallback to default grid)")
+            defaults
+        } else {
+            Log.d(SPRITE_DEBUG_TAG, "Normalized ROI to ${boxes.size} items")
+            boxes
+        }
+        val boundedIndex = selectedBoxIndex.coerceIn(0, 8)
         return copy(boxes = refreshedBoxes, selectedBoxIndex = boundedIndex)
     }
 
