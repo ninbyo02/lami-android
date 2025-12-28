@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
                                 Settings(navController)
                             }
                             composable("sprite_debug") {
-                                SpriteDebugCanvasScreen(navController)
+                                SpriteDebugCanvasScreen()
                             }
                             composable("sprite_debug_settings") {
                                 SpriteDebugSettingsScreen(navController)
@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             composable(Routes.SPRITE_DEBUG) {
-                                SpriteDebugTools(navController)
+                                SpriteDebugCanvasScreen()
                             }
                         }
                     }
