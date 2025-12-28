@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,15 +17,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -51,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.annotation.VisibleForTesting
@@ -162,6 +166,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         duplicateUrls = detectDuplicateUrls(normalizedInputs)
     }
 
+    val horizontalPadding = 16.dp
+    val verticalPadding = 12.dp
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -216,320 +223,398 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             ) { Text("Ollama v1.0.0") }
         }
     ) { paddingValues ->
-        LazyColumn(modifier = Modifier.padding(paddingValues)) {
+        LazyColumn(
+            modifier = Modifier.padding(paddingValues),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                horizontal = horizontalPadding,
+                vertical = verticalPadding
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    ElevatedButton(
-                        onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Row(
+                CardSectionHeader(
+                    title = "デバッグツール",
+                    description = "スプライト関連の挙動を確認・調整するためのツールです",
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card {
+                    Column {
+                        ListItem(
+                            headlineContent = {
+                                Text("Sprite Debug (設定)", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "スプライトデバッグ用のオプションを調整します",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Filled.BugReport,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start,
-                        ) {
-                            Icon(
-                                Icons.Filled.BugReport,
-                                contentDescription = "Sprite Debug",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(20.dp))
-                            Text("Sprite Debug")
-                        }
+                                .clickable { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = {
+                                Text("Sprite Debug (ツール)", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "表示中のスプライトをデバッグするツールを開きます",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Default.BugReport,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navgationController.navigate(Routes.SPRITE_DEBUG_TOOLS) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text("ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "システムカラーに合わせて配色を自動調整します",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = settingsData.useDynamicColor,
-                        onCheckedChange = { enabled ->
-                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
-                        }
+                CardSectionHeader(
+                    title = "表示設定",
+                    description = "テーマカラーなどの外観設定を変更できます",
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card {
+                    ListItem(
+                        headlineContent = {
+                            Text("ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
+                        },
+                        supportingContent = {
+                            Text(
+                                "システムカラーに合わせて配色を自動調整します",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = settingsData.useDynamicColor,
+                                onCheckedChange = { enabled ->
+                                    scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                                }
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
+            }
+            item {
+                CardSectionHeader(
+                    title = "サーバー設定",
+                    description = "Ollama サーバーのURLと接続状態を管理します",
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
             itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    RadioButton(
-                        selected = serverInput.isActive,
-                        onClick = {
-                            serverInputs.indices.forEach { i ->
-                                val current = serverInputs[i]
-                                serverInputs[i] = current.copy(isActive = i == index)
-                            }
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    OutlinedTextField(
-                        value = serverInput.url,
-                        onValueChange = { newValue ->
-                            val normalized = normalizeUrlInput(newValue)
-                            serverInputs[index] = serverInput.copy(url = normalized)
-                            val normalizedInputs = getNormalizedInputs()
-                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                        },
-                        placeholder = { Text("http://host:port") },
-                        label = { Text("Server ${index + 1}") },
-                        singleLine = true,
-                        isError = duplicateUrls[serverInput.localId] == true ||
-                            !validateUrlFormat(serverInput.url).isValid ||
-                            connectionStatuses[serverInput.localId]?.isReachable == false,
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(vertical = 4.dp),
-                        supportingText = {
-                            when {
-                                duplicateUrls[serverInput.localId] == true -> {
-                                    Text(
-                                        text = "このURLは既に追加されています",
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                                connectionStatuses[serverInput.localId]?.isReachable == false -> {
-                                    val message = connectionStatuses[serverInput.localId]?.errorMessage
-                                        ?: "接続できません"
-                                    Text(message, color = MaterialTheme.colorScheme.error)
-                                }
-                                connectionStatuses[serverInput.localId]?.warningMessage != null -> {
-                                    val message = connectionStatuses[serverInput.localId]?.warningMessage
-                                    if (message != null) {
-                                        Text(message)
-                                    }
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = serverInput.isActive,
+                            onClick = {
+                                serverInputs.indices.forEach { i ->
+                                    val current = serverInputs[i]
+                                    serverInputs[i] = current.copy(isActive = i == index)
                                 }
                             }
-                        },
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            errorBorderColor = MaterialTheme.colorScheme.error,
-                            errorCursorColor = MaterialTheme.colorScheme.error,
-                            errorLabelColor = MaterialTheme.colorScheme.error,
-                            errorLeadingIconColor = MaterialTheme.colorScheme.error,
-                            errorTrailingIconColor = MaterialTheme.colorScheme.error
-                        ),
-                        trailingIcon = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = {
-                                    if (serverInputs.size >= maxServers) {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("追加できるサーバー数は最大${maxServers}件です")
-                                        }
-                                    } else {
-                                        serverInputs.add(
-                                            ServerInput(
-                                                url = "http://localhost:11434",
-                                                isActive = false
-                                            )
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        OutlinedTextField(
+                            value = serverInput.url,
+                            onValueChange = { newValue ->
+                                val normalized = normalizeUrlInput(newValue)
+                                serverInputs[index] = serverInput.copy(url = normalized)
+                                val normalizedInputs = getNormalizedInputs()
+                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                            },
+                            placeholder = { Text("http://host:port") },
+                            label = { Text("Server ${index + 1}") },
+                            singleLine = true,
+                            isError = duplicateUrls[serverInput.localId] == true ||
+                                !validateUrlFormat(serverInput.url).isValid ||
+                                connectionStatuses[serverInput.localId]?.isReachable == false,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 4.dp),
+                            supportingText = {
+                                when {
+                                    duplicateUrls[serverInput.localId] == true -> {
+                                        Text(
+                                            text = "このURLは既に追加されています",
+                                            color = MaterialTheme.colorScheme.error
                                         )
-                                        val normalizedInputs = getNormalizedInputs()
-                                        duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                     }
-                                }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Add server")
-                                }
-                                if (serverInputs.size > 1) {
-                                    IconButton(onClick = {
-                                        if (serverInputs.size <= 1) {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar("最低1件のサーバーを残してください")
-                                            }
-                                            return@IconButton
+                                    connectionStatuses[serverInput.localId]?.isReachable == false -> {
+                                        val message = connectionStatuses[serverInput.localId]?.errorMessage
+                                            ?: "接続できません"
+                                        Text(message, color = MaterialTheme.colorScheme.error)
+                                    }
+                                    connectionStatuses[serverInput.localId]?.warningMessage != null -> {
+                                        val message = connectionStatuses[serverInput.localId]?.warningMessage
+                                        if (message != null) {
+                                            Text(message)
                                         }
-                                        val wasActive = serverInputs[index].isActive
-                                        val updatedInvalidConnections =
-                                            connectionStatuses.toMutableMap().apply {
-                                                remove(serverInput.localId)
+                                    }
+                                }
+                            },
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                errorBorderColor = MaterialTheme.colorScheme.error,
+                                errorCursorColor = MaterialTheme.colorScheme.error,
+                                errorLabelColor = MaterialTheme.colorScheme.error,
+                                errorLeadingIconColor = MaterialTheme.colorScheme.error,
+                                errorTrailingIconColor = MaterialTheme.colorScheme.error
+                            ),
+                            trailingIcon = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = {
+                                        if (serverInputs.size >= maxServers) {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar("追加できるサーバー数は最大${maxServers}件です")
                                             }
-                                        serverInputs.removeAt(index)
-                                        connectionStatuses = updatedInvalidConnections
-                                        val normalizedInputs = getNormalizedInputs()
-                                        duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                        if (wasActive && serverInputs.isNotEmpty()) {
-                                            serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                        } else {
+                                            serverInputs.add(
+                                                ServerInput(
+                                                    url = "http://localhost:11434",
+                                                    isActive = false
+                                                )
+                                            )
+                                            val normalizedInputs = getNormalizedInputs()
+                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         }
                                     }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "Remove server")
+                                        Icon(Icons.Filled.Add, contentDescription = "Add server")
+                                    }
+                                    if (serverInputs.size > 1) {
+                                        IconButton(onClick = {
+                                            if (serverInputs.size <= 1) {
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("最低1件のサーバーを残してください")
+                                                }
+                                                return@IconButton
+                                            }
+                                            val wasActive = serverInputs[index].isActive
+                                            val updatedInvalidConnections =
+                                                connectionStatuses.toMutableMap().apply {
+                                                    remove(serverInput.localId)
+                                                }
+                                            serverInputs.removeAt(index)
+                                            connectionStatuses = updatedInvalidConnections
+                                            val normalizedInputs = getNormalizedInputs()
+                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                            if (wasActive && serverInputs.isNotEmpty()) {
+                                                serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                            }
+                                        }) {
+                                            Icon(Icons.Filled.Delete, contentDescription = "Remove server")
+                                        }
                                     }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                if (serverInputs.any { it.url.isBlank() }) {
-                                    snackbarHostState.showSnackbar("空のURLを保存できません")
-                                    return@launch
-                                }
-                                val normalizedInputs = getNormalizedInputs()
-                                val duplicates = detectDuplicateUrls(normalizedInputs)
-                                duplicateUrls = duplicates
-                                if (duplicates.isNotEmpty()) {
-                                    connectionStatuses = emptyMap()
-                                    snackbarHostState.showSnackbar("同じURLは複数登録できません")
-                                    return@launch
-                                }
-                                if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
-                                    snackbarHostState.showSnackbar(PORT_ERROR_MESSAGE)
-                                    return@launch
-                                }
-                                if (serverInputs.none { it.isActive }) {
-                                    serverInputs[0] = serverInputs[0].copy(isActive = true)
-                                }
-                                val inputsForValidation = getNormalizedInputs()
-                                val validationResults = withContext(Dispatchers.IO) {
-                                    validateActiveConnections(inputsForValidation, ::isValidURL)
-                                }
-                                connectionStatuses = validationResults
-                                val unreachableConnections = validationResults.filterValues { !it.isReachable }
-                                val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
-                                if (unreachableConnections.isNotEmpty()) {
-                                    snackbarHostState.showSnackbar("選択中のサーバーに接続できません。入力内容を確認してください")
-                                    return@launch
-                                }
-                                if (warningMessages.isNotEmpty()) {
-                                    snackbarHostState.showSnackbar(warningMessages.joinToString("\n"))
-                                }
-                                connectionStatuses = validationResults.mapValues { entry ->
-                                    entry.value.copy(errorMessage = null)
-                                }
-                                duplicateUrls = emptyMap()
-                                val inputsToSave = inputsForValidation.mapIndexed { _, input ->
-                                    BaseUrl(
-                                        id = input.id ?: 0,
-                                        url = input.url,
-                                        isActive = input.isActive
-                                    )
-                                }
-                                val initializationState = saveServers(
-                                    inputsToSave,
-                                    baseUrlRepository,
-                                    modelPreferenceRepository,
-                                    RetrofitClient::refreshBaseUrl
+                Card {
+                    Column {
+                        ListItem(
+                            headlineContent = {
+                                Text("設定を保存", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "入力したサーバー設定を検証して保存します",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                if (initializationState.usedFallback) {
-                                    val fallbackMessage = initializationState.errorMessage
-                                        ?: "有効なURLがないためデフォルトにフォールバックしました"
-                                    snackbarHostState.showSnackbar(fallbackMessage)
-                                    val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
-                                    val hasActive = storedUrls.any { it.isActive }
-                                    serverInputs.clear()
-                                    serverInputs.addAll(
-                                        storedUrls.mapIndexed { index, baseUrl ->
-                                            ServerInput(
-                                                id = baseUrl.id,
-                                                url = baseUrl.url,
-                                                isActive = if (hasActive) baseUrl.isActive else index == 0
+                            },
+                            trailingContent = {
+                                Button(onClick = {
+                                    scope.launch {
+                                        if (serverInputs.any { it.url.isBlank() }) {
+                                            snackbarHostState.showSnackbar("空のURLを保存できません")
+                                            return@launch
+                                        }
+                                        val normalizedInputs = getNormalizedInputs()
+                                        val duplicates = detectDuplicateUrls(normalizedInputs)
+                                        duplicateUrls = duplicates
+                                        if (duplicates.isNotEmpty()) {
+                                            connectionStatuses = emptyMap()
+                                            snackbarHostState.showSnackbar("同じURLは複数登録できません")
+                                            return@launch
+                                        }
+                                        if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
+                                            snackbarHostState.showSnackbar(PORT_ERROR_MESSAGE)
+                                            return@launch
+                                        }
+                                        if (serverInputs.none { it.isActive }) {
+                                            serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                        }
+                                        val inputsForValidation = getNormalizedInputs()
+                                        val validationResults = withContext(Dispatchers.IO) {
+                                            validateActiveConnections(inputsForValidation, ::isValidURL)
+                                        }
+                                        connectionStatuses = validationResults
+                                        val unreachableConnections = validationResults.filterValues { !it.isReachable }
+                                        val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
+                                        if (unreachableConnections.isNotEmpty()) {
+                                            snackbarHostState.showSnackbar("選択中のサーバーに接続できません。入力内容を確認してください")
+                                            return@launch
+                                        }
+                                        if (warningMessages.isNotEmpty()) {
+                                            snackbarHostState.showSnackbar(warningMessages.joinToString("\n"))
+                                        }
+                                        connectionStatuses = validationResults.mapValues { entry ->
+                                            entry.value.copy(errorMessage = null)
+                                        }
+                                        duplicateUrls = emptyMap()
+                                        val inputsToSave = inputsForValidation.mapIndexed { _, input ->
+                                            BaseUrl(
+                                                id = input.id ?: 0,
+                                                url = input.url,
+                                                isActive = input.isActive
                                             )
                                         }
-                                    )
-                                    connectionStatuses = emptyMap()
-                                    val normalizedInputs = getNormalizedInputs()
-                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                } else {
-                                    val normalizedActiveBaseUrl =
-                                        normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
-                                    serverInputs.indices.forEach { i ->
-                                        val current = serverInputs[i]
-                                        val normalized = normalizeUrlInput(current.url).trimEnd('/')
-                                        serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                        val initializationState = saveServers(
+                                            inputsToSave,
+                                            baseUrlRepository,
+                                            modelPreferenceRepository,
+                                            RetrofitClient::refreshBaseUrl
+                                        )
+                                        if (initializationState.usedFallback) {
+                                            val fallbackMessage = initializationState.errorMessage
+                                                ?: "有効なURLがないためデフォルトにフォールバックしました"
+                                            snackbarHostState.showSnackbar(fallbackMessage)
+                                            val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
+                                            val hasActive = storedUrls.any { it.isActive }
+                                            serverInputs.clear()
+                                            serverInputs.addAll(
+                                                storedUrls.mapIndexed { index, baseUrl ->
+                                                    ServerInput(
+                                                        id = baseUrl.id,
+                                                        url = baseUrl.url,
+                                                        isActive = if (hasActive) baseUrl.isActive else index == 0
+                                                    )
+                                                }
+                                            )
+                                            connectionStatuses = emptyMap()
+                                            val normalizedInputs = getNormalizedInputs()
+                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                        } else {
+                                            val normalizedActiveBaseUrl =
+                                                normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
+                                            serverInputs.indices.forEach { i ->
+                                                val current = serverInputs[i]
+                                                val normalized = normalizeUrlInput(current.url).trimEnd('/')
+                                                serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                            }
+                                            snackbarHostState.showSnackbar("サーバー設定を保存しました")
+                                        }
                                     }
-                                    snackbarHostState.showSnackbar("サーバー設定を保存しました")
+                                }) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.save),
+                                        contentDescription = "Save"
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("保存")
                                 }
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.save),
-                            contentDescription = "Save"
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("保存")
-                    }
-                    ElevatedButton(
-                        onClick = {
-                            navgationController.navigate(Routes.ABOUT)
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Row(
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = {
+                                Text("About", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "バージョン情報やオープンソースライセンスを表示します",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start,
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.about),
-                                contentDescription = "About",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(20.dp))
-                            Text("About")
-                        }
-                    }
-                    ElevatedButton(
-                        onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_TOOLS) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.BugReport,
-                                contentDescription = "Sprite Debug Tools",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(20.dp))
-                            Text("Sprite Debug")
-                        }
+                                .clickable { navgationController.navigate(Routes.ABOUT) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CardSectionHeader(
+    title: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = modifier
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(
+            description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
