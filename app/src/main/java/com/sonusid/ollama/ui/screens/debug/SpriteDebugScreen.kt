@@ -103,9 +103,10 @@ import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
@@ -138,6 +139,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import kotlin.math.hypot
 import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 private const val SPRITE_DEBUG_TAG = "SpriteDebug"
 private const val DEFAULT_SPRITE_SIZE = 288
@@ -1424,6 +1427,12 @@ private fun PreviewTabContent(
     var controlsExpanded by rememberSaveable { mutableStateOf(true) }
     var previewListExpanded by rememberSaveable { mutableStateOf(false) }
     val frames = remember(uiState.boxes, rememberedState.previewSpeedMs, sheetBitmap) { viewModel.previewFrames() }
+    val gridBoxes = remember(uiState.boxes) { uiState.boxes.take(gridRows * gridColumns) }
+    val activeFrameIndex = remember(frameIndex, frames) { if (frames.isEmpty()) -1 else frameIndex % frames.size }
+    val onPreviewBoxSelected: (Int) -> Unit = { index ->
+        viewModel.selectBox(index)
+        onRememberedStateChange(rememberedState.copy(selectedBoxIndex = index))
+    }
 
     LaunchedEffect(playing, frames.size, rememberedState.previewSpeedMs) {
         while (playing && frames.isNotEmpty()) {
@@ -1509,7 +1518,7 @@ private fun PreviewTabContent(
                                 imageVector = if (controlsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                                 contentDescription = "プレビューパネルを切り替え",
                             )
-                        }
+                        
                     }
                     AnimatedVisibility(visible = controlsExpanded) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1670,6 +1679,130 @@ private fun PreviewTabContent(
             ) {
                 previewSection()
                 editorSection()
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewGridCanvas(
+    frames: List<ImageBitmap>,
+    boxes: List<SpriteBox>,
+    selectedBoxIndex: Int,
+    playingFrameIndex: Int,
+    showCenterLine: Boolean,
+    glow: Float,
+    onBoxSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    val columns = 3
+    val rows = 3
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    val activeColor = MaterialTheme.colorScheme.tertiary
+    val selectedColor = MaterialTheme.colorScheme.primaryContainer
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(2.dp, activeColor.copy(alpha = glow), RoundedCornerShape(12.dp))
+            .onSizeChanged { canvasSize = it },
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(boxes, canvasSize) {
+                    detectTapGestures { offset ->
+                        if (canvasSize.width == 0 || canvasSize.height == 0) return@detectTapGestures
+                        val cellWidth = canvasSize.width / columns.toFloat()
+                        val cellHeight = canvasSize.height / rows.toFloat()
+                        val column = (offset.x / cellWidth).toInt().coerceIn(0, columns - 1)
+                        val row = (offset.y / cellHeight).toInt().coerceIn(0, rows - 1)
+                        val tappedIndex = row * columns + column
+                        boxes.getOrNull(tappedIndex)?.let { onBoxSelected(it.index) }
+                    }
+                },
+        ) {
+            val cellWidth = size.width / columns
+            val cellHeight = size.height / rows
+            for (column in 1 until columns) {
+                val x = cellWidth * column
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height),
+                    strokeWidth = 2f,
+                )
+            }
+            for (row in 1 until rows) {
+                val y = cellHeight * row
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 2f,
+                )
+            }
+            if (showCenterLine) {
+                val centerColor = MaterialTheme.colorScheme.secondary
+                drawLine(
+                    color = centerColor,
+                    start = Offset(size.width / 2f, 0f),
+                    end = Offset(size.width / 2f, size.height),
+                    strokeWidth = 3f,
+                )
+                drawLine(
+                    color = centerColor,
+                    start = Offset(0f, size.height / 2f),
+                    end = Offset(size.width, size.height / 2f),
+                    strokeWidth = 3f,
+                )
+            }
+            boxes.forEachIndexed { localIndex, box ->
+                val frameIndex = box.index
+                val frameBitmap = frames.getOrNull(frameIndex) ?: frames.getOrNull(localIndex)
+                val row = localIndex / columns
+                val column = localIndex % columns
+                val topLeft = Offset(column * cellWidth, row * cellHeight)
+                val cellSize = Size(cellWidth, cellHeight)
+                frameBitmap?.let { image ->
+                    val scale = min(cellWidth / image.width, cellHeight / image.height)
+                    val drawWidth = image.width * scale
+                    val drawHeight = image.height * scale
+                    val offsetX = topLeft.x + (cellWidth - drawWidth) / 2f
+                    val offsetY = topLeft.y + (cellHeight - drawHeight) / 2f
+                    drawImage(
+                        image = image,
+                        dstSize = IntSize(drawWidth.roundToInt(), drawHeight.roundToInt()),
+                        dstOffset = IntOffset(offsetX.roundToInt(), offsetY.roundToInt()),
+                    )
+                }
+                val isSelected = selectedBoxIndex == frameIndex
+                val isPlaying = playingFrameIndex == frameIndex
+                if (isPlaying) {
+                    drawRect(
+                        color = activeColor.copy(alpha = 0.12f),
+                        topLeft = topLeft,
+                        size = cellSize,
+                    )
+                }
+                drawRect(
+                    color = when {
+                        isSelected -> selectedColor
+                        isPlaying -> activeColor
+                        else -> outlineColor
+                    }.copy(alpha = 0.9f),
+                    topLeft = topLeft,
+                    size = cellSize,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = when {
+                            isSelected -> 5f
+                            isPlaying -> 3.5f
+                            else -> 2f
+                        },
+                    ),
+                )
             }
         }
     }
