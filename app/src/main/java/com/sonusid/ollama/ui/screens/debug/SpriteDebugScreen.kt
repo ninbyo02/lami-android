@@ -718,15 +718,18 @@ class SpriteDebugViewModel(
         updateState { copy(boxes = updated) }
     }
 
-    private fun initializeState(): SpriteDebugState =
-        runCatching { savedStateHandle.get<SpriteDebugState>(KEY_STATE) }
+    private fun initializeState(): SpriteDebugState {
+        val targetSize = IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+        return runCatching { savedStateHandle.get<SpriteDebugState>(KEY_STATE) }
             .onFailure { throwable ->
                 Log.w(SPRITE_DEBUG_TAG, "Failed to restore sprite debug state. Resetting to default.", throwable)
                 savedStateHandle.remove<SpriteDebugState>(KEY_STATE)
             }
             .getOrNull()
             .orEmptyState()
-            .ensureBoxes(IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE))
+            .normalizeToDefaultConfig(targetSize)
+            .ensureBoxes(targetSize)
+    }
 
     private fun updateState(block: SpriteDebugState.() -> SpriteDebugState) {
         _uiState.update { current ->
@@ -807,7 +810,7 @@ class SpriteDebugViewModel(
         val persistedResult = dataStore.readAnalysisResult()
         val targetSize = targetSpriteSize()
         if (persistedState != null) {
-            _uiState.update { persistedState.ensureBoxes(targetSize) }
+            _uiState.update { persistedState.normalizeToDefaultConfig(targetSize).ensureBoxes(targetSize) }
         }
         if (persistedResult != null) {
             applyAnalysisResult(persistedResult, persist = false)
@@ -815,16 +818,18 @@ class SpriteDebugViewModel(
     }
 
     private suspend fun observeSpriteSheetConfig() {
-        settingsPreferences.spriteSheetConfig.collect { config ->
-            val validatedConfig = config.takeIf { it.validate() == null } ?: SpriteSheetConfig.default3x3()
+        settingsPreferences.spriteSheetConfig.collect { persistedConfig ->
+            val defaultConfig = SpriteSheetConfig.default3x3()
+            if (persistedConfig != defaultConfig) {
+                settingsPreferences.resetSpriteSheetConfig()
+            }
             val targetSize = targetSpriteSize()
-            _uiState.update { current ->
-                val shouldResetBoxes = validatedConfig != current.spriteSheetConfig
-                val updatedBoxes = if (shouldResetBoxes) SpriteDebugState.defaultBoxes(targetSize, validatedConfig) else current.boxes
-                current.copy(
-                    spriteSheetConfig = validatedConfig,
-                    boxes = updatedBoxes,
-                    selectedBoxIndex = if (shouldResetBoxes) 0 else current.selectedBoxIndex,
+            val defaultBoxes = SpriteDebugState.defaultBoxes(targetSize, defaultConfig)
+            _uiState.update {
+                it.copy(
+                    spriteSheetConfig = defaultConfig,
+                    boxes = defaultBoxes,
+                    selectedBoxIndex = 0,
                 ).ensureBoxes(targetSize)
             }
         }
@@ -909,6 +914,17 @@ class SpriteDebugViewModel(
         }
         val boundedIndex = selectedBoxIndex.coerceIn(0, constrainedBoxes.lastIndex.coerceAtLeast(0))
         return copy(boxes = constrainedBoxes, selectedBoxIndex = boundedIndex)
+    }
+
+    private fun SpriteDebugState.normalizeToDefaultConfig(targetSize: IntSize): SpriteDebugState {
+        val defaultConfig = SpriteSheetConfig.default3x3()
+        val defaultBoxes = SpriteDebugState.defaultBoxes(targetSize, defaultConfig)
+        val boundedIndex = selectedBoxIndex.coerceIn(0, defaultBoxes.lastIndex.coerceAtLeast(0))
+        return copy(
+            spriteSheetConfig = defaultConfig,
+            boxes = defaultBoxes,
+            selectedBoxIndex = boundedIndex,
+        )
     }
 
 private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
