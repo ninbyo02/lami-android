@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -38,6 +39,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,7 +69,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -87,14 +88,14 @@ import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-private data class SpriteSheetConfig(
+data class SpriteSheetConfig(
     val rows: Int = 3,
     val cols: Int = 3,
     val order: List<Int> = List(9) { it },
 ) : Parcelable
 
 @Parcelize
-private data class SpriteBox(
+data class SpriteBox(
     val index: Int,
     val x: Float,
     val y: Float,
@@ -102,17 +103,17 @@ private data class SpriteBox(
     val height: Float,
 ) : Parcelable
 
-private enum class SpriteEditMode { None, Pen, Eraser }
+enum class SpriteEditMode { None, Pen, Eraser }
 
 @Parcelize
-private data class SpriteMatchScore(
+data class SpriteMatchScore(
     val from: Int,
     val to: Int,
     val score: Float,
 ) : Parcelable
 
 @Parcelize
-private data class SpriteDebugState(
+data class SpriteDebugState(
     val selectedBoxIndex: Int = 0,
     val boxes: List<SpriteBox> = defaultBoxes(IntSize(256, 256)),
     val step: Int = 1,
@@ -329,14 +330,14 @@ class SpriteDebugViewModel(
     fun undo() {
         if (undoStack.isEmpty()) return
         spriteSheetBitmap?.let { redoStack.addLast(it.copy(Bitmap.Config.ARGB_8888, true)) }
-        spriteSheetBitmap = undoStack.removeLastOrNull()
+        spriteSheetBitmap = if (undoStack.isNotEmpty()) undoStack.removeLast() else null
         _sheetBitmap.value = spriteSheetBitmap?.asImageBitmap()
     }
 
     fun redo() {
         if (redoStack.isEmpty()) return
         spriteSheetBitmap?.let { undoStack.addLast(it.copy(Bitmap.Config.ARGB_8888, true)) }
-        spriteSheetBitmap = redoStack.removeLastOrNull()
+        spriteSheetBitmap = if (redoStack.isNotEmpty()) redoStack.removeLast() else null
         _sheetBitmap.value = spriteSheetBitmap?.asImageBitmap()
     }
 
@@ -638,6 +639,7 @@ private fun ControlPanel(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CoordinateField(label: String, value: Float?, onValueChange: (Float?) -> Unit) {
     var text by rememberSaveable(value) { mutableStateOf(value?.toInt()?.toString().orEmpty()) }
