@@ -1782,6 +1782,8 @@ private fun ControlPanel(
     isAnalyzing: Boolean,
     onCancelAnalysis: () -> Unit,
 ) {
+    var detailsExpanded by rememberSaveable { mutableStateOf(false) }
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1827,37 +1829,59 @@ private fun ControlPanel(
                 StepSelector(step = uiState.step, onStepChange = onStepChange)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(text = "スナップ")
-                    Switch(checked = uiState.snapToGrid, onCheckedChange = { onSnapToggle() })
+                    Text(text = "詳細設定", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { detailsExpanded = !detailsExpanded }) {
+                        Icon(
+                            imageVector = if (detailsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                            contentDescription = if (detailsExpanded) "詳細設定を閉じる" else "詳細設定を開く",
+                        )
+                        Text(text = if (detailsExpanded) "閉じる" else "開く")
+                    }
+                }
+                AnimatedVisibility(visible = detailsExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(text = "スナップ")
+                                Switch(checked = uiState.snapToGrid, onCheckedChange = { onSnapToggle() })
+                            }
+                            Text(
+                                text = "検出点に吸着",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(text = "探索半径 ${uiState.searchRadius.toInt()}px")
+                            Slider(
+                                value = uiState.searchRadius,
+                                onValueChange = onSearchRadiusChange,
+                                valueRange = 0f..32f,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(text = "Sobel閾値 ${"%.2f".format(uiState.sobelThreshold)}")
+                            Slider(
+                                value = uiState.sobelThreshold,
+                                onValueChange = onThresholdChange,
+                                valueRange = 0f..1f,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
             }
             FineTunePadXY(
                 onAdjustX = { delta -> onNudge(delta, 0) },
                 onAdjustY = { delta -> onNudge(0, delta) },
             )
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = "探索半径 ${uiState.searchRadius.toInt()}px")
-                    Slider(
-                        value = uiState.searchRadius,
-                        onValueChange = onSearchRadiusChange,
-                        valueRange = 0f..32f,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = "Sobel閾値 ${"%.2f".format(uiState.sobelThreshold)}")
-                    Slider(
-                        value = uiState.sobelThreshold,
-                        onValueChange = onThresholdChange,
-                        valueRange = 0f..1f,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
             if (isAnalyzing) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
