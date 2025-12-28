@@ -6,8 +6,11 @@ import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.net.Uri
 import android.os.Parcelable
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -76,6 +79,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -89,9 +93,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.ClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
@@ -108,20 +112,21 @@ import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.util.SpriteAnalysis
 import com.sonusid.ollama.ui.screens.settings.copyJsonToClipboard
 import com.sonusid.ollama.ui.screens.settings.pasteJsonFromClipboard
+import com.sonusid.ollama.util.SpriteAnalysis
 import java.util.ArrayDeque
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import kotlin.math.hypot
 import kotlin.math.max
@@ -289,6 +294,8 @@ class SpriteDebugViewModel(
     val isAnalyzing: StateFlow<Boolean> = _isAnalyzing.asStateFlow()
     private val _sheetBitmap = MutableStateFlow<ImageBitmap?>(null)
     val sheetBitmap: StateFlow<ImageBitmap?> = _sheetBitmap.asStateFlow()
+    private val _reloadSignal = MutableStateFlow(0)
+    val reloadSignal: StateFlow<Int> = _reloadSignal.asStateFlow()
     private val undoStack = ArrayDeque<Bitmap>()
     private val redoStack = ArrayDeque<Bitmap>()
     private var spriteSheetBitmap: Bitmap? = null
@@ -312,6 +319,30 @@ class SpriteDebugViewModel(
         _uiState.update { current -> current.ensureBoxes(targetSize) }
         clearAnalysis()
         persistStateAsync()
+    }
+
+    fun reloadSpriteSheet() {
+        _reloadSignal.update { it + 1 }
+    }
+
+    fun loadSpriteSheetFromUri(context: Context, uri: Uri, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch(ioDispatcher) {
+            val bitmap = runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    BitmapFactory.decodeStream(input)
+                }
+            }.getOrNull()
+            val hasBitmap = bitmap != null
+            if (hasBitmap) {
+                Log.d(SPRITE_DEBUG_TAG, "Loaded sprite sheet from uri=$uri")
+            } else {
+                Log.w(SPRITE_DEBUG_TAG, "Failed to load sprite sheet from uri=$uri")
+            }
+            withContext(Dispatchers.Main) {
+                setSpriteSheet(bitmap)
+                onResult(hasBitmap)
+            }
+        }
     }
 
     fun selectBox(index: Int) {
@@ -703,18 +734,24 @@ class SpriteDebugViewModel(
         return copy(boxes = constrainedBoxes, selectedBoxIndex = boundedIndex)
     }
 
-    private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
+private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
-private fun loadSpriteBitmap(context: Context): Bitmap? {
+private sealed interface SpriteBitmapLoadState {
+    object Loading : SpriteBitmapLoadState
+    data class Success(val bitmap: Bitmap) : SpriteBitmapLoadState
+    data class Error(val throwable: Throwable? = null) : SpriteBitmapLoadState
+}
+
+private suspend fun loadSpriteBitmap(context: Context): Bitmap? = withContext(Dispatchers.IO) {
     val resources = context.resources
     val spriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.lami_sprite_3x3_288)
     if (spriteBitmap != null && spriteBitmap.width > 0 && spriteBitmap.height > 0) {
         Log.d(SPRITE_DEBUG_TAG, "Loaded sprite sheet lami_sprite_3x3_288 (${spriteBitmap.width}x${spriteBitmap.height})")
-        return spriteBitmap
+        return@withContext spriteBitmap
     }
     Log.w(SPRITE_DEBUG_TAG, "Failed to decode sprite sheet. Sprite bitmap is null or empty.")
-    return null
+    return@withContext null
 }
 
 @Composable
@@ -723,6 +760,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
     val analysisResult by viewModel.analysisResult.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
+    val reloadSignal by viewModel.reloadSignal.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -730,12 +768,35 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val gson = remember { Gson() }
     var stateJson by remember(uiState) { mutableStateOf(gson.toJson(uiState)) }
     var analysisJson by remember(analysisResult) { mutableStateOf(analysisResult?.let { gson.toJson(it) }.orEmpty()) }
-    val spriteBitmap = remember { loadSpriteBitmap(context) }
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(spriteBitmap) {
-        val bitmap = spriteBitmap ?: return@LaunchedEffect
-        viewModel.setSpriteSheet(bitmap)
+    val spriteLoadState by produceState<SpriteBitmapLoadState>(
+        initialValue = SpriteBitmapLoadState.Loading,
+        key1 = context,
+        key2 = reloadSignal,
+    ) {
+        value = SpriteBitmapLoadState.Loading
+        val bitmap = try {
+            loadSpriteBitmap(context)
+        } catch (exception: Exception) {
+            Log.e(SPRITE_DEBUG_TAG, "Failed to load sprite sheet resource", exception)
+            value = SpriteBitmapLoadState.Error(exception)
+            return@produceState
+        }
+        if (bitmap != null) {
+            viewModel.setSpriteSheet(bitmap)
+            value = SpriteBitmapLoadState.Success(bitmap)
+        } else {
+            value = SpriteBitmapLoadState.Error()
+        }
     }
+    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        viewModel.loadSpriteSheetFromUri(context, uri) { success ->
+            if (!success) {
+                scope.launch { snackbarHostState.showSnackbar("ファイルの読み込みに失敗しました") }
+            }
+        }
+    }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     var rememberedState by rememberSaveable { mutableStateOf(uiState) }
 
@@ -750,15 +811,17 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    val resolvedBitmap = remember(sheetBitmap, spriteBitmap) {
-        (sheetBitmap ?: spriteBitmap?.asImageBitmap())?.takeIf { it.width > 0 && it.height > 0 }
+    val loadedSpriteBitmap = (spriteLoadState as? SpriteBitmapLoadState.Success)?.bitmap
+    val resolvedBitmap = remember(sheetBitmap, loadedSpriteBitmap) {
+        (sheetBitmap ?: loadedSpriteBitmap?.asImageBitmap())?.takeIf { it.width > 0 && it.height > 0 }
     }
-    val shouldShowLoading = resolvedBitmap == null
-    LaunchedEffect(shouldShowLoading, sheetBitmap, spriteBitmap) {
+    val shouldShowLoading = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Loading
+    val shouldShowError = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Error
+    LaunchedEffect(shouldShowLoading, sheetBitmap, loadedSpriteBitmap) {
         if (shouldShowLoading) {
             Log.d(
                 SPRITE_DEBUG_TAG,
-                "Canvas initialization skipped. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${spriteBitmap?.width}x${spriteBitmap?.height}",
+                "Canvas initialization skipped. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${loadedSpriteBitmap?.width}x${loadedSpriteBitmap?.height}",
             )
             snackbarHostState.showSnackbar("Canvas初期化に失敗しました")
         }
@@ -779,10 +842,13 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("ギャラリー") })
             }
             when (selectedTab) {
-                0 -> if (shouldShowLoading) {
-                    LoadingCanvasPlaceholder()
-                } else {
-                    AdjustTabContent(
+                0 -> when {
+                    shouldShowLoading -> LoadingCanvasPlaceholder()
+                    shouldShowError -> SpriteLoadError(
+                        onRetry = viewModel::reloadSpriteSheet,
+                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
+                    )
+                    else -> AdjustTabContent(
                         uiState = uiState,
                         rememberedState = rememberedState,
                         spriteBitmap = resolvedBitmap!!,
@@ -799,14 +865,28 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                         onError = ::showError,
                     )
                 }
-                1 -> PreviewTabContent(
-                    uiState = uiState,
-                    viewModel = viewModel,
-                    rememberedState = rememberedState,
-                    sheetBitmap = resolvedBitmap,
-                    onRememberedStateChange = { rememberedState = it },
-                )
-                else -> GalleryTabContent()
+                1 -> when {
+                    shouldShowLoading -> LoadingCanvasPlaceholder()
+                    shouldShowError -> SpriteLoadError(
+                        onRetry = viewModel::reloadSpriteSheet,
+                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
+                    )
+                    else -> PreviewTabContent(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        rememberedState = rememberedState,
+                        sheetBitmap = resolvedBitmap,
+                        onRememberedStateChange = { rememberedState = it },
+                    )
+                }
+                else -> if (shouldShowError) {
+                    SpriteLoadError(
+                        onRetry = viewModel::reloadSpriteSheet,
+                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
+                    )
+                } else {
+                    GalleryTabContent()
+                }
             }
         }
     }
@@ -1127,6 +1207,32 @@ private fun GalleryTabContent() {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpriteLoadError(
+    onRetry: () -> Unit,
+    onOpenDocument: () -> Unit,
+    modifier: Modifier = Modifier,
+    message: String = "スプライトの読み込みに失敗しました",
+) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(text = message, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onRetry) {
+                    Text("再試行")
+                }
+                FilledTonalButton(onClick = onOpenDocument) {
+                    Text("ファイルから読み込む")
                 }
             }
         }
