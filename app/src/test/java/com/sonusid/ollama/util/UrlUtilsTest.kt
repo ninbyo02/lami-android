@@ -2,32 +2,41 @@ package com.sonusid.ollama.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UrlUtilsTest {
     @Test
-    fun `normalizeUrlInput converts full width characters`() {
-        val input = "　HTTP：//ｌｏｃａｌｈｏｓｔ：１１４３４　"
+    fun `normalizeUrlInput trims whitespace and normalizes unicode`() {
+        val input = "  http://Example.com：11434/　"
 
         val normalized = normalizeUrlInput(input)
 
-        assertEquals("HTTP://localhost:11434", normalized)
+        assertEquals("http://Example.com:11434/", normalized)
     }
 
     @Test
-    fun `validateUrlFormat passes normalized http url`() {
-        val result = validateUrlFormat("ｈｔｔｐ：／／ｅｘａｍｐｌｅ．ｃｏｍ：５０００")
+    fun `validateUrlFormat accepts http and https with host`() {
+        val httpResult = validateUrlFormat("http://example.com:11434")
+        val httpsResult = validateUrlFormat("https://example.com")
 
-        assertTrue(result.isValid)
-        assertEquals("http://example.com:5000", result.normalizedUrl)
+        assertTrue(httpResult.isValid)
+        assertNull(httpResult.errorMessage)
+        assertEquals("http://example.com:11434", httpResult.normalizedUrl)
+        assertTrue(httpsResult.isValid)
+        assertNull(httpsResult.errorMessage)
+        assertEquals("https://example.com", httpsResult.normalizedUrl)
     }
 
     @Test
-    fun `validateUrlFormat rejects invalid url`() {
-        val result = validateUrlFormat("：：：")
+    fun `validateUrlFormat rejects blank or incomplete urls`() {
+        val blankResult = validateUrlFormat("   ")
+        val missingSchemeResult = validateUrlFormat("example.com:11434")
 
-        assertFalse(result.isValid)
-        assertEquals(PORT_ERROR_MESSAGE, result.errorMessage)
+        assertFalse(blankResult.isValid)
+        assertEquals(PORT_ERROR_MESSAGE, blankResult.errorMessage)
+        assertFalse(missingSchemeResult.isValid)
+        assertEquals(PORT_ERROR_MESSAGE, missingSchemeResult.errorMessage)
     }
 }
