@@ -99,6 +99,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.contentDescription
@@ -993,6 +994,19 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         }
     }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var selectedStatusName by rememberSaveable { mutableStateOf(LamiSpriteStatus.Idle.name) }
+    val selectedStatus = remember(selectedStatusName) {
+        runCatching { LamiSpriteStatus.valueOf(selectedStatusName) }.getOrDefault(LamiSpriteStatus.Idle)
+    }
+    val statusDescriptions = LamiSpriteStatus.values().associateWith { status ->
+        when (status) {
+            LamiSpriteStatus.Idle -> stringResource(R.string.sprite_status_desc_idle)
+            LamiSpriteStatus.TalkLong -> stringResource(R.string.sprite_status_desc_talk_long)
+            LamiSpriteStatus.TalkCalm -> stringResource(R.string.sprite_status_desc_talk_calm)
+            LamiSpriteStatus.Thinking -> stringResource(R.string.sprite_status_desc_thinking)
+            else -> stringResource(R.string.sprite_status_intro)
+        }
+    }
 
     var rememberedState by rememberSaveable { mutableStateOf(uiState) }
 
@@ -1033,10 +1047,10 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 .padding(innerPadding),
         ) {
             TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text("調整") })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text("編集") })
-                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("プレビュー") })
-                Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 }, text = { Text("ギャラリー") })
+                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text(stringResource(R.string.sprite_tab_image_adjust)) })
+                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text(stringResource(R.string.sprite_tab_frame_edit)) })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text(stringResource(R.string.sprite_tab_animation_check)) })
+                Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 }, text = { Text(stringResource(R.string.sprite_tab_status)) })
             }
             when (selectedTab) {
                 0 -> when {
@@ -1088,6 +1102,9 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                         sheetBitmap = resolvedBitmap,
                         isAnalyzing = isAnalyzing,
                         onRememberedStateChange = { rememberedState = it },
+                        selectedStatus = selectedStatus,
+                        statusDescriptions = statusDescriptions,
+                        onNavigateToStatusTab = { selectedTab = 3 },
                     )
                 }
                 else -> if (shouldShowError) {
@@ -1096,7 +1113,11 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                 } else {
-                    GalleryTabContent()
+                    GalleryTabContent(
+                        selectedStatus = selectedStatus,
+                        onStatusSelected = { status -> selectedStatusName = status.name },
+                        statusDescriptions = statusDescriptions,
+                    )
                 }
             }
         }
@@ -1186,13 +1207,13 @@ private fun AdjustTabContent(
                         .height(200.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surface),
-                    contentAlignment = Alignment.Center,
+                        contentAlignment = Alignment.Center,
                 ) {
                     val preview = selectedPreview
                     if (preview != null) {
                         Image(
                             bitmap = preview,
-                            contentDescription = "選択中のボックスプレビュー",
+                            contentDescription = stringResource(R.string.sprite_selected_frame_preview_cd),
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -1201,7 +1222,7 @@ private fun AdjustTabContent(
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = "3x3 プレビューグリッド", style = MaterialTheme.typography.titleSmall)
+                    Text(text = stringResource(R.string.sprite_preview_grid_title), style = MaterialTheme.typography.titleSmall)
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         val gridRange = 0 until 9
                         gridRange.chunked(3).forEach { row ->
@@ -1238,7 +1259,7 @@ private fun AdjustTabContent(
                                         frame?.let {
                                             Image(
                                                 bitmap = it,
-                                                contentDescription = "Box${index + 1} プレビュー",
+                                                contentDescription = stringResource(R.string.sprite_frame_preview_cd, index + 1),
                                                 contentScale = ContentScale.Crop,
                                                 modifier = Modifier.fillMaxSize(),
                                             )
@@ -1249,7 +1270,7 @@ private fun AdjustTabContent(
                                             modifier = Modifier.padding(4.dp),
                                         )
                                         Text(
-                                            text = "Box${index + 1}",
+                                            text = stringResource(R.string.sprite_frame_label, index + 1),
                                             style = MaterialTheme.typography.labelMedium,
                                             modifier = Modifier
                                                 .align(Alignment.BottomStart)
@@ -1415,6 +1436,9 @@ private fun PreviewTabContent(
     sheetBitmap: ImageBitmap?,
     isAnalyzing: Boolean,
     onRememberedStateChange: (SpriteDebugState) -> Unit,
+    selectedStatus: LamiSpriteStatus,
+    statusDescriptions: Map<LamiSpriteStatus, String>,
+    onNavigateToStatusTab: () -> Unit,
 ) {
     val hasSheetBitmap = sheetBitmap?.let { it.width > 0 && it.height > 0 } == true
     if (!hasSheetBitmap) {
@@ -1468,6 +1492,16 @@ private fun PreviewTabContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(text = "プレビュー", style = MaterialTheme.typography.titleMedium)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(text = stringResource(R.string.sprite_preview_status_label, selectedStatus.name), style = MaterialTheme.typography.bodyMedium)
+                        statusDescriptions[selectedStatus]?.let { description ->
+                            Text(text = description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text(text = stringResource(R.string.sprite_preview_status_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = onNavigateToStatusTab) {
+                            Text(text = stringResource(R.string.sprite_preview_status_open_tab))
+                        }
+                    }
                     if (frames.isNotEmpty()) {
                         Box(
                             modifier = Modifier
@@ -1825,20 +1859,12 @@ private fun PreviewGridCanvas(
 }
 
 @Composable
-private fun GalleryTabContent() {
+private fun GalleryTabContent(
+    selectedStatus: LamiSpriteStatus,
+    onStatusSelected: (LamiSpriteStatus) -> Unit,
+    statusDescriptions: Map<LamiSpriteStatus, String>,
+) {
     val statuses = remember { LamiSpriteStatus.values() }
-    var selectedStatusName by rememberSaveable { mutableStateOf(LamiSpriteStatus.Idle.name) }
-    val selectedStatus = remember(selectedStatusName) {
-        runCatching { LamiSpriteStatus.valueOf(selectedStatusName) }.getOrDefault(LamiSpriteStatus.Idle)
-    }
-    val statusDescriptions: Map<LamiSpriteStatus, String> = remember {
-        mapOf(
-            LamiSpriteStatus.Idle to "待機中のスプライトアニメーションです。",
-            LamiSpriteStatus.TalkLong to "発話中のフレーム遷移を確認できます。",
-            LamiSpriteStatus.TalkCalm to "リッスン状態のサンプルを再生します。",
-            LamiSpriteStatus.Thinking to "思考状態のニュアンスを確認します。",
-        )
-    }
 
     Column(
         modifier = Modifier
@@ -1847,7 +1873,8 @@ private fun GalleryTabContent() {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(text = "ギャラリー (ステータスセット切替)", style = MaterialTheme.typography.titleMedium)
+        Text(text = stringResource(R.string.sprite_status_tab_title), style = MaterialTheme.typography.titleMedium)
+        Text(text = stringResource(R.string.sprite_status_intro), style = MaterialTheme.typography.bodyMedium)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -1862,12 +1889,12 @@ private fun GalleryTabContent() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LamiStatusSprite(status = selectedStatus, sizeDp = 96.dp)
-                    val description = statusDescriptions[selectedStatus] ?: "詳細情報なし"
+                    val description = statusDescriptions[selectedStatus] ?: stringResource(R.string.sprite_status_intro)
                     Column(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.semantics { contentDescription = description },
                     ) {
-                        Text(text = "選択中: ${selectedStatus.name}", style = MaterialTheme.typography.titleMedium)
+                        Text(text = stringResource(R.string.sprite_status_selected_label, selectedStatus.name), style = MaterialTheme.typography.titleMedium)
                         Text(text = description)
                     }
                 }
@@ -1880,8 +1907,17 @@ private fun GalleryTabContent() {
                         ) {
                             LamiStatusSprite(status = status, sizeDp = 64.dp)
                             Text(status.name, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
-                            TextButton(onClick = { selectedStatusName = status.name }) {
-                                Text(if (selectedStatus == status) "選択中" else "選択")
+                            statusDescriptions[status]?.let { description ->
+                                Text(description, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                            }
+                            TextButton(onClick = { onStatusSelected(status) }) {
+                                Text(
+                                    text = if (selectedStatus == status) {
+                                        stringResource(R.string.sprite_status_button_selected)
+                                    } else {
+                                        stringResource(R.string.sprite_status_button_use)
+                                    },
+                                )
                             }
                         }
                     }
@@ -2168,8 +2204,8 @@ private fun ControlPanel(
                     FilterChip(
                         selected = uiState.selectedBoxIndex == index,
                         onClick = { onSelectBox(index) },
-                        label = { Text(text = "Box ${index + 1}") },
-                        modifier = Modifier.semantics { contentDescription = "Box ${index + 1} を選択" },
+                        label = { Text(text = stringResource(R.string.sprite_frame_label, index + 1)) },
+                        modifier = Modifier.semantics { contentDescription = stringResource(R.string.sprite_frame_select_cd, index + 1) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
