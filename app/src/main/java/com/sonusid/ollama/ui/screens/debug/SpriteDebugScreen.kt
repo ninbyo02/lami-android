@@ -1214,14 +1214,7 @@ private fun SpriteSheetCanvas(
                         val targetBox = containingBox ?: nearestBox
                         targetBox?.let { onBoxSelected(it.index) }
                     }
-
-                    val targetBox = containingBox ?: nearestBox
-                    targetBox?.let { onBoxSelected(it.index) }
-                }
-            }
-
-        Canvas(
-            modifier = canvasModifier,
+                },
         ) {
             if (!scale.isValid()) return@Canvas
             uiState.boxes.forEach { box ->
