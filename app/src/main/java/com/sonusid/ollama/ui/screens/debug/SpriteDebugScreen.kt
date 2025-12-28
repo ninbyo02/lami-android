@@ -88,10 +88,12 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.lifecycle.AbstractSavedStateViewModelFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
 import java.util.ArrayDeque
 import kotlinx.coroutines.delay
@@ -222,15 +224,8 @@ class SpriteDebugViewModel(
     fun setSpriteSheet(bitmap: Bitmap?) {
         spriteSheetBitmap = bitmap
         _sheetBitmap.value = bitmap?.asImageBitmap()
-        val current = _uiState.value
-        val targetBitmap = bitmap ?: return
-        if (current.boxes.isEmpty() || current.boxes.all { it.width == 0f }) {
-            _uiState.update {
-                it.copy(boxes = SpriteDebugState.defaultBoxes(IntSize(targetBitmap.width, targetBitmap.height))).withMatches()
-            }
-        } else {
-            recomputeMatches()
-        }
+        val targetSize = bitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+        _uiState.update { current -> current.ensureBoxes(targetSize).withMatches() }
     }
 
     fun selectBox(index: Int) {
@@ -278,10 +273,13 @@ class SpriteDebugViewModel(
         val state = _uiState.value
         val selected = state.boxes.getOrNull(state.selectedBoxIndex) ?: return
         val bitmap = spriteSheetBitmap ?: return
+        val maxX = bitmap.width - selected.width
+        val maxY = bitmap.height - selected.height
+        if (maxX < 0f || maxY < 0f) return
         val snappedDelta = if (state.snapToGrid) snapDelta(imageDelta, state.step) else imageDelta
         val newBox = selected.copy(
-            x = (selected.x + snappedDelta.x).coerceIn(0f, bitmap.width - selected.width),
-            y = (selected.y + snappedDelta.y).coerceIn(0f, bitmap.height - selected.height),
+            x = (selected.x + snappedDelta.x).coerceIn(0f, maxX),
+            y = (selected.y + snappedDelta.y).coerceIn(0f, maxY),
         )
         replaceBox(newBox)
     }
@@ -316,6 +314,7 @@ class SpriteDebugViewModel(
     fun autoSearchAll() {
         val bitmap = spriteSheetBitmap ?: return
         val state = _uiState.value
+        if (state.boxes.any { bitmap.width - it.width < 0f || bitmap.height - it.height < 0f }) return
         val updated = state.boxes.map { box ->
             val deltaX = ((box.index % state.spriteSheetConfig.cols) - 1) * state.step.toFloat()
             val deltaY = ((box.index / state.spriteSheetConfig.cols) - 1) * state.step.toFloat()
@@ -407,7 +406,10 @@ class SpriteDebugViewModel(
                 Log.w(SPRITE_DEBUG_TAG, "Failed to restore sprite debug state. Resetting to default.", throwable)
                 savedStateHandle.remove<SpriteDebugState>(KEY_STATE)
             }
-            .getOrNull() ?: SpriteDebugState()
+            .getOrNull()
+            .orEmptyState()
+            .ensureBoxes(IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE))
+            .withMatches()
 
     private fun updateState(block: SpriteDebugState.() -> SpriteDebugState) {
         _uiState.update { block(it).withMatches() }
@@ -445,7 +447,26 @@ class SpriteDebugViewModel(
 
     companion object {
         private const val KEY_STATE = "sprite_debug_state"
+
+        fun provideFactory(owner: SavedStateRegistryOwner): ViewModelProvider.Factory =
+            object : AbstractSavedStateViewModelFactory(owner, null) {
+                override fun <T : ViewModel> create(key: String, modelClass: Class<T>, handle: SavedStateHandle): T {
+                    return SpriteDebugViewModel(handle) as T
+                }
+            }
     }
+
+    private fun SpriteDebugState.ensureBoxes(targetSize: IntSize): SpriteDebugState {
+        val expectedSize = spriteSheetConfig.order.size.takeIf { it > 0 } ?: spriteSheetConfig.rows * spriteSheetConfig.cols
+        val needsDefaultBoxes = boxes.size < expectedSize || boxes.any { it.width <= 0f || it.height <= 0f }
+        val refreshedBoxes = if (needsDefaultBoxes) {
+            SpriteDebugState.defaultBoxes(targetSize, spriteSheetConfig)
+        } else boxes
+        val boundedIndex = refreshedBoxes.lastIndex.coerceAtLeast(0).let { index -> selectedBoxIndex.coerceIn(0, index) }
+        return copy(boxes = refreshedBoxes, selectedBoxIndex = boundedIndex)
+    }
+
+    private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
 private fun createPlaceholderBitmap(context: Context): Bitmap {
@@ -475,7 +496,7 @@ private fun loadSpriteBitmap(context: Context): Bitmap? {
 }
 
 @Composable
-fun SpriteDebugScreen(viewModel: SpriteDebugViewModel = viewModel()) {
+fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
     val context = LocalContext.current

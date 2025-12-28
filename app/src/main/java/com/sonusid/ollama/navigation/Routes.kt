@@ -9,6 +9,7 @@ object Routes {
     const val SETTINGS = "setting"
     const val ABOUT = "about"
     const val SPRITE_DEBUG = "sprite_debug"
+    const val SPRITE_DEBUG_CANVAS = "sprite_debug_canvas"
     const val SPRITE_DEBUG_SETTINGS = "sprite_debug_settings"
     const val SPRITE_DEBUG_TOOLS = "sprite_debug_tools"
 
