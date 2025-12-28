@@ -81,6 +81,7 @@ fun LamiSprite3x3(
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
+    autoCropTransparentArea: Boolean = false,
 ) {
     val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
     val safeFrameIndex = frameIndex.coerceAtLeast(0)
@@ -88,12 +89,20 @@ fun LamiSprite3x3(
     val row = safeFrameIndex / 3
 
     val baseOffset = IntOffset(x = col * 96, y = row * 96)
-    val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
-    val srcOffset = IntOffset(
-        x = baseOffset.x + srcOffsetAdjustment.x,
-        y = baseOffset.y + srcOffsetAdjustment.y,
-    )
-    val srcSize = frameSrcSizeMap[safeFrameIndex] ?: IntSize(width = 96, height = 96)
+    val srcOffset = if (autoCropTransparentArea) {
+        val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
+        IntOffset(
+            x = baseOffset.x + srcOffsetAdjustment.x,
+            y = baseOffset.y + srcOffsetAdjustment.y,
+        )
+    } else {
+        baseOffset
+    }
+    val srcSize = if (autoCropTransparentArea) {
+        frameSrcSizeMap[safeFrameIndex] ?: IntSize(width = 96, height = 96)
+    } else {
+        IntSize(width = 96, height = 96)
+    }
     val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
 
     val dstSize = with(LocalDensity.current) {
