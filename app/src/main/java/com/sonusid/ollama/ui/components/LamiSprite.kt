@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.components
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,14 +79,21 @@ fun LamiSprite3x3(
     contentOffsetDp: Dp = 0.dp,
     contentOffsetYDp: Dp = 0.dp,
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
+    frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
+    frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
 ) {
     val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
     val safeFrameIndex = frameIndex.coerceAtLeast(0)
     val col = safeFrameIndex % 3
     val row = safeFrameIndex / 3
 
-    val srcOffset = IntOffset(x = col * 96, y = row * 96)
-    val srcSize = IntSize(width = 96, height = 96)
+    val baseOffset = IntOffset(x = col * 96, y = row * 96)
+    val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
+    val srcOffset = IntOffset(
+        x = baseOffset.x + srcOffsetAdjustment.x,
+        y = baseOffset.y + srcOffsetAdjustment.y,
+    )
+    val srcSize = frameSrcSizeMap[safeFrameIndex] ?: IntSize(width = 96, height = 96)
     val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
 
     val dstSize = with(LocalDensity.current) {
@@ -115,6 +124,76 @@ fun LamiSprite3x3(
             )
         }
     }
+}
+
+@Immutable
+data class LamiSpriteFrameMaps(
+    val offsetMap: Map<Int, IntOffset>,
+    val sizeMap: Map<Int, IntSize>,
+)
+
+@Composable
+fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
+    val context = LocalContext.current
+    return remember {
+        val frameSize = IntSize(width = 96, height = 96)
+        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
+        val measuredMaps = bitmap?.let {
+            measureFrameMaps(bitmap = it, frameSize = frameSize, columns = 3)
+        }
+        measuredMaps ?: LamiSpriteFrameMaps(offsetMap = emptyMap(), sizeMap = emptyMap())
+    }
+}
+
+private fun measureFrameMaps(
+    bitmap: Bitmap,
+    frameSize: IntSize,
+    columns: Int,
+): LamiSpriteFrameMaps {
+    val offsets = mutableMapOf<Int, IntOffset>()
+    val sizes = mutableMapOf<Int, IntSize>()
+    val frameWidth = frameSize.width.coerceAtLeast(1)
+    val frameHeight = frameSize.height.coerceAtLeast(1)
+    val rows = (bitmap.height / frameHeight).coerceAtLeast(1)
+    val frameCount = columns * rows
+
+    for (frameIndex in 0 until frameCount) {
+        val col = frameIndex % columns
+        val row = frameIndex / columns
+        val startX = col * frameWidth
+        val startY = row * frameHeight
+        val endX = (startX + frameWidth).coerceAtMost(bitmap.width)
+        val endY = (startY + frameHeight).coerceAtMost(bitmap.height)
+
+        var left = frameWidth
+        var top = frameHeight
+        var right = -1
+        var bottom = -1
+
+        for (y in startY until endY) {
+            for (x in startX until endX) {
+                val alpha = (bitmap.getPixel(x, y) ushr 24) and 0xFF
+                if (alpha != 0) {
+                    val localX = x - startX
+                    val localY = y - startY
+                    if (localX < left) left = localX
+                    if (localY < top) top = localY
+                    if (localX > right) right = localX
+                    if (localY > bottom) bottom = localY
+                }
+            }
+        }
+
+        if (right >= left && bottom >= top) {
+            offsets[frameIndex] = IntOffset(x = left, y = top)
+            sizes[frameIndex] = IntSize(width = right - left + 1, height = bottom - top + 1)
+        }
+    }
+
+    return LamiSpriteFrameMaps(
+        offsetMap = offsets,
+        sizeMap = sizes,
+    )
 }
 
 @Composable
