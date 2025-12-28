@@ -31,7 +31,13 @@ import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.sprite.SpriteSheetLoadResult
+import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import kotlin.math.roundToInt
+
+private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
+private val DefaultFrameIndexBound = (DefaultSpriteSheetConfig.rows * DefaultSpriteSheetConfig.cols - 1).coerceAtLeast(0)
 
 @Composable
 fun LamiSprite(
@@ -83,12 +89,18 @@ fun LamiSprite3x3(
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
 ) {
-    val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
-    val safeFrameIndex = frameIndex.coerceAtLeast(0)
-    val col = safeFrameIndex % 3
-    val row = safeFrameIndex / 3
-
-    val baseOffset = IntOffset(x = col * 96, y = row * 96)
+    val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
+    val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
+    val safeFrameIndex = frameIndex.coerceIn(0, spriteSheetData?.frameCount?.minus(1) ?: DefaultFrameIndexBound)
+    val frameRegion = remember(spriteSheetData, safeFrameIndex) {
+        spriteSheetData?.frameRegion(frameIndex = safeFrameIndex)
+    }
+    val bitmap = spriteSheetData?.imageBitmap ?: return
+    val defaultFrameSize = frameRegion?.srcSize ?: IntSize.Zero
+    val baseOffset = frameRegion?.srcOffset ?: IntOffset.Zero
+    if (defaultFrameSize.width <= 0 || defaultFrameSize.height <= 0) {
+        return
+    }
     val srcOffset = if (autoCropTransparentArea) {
         val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
         IntOffset(
@@ -99,9 +111,9 @@ fun LamiSprite3x3(
         baseOffset
     }
     val srcSize = if (autoCropTransparentArea) {
-        frameSrcSizeMap[safeFrameIndex] ?: IntSize(width = 96, height = 96)
+        frameSrcSizeMap[safeFrameIndex] ?: defaultFrameSize
     } else {
-        IntSize(width = 96, height = 96)
+        defaultFrameSize
     }
     val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
 
@@ -158,12 +170,11 @@ fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
 
 @Composable
 fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
-    val context = LocalContext.current
-    return remember {
-        val frameSize = IntSize(width = 96, height = 96)
-        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
-        val measuredMaps = bitmap?.let {
-            measureFrameMaps(bitmap = it, frameSize = frameSize, columns = 3)
+    val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
+    return remember(spriteSheetState) {
+        val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
+        val measuredMaps = spriteSheetData?.let { data ->
+            measureFrameMaps(bitmap = data.bitmap, frameSize = data.cellSize, columns = data.cols)
         }
         measuredMaps ?: LamiSpriteFrameMaps(offsetMap = emptyMap(), sizeMap = emptyMap())
     }
