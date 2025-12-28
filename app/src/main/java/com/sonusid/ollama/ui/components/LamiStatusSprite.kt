@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.components
 
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -257,8 +258,10 @@ fun LamiStatusSprite(
         }
     }
     val targetFrameYOffsetPx = resolvedFrameYOffsetPxMap[currentFrameIndex] ?: 0
+    // スナップで即時反映し、フレーム切替時の縦揺れ（バネ挙動のオーバーシュート）を防ぐ
     val animatedFrameYOffsetPx by animateIntAsState(
         targetValue = targetFrameYOffsetPx,
+        animationSpec = snap(),
         label = "frameYOffsetPx",
     )
     val animatedFrameYOffsetPxMap = remember(
