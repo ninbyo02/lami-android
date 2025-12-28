@@ -193,8 +193,15 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         loop = false,
     ),
     LamiSpriteStatus.ReadyBlink to AnimationSpec(
-        frames = listOf(0, 7, 8, 7, 0),
-        frameDuration = FrameDurationSpec(minMs = 150L, maxMs = 190L),
+        frames = listOf(0, 7, 8, 7, 0, 0, 0),
+        frameDuration = FrameDurationSpec(minMs = 60L, maxMs = 90L, jitterFraction = 0.15f),
+        insertions = listOf(
+            InsertionSpec(
+                frames = listOf(0, 7, 8, 7, 0, 0, 0),
+                frequency = InsertionFrequency.ByTime(5_000L..9_000L),
+                exclusive = false,
+            ),
+        ),
     ),
 )
 
