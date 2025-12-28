@@ -29,6 +29,7 @@ import com.sonusid.ollama.ui.screens.settings.About
 import com.sonusid.ollama.ui.screens.settings.SpriteDebugScreen
 import com.sonusid.ollama.ui.screens.settings.SettingsData
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.ui.screens.settings.SpriteDebugTools
 import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
@@ -102,8 +103,9 @@ class MainActivity : ComponentActivity() {
                             composable("about") {
                                 About(navController)
                             }
-                            composable("spriteDebug") {
-                                SpriteDebugScreen()
+                            composable("sprite_debug") {
+                                SpriteDebugTools(navController)
+
                             }
                         }
                     }

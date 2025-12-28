@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
@@ -503,6 +504,26 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             )
                             Spacer(Modifier.width(20.dp))
                             Text("About")
+                        }
+                    }
+                    ElevatedButton(
+                        onClick = { navgationController.navigate("sprite_debug") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                contentDescription = "Sprite Debug Tools",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(20.dp))
+                            Text("Sprite Debug")
                         }
                     }
                 }
