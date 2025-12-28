@@ -101,7 +101,6 @@ fun LamiAvatar(
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
     var blinkEffectEnabled by rememberSaveable { mutableStateOf(false) }
     var showStatusDetails by rememberSaveable { mutableStateOf(true) }
-    var spriteDebugEnabled by rememberSaveable { mutableStateOf(false) }
     val clampedInitialSize = initialAvatarSize.value
         .roundToInt()
         .coerceIn(minAvatarSize.value.roundToInt(), maxAvatarSize.value.roundToInt())
@@ -402,26 +401,6 @@ fun LamiAvatar(
                             checked = showStatusDetails,
                             onCheckedChange = { showStatusDetails = it }
                         )
-                    }
-                    item {
-                        ToggleRow(
-                            label = "スプライトデバッグモード",
-                            checked = spriteDebugEnabled,
-                            onCheckedChange = { spriteDebugEnabled = it }
-                        )
-                    }
-                    if (spriteDebugEnabled) {
-                        item {
-                            TextButton(
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = {
-                                    onOpenSpriteDebug?.invoke()
-                                    showSheet = false
-                                }
-                            ) {
-                                Text("スプライトデバッグを開く")
-                            }
-                        }
                     }
                     item {
                         Column {
