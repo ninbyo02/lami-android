@@ -676,6 +676,13 @@ internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
             isReachable = false,
             errorMessage = PORT_ERROR_MESSAGE
         )
+    } catch (e: IllegalArgumentException) {
+        ConnectionValidationResult(
+            normalizedUrl = formatResult.normalizedUrl,
+            isSuccess = false,
+            isReachable = false,
+            errorMessage = PORT_ERROR_MESSAGE
+        )
     } catch (e: IOException) {
         ConnectionValidationResult(
             normalizedUrl = formatResult.normalizedUrl,

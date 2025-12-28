@@ -23,10 +23,18 @@ fun validateUrlFormat(urlString: String): UrlValidationResult {
     }
 
     return try {
+        val portMatch = Regex("^https?://[^/:]+:([^/]+)", RegexOption.IGNORE_CASE).find(urlString.trim())
+        val originalPort = portMatch?.groupValues?.getOrNull(1)
+        if (originalPort != null && originalPort.any { !it.isDigit() }) {
+            return UrlValidationResult(normalized, false, PORT_ERROR_MESSAGE)
+        }
+
         val url = URL(normalized)
         val isValid = url.protocol in listOf("http", "https") && url.host.isNotBlank()
         UrlValidationResult(normalized, isValid, errorMessage = if (isValid) null else PORT_ERROR_MESSAGE)
     } catch (e: MalformedURLException) {
+        UrlValidationResult(normalized, false, PORT_ERROR_MESSAGE)
+    } catch (e: IllegalArgumentException) {
         UrlValidationResult(normalized, false, PORT_ERROR_MESSAGE)
     }
 }
