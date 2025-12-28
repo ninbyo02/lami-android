@@ -151,12 +151,12 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorHeavy to AnimationSpec(
-        frames = listOf(5, 4, 5, 4, 5),
-        frameDuration = FrameDurationSpec(minMs = 140L, maxMs = 200L, jitterFraction = 0.1f),
+        frames = listOf(5, 5, 5, 7, 5),
+        frameDuration = FrameDurationSpec(minMs = 340L, maxMs = 460L, jitterFraction = 0.1f),
         insertions = listOf(
             InsertionSpec(
-                frames = listOf(5, 7, 8, 7, 5),
-                frequency = InsertionFrequency.ByLoops(2..4),
+                frames = listOf(2),
+                frequency = InsertionFrequency.ByLoops(6..12),
                 exclusive = true,
             ),
         ),
