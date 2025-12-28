@@ -1612,8 +1612,14 @@ private fun SpriteSheetCanvas(
                     detectDragGestures(
                         onDragStart = { offset ->
                             val imageOffset = scale.canvasToImage(offset)
-                            if (uiState.editingMode == SpriteEditMode.Selection) {
-                                onStartSelection(imageOffset)
+                            if (!imageOffset.isFiniteOffset()) {
+                                Log.w(SPRITE_DEBUG_TAG, "Ignoring non-finite drag start: offset=$offset scale=${scale.scale} imageOffset=$imageOffset")
+                                return@detectDragGestures
+                            }
+                            when (uiState.editingMode) {
+                                SpriteEditMode.Pen, SpriteEditMode.Eraser -> onStroke(imageOffset)
+                                SpriteEditMode.Selection -> onStartSelection(imageOffset)
+                                SpriteEditMode.None -> Unit
                             }
                         },
                         onDragEnd = {
@@ -1668,6 +1674,10 @@ private fun SpriteSheetCanvas(
                         val imageOffset = scale.canvasToImage(tapOffset)
                         if (!imageOffset.isFiniteOffset()) {
                             Log.w(SPRITE_DEBUG_TAG, "Ignoring non-finite tap: tapOffset=$tapOffset scale=${scale.scale} offset=${scale.offset}")
+                            return@detectTapGestures
+                        }
+                        if (uiState.editingMode == SpriteEditMode.Pen || uiState.editingMode == SpriteEditMode.Eraser) {
+                            onStroke(imageOffset)
                             return@detectTapGestures
                         }
                         val containingBox = uiState.boxes.minByOrNull { box ->
