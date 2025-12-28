@@ -95,13 +95,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -133,6 +134,8 @@ import kotlin.math.max
 
 private const val SPRITE_DEBUG_TAG = "SpriteDebug"
 private const val DEFAULT_SPRITE_SIZE = 288
+val SpriteBoxCountKey = SemanticsPropertyKey<Int>("SpriteBoxCount")
+var SemanticsPropertyReceiver.spriteBoxCount by SpriteBoxCountKey
 
 @Parcelize
 data class SpriteSheetConfig(
@@ -1303,6 +1306,10 @@ private fun SpriteSheetCanvas(
         Canvas(
             modifier = Modifier
                 .matchParentSize()
+                .semantics {
+                    contentDescription = "Sprite sheet overlay"
+                    spriteBoxCount = uiState.boxes.size
+                }
                 .pointerInput(uiState.selectedBoxIndex, uiState.snapToGrid, uiState.editingMode) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
