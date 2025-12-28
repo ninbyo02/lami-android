@@ -1,23 +1,27 @@
 package com.sonusid.ollama.data
 
+import android.os.Parcelable
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import kotlinx.parcelize.Parcelize
 
+@Parcelize
 data class BoxPosition(
     val frameIndex: Int,
     val x: Int,
     val y: Int,
     val width: Int,
     val height: Int,
-)
+) : Parcelable
 
+@Parcelize
 data class SpriteSheetConfig(
     val rows: Int,
     val cols: Int,
     val frameWidth: Int,
     val frameHeight: Int,
     val boxes: List<BoxPosition>,
-) {
+) : Parcelable {
     fun toJson(gson: Gson = Gson()): String = gson.toJson(this)
 
     fun validate(): String? {
