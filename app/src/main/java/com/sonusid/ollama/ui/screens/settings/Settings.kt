@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,12 +28,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
@@ -218,33 +220,46 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     ) { paddingValues ->
         LazyColumn(modifier = Modifier.padding(paddingValues)) {
             item {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    ElevatedButton(
-                        onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start,
-                        ) {
+                    Text(
+                        text = "Sprite Debug",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    ListItem(
+                        headlineContent = { Text("設定を開く") },
+                        supportingContent = { Text("Sprite Debug の設定を調整します") },
+                        leadingContent = {
                             Icon(
-                                Icons.Filled.BugReport,
-                                contentDescription = "Sprite Debug",
-                                modifier = Modifier.size(20.dp)
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Sprite Debug 設定を開く"
                             )
-                            Spacer(Modifier.width(20.dp))
-                            Text("Sprite Debug")
+                        },
+                        trailingContent = {
+                            TextButton(onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) }) {
+                                Text("開く")
+                            }
                         }
-                    }
+                    )
+                    ListItem(
+                        headlineContent = { Text("ツールを開く") },
+                        supportingContent = { Text("Sprite Debug 用のツールを利用します") },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                contentDescription = "Sprite Debug ツールを開く"
+                            )
+                        },
+                        trailingContent = {
+                            TextButton(onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_TOOLS) }) {
+                                Text("開く")
+                            }
+                        }
+                    )
                 }
             }
             item {
@@ -505,26 +520,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             )
                             Spacer(Modifier.width(20.dp))
                             Text("About")
-                        }
-                    }
-                    ElevatedButton(
-                        onClick = { navgationController.navigate(Routes.SPRITE_DEBUG_TOOLS) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp, horizontal = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.BugReport,
-                                contentDescription = "Sprite Debug Tools",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(20.dp))
-                            Text("Sprite Debug")
                         }
                     }
                 }
