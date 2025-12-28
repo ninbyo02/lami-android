@@ -1591,6 +1591,8 @@ private fun SpriteSheetCanvas(
         val normalColor = MaterialTheme.colorScheme.outlineVariant
         val bestColor = MaterialTheme.colorScheme.tertiary
         val centerLineColor = MaterialTheme.colorScheme.error
+        val selectionFillColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f)
+        val selectionStrokeColor = MaterialTheme.colorScheme.secondary
         val isScaleValid = remember(scale) { scale.isValid() && scale.scale > 0f }
         if (!isScaleValid) {
             LaunchedEffect(scale) {
@@ -1707,12 +1709,12 @@ private fun SpriteSheetCanvas(
                 val topLeft = scale.imageToCanvas(Offset(selection.x, selection.y))
                 val size = scale.imageSizeToCanvas(Size(selection.width, selection.height))
                 drawRect(
-                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
+                    color = selectionFillColor,
                     topLeft = topLeft,
                     size = size,
                 )
                 drawRect(
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = selectionStrokeColor,
                     topLeft = topLeft,
                     size = size,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f),
