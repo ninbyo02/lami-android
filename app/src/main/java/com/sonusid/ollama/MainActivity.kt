@@ -80,41 +80,38 @@ class MainActivity : ComponentActivity() {
                     Column(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
                         NavHost(
                             navController = navController,
-                            startDestination = "chats"
+                            startDestination = Routes.CHATS
                         ) {
-                            composable("home") {
+                            composable(Routes.HOME) {
                                 Home(navController, viewModel)
                             }
-                            composable("chats") {
+                            composable(Routes.CHATS) {
                                 Chats(navController, viewModel)
                             }
                             composable(
-                                route = "chat/{chatID}",
-                                arguments = listOf(navArgument("chatID") { type = NavType.IntType })
+                                route = Routes.CHAT_WITH_ID,
+                                arguments = listOf(navArgument(Routes.CHAT_ID_ARG) { type = NavType.IntType })
                             ) { backStackEntry ->
-                                val chatId = backStackEntry.arguments?.getInt("chatID")?.takeIf { it != 0 }
+                                val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG)?.takeIf { it != 0 }
                                 Home(navController, viewModel, chatId)
                             }
-                            composable("setting") {
+                            composable(Routes.SETTINGS) {
                                 Settings(navController)
                             }
-                            composable("sprite_debug") {
-                                SpriteDebugCanvasScreen()
-                            }
-                            composable("sprite_debug_settings") {
-                                SpriteDebugSettingsScreen(navController)
-
-                            }
-                            composable("about") {
-                                About(navController)
-                            }
-                            composable("sprite_debug_tools") {
-                                SpriteDebugTools(navController)
-                            }
-
                             composable(Routes.SPRITE_DEBUG) {
                                 SpriteDebugCanvasScreen()
                             }
+                            composable(Routes.SPRITE_DEBUG_SETTINGS) {
+                                SpriteDebugSettingsScreen(navController)
+
+                            }
+                            composable(Routes.ABOUT) {
+                                About(navController)
+                            }
+                            composable(Routes.SPRITE_DEBUG_TOOLS) {
+                                SpriteDebugTools(navController)
+                            }
+
                         }
                     }
                 }

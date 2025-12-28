@@ -32,6 +32,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
@@ -49,7 +50,7 @@ fun About(navController: NavController) {
                             baseUrl = baseUrl,
                             selectedModel = null,
                             lastError = null,
-                            onNavigateSettings = { navController.navigate("setting") }
+                            onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
                         )
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(painterResource(R.drawable.back), "exit")
