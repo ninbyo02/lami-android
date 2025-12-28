@@ -113,7 +113,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     ),
     LamiSpriteStatus.TalkShort to AnimationSpec(
         frames = listOf(0, 6, 2, 0, 6, 3, 0),
-        frameDuration = FrameDurationSpec(minMs = 140L, maxMs = 200L, jitterFraction = 0.1f),
+        frameDuration = FrameDurationSpec(minMs = 110L, maxMs = 160L, jitterFraction = 0.1f),
         insertions = listOf(
             InsertionSpec(
                 frames = listOf(0, 6, 1, 0),
@@ -124,7 +124,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     ),
     LamiSpriteStatus.TalkLong to AnimationSpec(
         frames = listOf(0, 6, 2, 0, 6, 3, 0, 6, 4, 0),
-        frameDuration = FrameDurationSpec(minMs = 160L, maxMs = 220L, jitterFraction = 0.1f),
+        frameDuration = FrameDurationSpec(minMs = 130L, maxMs = 180L, jitterFraction = 0.1f),
         loop = true,
         insertions = listOf(
             InsertionSpec(
@@ -141,11 +141,11 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     ),
     LamiSpriteStatus.TalkCalm to AnimationSpec(
         frames = listOf(0, 6, 2, 0, 6, 1, 0, 6, 0),
-        frameDuration = FrameDurationSpec(minMs = 180L, maxMs = 260L, jitterFraction = 0.2f),
+        frameDuration = FrameDurationSpec(minMs = 150L, maxMs = 210L, jitterFraction = 0.1f),
         insertions = listOf(
             InsertionSpec(
                 frames = listOf(0, 6, 8, 6, 0),
-                frequency = InsertionFrequency.ByTime(5_000L..9_000L),
+                frequency = InsertionFrequency.ByTime(3_000L..6_000L),
                 exclusive = false,
             ),
             InsertionSpec(
