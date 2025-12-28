@@ -117,6 +117,9 @@ fun mapToAnimationLamiStatus(
         selectedModel = selectedModel,
         isTtsPlaying = isTtsPlaying,
         lastError = lastError,
+        // previousStatus を明示して LamiAnimationStatus オーバーロードを確実に利用する。
+        // 影響範囲はこのラッパー関数内に限定。
+        previousStatus = LamiAnimationStatus.Idle,
     )
 
     return when (animation) {
