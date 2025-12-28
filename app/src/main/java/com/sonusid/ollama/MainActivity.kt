@@ -109,6 +109,8 @@ class MainActivity : ComponentActivity() {
                                 About(navController)
                             }
                             composable("sprite_debug_tools") {
+                                SpriteDebugTools(navController)
+                            }
 
                             composable(Routes.SPRITE_DEBUG) {
                                 SpriteDebugTools(navController)
