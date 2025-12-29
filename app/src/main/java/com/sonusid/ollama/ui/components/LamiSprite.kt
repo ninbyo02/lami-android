@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.components
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -35,6 +34,8 @@ import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
 import com.sonusid.ollama.sprite.SpriteSheetLoadResult
 import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
 
 private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
@@ -89,6 +90,7 @@ fun LamiSprite3x3(
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
+    frameSizePx: IntSize? = null,
 ) {
     val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
     val spriteSheetData: SpriteSheetData? = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
@@ -154,20 +156,16 @@ fun LamiSprite3x3(
 data class LamiSpriteFrameMaps(
     val offsetMap: Map<Int, IntOffset>,
     val sizeMap: Map<Int, IntSize>,
+    val frameSize: IntSize,
+    val columns: Int,
 )
 
 fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
-    val bottoms = offsetMap.mapNotNull { (index, offset) ->
-        val size = sizeMap[index] ?: return@mapNotNull null
-        val bottom = offset.y + size.height - 1
-        index to bottom
-    }
-    if (bottoms.isEmpty()) {
-        return emptyMap()
-    }
-    val baselineBottom = bottoms.maxOf { it.second }
-    return bottoms.associate { (index, bottom) ->
-        index to (baselineBottom - bottom)
+    val frameHeight = frameSize.height.coerceAtLeast(1)
+    val safeColumns = columns.coerceAtLeast(1)
+    return offsetMap.mapValues { (index, offset) ->
+        val rowTop = (index / safeColumns) * frameHeight
+        offset.y - rowTop
     }
 }
 

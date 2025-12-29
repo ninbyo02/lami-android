@@ -215,27 +215,27 @@ fun LamiStatusSprite(
     autoCropTransparentArea: Boolean = false,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
-    val measuredFrameMaps = rememberLamiSprite3x3FrameMaps()
+    val frameMaps = rememberLamiSprite3x3FrameMaps()
     val resolvedFrameSrcOffsetMap = remember(
         autoCropTransparentArea,
         frameSrcOffsetMap,
-        measuredFrameMaps,
+        frameMaps,
     ) {
         if (!autoCropTransparentArea) {
             emptyMap()
         } else if (frameSrcOffsetMap.isNotEmpty()) {
             frameSrcOffsetMap
         } else {
-            measuredFrameMaps.offsetMap
+            frameMaps.offsetMap
         }
     }
-    val resolvedFrameSrcSizeMap = remember(autoCropTransparentArea, frameSrcSizeMap, measuredFrameMaps) {
+    val resolvedFrameSrcSizeMap = remember(autoCropTransparentArea, frameSrcSizeMap, frameMaps) {
         if (!autoCropTransparentArea) {
             emptyMap()
         } else if (frameSrcSizeMap.isNotEmpty()) {
             frameSrcSizeMap
         } else {
-            measuredFrameMaps.sizeMap
+            frameMaps.sizeMap
         }
     }
     val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
@@ -253,11 +253,11 @@ fun LamiStatusSprite(
     var currentFrameIndex by remember(resolvedStatus) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, DefaultFrameIndexBound) ?: 0)
     }
-    val measuredFrameYOffsetPxMap = remember(measuredFrameMaps) {
-        measuredFrameMaps.toFrameYOffsetPxMap()
+    val defaultFrameYOffsetPxMap = remember(frameMaps) {
+        frameMaps.toFrameYOffsetPxMap()
     }
-    val resolvedFrameYOffsetPxMap = remember(frameYOffsetPxMap, measuredFrameYOffsetPxMap) {
-        measuredFrameYOffsetPxMap.toMutableMap().apply {
+    val resolvedFrameYOffsetPxMap = remember(frameYOffsetPxMap, defaultFrameYOffsetPxMap) {
+        defaultFrameYOffsetPxMap.toMutableMap().apply {
             putAll(frameYOffsetPxMap)
         }
     }
@@ -384,6 +384,7 @@ fun LamiStatusSprite(
         frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
         frameSrcSizeMap = resolvedFrameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
+        frameSizePx = frameMaps.frameSize,
     )
 }
 

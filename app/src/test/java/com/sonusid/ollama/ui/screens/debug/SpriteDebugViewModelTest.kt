@@ -7,6 +7,8 @@ import com.google.gson.Gson
 import com.sonusid.ollama.util.SpriteAnalysis
 import com.sonusid.ollama.viewmodels.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -103,11 +105,15 @@ private const val KEY_STATE = "sprite_debug_state"
 private class FakeSpriteDebugDataStore : SpriteDebugDataStore {
     var storedState: SpriteDebugState? = null
     var storedAnalysisResult: SpriteAnalysis.SpriteAnalysisResult? = null
+    private val stateFlow = MutableStateFlow<SpriteDebugState?>(null)
+
+    override fun observeState(): Flow<SpriteDebugState?> = stateFlow
 
     override suspend fun readState(): SpriteDebugState? = storedState
 
     override suspend fun saveState(state: SpriteDebugState) {
         storedState = state
+        stateFlow.value = state
     }
 
     override suspend fun readAnalysisResult(): SpriteAnalysis.SpriteAnalysisResult? = storedAnalysisResult

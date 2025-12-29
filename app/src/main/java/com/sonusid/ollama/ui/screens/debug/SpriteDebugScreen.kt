@@ -841,15 +841,12 @@ class SpriteDebugViewModel(
 
     private suspend fun observeSpriteSheetConfig() {
         settingsPreferences.spriteSheetConfig.collect { persistedConfig ->
-            val defaultConfig = SpriteSheetConfig.default3x3()
-            if (persistedConfig != defaultConfig) {
-                settingsPreferences.resetSpriteSheetConfig()
-            }
-            val targetSize = targetSpriteSize()
-            val defaultBoxes = SpriteDebugState.defaultBoxes(targetSize, defaultConfig)
+            val resolvedConfig = persistedConfig.takeUnless { it.validate() != null } ?: SpriteSheetConfig.default3x3()
+            val targetSize = targetSpriteSize(resolvedConfig)
+            val defaultBoxes = SpriteDebugState.defaultBoxes(targetSize, resolvedConfig)
             _uiState.update {
                 it.copy(
-                    spriteSheetConfig = defaultConfig,
+                    spriteSheetConfig = resolvedConfig,
                     boxes = defaultBoxes,
                     selectedBoxIndex = 0,
                 ).ensureBoxes(targetSize)
@@ -861,7 +858,15 @@ class SpriteDebugViewModel(
         viewModelScope.launch(ioDispatcher) { dataStore.saveState(state) }
     }
 
-    private fun targetSpriteSize(): IntSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+    private fun targetSpriteSize(config: SpriteSheetConfig? = null): IntSize {
+        val bitmapSize = spriteSheetBitmap?.let { IntSize(it.width, it.height) }
+        if (bitmapSize != null) return bitmapSize
+        val fromConfig = config ?: _uiState.value.spriteSheetConfig
+        if (fromConfig.rows > 0 && fromConfig.cols > 0 && fromConfig.frameWidth > 0 && fromConfig.frameHeight > 0) {
+            return IntSize(width = fromConfig.frameWidth * fromConfig.cols, height = fromConfig.frameHeight * fromConfig.rows)
+        }
+        return IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
+    }
 
     private fun persistAnalysisResult(result: SpriteAnalysis.SpriteAnalysisResult) {
         viewModelScope.launch(ioDispatcher) { dataStore.saveAnalysisResult(result) }

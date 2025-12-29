@@ -7,6 +7,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.sonusid.ollama.util.SpriteAnalysis
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 
 private const val SPRITE_DEBUG_DATA_STORE = "sprite_debug_data_store"
@@ -18,6 +20,7 @@ interface SpriteDebugDataStore {
     suspend fun readAnalysisResult(): SpriteAnalysis.SpriteAnalysisResult?
     suspend fun saveAnalysisResult(result: SpriteAnalysis.SpriteAnalysisResult)
     suspend fun clearAnalysis()
+    fun observeState(): Flow<SpriteDebugState?>
 }
 
 class SpriteDebugPreferences(
@@ -26,6 +29,13 @@ class SpriteDebugPreferences(
 ) : SpriteDebugDataStore {
     private val spriteDebugStateKey = stringPreferencesKey("sprite_debug_state_json")
     private val spriteDebugAnalysisKey = stringPreferencesKey("sprite_debug_analysis_json")
+
+    override fun observeState(): Flow<SpriteDebugState?> {
+        return context.spriteDebugDataStore.data.map { preferences ->
+            val json = preferences[spriteDebugStateKey] ?: return@map null
+            runCatching { gson.fromJson(json, SpriteDebugState::class.java) }.getOrNull()
+        }
+    }
 
     override suspend fun readState(): SpriteDebugState? {
         val preferences = context.spriteDebugDataStore.data.first()
