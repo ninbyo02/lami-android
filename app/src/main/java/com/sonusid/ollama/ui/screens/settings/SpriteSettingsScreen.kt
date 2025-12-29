@@ -20,10 +20,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -105,6 +108,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
+    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -258,55 +262,87 @@ fun SpriteSettingsScreen(navController: NavController) {
                 ) {
                     Text("Sprite Settings")
                     Spacer(modifier = Modifier.height(12.dp))
+                    TabRow(selectedTabIndex = tabIndex) {
+                        Tab(
+                            selected = tabIndex == 0,
+                            onClick = { tabIndex = 0 },
+                            text = { Text("調整") }
+                        )
+                        Tab(
+                            selected = tabIndex == 1,
+                            onClick = { tabIndex = 1 },
+                            text = { Text("アニメ") }
+                        )
+                    }
                     Text("元画像解像度: ${imageBitmap.width} x ${imageBitmap.height} px")
                     Text("表示倍率: ${"%.2f".format(displayScale)}x")
                     Spacer(modifier = Modifier.height(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
-                            contentDescription = "Sprite Preview",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .onSizeChanged { size: IntSize ->
-                                    containerSize = size
-                                    if (imageBitmap.width != 0) {
-                                        displayScale = size.width / imageBitmap.width.toFloat()
+                    when (tabIndex) {
+                        0 -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
+                                        contentDescription = "Sprite Preview",
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .onSizeChanged { size: IntSize ->
+                                                containerSize = size
+                                                if (imageBitmap.width != 0) {
+                                                    displayScale = size.width / imageBitmap.width.toFloat()
+                                                }
+                                            },
+                                        contentScale = ContentScale.Fit
+                                    )
+                                    if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                        Canvas(modifier = Modifier.fillMaxSize()) {
+                                            val scaleX = size.width / imageBitmap.width
+                                            val scaleY = size.height / imageBitmap.height
+                                            drawRect(
+                                                color = Color.Red,
+                                                topLeft = Offset(
+                                                    x = selectedPosition.x * scaleX,
+                                                    y = selectedPosition.y * scaleY
+                                                ),
+                                                size = Size(
+                                                    width = boxSizePx * scaleX,
+                                                    height = boxSizePx * scaleY
+                                                ),
+                                                style = Stroke(width = 2.dp.toPx())
+                                            )
+                                        }
                                     }
-                                },
-                            contentScale = ContentScale.Fit
-                        )
-                        if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                val scaleX = size.width / imageBitmap.width
-                                val scaleY = size.height / imageBitmap.height
-                                drawRect(
-                                    color = Color.Red,
-                                    topLeft = Offset(
-                                        x = selectedPosition.x * scaleX,
-                                        y = selectedPosition.y * scaleY
-                                    ),
-                                    size = Size(
-                                        width = boxSizePx * scaleX,
-                                        height = boxSizePx * scaleY
-                                    ),
-                                    style = Stroke(width = 2.dp.toPx())
-                                )
+                                }
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("操作バーは下部に固定されています")
+                                    Text("選択中: ${selectedNumber}/9")
+                                }
                             }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("操作バーは下部に固定されています")
-                        Text("選択中: $selectedNumber/9")
+
+                        1 -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Coming soon")
+                            }
+                        }
                     }
                 }
             }
