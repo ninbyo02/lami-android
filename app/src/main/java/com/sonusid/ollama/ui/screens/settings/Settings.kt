@@ -272,37 +272,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 .clickable { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                        ListItem(
-                            headlineContent = {
-                                Text("Sprite Debug (設定)", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "スプライトデバッグ用のオプションを調整します",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Filled.BugReport,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
                     }
 
                 }

@@ -6,21 +6,15 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sonusid.ollama.api.RetrofitClient
@@ -32,14 +26,10 @@ import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.screens.chats.Chats
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugScreen as SpriteDebugCanvasScreen
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugViewModel
 import com.sonusid.ollama.ui.screens.home.Home
 import com.sonusid.ollama.ui.screens.settings.About
-import com.sonusid.ollama.ui.screens.settings.SpriteDebugScreen as SpriteDebugSettingsScreen
 import com.sonusid.ollama.ui.screens.settings.SettingsData
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
-import com.sonusid.ollama.ui.screens.settings.SpriteDebugTools
 import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
@@ -114,25 +104,6 @@ class MainActivity : ComponentActivity() {
                             composable(SettingsRoute.SpriteSettings.route) {
                                 SpriteSettingsScreen(navController)
                             }
-                            composable(Routes.SPRITE_DEBUG_SETTINGS) {
-                                SpriteDebugSettingsScreen(navController)
-                            }
-                            navigation(
-                                route = Routes.SPRITE_DEBUG_ENTRY,
-                                startDestination = Routes.SPRITE_DEBUG_TOOLS,
-                            ) {
-                                composable(Routes.SPRITE_DEBUG_CANVAS) { backStackEntry ->
-                                    val spriteDebugViewModel = rememberSpriteDebugViewModel(navController, backStackEntry)
-                                    SpriteDebugCanvasScreen(
-                                        viewModel = spriteDebugViewModel,
-                                        onClose = { navController.popBackStack() },
-                                    )
-                                }
-                                composable(Routes.SPRITE_DEBUG_TOOLS) { backStackEntry ->
-                                    val spriteDebugViewModel = rememberSpriteDebugViewModel(navController, backStackEntry)
-                                    SpriteDebugTools(navController = navController, viewModel = spriteDebugViewModel)
-                                }
-                            }
 
                         }
                     }
@@ -140,17 +111,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
-
-@Composable
-private fun rememberSpriteDebugViewModel(
-    navController: NavHostController,
-    backStackEntry: NavBackStackEntry,
-): SpriteDebugViewModel {
-    val parentEntry = remember(backStackEntry) { navController.getBackStackEntry(Routes.SPRITE_DEBUG_ENTRY) }
-    val context = LocalContext.current
-    return viewModel(
-        viewModelStoreOwner = parentEntry,
-        factory = SpriteDebugViewModel.provideFactory(parentEntry, context),
-    )
 }

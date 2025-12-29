@@ -21,6 +21,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,9 +47,6 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
-import com.sonusid.ollama.ui.screens.debug.SpriteBox
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugPreferences
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugState
 import kotlinx.coroutines.launch
 
 data class BoxPosition(val x: Int, val y: Int)
@@ -95,15 +94,28 @@ fun SpriteSettingsScreen(navController: NavController) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    val spriteDebugPreferences = remember(context.applicationContext) {
-        SpriteDebugPreferences(context.applicationContext)
+    val settingsPreferences = remember(context.applicationContext) {
+        SettingsPreferences(context.applicationContext)
     }
+    val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = SpriteSheetConfig.default3x3())
 
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
+
+    LaunchedEffect(spriteSheetConfig) {
+        val validConfig = spriteSheetConfig.takeIf { it.validate() == null } ?: SpriteSheetConfig.default3x3()
+        val resolvedBoxes = validConfig.boxes
+            .takeIf { it.isNotEmpty() }
+            ?: SpriteSheetConfig.default3x3(validConfig.frameWidth).boxes
+        boxSizePx = validConfig.frameWidth.coerceAtLeast(1)
+        boxPositions = resolvedBoxes
+            .sortedBy { it.frameIndex }
+            .map { position -> BoxPosition(position.x, position.y) }
+        selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+    }
 
     val selectedIndex = selectedNumber - 1
     val selectedPosition = boxPositions.getOrNull(selectedIndex)
@@ -141,16 +153,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun buildSpriteDebugState(): SpriteDebugState {
-        val boxes = boxPositions.mapIndexed { index, position ->
-            SpriteBox(
-                index = index,
-                x = position.x.toFloat(),
-                y = position.y.toFloat(),
-                width = boxSizePx.toFloat(),
-                height = boxSizePx.toFloat()
-            )
-        }
+    fun buildSpriteSheetConfig(): SpriteSheetConfig {
         val spriteSheetConfig = SpriteSheetConfig(
             rows = 3,
             cols = 3,
@@ -166,17 +169,18 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
             }
         )
-        return SpriteDebugState(
-            selectedBoxIndex = selectedIndex.coerceIn(boxes.indices),
-            boxes = boxes,
-            spriteSheetConfig = spriteSheetConfig
-        )
+        return spriteSheetConfig
     }
 
-    fun saveSpriteDebugState() {
+    fun saveSpriteSheetConfig() {
         coroutineScope.launch {
             runCatching {
-                spriteDebugPreferences.saveState(buildSpriteDebugState())
+                val config = buildSpriteSheetConfig()
+                val error = config.validate()
+                if (error != null) {
+                    throw IllegalArgumentException(error)
+                }
+                settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
                 snackbarHostState.showSnackbar("保存しました")
             }.onFailure { throwable ->
@@ -199,7 +203,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
                 onSizeDecrease = { updateBoxSize(-4) },
                 onSizeIncrease = { updateBoxSize(4) },
-                onSave = { saveSpriteDebugState() }
+                onSave = { saveSpriteSheetConfig() }
             )
         }
     ) { innerPadding ->
@@ -355,7 +359,7 @@ private fun SpriteSettingsControls(
             modifier = Modifier.fillMaxWidth(),
             onClick = onSave
         ) {
-            Text(text = "保存 (Sprite Debugへ)")
+            Text(text = "保存")
         }
     }
 }

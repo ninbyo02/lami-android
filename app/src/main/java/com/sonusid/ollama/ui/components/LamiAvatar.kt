@@ -92,7 +92,6 @@ fun LamiAvatar(
     maxAvatarSize: Dp = 64.dp,
     onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
-    onOpenSpriteDebug: (() -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     var showMenu by remember { mutableStateOf(false) }
