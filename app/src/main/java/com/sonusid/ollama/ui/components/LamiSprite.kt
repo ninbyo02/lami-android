@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.components
 
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -86,6 +87,7 @@ fun LamiSprite3x3(
     modifier: Modifier = Modifier,
     contentOffsetDp: Dp = 0.dp,
     contentOffsetYDp: Dp = 0.dp,
+    frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
@@ -149,12 +151,19 @@ fun LamiSprite3x3(
     val dstOffset = with(LocalDensity.current) {
         val baseOffsetX = contentOffsetDp.roundToPx()
         val baseOffsetY = contentOffsetYDp.roundToPx()
+        val frameXOffsetPx = frameXOffsetPxMap[safeFrameIndex] ?: 0
         val frameYOffsetPx = frameYOffsetPxMap[safeFrameIndex] ?: 0
+        val scaleX = dstSize.width.toFloat() / srcSize.width
         val scaleY = dstSize.height.toFloat() / srcSize.height
-        IntOffset(
-            x = baseOffsetX,
-            y = baseOffsetY + (frameYOffsetPx * scaleY).roundToInt()
-        )
+        val resolvedXOffset = baseOffsetX + (frameXOffsetPx * scaleX).roundToInt()
+        val resolvedYOffset = baseOffsetY + (frameYOffsetPx * scaleY).roundToInt()
+        if (frameXOffsetPx != 0 || frameYOffsetPx != 0) {
+            Log.d(
+                "SpriteRuntime",
+                "frame=$safeFrameIndex frameXOffsetPx=$frameXOffsetPx srcOffsetX=${srcOffset.x} dstOffsetX=$resolvedXOffset"
+            )
+        }
+        IntOffset(x = resolvedXOffset, y = resolvedYOffset)
     }
 
     Canvas(modifier = modifier.size(sizeDp)) {
@@ -175,6 +184,15 @@ data class LamiSpriteFrameMaps(
     val frameSize: IntSize,
     val columns: Int,
 )
+
+fun LamiSpriteFrameMaps.toFrameXOffsetPxMap(): Map<Int, Int> {
+    val frameWidth = frameSize.width.coerceAtLeast(1)
+    val safeColumns = columns.coerceAtLeast(1)
+    return offsetMap.mapValues { (index, offset) ->
+        val colLeft = (index % safeColumns) * frameWidth
+        offset.x - colLeft
+    }
+}
 
 fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
     val frameHeight = frameSize.height.coerceAtLeast(1)
