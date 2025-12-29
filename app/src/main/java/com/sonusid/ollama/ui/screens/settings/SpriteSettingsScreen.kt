@@ -39,8 +39,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -93,6 +95,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
@@ -189,6 +192,24 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun copySpriteSheetConfig() {
+        coroutineScope.launch {
+            runCatching {
+                val config = buildSpriteSheetConfig()
+                val error = config.validate()
+                if (error != null) {
+                    throw IllegalArgumentException(error)
+                }
+                val jsonString = config.toJson()
+                clipboardManager.setText(AnnotatedString(jsonString))
+            }.onSuccess {
+                snackbarHostState.showSnackbar("JSONをコピーしました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
@@ -196,6 +217,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 selectedNumber = selectedNumber,
                 selectedPosition = selectedPosition,
                 boxSizePx = boxSizePx,
+                onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
                 onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
                 onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
                 onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
@@ -203,7 +225,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
                 onSizeDecrease = { updateBoxSize(-4) },
                 onSizeIncrease = { updateBoxSize(4) },
-                onSave = { saveSpriteSheetConfig() }
+                onSave = { saveSpriteSheetConfig() },
+                onCopy = { copySpriteSheetConfig() }
             )
         }
     ) { innerPadding ->
@@ -296,6 +319,7 @@ private fun SpriteSettingsControls(
     selectedNumber: Int,
     selectedPosition: BoxPosition?,
     boxSizePx: Int,
+    onPrev: () -> Unit,
     onNext: () -> Unit,
     onMoveXNegative: () -> Unit,
     onMoveXPositive: () -> Unit,
@@ -303,7 +327,8 @@ private fun SpriteSettingsControls(
     onMoveYPositive: () -> Unit,
     onSizeDecrease: () -> Unit,
     onSizeIncrease: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onCopy: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -316,6 +341,9 @@ private fun SpriteSettingsControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onPrev) {
+                    Text(text = "前へ")
+                }
                 Button(onClick = onNext) {
                     Text(text = "次へ")
                 }
@@ -355,11 +383,22 @@ private fun SpriteSettingsControls(
             } ?: "座標: -, -, -, -"
         )
 
-        Button(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            onClick = onSave
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(text = "保存")
+            Button(
+                modifier = Modifier.weight(1f),
+                onClick = onSave
+            ) {
+                Text(text = "保存")
+            }
+            Button(
+                modifier = Modifier.weight(1f),
+                onClick = onCopy
+            ) {
+                Text(text = "コピー")
+            }
         }
     }
 }
