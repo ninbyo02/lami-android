@@ -102,7 +102,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top
@@ -153,35 +152,44 @@ fun SpriteSettingsScreen(navController: NavController) {
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    val numbers = (1..9).toList().chunked(3)
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        numbers.forEach { rowNumbers ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                rowNumbers.forEach { number ->
-                                    Button(
-                                        onClick = { selectedNumber = number }
-                                    ) {
-                                        Text(
-                                            text = number.toString()
-                                        )
+                        val numbers = (1..9).toList().chunked(3)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            numbers.forEach { rowNumbers ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowNumbers.forEach { number ->
+                                        Button(
+                                            onClick = { selectedNumber = number }
+                                        ) {
+                                            Text(
+                                                text = number.toString()
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = "選択中: $selectedNumber",
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "選択中: $selectedNumber",
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
                 }
             }
         }
