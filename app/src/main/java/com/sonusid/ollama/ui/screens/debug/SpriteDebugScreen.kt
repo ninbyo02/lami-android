@@ -997,6 +997,9 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     }
 
     var rememberedState by rememberSaveable { mutableStateOf(uiState) }
+    val fallbackSpriteBitmap = remember(context) {
+        BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)?.asImageBitmap()
+    }
 
     LaunchedEffect(uiState) {
         rememberedState = uiState
@@ -1009,8 +1012,10 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    val resolvedBitmap = remember(sheetBitmap, spriteSheetData) {
-        (sheetBitmap ?: spriteSheetData?.imageBitmap)?.takeIf { it.width > 0 && it.height > 0 }
+    val resolvedBitmap = remember(sheetBitmap, spriteSheetData, fallbackSpriteBitmap) {
+        listOfNotNull(sheetBitmap, spriteSheetData?.imageBitmap, fallbackSpriteBitmap)
+            .firstOrNull()
+            ?.takeIf { it.width > 0 && it.height > 0 }
     }
     val isLoadInProgress = spriteSheetState is SpriteSheetLoadResult.Loading || spriteSheetState is SpriteSheetLoadResult.Idle
     val shouldShowLoading = resolvedBitmap == null && isLoadInProgress
@@ -2151,6 +2156,26 @@ private fun SpriteSheetCanvas(
                 },
         ) {
             if (!scale.isValid()) return@Canvas
+            val canvasSize = if (layoutSize.isFiniteSize() && layoutSize != Size.Zero) layoutSize else size
+            val (fitDstSize, fitDstOffset) = ContentScale.Fit.toDstRect(
+                srcSize = IntSize(spriteBitmap.width, spriteBitmap.height),
+                canvasSize = canvasSize,
+            )
+            val scaledDstSize = IntSize(
+                width = (intrinsicSize.width * scale.scale).roundToInt().coerceAtLeast(1),
+                height = (intrinsicSize.height * scale.scale).roundToInt().coerceAtLeast(1),
+            )
+            val dstSize = scaledDstSize.takeIf { it.width > 0 && it.height > 0 } ?: fitDstSize
+            val dstOffset = if (scale.offset.isFiniteOffset()) {
+                scale.offset
+            } else {
+                Offset(fitDstOffset.x.toFloat(), fitDstOffset.y.toFloat())
+            }
+            drawImage(
+                image = spriteBitmap,
+                topLeft = dstOffset,
+                dstSize = dstSize,
+            )
             uiState.boxes.forEach { box ->
                 val topLeft = scale.imageToCanvas(Offset(box.x, box.y))
                 val size = scale.imageSizeToCanvas(Size(box.width, box.height))
