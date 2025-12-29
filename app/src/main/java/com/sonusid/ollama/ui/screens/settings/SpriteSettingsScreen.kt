@@ -160,35 +160,25 @@ fun SpriteSettingsScreen(navController: NavController) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
-                        val numbers = (1..9).toList().chunked(3)
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            numbers.forEach { rowNumbers ->
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    rowNumbers.forEach { number ->
-                                        Button(
-                                            onClick = { selectedNumber = number }
-                                        ) {
-                                            Text(
-                                                text = number.toString()
-                                            )
-                                        }
-                                    }
-                                }
+                            Button(onClick = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 }) {
+                                Text(text = "次へ")
                             }
+                            Text(
+                                text = "選択中: $selectedNumber/9",
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Text(
-                            text = "選択中: $selectedNumber",
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        if (selectedRect != null) {
+                            Text(
+                                text = "座標: ${selectedRect.x},${selectedRect.y},${selectedRect.w},${selectedRect.h}",
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             }
