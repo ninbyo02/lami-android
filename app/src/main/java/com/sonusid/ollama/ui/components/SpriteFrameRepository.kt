@@ -1,6 +1,4 @@
 package com.sonusid.ollama.ui.components
-
-import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -10,35 +8,26 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.sonusid.ollama.data.BoxPosition
 import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.ui.screens.debug.SpriteBox
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugDataStore
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugPreferences
-import com.sonusid.ollama.ui.screens.debug.SpriteDebugState
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
-import kotlin.math.roundToInt
 
 class SpriteFrameRepository(
-    private val spriteDebugDataStore: SpriteDebugDataStore,
     private val settingsPreferences: SettingsPreferences,
 ) {
     private val defaultConfig = SpriteSheetConfig.default3x3()
-    private val defaultBoxes = defaultConfig.toSpriteBoxes()
+    private val defaultFrameMaps = defaultConfig.toSpriteBoxes().toFrameMaps(defaultConfig)
 
-    val frameMaps: Flow<LamiSpriteFrameMaps> = combine(
-        spriteDebugDataStore.observeState(),
-        settingsPreferences.spriteSheetConfig,
-    ) { state, persistedConfig ->
-        val config = state?.spriteSheetConfig?.normalize(defaultConfig) ?: persistedConfig.normalize(defaultConfig)
-        val boxes = state?.boxes?.takeIf { it.isNotEmpty() } ?: config.toSpriteBoxes()
-        boxes.toFrameMaps(config)
-    }
-        .onStart { emit(defaultBoxes.toFrameMaps(defaultConfig)) }
-        .catch { emit(defaultBoxes.toFrameMaps(defaultConfig)) }
+    val frameMaps: Flow<LamiSpriteFrameMaps> = settingsPreferences.spriteSheetConfig
+        .map { config ->
+            val normalized = config.normalize(defaultConfig)
+            normalized.toSpriteBoxes().toFrameMaps(normalized)
+        }
+        .onStart { emit(defaultFrameMaps) }
+        .catch { emit(defaultFrameMaps) }
 
     suspend fun latestFrameMaps(): LamiSpriteFrameMaps = frameMaps.first()
 }
@@ -48,7 +37,6 @@ fun rememberSpriteFrameRepository(): SpriteFrameRepository {
     val context = LocalContext.current
     return remember {
         SpriteFrameRepository(
-            spriteDebugDataStore = SpriteDebugPreferences(context.applicationContext),
             settingsPreferences = SettingsPreferences(context.applicationContext),
         )
     }
@@ -62,15 +50,15 @@ fun rememberSpriteFrameMaps(repository: SpriteFrameRepository = rememberSpriteFr
     return frameMaps
 }
 
-fun List<SpriteBox>.toFrameMaps(config: SpriteSheetConfig): LamiSpriteFrameMaps {
+fun List<BoxPosition>.toFrameMaps(config: SpriteSheetConfig): LamiSpriteFrameMaps {
     val frameWidth = config.frameWidth.coerceAtLeast(1)
     val frameHeight = config.frameHeight.coerceAtLeast(1)
     val columns = config.cols.coerceAtLeast(1)
     val offsetMap = mutableMapOf<Int, IntOffset>()
     val sizeMap = mutableMapOf<Int, IntSize>()
     forEach { box ->
-        offsetMap[box.index] = IntOffset(x = box.x.roundToInt().coerceAtLeast(0), y = box.y.roundToInt().coerceAtLeast(0))
-        sizeMap[box.index] = IntSize(width = box.width.roundToInt().coerceAtLeast(1), height = box.height.roundToInt().coerceAtLeast(1))
+        offsetMap[box.frameIndex] = IntOffset(x = box.x.coerceAtLeast(0), y = box.y.coerceAtLeast(0))
+        sizeMap[box.frameIndex] = IntSize(width = box.width.coerceAtLeast(1), height = box.height.coerceAtLeast(1))
     }
     return LamiSpriteFrameMaps(
         offsetMap = offsetMap,
@@ -80,29 +68,10 @@ fun List<SpriteBox>.toFrameMaps(config: SpriteSheetConfig): LamiSpriteFrameMaps 
     )
 }
 
-fun SpriteSheetConfig.toSpriteBoxes(): List<SpriteBox> = boxes.map { position ->
-    SpriteBox(
-        index = position.frameIndex,
-        x = position.x.toFloat(),
-        y = position.y.toFloat(),
-        width = position.width.toFloat(),
-        height = position.height.toFloat(),
-    )
-}
+fun SpriteSheetConfig.toSpriteBoxes(): List<BoxPosition> = boxes
 
 fun SpriteSheetConfig.normalize(defaultConfig: SpriteSheetConfig = SpriteSheetConfig.default3x3()): SpriteSheetConfig {
     val validationError = validate()
     if (validationError != null) return defaultConfig
     return this
 }
-
-fun SpriteDebugState.toBoxPositions(): List<BoxPosition> =
-    boxes.map { box ->
-        BoxPosition(
-            frameIndex = box.index,
-            x = box.x.roundToInt(),
-            y = box.y.roundToInt(),
-            width = box.width.roundToInt(),
-            height = box.height.roundToInt(),
-        )
-    }

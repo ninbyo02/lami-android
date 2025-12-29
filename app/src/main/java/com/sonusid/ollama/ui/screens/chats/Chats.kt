@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.screens.chats
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,15 +53,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     lamiState = lamiUiState.state,
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
-                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                    onOpenSpriteDebug = {
-                        val targetRoute = Routes.SPRITE_DEBUG_ENTRY
-                        if (navController.graph.findNode(targetRoute) != null) {
-                            navController.navigate(targetRoute)
-                        } else {
-                            Toast.makeText(context, "Sprite Debug 画面が未登録です", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
                 )
             },
             actions = {

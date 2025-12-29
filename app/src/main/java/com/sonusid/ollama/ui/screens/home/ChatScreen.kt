@@ -178,17 +178,7 @@ fun Home(
                         viewModel.onUserInteraction()
                         viewModel.updateSelectedModel(modelName)
                     },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                    onOpenSpriteDebug = {
-                        val targetRoute = Routes.SPRITE_DEBUG_ENTRY
-                        if (navHostController.graph.findNode(targetRoute) != null) {
-                            navHostController.navigate(targetRoute)
-                        } else {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar("Sprite Debug 画面が未登録です")
-                            }
-                        }
-                    }
+                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) }
                 )
             },
             actions = {
