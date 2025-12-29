@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -133,7 +132,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             contentScale = ContentScale.Fit
                         )
                         if (selectedRect != null && containerSize.width > 0 && containerSize.height > 0) {
-                            Canvas(modifier = Modifier.matchParentSize()) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
                                 val scaleX = size.width / imageBitmap.width
                                 val scaleY = size.height / imageBitmap.height
                                 drawRect(
