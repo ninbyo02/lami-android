@@ -178,7 +178,12 @@ fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
         val measuredMaps = spriteSheetData?.let { data ->
             measureFrameMaps(bitmap = data.bitmap, frameSize = data.cellSize, columns = data.cols)
         }
-        measuredMaps ?: LamiSpriteFrameMaps(offsetMap = emptyMap(), sizeMap = emptyMap())
+        measuredMaps ?: LamiSpriteFrameMaps(
+            offsetMap = emptyMap(),
+            sizeMap = emptyMap(),
+            frameSize = IntSize.Zero,
+            columns = DefaultSpriteSheetConfig.cols.coerceAtLeast(1),
+        )
     }
 }
 
