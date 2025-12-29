@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
@@ -117,7 +116,6 @@ fun LamiSprite3x3(
     } else {
         defaultFrameSize
     }
-    val paint = rememberFramePaint(filterQuality = FilterQuality.None)
     val frameRegion = remember(sheetFrameRegion, srcOffset, srcSize) {
         SpriteFrameRegion(
             srcOffset = srcOffset,
@@ -147,7 +145,6 @@ fun LamiSprite3x3(
             region = frameRegion,
             dstSize = dstSize,
             dstOffset = dstOffset,
-            filterQuality = paint.filterQuality,
             placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
         )
     }
