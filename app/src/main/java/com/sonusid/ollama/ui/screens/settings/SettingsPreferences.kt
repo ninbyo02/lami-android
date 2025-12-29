@@ -6,7 +6,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.data.isUninitialized
+import com.sonusid.ollama.data.normalize
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -29,7 +29,7 @@ class SettingsPreferences(private val context: Context) {
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
         val json = preferences[spriteSheetConfigKey]
         val parsed = json?.let { SpriteSheetConfig.fromJson(it) }
-        parsed?.takeUnless { it.isUninitialized() } ?: SpriteSheetConfig.default3x3()
+        parsed?.normalize(SpriteSheetConfig.default3x3()) ?: SpriteSheetConfig.default3x3()
     }
 
     suspend fun updateDynamicColor(enabled: Boolean) {
