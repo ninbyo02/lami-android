@@ -574,10 +574,10 @@ private fun ReadyAnimationPreview(
                         bottom = dstTop + dstSize,
                     )
                     canvas.drawImageRect(
-                        image = imageBitmap,
-                        src = srcRect,
-                        dst = dstRect,
-                        paint = androidx.compose.ui.graphics.Paint(),
+                        imageBitmap,
+                        srcRect,
+                        dstRect,
+                        androidx.compose.ui.graphics.Paint(),
                     )
                 }
             }
