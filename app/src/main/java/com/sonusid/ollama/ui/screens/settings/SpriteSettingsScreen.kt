@@ -706,7 +706,7 @@ private fun ReadyAnimationPreview(
         Text("周期: ${intervalMs}ms")
         val appliedFramesUi = resolvedFrames.map { it + 1 }
         Text(
-            "Applied: frames=${appliedFramesUi.joinToString(\",\")} interval=${intervalMs}ms",
+            "Applied: frames=${appliedFramesUi.joinToString(",")} interval=${intervalMs}ms",
             style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
             color = Color.Gray
         )
