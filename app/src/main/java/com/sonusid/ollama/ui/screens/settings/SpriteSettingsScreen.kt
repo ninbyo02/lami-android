@@ -559,23 +559,21 @@ private fun ReadyAnimationPreview(
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 if (currentBox == null) return@Canvas
-                drawIntoCanvas { canvas ->
-                    val srcOffset = IntOffset(currentBox.x, currentBox.y)
-                    val srcSize = IntSize(currentBox.width, currentBox.height)
-                    val dstSize = size.minDimension
-                    val dstLeft = (size.width - dstSize) / 2f
-                    val dstTop = (size.height - dstSize) / 2f
-                    val dstOffset = IntOffset(dstLeft.roundToInt(), dstTop.roundToInt())
-                    val dstIntSize = IntSize(dstSize.roundToInt(), dstSize.roundToInt())
-                    canvas.drawImageRect(
-                        image = imageBitmap,
-                        srcOffset = srcOffset,
-                        srcSize = srcSize,
-                        dstOffset = dstOffset,
-                        dstSize = dstIntSize,
-                        paint = androidx.compose.ui.graphics.Paint(),
-                    )
-                }
+                val srcOffset = IntOffset(currentBox.x, currentBox.y)
+                val srcSize = IntSize(currentBox.width, currentBox.height)
+                val dstSize = size.minDimension
+                val dstLeft = (size.width - dstSize) / 2f
+                val dstTop = (size.height - dstSize) / 2f
+                val dstOffset = IntOffset(dstLeft.roundToInt(), dstTop.roundToInt())
+                val dstSizeInt = IntSize(dstSize.roundToInt(), dstSize.roundToInt())
+                drawImageRect(
+                    image = imageBitmap,
+                    srcOffset = srcOffset,
+                    srcSize = srcSize,
+                    dstOffset = dstOffset,
+                    dstSize = dstSizeInt,
+                    paint = androidx.compose.ui.graphics.Paint(),
+                )
             }
         }
         Text("フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}")
