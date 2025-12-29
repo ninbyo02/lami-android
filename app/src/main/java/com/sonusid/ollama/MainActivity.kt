@@ -30,6 +30,7 @@ import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.screens.chats.Chats
 import com.sonusid.ollama.ui.screens.debug.SpriteDebugScreen as SpriteDebugCanvasScreen
 import com.sonusid.ollama.ui.screens.debug.SpriteDebugViewModel
@@ -40,6 +41,7 @@ import com.sonusid.ollama.ui.screens.settings.SettingsData
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.SpriteDebugTools
 import com.sonusid.ollama.ui.screens.settings.Settings
+import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
@@ -108,6 +110,9 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(Routes.ABOUT) {
                                 About(navController)
+                            }
+                            composable(SettingsRoute.SpriteSettings.route) {
+                                SpriteSettingsScreen(navController)
                             }
                             composable(Routes.SPRITE_DEBUG_SETTINGS) {
                                 SpriteDebugSettingsScreen(navController)
