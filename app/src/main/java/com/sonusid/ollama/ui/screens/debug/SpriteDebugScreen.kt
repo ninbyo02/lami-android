@@ -2189,9 +2189,12 @@ private fun SpriteSheetCanvas(
             } else {
                 Offset(fitDstOffset.x.toFloat(), fitDstOffset.y.toFloat())
             }
+            val dstOffsetInt = IntOffset(dstOffset.x.roundToInt(), dstOffset.y.roundToInt())
             drawImage(
                 image = spriteBitmap,
-                topLeft = dstOffset,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(spriteBitmap.width, spriteBitmap.height),
+                dstOffset = dstOffsetInt,
                 dstSize = dstSize,
             )
             uiState.boxes.forEach { box ->
