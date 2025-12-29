@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -191,6 +192,8 @@ data class SpriteMatchScore(
 data class SpriteDebugState(
     val selectedBoxIndex: Int = 0,
     val boxes: List<SpriteBox> = defaultBoxes(IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)),
+    val lockAspect: Boolean = true,
+    val aspectRatio: Float = 1f,
     val step: Int = 1,
     val snapToGrid: Boolean = false,
     val searchRadius: Float = 6f,
@@ -247,6 +250,13 @@ data class SpriteDebugState(
 
 private fun SpriteBox.containsPoint(point: Offset): Boolean =
     point.x in x..(x + width) && point.y in y..(y + height)
+
+private fun SpriteBox.aspectRatioOrDefault(): Float {
+    val safeWidth = width.coerceAtLeast(1f)
+    val safeHeight = height.coerceAtLeast(1f)
+    val ratio = (safeWidth / safeHeight).takeIf { it.isFinite() && it > 0f }
+    return ratio ?: 1f
+}
 
 private fun Offset.isFiniteOffset(): Boolean = x.isFinite() && y.isFinite()
 
@@ -367,7 +377,7 @@ class SpriteDebugViewModel(
         spriteSheetBitmap = bitmap
         _sheetBitmap.value = bitmap?.asImageBitmap()
         val targetSize = bitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)
-        _uiState.update { current -> current.ensureBoxes(targetSize) }
+        _uiState.update { current -> current.ensureBoxes(targetSize).syncAspectRatio(previous = current) }
         clearAnalysis()
         persistStateAsync()
     }
@@ -467,6 +477,44 @@ class SpriteDebugViewModel(
             y = (y ?: selected.y).coerceIn(0f, bitmap.height - selected.height),
         )
         replaceBox(newBox)
+    }
+
+    fun updateBoxWidth(newWidth: Float?) {
+        if (spriteSheetBitmap == null) return
+        val state = _uiState.value
+        val selected = state.boxes.getOrNull(state.selectedBoxIndex) ?: return
+        val width = newWidth?.coerceAtLeast(1f) ?: return
+        val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: selected.aspectRatioOrDefault()
+        val height = if (state.lockAspect) {
+            max(1f, roundToInt(width / ratio).toFloat())
+        } else {
+            selected.height
+        }
+        val clamped = clampBox(selected.copy(width = width, height = height))
+        replaceBox(clamped)
+    }
+
+    fun updateBoxHeight(newHeight: Float?) {
+        if (spriteSheetBitmap == null) return
+        val state = _uiState.value
+        val selected = state.boxes.getOrNull(state.selectedBoxIndex) ?: return
+        val height = newHeight?.coerceAtLeast(1f) ?: return
+        val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: selected.aspectRatioOrDefault()
+        val width = if (state.lockAspect) {
+            max(1f, roundToInt(height * ratio).toFloat())
+        } else {
+            selected.width
+        }
+        val clamped = clampBox(selected.copy(width = width, height = height))
+        replaceBox(clamped)
+    }
+
+    fun toggleAspectLock(enabled: Boolean) {
+        updateState {
+            val currentBox = boxes.getOrNull(selectedBoxIndex)
+            val ratio = currentBox?.aspectRatioOrDefault() ?: aspectRatio
+            copy(lockAspect = enabled, aspectRatio = if (enabled) ratio else aspectRatio)
+        }
     }
 
     private fun currentAspectRatio(): Float {
@@ -569,7 +617,7 @@ class SpriteDebugViewModel(
         } else {
             state.boxes + box.copy(index = state.boxes.size)
         }
-        _uiState.update { current -> current.copy(boxes = updated) }
+        updateState { copy(boxes = updated) }
     }
 
     fun autoSearchSingle() {
@@ -744,11 +792,14 @@ class SpriteDebugViewModel(
             .orEmptyState()
             .normalizeToDefaultConfig(targetSize)
             .ensureBoxes(targetSize)
+            .syncAspectRatio(previous = null)
     }
 
     private fun updateState(block: SpriteDebugState.() -> SpriteDebugState) {
         _uiState.update { current ->
-            block(current).ensureBoxes(targetSpriteSize())
+            block(current)
+                .ensureBoxes(targetSpriteSize())
+                .syncAspectRatio(previous = current)
         }
         persistStateAsync()
     }
@@ -825,7 +876,12 @@ class SpriteDebugViewModel(
         val persistedResult = dataStore.readAnalysisResult()
         val targetSize = targetSpriteSize()
         if (persistedState != null) {
-            _uiState.update { persistedState.normalizeToDefaultConfig(targetSize).ensureBoxes(targetSize) }
+            _uiState.update { current ->
+                persistedState
+                    .normalizeToDefaultConfig(targetSize)
+                    .ensureBoxes(targetSize)
+                    .syncAspectRatio(previous = current)
+            }
         }
         if (persistedResult != null) {
             applyAnalysisResult(persistedResult, persist = false)
@@ -837,12 +893,12 @@ class SpriteDebugViewModel(
             val resolvedConfig = persistedConfig.takeUnless { it.validate() != null } ?: SpriteSheetConfig.default3x3()
             val targetSize = targetSpriteSize(resolvedConfig)
             val defaultBoxes = SpriteDebugState.defaultBoxes(targetSize, resolvedConfig)
-            _uiState.update {
-                it.copy(
+            _uiState.update { current ->
+                current.copy(
                     spriteSheetConfig = resolvedConfig,
                     boxes = defaultBoxes,
                     selectedBoxIndex = 0,
-                ).ensureBoxes(targetSize)
+                ).ensureBoxes(targetSize).syncAspectRatio(previous = current)
             }
         }
     }
@@ -874,7 +930,10 @@ class SpriteDebugViewModel(
 
     fun importStateFromJson(json: String): Boolean {
         val parsed = runCatching { gson.fromJson(json, SpriteDebugState::class.java) }.getOrNull() ?: return false
-        _uiState.update { parsed.ensureBoxes(spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE)) }
+        _uiState.update { current ->
+            parsed.ensureBoxes(spriteSheetBitmap?.let { IntSize(it.width, it.height) } ?: IntSize(DEFAULT_SPRITE_SIZE, DEFAULT_SPRITE_SIZE))
+                .syncAspectRatio(previous = current)
+        }
         persistStateAsync()
         return true
     }
@@ -934,6 +993,15 @@ class SpriteDebugViewModel(
         }
         val boundedIndex = selectedBoxIndex.coerceIn(0, constrainedBoxes.lastIndex.coerceAtLeast(0))
         return copy(boxes = constrainedBoxes, selectedBoxIndex = boundedIndex)
+    }
+
+    private fun SpriteDebugState.syncAspectRatio(previous: SpriteDebugState?): SpriteDebugState {
+        val selectedBox = boxes.getOrNull(selectedBoxIndex) ?: return this
+        val previousBox = previous?.boxes?.getOrNull(selectedBoxIndex)
+        val hasSelectionChanged = previous?.selectedBoxIndex != selectedBoxIndex
+        val hasSizeChanged = previousBox?.let { it.width != selectedBox.width || it.height != selectedBox.height } ?: true
+        val shouldUpdateRatio = hasSelectionChanged || hasSizeChanged || !aspectRatio.isFinite() || aspectRatio <= 0f
+        return if (shouldUpdateRatio) copy(aspectRatio = selectedBox.aspectRatioOrDefault()) else this
     }
 
     private fun SpriteDebugState.normalizeToDefaultConfig(targetSize: IntSize): SpriteDebugState {
@@ -1165,6 +1233,9 @@ private fun AdjustTabContent(
             onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
             onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
             onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+            onUpdateWidth = { value -> viewModel.updateBoxWidth(value) },
+            onUpdateHeight = { value -> viewModel.updateBoxHeight(value) },
+            onToggleAspectLock = { enabled -> viewModel.toggleAspectLock(enabled) },
             onStepChange = { step -> onRememberedStateChange(rememberedState.copy(step = step)) },
             onSnapToggle = { viewModel.toggleSnap() },
             onSearchRadiusChange = { viewModel.updateSearchRadius(it) },
@@ -1599,6 +1670,9 @@ private fun PreviewTabContent(
                     onNudge = { dx, dy -> viewModel.nudgeSelected(dx, dy) },
                     onUpdateX = { value -> viewModel.updateBoxCoordinate(x = value, y = null) },
                     onUpdateY = { value -> viewModel.updateBoxCoordinate(x = null, y = value) },
+                    onUpdateWidth = { value -> viewModel.updateBoxWidth(value) },
+                    onUpdateHeight = { value -> viewModel.updateBoxHeight(value) },
+                    onToggleAspectLock = { enabled -> viewModel.toggleAspectLock(enabled) },
                     onStepChange = { step ->
                         onRememberedStateChange(rememberedState.copy(step = step))
                         viewModel.updateStep(step)
@@ -2106,6 +2180,9 @@ private fun ControlPanel(
     onNudge: (Int, Int) -> Unit,
     onUpdateX: (Float?) -> Unit,
     onUpdateY: (Float?) -> Unit,
+    onUpdateWidth: (Float?) -> Unit,
+    onUpdateHeight: (Float?) -> Unit,
+    onToggleAspectLock: (Boolean) -> Unit,
     onStepChange: (Int) -> Unit,
     onSnapToggle: () -> Unit,
     onSearchRadiusChange: (Float) -> Unit,
@@ -2117,6 +2194,8 @@ private fun ControlPanel(
     onCancelAnalysis: () -> Unit,
 ) {
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
+    val selectedBox = uiState.boxes.getOrNull(uiState.selectedBoxIndex)
+    val aspectRatio = uiState.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: selectedBox?.aspectRatioOrDefault() ?: 1f
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -2146,21 +2225,55 @@ private fun ControlPanel(
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "選択中: ROI ${uiState.selectedBoxIndex + 1}",
+                    style = MaterialTheme.typography.titleSmall,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     CoordinateField(
-                        label = "X",
-                        value = uiState.boxes.getOrNull(uiState.selectedBoxIndex)?.x,
+                        label = "X (px)",
+                        value = selectedBox?.x,
                         modifier = Modifier.weight(1f),
                     ) { value ->
                         onUpdateX(value)
                     }
                     CoordinateField(
-                        label = "Y",
-                        value = uiState.boxes.getOrNull(uiState.selectedBoxIndex)?.y,
+                        label = "Y (px)",
+                        value = selectedBox?.y,
                         modifier = Modifier.weight(1f),
                     ) { value ->
                         onUpdateY(value)
                     }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CoordinateField(
+                        label = "W (px)",
+                        value = selectedBox?.width,
+                        modifier = Modifier.weight(1f),
+                    ) { value ->
+                        onUpdateWidth(value)
+                    }
+                    CoordinateField(
+                        label = "H (px)",
+                        value = selectedBox?.height,
+                        modifier = Modifier.weight(1f),
+                        readOnly = uiState.lockAspect,
+                    ) { value ->
+                        onUpdateHeight(value)
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(text = "縦横比固定")
+                    Switch(checked = uiState.lockAspect, onCheckedChange = onToggleAspectLock)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        text = "縦横比: ${selectedBox?.width?.toInt() ?: 0}:${selectedBox?.height?.toInt() ?: 0} (= ${"%.3f".format(aspectRatio)})",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 StepSelector(step = uiState.step, onStepChange = onStepChange)
                 Row(
@@ -2298,7 +2411,13 @@ private fun AdjustmentButton(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CoordinateField(label: String, value: Float?, modifier: Modifier = Modifier, onValueChange: (Float?) -> Unit) {
+private fun CoordinateField(
+    label: String,
+    value: Float?,
+    modifier: Modifier = Modifier,
+    readOnly: Boolean = false,
+    onValueChange: (Float?) -> Unit,
+) {
     var text by rememberSaveable(value) { mutableStateOf(value?.toInt()?.toString().orEmpty()) }
     OutlinedTextField(
         value = text,
@@ -2310,6 +2429,7 @@ private fun CoordinateField(label: String, value: Float?, modifier: Modifier = M
         label = { Text(text = label) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         colors = TextFieldDefaults.outlinedTextFieldColors(),
+        readOnly = readOnly,
         singleLine = true,
     )
 }
