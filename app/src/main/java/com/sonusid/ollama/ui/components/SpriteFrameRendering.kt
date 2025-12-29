@@ -3,13 +3,9 @@ package com.sonusid.ollama.ui.components
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Paint as AndroidPaint
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -64,7 +60,6 @@ fun DrawScope.drawFrameRegion(
     region: SpriteFrameRegion?,
     dstSize: IntSize,
     dstOffset: IntOffset = IntOffset.Zero,
-    filterQuality: FilterQuality = FilterQuality.None,
     alpha: Float = 1f,
     placeholder: (DrawScope.(IntOffset, IntSize) -> Unit)? = null,
 ): Boolean {
@@ -97,24 +92,12 @@ fun DrawScope.drawFrameRegion(
         )
         val paint = AndroidPaint().apply {
             this.alpha = (alpha * 255f).roundToInt().coerceIn(0, 255)
-            this.filterQuality = when (filterQuality) {
-                FilterQuality.None -> AndroidPaint.FilterQuality.NONE
-                FilterQuality.Low -> AndroidPaint.FilterQuality.LOW
-                FilterQuality.Medium -> AndroidPaint.FilterQuality.MEDIUM
-                FilterQuality.High -> AndroidPaint.FilterQuality.HIGH
-                else -> AndroidPaint.FilterQuality.LOW
-            }
+            this.isFilterBitmap = false
         }
         drawIntoCanvas { canvas ->
             canvas.nativeCanvas.drawBitmap(bitmap, srcRect, dstRect, paint)
         }
     }.onFailure {
         placeholder?.invoke(this, dstOffset, safeDstSize)
-        false
-    }
-}
-
-@Composable
-fun rememberFramePaint(filterQuality: FilterQuality = FilterQuality.None): Paint = remember(filterQuality) {
-    Paint().apply { this.filterQuality = filterQuality }
+    }.isSuccess
 }
