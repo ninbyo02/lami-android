@@ -1,5 +1,8 @@
 package com.sonusid.ollama.ui.components
 
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Paint as AndroidPaint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
@@ -7,8 +10,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawImage
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -78,15 +82,31 @@ fun DrawScope.drawFrameRegion(
     )
 
     return runCatching<Unit> {
-        drawImage(
-            image = sheet,
-            srcOffset = srcOffset,
-            srcSize = IntSize(srcWidth, srcHeight),
-            dstOffset = dstOffset,
-            dstSize = safeDstSize,
-            alpha = alpha,
-            filterQuality = filterQuality,
+        val bitmap = sheet.asAndroidBitmap()
+        val srcRect = Rect(
+            srcOffset.x,
+            srcOffset.y,
+            srcOffset.x + srcWidth,
+            srcOffset.y + srcHeight,
         )
+        val dstRect = RectF(
+            dstOffset.x.toFloat(),
+            dstOffset.y.toFloat(),
+            dstOffset.x + safeDstSize.width.toFloat(),
+            dstOffset.y + safeDstSize.height.toFloat(),
+        )
+        val paint = AndroidPaint().apply {
+            alpha = (alpha * 255f).roundToInt().coerceIn(0, 255)
+            filterQuality = when (filterQuality) {
+                FilterQuality.None -> AndroidPaint.FilterQuality.NONE
+                FilterQuality.Low -> AndroidPaint.FilterQuality.LOW
+                FilterQuality.Medium -> AndroidPaint.FilterQuality.MEDIUM
+                FilterQuality.High -> AndroidPaint.FilterQuality.HIGH
+            }
+        }
+        drawIntoCanvas { canvas ->
+            canvas.nativeCanvas.drawBitmap(bitmap, srcRect, dstRect, paint)
+        }
     }.onFailure {
         placeholder?.invoke(this, dstOffset, safeDstSize)
     }.isSuccess
