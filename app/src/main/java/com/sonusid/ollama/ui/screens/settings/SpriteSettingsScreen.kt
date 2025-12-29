@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.matchParentSize
-import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
@@ -124,7 +124,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             contentDescription = "Sprite Preview",
                             modifier = Modifier
                                 .fillMaxSize()
-                                .onSizeChanged { size ->
+                                .onSizeChanged { size: IntSize ->
                                     containerSize = size
                                     if (imageBitmap.width != 0) {
                                         displayScale = size.width / imageBitmap.width.toFloat()
