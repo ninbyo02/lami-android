@@ -1,12 +1,16 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -17,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +46,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -55,8 +62,9 @@ import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.toDstRect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
@@ -116,7 +124,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
     var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(700) }
-    var showParseErrorDialog by remember { mutableStateOf<String?>(null) }
+    var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
+    var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedAnimation by rememberSaveable { mutableStateOf("Ready") }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -206,15 +216,14 @@ fun SpriteSettingsScreen(navController: NavController) {
         val parsed = normalized.mapNotNull { token -> token.toIntOrNull() }
         if (parsed.size != normalized.size) return null
         if (parsed.any { value -> value !in 1..9 }) return null
+        // UIは1始まりのため、内部利用時に0始まりへ変換する
         return parsed.map { value -> value - 1 }
     }
 
     fun parseReadyIntervalMs(input: String): Int? {
         val rawValue = input.trim().toIntOrNull() ?: return null
-        return rawValue.coerceIn(
-            ReadyAnimationSettings.MIN_INTERVAL_MS,
-            ReadyAnimationSettings.MAX_INTERVAL_MS,
-        )
+        if (rawValue < 1) return null
+        return rawValue
     }
 
     fun saveSpriteSheetConfig() {
@@ -382,25 +391,41 @@ fun SpriteSettingsScreen(navController: NavController) {
                             ReadyAnimationTab(
                                 imageBitmap = imageBitmap,
                                 spriteSheetConfig = spriteSheetConfig,
+                                selectedAnimation = selectedAnimation,
+                                onSelectedAnimationChange = { selectedAnimation = it },
                                 readyFrameInput = readyFrameInput,
-                                onReadyFrameInputChange = { readyFrameInput = it },
+                                onReadyFrameInputChange = {
+                                    readyFrameInput = it
+                                    readyFramesError = null
+                                },
                                 readyIntervalInput = readyIntervalInput,
-                                onReadyIntervalInputChange = { readyIntervalInput = it },
+                                onReadyIntervalInputChange = {
+                                    readyIntervalInput = it
+                                    readyIntervalError = null
+                                },
+                                readyFramesError = readyFramesError,
+                                readyIntervalError = readyIntervalError,
                                 appliedFrames = appliedReadyFrames,
                                 appliedIntervalMs = appliedReadyIntervalMs,
                                 onApply = {
                                     val frames = parseReadyFrames(readyFrameInput)
                                     val intervalMs = parseReadyIntervalMs(readyIntervalInput)
                                     if (frames == null) {
-                                        showParseErrorDialog = "フレーム列の形式が不正です (1〜9のカンマ区切り)"
+                                        readyFramesError = "1〜9のカンマ区切りで入力してください"
                                         return@ReadyAnimationTab
                                     }
                                     if (intervalMs == null) {
-                                        showParseErrorDialog = "周期(ms)を入力してください"
+                                        readyIntervalError = "1以上の数値を入力してください"
                                         return@ReadyAnimationTab
                                     }
+                                    readyFramesError = null
+                                    readyIntervalError = null
                                     appliedReadyFrames = frames
                                     appliedReadyIntervalMs = intervalMs
+                                    Log.d(
+                                        "SpriteAnim",
+                                        "Ready applied frames=${frames.map { it + 1 }} intervalMs=$intervalMs"
+                                    )
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar("プレビューに適用しました")
                                     }
@@ -409,13 +434,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     val frames = parseReadyFrames(readyFrameInput)
                                     val intervalMs = parseReadyIntervalMs(readyIntervalInput)
                                     if (frames == null) {
-                                        showParseErrorDialog = "フレーム列の形式が不正です (1〜9のカンマ区切り)"
+                                        readyFramesError = "1〜9のカンマ区切りで入力してください"
                                         return@ReadyAnimationTab
                                     }
                                     if (intervalMs == null) {
-                                        showParseErrorDialog = "周期(ms)を入力してください"
+                                        readyIntervalError = "1以上の数値を入力してください"
                                         return@ReadyAnimationTab
                                     }
+                                    readyFramesError = null
+                                    readyIntervalError = null
                                     coroutineScope.launch {
                                         settingsPreferences.saveReadyAnimationSettings(
                                             ReadyAnimationSettings(
@@ -434,28 +461,20 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    showParseErrorDialog?.let { message ->
-        AlertDialog(
-            onDismissRequest = { showParseErrorDialog = null },
-            confirmButton = {
-                Button(onClick = { showParseErrorDialog = null }) {
-                    Text("閉じる")
-                }
-            },
-            text = { Text(message) },
-            title = { Text("入力エラー") }
-        )
-    }
 }
 
 @Composable
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
+    selectedAnimation: String,
+    onSelectedAnimationChange: (String) -> Unit,
     readyFrameInput: String,
     onReadyFrameInputChange: (String) -> Unit,
     readyIntervalInput: String,
     onReadyIntervalInputChange: (String) -> Unit,
+    readyFramesError: String?,
+    readyIntervalError: String?,
     appliedFrames: List<Int>,
     appliedIntervalMs: Int,
     onApply: () -> Unit,
@@ -470,44 +489,156 @@ private fun ReadyAnimationTab(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Readyアニメ設定", modifier = Modifier.padding(horizontal = 8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedTextField(
-                value = readyFrameInput,
-                onValueChange = onReadyFrameInputChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("フレーム列 (例: 1,1,2,2,1,1,3,3)") },
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = readyIntervalInput,
-                onValueChange = onReadyIntervalInputChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("周期 (ms)") },
-                singleLine = true,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(modifier = Modifier.weight(1f), onClick = onApply) {
-                    Text("適用")
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isWide = maxWidth > 540.dp
+            val inputContent: @Composable () -> Unit = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    AnimationDropdown(
+                        items = listOf("Ready", "Insertion"),
+                        selectedItem = selectedAnimation,
+                        onSelectedItemChange = onSelectedAnimationChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (selectedAnimation == "Ready") {
+                        ReadyForm(
+                            readyFrameInput = readyFrameInput,
+                            onReadyFrameInputChange = onReadyFrameInputChange,
+                            readyIntervalInput = readyIntervalInput,
+                            onReadyIntervalInputChange = onReadyIntervalInputChange,
+                            readyFramesError = readyFramesError,
+                            readyIntervalError = readyIntervalError,
+                            onApply = onApply,
+                            onSave = onSave
+                        )
+                    } else {
+                        Text("未実装", modifier = Modifier.padding(vertical = 8.dp))
+                    }
                 }
-                Button(modifier = Modifier.weight(1f), onClick = onSave) {
-                    Text("保存")
+            }
+            val previewContent: @Composable () -> Unit = {
+                ReadyAnimationPreview(
+                    imageBitmap = imageBitmap,
+                    spriteSheetConfig = spriteSheetConfig,
+                    frames = appliedFrames,
+                    intervalMs = appliedIntervalMs,
+                )
+            }
+            if (isWide) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(modifier = Modifier.weight(1f)) { inputContent() }
+                    Box(modifier = Modifier.weight(1f)) { previewContent() }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    inputContent()
+                    previewContent()
                 }
             }
         }
-        ReadyAnimationPreview(
-            imageBitmap = imageBitmap,
-            spriteSheetConfig = spriteSheetConfig,
-            frames = appliedFrames,
-            intervalMs = appliedIntervalMs,
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AnimationDropdown(
+    items: List<String>,
+    selectedItem: String,
+    onSelectedItemChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = modifier
+    ) {
+        TextField(
+            value = selectedItem,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("アニメ種別") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
         )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item) },
+                    onClick = {
+                        onSelectedItemChange(item)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadyForm(
+    readyFrameInput: String,
+    onReadyFrameInputChange: (String) -> Unit,
+    readyIntervalInput: String,
+    onReadyIntervalInputChange: (String) -> Unit,
+    readyFramesError: String?,
+    readyIntervalError: String?,
+    onApply: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedTextField(
+            value = readyFrameInput,
+            onValueChange = onReadyFrameInputChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("フレーム列 (例: 1,2,3)") },
+            singleLine = true,
+            isError = readyFramesError != null,
+            supportingText = readyFramesError?.let { errorText ->
+                { Text(errorText, color = Color.Red) }
+            }
+        )
+        OutlinedTextField(
+            value = readyIntervalInput,
+            onValueChange = onReadyIntervalInputChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("周期 (ms)") },
+            singleLine = true,
+            isError = readyIntervalError != null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            supportingText = readyIntervalError?.let { errorText ->
+                { Text(errorText, color = Color.Red) }
+            }
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(modifier = Modifier.weight(1f), onClick = onApply) {
+                Text("更新")
+            }
+            Button(modifier = Modifier.weight(1f), onClick = onSave) {
+                Text("保存")
+            }
+        }
     }
 }
 
@@ -523,9 +654,10 @@ private fun ReadyAnimationPreview(
 
     LaunchedEffect(resolvedFrames, intervalMs) {
         if (resolvedFrames.isEmpty()) return@LaunchedEffect
-        while (true) {
+        currentFrameIndex = 0
+        while (isActive && resolvedFrames.isNotEmpty()) {
+            delay(intervalMs.toLong().coerceAtLeast(1L))
             currentFrameIndex = (currentFrameIndex + 1) % resolvedFrames.size
-            kotlinx.coroutines.delay(intervalMs.toLong().coerceAtLeast(1L))
         }
     }
 
@@ -541,14 +673,14 @@ private fun ReadyAnimationPreview(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("プレビュー", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
         Box(
             modifier = Modifier
-                .align(Alignment.CenterHorizontally)
                 .padding(vertical = 8.dp)
-                .size(64.dp),
+                .size(96.dp),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -572,6 +704,12 @@ private fun ReadyAnimationPreview(
         }
         Text("フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}")
         Text("周期: ${intervalMs}ms")
+        val appliedFramesUi = resolvedFrames.map { it + 1 }
+        Text(
+            "Applied: frames=${appliedFramesUi.joinToString(\",\")} interval=${intervalMs}ms",
+            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+            color = Color.Gray
+        )
     }
 }
 
