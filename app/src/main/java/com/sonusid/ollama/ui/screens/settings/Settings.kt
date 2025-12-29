@@ -21,7 +21,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,7 +31,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -271,47 +269,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { navgationController.navigate(Routes.SPRITE_DEBUG_SETTINGS) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        HorizontalDivider()
-                        ListItem(
-                            headlineContent = {
-                                Text("Sprite Debug (ツール)", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "表示中のスプライトをデバッグするツールを開きます",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Default.BugReport,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val targetRoute = Routes.SPRITE_DEBUG_ENTRY
-                                    if (navgationController.graph.findNode(targetRoute) != null) {
-                                        navgationController.navigate(targetRoute)
-                                    } else {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Sprite Debug 画面が未登録です")
-                                        }
-                                    }
-                                }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
