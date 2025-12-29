@@ -91,7 +91,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
 
-    val selectedPosition = boxPositions.getOrNull(selectedNumber - 1)
+    val selectedIndex = selectedNumber - 1
+    val selectedPosition = boxPositions.getOrNull(selectedIndex)
 
     fun clampAllPositions(newBoxSizePx: Int): List<BoxPosition> =
         boxPositions.map { position ->
@@ -104,6 +105,25 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (desiredSize != boxSizePx) {
             boxSizePx = desiredSize
             boxPositions = clampAllPositions(desiredSize)
+        }
+    }
+
+    fun updateSelectedPosition(deltaX: Int, deltaY: Int) {
+        if (selectedIndex !in boxPositions.indices) return
+        val current = boxPositions[selectedIndex]
+        val updated = clampPosition(
+            position = BoxPosition(
+                x = current.x + deltaX,
+                y = current.y + deltaY
+            ),
+            boxSizePx = boxSizePx,
+            sheetWidth = imageBitmap.width,
+            sheetHeight = imageBitmap.height
+        )
+        if (updated != current) {
+            boxPositions = boxPositions.toMutableList().also { positions ->
+                positions[selectedIndex] = updated
+            }
         }
     }
 
@@ -220,6 +240,34 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 text = "座標: ${selectedPosition.x},${selectedPosition.y},${boxSizePx},${boxSizePx}",
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Text(text = "X: ${selectedPosition.x}px")
+                                IconButton(onClick = { updateSelectedPosition(deltaX = -1, deltaY = 0) }) {
+                                    Text(text = "X-")
+                                }
+                                IconButton(onClick = { updateSelectedPosition(deltaX = 1, deltaY = 0) }) {
+                                    Text(text = "X+")
+                                }
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Text(text = "Y: ${selectedPosition.y}px")
+                                IconButton(onClick = { updateSelectedPosition(deltaX = 0, deltaY = -1) }) {
+                                    Text(text = "Y-")
+                                }
+                                IconButton(onClick = { updateSelectedPosition(deltaX = 0, deltaY = 1) }) {
+                                    Text(text = "Y+")
+                                }
+                            }
                         }
                     }
                 }
