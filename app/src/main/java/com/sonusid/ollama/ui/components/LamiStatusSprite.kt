@@ -207,6 +207,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
@@ -254,6 +255,14 @@ fun LamiStatusSprite(
 
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
+    }
+    val defaultFrameXOffsetPxMap = remember(frameMaps) {
+        frameMaps.toFrameXOffsetPxMap()
+    }
+    val resolvedFrameXOffsetPxMap = remember(frameXOffsetPxMap, defaultFrameXOffsetPxMap) {
+        defaultFrameXOffsetPxMap.toMutableMap().apply {
+            putAll(frameXOffsetPxMap)
+        }
     }
     val defaultFrameYOffsetPxMap = remember(frameMaps) {
         frameMaps.toFrameYOffsetPxMap()
@@ -382,6 +391,7 @@ fun LamiStatusSprite(
         modifier = modifier,
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
+        frameXOffsetPxMap = resolvedFrameXOffsetPxMap,
         frameYOffsetPxMap = animatedFrameYOffsetPxMap,
         frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
         frameSrcSizeMap = resolvedFrameSrcSizeMap,
@@ -402,6 +412,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
@@ -419,6 +430,7 @@ fun LamiStatusSprite(
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        frameXOffsetPxMap = frameXOffsetPxMap,
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
@@ -440,6 +452,7 @@ fun LamiStatusSprite(
     lastError: String? = null,
     retryCount: Int = 0,
     talkingTextLength: Int? = null,
+    frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
@@ -493,6 +506,7 @@ fun LamiStatusSprite(
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        frameXOffsetPxMap = frameXOffsetPxMap,
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
