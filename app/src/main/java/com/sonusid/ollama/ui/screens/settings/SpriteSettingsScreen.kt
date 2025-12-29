@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -61,6 +62,7 @@ import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.toInternalFrameIndex
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
@@ -558,26 +560,20 @@ private fun ReadyAnimationPreview(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 if (currentBox == null) return@Canvas
                 drawIntoCanvas { canvas ->
-                    val srcRect = androidx.compose.ui.geometry.Rect(
-                        left = currentBox.x.toFloat(),
-                        top = currentBox.y.toFloat(),
-                        right = (currentBox.x + currentBox.width).toFloat(),
-                        bottom = (currentBox.y + currentBox.height).toFloat(),
-                    )
+                    val srcOffset = IntOffset(currentBox.x, currentBox.y)
+                    val srcSize = IntSize(currentBox.width, currentBox.height)
                     val dstSize = size.minDimension
                     val dstLeft = (size.width - dstSize) / 2f
                     val dstTop = (size.height - dstSize) / 2f
-                    val dstRect = androidx.compose.ui.geometry.Rect(
-                        left = dstLeft,
-                        top = dstTop,
-                        right = dstLeft + dstSize,
-                        bottom = dstTop + dstSize,
-                    )
+                    val dstOffset = IntOffset(dstLeft.roundToInt(), dstTop.roundToInt())
+                    val dstIntSize = IntSize(dstSize.roundToInt(), dstSize.roundToInt())
                     canvas.drawImageRect(
-                        imageBitmap,
-                        srcRect,
-                        dstRect,
-                        androidx.compose.ui.graphics.Paint(),
+                        image = imageBitmap,
+                        srcOffset = srcOffset,
+                        srcSize = srcSize,
+                        dstOffset = dstOffset,
+                        dstSize = dstIntSize,
+                        paint = androidx.compose.ui.graphics.Paint(),
                     )
                 }
             }
