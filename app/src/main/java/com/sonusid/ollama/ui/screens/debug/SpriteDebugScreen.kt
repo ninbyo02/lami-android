@@ -959,6 +959,7 @@ class SpriteDebugViewModel(
 private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpriteDebugScreen(
     viewModel: SpriteDebugViewModel,
