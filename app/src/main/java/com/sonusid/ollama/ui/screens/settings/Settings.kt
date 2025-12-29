@@ -62,6 +62,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.BaseUrlInitializationState
 import com.sonusid.ollama.api.RetrofitClient
@@ -240,6 +241,37 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 )
                 Card {
                     Column {
+                        ListItem(
+                            headlineContent = {
+                                Text("Sprite Settings", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "スプライト画像を表示します",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Filled.BugReport,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                         ListItem(
                             headlineContent = {
                                 Text("Sprite Debug (設定)", style = MaterialTheme.typography.titleMedium)
