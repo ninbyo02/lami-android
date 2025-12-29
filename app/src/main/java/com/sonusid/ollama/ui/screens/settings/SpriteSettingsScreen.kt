@@ -24,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -44,26 +43,40 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 
-data class BoxRect(val x: Int, val y: Int, val w: Int, val h: Int)
+data class BoxPosition(val x: Int, val y: Int)
 
-private fun boxRectsSaver() = listSaver<List<BoxRect>, Int>(
-    save = { list -> list.flatMap { rect -> listOf(rect.x, rect.y, rect.w, rect.h) } },
+private const val DEFAULT_BOX_SIZE_PX = 96
+
+private fun clampPosition(
+    position: BoxPosition,
+    boxSizePx: Int,
+    sheetWidth: Int,
+    sheetHeight: Int
+): BoxPosition {
+    val maxX = (sheetWidth - boxSizePx).coerceAtLeast(0)
+    val maxY = (sheetHeight - boxSizePx).coerceAtLeast(0)
+    return BoxPosition(
+        x = position.x.coerceIn(0, maxX),
+        y = position.y.coerceIn(0, maxY)
+    )
+}
+
+private fun boxPositionsSaver() = androidx.compose.runtime.saveable.listSaver<List<BoxPosition>, Int>(
+    save = { list -> list.flatMap { position -> listOf(position.x, position.y) } },
     restore = { flat ->
-        flat.chunked(4).map { (x, y, w, h) ->
-            BoxRect(x = x, y = y, w = w, h = h)
+        flat.chunked(2).map { (x, y) ->
+            BoxPosition(x = x, y = y)
         }
     }
 )
 
-private fun defaultBoxRects(): List<BoxRect> =
+private fun defaultBoxPositions(): List<BoxPosition> =
     List(9) { index ->
         val column = index % 3
         val row = index / 3
-        BoxRect(
-            x = column * 96,
-            y = row * 96,
-            w = 96,
-            h = 96
+        BoxPosition(
+            x = column * DEFAULT_BOX_SIZE_PX,
+            y = row * DEFAULT_BOX_SIZE_PX
         )
     }
 
@@ -73,11 +86,26 @@ fun SpriteSettingsScreen(navController: NavController) {
         ImageBitmap.imageResource(LocalContext.current.resources, R.drawable.lami_sprite_3x3_288)
 
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
-    var boxRects by rememberSaveable(stateSaver = boxRectsSaver()) { mutableStateOf(defaultBoxRects()) }
+    var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
+    var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
 
-    val selectedRect = boxRects.getOrNull(selectedNumber - 1)
+    val selectedPosition = boxPositions.getOrNull(selectedNumber - 1)
+
+    fun clampAllPositions(newBoxSizePx: Int): List<BoxPosition> =
+        boxPositions.map { position ->
+            clampPosition(position, newBoxSizePx, imageBitmap.width, imageBitmap.height)
+        }
+
+    fun updateBoxSize(delta: Int) {
+        val maxSize = minOf(imageBitmap.width, imageBitmap.height).coerceAtLeast(1)
+        val desiredSize = (boxSizePx + delta).coerceIn(1, maxSize)
+        if (desiredSize != boxSizePx) {
+            boxSizePx = desiredSize
+            boxPositions = clampAllPositions(desiredSize)
+        }
+    }
 
     Scaffold { innerPadding ->
         Surface(
@@ -130,19 +158,19 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 },
                             contentScale = ContentScale.Fit
                         )
-                        if (selectedRect != null && containerSize.width > 0 && containerSize.height > 0) {
+                        if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
                                 val scaleX = size.width / imageBitmap.width
                                 val scaleY = size.height / imageBitmap.height
                                 drawRect(
                                     color = Color.Red,
                                     topLeft = Offset(
-                                        x = selectedRect.x * scaleX,
-                                        y = selectedRect.y * scaleY
+                                        x = selectedPosition.x * scaleX,
+                                        y = selectedPosition.y * scaleY
                                     ),
                                     size = Size(
-                                        width = selectedRect.w * scaleX,
-                                        height = selectedRect.h * scaleY
+                                        width = boxSizePx * scaleX,
+                                        height = boxSizePx * scaleY
                                     ),
                                     style = Stroke(width = 2.dp.toPx())
                                 )
@@ -173,9 +201,23 @@ fun SpriteSettingsScreen(navController: NavController) {
                             )
                         }
 
-                        if (selectedRect != null) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            Text(text = "サイズ: ${boxSizePx}px")
+                            IconButton(onClick = { updateBoxSize(-4) }) {
+                                Text(text = "-")
+                            }
+                            IconButton(onClick = { updateBoxSize(4) }) {
+                                Text(text = "+")
+                            }
+                        }
+
+                        if (selectedPosition != null) {
                             Text(
-                                text = "座標: ${selectedRect.x},${selectedRect.y},${selectedRect.w},${selectedRect.h}",
+                                text = "座標: ${selectedPosition.x},${selectedPosition.y},${boxSizePx},${boxSizePx}",
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
                         }
