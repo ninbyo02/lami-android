@@ -552,9 +552,9 @@ private fun ReadyAnimationPreview(
         Text("プレビュー", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .padding(vertical = 8.dp),
+                .align(Alignment.CenterHorizontally)
+                .padding(vertical = 8.dp)
+                .size(64.dp),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
