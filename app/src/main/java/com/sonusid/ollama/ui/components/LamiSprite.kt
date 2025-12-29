@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.components
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -31,6 +30,7 @@ import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
 
 @Composable
@@ -82,13 +82,16 @@ fun LamiSprite3x3(
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
+    frameSizePx: IntSize? = null,
 ) {
     val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
     val safeFrameIndex = frameIndex.coerceAtLeast(0)
     val col = safeFrameIndex % 3
     val row = safeFrameIndex / 3
 
-    val baseOffset = IntOffset(x = col * 96, y = row * 96)
+    val frameSize = frameSizePx ?: IntSize(width = 96, height = 96)
+
+    val baseOffset = IntOffset(x = col * frameSize.width, y = row * frameSize.height)
     val srcOffset = if (autoCropTransparentArea) {
         val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
         IntOffset(
@@ -99,9 +102,9 @@ fun LamiSprite3x3(
         baseOffset
     }
     val srcSize = if (autoCropTransparentArea) {
-        frameSrcSizeMap[safeFrameIndex] ?: IntSize(width = 96, height = 96)
+        frameSrcSizeMap[safeFrameIndex] ?: frameSize
     } else {
-        IntSize(width = 96, height = 96)
+        frameSize
     }
     val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
 
@@ -139,85 +142,22 @@ fun LamiSprite3x3(
 data class LamiSpriteFrameMaps(
     val offsetMap: Map<Int, IntOffset>,
     val sizeMap: Map<Int, IntSize>,
+    val frameSize: IntSize,
+    val columns: Int,
 )
 
 fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
-    val bottoms = offsetMap.mapNotNull { (index, offset) ->
-        val size = sizeMap[index] ?: return@mapNotNull null
-        val bottom = offset.y + size.height - 1
-        index to bottom
-    }
-    if (bottoms.isEmpty()) {
-        return emptyMap()
-    }
-    val baselineBottom = bottoms.maxOf { it.second }
-    return bottoms.associate { (index, bottom) ->
-        index to (baselineBottom - bottom)
+    val frameHeight = frameSize.height.coerceAtLeast(1)
+    val safeColumns = columns.coerceAtLeast(1)
+    return offsetMap.mapValues { (index, offset) ->
+        val rowTop = (index / safeColumns) * frameHeight
+        offset.y - rowTop
     }
 }
 
 @Composable
 fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
-    val context = LocalContext.current
-    return remember {
-        val frameSize = IntSize(width = 96, height = 96)
-        val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
-        val measuredMaps = bitmap?.let {
-            measureFrameMaps(bitmap = it, frameSize = frameSize, columns = 3)
-        }
-        measuredMaps ?: LamiSpriteFrameMaps(offsetMap = emptyMap(), sizeMap = emptyMap())
-    }
-}
-
-private fun measureFrameMaps(
-    bitmap: Bitmap,
-    frameSize: IntSize,
-    columns: Int,
-): LamiSpriteFrameMaps {
-    val offsets = mutableMapOf<Int, IntOffset>()
-    val sizes = mutableMapOf<Int, IntSize>()
-    val frameWidth = frameSize.width.coerceAtLeast(1)
-    val frameHeight = frameSize.height.coerceAtLeast(1)
-    val rows = (bitmap.height / frameHeight).coerceAtLeast(1)
-    val frameCount = columns * rows
-
-    for (frameIndex in 0 until frameCount) {
-        val col = frameIndex % columns
-        val row = frameIndex / columns
-        val startX = col * frameWidth
-        val startY = row * frameHeight
-        val endX = (startX + frameWidth).coerceAtMost(bitmap.width)
-        val endY = (startY + frameHeight).coerceAtMost(bitmap.height)
-
-        var left = frameWidth
-        var top = frameHeight
-        var right = -1
-        var bottom = -1
-
-        for (y in startY until endY) {
-            for (x in startX until endX) {
-                val alpha = (bitmap.getPixel(x, y) ushr 24) and 0xFF
-                if (alpha != 0) {
-                    val localX = x - startX
-                    val localY = y - startY
-                    if (localX < left) left = localX
-                    if (localY < top) top = localY
-                    if (localX > right) right = localX
-                    if (localY > bottom) bottom = localY
-                }
-            }
-        }
-
-        if (right >= left && bottom >= top) {
-            offsets[frameIndex] = IntOffset(x = left, y = top)
-            sizes[frameIndex] = IntSize(width = right - left + 1, height = bottom - top + 1)
-        }
-    }
-
-    return LamiSpriteFrameMaps(
-        offsetMap = offsets,
-        sizeMap = sizes,
-    )
+    return rememberSpriteFrameMaps()
 }
 
 @Composable

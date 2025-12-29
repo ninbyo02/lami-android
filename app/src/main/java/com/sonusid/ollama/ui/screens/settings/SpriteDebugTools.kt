@@ -243,6 +243,7 @@ fun SpriteDebugTools(navController: NavController, viewModel: SpriteDebugViewMod
                                 frameSrcSizeMap = frameMaps.sizeMap,
                                 frameYOffsetPxMap = frameYOffsetMap,
                                 autoCropTransparentArea = autoCropTransparentArea,
+                                frameSizePx = frameMaps.frameSize,
                             )
                         }
                         ControlSlider(
