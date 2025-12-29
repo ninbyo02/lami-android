@@ -214,9 +214,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        bottomBar = {
+    Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, bottomBar = {
+        if (tabIndex == 0) {
             SpriteSettingsControls(
                 selectedNumber = selectedNumber,
                 selectedPosition = selectedPosition,
@@ -233,7 +232,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 onCopy = { copySpriteSheetConfig() }
             )
         }
-    ) { innerPadding ->
+    }) { innerPadding ->
         Surface(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -342,7 +341,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
 
                         1 -> {
-                            Spacer(modifier = Modifier.fillMaxSize())
+                            Box(modifier = Modifier.fillMaxSize())
                         }
                     }
                 }
