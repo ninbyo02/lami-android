@@ -4,6 +4,7 @@ import android.os.Parcelable
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import kotlinx.parcelize.Parcelize
+import kotlin.math.roundToInt
 
 @Parcelize
 data class BoxPosition(
@@ -22,6 +23,8 @@ data class SpriteSheetConfig(
     val frameHeight: Int,
     val boxes: List<BoxPosition>,
 ) : Parcelable {
+    val frameCount: Int = (rows * cols).coerceAtLeast(0)
+
     fun toJson(gson: Gson = Gson()): String = gson.toJson(this)
 
     fun validate(): String? {
@@ -30,50 +33,61 @@ data class SpriteSheetConfig(
         if (frameWidth <= 0 || frameHeight <= 0) {
             return "frameWidth と frameHeight は1以上の整数にしてください"
         }
-        if (boxes.size != rows * cols) {
+        if (boxes.size != frameCount) {
             return "boxes の数は rows×cols (${rows * cols}) と一致させてください"
         }
+        val frameIndexRangeMessage = "frameIndex は 1..${frameCount} または 0..${frameCount - 1} の範囲にしてください"
         val seenFrames = mutableSetOf<Int>()
         boxes.forEach { box ->
-            if (box.frameIndex !in 0 until (rows * cols)) {
-                return "frameIndex は 0 以上 ${rows * cols - 1} 以下にしてください"
-            }
-            if (!seenFrames.add(box.frameIndex)) {
-                return "frameIndex ${box.frameIndex} が重複しています"
-            }
             if (box.width <= 0 || box.height <= 0) {
                 return "各 box の width と height は1以上にしてください"
             }
             if (box.x < 0 || box.y < 0) {
                 return "各 box の x, y は0以上にしてください"
             }
+            val internalIndex = toInternalFrameIndex(box.frameIndex)
+                ?: return frameIndexRangeMessage
+            if (!seenFrames.add(internalIndex)) {
+                return "frameIndex ${box.frameIndex} が重複しています"
+            }
         }
         return null
     }
 
     companion object {
-        fun default3x3(frameSize: Int = 96): SpriteSheetConfig {
-            val rows = 3
-            val cols = 3
-            val frameWidth = frameSize
-            val frameHeight = frameSize
-            val boxes = List(rows * cols) { index ->
-                val row = index / cols
-                val col = index % cols
-                BoxPosition(
-                    frameIndex = index,
-                    x = col * frameWidth,
-                    y = row * frameHeight,
-                    width = frameWidth,
-                    height = frameHeight,
+        val DEFAULT: SpriteSheetConfig = SpriteSheetConfig(
+            rows = 3,
+            cols = 3,
+            frameWidth = 88,
+            frameHeight = 88,
+            boxes = listOf(
+                BoxPosition(frameIndex = 1, height = 88, width = 88, x = 0, y = 9),
+                BoxPosition(frameIndex = 2, height = 88, width = 88, x = 96, y = 9),
+                BoxPosition(frameIndex = 3, height = 88, width = 88, x = 191, y = 9),
+                BoxPosition(frameIndex = 4, height = 88, width = 88, x = 0, y = 103),
+                BoxPosition(frameIndex = 5, height = 88, width = 88, x = 95, y = 103),
+                BoxPosition(frameIndex = 6, height = 88, width = 88, x = 191, y = 103),
+                BoxPosition(frameIndex = 7, height = 88, width = 88, x = 0, y = 196),
+                BoxPosition(frameIndex = 8, height = 88, width = 88, x = 96, y = 196),
+                BoxPosition(frameIndex = 9, height = 88, width = 88, x = 192, y = 196),
+            ),
+        )
+
+        fun default3x3(frameSize: Int = DEFAULT.frameWidth): SpriteSheetConfig {
+            if (frameSize == DEFAULT.frameWidth) return DEFAULT
+            val scale = frameSize.toFloat() / DEFAULT.frameWidth.toFloat()
+            val scaledBoxes = DEFAULT.boxes.map { box ->
+                box.copy(
+                    x = (box.x * scale).roundToInt(),
+                    y = (box.y * scale).roundToInt(),
+                    width = (box.width * scale).roundToInt().coerceAtLeast(1),
+                    height = (box.height * scale).roundToInt().coerceAtLeast(1),
                 )
             }
-            return SpriteSheetConfig(
-                rows = rows,
-                cols = cols,
-                frameWidth = frameWidth,
-                frameHeight = frameHeight,
-                boxes = boxes,
+            return DEFAULT.copy(
+                frameWidth = frameSize,
+                frameHeight = frameSize,
+                boxes = scaledBoxes,
             )
         }
 
@@ -85,4 +99,24 @@ data class SpriteSheetConfig(
             }
         }
     }
+}
+
+fun SpriteSheetConfig.toInternalFrameIndex(frameIndex: Int): Int? {
+    if (frameCount <= 0) return null
+    return when {
+        frameIndex in 0 until frameCount -> frameIndex
+        frameIndex in 1..frameCount -> frameIndex - 1
+        else -> null
+    }
+}
+
+fun SpriteSheetConfig.boxesWithInternalIndex(): List<BoxPosition> {
+    return boxes.mapNotNull { box ->
+        val internalIndex = toInternalFrameIndex(box.frameIndex) ?: return@mapNotNull null
+        box.copy(frameIndex = internalIndex)
+    }
+}
+
+fun SpriteSheetConfig.isUninitialized(): Boolean {
+    return frameWidth <= 0 || frameHeight <= 0 || boxes.isEmpty()
 }

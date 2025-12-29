@@ -48,12 +48,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.data.boxesWithInternalIndex
+import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import kotlinx.coroutines.launch
 
 data class BoxPosition(val x: Int, val y: Int)
 
-private const val DEFAULT_BOX_SIZE_PX = 96
+private const val DEFAULT_BOX_SIZE_PX = 88
 
 private fun clampPosition(
     position: BoxPosition,
@@ -79,14 +81,10 @@ private fun boxPositionsSaver() = androidx.compose.runtime.saveable.listSaver<Li
 )
 
 private fun defaultBoxPositions(): List<BoxPosition> =
-    List(9) { index ->
-        val column = index % 3
-        val row = index / 3
-        BoxPosition(
-            x = column * DEFAULT_BOX_SIZE_PX,
-            y = row * DEFAULT_BOX_SIZE_PX
-        )
-    }
+    SpriteSheetConfig.default3x3()
+        .boxesWithInternalIndex()
+        .sortedBy { it.frameIndex }
+        .map { box -> BoxPosition(box.x, box.y) }
 
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
@@ -109,10 +107,12 @@ fun SpriteSettingsScreen(navController: NavController) {
     var displayScale by remember { mutableStateOf(1f) }
 
     LaunchedEffect(spriteSheetConfig) {
-        val validConfig = spriteSheetConfig.takeIf { it.validate() == null } ?: SpriteSheetConfig.default3x3()
+        val validConfig = spriteSheetConfig
+            .takeIf { it.isUninitialized().not() && it.validate() == null }
+            ?.copy(boxes = spriteSheetConfig.boxesWithInternalIndex())
+            ?: SpriteSheetConfig.default3x3()
+
         val resolvedBoxes = validConfig.boxes
-            .takeIf { it.isNotEmpty() }
-            ?: SpriteSheetConfig.default3x3(validConfig.frameWidth).boxes
         boxSizePx = validConfig.frameWidth.coerceAtLeast(1)
         boxPositions = resolvedBoxes
             .sortedBy { it.frameIndex }
