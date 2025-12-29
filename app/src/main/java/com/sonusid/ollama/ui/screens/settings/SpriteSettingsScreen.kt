@@ -2,16 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -348,10 +339,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         contentDescription = "Sprite Preview",
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .onSizeChanged { size: IntSize ->
-                                                containerSize = size
+                                            .onSizeChanged { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
                                                 if (imageBitmap.width != 0) {
-                                                    displayScale = size.width / imageBitmap.width.toFloat()
+                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
                                                 }
                                             },
                                         contentScale = ContentScale.Fit
