@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.IntSize
 import com.sonusid.ollama.data.BoxPosition
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
+import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.toInternalFrameIndex
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.flow.Flow
