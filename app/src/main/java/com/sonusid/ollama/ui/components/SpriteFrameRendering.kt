@@ -81,7 +81,6 @@ fun DrawScope.drawFrameRegion(
         x = region.srcOffset.x.coerceIn(0, maxOffsetX),
         y = region.srcOffset.y.coerceIn(0, maxOffsetY),
     )
-
     return runCatching<Unit> {
         val bitmap = sheet.asAndroidBitmap()
         val srcRect = Rect(
@@ -111,7 +110,8 @@ fun DrawScope.drawFrameRegion(
         }
     }.onFailure {
         placeholder?.invoke(this, dstOffset, safeDstSize)
-    }.isSuccess
+        false
+    }
 }
 
 @Composable
