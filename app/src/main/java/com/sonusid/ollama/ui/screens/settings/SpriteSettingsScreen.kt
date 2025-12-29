@@ -256,12 +256,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top
                 ) {
                     Text("Sprite Settings")
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     TabRow(selectedTabIndex = tabIndex) {
                         Tab(
                             selected = tabIndex == 0,
@@ -274,19 +274,27 @@ fun SpriteSettingsScreen(navController: NavController) {
                             text = { Text("アニメ") }
                         )
                     }
-                    Text("元画像解像度: ${imageBitmap.width} x ${imageBitmap.height} px")
-                    Text("表示倍率: ${"%.2f".format(displayScale)}x")
-                    Spacer(modifier = Modifier.height(12.dp))
                     when (tabIndex) {
                         0 -> {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("元画像解像度: ${imageBitmap.width} x ${imageBitmap.height} px")
+                                    Text("表示倍率: ${"%.2f".format(displayScale)}x")
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(1f),
+                                        .aspectRatio(1f)
+                                        .padding(top = 12.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Image(
@@ -321,7 +329,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -334,14 +342,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
 
                         1 -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Coming soon")
-                            }
+                            Spacer(modifier = Modifier.fillMaxSize())
                         }
                     }
                 }
