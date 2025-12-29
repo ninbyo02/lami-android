@@ -43,7 +43,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawImageRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -61,6 +60,10 @@ import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.toInternalFrameIndex
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
+import com.sonusid.ollama.ui.components.SpriteFrameRegion
+import com.sonusid.ollama.ui.components.drawFramePlaceholder
+import com.sonusid.ollama.ui.components.drawFrameRegion
+import com.sonusid.ollama.ui.components.toDstRect
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -559,20 +562,20 @@ private fun ReadyAnimationPreview(
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 if (currentBox == null) return@Canvas
-                val srcOffset = IntOffset(currentBox.x, currentBox.y)
-                val srcSize = IntSize(currentBox.width, currentBox.height)
-                val dstSize = size.minDimension
-                val dstLeft = (size.width - dstSize) / 2f
-                val dstTop = (size.height - dstSize) / 2f
-                val dstOffset = IntOffset(dstLeft.roundToInt(), dstTop.roundToInt())
-                val dstSizeInt = IntSize(dstSize.roundToInt(), dstSize.roundToInt())
-                drawImageRect(
-                    image = imageBitmap,
-                    srcOffset = srcOffset,
-                    srcSize = srcSize,
-                    dstOffset = dstOffset,
+                val region = SpriteFrameRegion(
+                    srcOffset = IntOffset(currentBox.x, currentBox.y),
+                    srcSize = IntSize(currentBox.width, currentBox.height),
+                )
+                val (dstSizeInt, dstOffsetInt) = ContentScale.Fit.toDstRect(
+                    srcSize = region.srcSize,
+                    canvasSize = size
+                )
+                drawFrameRegion(
+                    sheet = imageBitmap,
+                    region = region,
                     dstSize = dstSizeInt,
-                    paint = androidx.compose.ui.graphics.Paint(),
+                    dstOffset = dstOffsetInt,
+                    placeholder = { offset, dstSize -> drawFramePlaceholder(offset, dstSize) },
                 )
             }
         }
