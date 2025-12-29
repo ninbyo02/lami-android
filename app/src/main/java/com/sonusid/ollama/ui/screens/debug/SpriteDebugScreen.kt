@@ -486,7 +486,8 @@ class SpriteDebugViewModel(
         val width = newWidth?.coerceAtLeast(1f) ?: return
         val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: selected.aspectRatioOrDefault()
         val height = if (state.lockAspect) {
-            max(1f, roundToInt(width / ratio).toFloat())
+            val roundedHeight = (width / ratio).roundToInt().coerceAtLeast(1)
+            roundedHeight.toFloat()
         } else {
             selected.height
         }
@@ -501,7 +502,8 @@ class SpriteDebugViewModel(
         val height = newHeight?.coerceAtLeast(1f) ?: return
         val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: selected.aspectRatioOrDefault()
         val width = if (state.lockAspect) {
-            max(1f, roundToInt(height * ratio).toFloat())
+            val roundedWidth = (height * ratio).roundToInt().coerceAtLeast(1)
+            roundedWidth.toFloat()
         } else {
             selected.width
         }
@@ -1001,7 +1003,11 @@ class SpriteDebugViewModel(
         val hasSelectionChanged = previous?.selectedBoxIndex != selectedBoxIndex
         val hasSizeChanged = previousBox?.let { it.width != selectedBox.width || it.height != selectedBox.height } ?: true
         val shouldUpdateRatio = hasSelectionChanged || hasSizeChanged || !aspectRatio.isFinite() || aspectRatio <= 0f
-        return if (shouldUpdateRatio) copy(aspectRatio = selectedBox.aspectRatioOrDefault()) else this
+        if (!shouldUpdateRatio) return this
+        val safeWidth = selectedBox.width.coerceAtLeast(1f)
+        val safeHeight = selectedBox.height.coerceAtLeast(1f)
+        val safeAspectRatio = (safeWidth / safeHeight).takeIf { it.isFinite() && it > 0f } ?: aspectRatio
+        return copy(aspectRatio = safeAspectRatio)
     }
 
     private fun SpriteDebugState.normalizeToDefaultConfig(targetSize: IntSize): SpriteDebugState {
