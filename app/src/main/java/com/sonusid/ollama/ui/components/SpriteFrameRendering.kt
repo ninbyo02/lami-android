@@ -77,7 +77,7 @@ fun DrawScope.drawFrameRegion(
         y = region.srcOffset.y.coerceIn(0, maxOffsetY),
     )
 
-    return runCatching<Unit> {
+    return try {
         drawImage(
             image = sheet,
             srcOffset = srcOffset,
@@ -87,9 +87,11 @@ fun DrawScope.drawFrameRegion(
             alpha = alpha,
             filterQuality = filterQuality,
         )
-    }.onFailure {
+        true
+    } catch (t: Throwable) {
         placeholder?.invoke(this, dstOffset, safeDstSize)
-    }.isSuccess
+        false
+    }
 }
 
 @Composable
