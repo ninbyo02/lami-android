@@ -235,6 +235,8 @@ private fun measureFrameMaps(
     return LamiSpriteFrameMaps(
         offsetMap = offsets,
         sizeMap = sizes,
+        frameSize = frameSize,
+        columns = columns,
     )
 }
 
