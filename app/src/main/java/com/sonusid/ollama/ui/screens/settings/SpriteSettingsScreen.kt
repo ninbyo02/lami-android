@@ -12,18 +12,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +43,12 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
+import com.sonusid.ollama.ui.screens.debug.SpriteBox
+import com.sonusid.ollama.ui.screens.debug.SpriteDebugPreferences
+import com.sonusid.ollama.ui.screens.debug.SpriteDebugState
+import kotlinx.coroutines.launch
 
 data class BoxPosition(val x: Int, val y: Int)
 
@@ -85,6 +92,13 @@ fun SpriteSettingsScreen(navController: NavController) {
     val imageBitmap: ImageBitmap =
         ImageBitmap.imageResource(LocalContext.current.resources, R.drawable.lami_sprite_3x3_288)
 
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val spriteDebugPreferences = remember(context.applicationContext) {
+        SpriteDebugPreferences(context.applicationContext)
+    }
+
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
@@ -127,7 +141,68 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    Scaffold { innerPadding ->
+    fun buildSpriteDebugState(): SpriteDebugState {
+        val boxes = boxPositions.mapIndexed { index, position ->
+            SpriteBox(
+                index = index,
+                x = position.x.toFloat(),
+                y = position.y.toFloat(),
+                width = boxSizePx.toFloat(),
+                height = boxSizePx.toFloat()
+            )
+        }
+        val spriteSheetConfig = SpriteSheetConfig(
+            rows = 3,
+            cols = 3,
+            frameWidth = boxSizePx,
+            frameHeight = boxSizePx,
+            boxes = boxPositions.mapIndexed { index, position ->
+                SpriteSheetBoxPosition(
+                    frameIndex = index,
+                    x = position.x,
+                    y = position.y,
+                    width = boxSizePx,
+                    height = boxSizePx
+                )
+            }
+        )
+        return SpriteDebugState(
+            selectedBoxIndex = selectedIndex.coerceIn(boxes.indices),
+            boxes = boxes,
+            spriteSheetConfig = spriteSheetConfig
+        )
+    }
+
+    fun saveSpriteDebugState() {
+        coroutineScope.launch {
+            runCatching {
+                spriteDebugPreferences.saveState(buildSpriteDebugState())
+            }.onSuccess {
+                snackbarHostState.showSnackbar("保存しました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("保存に失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            SpriteSettingsControls(
+                selectedNumber = selectedNumber,
+                selectedPosition = selectedPosition,
+                boxSizePx = boxSizePx,
+                onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
+                onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
+                onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
+                onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
+                onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
+                onSizeDecrease = { updateBoxSize(-4) },
+                onSizeIncrease = { updateBoxSize(4) },
+                onSave = { saveSpriteDebugState() }
+            )
+        }
+    ) { innerPadding ->
         Surface(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -197,81 +272,90 @@ fun SpriteSettingsScreen(navController: NavController) {
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Top
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Button(onClick = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 }) {
-                                Text(text = "次へ")
-                            }
-                            Text(
-                                text = "選択中: $selectedNumber/9",
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                        }
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        ) {
-                            Text(text = "サイズ: ${boxSizePx}px")
-                            IconButton(onClick = { updateBoxSize(-4) }) {
-                                Text(text = "-")
-                            }
-                            IconButton(onClick = { updateBoxSize(4) }) {
-                                Text(text = "+")
-                            }
-                        }
-
-                        if (selectedPosition != null) {
-                            Text(
-                                text = "座標: ${selectedPosition.x},${selectedPosition.y},${boxSizePx},${boxSizePx}",
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Text(text = "X: ${selectedPosition.x}px")
-                                IconButton(onClick = { updateSelectedPosition(deltaX = -1, deltaY = 0) }) {
-                                    Text(text = "X-")
-                                }
-                                IconButton(onClick = { updateSelectedPosition(deltaX = 1, deltaY = 0) }) {
-                                    Text(text = "X+")
-                                }
-                            }
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            ) {
-                                Text(text = "Y: ${selectedPosition.y}px")
-                                IconButton(onClick = { updateSelectedPosition(deltaX = 0, deltaY = -1) }) {
-                                    Text(text = "Y-")
-                                }
-                                IconButton(onClick = { updateSelectedPosition(deltaX = 0, deltaY = 1) }) {
-                                    Text(text = "Y+")
-                                }
-                            }
-                        }
+                        Text("操作バーは下部に固定されています")
+                        Text("選択中: $selectedNumber/9")
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SpriteSettingsControls(
+    selectedNumber: Int,
+    selectedPosition: BoxPosition?,
+    boxSizePx: Int,
+    onNext: () -> Unit,
+    onMoveXNegative: () -> Unit,
+    onMoveXPositive: () -> Unit,
+    onMoveYNegative: () -> Unit,
+    onMoveYPositive: () -> Unit,
+    onSizeDecrease: () -> Unit,
+    onSizeIncrease: () -> Unit,
+    onSave: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onNext) {
+                    Text(text = "次へ")
+                }
+                Text(text = "選択中: $selectedNumber/9")
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = onMoveXNegative) { Text("X-") }
+                    IconButton(onClick = onMoveXPositive) { Text("X+") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = onMoveYNegative) { Text("Y-") }
+                    IconButton(onClick = onMoveYPositive) { Text("Y+") }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "サイズ: ${boxSizePx}px")
+            Spacer(modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = onSizeDecrease) { Text("-") }
+                IconButton(onClick = onSizeIncrease) { Text("+") }
+            }
+        }
+
+        Text(
+            text = selectedPosition?.let { position ->
+                "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+            } ?: "座標: -, -, -, -"
+        )
+
+        Button(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onSave
+        ) {
+            Text(text = "保存 (Sprite Debugへ)")
         }
     }
 }
