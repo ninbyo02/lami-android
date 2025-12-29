@@ -118,7 +118,10 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 composable(Routes.SPRITE_DEBUG_CANVAS) { backStackEntry ->
                                     val spriteDebugViewModel = rememberSpriteDebugViewModel(navController, backStackEntry)
-                                    SpriteDebugCanvasScreen(viewModel = spriteDebugViewModel)
+                                    SpriteDebugCanvasScreen(
+                                        viewModel = spriteDebugViewModel,
+                                        onClose = { navController.popBackStack() },
+                                    )
                                 }
                                 composable(Routes.SPRITE_DEBUG_TOOLS) { backStackEntry ->
                                     val spriteDebugViewModel = rememberSpriteDebugViewModel(navController, backStackEntry)
