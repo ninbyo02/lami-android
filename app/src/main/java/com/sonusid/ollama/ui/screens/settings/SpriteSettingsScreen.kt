@@ -358,8 +358,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
                                     if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
                                         Canvas(modifier = Modifier.fillMaxSize()) {
-                                            val scaleX = size.width / imageBitmap.width
-                                            val scaleY = size.height / imageBitmap.height
+                                            val scaleX = this.size.width / imageBitmap.width
+                                            val scaleY = this.size.height / imageBitmap.height
                                             drawRect(
                                                 color = Color.Red,
                                                 topLeft = Offset(
@@ -568,7 +568,7 @@ private fun ReadyAnimationPreview(
                 )
                 val (dstSizeInt, dstOffsetInt) = ContentScale.Fit.toDstRect(
                     srcSize = region.srcSize,
-                    canvasSize = size
+                    canvasSize = this.size
                 )
                 drawFrameRegion(
                     sheet = imageBitmap,
