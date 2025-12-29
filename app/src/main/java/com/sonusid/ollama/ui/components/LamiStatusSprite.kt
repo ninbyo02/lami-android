@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.UiState
+import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
@@ -22,6 +23,9 @@ import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
 import com.sonusid.ollama.viewmodels.bucket
 import kotlin.random.Random
 import kotlinx.coroutines.delay
+
+private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
+private val DefaultFrameIndexBound = (DefaultSpriteSheetConfig.rows * DefaultSpriteSheetConfig.cols - 1).coerceAtLeast(0)
 
 enum class LamiSpriteStatus {
     Idle,
@@ -247,7 +251,7 @@ fun LamiStatusSprite(
     }
 
     var currentFrameIndex by remember(resolvedStatus) {
-        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, 8) ?: 0)
+        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, DefaultFrameIndexBound) ?: 0)
     }
     val defaultFrameYOffsetPxMap = remember(frameMaps) {
         frameMaps.toFrameYOffsetPxMap()
@@ -275,7 +279,7 @@ fun LamiStatusSprite(
     }
 
     LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
-        currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, 8) ?: 0
+        currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, DefaultFrameIndexBound) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
         }
@@ -323,7 +327,7 @@ fun LamiStatusSprite(
         ) {
             val durationSpec = frameDurationSpec ?: animSpec.frameDuration
             for (frame in frames) {
-                currentFrameIndex = frame.coerceIn(0, 8)
+                currentFrameIndex = frame.coerceIn(0, DefaultFrameIndexBound)
                 delay(durationSpec.draw(random))
             }
         }
@@ -354,7 +358,7 @@ fun LamiStatusSprite(
                     }
                 }
 
-                currentFrameIndex = frame.coerceIn(0, 8)
+                currentFrameIndex = frame.coerceIn(0, DefaultFrameIndexBound)
                 delay(animSpec.frameDuration.draw(random))
             }
 

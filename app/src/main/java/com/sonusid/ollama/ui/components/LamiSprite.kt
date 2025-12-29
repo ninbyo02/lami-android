@@ -10,11 +10,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
@@ -28,10 +28,18 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
+import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.sprite.SpriteSheetData
+import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
+import com.sonusid.ollama.sprite.SpriteSheetLoadResult
+import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
+
+private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
+private val DefaultFrameIndexBound = (DefaultSpriteSheetConfig.rows * DefaultSpriteSheetConfig.cols - 1).coerceAtLeast(0)
 
 @Composable
 fun LamiSprite(
@@ -84,14 +92,18 @@ fun LamiSprite3x3(
     autoCropTransparentArea: Boolean = false,
     frameSizePx: IntSize? = null,
 ) {
-    val bitmap = rememberSpriteSheet(R.drawable.lami_sprite_3x3_288)
-    val safeFrameIndex = frameIndex.coerceAtLeast(0)
-    val col = safeFrameIndex % 3
-    val row = safeFrameIndex / 3
-
-    val frameSize = frameSizePx ?: IntSize(width = 96, height = 96)
-
-    val baseOffset = IntOffset(x = col * frameSize.width, y = row * frameSize.height)
+    val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
+    val spriteSheetData: SpriteSheetData? = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
+    val safeFrameIndex = frameIndex.coerceIn(0, spriteSheetData?.frameCount?.minus(1) ?: DefaultFrameIndexBound)
+    val sheetFrameRegion: SpriteSheetFrameRegion? = remember(spriteSheetData, safeFrameIndex) {
+        spriteSheetData?.frameRegion(frameIndex = safeFrameIndex)
+    }
+    val bitmap = spriteSheetData?.imageBitmap ?: return
+    val defaultFrameSize = sheetFrameRegion?.srcSize ?: IntSize.Zero
+    val baseOffset = sheetFrameRegion?.srcOffset ?: IntOffset.Zero
+    if (defaultFrameSize.width <= 0 || defaultFrameSize.height <= 0) {
+        return
+    }
     val srcOffset = if (autoCropTransparentArea) {
         val srcOffsetAdjustment = frameSrcOffsetMap[safeFrameIndex] ?: IntOffset.Zero
         IntOffset(
@@ -102,11 +114,16 @@ fun LamiSprite3x3(
         baseOffset
     }
     val srcSize = if (autoCropTransparentArea) {
-        frameSrcSizeMap[safeFrameIndex] ?: frameSize
+        frameSrcSizeMap[safeFrameIndex] ?: defaultFrameSize
     } else {
-        frameSize
+        defaultFrameSize
     }
-    val paint = remember { Paint().apply { filterQuality = FilterQuality.None } }
+    val frameRegion = remember(sheetFrameRegion, srcOffset, srcSize) {
+        SpriteFrameRegion(
+            srcOffset = srcOffset,
+            srcSize = srcSize,
+        )
+    }
 
     val dstSize = with(LocalDensity.current) {
         val sizePx = sizeDp.roundToPx().coerceAtLeast(1)
@@ -125,16 +142,13 @@ fun LamiSprite3x3(
     }
 
     Canvas(modifier = modifier.size(sizeDp)) {
-        drawIntoCanvas { canvas ->
-            canvas.drawImageRect(
-                image = bitmap,
-                srcOffset = srcOffset,
-                srcSize = srcSize,
-                dstOffset = dstOffset,
-                dstSize = dstSize,
-                paint = paint
-            )
-        }
+        drawFrameRegion(
+            sheet = bitmap,
+            region = frameRegion,
+            dstSize = dstSize,
+            dstOffset = dstOffset,
+            placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
+        )
     }
 }
 
@@ -157,7 +171,65 @@ fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
 
 @Composable
 fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
-    return rememberSpriteFrameMaps()
+    val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
+    return remember(spriteSheetState) {
+        val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
+        val measuredMaps = spriteSheetData?.let { data ->
+            measureFrameMaps(bitmap = data.bitmap, frameSize = data.cellSize, columns = data.cols)
+        }
+        measuredMaps ?: LamiSpriteFrameMaps(offsetMap = emptyMap(), sizeMap = emptyMap())
+    }
+}
+
+private fun measureFrameMaps(
+    bitmap: Bitmap,
+    frameSize: IntSize,
+    columns: Int,
+): LamiSpriteFrameMaps {
+    val offsets = mutableMapOf<Int, IntOffset>()
+    val sizes = mutableMapOf<Int, IntSize>()
+    val frameWidth = frameSize.width.coerceAtLeast(1)
+    val frameHeight = frameSize.height.coerceAtLeast(1)
+    val rows = (bitmap.height / frameHeight).coerceAtLeast(1)
+    val frameCount = columns * rows
+
+    for (frameIndex in 0 until frameCount) {
+        val col = frameIndex % columns
+        val row = frameIndex / columns
+        val startX = col * frameWidth
+        val startY = row * frameHeight
+        val endX = (startX + frameWidth).coerceAtMost(bitmap.width)
+        val endY = (startY + frameHeight).coerceAtMost(bitmap.height)
+
+        var left = frameWidth
+        var top = frameHeight
+        var right = -1
+        var bottom = -1
+
+        for (y in startY until endY) {
+            for (x in startX until endX) {
+                val alpha = (bitmap.getPixel(x, y) ushr 24) and 0xFF
+                if (alpha != 0) {
+                    val localX = x - startX
+                    val localY = y - startY
+                    if (localX < left) left = localX
+                    if (localY < top) top = localY
+                    if (localX > right) right = localX
+                    if (localY > bottom) bottom = localY
+                }
+            }
+        }
+
+        if (right >= left && bottom >= top) {
+            offsets[frameIndex] = IntOffset(x = left, y = top)
+            sizes[frameIndex] = IntSize(width = right - left + 1, height = bottom - top + 1)
+        }
+    }
+
+    return LamiSpriteFrameMaps(
+        offsetMap = offsets,
+        sizeMap = sizes,
+    )
 }
 
 @Composable

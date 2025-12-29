@@ -81,7 +81,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -119,8 +118,15 @@ import com.google.gson.Gson
 import androidx.savedstate.SavedStateRegistryOwner
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.sprite.LamiSpriteSheetRepository
+import com.sonusid.ollama.sprite.SpriteSheetLoadResult
+import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.ui.components.SpriteFrameRegion
+import com.sonusid.ollama.ui.components.drawFramePlaceholder
+import com.sonusid.ollama.ui.components.drawFrameRegion
+import com.sonusid.ollama.ui.components.toDstRect
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.copyJsonToClipboard
 import com.sonusid.ollama.ui.screens.settings.pasteJsonFromClipboard
@@ -330,6 +336,7 @@ class SpriteDebugViewModel(
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val gson: Gson = Gson(),
+    private val spriteSheetRepository: LamiSpriteSheetRepository = LamiSpriteSheetRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(initializeState())
     val uiState: StateFlow<SpriteDebugState> = _uiState.asStateFlow()
@@ -339,8 +346,6 @@ class SpriteDebugViewModel(
     val isAnalyzing: StateFlow<Boolean> = _isAnalyzing.asStateFlow()
     private val _sheetBitmap = MutableStateFlow<ImageBitmap?>(null)
     val sheetBitmap: StateFlow<ImageBitmap?> = _sheetBitmap.asStateFlow()
-    private val _reloadSignal = MutableStateFlow(0)
-    val reloadSignal: StateFlow<Int> = _reloadSignal.asStateFlow()
     private val undoStack = ArrayDeque<Bitmap>()
     private val redoStack = ArrayDeque<Bitmap>()
     private var spriteSheetBitmap: Bitmap? = null
@@ -357,6 +362,12 @@ class SpriteDebugViewModel(
             restorePersistedState()
             observeSpriteSheetConfig()
         }
+        viewModelScope.launch {
+            spriteSheetRepository.state.collect { result ->
+                val data = (result as? SpriteSheetLoadResult.Success)?.data ?: return@collect
+                setSpriteSheet(data.bitmap)
+            }
+        }
     }
 
     fun setSpriteSheet(bitmap: Bitmap?) {
@@ -368,8 +379,10 @@ class SpriteDebugViewModel(
         persistStateAsync()
     }
 
-    fun reloadSpriteSheet() {
-        _reloadSignal.update { it + 1 }
+    fun reloadSpriteSheet(context: Context) {
+        viewModelScope.launch(ioDispatcher) {
+            spriteSheetRepository.reload(context)
+        }
     }
 
     fun loadSpriteSheetFromUri(context: Context, uri: Uri, onResult: (Boolean) -> Unit = {}) {
@@ -543,12 +556,15 @@ class SpriteDebugViewModel(
         return true
     }
 
-    private fun clampBox(box: SpriteBox): SpriteBox {
-        val bitmap = spriteSheetBitmap ?: return box
-        val width = box.width.coerceIn(1f, bitmap.width.toFloat())
-        val height = box.height.coerceIn(1f, bitmap.height.toFloat())
-        val x = box.x.coerceIn(0f, bitmap.width - width)
-        val y = box.y.coerceIn(0f, bitmap.height - height)
+    private fun clampBox(box: SpriteBox): SpriteBox = spriteSheetBitmap?.let { bitmap ->
+        clampBoxToSheet(box, bitmap.width, bitmap.height)
+    } ?: box
+
+    private fun clampBoxToSheet(box: SpriteBox, sheetWidth: Int, sheetHeight: Int): SpriteBox {
+        val width = box.width.coerceIn(1f, sheetWidth.toFloat())
+        val height = box.height.coerceIn(1f, sheetHeight.toFloat())
+        val x = box.x.coerceIn(0f, sheetWidth - width)
+        val y = box.y.coerceIn(0f, sheetHeight - height)
         return box.copy(x = x, y = y, width = width, height = height)
     }
 
@@ -592,7 +608,8 @@ class SpriteDebugViewModel(
     }
 
     private fun startAnalysis(focusIndex: Int?, applyOffsetsForAll: Boolean) {
-        val frames = extractFrameBitmaps()
+        val regions = previewFrameRegions()
+        val frames = extractFrameBitmaps(regions)
         if (frames.size < 2) return
         analysisJob?.cancel()
         analysisJob = viewModelScope.launch(defaultDispatcher) {
@@ -672,39 +689,40 @@ class SpriteDebugViewModel(
         _sheetBitmap.value = spriteSheetBitmap?.asImageBitmap()
     }
 
-    fun previewFrames(): List<ImageBitmap> {
+    fun previewFrameRegions(): List<SpriteFrameRegion> {
         val bitmap = spriteSheetBitmap ?: return emptyList()
-        return _uiState.value.boxes.mapNotNull { box ->
-            val x = box.x.toInt().coerceAtLeast(0).coerceAtMost(bitmap.width - 1)
-            val y = box.y.toInt().coerceAtLeast(0).coerceAtMost(bitmap.height - 1)
-            val remainingWidth = bitmap.width - x
-            val remainingHeight = bitmap.height - y
-            if (remainingWidth <= 0 || remainingHeight <= 0) return@mapNotNull null
-            val maxWidth = remainingWidth.coerceAtLeast(1)
-            val maxHeight = remainingHeight.coerceAtLeast(1)
-            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(maxWidth)
-            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(maxHeight)
+        val regions = _uiState.value.boxes.mapNotNull { box ->
+            val clamped = clampBoxToSheet(box, bitmap.width, bitmap.height)
+            val width = clamped.width.toInt().coerceAtLeast(1)
+            val height = clamped.height.toInt().coerceAtLeast(1)
             if (width <= 0 || height <= 0) return@mapNotNull null
-            runCatching {
-                Bitmap.createBitmap(bitmap, x, y, width, height).asImageBitmap()
-            }.getOrNull()
+            SpriteFrameRegion(
+                srcOffset = IntOffset(clamped.x.toInt(), clamped.y.toInt()),
+                srcSize = IntSize(width, height),
+            )
         }
+        val estimatedBytes = regions.sumOf { it.estimatedByteSize() }
+        Log.d(
+            SPRITE_DEBUG_TAG,
+            "Prepared ${regions.size} frame regions. Estimated bitmap bytes=${estimatedBytes} (shared sheet=${bitmap.byteCount}).",
+        )
+        return regions
     }
 
-    private fun extractFrameBitmaps(): List<Bitmap> {
+    private fun extractFrameBitmaps(regions: List<SpriteFrameRegion>): List<Bitmap> {
         val bitmap = spriteSheetBitmap ?: return emptyList()
-        return _uiState.value.boxes.mapNotNull { box ->
-            val x = box.x.toInt().coerceAtLeast(0).coerceAtMost(bitmap.width - 1)
-            val y = box.y.toInt().coerceAtLeast(0).coerceAtMost(bitmap.height - 1)
-            val remainingWidth = bitmap.width - x
-            val remainingHeight = bitmap.height - y
-            if (remainingWidth <= 0 || remainingHeight <= 0) return@mapNotNull null
-            val maxWidth = remainingWidth.coerceAtLeast(1)
-            val maxHeight = remainingHeight.coerceAtLeast(1)
-            val width = box.width.toInt().coerceAtLeast(1).coerceAtMost(maxWidth)
-            val height = box.height.toInt().coerceAtLeast(1).coerceAtMost(maxHeight)
-            if (width <= 0 || height <= 0) return@mapNotNull null
-            runCatching { Bitmap.createBitmap(bitmap, x, y, width, height) }.getOrNull()
+        return regions.mapNotNull { region ->
+            val srcSize = IntSize(
+                width = region.srcSize.width.coerceIn(1, bitmap.width),
+                height = region.srcSize.height.coerceIn(1, bitmap.height),
+            )
+            val maxOffsetX = (bitmap.width - srcSize.width).coerceAtLeast(0)
+            val maxOffsetY = (bitmap.height - srcSize.height).coerceAtLeast(0)
+            val srcOffset = IntOffset(
+                x = region.srcOffset.x.coerceIn(0, maxOffsetX),
+                y = region.srcOffset.y.coerceIn(0, maxOffsetY),
+            )
+            runCatching { Bitmap.createBitmap(bitmap, srcOffset.x, srcOffset.y, srcSize.width, srcSize.height) }.getOrNull()
         }
     }
 
@@ -939,30 +957,12 @@ class SpriteDebugViewModel(
 private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
-private sealed interface SpriteBitmapLoadState {
-    object Loading : SpriteBitmapLoadState
-    data class Success(val bitmap: Bitmap) : SpriteBitmapLoadState
-    data class Error(val throwable: Throwable? = null) : SpriteBitmapLoadState
-}
-
-private suspend fun loadSpriteBitmap(context: Context): Bitmap? = withContext(Dispatchers.IO) {
-    val resources = context.resources
-    val spriteBitmap = BitmapFactory.decodeResource(resources, R.drawable.lami_sprite_3x3_288)
-    if (spriteBitmap != null && spriteBitmap.width > 0 && spriteBitmap.height > 0) {
-        Log.d(SPRITE_DEBUG_TAG, "Loaded sprite sheet lami_sprite_3x3_288 (${spriteBitmap.width}x${spriteBitmap.height})")
-        return@withContext spriteBitmap
-    }
-    Log.w(SPRITE_DEBUG_TAG, "Failed to decode sprite sheet. Sprite bitmap is null or empty.")
-    return@withContext null
-}
-
 @Composable
 fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val sheetBitmap by viewModel.sheetBitmap.collectAsState()
     val analysisResult by viewModel.analysisResult.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
-    val reloadSignal by viewModel.reloadSignal.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -970,26 +970,9 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
     val gson = remember { Gson() }
     var stateJson by remember(uiState) { mutableStateOf(gson.toJson(uiState)) }
     var analysisJson by remember(analysisResult) { mutableStateOf(analysisResult?.let { gson.toJson(it) }.orEmpty()) }
-    val spriteLoadState by produceState<SpriteBitmapLoadState>(
-        initialValue = SpriteBitmapLoadState.Loading,
-        key1 = context,
-        key2 = reloadSignal,
-    ) {
-        value = SpriteBitmapLoadState.Loading
-        val bitmap = try {
-            loadSpriteBitmap(context)
-        } catch (exception: Exception) {
-            Log.e(SPRITE_DEBUG_TAG, "Failed to load sprite sheet resource", exception)
-            value = SpriteBitmapLoadState.Error(exception)
-            return@produceState
-        }
-        if (bitmap != null) {
-            viewModel.setSpriteSheet(bitmap)
-            value = SpriteBitmapLoadState.Success(bitmap)
-        } else {
-            value = SpriteBitmapLoadState.Error()
-        }
-    }
+    val spriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
+    val spriteSheetState by rememberLamiSpriteSheetState(spriteSheetConfig)
+    val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
     val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         viewModel.loadSpriteSheetFromUri(context, uri) { success ->
@@ -1026,17 +1009,17 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
         scope.launch { snackbarHostState.showSnackbar(message) }
     }
 
-    val loadedSpriteBitmap = (spriteLoadState as? SpriteBitmapLoadState.Success)?.bitmap
-    val resolvedBitmap = remember(sheetBitmap, loadedSpriteBitmap) {
-        (sheetBitmap ?: loadedSpriteBitmap?.asImageBitmap())?.takeIf { it.width > 0 && it.height > 0 }
+    val resolvedBitmap = remember(sheetBitmap, spriteSheetData) {
+        (sheetBitmap ?: spriteSheetData?.imageBitmap)?.takeIf { it.width > 0 && it.height > 0 }
     }
-    val shouldShowLoading = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Loading
-    val shouldShowError = resolvedBitmap == null && spriteLoadState is SpriteBitmapLoadState.Error
-    LaunchedEffect(shouldShowError, sheetBitmap, loadedSpriteBitmap) {
+    val isLoadInProgress = spriteSheetState is SpriteSheetLoadResult.Loading || spriteSheetState is SpriteSheetLoadResult.Idle
+    val shouldShowLoading = resolvedBitmap == null && isLoadInProgress
+    val shouldShowError = resolvedBitmap == null && spriteSheetState is SpriteSheetLoadResult.Error
+    LaunchedEffect(shouldShowError, sheetBitmap, spriteSheetData) {
         if (shouldShowError) {
             Log.w(
                 SPRITE_DEBUG_TAG,
-                "Canvas initialization failed. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${loadedSpriteBitmap?.width}x${loadedSpriteBitmap?.height}",
+                "Canvas initialization failed. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${spriteSheetData?.bitmap?.width}x${spriteSheetData?.bitmap?.height}",
             )
             snackbarHostState.showSnackbar("Canvas初期化に失敗しました")
         }
@@ -1061,7 +1044,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 0 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                     else -> AdjustTabContent(
@@ -1084,7 +1067,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 1 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                     else -> EditTabContent(
@@ -1097,7 +1080,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 2 -> when {
                     shouldShowLoading -> LoadingCanvasPlaceholder()
                     shouldShowError -> SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                     else -> PreviewTabContent(
@@ -1114,7 +1097,7 @@ fun SpriteDebugScreen(viewModel: SpriteDebugViewModel) {
                 }
                 else -> if (shouldShowError) {
                     SpriteLoadError(
-                        onRetry = viewModel::reloadSpriteSheet,
+                        onRetry = { viewModel.reloadSpriteSheet(context) },
                         onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
                     )
                 } else {
@@ -1156,11 +1139,11 @@ private fun AdjustTabContent(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        var previewFrames by remember { mutableStateOf(emptyList<ImageBitmap>()) }
-        var selectedPreview by remember { mutableStateOf<ImageBitmap?>(null) }
+        var previewFrames by remember { mutableStateOf(emptyList<SpriteFrameRegion>()) }
+        var selectedPreview by remember { mutableStateOf<SpriteFrameRegion?>(null) }
         var lastLoggedIndex by remember { mutableStateOf<Int?>(null) }
         LaunchedEffect(uiState.selectedBoxIndex, uiState.boxes, spriteBitmap) {
-            val frames = viewModel.previewFrames()
+            val frames = viewModel.previewFrameRegions()
             previewFrames = frames
             selectedPreview = frames.getOrNull(uiState.selectedBoxIndex)
             if (selectedPreview == null && lastLoggedIndex != uiState.selectedBoxIndex) {
@@ -1215,15 +1198,21 @@ private fun AdjustTabContent(
                         contentAlignment = Alignment.Center,
                 ) {
                     val preview = selectedPreview
-                    if (preview != null) {
-                        Image(
-                            bitmap = preview,
-                            contentDescription = stringResource(R.string.sprite_selected_frame_preview_cd),
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.fillMaxSize(),
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val (dstSize, dstOffset) = ContentScale.Fit.toDstRect(
+                            srcSize = preview?.srcSize ?: IntSize.Zero,
+                            canvasSize = size,
                         )
-                    } else {
-                        Text(text = "画像が未設定", style = MaterialTheme.typography.bodyMedium)
+                        val drawn = drawFrameRegion(
+                            sheet = spriteBitmap,
+                            region = preview,
+                            dstSize = dstSize,
+                            dstOffset = dstOffset,
+                            placeholder = { offset, dst -> drawFramePlaceholder(offset, dst) },
+                        )
+                        if (!drawn) {
+                            drawFramePlaceholder(dstOffset, dstSize)
+                        }
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1261,19 +1250,28 @@ private fun AdjustTabContent(
                                             ),
                                         contentAlignment = Alignment.Center,
                                     ) {
-                                        frame?.let {
-                                            Image(
-                                                bitmap = it,
-                                                contentDescription = stringResource(R.string.sprite_frame_preview_cd, index + 1),
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
+                                        if (frame != null) {
+                                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                                val (dstSize, dstOffset) = ContentScale.Crop.toDstRect(
+                                                    srcSize = frame.srcSize,
+                                                    canvasSize = size,
+                                                )
+                                                drawFrameRegion(
+                                                    sheet = spriteBitmap,
+                                                    region = frame,
+                                                    dstSize = dstSize,
+                                                    dstOffset = dstOffset,
+                                                    placeholder = { offset, dst -> drawFramePlaceholder(offset, dst) },
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "未設定",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.padding(4.dp),
                                             )
-                                        } ?: Text(
-                                            text = "未設定",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.padding(4.dp),
-                                        )
+                                        }
                                         Text(
                                             text = stringResource(R.string.sprite_frame_label, index + 1),
                                             style = MaterialTheme.typography.labelMedium,
@@ -1455,7 +1453,7 @@ private fun PreviewTabContent(
     var frameIndex by rememberSaveable { mutableIntStateOf(0) }
     var controlsExpanded by rememberSaveable { mutableStateOf(true) }
     var previewListExpanded by rememberSaveable { mutableStateOf(false) }
-    val frames = remember(uiState.boxes, rememberedState.previewSpeedMs, sheetBitmap) { viewModel.previewFrames() }
+    val frames = remember(uiState.boxes, rememberedState.previewSpeedMs, sheetBitmap) { viewModel.previewFrameRegions() }
     val gridRows = uiState.spriteSheetConfig.rows.takeIf { it > 0 } ?: 3
     val gridColumns = uiState.spriteSheetConfig.cols.takeIf { it > 0 } ?: 3
     val gridBoxes = uiState.boxes.take(gridRows * gridColumns)
@@ -1516,17 +1514,45 @@ private fun PreviewTabContent(
                                 .border(2.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = glow), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Image(
-                                bitmap = frames[frameIndex % frames.size],
-                                contentDescription = "frame",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit,
-                            )
+                            val frame = frames[frameIndex % frames.size]
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val (dstSize, dstOffset) = ContentScale.Fit.toDstRect(
+                                    srcSize = frame.srcSize,
+                                    canvasSize = size,
+                                )
+                                drawFrameRegion(
+                                    sheet = sheetBitmap,
+                                    region = frame,
+                                    dstSize = dstSize,
+                                    dstOffset = dstOffset,
+                                    placeholder = { offset, dst -> drawFramePlaceholder(offset, dst) },
+                                )
+                            }
                             if (uiState.onionSkin && frames.size > 1) {
                                 val previous = frames[(frameIndex - 1 + frames.size) % frames.size]
                                 val next = frames[(frameIndex + 1) % frames.size]
-                                Image(bitmap = previous, contentDescription = "onion-prev", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
-                                Image(bitmap = next, contentDescription = "onion-next", modifier = Modifier.fillMaxSize(), alpha = 0.25f)
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    val (dstSize, dstOffset) = ContentScale.Fit.toDstRect(
+                                        srcSize = previous.srcSize,
+                                        canvasSize = size,
+                                    )
+                                    drawFrameRegion(
+                                        sheet = sheetBitmap,
+                                        region = previous,
+                                        dstSize = dstSize,
+                                        dstOffset = dstOffset,
+                                        alpha = 0.25f,
+                                        placeholder = { offset, dst -> drawFramePlaceholder(offset, dst) },
+                                    )
+                                    drawFrameRegion(
+                                        sheet = sheetBitmap,
+                                        region = next,
+                                        dstSize = dstSize,
+                                        dstOffset = dstOffset,
+                                        alpha = 0.25f,
+                                        placeholder = { offset, dst -> drawFramePlaceholder(offset, dst) },
+                                    )
+                                }
                             }
                             if (uiState.showCenterLine) {
                                 val previewCenterLineColor = MaterialTheme.colorScheme.secondary
@@ -1548,6 +1574,7 @@ private fun PreviewTabContent(
                         }
                         PreviewGridCanvas(
                             frames = frames,
+                            sheetBitmap = sheetBitmap,
                             boxes = gridBoxes,
                             rows = gridRows,
                             columns = gridColumns,
@@ -1739,7 +1766,8 @@ private fun PreviewTabContent(
 
 @Composable
 private fun PreviewGridCanvas(
-    frames: List<ImageBitmap>,
+    frames: List<SpriteFrameRegion>,
+    sheetBitmap: ImageBitmap?,
     boxes: List<SpriteBox>,
     rows: Int,
     columns: Int,
@@ -1816,21 +1844,24 @@ private fun PreviewGridCanvas(
             }
             boxes.forEachIndexed { localIndex, box ->
                 val frameIndex = box.index
-                val frameBitmap = frames.getOrNull(frameIndex) ?: frames.getOrNull(localIndex)
+                val frameRegion = frames.getOrNull(frameIndex) ?: frames.getOrNull(localIndex)
                 val row = localIndex / safeColumns
                 val column = localIndex % safeColumns
                 val topLeft = Offset(column * cellWidth, row * cellHeight)
                 val cellSize = Size(cellWidth, cellHeight)
-                frameBitmap?.let { image ->
-                    val scale = min(cellWidth / image.width, cellHeight / image.height)
-                    val drawWidth = image.width * scale
-                    val drawHeight = image.height * scale
-                    val offsetX = topLeft.x + (cellWidth - drawWidth) / 2f
-                    val offsetY = topLeft.y + (cellHeight - drawHeight) / 2f
-                    drawImage(
-                        image = image,
-                        dstSize = IntSize(drawWidth.roundToInt(), drawHeight.roundToInt()),
-                        dstOffset = IntOffset(offsetX.roundToInt(), offsetY.roundToInt()),
+                frameRegion?.let { region ->
+                    val dstWidth = min(cellWidth, cellHeight)
+                    val dstSize = IntSize(dstWidth.roundToInt(), dstWidth.roundToInt())
+                    val dstOffset = IntOffset(
+                        x = (topLeft.x + (cellWidth - dstSize.width) / 2f).roundToInt(),
+                        y = (topLeft.y + (cellHeight - dstSize.height) / 2f).roundToInt(),
+                    )
+                    drawFrameRegion(
+                        sheet = sheetBitmap,
+                        region = region,
+                        dstSize = dstSize,
+                        dstOffset = dstOffset,
+                        placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
                     )
                 }
                 val isSelected = selectedBoxIndex == frameIndex

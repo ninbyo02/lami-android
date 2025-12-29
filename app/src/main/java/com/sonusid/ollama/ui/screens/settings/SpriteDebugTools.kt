@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiSprite3x3
 import com.sonusid.ollama.ui.components.LamiStatusSprite
@@ -69,16 +70,17 @@ fun SpriteDebugTools(navController: NavController, viewModel: SpriteDebugViewMod
     var rawFrameIndex by rememberSaveable { mutableStateOf(0f) }
     val spriteDebugState by viewModel.uiState.collectAsState()
 
+    val spriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
     val frameMaps = rememberLamiSprite3x3FrameMaps()
     val frameYOffsetMap = remember(frameMaps) { frameMaps.toFrameYOffsetPxMap() }
-    val maxFrameIndex = remember(frameMaps) {
-        listOf(
+    val maxFrameIndex = remember(frameMaps, spriteSheetConfig) {
+        val measuredMax = listOf(
             frameMaps.offsetMap.keys.maxOrNull(),
             frameMaps.sizeMap.keys.maxOrNull()
         ).mapNotNull { it }
             .maxOrNull()
-            ?.coerceAtLeast(8)
-            ?: 8
+        val configMaxIndex = (spriteSheetConfig.rows * spriteSheetConfig.cols - 1).coerceAtLeast(0)
+        measuredMax?.coerceAtLeast(configMaxIndex) ?: configMaxIndex
     }
     val frameIndex = rawFrameIndex.roundToInt().coerceIn(0, maxFrameIndex)
     val frameInfo = remember(frameMaps, frameIndex) {
