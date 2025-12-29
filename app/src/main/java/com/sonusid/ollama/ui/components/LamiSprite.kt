@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.components
 
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -30,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.data.normalize
 import com.sonusid.ollama.sprite.SpriteSheetData
 import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
 import com.sonusid.ollama.sprite.SpriteSheetLoadResult
@@ -40,7 +40,6 @@ import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
 
 private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
-private val DefaultFrameIndexBound = (DefaultSpriteSheetConfig.rows * DefaultSpriteSheetConfig.cols - 1).coerceAtLeast(0)
 
 @Composable
 fun LamiSprite(
@@ -92,17 +91,33 @@ fun LamiSprite3x3(
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
     frameSizePx: IntSize? = null,
+    frameMaps: LamiSpriteFrameMaps? = null,
+    spriteSheetConfig: SpriteSheetConfig = DefaultSpriteSheetConfig,
 ) {
-    val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
+    val normalizedConfig = remember(spriteSheetConfig) {
+        spriteSheetConfig.normalize(DefaultSpriteSheetConfig)
+    }
+    val spriteSheetState by rememberLamiSpriteSheetState(normalizedConfig)
     val spriteSheetData: SpriteSheetData? = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
-    val safeFrameIndex = frameIndex.coerceIn(0, spriteSheetData?.frameCount?.minus(1) ?: DefaultFrameIndexBound)
-    val sheetFrameRegion: SpriteSheetFrameRegion? = remember(spriteSheetData, safeFrameIndex) {
+    val safeFrameIndexBound = (normalizedConfig.frameCount - 1).coerceAtLeast(0)
+    val safeFrameIndex = frameIndex.coerceIn(0, safeFrameIndexBound)
+    val sheetFrameRegion: SpriteSheetFrameRegion? = remember(spriteSheetData, safeFrameIndex, normalizedConfig) {
         spriteSheetData?.frameRegion(frameIndex = safeFrameIndex)
     }
     val bitmap = spriteSheetData?.imageBitmap ?: return
-    val defaultFrameSize = sheetFrameRegion?.srcSize ?: IntSize.Zero
-    val baseOffset = sheetFrameRegion?.srcOffset ?: IntOffset.Zero
-    if (defaultFrameSize.width <= 0 || defaultFrameSize.height <= 0) {
+    val defaultFrameSize = frameSizePx
+        ?: frameMaps?.frameSize
+        ?: sheetFrameRegion?.srcSize
+        ?: IntSize(width = normalizedConfig.frameWidth, height = normalizedConfig.frameHeight)
+    val baseOffset = frameMaps?.offsetMap?.get(safeFrameIndex)
+        ?: frameSrcOffsetMap[safeFrameIndex]
+        ?: sheetFrameRegion?.srcOffset
+        ?: IntOffset.Zero
+    val baseSize = frameMaps?.sizeMap?.get(safeFrameIndex)
+        ?: frameSrcSizeMap[safeFrameIndex]
+        ?: sheetFrameRegion?.srcSize
+        ?: defaultFrameSize
+    if (baseSize.width <= 0 || baseSize.height <= 0) {
         return
     }
     val srcOffset = if (autoCropTransparentArea) {
@@ -115,9 +130,9 @@ fun LamiSprite3x3(
         baseOffset
     }
     val srcSize = if (autoCropTransparentArea) {
-        frameSrcSizeMap[safeFrameIndex] ?: defaultFrameSize
+        frameSrcSizeMap[safeFrameIndex] ?: baseSize
     } else {
-        defaultFrameSize
+        baseSize
     }
     val frameRegion = remember(sheetFrameRegion, srcOffset, srcSize) {
         SpriteFrameRegion(
@@ -168,76 +183,6 @@ fun LamiSpriteFrameMaps.toFrameYOffsetPxMap(): Map<Int, Int> {
         val rowTop = (index / safeColumns) * frameHeight
         offset.y - rowTop
     }
-}
-
-@Composable
-fun rememberLamiSprite3x3FrameMaps(): LamiSpriteFrameMaps {
-    val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
-    return remember(spriteSheetState) {
-        val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
-        val measuredMaps = spriteSheetData?.let { data ->
-            measureFrameMaps(bitmap = data.bitmap, frameSize = data.cellSize, columns = data.cols)
-        }
-        measuredMaps ?: LamiSpriteFrameMaps(
-            offsetMap = emptyMap(),
-            sizeMap = emptyMap(),
-            frameSize = IntSize.Zero,
-            columns = DefaultSpriteSheetConfig.cols.coerceAtLeast(1),
-        )
-    }
-}
-
-private fun measureFrameMaps(
-    bitmap: Bitmap,
-    frameSize: IntSize,
-    columns: Int,
-): LamiSpriteFrameMaps {
-    val offsets = mutableMapOf<Int, IntOffset>()
-    val sizes = mutableMapOf<Int, IntSize>()
-    val frameWidth = frameSize.width.coerceAtLeast(1)
-    val frameHeight = frameSize.height.coerceAtLeast(1)
-    val rows = (bitmap.height / frameHeight).coerceAtLeast(1)
-    val frameCount = columns * rows
-
-    for (frameIndex in 0 until frameCount) {
-        val col = frameIndex % columns
-        val row = frameIndex / columns
-        val startX = col * frameWidth
-        val startY = row * frameHeight
-        val endX = (startX + frameWidth).coerceAtMost(bitmap.width)
-        val endY = (startY + frameHeight).coerceAtMost(bitmap.height)
-
-        var left = frameWidth
-        var top = frameHeight
-        var right = -1
-        var bottom = -1
-
-        for (y in startY until endY) {
-            for (x in startX until endX) {
-                val alpha = (bitmap.getPixel(x, y) ushr 24) and 0xFF
-                if (alpha != 0) {
-                    val localX = x - startX
-                    val localY = y - startY
-                    if (localX < left) left = localX
-                    if (localY < top) top = localY
-                    if (localX > right) right = localX
-                    if (localY > bottom) bottom = localY
-                }
-            }
-        }
-
-        if (right >= left && bottom >= top) {
-            offsets[frameIndex] = IntOffset(x = left, y = top)
-            sizes[frameIndex] = IntSize(width = right - left + 1, height = bottom - top + 1)
-        }
-    }
-
-    return LamiSpriteFrameMaps(
-        offsetMap = offsets,
-        sizeMap = sizes,
-        frameSize = frameSize,
-        columns = columns,
-    )
 }
 
 @Composable

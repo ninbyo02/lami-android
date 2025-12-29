@@ -5,6 +5,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,16 +17,13 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.viewmodels.LamiAnimationStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
-import com.sonusid.ollama.viewmodels.LamiAnimationStatus
-import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
 import com.sonusid.ollama.viewmodels.bucket
-import kotlin.random.Random
+import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
 import kotlinx.coroutines.delay
-
-private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
-private val DefaultFrameIndexBound = (DefaultSpriteSheetConfig.rows * DefaultSpriteSheetConfig.cols - 1).coerceAtLeast(0)
+import kotlin.random.Random
 
 enum class LamiSpriteStatus {
     Idle,
@@ -215,7 +213,11 @@ fun LamiStatusSprite(
     autoCropTransparentArea: Boolean = false,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
-    val frameMaps = rememberLamiSprite3x3FrameMaps()
+    val spriteFrameRepository = rememberSpriteFrameRepository()
+    val frameMaps = rememberSpriteFrameMaps(repository = spriteFrameRepository)
+    val defaultConfig = remember { SpriteSheetConfig.default3x3() }
+    val spriteSheetConfig by spriteFrameRepository.spriteSheetConfig.collectAsState(initial = defaultConfig)
+    val maxFrameIndex = remember(spriteSheetConfig) { (spriteSheetConfig.frameCount - 1).coerceAtLeast(0) }
     val resolvedFrameSrcOffsetMap = remember(
         autoCropTransparentArea,
         frameSrcOffsetMap,
@@ -250,8 +252,8 @@ fun LamiStatusSprite(
         statusAnimationMap[resolvedStatus] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
     }
 
-    var currentFrameIndex by remember(resolvedStatus) {
-        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, DefaultFrameIndexBound) ?: 0)
+    var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
+        mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
     val defaultFrameYOffsetPxMap = remember(frameMaps) {
         frameMaps.toFrameYOffsetPxMap()
@@ -279,7 +281,7 @@ fun LamiStatusSprite(
     }
 
     LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
-        currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, DefaultFrameIndexBound) ?: 0
+        currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
         }
@@ -327,7 +329,7 @@ fun LamiStatusSprite(
         ) {
             val durationSpec = frameDurationSpec ?: animSpec.frameDuration
             for (frame in frames) {
-                currentFrameIndex = frame.coerceIn(0, DefaultFrameIndexBound)
+                currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
                 delay(durationSpec.draw(random))
             }
         }
@@ -358,7 +360,7 @@ fun LamiStatusSprite(
                     }
                 }
 
-                currentFrameIndex = frame.coerceIn(0, DefaultFrameIndexBound)
+                currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
                 delay(animSpec.frameDuration.draw(random))
             }
 
@@ -385,6 +387,8 @@ fun LamiStatusSprite(
         frameSrcSizeMap = resolvedFrameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
         frameSizePx = frameMaps.frameSize,
+        frameMaps = frameMaps,
+        spriteSheetConfig = spriteSheetConfig,
     )
 }
 

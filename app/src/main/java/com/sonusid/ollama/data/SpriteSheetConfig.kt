@@ -120,3 +120,11 @@ fun SpriteSheetConfig.boxesWithInternalIndex(): List<BoxPosition> {
 fun SpriteSheetConfig.isUninitialized(): Boolean {
     return frameWidth <= 0 || frameHeight <= 0 || boxes.isEmpty()
 }
+
+fun SpriteSheetConfig.toSpriteBoxes(): List<BoxPosition> = boxesWithInternalIndex()
+
+fun SpriteSheetConfig.normalize(defaultConfig: SpriteSheetConfig = SpriteSheetConfig.default3x3()): SpriteSheetConfig {
+    val validationError = validate()
+    if (isUninitialized() || validationError != null) return defaultConfig
+    return copy(boxes = boxesWithInternalIndex())
+}

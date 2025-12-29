@@ -9,8 +9,9 @@ import androidx.compose.ui.unit.IntSize
 import com.sonusid.ollama.data.BoxPosition
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
-import com.sonusid.ollama.data.isUninitialized
+import com.sonusid.ollama.data.normalize
 import com.sonusid.ollama.data.toInternalFrameIndex
+import com.sonusid.ollama.data.toSpriteBoxes
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -27,15 +28,20 @@ class SpriteFrameRepository(
         .toSpriteBoxes()
         .toFrameMaps(defaultConfig)
 
-    val frameMaps: Flow<LamiSpriteFrameMaps> = settingsPreferences.spriteSheetConfig
+    val spriteSheetConfig: Flow<SpriteSheetConfig> = settingsPreferences.spriteSheetConfig
+        .map { config -> config.normalize(defaultConfig) }
+        .onStart { emit(defaultConfig) }
+        .catch { emit(defaultConfig) }
+
+    val frameMaps: Flow<LamiSpriteFrameMaps> = spriteSheetConfig
         .map { config ->
-            val normalized = config.normalize(defaultConfig)
-            normalized.toSpriteBoxes().toFrameMaps(normalized)
+            config.toSpriteBoxes().toFrameMaps(config)
         }
         .onStart { emit(defaultFrameMaps) }
         .catch { emit(defaultFrameMaps) }
 
     suspend fun latestFrameMaps(): LamiSpriteFrameMaps = frameMaps.first()
+    suspend fun latestConfig(): SpriteSheetConfig = spriteSheetConfig.first()
 }
 
 @Composable
@@ -85,12 +91,4 @@ fun List<BoxPosition>.toFrameMaps(config: SpriteSheetConfig): LamiSpriteFrameMap
         frameSize = IntSize(width = frameWidth, height = frameHeight),
         columns = columns,
     )
-}
-
-fun SpriteSheetConfig.toSpriteBoxes(): List<BoxPosition> = boxesWithInternalIndex()
-
-fun SpriteSheetConfig.normalize(defaultConfig: SpriteSheetConfig = SpriteSheetConfig.default3x3()): SpriteSheetConfig {
-    val validationError = validate()
-    if (isUninitialized() || validationError != null) return defaultConfig
-    return copy(boxes = boxesWithInternalIndex())
 }
