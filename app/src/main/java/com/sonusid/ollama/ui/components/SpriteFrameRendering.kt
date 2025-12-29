@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawImage
+import androidx.compose.ui.graphics.drawscope.drawImageRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -78,7 +78,7 @@ fun DrawScope.drawFrameRegion(
     )
 
     return runCatching {
-        drawImage(
+        drawImageRect(
             image = sheet,
             srcOffset = srcOffset,
             srcSize = IntSize(srcWidth, srcHeight),

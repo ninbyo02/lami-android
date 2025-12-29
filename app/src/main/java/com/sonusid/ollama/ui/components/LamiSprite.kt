@@ -30,10 +30,12 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 import com.sonusid.ollama.R
+import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.sprite.SpriteSheetData
+import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
+import com.sonusid.ollama.sprite.SpriteSheetLoadResult
+import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.viewmodels.LamiState
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
-import com.sonusid.ollama.ui.components.drawFramePlaceholder
-import com.sonusid.ollama.ui.components.drawFrameRegion
 import kotlin.math.roundToInt
 
 private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
@@ -90,14 +92,14 @@ fun LamiSprite3x3(
     autoCropTransparentArea: Boolean = false,
 ) {
     val spriteSheetState by rememberLamiSpriteSheetState(DefaultSpriteSheetConfig)
-    val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
+    val spriteSheetData: SpriteSheetData? = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
     val safeFrameIndex = frameIndex.coerceIn(0, spriteSheetData?.frameCount?.minus(1) ?: DefaultFrameIndexBound)
-    val frameRegion = remember(spriteSheetData, safeFrameIndex) {
+    val sheetFrameRegion: SpriteSheetFrameRegion? = remember(spriteSheetData, safeFrameIndex) {
         spriteSheetData?.frameRegion(frameIndex = safeFrameIndex)
     }
     val bitmap = spriteSheetData?.imageBitmap ?: return
-    val defaultFrameSize = frameRegion?.srcSize ?: IntSize.Zero
-    val baseOffset = frameRegion?.srcOffset ?: IntOffset.Zero
+    val defaultFrameSize = sheetFrameRegion?.srcSize ?: IntSize.Zero
+    val baseOffset = sheetFrameRegion?.srcOffset ?: IntOffset.Zero
     if (defaultFrameSize.width <= 0 || defaultFrameSize.height <= 0) {
         return
     }
@@ -116,8 +118,11 @@ fun LamiSprite3x3(
         defaultFrameSize
     }
     val paint = rememberFramePaint(filterQuality = FilterQuality.None)
-    val frameRegion = remember(srcOffset, srcSize) {
-        SpriteFrameRegion(srcOffset = srcOffset, srcSize = srcSize)
+    val frameRegion = remember(sheetFrameRegion, srcOffset, srcSize) {
+        SpriteFrameRegion(
+            srcOffset = srcOffset,
+            srcSize = srcSize,
+        )
     }
 
     val dstSize = with(LocalDensity.current) {
