@@ -9,8 +9,6 @@ import android.graphics.PorterDuffXfermode
 import android.net.Uri
 import android.os.Parcelable
 import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -46,11 +44,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,17 +63,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -122,7 +114,6 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.sprite.LamiSpriteSheetRepository
 import com.sonusid.ollama.sprite.SpriteSheetLoadResult
-import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.ui.components.LamiSpriteStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
@@ -959,179 +950,35 @@ class SpriteDebugViewModel(
 private fun SpriteDebugState?.orEmptyState(): SpriteDebugState = this ?: SpriteDebugState()
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpriteDebugScreen(
     viewModel: SpriteDebugViewModel,
     onClose: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val sheetBitmap by viewModel.sheetBitmap.collectAsState()
-    val analysisResult by viewModel.analysisResult.collectAsState()
-    val isAnalyzing by viewModel.isAnalyzing.collectAsState()
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val gson = remember { Gson() }
-    var stateJson by remember(uiState) { mutableStateOf(gson.toJson(uiState)) }
-    var analysisJson by remember(analysisResult) { mutableStateOf(analysisResult?.let { gson.toJson(it) }.orEmpty()) }
-    val spriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
-    val spriteSheetState by rememberLamiSpriteSheetState(spriteSheetConfig)
-    val spriteSheetData = (spriteSheetState as? SpriteSheetLoadResult.Success)?.data
-    val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        viewModel.loadSpriteSheetFromUri(context, uri) { success ->
-            if (!success) {
-                scope.launch { snackbarHostState.showSnackbar("ファイルの読み込みに失敗しました") }
-            }
-        }
-    }
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var selectedStatusName by rememberSaveable { mutableStateOf(LamiSpriteStatus.Idle.name) }
-    val selectedStatus = remember(selectedStatusName) {
-        runCatching { LamiSpriteStatus.valueOf(selectedStatusName) }.getOrDefault(LamiSpriteStatus.Idle)
-    }
-    val statusDescriptions = LamiSpriteStatus.values().associateWith { status ->
-        when (status) {
-            LamiSpriteStatus.Idle -> stringResource(R.string.sprite_status_desc_idle)
-            LamiSpriteStatus.TalkLong -> stringResource(R.string.sprite_status_desc_talk_long)
-            LamiSpriteStatus.TalkCalm -> stringResource(R.string.sprite_status_desc_talk_calm)
-            LamiSpriteStatus.Thinking -> stringResource(R.string.sprite_status_desc_thinking)
-            else -> stringResource(R.string.sprite_status_intro)
-        }
-    }
-
-    var rememberedState by rememberSaveable { mutableStateOf(uiState) }
-    val fallbackSpriteBitmap = remember(context) {
-        BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)?.asImageBitmap()
-    }
-
-    LaunchedEffect(uiState) {
-        rememberedState = uiState
-    }
-
-    LaunchedEffect(rememberedState.selectedBoxIndex) { viewModel.selectBox(rememberedState.selectedBoxIndex) }
-    LaunchedEffect(rememberedState.step) { viewModel.updateStep(rememberedState.step) }
-
-    fun showError(message: String) {
-        scope.launch { snackbarHostState.showSnackbar(message) }
-    }
-
-    val resolvedBitmap = remember(sheetBitmap, spriteSheetData, fallbackSpriteBitmap) {
-        listOfNotNull(sheetBitmap, spriteSheetData?.imageBitmap, fallbackSpriteBitmap)
-            .firstOrNull()
-            ?.takeIf { it.width > 0 && it.height > 0 }
-    }
-    val isLoadInProgress = spriteSheetState is SpriteSheetLoadResult.Loading || spriteSheetState is SpriteSheetLoadResult.Idle
-    val shouldShowLoading = resolvedBitmap == null && isLoadInProgress
-    val shouldShowError = resolvedBitmap == null && spriteSheetState is SpriteSheetLoadResult.Error
-    LaunchedEffect(shouldShowError, sheetBitmap, spriteSheetData) {
-        if (shouldShowError) {
-            Log.w(
-                SPRITE_DEBUG_TAG,
-                "Canvas initialization failed. sheetBitmap=${sheetBitmap?.width}x${sheetBitmap?.height}, loaded=${spriteSheetData?.bitmap?.width}x${spriteSheetData?.bitmap?.height}",
-            )
-            snackbarHostState.showSnackbar("Canvas初期化に失敗しました")
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Sprite Debug") },
-                navigationIcon = {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "閉じる",
-                        )
-                    }
-                },
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "Sprite debug temporarily disabled",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = "Please check back later.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Button(
+            onClick = onClose,
+            modifier = Modifier.padding(top = 16.dp),
         ) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }, text = { Text(stringResource(R.string.sprite_tab_image_adjust)) })
-                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }, text = { Text(stringResource(R.string.sprite_tab_frame_edit)) })
-                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text(stringResource(R.string.sprite_tab_animation_check)) })
-                Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 }, text = { Text(stringResource(R.string.sprite_tab_status)) })
-            }
-            when (selectedTab) {
-                0 -> when {
-                    shouldShowLoading -> LoadingCanvasPlaceholder()
-                    shouldShowError -> SpriteLoadError(
-                        onRetry = { viewModel.reloadSpriteSheet(context) },
-                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
-                    )
-                    else -> AdjustTabContent(
-                        uiState = uiState,
-                        rememberedState = rememberedState,
-                        spriteBitmap = resolvedBitmap!!,
-                        onRememberedStateChange = { rememberedState = it },
-                        viewModel = viewModel,
-                        isAnalyzing = isAnalyzing,
-                        clipboardManager = clipboardManager,
-                        snackbarHostState = snackbarHostState,
-                        scope = scope,
-                        stateJson = stateJson,
-                        onStateJsonChange = { stateJson = it },
-                        analysisJson = analysisJson,
-                        onAnalysisJsonChange = { analysisJson = it },
-                        onError = ::showError,
-                    )
-                }
-                1 -> when {
-                    shouldShowLoading -> LoadingCanvasPlaceholder()
-                    shouldShowError -> SpriteLoadError(
-                        onRetry = { viewModel.reloadSpriteSheet(context) },
-                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
-                    )
-                    else -> EditTabContent(
-                        uiState = uiState,
-                        spriteBitmap = resolvedBitmap!!,
-                        onRememberedStateChange = { rememberedState = it },
-                        viewModel = viewModel,
-                    )
-                }
-                2 -> when {
-                    shouldShowLoading -> LoadingCanvasPlaceholder()
-                    shouldShowError -> SpriteLoadError(
-                        onRetry = { viewModel.reloadSpriteSheet(context) },
-                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
-                    )
-                    else -> PreviewTabContent(
-                        uiState = uiState,
-                        viewModel = viewModel,
-                        rememberedState = rememberedState,
-                        sheetBitmap = resolvedBitmap,
-                        isAnalyzing = isAnalyzing,
-                        onRememberedStateChange = { rememberedState = it },
-                        selectedStatus = selectedStatus,
-                        statusDescriptions = statusDescriptions,
-                        onNavigateToStatusTab = { selectedTab = 3 },
-                    )
-                }
-                else -> if (shouldShowError) {
-                    SpriteLoadError(
-                        onRetry = { viewModel.reloadSpriteSheet(context) },
-                        onOpenDocument = { openDocumentLauncher.launch(arrayOf("image/*")) },
-                    )
-                } else {
-                    GalleryTabContent(
-                        selectedStatus = selectedStatus,
-                        onStatusSelected = { status -> selectedStatusName = status.name },
-                        statusDescriptions = statusDescriptions,
-                    )
-                }
-            }
+            Text(text = "閉じる")
         }
     }
 }
