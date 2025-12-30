@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoView
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -1041,6 +1045,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
@@ -1078,14 +1083,14 @@ private fun ReadyAnimationTab(
 ) {
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val scrollToSettings: () -> Unit = {
-        coroutineScope.launch { lazyListState.animateScrollToItem(0) }
+    val bringIntoView: (BringIntoViewRequester) -> Unit = { requester ->
+        coroutineScope.launch { requester.bringIntoView() }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 12.dp, bottom = 24.dp)
+            .padding(top = 8.dp, bottom = 12.dp)
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -1102,7 +1107,7 @@ private fun ReadyAnimationTab(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -1110,7 +1115,8 @@ private fun ReadyAnimationTab(
                 .imePadding()
                 .navigationBarsPadding(),
             state = lazyListState,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 12.dp, top = 4.dp)
         ) {
             item {
                 ReadyAnimationSettingsPane(
@@ -1140,7 +1146,7 @@ private fun ReadyAnimationTab(
                     insertionEveryNError = insertionEveryNError,
                     insertionProbabilityError = insertionProbabilityError,
                     insertionCooldownError = insertionCooldownError,
-                    onFieldFocused = scrollToSettings,
+                    onFieldFocused = bringIntoView,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1190,6 +1196,7 @@ private fun AnimationDropdown(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun ReadyForm(
     readyFrameInput: String,
     onReadyFrameInputChange: (String) -> Unit,
@@ -1197,8 +1204,11 @@ private fun ReadyForm(
     onReadyIntervalInputChange: (String) -> Unit,
     readyFramesError: String?,
     readyIntervalError: String?,
-    onFieldFocused: () -> Unit,
+    onFieldFocused: (BringIntoViewRequester) -> Unit,
 ) {
+    val frameBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val intervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1208,8 +1218,9 @@ private fun ReadyForm(
             onValueChange = onReadyFrameInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(frameBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(frameBringIntoViewRequester)
                 },
             label = { Text("フレーム列 (例: 1,2,3)") },
             singleLine = true,
@@ -1223,8 +1234,9 @@ private fun ReadyForm(
             onValueChange = onReadyIntervalInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(intervalBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(intervalBringIntoViewRequester)
                 },
             label = { Text("周期 (ms)") },
             singleLine = true,
@@ -1238,6 +1250,7 @@ private fun ReadyForm(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun InsertionForm(
     insertionFrameInput: String,
     onInsertionFrameInputChange: (String) -> Unit,
@@ -1256,8 +1269,14 @@ private fun InsertionForm(
     insertionEveryNError: String?,
     insertionProbabilityError: String?,
     insertionCooldownError: String?,
-    onFieldFocused: () -> Unit,
+    onFieldFocused: (BringIntoViewRequester) -> Unit,
 ) {
+    val framesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val intervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val everyNBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val probabilityBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val cooldownBringIntoViewRequester = remember { BringIntoViewRequester() }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1267,8 +1286,9 @@ private fun InsertionForm(
             onValueChange = onInsertionFrameInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(framesBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(framesBringIntoViewRequester)
                 },
             label = { Text("挿入フレーム列（例: 4,5,6）") },
             singleLine = true,
@@ -1282,8 +1302,9 @@ private fun InsertionForm(
             onValueChange = onInsertionIntervalInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(intervalBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(intervalBringIntoViewRequester)
                 },
             label = { Text("挿入周期（ms）") },
             singleLine = true,
@@ -1298,8 +1319,9 @@ private fun InsertionForm(
             onValueChange = onInsertionEveryNInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(everyNBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(everyNBringIntoViewRequester)
                 },
             label = { Text("毎 N ループ") },
             singleLine = true,
@@ -1314,8 +1336,9 @@ private fun InsertionForm(
             onValueChange = onInsertionProbabilityInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(probabilityBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(probabilityBringIntoViewRequester)
                 },
             label = { Text("確率（%）") },
             singleLine = true,
@@ -1330,8 +1353,9 @@ private fun InsertionForm(
             onValueChange = onInsertionCooldownInputChange,
             modifier = Modifier
                 .fillMaxWidth()
+                .bringIntoViewRequester(cooldownBringIntoViewRequester)
                 .onFocusChanged { event ->
-                    if (event.isFocused) onFieldFocused()
+                    if (event.isFocused) onFieldFocused(cooldownBringIntoViewRequester)
                 },
             label = { Text("クールダウン（ループ）") },
             singleLine = true,
@@ -1496,7 +1520,7 @@ private fun ReadyAnimationSettingsPane(
     insertionEveryNError: String?,
     insertionProbabilityError: String?,
     insertionCooldownError: String?,
-    onFieldFocused: () -> Unit,
+    onFieldFocused: (BringIntoViewRequester) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -1595,7 +1619,7 @@ private fun ReadyAnimationPreviewPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 300.dp)
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
@@ -1603,7 +1627,7 @@ private fun ReadyAnimationPreviewPane(
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
