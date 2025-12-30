@@ -631,7 +631,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     val footerHeight = 80.dp
 
-    val onAnimationApply: () -> Unit = {
+    val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
             coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
             return@onAnimationApply
@@ -693,7 +693,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    val onAnimationSave: () -> Unit = {
+    val onAnimationSave: () -> Unit = onAnimationSave@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
             coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
             return@onAnimationSave
