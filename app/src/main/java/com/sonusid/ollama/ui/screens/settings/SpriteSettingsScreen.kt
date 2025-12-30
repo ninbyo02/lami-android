@@ -94,7 +94,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.semantics.Role
 import androidx.navigation.NavController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -1744,30 +1743,28 @@ private fun ReadyAnimationPreviewPane(
                             expanded = showDetails,
                             onClick = { showDetails = !showDetails },
                         )
-                        if (BuildConfig.DEBUG) {
-                            // TEMP: debug param offset adjuster (remove later)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        // TEMP: debug param offset adjuster (remove later)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Y:${if (paramOffsetDp >= 0) "+" else ""}${paramOffsetDp}dp",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            IconButton(
+                                onClick = {
+                                    paramOffsetDp = (paramOffsetDp + 1).coerceIn(-200, 200)
+                                }
                             ) {
-                                Text(
-                                    text = "Y:${if (paramOffsetDp >= 0) "+" else ""}${paramOffsetDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(
-                                    onClick = {
-                                        paramOffsetDp = (paramOffsetDp + 1).coerceIn(-200, 200)
-                                    }
-                                ) {
-                                    Text("▲")
+                                Text("▲")
+                            }
+                            IconButton(
+                                onClick = {
+                                    paramOffsetDp = (paramOffsetDp - 1).coerceIn(-200, 200)
                                 }
-                                IconButton(
-                                    onClick = {
-                                        paramOffsetDp = (paramOffsetDp - 1).coerceIn(-200, 200)
-                                    }
-                                ) {
-                                    Text("▼")
-                                }
+                            ) {
+                                Text("▼")
                             }
                         }
                     }
