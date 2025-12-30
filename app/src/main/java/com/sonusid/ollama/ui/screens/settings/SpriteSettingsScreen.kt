@@ -1738,12 +1738,13 @@ private fun ReadyAnimationPreviewPane(
 private fun DetailsToggle(
     expanded: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Text(
         text = "詳細 ${if (expanded) "▴" else "▾"}",
         color = MaterialTheme.colorScheme.primary,
         style = MaterialTheme.typography.labelLarge,
-        modifier = Modifier
+        modifier = modifier
             .wrapContentHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
