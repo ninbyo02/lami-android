@@ -19,9 +19,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -1216,11 +1216,10 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .imePadding()
-                .navigationBarsPadding(),
+                .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 8.dp, top = 4.dp)
+            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
         ) {
             item {
                 Column(
@@ -1847,3 +1846,4 @@ private fun formatInsertionDetail(
     // keep short to avoid card growth; joins with double space to mimic spec formatting
     return parts.joinToString(separator = "  ")
 }
+import androidx.compose.foundation.layout.windowInsetsPadding
