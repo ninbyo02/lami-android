@@ -1646,7 +1646,7 @@ private fun ReadyAnimationPreview(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(top = 2.dp), // パラメータ群を軽く上方向に寄せる
+                .padding(top = 0.dp), // Move parameter block up by 6dp
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
@@ -1709,7 +1709,7 @@ private fun ReadyAnimationPreviewPane(
                 .fillMaxWidth()
                 .height(if (isImeVisible) 220.dp else 300.dp)
                 // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                .padding(horizontal = 12.dp, vertical = if (isImeVisible) 4.dp else 6.dp)
+                .padding(horizontal = 12.dp, vertical = if (isImeVisible) 0.dp else 2.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = if (isImeVisible) {
