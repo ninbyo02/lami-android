@@ -73,6 +73,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -629,7 +630,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    val footerHeight = 80.dp
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -765,7 +766,11 @@ fun SpriteSettingsScreen(navController: NavController) {
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
+            val footerModifier = Modifier
+                .fillMaxWidth()
+                .then(if (imeVisible) Modifier else Modifier.navigationBarsPadding())
             SpriteSettingsFooter(
+                modifier = footerModifier,
                 onUpdate = {
                     if (tabIndex == 0) {
                         coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
@@ -783,16 +788,17 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         }
     ) { innerPadding ->
-        val density = LocalDensity.current
-        val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-        val isImeVisible = imeBottomDp > 0.dp
-        val contentBottomPadding = innerPadding.calculateBottomPadding() + footerHeight
+        val layoutDirection = LocalLayoutDirection.current
+        val columnPadding = PaddingValues(
+            start = innerPadding.calculateStartPadding(layoutDirection),
+            top = innerPadding.calculateTopPadding(),
+            end = innerPadding.calculateEndPadding(layoutDirection),
+            bottom = if (tabIndex == 0) innerPadding.calculateBottomPadding() else 0.dp
+        )
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(bottom = contentBottomPadding)
         ) {
             Surface(
                 modifier = Modifier.fillMaxSize()
@@ -814,6 +820,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .padding(columnPadding)
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
@@ -1171,7 +1178,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         selectionState = selectionState,
                                         baseState = baseState,
                                         insertionState = insertionState,
-                                        isImeVisible = isImeVisible
+                                        isImeVisible = imeVisible,
+                                        contentPadding = innerPadding
                                     )
                                 }
                             }
@@ -1231,6 +1239,7 @@ private fun ReadyAnimationTab(
     baseState: BaseAnimationUiState,
     insertionState: InsertionAnimationUiState,
     isImeVisible: Boolean,
+    contentPadding: PaddingValues,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1238,11 +1247,17 @@ private fun ReadyAnimationTab(
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
+    val layoutDirection = LocalLayoutDirection.current
+    val listContentPadding = PaddingValues(
+        start = contentPadding.calculateStartPadding(layoutDirection),
+        top = contentPadding.calculateTopPadding() + 20.dp,
+        end = contentPadding.calculateEndPadding(layoutDirection),
+        bottom = contentPadding.calculateBottomPadding() + 12.dp
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
             .padding(vertical = 8.dp)
     ) {
         Surface(
@@ -1265,11 +1280,10 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .imePadding()
-                .navigationBarsPadding(),
+                .imePadding(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(top = 20.dp, bottom = 12.dp)
+            contentPadding = listContentPadding
         ) {
             item {
                 Column(
@@ -1817,13 +1831,12 @@ private fun SpriteSettingsControls(
 
 @Composable
 private fun SpriteSettingsFooter(
+    modifier: Modifier = Modifier,
     onUpdate: () -> Unit,
     onSave: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.ime)
+        modifier = modifier
     ) {
         Divider()
         Surface(
