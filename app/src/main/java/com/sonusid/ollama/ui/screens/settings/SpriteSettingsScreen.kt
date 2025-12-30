@@ -39,7 +39,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -74,12 +73,16 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.semantics.Role
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
@@ -1189,7 +1192,7 @@ private fun ReadyAnimationTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 8.dp, bottom = 12.dp)
+            .padding(top = 8.dp, bottom = 8.dp)
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -1207,7 +1210,7 @@ private fun ReadyAnimationTab(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -1216,7 +1219,7 @@ private fun ReadyAnimationTab(
                 .navigationBarsPadding(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(bottom = 12.dp, top = 4.dp)
+            contentPadding = PaddingValues(bottom = 8.dp, top = 4.dp)
         ) {
             item {
                 Column(
@@ -1612,7 +1615,7 @@ private fun ReadyAnimationPreviewPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 300.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 4.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
@@ -1620,7 +1623,6 @@ private fun ReadyAnimationPreviewPane(
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
@@ -1632,17 +1634,16 @@ private fun ReadyAnimationPreviewPane(
                         text = "プレビュー",
                         style = MaterialTheme.typography.titleSmall
                     )
-                    TextButton(onClick = { showDetails = !showDetails }) {
-                        val suffix = if (showDetails) "▴" else "▾"
-                        Text(text = "詳細 $suffix")
-                    }
+                    DetailsToggle(expanded = showDetails, onClick = { showDetails = !showDetails })
                 }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "現在: ${baseSummary.label}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 ReadyAnimationPreview(
                     imageBitmap = imageBitmap,
                     spriteSheetConfig = spriteSheetConfig,
@@ -1654,6 +1655,7 @@ private fun ReadyAnimationPreviewPane(
                     showDetails = showDetails,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 if (stackButtons) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -1698,6 +1700,26 @@ private fun ReadyAnimationPreviewPane(
             }
         }
     }
+}
+
+@Composable
+private fun DetailsToggle(
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = "詳細 ${if (expanded) "▴" else "▾"}",
+        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier
+            .wrapContentHeight()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = rememberRipple(bounded = false),
+                role = Role.Button,
+                onClick = onClick
+            )
+    )
 }
 
 @Composable
