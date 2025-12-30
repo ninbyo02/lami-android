@@ -6,6 +6,8 @@
     <string name="sprite_tab_animation_check">アニメ確認</string>
     <string name="sprite_tab_status">ステータス</string>
     <string name="sprite_preview_grid_title">9フレーム（3×3）</string>
+    <string name="sprite_animation_settings_title">アニメ設定</string>
+    <string name="sprite_animation_settings_selected">現在: %1$s</string>
     <string name="sprite_frame_label">Frame %1$d</string>
     <string name="sprite_frame_preview_cd">Frame %1$d プレビュー</string>
     <string name="sprite_frame_select_cd">Frame %1$d を選択</string>
