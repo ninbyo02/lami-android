@@ -82,7 +82,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -635,7 +634,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val onAnimationApply: () -> Unit = {
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
             coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
-            return
+            return@onAnimationApply
         }
         val validatedInsertion = if (
             (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
@@ -643,7 +642,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         ) {
             validateInsertionInputs(selectedAnimation) ?: run {
                 coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
-                return
+                return@onAnimationApply
             }
         } else null
         when (selectedAnimation) {
@@ -697,7 +696,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val onAnimationSave: () -> Unit = {
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
             coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
-            return
+            return@onAnimationSave
         }
         val validatedInsertion = if (
             (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
@@ -705,7 +704,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         ) {
             validateInsertionInputs(selectedAnimation) ?: run {
                 coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
-                return
+                return@onAnimationSave
             }
         } else null
         when (selectedAnimation) {
