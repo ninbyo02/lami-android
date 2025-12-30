@@ -1702,7 +1702,10 @@ private fun ReadyAnimationPreviewPane(
     val bottomPadding = (baseBottomPadding + bottomAdjustDp.dp).coerceAtLeast(0.dp)
 
     Card(
-        modifier = modifier.animateContentSize(),
+        modifier = modifier
+            .animateContentSize()
+            // TEMP: preview card bottom adjuster (remove later)
+            .padding(bottom = bottomPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
         ),
@@ -1724,8 +1727,7 @@ private fun ReadyAnimationPreviewPane(
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = bottomPadding), // TEMP: preview bottom adjuster (remove later)
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
