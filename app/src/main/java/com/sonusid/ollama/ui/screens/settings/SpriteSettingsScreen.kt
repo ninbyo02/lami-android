@@ -1647,7 +1647,7 @@ private fun ReadyAnimationPreview(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .offset(y = 3.dp), // TEMP: fix param Y to +3dp
+                .offset(y = paramYOffsetDp.dp), // TEMP: fix param Y to +3dp
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
@@ -1697,15 +1697,16 @@ private fun ReadyAnimationPreviewPane(
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
-    var bottomAdjustDp by rememberSaveable { mutableIntStateOf(0) }
-    val baseBottomPadding = 0.dp
-    val bottomPadding = (baseBottomPadding + bottomAdjustDp.dp).coerceAtLeast(0.dp)
+    val paramYOffsetDp = 3
+    var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
+    var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
+    var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
 
     Card(
         modifier = modifier
             .animateContentSize()
-            // TEMP: preview card bottom adjuster (remove later)
-            .padding(bottom = bottomPadding),
+            // TEMP: preview padding adjusters (remove later)
+            .padding(bottom = outerBottomDp.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
         ),
@@ -1716,7 +1717,7 @@ private fun ReadyAnimationPreviewPane(
                 .fillMaxWidth()
                 .height(if (isImeVisible) 220.dp else 300.dp)
                 // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                .padding(horizontal = 12.dp, vertical = if (isImeVisible) 0.dp else 2.dp)
+                .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = if (isImeVisible) {
@@ -1727,7 +1728,8 @@ private fun ReadyAnimationPreviewPane(
 
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(bottom = innerBottomDp.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
@@ -1748,28 +1750,80 @@ private fun ReadyAnimationPreviewPane(
                             expanded = showDetails,
                             onClick = { showDetails = !showDetails },
                         )
-                        // TEMP: preview bottom adjuster (remove later)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
+                        // TEMP: preview padding adjusters (remove later)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Bottom:${if (bottomAdjustDp >= 0) "+" else ""}${bottomAdjustDp}dp",
+                                text = "Y:+${paramYOffsetDp}dp",
                                 style = MaterialTheme.typography.labelSmall
                             )
-                            IconButton(
-                                onClick = {
-                                    bottomAdjustDp = (bottomAdjustDp + 1).coerceIn(-40, 80)
-                                }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("▲")
+                                Text(
+                                    text = "OuterBottom:${outerBottomDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        outerBottomDp = (outerBottomDp + 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        outerBottomDp = (outerBottomDp - 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
                             }
-                            IconButton(
-                                onClick = {
-                                    bottomAdjustDp = (bottomAdjustDp - 1).coerceIn(-40, 80)
-                                }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("▼")
+                                Text(
+                                    text = "InnerBottom:${innerBottomDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        innerBottomDp = (innerBottomDp + 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        innerBottomDp = (innerBottomDp - 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "InnerVPad:${innerVPadDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
                             }
                         }
                     }
