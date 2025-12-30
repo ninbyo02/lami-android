@@ -633,12 +633,18 @@ fun SpriteSettingsScreen(navController: NavController) {
     val footerHeight = 80.dp
 
     val onAnimationApply: () -> Unit = {
-        val validatedBase = validateBaseInputs(selectedAnimation) ?: return@val
+        val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
+            coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+            return
+        }
         val validatedInsertion = if (
             (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
             (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
         ) {
-            validateInsertionInputs(selectedAnimation)
+            validateInsertionInputs(selectedAnimation) ?: run {
+                coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+                return
+            }
         } else null
         when (selectedAnimation) {
             AnimationType.READY -> {
@@ -689,12 +695,18 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     val onAnimationSave: () -> Unit = {
-        val validatedBase = validateBaseInputs(selectedAnimation) ?: return@val
+        val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
+            coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+            return
+        }
         val validatedInsertion = if (
             (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
             (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
         ) {
-            validateInsertionInputs(selectedAnimation)
+            validateInsertionInputs(selectedAnimation) ?: run {
+                coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+                return
+            }
         } else null
         when (selectedAnimation) {
             AnimationType.READY -> {
