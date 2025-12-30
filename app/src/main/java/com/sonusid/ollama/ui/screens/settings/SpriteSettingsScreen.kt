@@ -52,6 +52,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -772,7 +773,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             start = innerPadding.calculateStartPadding(layoutDirection),
             top = innerPadding.calculateTopPadding(),
             end = innerPadding.calculateEndPadding(layoutDirection),
-            bottom = innerPadding.calculateBottomPadding() + footerHeight + 8.dp
+            bottom = innerPadding.calculateBottomPadding()
         )
 
         Box(
@@ -800,6 +801,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(contentPadding)
+                            .imePadding()
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
@@ -1158,7 +1160,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         baseState = baseState,
                                         insertionState = insertionState,
                                         isImeVisible = imeVisible,
-                                        contentPadding = contentPadding
+                                        contentPadding = contentPadding,
+                                        footerHeight = footerHeight
                                     )
                                 }
                             }
@@ -1169,8 +1172,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             SpriteSettingsFooter(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .imePadding(),
+                    .fillMaxWidth(),
                 onUpdate = {
                     if (tabIndex == 0) {
                         coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
@@ -1239,6 +1241,7 @@ private fun ReadyAnimationTab(
     insertionState: InsertionAnimationUiState,
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
+    footerHeight: Dp,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1246,12 +1249,21 @@ private fun ReadyAnimationTab(
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
+    val needsBottomInset by remember(lazyListState) {
+        derivedStateOf {
+            val info = lazyListState.layoutInfo
+            if (info.totalItemsCount == 0) return@derivedStateOf false
+            info.canScrollForward || info.canScrollBackward
+        }
+    }
     val layoutDirection = LocalLayoutDirection.current
+    val bottomContentPadding = contentPadding.calculateBottomPadding() +
+        if (needsBottomInset) footerHeight + 8.dp else 0.dp
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
         end = contentPadding.calculateEndPadding(layoutDirection),
-        bottom = contentPadding.calculateBottomPadding()
+        bottom = bottomContentPadding
     )
 
     Column(
