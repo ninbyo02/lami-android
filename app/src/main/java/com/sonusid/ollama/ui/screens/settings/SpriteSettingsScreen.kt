@@ -414,6 +414,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     fun parseFrameSequenceInput(
         input: String,
         frameCount: Int,
+        allowDuplicates: Boolean = false,
+        duplicateErrorMessage: String = "重複しないように入力してください",
     ): ValidationResult<List<Int>> {
         val normalized = input
             .replace("，", ",")
@@ -428,8 +430,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (parsed.any { value -> value !in 1..maxFrameIndex }) {
             return ValidationResult(null, "1〜${maxFrameIndex}の範囲で入力してください")
         }
-        if (parsed.size != parsed.distinct().size) {
-            return ValidationResult(null, "重複しないように入力してください")
+        if (!allowDuplicates && parsed.size != parsed.distinct().size) {
+            return ValidationResult(null, duplicateErrorMessage)
         }
         return ValidationResult(parsed.map { value -> value - 1 }, null)
     }
@@ -477,7 +479,11 @@ fun SpriteSettingsScreen(navController: NavController) {
             AnimationType.READY -> readyFrameInput to readyIntervalInput
             AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
         }
-        val framesResult = parseFrameSequenceInput(frameInput, spriteSheetConfig.frameCount)
+        val framesResult = parseFrameSequenceInput(
+            input = frameInput,
+            frameCount = spriteSheetConfig.frameCount,
+            allowDuplicates = true
+        )
         val intervalResult = parseIntervalMsInput(intervalInput)
 
         when (target) {
@@ -529,7 +535,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 exclusive = talkingInsertionExclusive
             }
         }
-        val framesResult = parseFrameSequenceInput(frameInput, spriteSheetConfig.frameCount)
+        val framesResult = parseFrameSequenceInput(
+            input = frameInput,
+            frameCount = spriteSheetConfig.frameCount,
+            duplicateErrorMessage = "挿入フレームは重複しないように入力してください"
+        )
         val intervalResult = parseIntervalMsInput(intervalInput)
         val everyNResult = parseEveryNLoopsInput(everyNInput)
         val probabilityResult = parseProbabilityPercentInput(probabilityInput)
