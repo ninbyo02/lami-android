@@ -770,7 +770,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         bottomBar = {
             val footerModifier = Modifier
                 .fillMaxWidth()
-                .then(if (imeVisible) Modifier else Modifier.navigationBarsPadding())
+                .imePadding()
+                .navigationBarsPadding()
             SpriteSettingsFooter(
                 modifier = footerModifier,
                 onUpdate = {
@@ -1254,7 +1255,7 @@ private fun ReadyAnimationTab(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
         end = contentPadding.calculateEndPadding(layoutDirection),
-        bottom = contentPadding.calculateBottomPadding() + 12.dp
+        bottom = contentPadding.calculateBottomPadding()
     )
 
     Column(
@@ -1281,8 +1282,7 @@ private fun ReadyAnimationTab(
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .imePadding(),
+                .fillMaxWidth(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = listContentPadding
@@ -1845,14 +1845,14 @@ private fun SpriteSettingsFooter(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             tonalElevation = 2.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FilledTonalButton(
