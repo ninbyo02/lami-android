@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -641,7 +642,10 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }) { innerPadding ->
         Surface(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                // DEBUG STEP1: background for spacing investigation
+                .background(Color(0x20FF0000))
         ) {
             Box(
                 modifier = Modifier
@@ -1208,14 +1212,19 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 onApply = onApply,
                 onSave = onSave,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // DEBUG STEP1: background for spacing investigation
+                    .background(Color(0x2000FF00))
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                // DEBUG STEP1: background for spacing investigation
+                .background(Color(0x200000FF)),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
@@ -1430,6 +1439,18 @@ private fun ReadyAnimationTab(
                         Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
+            }
+            item {
+                Text(
+                    text = "DEBUG STEP1: spacing investigation tap area",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 12.dp)
+                        // DEBUG STEP1: background for spacing investigation
+                        .background(Color(0x200000FF))
+                        .clickable { },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
