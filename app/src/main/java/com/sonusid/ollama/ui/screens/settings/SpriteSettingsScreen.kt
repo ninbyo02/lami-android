@@ -24,10 +24,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.union
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -244,8 +243,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    var rootHeightPx by remember { mutableIntStateOf(0) }
-    var lazyColumnHeightPx by remember { mutableIntStateOf(0) }
     var displayScale by remember { mutableStateOf(1f) }
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
@@ -651,22 +648,15 @@ fun SpriteSettingsScreen(navController: NavController) {
     }) { innerPadding ->
         val density = LocalDensity.current
         val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-        val navBottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
-        val unionBottomDp = with(density) { WindowInsets.ime.union(WindowInsets.navigationBars).getBottom(this).toDp() }
-        val rootHeightDp = with(density) { rootHeightPx.toDp() }
-        val lazyColumnHeightDp = with(density) { lazyColumnHeightPx.toDp() }
+        val isImeVisible = imeBottomDp > 0.dp
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .onSizeChanged { size -> rootHeightPx = size.height }
         ) {
             Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // DEBUG STEP1: background for spacing investigation
-                    .background(Color(0x20FF0000))
+                modifier = Modifier.fillMaxSize()
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize()
@@ -1027,7 +1017,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         selectionState = selectionState,
                                         baseState = baseState,
                                         insertionState = insertionState,
-                                        onLazyColumnSizeChanged = { height -> lazyColumnHeightPx = height },
+                                        isImeVisible = isImeVisible,
                                         onApply = {
                                             val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
                                             val validatedInsertion =
@@ -1152,19 +1142,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "imeBottom=${"%.1f".format(imeBottomDp.value)}dp  navBottom=${"%.1f".format(navBottomDp.value)}dp  union=${"%.1f".format(unionBottomDp.value)}dp\nroot=${"%.1f".format(rootHeightDp.value)} dp  lazy=${"%.1f".format(lazyColumnHeightDp.value)} dp",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
         }
     }
 }
@@ -1216,7 +1193,7 @@ private fun ReadyAnimationTab(
     selectionState: AnimationSelectionState,
     baseState: BaseAnimationUiState,
     insertionState: InsertionAnimationUiState,
-    onLazyColumnSizeChanged: (Int) -> Unit,
+    isImeVisible: Boolean,
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -1231,7 +1208,7 @@ private fun ReadyAnimationTab(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .padding(top = 8.dp, bottom = 8.dp)
+            .padding(vertical = 8.dp)
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -1244,27 +1221,22 @@ private fun ReadyAnimationTab(
                 insertionSummary = insertionState.summary,
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
+                isImeVisible = isImeVisible,
                 onApply = onApply,
                 onSave = onSave,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // DEBUG STEP1: background for spacing investigation
-                    .background(Color(0x2000FF00))
+                modifier = Modifier.fillMaxWidth()
             )
         }
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .imePadding()
-                .navigationBarsPadding()
-                .onSizeChanged { newSize -> onLazyColumnSizeChanged(newSize.height) }
-                // DEBUG STEP1: background for spacing investigation
-                .background(Color(0x200000FF)),
+                .navigationBarsPadding(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
+            contentPadding = PaddingValues(top = 20.dp, bottom = 12.dp)
         ) {
             item {
                 Column(
@@ -1473,21 +1445,8 @@ private fun ReadyAnimationTab(
                                 onCheckedChange = insertionState.onExclusiveChange
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
-            }
-            item {
-                Text(
-                    text = "DEBUG STEP1: spacing investigation tap area",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 12.dp)
-                        // DEBUG STEP1: background for spacing investigation
-                        .background(Color(0x200000FF))
-                        .clickable { },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -1655,11 +1614,15 @@ private fun ReadyAnimationPreviewPane(
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
+    isImeVisible: Boolean,
     onApply: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(isImeVisible) {
+        if (isImeVisible) showDetails = false
+    }
 
     Card(
         modifier = modifier.animateContentSize(),
@@ -1671,11 +1634,15 @@ private fun ReadyAnimationPreviewPane(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 300.dp)
-                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .heightIn(max = if (isImeVisible) 220.dp else 300.dp)
+                .padding(horizontal = 12.dp, vertical = if (isImeVisible) 6.dp else 10.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
-            val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
+            val spriteSize = if (isImeVisible) {
+                rawSpriteSize.coerceIn(56.dp, 96.dp)
+            } else {
+                rawSpriteSize.coerceIn(72.dp, 120.dp)
+            }
             val stackButtons = maxWidth < 260.dp
 
             Column(
@@ -1691,16 +1658,20 @@ private fun ReadyAnimationPreviewPane(
                         text = "プレビュー",
                         style = MaterialTheme.typography.titleSmall
                     )
-                    DetailsToggle(expanded = showDetails, onClick = { showDetails = !showDetails })
+                    DetailsToggle(
+                        expanded = showDetails,
+                        onClick = { showDetails = !showDetails },
+                        modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
+                    )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(if (isImeVisible) 2.dp else 4.dp))
                 Text(
                     modifier = Modifier.fillMaxWidth(),
                     text = "現在: ${baseSummary.label}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(if (isImeVisible) 4.dp else 8.dp))
                 ReadyAnimationPreview(
                     imageBitmap = imageBitmap,
                     spriteSheetConfig = spriteSheetConfig,
@@ -1709,49 +1680,53 @@ private fun ReadyAnimationPreviewPane(
                     insertionEnabled = insertionEnabled,
                     insertionPreviewValues = insertionPreviewValues,
                     spriteSizeDp = spriteSize,
-                    showDetails = showDetails,
+                    showDetails = showDetails && !isImeVisible,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                if (stackButtons) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        FilledTonalButton(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                            onClick = onApply,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                        ) { Text("更新") }
-                        FilledTonalButton(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp),
-                            onClick = onSave,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                        ) { Text("保存") }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilledTonalButton(
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp),
-                            onClick = onApply,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                        ) { Text("更新") }
-                        FilledTonalButton(
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp),
-                            onClick = onSave,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                        ) { Text("保存") }
+                AnimatedVisibility(visible = !isImeVisible) {
+                    Column {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (stackButtons) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilledTonalButton(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp),
+                                    onClick = onApply,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                                ) { Text("更新") }
+                                FilledTonalButton(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp),
+                                    onClick = onSave,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                                ) { Text("保存") }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilledTonalButton(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp),
+                                    onClick = onApply,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                                ) { Text("更新") }
+                                FilledTonalButton(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 48.dp),
+                                    onClick = onSave,
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                                ) { Text("保存") }
+                            }
+                        }
                     }
                 }
             }
