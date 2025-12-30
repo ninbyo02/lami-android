@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,7 +37,6 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -497,72 +496,33 @@ private fun ReadyAnimationTab(
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
-    BoxWithConstraints(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 12.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val paneSpacing = 12.dp
-        val shouldStackVertically = maxWidth < 420.dp
-
-        val settingsPane: @Composable () -> Unit = {
-            ReadyAnimationSettingsPane(
-                selectedAnimation = selectedAnimation,
-                onSelectedAnimationChange = onSelectedAnimationChange,
-                readyFrameInput = readyFrameInput,
-                onReadyFrameInputChange = onReadyFrameInputChange,
-                readyIntervalInput = readyIntervalInput,
-                onReadyIntervalInputChange = onReadyIntervalInputChange,
-                readyFramesError = readyFramesError,
-                readyIntervalError = readyIntervalError,
-            )
-        }
-
-        val previewPane: @Composable () -> Unit = {
-            ReadyAnimationPreviewPane(
-                imageBitmap = imageBitmap,
-                spriteSheetConfig = spriteSheetConfig,
-                frames = appliedFrames,
-                intervalMs = appliedIntervalMs,
-                onApply = onApply,
-                onSave = onSave
-            )
-        }
-
-        if (shouldStackVertically) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(paneSpacing)
-            ) {
-                previewPane()
-                settingsPane()
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(paneSpacing)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(0.6f)
-                        .fillMaxHeight()
-                ) {
-                    settingsPane()
-                }
-                VerticalDivider(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(vertical = 8.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(0.4f)
-                        .fillMaxHeight()
-                ) {
-                    previewPane()
-                }
-            }
-        }
+        ReadyAnimationPreviewPane(
+            imageBitmap = imageBitmap,
+            spriteSheetConfig = spriteSheetConfig,
+            frames = appliedFrames,
+            intervalMs = appliedIntervalMs,
+            onApply = onApply,
+            onSave = onSave,
+            modifier = Modifier.fillMaxWidth()
+        )
+        ReadyAnimationSettingsPane(
+            selectedAnimation = selectedAnimation,
+            onSelectedAnimationChange = onSelectedAnimationChange,
+            readyFrameInput = readyFrameInput,
+            onReadyFrameInputChange = onReadyFrameInputChange,
+            readyIntervalInput = readyIntervalInput,
+            onReadyIntervalInputChange = onReadyIntervalInputChange,
+            readyFramesError = readyFramesError,
+            readyIntervalError = readyIntervalError,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -731,7 +691,7 @@ private fun ReadyAnimationSettingsPane(
 ) {
     Column(
         modifier = modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -775,10 +735,12 @@ private fun ReadyAnimationPreviewPane(
     ) {
         BoxWithConstraints(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
                 .padding(12.dp)
         ) {
-            val rawSpriteSize = minOf(maxWidth * 0.9f, maxHeight * 0.45f)
+            val effectiveMaxHeight = if (constraints.hasBoundedHeight) maxHeight else 320.dp
+            val rawSpriteSize = minOf(maxWidth * 0.85f, effectiveMaxHeight * 0.35f)
             val spriteSize = rawSpriteSize.coerceIn(96.dp, 220.dp)
             val stackButtons = maxWidth < 260.dp
 
@@ -795,7 +757,7 @@ private fun ReadyAnimationPreviewPane(
                     spriteSizeDp = spriteSize,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.weight(1f, fill = true))
+                Spacer(modifier = Modifier.height(8.dp))
                 if (stackButtons) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
