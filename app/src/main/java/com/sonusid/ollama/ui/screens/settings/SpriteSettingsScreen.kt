@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.union
 import androidx.compose.material3.Button
@@ -1256,6 +1257,8 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
                 .onSizeChanged { newSize -> onLazyColumnSizeChanged(newSize.height) }
                 // DEBUG STEP1: background for spacing investigation
                 .background(Color(0x200000FF)),
