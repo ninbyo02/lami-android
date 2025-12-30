@@ -1442,13 +1442,14 @@ private fun formatAppliedLine(summary: AnimationSummary): String {
 
 private fun formatInsertionDetail(summary: AnimationSummary): String {
     if (summary.label != "Insertion") return formatAppliedLine(summary)
+    val exclusiveLabel = summary.exclusive?.let { if (it) "ON" else "OFF" }
     val parts = buildList {
         add(formatAppliedLine(summary))
         summary.everyNLoops?.let { add("N:$it") }
         summary.probabilityPercent?.let { add("P:${it}%") }
         summary.cooldownLoops?.let { add("CD:$it") }
-        summary.exclusive?.let { add("Excl:${if (it) \"ON\" else \"OFF\"}") }
+        exclusiveLabel?.let { add("Excl:$it") }
     }
     // keep short to avoid card growth; joins with double space to mimic spec formatting
-    return parts.joinToString(separator = \"  \")
+    return parts.joinToString(separator = "  ")
 }
