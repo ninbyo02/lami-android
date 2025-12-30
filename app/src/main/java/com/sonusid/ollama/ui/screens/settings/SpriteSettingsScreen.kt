@@ -1573,7 +1573,6 @@ private fun ReadyAnimationPreview(
     insertionPreviewValues: InsertionPreviewValues,
     spriteSizeDp: Dp,
     showDetails: Boolean,
-    paramOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
     val normalizedConfig = remember(spriteSheetConfig) {
@@ -1648,7 +1647,7 @@ private fun ReadyAnimationPreview(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .offset(y = (-paramOffsetDp).dp), // TEMP: debug param offset adjuster (remove later)
+                .offset(y = 3.dp), // TEMP: fix param Y to +3dp
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
@@ -1698,7 +1697,9 @@ private fun ReadyAnimationPreviewPane(
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
-    var paramOffsetDp by rememberSaveable { mutableIntStateOf(34) }
+    var bottomAdjustDp by rememberSaveable { mutableIntStateOf(0) }
+    val baseBottomPadding = 0.dp
+    val bottomPadding = (baseBottomPadding + bottomAdjustDp.dp).coerceAtLeast(0.dp)
 
     Card(
         modifier = modifier.animateContentSize(),
@@ -1722,7 +1723,9 @@ private fun ReadyAnimationPreviewPane(
             }
 
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = bottomPadding), // TEMP: preview bottom adjuster (remove later)
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
@@ -1743,25 +1746,25 @@ private fun ReadyAnimationPreviewPane(
                             expanded = showDetails,
                             onClick = { showDetails = !showDetails },
                         )
-                        // TEMP: debug param offset adjuster (remove later)
+                        // TEMP: preview bottom adjuster (remove later)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "Y:${if (paramOffsetDp >= 0) "+" else ""}${paramOffsetDp}dp",
+                                text = "Bottom:${if (bottomAdjustDp >= 0) "+" else ""}${bottomAdjustDp}dp",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             IconButton(
                                 onClick = {
-                                    paramOffsetDp = (paramOffsetDp + 1).coerceIn(-200, 200)
+                                    bottomAdjustDp = (bottomAdjustDp + 1).coerceIn(-40, 80)
                                 }
                             ) {
                                 Text("▲")
                             }
                             IconButton(
                                 onClick = {
-                                    paramOffsetDp = (paramOffsetDp - 1).coerceIn(-200, 200)
+                                    bottomAdjustDp = (bottomAdjustDp - 1).coerceIn(-40, 80)
                                 }
                             ) {
                                 Text("▼")
@@ -1786,7 +1789,6 @@ private fun ReadyAnimationPreviewPane(
                     insertionPreviewValues = insertionPreviewValues,
                     spriteSizeDp = spriteSize,
                     showDetails = showDetails,
-                    paramOffsetDp = paramOffsetDp,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
