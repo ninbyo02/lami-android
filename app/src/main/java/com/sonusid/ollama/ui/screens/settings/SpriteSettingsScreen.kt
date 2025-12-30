@@ -1252,13 +1252,19 @@ private fun ReadyAnimationTab(
     val needsBottomInset by remember(lazyListState) {
         derivedStateOf {
             val info = lazyListState.layoutInfo
-            if (info.totalItemsCount == 0) return@derivedStateOf false
-            info.canScrollForward || info.canScrollBackward
+            val totalItemsCount = info.totalItemsCount
+            if (totalItemsCount == 0) return@derivedStateOf false
+
+            val canScrollUp = info.firstVisibleItemIndex > 0 || info.firstVisibleItemScrollOffset > 0
+            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val canScrollDown = lastVisibleIndex < totalItemsCount - 1
+
+            canScrollUp || canScrollDown
         }
     }
     val layoutDirection = LocalLayoutDirection.current
     val bottomContentPadding = contentPadding.calculateBottomPadding() +
-        if (needsBottomInset) footerHeight + 8.dp else 0.dp
+        if (needsBottomInset) footerHeight + 2.dp else 0.dp
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
