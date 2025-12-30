@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.settings
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -589,6 +590,7 @@ private fun AnimationDropdown(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun ReadyForm(
     readyFrameInput: String,
     onReadyFrameInputChange: (String) -> Unit,
