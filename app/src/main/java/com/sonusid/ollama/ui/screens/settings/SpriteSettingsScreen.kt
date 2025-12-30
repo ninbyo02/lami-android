@@ -1,6 +1,8 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -36,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -92,6 +95,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 data class BoxPosition(val x: Int, val y: Int)
+
+private data class AnimationSummary(
+    val label: String,
+    val frames: List<Int>,
+    val intervalMs: Int,
+    val everyNLoops: Int? = null,
+    val probabilityPercent: Int? = null,
+    val cooldownLoops: Int? = null,
+    val exclusive: Boolean? = null,
+)
 
 private const val DEFAULT_BOX_SIZE_PX = 88
 
@@ -722,6 +735,34 @@ private fun ReadyAnimationTab(
         coroutineScope.launch { lazyListState.animateScrollToItem(1) }
     }
 
+    val readySummary = remember(appliedFrames, appliedIntervalMs) {
+        AnimationSummary(
+            label = "Ready",
+            frames = appliedFrames,
+            intervalMs = appliedIntervalMs
+        )
+    }
+    val insertionSummary = remember(
+        appliedInsertionFrames,
+        appliedInsertionIntervalMs,
+        appliedInsertionEveryNLoops,
+        appliedInsertionProbabilityPercent,
+        appliedInsertionCooldownLoops,
+        appliedInsertionExclusive
+    ) {
+        AnimationSummary(
+            label = "Insertion",
+            frames = appliedInsertionFrames,
+            intervalMs = appliedInsertionIntervalMs,
+            everyNLoops = appliedInsertionEveryNLoops,
+            probabilityPercent = appliedInsertionProbabilityPercent,
+            cooldownLoops = appliedInsertionCooldownLoops,
+            exclusive = appliedInsertionExclusive
+        )
+    }
+
+    val activeSummary = if (selectedAnimation == "Insertion") insertionSummary else readySummary
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -734,12 +775,9 @@ private fun ReadyAnimationTab(
             ReadyAnimationPreviewPane(
                 imageBitmap = imageBitmap,
                 spriteSheetConfig = spriteSheetConfig,
-                frames = appliedFrames,
-                intervalMs = appliedIntervalMs,
-                everyNLoops = appliedEveryNLoops,
-                probabilityPercent = appliedProbabilityPercent,
-                cooldownLoops = appliedCooldownLoops,
-                exclusive = appliedExclusive,
+                activeSummary = activeSummary,
+                readySummary = readySummary,
+                insertionSummary = insertionSummary,
                 selectedAnimation = selectedAnimation,
                 onApply = onApply,
                 onSave = onSave,
@@ -998,24 +1036,22 @@ private fun InsertionForm(
 private fun ReadyAnimationPreview(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
-    frames: List<Int>,
-    intervalMs: Int,
+    summary: AnimationSummary,
+    readySummary: AnimationSummary,
+    insertionSummary: AnimationSummary,
     spriteSizeDp: Dp,
     selectedAnimation: String,
-    everyNLoops: Int? = null,
-    probabilityPercent: Int? = null,
-    cooldownLoops: Int? = null,
-    exclusive: Boolean? = null,
+    showDetails: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val resolvedFrames = frames.ifEmpty { listOf(0) }
+    val resolvedFrames = summary.frames.ifEmpty { listOf(0) }
     var currentFrameIndex by remember(resolvedFrames) { mutableStateOf(0) }
 
-    LaunchedEffect(resolvedFrames, intervalMs) {
+    LaunchedEffect(resolvedFrames, summary.intervalMs) {
         if (resolvedFrames.isEmpty()) return@LaunchedEffect
         currentFrameIndex = 0
         while (isActive && resolvedFrames.isNotEmpty()) {
-            delay(intervalMs.toLong().coerceAtLeast(1L))
+            delay(summary.intervalMs.toLong().coerceAtLeast(1L))
             currentFrameIndex = (currentFrameIndex + 1) % resolvedFrames.size
         }
     }
@@ -1030,14 +1066,9 @@ private fun ReadyAnimationPreview(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "プレビュー",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.fillMaxWidth()
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -1073,54 +1104,35 @@ private fun ReadyAnimationPreview(
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "アニメ: $selectedAnimation",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "周期: ${intervalMs}ms",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                val appliedFramesUi = resolvedFrames.map { it + 1 }
-                Text(
-                    text = "Applied: ${appliedFramesUi.joinToString(",")} / ${intervalMs}ms",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    text = "フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}  周期: ${summary.intervalMs}ms",
+                    style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (everyNLoops != null) {
-                    Text(
-                        text = "毎Nループ: $everyNLoops",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (probabilityPercent != null) {
-                    Text(
-                        text = "確率: ${probabilityPercent}%",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (cooldownLoops != null) {
-                    Text(
-                        text = "クールダウン: ${cooldownLoops}ループ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (exclusive != null) {
-                    val exclusiveLabel = if (exclusive) "Exclusive: ON" else "Exclusive: OFF"
-                    Text(
-                        text = exclusiveLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Text(
+                    text = formatAppliedLine(summary),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                AnimatedVisibility(visible = showDetails) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = formatAppliedLine(readySummary),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = formatInsertionDetail(insertionSummary),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -1231,19 +1243,18 @@ private fun ReadyAnimationSettingsPane(
 private fun ReadyAnimationPreviewPane(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
-    frames: List<Int>,
-    intervalMs: Int,
-    everyNLoops: Int?,
-    probabilityPercent: Int?,
-    cooldownLoops: Int?,
-    exclusive: Boolean?,
+    activeSummary: AnimationSummary,
+    readySummary: AnimationSummary,
+    insertionSummary: AnimationSummary,
     selectedAnimation: String,
     onApply: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showDetails by rememberSaveable { mutableStateOf(false) }
+
     Card(
-        modifier = modifier,
+        modifier = modifier.animateContentSize(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
         ),
@@ -1253,7 +1264,7 @@ private fun ReadyAnimationPreviewPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 300.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
@@ -1261,20 +1272,32 @@ private fun ReadyAnimationPreviewPane(
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "プレビュー",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    TextButton(onClick = { showDetails = !showDetails }) {
+                        val suffix = if (showDetails) "▴" else "▾"
+                        Text(text = "詳細 $suffix")
+                    }
+                }
                 ReadyAnimationPreview(
                     imageBitmap = imageBitmap,
                     spriteSheetConfig = spriteSheetConfig,
-                    frames = frames,
-                    intervalMs = intervalMs,
+                    summary = activeSummary,
+                    readySummary = readySummary,
+                    insertionSummary = insertionSummary,
                     spriteSizeDp = spriteSize,
                     selectedAnimation = selectedAnimation,
-                    everyNLoops = everyNLoops,
-                    probabilityPercent = probabilityPercent,
-                    cooldownLoops = cooldownLoops,
-                    exclusive = exclusive,
+                    showDetails = showDetails,
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (stackButtons) {
@@ -1410,4 +1433,22 @@ private fun SpriteSettingsControls(
             }
         }
     }
+}
+
+private fun formatAppliedLine(summary: AnimationSummary): String {
+    val frames = summary.frames.ifEmpty { listOf(0) }.joinToString(",") { value -> (value + 1).toString() }
+    return "${summary.label}: $frames / ${summary.intervalMs}ms"
+}
+
+private fun formatInsertionDetail(summary: AnimationSummary): String {
+    if (summary.label != "Insertion") return formatAppliedLine(summary)
+    val parts = buildList {
+        add(formatAppliedLine(summary))
+        summary.everyNLoops?.let { add("N:$it") }
+        summary.probabilityPercent?.let { add("P:${it}%") }
+        summary.cooldownLoops?.let { add("CD:$it") }
+        summary.exclusive?.let { add("Excl:${if (it) \"ON\" else \"OFF\"}") }
+    }
+    // keep short to avoid card growth; joins with double space to mimic spec formatting
+    return parts.joinToString(separator = \"  \")
 }
