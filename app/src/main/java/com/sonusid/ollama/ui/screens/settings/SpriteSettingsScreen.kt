@@ -94,6 +94,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.semantics.Role
 import androidx.navigation.NavController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -1573,6 +1574,7 @@ private fun ReadyAnimationPreview(
     insertionPreviewValues: InsertionPreviewValues,
     spriteSizeDp: Dp,
     showDetails: Boolean,
+    paramOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
     val normalizedConfig = remember(spriteSheetConfig) {
@@ -1647,7 +1649,7 @@ private fun ReadyAnimationPreview(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .offset(y = (-34).dp), // Move parameter block to +34dp from baseline
+                .offset(y = (-paramOffsetDp).dp), // TEMP: debug param offset adjuster (remove later)
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
@@ -1697,6 +1699,7 @@ private fun ReadyAnimationPreviewPane(
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
+    var paramOffsetDp by rememberSaveable { mutableIntStateOf(34) }
 
     Card(
         modifier = modifier.animateContentSize(),
@@ -1732,11 +1735,42 @@ private fun ReadyAnimationPreviewPane(
                         text = "プレビュー",
                         style = MaterialTheme.typography.titleSmall
                     )
-                    DetailsToggle(
-                        expanded = showDetails,
-                        onClick = { showDetails = !showDetails },
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
-                    )
+                    ) {
+                        DetailsToggle(
+                            expanded = showDetails,
+                            onClick = { showDetails = !showDetails },
+                        )
+                        if (BuildConfig.DEBUG) {
+                            // TEMP: debug param offset adjuster (remove later)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Y:${if (paramOffsetDp >= 0) "+" else ""}${paramOffsetDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        paramOffsetDp = (paramOffsetDp + 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        paramOffsetDp = (paramOffsetDp - 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(if (isImeVisible) 2.dp else 4.dp))
                 Text(
@@ -1755,6 +1789,7 @@ private fun ReadyAnimationPreviewPane(
                     insertionPreviewValues = insertionPreviewValues,
                     spriteSizeDp = spriteSize,
                     showDetails = showDetails,
+                    paramOffsetDp = paramOffsetDp,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
