@@ -18,11 +18,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.union
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,6 +69,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.imageResource
@@ -238,6 +243,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    var rootHeightPx by remember { mutableIntStateOf(0) }
+    var lazyColumnHeightPx by remember { mutableIntStateOf(0) }
     var displayScale by remember { mutableStateOf(1f) }
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
@@ -641,54 +648,65 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         }
     }) { innerPadding ->
-        Surface(
+        val density = LocalDensity.current
+        val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+        val navBottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
+        val unionBottomDp = with(density) { WindowInsets.ime.union(WindowInsets.navigationBars).getBottom(this).toDp() }
+        val rootHeightDp = with(density) { rootHeightPx.toDp() }
+        val lazyColumnHeightDp = with(density) { lazyColumnHeightPx.toDp() }
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                // DEBUG STEP1: background for spacing investigation
-                .background(Color(0x20FF0000))
+                .padding(innerPadding)
+                .onSizeChanged { size -> rootHeightPx = size.height }
         ) {
-            Box(
+            Surface(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    // DEBUG STEP1: background for spacing investigation
+                    .background(Color(0x20FF0000))
             ) {
-                IconButton(
-                    onClick = { navController.popBackStack() },
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 8.dp, top = 8.dp)
+                Box(
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.back),
-                        contentDescription = "戻る"
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Top
-                ) {
-                    Text("Sprite Settings")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TabRow(selectedTabIndex = tabIndex) {
-                        Tab(
-                            selected = tabIndex == 0,
-                            onClick = { tabIndex = 0 },
-                            text = { Text("調整") }
-                        )
-                        Tab(
-                            selected = tabIndex == 1,
-                            onClick = { tabIndex = 1 },
-                            text = { Text("アニメ") }
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 8.dp, top = 8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.back),
+                            contentDescription = "戻る"
                         )
                     }
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f, fill = true)
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
                     ) {
+                        Text("Sprite Settings")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TabRow(selectedTabIndex = tabIndex) {
+                            Tab(
+                                selected = tabIndex == 0,
+                                onClick = { tabIndex = 0 },
+                                text = { Text("調整") }
+                            )
+                            Tab(
+                                selected = tabIndex == 1,
+                                onClick = { tabIndex = 1 },
+                                text = { Text("アニメ") }
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = true)
+                        ) {
                         when (tabIndex) {
                             0 -> {
                                 Column(
@@ -1008,6 +1026,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectionState = selectionState,
                                     baseState = baseState,
                                     insertionState = insertionState,
+                                    onLazyColumnSizeChanged = { height -> lazyColumnHeightPx = height },
                                     onApply = {
                                         val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
                                         val validatedInsertion =
@@ -1183,6 +1202,7 @@ private fun ReadyAnimationTab(
     selectionState: AnimationSelectionState,
     baseState: BaseAnimationUiState,
     insertionState: InsertionAnimationUiState,
+    onLazyColumnSizeChanged: (Int) -> Unit,
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -1223,6 +1243,7 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .onSizeChanged { newSize -> onLazyColumnSizeChanged(newSize.height) }
                 // DEBUG STEP1: background for spacing investigation
                 .background(Color(0x200000FF)),
             state = lazyListState,
@@ -1452,6 +1473,19 @@ private fun ReadyAnimationTab(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(8.dp)
+                .background(Color.Black.copy(alpha = 0.6f))
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = "imeBottom=${"%.1f".format(imeBottomDp.value)}dp  navBottom=${"%.1f".format(navBottomDp.value)}dp  union=${"%.1f".format(unionBottomDp.value)}dp\nroot=${"%.1f".format(rootHeightDp.value)} dp  lazy=${"%.1f".format(lazyColumnHeightDp.value)} dp",
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall
+            )
         }
     }
 }
