@@ -25,9 +25,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -633,6 +631,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val footerHeight = 40.dp
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -766,37 +765,14 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        bottomBar = {
-            val footerModifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .navigationBarsPadding()
-            SpriteSettingsFooter(
-                modifier = footerModifier,
-                onUpdate = {
-                    if (tabIndex == 0) {
-                        coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                    } else {
-                        onAnimationApply()
-                    }
-                },
-                onSave = {
-                    if (tabIndex == 0) {
-                        saveSpriteSheetConfig()
-                    } else {
-                        onAnimationSave()
-                    }
-                }
-            )
-        }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
-        val columnPadding = PaddingValues(
+        val contentPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection),
             top = innerPadding.calculateTopPadding(),
             end = innerPadding.calculateEndPadding(layoutDirection),
-            bottom = if (tabIndex == 0) innerPadding.calculateBottomPadding() else 0.dp
+            bottom = innerPadding.calculateBottomPadding() + footerHeight + 8.dp
         )
 
         Box(
@@ -823,7 +799,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(columnPadding)
+                            .padding(contentPadding)
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
@@ -1182,7 +1158,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         baseState = baseState,
                                         insertionState = insertionState,
                                         isImeVisible = imeVisible,
-                                        contentPadding = innerPadding
+                                        contentPadding = contentPadding
                                     )
                                 }
                             }
@@ -1190,6 +1166,26 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
+            SpriteSettingsFooter(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .imePadding(),
+                onUpdate = {
+                    if (tabIndex == 0) {
+                        coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                    } else {
+                        onAnimationApply()
+                    }
+                },
+                onSave = {
+                    if (tabIndex == 0) {
+                        saveSpriteSheetConfig()
+                    } else {
+                        onAnimationSave()
+                    }
+                }
+            )
         }
     }
 }
@@ -1844,28 +1840,29 @@ private fun SpriteSettingsFooter(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 64.dp)
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .heightIn(min = 40.dp, max = 52.dp)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            tonalElevation = 2.dp
+            tonalElevation = 4.dp,
+            shadowElevation = 2.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
                     onClick = onUpdate,
-                    contentPadding = PaddingValues(vertical = 12.dp)
+                    contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
                     Text("更新")
                 }
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
                     onClick = onSave,
-                    contentPadding = PaddingValues(vertical = 12.dp)
+                    contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
                     Text("保存")
                 }
