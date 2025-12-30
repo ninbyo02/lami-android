@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.screens.settings
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
@@ -26,9 +25,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -80,6 +81,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -627,33 +630,158 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, bottomBar = {
-        if (tabIndex == 0) {
-            SpriteSettingsControls(
-                selectedNumber = selectedNumber,
-                selectedPosition = selectedPosition,
-                boxSizePx = boxSizePx,
-                onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
-                onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
-                onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
-                onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
-                onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
-                onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
-                onSizeDecrease = { updateBoxSize(-4) },
-                onSizeIncrease = { updateBoxSize(4) },
-                onSave = { saveSpriteSheetConfig() },
-                onCopy = { copySpriteSheetConfig() }
+    val footerHeight = 80.dp
+
+    val onAnimationApply: () -> Unit = {
+        val validatedBase = validateBaseInputs(selectedAnimation) ?: return@val
+        val validatedInsertion = if (
+            (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
+            (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
+        ) {
+            validateInsertionInputs(selectedAnimation)
+        } else null
+        when (selectedAnimation) {
+            AnimationType.READY -> {
+                appliedReadyFrames = validatedBase.frameSequence
+                appliedReadyIntervalMs = validatedBase.intervalMs
+                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                    enabled = false,
+                    frameSequence = appliedReadyInsertionFrames,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                )
+                appliedReadyInsertionEnabled = insertion.enabled
+                appliedReadyInsertionFrames = insertion.frameSequence
+                appliedReadyInsertionIntervalMs = insertion.intervalMs
+                appliedReadyInsertionEveryNLoops = insertion.everyNLoops
+                appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
+                appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
+                appliedReadyInsertionExclusive = insertion.exclusive
+            }
+
+            AnimationType.TALKING -> {
+                appliedTalkingFrames = validatedBase.frameSequence
+                appliedTalkingIntervalMs = validatedBase.intervalMs
+                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                    enabled = false,
+                    frameSequence = appliedTalkingInsertionFrames,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                )
+                appliedTalkingInsertionEnabled = insertion.enabled
+                appliedTalkingInsertionFrames = insertion.frameSequence
+                appliedTalkingInsertionIntervalMs = insertion.intervalMs
+                appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
+                appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
+                appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
+                appliedTalkingInsertionExclusive = insertion.exclusive
+            }
+        }
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar("プレビューに適用しました")
+        }
+    }
+
+    val onAnimationSave: () -> Unit = {
+        val validatedBase = validateBaseInputs(selectedAnimation) ?: return@val
+        val validatedInsertion = if (
+            (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
+            (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
+        ) {
+            validateInsertionInputs(selectedAnimation)
+        } else null
+        when (selectedAnimation) {
+            AnimationType.READY -> {
+                appliedReadyFrames = validatedBase.frameSequence
+                appliedReadyIntervalMs = validatedBase.intervalMs
+                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                    enabled = false,
+                    frameSequence = appliedReadyInsertionFrames,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                )
+                appliedReadyInsertionEnabled = insertion.enabled
+                appliedReadyInsertionFrames = insertion.frameSequence
+                appliedReadyInsertionIntervalMs = insertion.intervalMs
+                appliedReadyInsertionEveryNLoops = insertion.everyNLoops
+                appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
+                appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
+                appliedReadyInsertionExclusive = insertion.exclusive
+                coroutineScope.launch {
+                    settingsPreferences.saveReadyAnimationSettings(validatedBase)
+                    settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
+                    snackbarHostState.showSnackbar("Readyアニメを保存しました")
+                }
+            }
+
+            AnimationType.TALKING -> {
+                appliedTalkingFrames = validatedBase.frameSequence
+                appliedTalkingIntervalMs = validatedBase.intervalMs
+                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                    enabled = false,
+                    frameSequence = appliedTalkingInsertionFrames,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                )
+                appliedTalkingInsertionEnabled = insertion.enabled
+                appliedTalkingInsertionFrames = insertion.frameSequence
+                appliedTalkingInsertionIntervalMs = insertion.intervalMs
+                appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
+                appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
+                appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
+                appliedTalkingInsertionExclusive = insertion.exclusive
+                coroutineScope.launch {
+                    settingsPreferences.saveTalkingAnimationSettings(validatedBase)
+                    settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
+                    snackbarHostState.showSnackbar("Talkingアニメを保存しました")
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            SpriteSettingsFooter(
+                onUpdate = {
+                    if (tabIndex == 0) {
+                        coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                    } else {
+                        onAnimationApply()
+                    }
+                },
+                onSave = {
+                    if (tabIndex == 0) {
+                        saveSpriteSheetConfig()
+                    } else {
+                        onAnimationSave()
+                    }
+                }
             )
         }
-    }) { innerPadding ->
+    ) { innerPadding ->
         val density = LocalDensity.current
         val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
         val isImeVisible = imeBottomDp > 0.dp
+        val contentBottomPadding = innerPadding.calculateBottomPadding() + footerHeight
 
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .padding(bottom = contentBottomPadding)
         ) {
             Surface(
                 modifier = Modifier.fillMaxSize()
@@ -762,6 +890,21 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             Text("操作バーは下部に固定されています")
                                             Text("選択中: ${selectedNumber}/9")
                                         }
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        SpriteSettingsControls(
+                                            selectedNumber = selectedNumber,
+                                            selectedPosition = selectedPosition,
+                                            boxSizePx = boxSizePx,
+                                            onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
+                                            onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
+                                            onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
+                                            onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
+                                            onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
+                                            onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
+                                            onSizeDecrease = { updateBoxSize(-4) },
+                                            onSizeIncrease = { updateBoxSize(4) },
+                                            onCopy = { copySpriteSheetConfig() }
+                                        )
                                     }
                                 }
 
@@ -1017,124 +1160,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         selectionState = selectionState,
                                         baseState = baseState,
                                         insertionState = insertionState,
-                                        isImeVisible = isImeVisible,
-                                        onApply = {
-                                            val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
-                                            val validatedInsertion =
-                                                if (insertionState.enabled) validateInsertionInputs(selectedAnimation) else null
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    appliedReadyFrames = validatedBase.frameSequence
-                                                    appliedReadyIntervalMs = validatedBase.intervalMs
-                                                    val insertion = validatedInsertion ?: InsertionAnimationSettings(
-                                                        enabled = false,
-                                                        frameSequence = appliedReadyInsertionFrames,
-                                                        intervalMs = appliedReadyInsertionIntervalMs,
-                                                        everyNLoops = appliedReadyInsertionEveryNLoops,
-                                                        probabilityPercent = appliedReadyInsertionProbabilityPercent,
-                                                        cooldownLoops = appliedReadyInsertionCooldownLoops,
-                                                        exclusive = appliedReadyInsertionExclusive,
-                                                    )
-                                                    appliedReadyInsertionEnabled = insertion.enabled
-                                                    appliedReadyInsertionFrames = insertion.frameSequence
-                                                    appliedReadyInsertionIntervalMs = insertion.intervalMs
-                                                    appliedReadyInsertionEveryNLoops = insertion.everyNLoops
-                                                    appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
-                                                    appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
-                                                    appliedReadyInsertionExclusive = insertion.exclusive
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    appliedTalkingFrames = validatedBase.frameSequence
-                                                    appliedTalkingIntervalMs = validatedBase.intervalMs
-                                                    val insertion = validatedInsertion ?: InsertionAnimationSettings(
-                                                        enabled = false,
-                                                        frameSequence = appliedTalkingInsertionFrames,
-                                                        intervalMs = appliedTalkingInsertionIntervalMs,
-                                                        everyNLoops = appliedTalkingInsertionEveryNLoops,
-                                                        probabilityPercent = appliedTalkingInsertionProbabilityPercent,
-                                                        cooldownLoops = appliedTalkingInsertionCooldownLoops,
-                                                        exclusive = appliedTalkingInsertionExclusive,
-                                                    )
-                                                    appliedTalkingInsertionEnabled = insertion.enabled
-                                                    appliedTalkingInsertionFrames = insertion.frameSequence
-                                                    appliedTalkingInsertionIntervalMs = insertion.intervalMs
-                                                    appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
-                                                    appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
-                                                    appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
-                                                    appliedTalkingInsertionExclusive = insertion.exclusive
-                                                }
-                                            }
-                                            Log.d(
-                                                "SpriteAnim",
-                                                if (validatedInsertion != null) {
-                                                    "Applied ${selectedAnimation.label} frames=${validatedBase.frameSequence.map { it + 1 }} intervalMs=${validatedBase.intervalMs} insertion=${validatedInsertion.frameSequence.map { it + 1 }} everyN=${validatedInsertion.everyNLoops} prob=${validatedInsertion.probabilityPercent}% cooldown=${validatedInsertion.cooldownLoops} exclusive=${validatedInsertion.exclusive}"
-                                                } else {
-                                                    "Applied ${selectedAnimation.label} frames=${validatedBase.frameSequence.map { it + 1 }} intervalMs=${validatedBase.intervalMs} insertion disabled"
-                                                }
-                                            )
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar("プレビューに適用しました")
-                                            }
-                                        },
-                                        onSave = {
-                                            val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
-                                            val validatedInsertion =
-                                                if (insertionState.enabled) validateInsertionInputs(selectedAnimation) else null
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    appliedReadyFrames = validatedBase.frameSequence
-                                                    appliedReadyIntervalMs = validatedBase.intervalMs
-                                                    val insertion = validatedInsertion ?: InsertionAnimationSettings(
-                                                        enabled = false,
-                                                        frameSequence = appliedReadyInsertionFrames,
-                                                        intervalMs = appliedReadyInsertionIntervalMs,
-                                                        everyNLoops = appliedReadyInsertionEveryNLoops,
-                                                        probabilityPercent = appliedReadyInsertionProbabilityPercent,
-                                                        cooldownLoops = appliedReadyInsertionCooldownLoops,
-                                                        exclusive = appliedReadyInsertionExclusive,
-                                                    )
-                                                    appliedReadyInsertionEnabled = insertion.enabled
-                                                    appliedReadyInsertionFrames = insertion.frameSequence
-                                                    appliedReadyInsertionIntervalMs = insertion.intervalMs
-                                                    appliedReadyInsertionEveryNLoops = insertion.everyNLoops
-                                                    appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
-                                                    appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
-                                                    appliedReadyInsertionExclusive = insertion.exclusive
-                                                    coroutineScope.launch {
-                                                        settingsPreferences.saveReadyAnimationSettings(validatedBase)
-                                                        settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
-                                                        snackbarHostState.showSnackbar("Readyアニメを保存しました")
-                                                    }
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    appliedTalkingFrames = validatedBase.frameSequence
-                                                    appliedTalkingIntervalMs = validatedBase.intervalMs
-                                                    val insertion = validatedInsertion ?: InsertionAnimationSettings(
-                                                        enabled = false,
-                                                        frameSequence = appliedTalkingInsertionFrames,
-                                                        intervalMs = appliedTalkingInsertionIntervalMs,
-                                                        everyNLoops = appliedTalkingInsertionEveryNLoops,
-                                                        probabilityPercent = appliedTalkingInsertionProbabilityPercent,
-                                                        cooldownLoops = appliedTalkingInsertionCooldownLoops,
-                                                        exclusive = appliedTalkingInsertionExclusive,
-                                                    )
-                                                    appliedTalkingInsertionEnabled = insertion.enabled
-                                                    appliedTalkingInsertionFrames = insertion.frameSequence
-                                                    appliedTalkingInsertionIntervalMs = insertion.intervalMs
-                                                    appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
-                                                    appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
-                                                    appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
-                                                    appliedTalkingInsertionExclusive = insertion.exclusive
-                                                    coroutineScope.launch {
-                                                        settingsPreferences.saveTalkingAnimationSettings(validatedBase)
-                                                        settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                                                        snackbarHostState.showSnackbar("Talkingアニメを保存しました")
-                                                    }
-                                                }
-                                            }
-                                        }
+                                        isImeVisible = isImeVisible
                                     )
                                 }
                             }
@@ -1194,8 +1220,6 @@ private fun ReadyAnimationTab(
     baseState: BaseAnimationUiState,
     insertionState: InsertionAnimationUiState,
     isImeVisible: Boolean,
-    onApply: () -> Unit,
-    onSave: () -> Unit,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1222,8 +1246,6 @@ private fun ReadyAnimationTab(
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
-                onApply = onApply,
-                onSave = onSave,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -1615,8 +1637,6 @@ private fun ReadyAnimationPreviewPane(
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
-    onApply: () -> Unit,
-    onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
@@ -1643,7 +1663,6 @@ private fun ReadyAnimationPreviewPane(
             } else {
                 rawSpriteSize.coerceIn(72.dp, 120.dp)
             }
-            val stackButtons = maxWidth < 260.dp
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -1683,52 +1702,6 @@ private fun ReadyAnimationPreviewPane(
                     showDetails = showDetails && !isImeVisible,
                     modifier = Modifier.fillMaxWidth()
                 )
-                AnimatedVisibility(visible = !isImeVisible) {
-                    Column {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (stackButtons) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                FilledTonalButton(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 48.dp),
-                                    onClick = onApply,
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                                ) { Text("更新") }
-                                FilledTonalButton(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 48.dp),
-                                    onClick = onSave,
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                                ) { Text("保存") }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilledTonalButton(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 48.dp),
-                                    onClick = onApply,
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                                ) { Text("更新") }
-                                FilledTonalButton(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 48.dp),
-                                    onClick = onSave,
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                                ) { Text("保存") }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -1768,7 +1741,6 @@ private fun SpriteSettingsControls(
     onMoveYPositive: () -> Unit,
     onSizeDecrease: () -> Unit,
     onSizeIncrease: () -> Unit,
-    onSave: () -> Unit,
     onCopy: () -> Unit
 ) {
     Column(
@@ -1823,22 +1795,54 @@ private fun SpriteSettingsControls(
                 "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
             } ?: "座標: -, -, -, -"
         )
-
-        Row(
+        Button(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            onClick = onCopy
         ) {
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = onSave
+            Text(text = "コピー")
+        }
+    }
+}
+
+@Composable
+private fun SpriteSettingsFooter(
+    onUpdate: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.ime)
+    ) {
+        Divider()
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            tonalElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(text = "保存")
-            }
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = onCopy
-            ) {
-                Text(text = "コピー")
+                FilledTonalButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onUpdate,
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    Text("更新")
+                }
+                FilledTonalButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onSave,
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    Text("保存")
+                }
             }
         }
     }
