@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -1078,67 +1079,71 @@ private fun ReadyAnimationTab(
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val scrollToSettings: () -> Unit = {
-        coroutineScope.launch { lazyListState.animateScrollToItem(1) }
+        coroutineScope.launch { lazyListState.animateScrollToItem(0) }
     }
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding(),
-        state = lazyListState,
-        contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(top = 12.dp, bottom = 24.dp)
     ) {
-        item {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                ReadyAnimationPreviewPane(
-                    imageBitmap = imageBitmap,
-                    spriteSheetConfig = spriteSheetConfig,
-                    baseSummary = baseSummary,
-                    insertionSummary = insertionSummary,
-                    insertionPreviewValues = insertionPreviewValues,
-                    onApply = onApply,
-                    onSave = onSave,
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            ReadyAnimationPreviewPane(
+                imageBitmap = imageBitmap,
+                spriteSheetConfig = spriteSheetConfig,
+                baseSummary = baseSummary,
+                insertionSummary = insertionSummary,
+                insertionPreviewValues = insertionPreviewValues,
+                onApply = onApply,
+                onSave = onSave,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding(),
+            state = lazyListState,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                ReadyAnimationSettingsPane(
+                    animationOptions = animationOptions,
+                    selectedAnimation = selectedAnimation,
+                    onSelectedAnimationChange = onSelectedAnimationChange,
+                    frameInput = frameInput,
+                    onFrameInputChange = onFrameInputChange,
+                    intervalInput = intervalInput,
+                    onIntervalInputChange = onIntervalInputChange,
+                    framesError = framesError,
+                    intervalError = intervalError,
+                    insertionFrameInput = insertionFrameInput,
+                    onInsertionFrameInputChange = onInsertionFrameInputChange,
+                    insertionIntervalInput = insertionIntervalInput,
+                    onInsertionIntervalInputChange = onInsertionIntervalInputChange,
+                    insertionEveryNInput = insertionEveryNInput,
+                    onInsertionEveryNInputChange = onInsertionEveryNInputChange,
+                    insertionProbabilityInput = insertionProbabilityInput,
+                    onInsertionProbabilityInputChange = onInsertionProbabilityInputChange,
+                    insertionCooldownInput = insertionCooldownInput,
+                    onInsertionCooldownInputChange = onInsertionCooldownInputChange,
+                    insertionExclusive = insertionExclusive,
+                    onInsertionExclusiveChange = onInsertionExclusiveChange,
+                    insertionFramesError = insertionFramesError,
+                    insertionIntervalError = insertionIntervalError,
+                    insertionEveryNError = insertionEveryNError,
+                    insertionProbabilityError = insertionProbabilityError,
+                    insertionCooldownError = insertionCooldownError,
+                    onFieldFocused = scrollToSettings,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
-        item {
-            ReadyAnimationSettingsPane(
-                animationOptions = animationOptions,
-                selectedAnimation = selectedAnimation,
-                onSelectedAnimationChange = onSelectedAnimationChange,
-                frameInput = frameInput,
-                onFrameInputChange = onFrameInputChange,
-                intervalInput = intervalInput,
-                onIntervalInputChange = onIntervalInputChange,
-                framesError = framesError,
-                intervalError = intervalError,
-                insertionFrameInput = insertionFrameInput,
-                onInsertionFrameInputChange = onInsertionFrameInputChange,
-                insertionIntervalInput = insertionIntervalInput,
-                onInsertionIntervalInputChange = onInsertionIntervalInputChange,
-                insertionEveryNInput = insertionEveryNInput,
-                onInsertionEveryNInputChange = onInsertionEveryNInputChange,
-                insertionProbabilityInput = insertionProbabilityInput,
-                onInsertionProbabilityInputChange = onInsertionProbabilityInputChange,
-                insertionCooldownInput = insertionCooldownInput,
-                onInsertionCooldownInputChange = onInsertionCooldownInputChange,
-                insertionExclusive = insertionExclusive,
-                onInsertionExclusiveChange = onInsertionExclusiveChange,
-                insertionFramesError = insertionFramesError,
-                insertionIntervalError = insertionIntervalError,
-                insertionEveryNError = insertionEveryNError,
-                insertionProbabilityError = insertionProbabilityError,
-                insertionCooldownError = insertionCooldownError,
-                onFieldFocused = scrollToSettings,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
     }
 }
@@ -1615,24 +1620,12 @@ private fun ReadyAnimationPreviewPane(
                         Text(text = "詳細 $suffix")
                     }
                 }
-                Row(
+                Text(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "現在: ${baseSummary.label}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "挿入: ${formatAppliedLine(insertionSummary, insertionPreviewValues)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                    text = "現在: ${baseSummary.label}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 ReadyAnimationPreview(
                     imageBitmap = imageBitmap,
                     spriteSheetConfig = spriteSheetConfig,
