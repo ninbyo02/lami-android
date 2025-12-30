@@ -1254,10 +1254,14 @@ private fun ReadyAnimationTab(
             val info = lazyListState.layoutInfo
             val totalItemsCount = info.totalItemsCount
             if (totalItemsCount == 0) return@derivedStateOf false
+            val visibleItems = info.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@derivedStateOf false
 
-            val canScrollUp = info.firstVisibleItemIndex > 0 || info.firstVisibleItemScrollOffset > 0
-            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val canScrollDown = lastVisibleIndex < totalItemsCount - 1
+            val firstItem = visibleItems.first()
+            val lastItem = visibleItems.last()
+            val canScrollUp = firstItem.index > 0 || firstItem.offset < info.viewportStartOffset
+            val canScrollDown = lastItem.index < totalItemsCount - 1 ||
+                (lastItem.offset + lastItem.size) > info.viewportEndOffset
 
             canScrollUp || canScrollDown
         }
