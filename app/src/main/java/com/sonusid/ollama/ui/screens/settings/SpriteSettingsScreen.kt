@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -753,11 +754,28 @@ private fun ReadyAnimationSettingsPane(
             .padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "Readyアニメ設定",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(R.string.sprite_animation_settings_title),
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = stringResource(
+                    R.string.sprite_animation_settings_selected,
+                    selectedAnimation
+                ),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         AnimationDropdown(
             items = listOf("Ready", "Insertion"),
             selectedItem = selectedAnimation,
