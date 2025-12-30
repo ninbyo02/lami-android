@@ -1621,7 +1621,7 @@ private fun ReadyAnimationPreview(
 
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top, // 右側情報ブロックを上寄せにする
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
@@ -1644,8 +1644,10 @@ private fun ReadyAnimationPreview(
             }
         }
         Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 2.dp), // パラメータ群を軽く上方向に寄せる
+            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
                 text = "フレーム: ${currentFramePosition + 1}/${totalFrames}",
@@ -1656,17 +1658,24 @@ private fun ReadyAnimationPreview(
                 style = MaterialTheme.typography.bodySmall
             )
             AnimatedVisibility(visible = showDetails) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(
+                    modifier = Modifier.heightIn(max = 72.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
+                ) {
                     Text(
                         text = formatAppliedLine(summary),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
                     )
                     if (insertionEnabled) {
                         Text(
                             text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -1698,8 +1707,9 @@ private fun ReadyAnimationPreviewPane(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = if (isImeVisible) 220.dp else 300.dp)
-                .padding(horizontal = 12.dp, vertical = if (isImeVisible) 6.dp else 10.dp)
+                .height(if (isImeVisible) 220.dp else 300.dp)
+                // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
+                .padding(horizontal = 12.dp, vertical = if (isImeVisible) 4.dp else 6.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = if (isImeVisible) {
