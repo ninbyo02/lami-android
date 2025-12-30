@@ -65,12 +65,20 @@ class SettingsPreferences(private val context: Context) {
     private val spriteSheetConfigKey = stringPreferencesKey("sprite_sheet_config")
     private val readyFrameSequenceKey = stringPreferencesKey("ready_frame_sequence")
     private val readyIntervalMsKey = intPreferencesKey("ready_interval_ms")
-    private val insertionFrameSequenceKey = stringPreferencesKey("insertion_frame_sequence")
-    private val insertionIntervalMsKey = intPreferencesKey("insertion_interval_ms")
-    private val insertionEveryNLoopsKey = intPreferencesKey("insertion_every_n_loops")
-    private val insertionProbabilityKey = intPreferencesKey("insertion_probability_percent")
-    private val insertionCooldownLoopsKey = intPreferencesKey("insertion_cooldown_loops")
-    private val insertionExclusiveKey = booleanPreferencesKey("insertion_exclusive")
+    private val readyInsertionFrameSequenceKey = stringPreferencesKey("insertion_frame_sequence")
+    private val readyInsertionIntervalMsKey = intPreferencesKey("insertion_interval_ms")
+    private val readyInsertionEveryNLoopsKey = intPreferencesKey("insertion_every_n_loops")
+    private val readyInsertionProbabilityKey = intPreferencesKey("insertion_probability_percent")
+    private val readyInsertionCooldownLoopsKey = intPreferencesKey("insertion_cooldown_loops")
+    private val readyInsertionExclusiveKey = booleanPreferencesKey("insertion_exclusive")
+    private val talkingFrameSequenceKey = stringPreferencesKey("talking_frame_sequence")
+    private val talkingIntervalMsKey = intPreferencesKey("talking_interval_ms")
+    private val talkingInsertionFrameSequenceKey = stringPreferencesKey("talking_insertion_frame_sequence")
+    private val talkingInsertionIntervalMsKey = intPreferencesKey("talking_insertion_interval_ms")
+    private val talkingInsertionEveryNLoopsKey = intPreferencesKey("talking_insertion_every_n_loops")
+    private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
+    private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
+    private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
@@ -103,8 +111,27 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
-    val insertionAnimationSettings: Flow<InsertionAnimationSettings> = context.dataStore.data.map { preferences ->
-        val frameSequenceString = preferences[insertionFrameSequenceKey]
+    val talkingAnimationSettings: Flow<ReadyAnimationSettings> = context.dataStore.data.map { preferences ->
+        val frameSequenceString = preferences[talkingFrameSequenceKey]
+        val parsedFrames = frameSequenceString
+            ?.split(",")
+            ?.mapNotNull { value -> value.trim().toIntOrNull() }
+            ?.filter { it in 0 until SpriteSheetConfig.default3x3().frameCount }
+            .orEmpty()
+            .ifEmpty { ReadyAnimationSettings.DEFAULT.frameSequence }
+
+        val intervalMs = preferences[talkingIntervalMsKey]
+            ?.coerceIn(ReadyAnimationSettings.MIN_INTERVAL_MS, ReadyAnimationSettings.MAX_INTERVAL_MS)
+            ?: ReadyAnimationSettings.DEFAULT.intervalMs
+
+        ReadyAnimationSettings(
+            frameSequence = parsedFrames,
+            intervalMs = intervalMs,
+        )
+    }
+
+    val readyInsertionAnimationSettings: Flow<InsertionAnimationSettings> = context.dataStore.data.map { preferences ->
+        val frameSequenceString = preferences[readyInsertionFrameSequenceKey]
         val parsedFrames = frameSequenceString
             ?.split(",")
             ?.mapNotNull { value -> value.trim().toIntOrNull() }
@@ -112,26 +139,66 @@ class SettingsPreferences(private val context: Context) {
             .orEmpty()
             .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence }
 
-        val intervalMs = preferences[insertionIntervalMsKey]
+        val intervalMs = preferences[readyInsertionIntervalMsKey]
             ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
             ?: InsertionAnimationSettings.DEFAULT.intervalMs
 
-        val everyNLoops = preferences[insertionEveryNLoopsKey]
+        val everyNLoops = preferences[readyInsertionEveryNLoopsKey]
             ?.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
             ?: InsertionAnimationSettings.DEFAULT.everyNLoops
 
-        val probabilityPercent = preferences[insertionProbabilityKey]
+        val probabilityPercent = preferences[readyInsertionProbabilityKey]
             ?.coerceIn(
                 InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
                 InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
             )
             ?: InsertionAnimationSettings.DEFAULT.probabilityPercent
 
-        val cooldownLoops = preferences[insertionCooldownLoopsKey]
+        val cooldownLoops = preferences[readyInsertionCooldownLoopsKey]
             ?.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
             ?: InsertionAnimationSettings.DEFAULT.cooldownLoops
 
-        val exclusive = preferences[insertionExclusiveKey] ?: InsertionAnimationSettings.DEFAULT.exclusive
+        val exclusive = preferences[readyInsertionExclusiveKey] ?: InsertionAnimationSettings.DEFAULT.exclusive
+
+        InsertionAnimationSettings(
+            frameSequence = parsedFrames,
+            intervalMs = intervalMs,
+            everyNLoops = everyNLoops,
+            probabilityPercent = probabilityPercent,
+            cooldownLoops = cooldownLoops,
+            exclusive = exclusive,
+        )
+    }
+
+    val talkingInsertionAnimationSettings: Flow<InsertionAnimationSettings> = context.dataStore.data.map { preferences ->
+        val frameSequenceString = preferences[talkingInsertionFrameSequenceKey]
+        val parsedFrames = frameSequenceString
+            ?.split(",")
+            ?.mapNotNull { value -> value.trim().toIntOrNull() }
+            ?.filter { it in 0 until SpriteSheetConfig.default3x3().frameCount }
+            .orEmpty()
+            .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence }
+
+        val intervalMs = preferences[talkingInsertionIntervalMsKey]
+            ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
+            ?: InsertionAnimationSettings.DEFAULT.intervalMs
+
+        val everyNLoops = preferences[talkingInsertionEveryNLoopsKey]
+            ?.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
+            ?: InsertionAnimationSettings.DEFAULT.everyNLoops
+
+        val probabilityPercent = preferences[talkingInsertionProbabilityKey]
+            ?.coerceIn(
+                InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
+                InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
+            )
+            ?: InsertionAnimationSettings.DEFAULT.probabilityPercent
+
+        val cooldownLoops = preferences[talkingInsertionCooldownLoopsKey]
+            ?.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
+            ?: InsertionAnimationSettings.DEFAULT.cooldownLoops
+
+        val exclusive = preferences[talkingInsertionExclusiveKey] ?: InsertionAnimationSettings.DEFAULT.exclusive
 
         InsertionAnimationSettings(
             frameSequence = parsedFrames,
@@ -166,14 +233,32 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
-    suspend fun saveInsertionAnimationSettings(settings: InsertionAnimationSettings) {
+    suspend fun saveTalkingAnimationSettings(settings: ReadyAnimationSettings) {
         context.dataStore.edit { preferences ->
-            preferences[insertionFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
-            preferences[insertionIntervalMsKey] = settings.intervalMs
-            preferences[insertionEveryNLoopsKey] = settings.everyNLoops
-            preferences[insertionProbabilityKey] = settings.probabilityPercent
-            preferences[insertionCooldownLoopsKey] = settings.cooldownLoops
-            preferences[insertionExclusiveKey] = settings.exclusive
+            preferences[talkingFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
+            preferences[talkingIntervalMsKey] = settings.intervalMs
+        }
+    }
+
+    suspend fun saveReadyInsertionAnimationSettings(settings: InsertionAnimationSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[readyInsertionFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
+            preferences[readyInsertionIntervalMsKey] = settings.intervalMs
+            preferences[readyInsertionEveryNLoopsKey] = settings.everyNLoops
+            preferences[readyInsertionProbabilityKey] = settings.probabilityPercent
+            preferences[readyInsertionCooldownLoopsKey] = settings.cooldownLoops
+            preferences[readyInsertionExclusiveKey] = settings.exclusive
+        }
+    }
+
+    suspend fun saveTalkingInsertionAnimationSettings(settings: InsertionAnimationSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[talkingInsertionFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
+            preferences[talkingInsertionIntervalMsKey] = settings.intervalMs
+            preferences[talkingInsertionEveryNLoopsKey] = settings.everyNLoops
+            preferences[talkingInsertionProbabilityKey] = settings.probabilityPercent
+            preferences[talkingInsertionCooldownLoopsKey] = settings.cooldownLoops
+            preferences[talkingInsertionExclusiveKey] = settings.exclusive
         }
     }
 }
