@@ -1687,9 +1687,6 @@ private fun ReadyAnimationPreviewPane(
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(isImeVisible) {
-        if (isImeVisible) showDetails = false
-    }
 
     Card(
         modifier = modifier.animateContentSize(),
@@ -1746,7 +1743,7 @@ private fun ReadyAnimationPreviewPane(
                     insertionEnabled = insertionEnabled,
                     insertionPreviewValues = insertionPreviewValues,
                     spriteSizeDp = spriteSize,
-                    showDetails = showDetails && !isImeVisible,
+                    showDetails = showDetails,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
