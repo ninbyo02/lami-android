@@ -62,6 +62,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -636,43 +637,55 @@ private fun ReadyAnimationPreview(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("プレビュー", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-        Box(
-            modifier = Modifier
-                .padding(vertical = 8.dp)
-                .size(spriteSizeDp),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                if (currentBox == null) return@Canvas
-                val region = SpriteFrameRegion(
-                    srcOffset = IntOffset(currentBox.x, currentBox.y),
-                    srcSize = IntSize(currentBox.width, currentBox.height),
-                )
-                val (dstSizeInt, dstOffsetInt) = ContentScale.Fit.toDstRect(
-                    srcSize = region.srcSize,
-                    canvasSize = this.size
-                )
-                drawFrameRegion(
-                    sheet = imageBitmap,
-                    region = region,
-                    dstSize = dstSizeInt,
-                    dstOffset = dstOffsetInt,
-                    placeholder = { offset, dstSize -> drawFramePlaceholder(offset, dstSize) },
+            Box(
+                modifier = Modifier.size(spriteSizeDp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    if (currentBox == null) return@Canvas
+                    val region = SpriteFrameRegion(
+                        srcOffset = IntOffset(currentBox.x, currentBox.y),
+                        srcSize = IntSize(currentBox.width, currentBox.height),
+                    )
+                    val (dstSizeInt, dstOffsetInt) = ContentScale.Fit.toDstRect(
+                        srcSize = region.srcSize,
+                        canvasSize = this.size
+                    )
+                    drawFrameRegion(
+                        sheet = imageBitmap,
+                        region = region,
+                        dstSize = dstSizeInt,
+                        dstOffset = dstOffsetInt,
+                        placeholder = { offset, dstSize -> drawFramePlaceholder(offset, dstSize) },
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}")
+                Text("周期: ${intervalMs}ms")
+                val appliedFramesUi = resolvedFrames.map { it + 1 }
+                Text(
+                    "Applied: frames=${appliedFramesUi.joinToString(",")} interval=${intervalMs}ms",
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
-        Text("フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}")
-        Text("周期: ${intervalMs}ms")
-        val appliedFramesUi = resolvedFrames.map { it + 1 }
-        Text(
-            "Applied: frames=${appliedFramesUi.joinToString(",")} interval=${intervalMs}ms",
-            style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-            color = Color.Gray
-        )
     }
 }
 
@@ -734,16 +747,16 @@ private fun ReadyAnimationPreviewPane(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 360.dp)
+                .heightIn(max = 300.dp)
                 .padding(12.dp)
         ) {
-            val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.45f
-            val spriteSize = rawSpriteSize.coerceIn(96.dp, 160.dp)
+            val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
+            val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
             val stackButtons = maxWidth < 260.dp
 
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 ReadyAnimationPreview(
@@ -754,7 +767,6 @@ private fun ReadyAnimationPreviewPane(
                     spriteSizeDp = spriteSize,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
                 if (stackButtons) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
