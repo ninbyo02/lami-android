@@ -106,6 +106,67 @@ private data class AnimationSummary(
     val exclusive: Boolean? = null,
 )
 
+private data class InsertionPreviewValues(
+    val framesText: String,
+    val intervalText: String,
+    val everyNText: String,
+    val probabilityText: String,
+    val cooldownText: String,
+    val exclusiveText: String,
+)
+
+private fun buildInsertionPreviewSummary(
+    frameInput: String,
+    intervalInput: String,
+    everyNInput: String,
+    probabilityInput: String,
+    cooldownInput: String,
+    exclusive: Boolean,
+    frameCount: Int
+): Pair<AnimationSummary, InsertionPreviewValues> {
+    val framesText = frameInput.trim()
+    val intervalText = intervalInput.trim()
+    val everyNText = everyNInput.trim()
+    val probabilityText = probabilityInput.trim()
+    val cooldownText = cooldownInput.trim()
+
+    val previewValues = InsertionPreviewValues(
+        framesText = framesText.ifEmpty { "-" },
+        intervalText = intervalText.ifEmpty { "-" },
+        everyNText = everyNText.ifEmpty { "-" },
+        probabilityText = probabilityText.ifEmpty { "-" },
+        cooldownText = cooldownText.ifEmpty { "-" },
+        exclusiveText = if (exclusive) "ON" else "OFF"
+    )
+
+    val parsedFrames = framesText
+        .split(",")
+        .map { token -> token.trim() }
+        .filter { token -> token.isNotEmpty() }
+        .mapNotNull { token ->
+            token.toIntOrNull()
+                ?.takeIf { value -> value in 1..frameCount }
+                ?.minus(1)
+        }
+    val frames = parsedFrames.ifEmpty { listOf(0) }
+    val intervalMs = intervalText.toIntOrNull()?.takeIf { it > 0 } ?: InsertionAnimationSettings.DEFAULT.intervalMs
+    val everyNLoops = everyNText.toIntOrNull()
+    val probabilityPercent = probabilityText.toIntOrNull()
+    val cooldownLoops = cooldownText.toIntOrNull()
+
+    val summary = AnimationSummary(
+        label = "Insertion",
+        frames = frames,
+        intervalMs = intervalMs,
+        everyNLoops = everyNLoops,
+        probabilityPercent = probabilityPercent,
+        cooldownLoops = cooldownLoops,
+        exclusive = exclusive
+    )
+
+    return summary to previewValues
+}
+
 private const val DEFAULT_BOX_SIZE_PX = 88
 
 private fun clampPosition(
@@ -742,22 +803,23 @@ private fun ReadyAnimationTab(
             intervalMs = appliedIntervalMs
         )
     }
-    val insertionSummary = remember(
-        appliedInsertionFrames,
-        appliedInsertionIntervalMs,
-        appliedInsertionEveryNLoops,
-        appliedInsertionProbabilityPercent,
-        appliedInsertionCooldownLoops,
-        appliedInsertionExclusive
+    val (insertionSummary, insertionPreviewValues) = remember(
+        insertionFrameInput,
+        insertionIntervalInput,
+        insertionEveryNInput,
+        insertionProbabilityInput,
+        insertionCooldownInput,
+        insertionExclusive,
+        spriteSheetConfig.frameCount
     ) {
-        AnimationSummary(
-            label = "Insertion",
-            frames = appliedInsertionFrames,
-            intervalMs = appliedInsertionIntervalMs,
-            everyNLoops = appliedInsertionEveryNLoops,
-            probabilityPercent = appliedInsertionProbabilityPercent,
-            cooldownLoops = appliedInsertionCooldownLoops,
-            exclusive = appliedInsertionExclusive
+        buildInsertionPreviewSummary(
+            frameInput = insertionFrameInput,
+            intervalInput = insertionIntervalInput,
+            everyNInput = insertionEveryNInput,
+            probabilityInput = insertionProbabilityInput,
+            cooldownInput = insertionCooldownInput,
+            exclusive = insertionExclusive,
+            frameCount = spriteSheetConfig.frameCount
         )
     }
 
@@ -778,6 +840,7 @@ private fun ReadyAnimationTab(
                 activeSummary = activeSummary,
                 readySummary = readySummary,
                 insertionSummary = insertionSummary,
+                insertionPreviewValues = insertionPreviewValues,
                 selectedAnimation = selectedAnimation,
                 onApply = onApply,
                 onSave = onSave,
@@ -1039,6 +1102,7 @@ private fun ReadyAnimationPreview(
     summary: AnimationSummary,
     readySummary: AnimationSummary,
     insertionSummary: AnimationSummary,
+    insertionPreviewValues: InsertionPreviewValues,
     spriteSizeDp: Dp,
     selectedAnimation: String,
     showDetails: Boolean,
@@ -1110,7 +1174,10 @@ private fun ReadyAnimationPreview(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = formatAppliedLine(summary),
+                    text = formatAppliedLine(
+                        summary = summary,
+                        insertionPreviewValues = if (summary.label == "Insertion") insertionPreviewValues else null
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1127,7 +1194,10 @@ private fun ReadyAnimationPreview(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = formatInsertionDetail(insertionSummary),
+                            text = formatInsertionDetail(
+                                summary = insertionSummary,
+                                previewValues = insertionPreviewValues
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1246,6 +1316,7 @@ private fun ReadyAnimationPreviewPane(
     activeSummary: AnimationSummary,
     readySummary: AnimationSummary,
     insertionSummary: AnimationSummary,
+    insertionPreviewValues: InsertionPreviewValues,
     selectedAnimation: String,
     onApply: () -> Unit,
     onSave: () -> Unit,
@@ -1295,6 +1366,7 @@ private fun ReadyAnimationPreviewPane(
                     summary = activeSummary,
                     readySummary = readySummary,
                     insertionSummary = insertionSummary,
+                    insertionPreviewValues = insertionPreviewValues,
                     spriteSizeDp = spriteSize,
                     selectedAnimation = selectedAnimation,
                     showDetails = showDetails,
@@ -1435,20 +1507,37 @@ private fun SpriteSettingsControls(
     }
 }
 
-private fun formatAppliedLine(summary: AnimationSummary): String {
+private fun formatAppliedLine(
+    summary: AnimationSummary,
+    insertionPreviewValues: InsertionPreviewValues? = null
+): String {
+    if (summary.label == "Insertion" && insertionPreviewValues != null) {
+        val framesText = insertionPreviewValues.framesText.ifBlank { "-" }
+        val intervalText = insertionPreviewValues.intervalText.ifBlank { "-" }
+        return "${summary.label}: $framesText / ${intervalText}ms"
+    }
     val frames = summary.frames.ifEmpty { listOf(0) }.joinToString(",") { value -> (value + 1).toString() }
     return "${summary.label}: $frames / ${summary.intervalMs}ms"
 }
 
-private fun formatInsertionDetail(summary: AnimationSummary): String {
+private fun formatInsertionDetail(
+    summary: AnimationSummary,
+    previewValues: InsertionPreviewValues?
+): String {
     if (summary.label != "Insertion") return formatAppliedLine(summary)
-    val exclusiveLabel = summary.exclusive?.let { if (it) "ON" else "OFF" }
+    val framesText = previewValues?.framesText?.ifBlank { "-" } ?: "-"
+    val intervalText = previewValues?.intervalText?.ifBlank { "-" } ?: "-"
+    val everyNText = previewValues?.everyNText?.ifBlank { "-" } ?: "-"
+    val probabilityText = previewValues?.probabilityText?.ifBlank { "-" } ?: "-"
+    val cooldownText = previewValues?.cooldownText?.ifBlank { "-" } ?: "-"
+    val exclusiveText = previewValues?.exclusiveText ?: "-"
+
     val parts = buildList {
-        add(formatAppliedLine(summary))
-        summary.everyNLoops?.let { add("N:$it") }
-        summary.probabilityPercent?.let { add("P:${it}%") }
-        summary.cooldownLoops?.let { add("CD:$it") }
-        exclusiveLabel?.let { add("Excl:$it") }
+        add("Insertion: $framesText / ${intervalText}ms")
+        add("N:$everyNText")
+        add("P:${if (probabilityText == "-") "-" else "$probabilityText%"}")
+        add("CD:$cooldownText")
+        add("Excl:$exclusiveText")
     }
     // keep short to avoid card growth; joins with double space to mimic spec formatting
     return parts.joinToString(separator = "  ")
