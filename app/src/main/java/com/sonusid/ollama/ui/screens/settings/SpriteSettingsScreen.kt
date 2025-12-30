@@ -71,8 +71,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.stickyHeader
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -1042,7 +1040,6 @@ fun SpriteSettingsScreen(navController: NavController) {
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
@@ -1092,7 +1089,7 @@ private fun ReadyAnimationTab(
         contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        stickyHeader {
+        item {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
