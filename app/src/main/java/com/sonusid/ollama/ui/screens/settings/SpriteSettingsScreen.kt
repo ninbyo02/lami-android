@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,6 +54,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -66,6 +68,10 @@ import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -308,6 +314,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
+                    .imePadding()
             ) {
                 IconButton(
                     onClick = { navController.popBackStack() },
@@ -341,140 +348,146 @@ fun SpriteSettingsScreen(navController: NavController) {
                             text = { Text("アニメ") }
                         )
                     }
-                    when (tabIndex) {
-                        0 -> {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = true)
+                    ) {
+                        when (tabIndex) {
+                            0 -> {
                                 Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Text("元画像解像度: ${imageBitmap.width} x ${imageBitmap.height} px")
-                                    Text("表示倍率: ${"%.2f".format(displayScale)}x")
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(1f)
-                                        .padding(top = 12.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
-                                        contentDescription = "Sprite Preview",
+                                    Column(
                                         modifier = Modifier
-                                            .fillMaxSize()
-                                            .onSizeChanged { newContainerSize: IntSize ->
-                                                containerSize = newContainerSize
-                                                if (imageBitmap.width != 0) {
-                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
-                                                }
-                                            },
-                                        contentScale = ContentScale.Fit
-                                    )
-                                    if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
-                                        Canvas(modifier = Modifier.fillMaxSize()) {
-                                            val scaleX = this.size.width / imageBitmap.width
-                                            val scaleY = this.size.height / imageBitmap.height
-                                            drawRect(
-                                                color = Color.Red,
-                                                topLeft = Offset(
-                                                    x = selectedPosition.x * scaleX,
-                                                    y = selectedPosition.y * scaleY
-                                                ),
-                                                size = Size(
-                                                    width = boxSizePx * scaleX,
-                                                    height = boxSizePx * scaleY
-                                                ),
-                                                style = Stroke(width = 2.dp.toPx())
-                                            )
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("元画像解像度: ${imageBitmap.width} x ${imageBitmap.height} px")
+                                        Text("表示倍率: ${"%.2f".format(displayScale)}x")
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .padding(top = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
+                                            contentDescription = "Sprite Preview",
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .onSizeChanged { newContainerSize: IntSize ->
+                                                    containerSize = newContainerSize
+                                                    if (imageBitmap.width != 0) {
+                                                        displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                                    }
+                                                },
+                                            contentScale = ContentScale.Fit
+                                        )
+                                        if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                                val scaleX = this.size.width / imageBitmap.width
+                                                val scaleY = this.size.height / imageBitmap.height
+                                                drawRect(
+                                                    color = Color.Red,
+                                                    topLeft = Offset(
+                                                        x = selectedPosition.x * scaleX,
+                                                        y = selectedPosition.y * scaleY
+                                                    ),
+                                                    size = Size(
+                                                        width = boxSizePx * scaleX,
+                                                        height = boxSizePx * scaleY
+                                                    ),
+                                                    style = Stroke(width = 2.dp.toPx())
+                                                )
+                                            }
                                         }
                                     }
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("操作バーは下部に固定されています")
-                                    Text("選択中: ${selectedNumber}/9")
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("操作バーは下部に固定されています")
+                                        Text("選択中: ${selectedNumber}/9")
+                                    }
                                 }
                             }
-                        }
 
-                        1 -> {
-                            ReadyAnimationTab(
-                                imageBitmap = imageBitmap,
-                                spriteSheetConfig = spriteSheetConfig,
-                                selectedAnimation = selectedAnimation,
-                                onSelectedAnimationChange = { selectedAnimation = it },
-                                readyFrameInput = readyFrameInput,
-                                onReadyFrameInputChange = {
-                                    readyFrameInput = it
-                                    readyFramesError = null
-                                },
-                                readyIntervalInput = readyIntervalInput,
-                                onReadyIntervalInputChange = {
-                                    readyIntervalInput = it
-                                    readyIntervalError = null
-                                },
-                                readyFramesError = readyFramesError,
-                                readyIntervalError = readyIntervalError,
-                                appliedFrames = appliedReadyFrames,
-                                appliedIntervalMs = appliedReadyIntervalMs,
-                                onApply = {
-                                    val frames = parseReadyFrames(readyFrameInput)
-                                    val intervalMs = parseReadyIntervalMs(readyIntervalInput)
-                                    if (frames == null) {
-                                        readyFramesError = "1〜9のカンマ区切りで入力してください"
-                                        return@ReadyAnimationTab
-                                    }
-                                    if (intervalMs == null) {
-                                        readyIntervalError = "1以上の数値を入力してください"
-                                        return@ReadyAnimationTab
-                                    }
-                                    readyFramesError = null
-                                    readyIntervalError = null
-                                    appliedReadyFrames = frames
-                                    appliedReadyIntervalMs = intervalMs
-                                    Log.d(
-                                        "SpriteAnim",
-                                        "Ready applied frames=${frames.map { it + 1 }} intervalMs=$intervalMs"
-                                    )
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("プレビューに適用しました")
-                                    }
-                                },
-                                onSave = {
-                                    val frames = parseReadyFrames(readyFrameInput)
-                                    val intervalMs = parseReadyIntervalMs(readyIntervalInput)
-                                    if (frames == null) {
-                                        readyFramesError = "1〜9のカンマ区切りで入力してください"
-                                        return@ReadyAnimationTab
-                                    }
-                                    if (intervalMs == null) {
-                                        readyIntervalError = "1以上の数値を入力してください"
-                                        return@ReadyAnimationTab
-                                    }
-                                    readyFramesError = null
-                                    readyIntervalError = null
-                                    coroutineScope.launch {
-                                        settingsPreferences.saveReadyAnimationSettings(
-                                            ReadyAnimationSettings(
-                                                frameSequence = frames,
-                                                intervalMs = intervalMs,
-                                            )
+                            1 -> {
+                                ReadyAnimationTab(
+                                    imageBitmap = imageBitmap,
+                                    spriteSheetConfig = spriteSheetConfig,
+                                    selectedAnimation = selectedAnimation,
+                                    onSelectedAnimationChange = { selectedAnimation = it },
+                                    readyFrameInput = readyFrameInput,
+                                    onReadyFrameInputChange = {
+                                        readyFrameInput = it
+                                        readyFramesError = null
+                                    },
+                                    readyIntervalInput = readyIntervalInput,
+                                    onReadyIntervalInputChange = {
+                                        readyIntervalInput = it
+                                        readyIntervalError = null
+                                    },
+                                    readyFramesError = readyFramesError,
+                                    readyIntervalError = readyIntervalError,
+                                    appliedFrames = appliedReadyFrames,
+                                    appliedIntervalMs = appliedReadyIntervalMs,
+                                    onApply = {
+                                        val frames = parseReadyFrames(readyFrameInput)
+                                        val intervalMs = parseReadyIntervalMs(readyIntervalInput)
+                                        if (frames == null) {
+                                            readyFramesError = "1〜9のカンマ区切りで入力してください"
+                                            return@ReadyAnimationTab
+                                        }
+                                        if (intervalMs == null) {
+                                            readyIntervalError = "1以上の数値を入力してください"
+                                            return@ReadyAnimationTab
+                                        }
+                                        readyFramesError = null
+                                        readyIntervalError = null
+                                        appliedReadyFrames = frames
+                                        appliedReadyIntervalMs = intervalMs
+                                        Log.d(
+                                            "SpriteAnim",
+                                            "Ready applied frames=${frames.map { it + 1 }} intervalMs=$intervalMs"
                                         )
-                                        snackbarHostState.showSnackbar("Readyアニメを保存しました")
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("プレビューに適用しました")
+                                        }
+                                    },
+                                    onSave = {
+                                        val frames = parseReadyFrames(readyFrameInput)
+                                        val intervalMs = parseReadyIntervalMs(readyIntervalInput)
+                                        if (frames == null) {
+                                            readyFramesError = "1〜9のカンマ区切りで入力してください"
+                                            return@ReadyAnimationTab
+                                        }
+                                        if (intervalMs == null) {
+                                            readyIntervalError = "1以上の数値を入力してください"
+                                            return@ReadyAnimationTab
+                                        }
+                                        readyFramesError = null
+                                        readyIntervalError = null
+                                        coroutineScope.launch {
+                                            settingsPreferences.saveReadyAnimationSettings(
+                                                ReadyAnimationSettings(
+                                                    frameSequence = frames,
+                                                    intervalMs = intervalMs,
+                                                )
+                                            )
+                                            snackbarHostState.showSnackbar("Readyアニメを保存しました")
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -501,10 +514,10 @@ private fun ReadyAnimationTab(
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
+    val settingsScrollState = rememberScrollState()
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .wrapContentHeight()
+            .fillMaxSize()
             .padding(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -526,7 +539,10 @@ private fun ReadyAnimationTab(
             onReadyIntervalInputChange = onReadyIntervalInputChange,
             readyFramesError = readyFramesError,
             readyIntervalError = readyIntervalError,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = true)
+                .verticalScroll(settingsScrollState)
         )
     }
 }
@@ -581,6 +597,9 @@ private fun ReadyForm(
     readyFramesError: String?,
     readyIntervalError: String?,
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val readyFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val readyIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -588,7 +607,14 @@ private fun ReadyForm(
         OutlinedTextField(
             value = readyFrameInput,
             onValueChange = onReadyFrameInputChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .bringIntoViewRequester(readyFramesBringIntoViewRequester)
+                .onFocusEvent { event ->
+                    if (event.isFocused) {
+                        coroutineScope.launch { readyFramesBringIntoViewRequester.bringIntoView() }
+                    }
+                },
             label = { Text("フレーム列 (例: 1,2,3)") },
             singleLine = true,
             isError = readyFramesError != null,
@@ -599,7 +625,14 @@ private fun ReadyForm(
         OutlinedTextField(
             value = readyIntervalInput,
             onValueChange = onReadyIntervalInputChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .bringIntoViewRequester(readyIntervalBringIntoViewRequester)
+                .onFocusEvent { event ->
+                    if (event.isFocused) {
+                        coroutineScope.launch { readyIntervalBringIntoViewRequester.bringIntoView() }
+                    }
+                },
             label = { Text("周期 (ms)") },
             singleLine = true,
             isError = readyIntervalError != null,
