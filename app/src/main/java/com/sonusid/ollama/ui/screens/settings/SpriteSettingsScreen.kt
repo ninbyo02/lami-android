@@ -854,12 +854,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     AnimationType.READY -> readyBaseSummary
                                     AnimationType.TALKING -> talkingBaseSummary
                                 }
-                                ReadyAnimationTab(
-                                    imageBitmap = imageBitmap,
-                                    spriteSheetConfig = spriteSheetConfig,
+                                val selectionState = AnimationSelectionState(
                                     selectedAnimation = selectedAnimation,
-                                    onSelectedAnimationChange = { selectedAnimation = it },
                                     animationOptions = animationOptions,
+                                    onSelectedAnimationChange = { selectedAnimation = it }
+                                )
+                                val baseState = BaseAnimationUiState(
                                     frameInput = selectedFrameInput,
                                     onFrameInputChange = { updated ->
                                         when (selectedAnimation) {
@@ -890,8 +890,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     },
                                     framesError = selectedFramesError,
                                     intervalError = selectedIntervalError,
-                                    insertionFrameInput = selectedInsertionFrameInput,
-                                    onInsertionFrameInputChange = { updated ->
+                                    summary = selectedBaseSummary
+                                )
+                                val insertionState = InsertionAnimationUiState(
+                                    frameInput = selectedInsertionFrameInput,
+                                    onFrameInputChange = { updated ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 readyInsertionFrameInput = updated
@@ -904,8 +907,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     },
-                                    insertionIntervalInput = selectedInsertionIntervalInput,
-                                    onInsertionIntervalInputChange = { updated ->
+                                    intervalInput = selectedInsertionIntervalInput,
+                                    onIntervalInputChange = { updated ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 readyInsertionIntervalInput = updated
@@ -918,8 +921,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     },
-                                    insertionEveryNInput = selectedInsertionEveryNInput,
-                                    onInsertionEveryNInputChange = { updated ->
+                                    everyNInput = selectedInsertionEveryNInput,
+                                    onEveryNInputChange = { updated ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 readyInsertionEveryNInput = updated
@@ -932,8 +935,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     },
-                                    insertionProbabilityInput = selectedInsertionProbabilityInput,
-                                    onInsertionProbabilityInputChange = { updated ->
+                                    probabilityInput = selectedInsertionProbabilityInput,
+                                    onProbabilityInputChange = { updated ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 readyInsertionProbabilityInput = updated
@@ -946,8 +949,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     },
-                                    insertionCooldownInput = selectedInsertionCooldownInput,
-                                    onInsertionCooldownInputChange = { updated ->
+                                    cooldownInput = selectedInsertionCooldownInput,
+                                    onCooldownInputChange = { updated ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 readyInsertionCooldownInput = updated
@@ -960,33 +963,38 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     },
-                                    insertionEnabled = selectedInsertionEnabled,
-                                    onInsertionEnabledChange = { checked ->
+                                    enabled = selectedInsertionEnabled,
+                                    onEnabledChange = { checked ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> readyInsertionEnabled = checked
                                             AnimationType.TALKING -> talkingInsertionEnabled = checked
                                         }
                                     },
-                                    insertionExclusive = selectedInsertionExclusive,
-                                    onInsertionExclusiveChange = { checked ->
+                                    exclusive = selectedInsertionExclusive,
+                                    onExclusiveChange = { checked ->
                                         when (selectedAnimation) {
                                             AnimationType.READY -> readyInsertionExclusive = checked
                                             AnimationType.TALKING -> talkingInsertionExclusive = checked
                                         }
                                     },
-                                    insertionFramesError = selectedInsertionFramesError,
-                                    insertionIntervalError = selectedInsertionIntervalError,
-                                    insertionEveryNError = selectedInsertionEveryNError,
-                                    insertionProbabilityError = selectedInsertionProbabilityError,
-                                    insertionCooldownError = selectedInsertionCooldownError,
-                                    baseSummary = selectedBaseSummary,
-                                    insertionSummary = selectedInsertionSummary,
-                                    insertionPreviewValues = selectedInsertionPreviewValues,
-                                    insertionEnabled = selectedInsertionEnabled,
+                                    framesError = selectedInsertionFramesError,
+                                    intervalError = selectedInsertionIntervalError,
+                                    everyNError = selectedInsertionEveryNError,
+                                    probabilityError = selectedInsertionProbabilityError,
+                                    cooldownError = selectedInsertionCooldownError,
+                                    summary = selectedInsertionSummary,
+                                    previewValues = selectedInsertionPreviewValues
+                                )
+                                ReadyAnimationTab(
+                                    imageBitmap = imageBitmap,
+                                    spriteSheetConfig = spriteSheetConfig,
+                                    selectionState = selectionState,
+                                    baseState = baseState,
+                                    insertionState = insertionState,
                                     onApply = {
                                         val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
                                         val validatedInsertion =
-                                            if (selectedInsertionEnabled) validateInsertionInputs(selectedAnimation) else null
+                                            if (insertionState.enabled) validateInsertionInputs(selectedAnimation) else null
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 appliedReadyFrames = validatedBase.frameSequence
@@ -1045,7 +1053,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     onSave = {
                                         val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
                                         val validatedInsertion =
-                                            if (selectedInsertionEnabled) validateInsertionInputs(selectedAnimation) else null
+                                            if (insertionState.enabled) validateInsertionInputs(selectedAnimation) else null
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 appliedReadyFrames = validatedBase.frameSequence
@@ -1111,44 +1119,57 @@ fun SpriteSettingsScreen(navController: NavController) {
 
 }
 
+private data class AnimationSelectionState(
+    val selectedAnimation: AnimationType,
+    val animationOptions: List<AnimationType>,
+    val onSelectedAnimationChange: (AnimationType) -> Unit,
+)
+
+private data class BaseAnimationUiState(
+    val frameInput: String,
+    val onFrameInputChange: (String) -> Unit,
+    val intervalInput: String,
+    val onIntervalInputChange: (String) -> Unit,
+    val framesError: String?,
+    val intervalError: String?,
+    val summary: AnimationSummary,
+)
+
+private data class InsertionAnimationUiState(
+    val frameInput: String,
+    val onFrameInputChange: (String) -> Unit,
+    val intervalInput: String,
+    val onIntervalInputChange: (String) -> Unit,
+    val everyNInput: String,
+    val onEveryNInputChange: (String) -> Unit,
+    val probabilityInput: String,
+    val onProbabilityInputChange: (String) -> Unit,
+    val cooldownInput: String,
+    val onCooldownInputChange: (String) -> Unit,
+    val enabled: Boolean,
+    val onEnabledChange: (Boolean) -> Unit,
+    val exclusive: Boolean,
+    val onExclusiveChange: (Boolean) -> Unit,
+    val framesError: String?,
+    val intervalError: String?,
+    val everyNError: String?,
+    val probabilityError: String?,
+    val cooldownError: String?,
+    val summary: AnimationSummary,
+    val previewValues: InsertionPreviewValues,
+)
+
 @Composable
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
-    selectedAnimation: AnimationType,
-    onSelectedAnimationChange: (AnimationType) -> Unit,
-    animationOptions: List<AnimationType>,
-    frameInput: String,
-    onFrameInputChange: (String) -> Unit,
-    intervalInput: String,
-    onIntervalInputChange: (String) -> Unit,
-    framesError: String?,
-    intervalError: String?,
-    insertionFrameInput: String,
-    onInsertionFrameInputChange: (String) -> Unit,
-    insertionIntervalInput: String,
-    onInsertionIntervalInputChange: (String) -> Unit,
-    insertionEveryNInput: String,
-    onInsertionEveryNInputChange: (String) -> Unit,
-    insertionProbabilityInput: String,
-    onInsertionProbabilityInputChange: (String) -> Unit,
-    insertionCooldownInput: String,
-    onInsertionCooldownInputChange: (String) -> Unit,
-    insertionEnabled: Boolean,
-    onInsertionEnabledChange: (Boolean) -> Unit,
-    insertionExclusive: Boolean,
-    onInsertionExclusiveChange: (Boolean) -> Unit,
-    insertionFramesError: String?,
-    insertionIntervalError: String?,
-    insertionEveryNError: String?,
-    insertionProbabilityError: String?,
-    insertionCooldownError: String?,
-    baseSummary: AnimationSummary,
-    insertionSummary: AnimationSummary,
-    insertionPreviewValues: InsertionPreviewValues,
+    selectionState: AnimationSelectionState,
+    baseState: BaseAnimationUiState,
+    insertionState: InsertionAnimationUiState,
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
+    val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
@@ -1167,10 +1188,10 @@ private fun ReadyAnimationTab(
             ReadyAnimationPreviewPane(
                 imageBitmap = imageBitmap,
                 spriteSheetConfig = spriteSheetConfig,
-                baseSummary = baseSummary,
-                insertionSummary = insertionSummary,
-                insertionPreviewValues = insertionPreviewValues,
-                insertionEnabled = insertionEnabled,
+                baseSummary = baseState.summary,
+                insertionSummary = insertionState.summary,
+                insertionPreviewValues = insertionState.previewValues,
+                insertionEnabled = insertionState.enabled,
                 onApply = onApply,
                 onSave = onSave,
                 modifier = Modifier.fillMaxWidth()
@@ -1217,17 +1238,17 @@ private fun ReadyAnimationTab(
                         )
                     }
                     AnimationDropdown(
-                        items = animationOptions,
+                        items = selectionState.animationOptions,
                         selectedItem = selectedAnimation,
-                        onSelectedItemChange = onSelectedAnimationChange,
+                        onSelectedItemChange = selectionState.onSelectedAnimationChange,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
             item {
                 OutlinedTextField(
-                    value = frameInput,
-                    onValueChange = onFrameInputChange,
+                    value = baseState.frameInput,
+                    onValueChange = baseState.onFrameInputChange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
@@ -1236,16 +1257,16 @@ private fun ReadyAnimationTab(
                         },
                     label = { Text("フレーム列 (例: 1,2,3)") },
                     singleLine = true,
-                    isError = framesError != null,
-                    supportingText = framesError?.let { errorText ->
+                    isError = baseState.framesError != null,
+                    supportingText = baseState.framesError?.let { errorText ->
                         { Text(errorText, color = Color.Red) }
                     }
                 )
             }
             item {
                 OutlinedTextField(
-                    value = intervalInput,
-                    onValueChange = onIntervalInputChange,
+                    value = baseState.intervalInput,
+                    onValueChange = baseState.onIntervalInputChange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
@@ -1254,9 +1275,9 @@ private fun ReadyAnimationTab(
                         },
                     label = { Text("周期 (ms)") },
                     singleLine = true,
-                    isError = intervalError != null,
+                    isError = baseState.intervalError != null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = intervalError?.let { errorText ->
+                    supportingText = baseState.intervalError?.let { errorText ->
                         { Text(errorText, color = Color.Red) }
                     }
                 )
@@ -1282,129 +1303,121 @@ private fun ReadyAnimationTab(
                         )
                     }
                     Switch(
-                        checked = insertionEnabled,
-                        onCheckedChange = onInsertionEnabledChange
+                        checked = insertionState.enabled,
+                        onCheckedChange = insertionState.onEnabledChange
                     )
                 }
             }
-            if (insertionEnabled) {
-                item {
-                    OutlinedTextField(
-                        value = insertionFrameInput,
-                        onValueChange = onInsertionFrameInputChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(4)
-                            },
-                        label = { Text("挿入フレーム列（例: 4,5,6）") },
-                        singleLine = true,
-                        isError = insertionFramesError != null,
-                        supportingText = insertionFramesError?.let { errorText ->
-                            { Text(errorText, color = Color.Red) }
-                        }
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = insertionIntervalInput,
-                        onValueChange = onInsertionIntervalInputChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(5)
-                            },
-                        label = { Text("挿入周期（ms）") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        isError = insertionIntervalError != null,
-                        supportingText = insertionIntervalError?.let { errorText ->
-                            { Text(errorText, color = Color.Red) }
-                        }
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = insertionEveryNInput,
-                        onValueChange = onInsertionEveryNInputChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(6)
-                            },
-                        label = { Text("毎 N ループ") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        isError = insertionEveryNError != null,
-                        supportingText = insertionEveryNError?.let { errorText ->
-                            { Text(errorText, color = Color.Red) }
-                        }
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = insertionProbabilityInput,
-                        onValueChange = onInsertionProbabilityInputChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(7)
-                            },
-                        label = { Text("確率（%）") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        isError = insertionProbabilityError != null,
-                        supportingText = insertionProbabilityError?.let { errorText ->
-                            { Text(errorText, color = Color.Red) }
-                        }
-                    )
-                }
-                item {
-                    OutlinedTextField(
-                        value = insertionCooldownInput,
-                        onValueChange = onInsertionCooldownInputChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                            .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(8)
-                            },
-                        label = { Text("クールダウン（ループ）") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        isError = insertionCooldownError != null,
-                        supportingText = insertionCooldownError?.let { errorText ->
-                            { Text(errorText, color = Color.Red) }
-                        }
-                    )
-                }
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Exclusive（Ready中は挿入しない）")
-                            Text(
-                                text = "ONにするとReady再生中は挿入を抑制します",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+            item {
+                AnimatedVisibility(visible = insertionState.enabled) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = insertionState.frameInput,
+                            onValueChange = insertionState.onFrameInputChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                                .onFocusEvent { event ->
+                                    if (event.isFocused) onFieldFocused(4)
+                                },
+                            label = { Text("挿入フレーム列（例: 4,5,6）") },
+                            singleLine = true,
+                            isError = insertionState.framesError != null,
+                            supportingText = insertionState.framesError?.let { errorText ->
+                                { Text(errorText, color = Color.Red) }
+                            }
+                        )
+                        OutlinedTextField(
+                            value = insertionState.intervalInput,
+                            onValueChange = insertionState.onIntervalInputChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                                .onFocusEvent { event ->
+                                    if (event.isFocused) onFieldFocused(5)
+                                },
+                            label = { Text("挿入周期（ms）") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = insertionState.intervalError != null,
+                            supportingText = insertionState.intervalError?.let { errorText ->
+                                { Text(errorText, color = Color.Red) }
+                            }
+                        )
+                        OutlinedTextField(
+                            value = insertionState.everyNInput,
+                            onValueChange = insertionState.onEveryNInputChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                                .onFocusEvent { event ->
+                                    if (event.isFocused) onFieldFocused(6)
+                                },
+                            label = { Text("毎 N ループ") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = insertionState.everyNError != null,
+                            supportingText = insertionState.everyNError?.let { errorText ->
+                                { Text(errorText, color = Color.Red) }
+                            }
+                        )
+                        OutlinedTextField(
+                            value = insertionState.probabilityInput,
+                            onValueChange = insertionState.onProbabilityInputChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                                .onFocusEvent { event ->
+                                    if (event.isFocused) onFieldFocused(7)
+                                },
+                            label = { Text("確率（%）") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = insertionState.probabilityError != null,
+                            supportingText = insertionState.probabilityError?.let { errorText ->
+                                { Text(errorText, color = Color.Red) }
+                            }
+                        )
+                        OutlinedTextField(
+                            value = insertionState.cooldownInput,
+                            onValueChange = insertionState.onCooldownInputChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                                .onFocusEvent { event ->
+                                    if (event.isFocused) onFieldFocused(8)
+                                },
+                            label = { Text("クールダウン（ループ）") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = insertionState.cooldownError != null,
+                            supportingText = insertionState.cooldownError?.let { errorText ->
+                                { Text(errorText, color = Color.Red) }
+                            }
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Exclusive（Ready中は挿入しない）")
+                                Text(
+                                    text = "ONにするとReady再生中は挿入を抑制します",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = insertionState.exclusive,
+                                onCheckedChange = insertionState.onExclusiveChange
                             )
                         }
-                        Switch(
-                            checked = insertionExclusive,
-                            onCheckedChange = onInsertionExclusiveChange
-                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
-                item { Spacer(modifier = Modifier.height(4.dp)) }
             }
         }
     }
