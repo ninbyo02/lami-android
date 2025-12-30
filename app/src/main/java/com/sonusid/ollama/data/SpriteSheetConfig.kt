@@ -22,6 +22,7 @@ data class SpriteSheetConfig(
     val frameWidth: Int,
     val frameHeight: Int,
     val boxes: List<BoxPosition>,
+    val insertionEnabled: Boolean = false,
 ) : Parcelable {
     val frameCount: Int = (rows * cols).coerceAtLeast(0)
 
@@ -71,6 +72,7 @@ data class SpriteSheetConfig(
                 BoxPosition(frameIndex = 7, height = 88, width = 88, x = 95, y = 196),
                 BoxPosition(frameIndex = 8, height = 88, width = 88, x = 188, y = 196),
             ),
+            insertionEnabled = false,
         )
 
         fun default3x3(frameSize: Int = DEFAULT.frameWidth): SpriteSheetConfig {
@@ -88,6 +90,7 @@ data class SpriteSheetConfig(
                 frameWidth = frameSize,
                 frameHeight = frameSize,
                 boxes = scaledBoxes,
+                insertionEnabled = DEFAULT.insertionEnabled,
             )
         }
 

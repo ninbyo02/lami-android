@@ -114,6 +114,7 @@ private data class AnimationSummary(
     val probabilityPercent: Int? = null,
     val cooldownLoops: Int? = null,
     val exclusive: Boolean? = null,
+    val enabled: Boolean = false,
 )
 
 private data class InsertionPreviewValues(
@@ -127,6 +128,7 @@ private data class InsertionPreviewValues(
 
 private fun buildInsertionPreviewSummary(
     label: String,
+    enabled: Boolean,
     frameInput: String,
     intervalInput: String,
     everyNInput: String,
@@ -172,7 +174,8 @@ private fun buildInsertionPreviewSummary(
         everyNLoops = everyNLoops,
         probabilityPercent = probabilityPercent,
         cooldownLoops = cooldownLoops,
-        exclusive = exclusive
+        exclusive = exclusive,
+        enabled = enabled,
     )
 
     return summary to previewValues
@@ -250,12 +253,14 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
     var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
     var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
+    var readyInsertionEnabled by rememberSaveable { mutableStateOf(false) }
     var readyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var appliedReadyInsertionFrames by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.frameSequence) }
     var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.intervalMs) }
     var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.everyNLoops) }
     var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.probabilityPercent) }
     var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.cooldownLoops) }
+    var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.enabled) }
     var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.exclusive) }
     var readyInsertionFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -267,12 +272,14 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
     var talkingInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
     var talkingInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
+    var talkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var appliedTalkingInsertionFrames by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.frameSequence) }
     var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.intervalMs) }
     var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.everyNLoops) }
     var appliedTalkingInsertionProbabilityPercent by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.probabilityPercent) }
     var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.cooldownLoops) }
+    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.enabled) }
     var appliedTalkingInsertionExclusive by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.exclusive) }
     var talkingInsertionFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -318,12 +325,14 @@ fun SpriteSettingsScreen(navController: NavController) {
         appliedReadyInsertionEveryNLoops = readyInsertionAnimationSettings.everyNLoops
         appliedReadyInsertionProbabilityPercent = readyInsertionAnimationSettings.probabilityPercent
         appliedReadyInsertionCooldownLoops = readyInsertionAnimationSettings.cooldownLoops
+        appliedReadyInsertionEnabled = readyInsertionAnimationSettings.enabled
         appliedReadyInsertionExclusive = readyInsertionAnimationSettings.exclusive
         readyInsertionFrameInput = normalizedFrames.joinToString(separator = ",") { value -> (value + 1).toString() }
         readyInsertionIntervalInput = readyInsertionAnimationSettings.intervalMs.toString()
         readyInsertionEveryNInput = readyInsertionAnimationSettings.everyNLoops.toString()
         readyInsertionProbabilityInput = readyInsertionAnimationSettings.probabilityPercent.toString()
         readyInsertionCooldownInput = readyInsertionAnimationSettings.cooldownLoops.toString()
+        readyInsertionEnabled = readyInsertionAnimationSettings.enabled
         readyInsertionExclusive = readyInsertionAnimationSettings.exclusive
     }
 
@@ -334,12 +343,14 @@ fun SpriteSettingsScreen(navController: NavController) {
         appliedTalkingInsertionEveryNLoops = talkingInsertionAnimationSettings.everyNLoops
         appliedTalkingInsertionProbabilityPercent = talkingInsertionAnimationSettings.probabilityPercent
         appliedTalkingInsertionCooldownLoops = talkingInsertionAnimationSettings.cooldownLoops
+        appliedTalkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         appliedTalkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
         talkingInsertionFrameInput = normalizedFrames.joinToString(separator = ",") { value -> (value + 1).toString() }
         talkingInsertionIntervalInput = talkingInsertionAnimationSettings.intervalMs.toString()
         talkingInsertionEveryNInput = talkingInsertionAnimationSettings.everyNLoops.toString()
         talkingInsertionProbabilityInput = talkingInsertionAnimationSettings.probabilityPercent.toString()
         talkingInsertionCooldownInput = talkingInsertionAnimationSettings.cooldownLoops.toString()
+        talkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         talkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
     }
 
@@ -550,6 +561,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
         if (frames != null && interval != null && everyN != null && probability != null && cooldown != null) {
             return InsertionAnimationSettings(
+                enabled = true,
                 frameSequence = frames,
                 intervalMs = interval,
                 everyNLoops = everyN,
@@ -738,6 +750,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val selectedInsertionEveryNInput: String
                                 val selectedInsertionProbabilityInput: String
                                 val selectedInsertionCooldownInput: String
+                                val selectedInsertionEnabled: Boolean
                                 val selectedInsertionExclusive: Boolean
                                 val selectedInsertionFramesError: String?
                                 val selectedInsertionIntervalError: String?
@@ -755,6 +768,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         selectedInsertionEveryNInput = readyInsertionEveryNInput
                                         selectedInsertionProbabilityInput = readyInsertionProbabilityInput
                                         selectedInsertionCooldownInput = readyInsertionCooldownInput
+                                        selectedInsertionEnabled = readyInsertionEnabled
                                         selectedInsertionExclusive = readyInsertionExclusive
                                         selectedInsertionFramesError = readyInsertionFramesError
                                         selectedInsertionIntervalError = readyInsertionIntervalError
@@ -773,6 +787,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         selectedInsertionEveryNInput = talkingInsertionEveryNInput
                                         selectedInsertionProbabilityInput = talkingInsertionProbabilityInput
                                         selectedInsertionCooldownInput = talkingInsertionCooldownInput
+                                        selectedInsertionEnabled = talkingInsertionEnabled
                                         selectedInsertionExclusive = talkingInsertionExclusive
                                         selectedInsertionFramesError = talkingInsertionFramesError
                                         selectedInsertionIntervalError = talkingInsertionIntervalError
@@ -793,11 +808,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     readyInsertionEveryNInput,
                                     readyInsertionProbabilityInput,
                                     readyInsertionCooldownInput,
+                                    readyInsertionEnabled,
                                     readyInsertionExclusive,
                                     spriteSheetConfig.frameCount
                                 ) {
                                     buildInsertionPreviewSummary(
                                         label = "挿入",
+                                        enabled = readyInsertionEnabled,
                                         frameInput = readyInsertionFrameInput,
                                         intervalInput = readyInsertionIntervalInput,
                                         everyNInput = readyInsertionEveryNInput,
@@ -813,11 +830,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     talkingInsertionEveryNInput,
                                     talkingInsertionProbabilityInput,
                                     talkingInsertionCooldownInput,
+                                    talkingInsertionEnabled,
                                     talkingInsertionExclusive,
                                     spriteSheetConfig.frameCount
                                 ) {
                                     buildInsertionPreviewSummary(
                                         label = "挿入",
+                                        enabled = talkingInsertionEnabled,
                                         frameInput = talkingInsertionFrameInput,
                                         intervalInput = talkingInsertionIntervalInput,
                                         everyNInput = talkingInsertionEveryNInput,
@@ -941,6 +960,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     },
+                                    insertionEnabled = selectedInsertionEnabled,
+                                    onInsertionEnabledChange = { checked ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> readyInsertionEnabled = checked
+                                            AnimationType.TALKING -> talkingInsertionEnabled = checked
+                                        }
+                                    },
                                     insertionExclusive = selectedInsertionExclusive,
                                     onInsertionExclusiveChange = { checked ->
                                         when (selectedAnimation) {
@@ -956,36 +982,61 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     baseSummary = selectedBaseSummary,
                                     insertionSummary = selectedInsertionSummary,
                                     insertionPreviewValues = selectedInsertionPreviewValues,
+                                    insertionEnabled = selectedInsertionEnabled,
                                     onApply = {
                                         val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
                                         val validatedInsertion =
-                                            validateInsertionInputs(selectedAnimation) ?: return@ReadyAnimationTab
+                                            if (selectedInsertionEnabled) validateInsertionInputs(selectedAnimation) else null
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 appliedReadyFrames = validatedBase.frameSequence
                                                 appliedReadyIntervalMs = validatedBase.intervalMs
-                                                appliedReadyInsertionFrames = validatedInsertion.frameSequence
-                                                appliedReadyInsertionIntervalMs = validatedInsertion.intervalMs
-                                                appliedReadyInsertionEveryNLoops = validatedInsertion.everyNLoops
-                                                appliedReadyInsertionProbabilityPercent = validatedInsertion.probabilityPercent
-                                                appliedReadyInsertionCooldownLoops = validatedInsertion.cooldownLoops
-                                                appliedReadyInsertionExclusive = validatedInsertion.exclusive
+                                                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                                                    enabled = false,
+                                                    frameSequence = appliedReadyInsertionFrames,
+                                                    intervalMs = appliedReadyInsertionIntervalMs,
+                                                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                                                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                                                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                                                    exclusive = appliedReadyInsertionExclusive,
+                                                )
+                                                appliedReadyInsertionEnabled = insertion.enabled
+                                                appliedReadyInsertionFrames = insertion.frameSequence
+                                                appliedReadyInsertionIntervalMs = insertion.intervalMs
+                                                appliedReadyInsertionEveryNLoops = insertion.everyNLoops
+                                                appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
+                                                appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
+                                                appliedReadyInsertionExclusive = insertion.exclusive
                                             }
 
                                             AnimationType.TALKING -> {
                                                 appliedTalkingFrames = validatedBase.frameSequence
                                                 appliedTalkingIntervalMs = validatedBase.intervalMs
-                                                appliedTalkingInsertionFrames = validatedInsertion.frameSequence
-                                                appliedTalkingInsertionIntervalMs = validatedInsertion.intervalMs
-                                                appliedTalkingInsertionEveryNLoops = validatedInsertion.everyNLoops
-                                                appliedTalkingInsertionProbabilityPercent = validatedInsertion.probabilityPercent
-                                                appliedTalkingInsertionCooldownLoops = validatedInsertion.cooldownLoops
-                                                appliedTalkingInsertionExclusive = validatedInsertion.exclusive
+                                                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                                                    enabled = false,
+                                                    frameSequence = appliedTalkingInsertionFrames,
+                                                    intervalMs = appliedTalkingInsertionIntervalMs,
+                                                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                                                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                                                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                                                    exclusive = appliedTalkingInsertionExclusive,
+                                                )
+                                                appliedTalkingInsertionEnabled = insertion.enabled
+                                                appliedTalkingInsertionFrames = insertion.frameSequence
+                                                appliedTalkingInsertionIntervalMs = insertion.intervalMs
+                                                appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
+                                                appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
+                                                appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
+                                                appliedTalkingInsertionExclusive = insertion.exclusive
                                             }
                                         }
                                         Log.d(
                                             "SpriteAnim",
-                                            "Applied ${selectedAnimation.label} frames=${validatedBase.frameSequence.map { it + 1 }} intervalMs=${validatedBase.intervalMs} insertion=${validatedInsertion.frameSequence.map { it + 1 }} everyN=${validatedInsertion.everyNLoops} prob=${validatedInsertion.probabilityPercent}% cooldown=${validatedInsertion.cooldownLoops} exclusive=${validatedInsertion.exclusive}"
+                                            if (validatedInsertion != null) {
+                                                "Applied ${selectedAnimation.label} frames=${validatedBase.frameSequence.map { it + 1 }} intervalMs=${validatedBase.intervalMs} insertion=${validatedInsertion.frameSequence.map { it + 1 }} everyN=${validatedInsertion.everyNLoops} prob=${validatedInsertion.probabilityPercent}% cooldown=${validatedInsertion.cooldownLoops} exclusive=${validatedInsertion.exclusive}"
+                                            } else {
+                                                "Applied ${selectedAnimation.label} frames=${validatedBase.frameSequence.map { it + 1 }} intervalMs=${validatedBase.intervalMs} insertion disabled"
+                                            }
                                         )
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar("プレビューに適用しました")
@@ -994,20 +1045,30 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     onSave = {
                                         val validatedBase = validateBaseInputs(selectedAnimation) ?: return@ReadyAnimationTab
                                         val validatedInsertion =
-                                            validateInsertionInputs(selectedAnimation) ?: return@ReadyAnimationTab
+                                            if (selectedInsertionEnabled) validateInsertionInputs(selectedAnimation) else null
                                         when (selectedAnimation) {
                                             AnimationType.READY -> {
                                                 appliedReadyFrames = validatedBase.frameSequence
                                                 appliedReadyIntervalMs = validatedBase.intervalMs
-                                                appliedReadyInsertionFrames = validatedInsertion.frameSequence
-                                                appliedReadyInsertionIntervalMs = validatedInsertion.intervalMs
-                                                appliedReadyInsertionEveryNLoops = validatedInsertion.everyNLoops
-                                                appliedReadyInsertionProbabilityPercent = validatedInsertion.probabilityPercent
-                                                appliedReadyInsertionCooldownLoops = validatedInsertion.cooldownLoops
-                                                appliedReadyInsertionExclusive = validatedInsertion.exclusive
+                                                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                                                    enabled = false,
+                                                    frameSequence = appliedReadyInsertionFrames,
+                                                    intervalMs = appliedReadyInsertionIntervalMs,
+                                                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                                                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                                                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                                                    exclusive = appliedReadyInsertionExclusive,
+                                                )
+                                                appliedReadyInsertionEnabled = insertion.enabled
+                                                appliedReadyInsertionFrames = insertion.frameSequence
+                                                appliedReadyInsertionIntervalMs = insertion.intervalMs
+                                                appliedReadyInsertionEveryNLoops = insertion.everyNLoops
+                                                appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
+                                                appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
+                                                appliedReadyInsertionExclusive = insertion.exclusive
                                                 coroutineScope.launch {
                                                     settingsPreferences.saveReadyAnimationSettings(validatedBase)
-                                                    settingsPreferences.saveReadyInsertionAnimationSettings(validatedInsertion)
+                                                    settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
                                                     snackbarHostState.showSnackbar("Readyアニメを保存しました")
                                                 }
                                             }
@@ -1015,15 +1076,25 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             AnimationType.TALKING -> {
                                                 appliedTalkingFrames = validatedBase.frameSequence
                                                 appliedTalkingIntervalMs = validatedBase.intervalMs
-                                                appliedTalkingInsertionFrames = validatedInsertion.frameSequence
-                                                appliedTalkingInsertionIntervalMs = validatedInsertion.intervalMs
-                                                appliedTalkingInsertionEveryNLoops = validatedInsertion.everyNLoops
-                                                appliedTalkingInsertionProbabilityPercent = validatedInsertion.probabilityPercent
-                                                appliedTalkingInsertionCooldownLoops = validatedInsertion.cooldownLoops
-                                                appliedTalkingInsertionExclusive = validatedInsertion.exclusive
+                                                val insertion = validatedInsertion ?: InsertionAnimationSettings(
+                                                    enabled = false,
+                                                    frameSequence = appliedTalkingInsertionFrames,
+                                                    intervalMs = appliedTalkingInsertionIntervalMs,
+                                                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                                                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                                                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                                                    exclusive = appliedTalkingInsertionExclusive,
+                                                )
+                                                appliedTalkingInsertionEnabled = insertion.enabled
+                                                appliedTalkingInsertionFrames = insertion.frameSequence
+                                                appliedTalkingInsertionIntervalMs = insertion.intervalMs
+                                                appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
+                                                appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
+                                                appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
+                                                appliedTalkingInsertionExclusive = insertion.exclusive
                                                 coroutineScope.launch {
                                                     settingsPreferences.saveTalkingAnimationSettings(validatedBase)
-                                                    settingsPreferences.saveTalkingInsertionAnimationSettings(validatedInsertion)
+                                                    settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
                                                     snackbarHostState.showSnackbar("Talkingアニメを保存しました")
                                                 }
                                             }
@@ -1063,6 +1134,8 @@ private fun ReadyAnimationTab(
     onInsertionProbabilityInputChange: (String) -> Unit,
     insertionCooldownInput: String,
     onInsertionCooldownInputChange: (String) -> Unit,
+    insertionEnabled: Boolean,
+    onInsertionEnabledChange: (Boolean) -> Unit,
     insertionExclusive: Boolean,
     onInsertionExclusiveChange: (Boolean) -> Unit,
     insertionFramesError: String?,
@@ -1097,6 +1170,7 @@ private fun ReadyAnimationTab(
                 baseSummary = baseSummary,
                 insertionSummary = insertionSummary,
                 insertionPreviewValues = insertionPreviewValues,
+                insertionEnabled = insertionEnabled,
                 onApply = onApply,
                 onSave = onSave,
                 modifier = Modifier.fillMaxWidth()
@@ -1188,110 +1262,6 @@ private fun ReadyAnimationTab(
                 )
             }
             item {
-                Text(
-                    text = "挿入設定",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = insertionFrameInput,
-                    onValueChange = onInsertionFrameInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(4)
-                        },
-                    label = { Text("挿入フレーム列（例: 4,5,6）") },
-                    singleLine = true,
-                    isError = insertionFramesError != null,
-                    supportingText = insertionFramesError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = insertionIntervalInput,
-                    onValueChange = onInsertionIntervalInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(5)
-                        },
-                    label = { Text("挿入周期（ms）") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = insertionIntervalError != null,
-                    supportingText = insertionIntervalError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = insertionEveryNInput,
-                    onValueChange = onInsertionEveryNInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(6)
-                        },
-                    label = { Text("毎 N ループ") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = insertionEveryNError != null,
-                    supportingText = insertionEveryNError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = insertionProbabilityInput,
-                    onValueChange = onInsertionProbabilityInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(7)
-                        },
-                    label = { Text("確率（%）") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = insertionProbabilityError != null,
-                    supportingText = insertionProbabilityError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = insertionCooldownInput,
-                    onValueChange = onInsertionCooldownInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(8)
-                        },
-                    label = { Text("クールダウン（ループ）") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = insertionCooldownError != null,
-                    supportingText = insertionCooldownError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1299,21 +1269,143 @@ private fun ReadyAnimationTab(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Exclusive（Ready中は挿入しない）")
+                    Column {
                         Text(
-                            text = "ONにするとReady再生中は挿入を抑制します",
+                            text = "挿入設定",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "挿入を使う",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
-                        checked = insertionExclusive,
-                        onCheckedChange = onInsertionExclusiveChange
+                        checked = insertionEnabled,
+                        onCheckedChange = onInsertionEnabledChange
                     )
                 }
             }
-            item { Spacer(modifier = Modifier.height(4.dp)) }
+            if (insertionEnabled) {
+                item {
+                    OutlinedTextField(
+                        value = insertionFrameInput,
+                        onValueChange = onInsertionFrameInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(4)
+                            },
+                        label = { Text("挿入フレーム列（例: 4,5,6）") },
+                        singleLine = true,
+                        isError = insertionFramesError != null,
+                        supportingText = insertionFramesError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = insertionIntervalInput,
+                        onValueChange = onInsertionIntervalInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(5)
+                            },
+                        label = { Text("挿入周期（ms）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionIntervalError != null,
+                        supportingText = insertionIntervalError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = insertionEveryNInput,
+                        onValueChange = onInsertionEveryNInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(6)
+                            },
+                        label = { Text("毎 N ループ") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionEveryNError != null,
+                        supportingText = insertionEveryNError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = insertionProbabilityInput,
+                        onValueChange = onInsertionProbabilityInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(7)
+                            },
+                        label = { Text("確率（%）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionProbabilityError != null,
+                        supportingText = insertionProbabilityError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                }
+                item {
+                    OutlinedTextField(
+                        value = insertionCooldownInput,
+                        onValueChange = onInsertionCooldownInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(8)
+                            },
+                        label = { Text("クールダウン（ループ）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionCooldownError != null,
+                        supportingText = insertionCooldownError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                }
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Exclusive（Ready中は挿入しない）")
+                            Text(
+                                text = "ONにするとReady再生中は挿入を抑制します",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = insertionExclusive,
+                            onCheckedChange = onInsertionExclusiveChange
+                        )
+                    }
+                }
+                item { Spacer(modifier = Modifier.height(4.dp)) }
+            }
         }
     }
 }
@@ -1365,6 +1457,7 @@ private fun ReadyAnimationPreview(
     spriteSheetConfig: SpriteSheetConfig,
     summary: AnimationSummary,
     insertionSummary: AnimationSummary,
+    insertionEnabled: Boolean,
     insertionPreviewValues: InsertionPreviewValues,
     spriteSizeDp: Dp,
     showDetails: Boolean,
@@ -1380,7 +1473,9 @@ private fun ReadyAnimationPreview(
         safeConfig.copy(boxes = safeConfig.boxesWithInternalIndex())
     }
     val baseFrames = remember(summary) { summary.frames.ifEmpty { listOf(0) } }
-    val insertionFrames = remember(insertionSummary) { insertionSummary.frames.ifEmpty { emptyList() } }
+    val insertionFrames = remember(insertionSummary, insertionEnabled) {
+        if (insertionEnabled) insertionSummary.frames.ifEmpty { emptyList() } else emptyList()
+    }
     val playbackFrames = remember(baseFrames, insertionFrames) {
         buildList {
             addAll(baseFrames)
@@ -1456,11 +1551,13 @@ private fun ReadyAnimationPreview(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (insertionEnabled) {
+                        Text(
+                            text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -1474,6 +1571,7 @@ private fun ReadyAnimationPreviewPane(
     baseSummary: AnimationSummary,
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
+    insertionEnabled: Boolean,
     onApply: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1527,6 +1625,7 @@ private fun ReadyAnimationPreviewPane(
                     spriteSheetConfig = spriteSheetConfig,
                     summary = baseSummary,
                     insertionSummary = insertionSummary,
+                    insertionEnabled = insertionEnabled,
                     insertionPreviewValues = insertionPreviewValues,
                     spriteSizeDp = spriteSize,
                     showDetails = showDetails,
