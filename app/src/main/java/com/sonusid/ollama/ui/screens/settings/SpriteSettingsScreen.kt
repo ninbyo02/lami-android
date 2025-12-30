@@ -1267,8 +1267,12 @@ private fun ReadyAnimationTab(
         }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val bottomContentPadding = contentPadding.calculateBottomPadding() +
-        if (needsBottomInset) footerHeight + 2.dp else 0.dp
+    val bottomContentPadding = if (isImeVisible) {
+        contentPadding.calculateBottomPadding() + 2.dp
+    } else {
+        contentPadding.calculateBottomPadding() +
+            if (needsBottomInset) footerHeight + 2.dp else 0.dp
+    }
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
