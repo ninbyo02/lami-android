@@ -1647,7 +1647,7 @@ private fun ReadyAnimationPreview(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .offset(y = (-82).dp), // Move parameter block up by 34dp
+                .offset(y = (-34).dp), // Move parameter block to +34dp from baseline
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
