@@ -1152,6 +1152,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
         }
     }
+}
 
 }
 
