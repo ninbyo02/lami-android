@@ -3,12 +3,27 @@ package com.sonusid.ollama.ui.screens.settings
 import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
@@ -22,6 +37,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,6 +64,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -480,69 +497,69 @@ private fun ReadyAnimationTab(
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
-    val scrollState = rememberScrollState()
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 12.dp)
-            .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Readyアニメ設定", modifier = Modifier.padding(horizontal = 8.dp))
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val isWide = maxWidth > 540.dp
-            val inputContent: @Composable () -> Unit = {
-                Column(
+        val paneSpacing = 12.dp
+        val shouldStackVertically = maxWidth < 420.dp
+
+        val settingsPane: @Composable () -> Unit = {
+            ReadyAnimationSettingsPane(
+                selectedAnimation = selectedAnimation,
+                onSelectedAnimationChange = onSelectedAnimationChange,
+                readyFrameInput = readyFrameInput,
+                onReadyFrameInputChange = onReadyFrameInputChange,
+                readyIntervalInput = readyIntervalInput,
+                onReadyIntervalInputChange = onReadyIntervalInputChange,
+                readyFramesError = readyFramesError,
+                readyIntervalError = readyIntervalError,
+            )
+        }
+
+        val previewPane: @Composable () -> Unit = {
+            ReadyAnimationPreviewPane(
+                imageBitmap = imageBitmap,
+                spriteSheetConfig = spriteSheetConfig,
+                frames = appliedFrames,
+                intervalMs = appliedIntervalMs,
+                onApply = onApply,
+                onSave = onSave
+            )
+        }
+
+        if (shouldStackVertically) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(paneSpacing)
+            ) {
+                previewPane()
+                settingsPane()
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(paneSpacing)
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .weight(0.6f)
+                        .fillMaxHeight()
                 ) {
-                    AnimationDropdown(
-                        items = listOf("Ready", "Insertion"),
-                        selectedItem = selectedAnimation,
-                        onSelectedItemChange = onSelectedAnimationChange,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (selectedAnimation == "Ready") {
-                        ReadyForm(
-                            readyFrameInput = readyFrameInput,
-                            onReadyFrameInputChange = onReadyFrameInputChange,
-                            readyIntervalInput = readyIntervalInput,
-                            onReadyIntervalInputChange = onReadyIntervalInputChange,
-                            readyFramesError = readyFramesError,
-                            readyIntervalError = readyIntervalError,
-                            onApply = onApply,
-                            onSave = onSave
-                        )
-                    } else {
-                        Text("未実装", modifier = Modifier.padding(vertical = 8.dp))
-                    }
+                    settingsPane()
                 }
-            }
-            val previewContent: @Composable () -> Unit = {
-                ReadyAnimationPreview(
-                    imageBitmap = imageBitmap,
-                    spriteSheetConfig = spriteSheetConfig,
-                    frames = appliedFrames,
-                    intervalMs = appliedIntervalMs,
+                VerticalDivider(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(vertical = 8.dp)
                 )
-            }
-            if (isWide) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Box(
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .fillMaxHeight()
                 ) {
-                    Box(modifier = Modifier.weight(1f)) { inputContent() }
-                    Box(modifier = Modifier.weight(1f)) { previewContent() }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    inputContent()
-                    previewContent()
+                    previewPane()
                 }
             }
         }
@@ -598,8 +615,6 @@ private fun ReadyForm(
     onReadyIntervalInputChange: (String) -> Unit,
     readyFramesError: String?,
     readyIntervalError: String?,
-    onApply: () -> Unit,
-    onSave: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -628,17 +643,6 @@ private fun ReadyForm(
                 { Text(errorText, color = Color.Red) }
             }
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Button(modifier = Modifier.weight(1f), onClick = onApply) {
-                Text("更新")
-            }
-            Button(modifier = Modifier.weight(1f), onClick = onSave) {
-                Text("保存")
-            }
-        }
     }
 }
 
@@ -648,6 +652,8 @@ private fun ReadyAnimationPreview(
     spriteSheetConfig: SpriteSheetConfig,
     frames: List<Int>,
     intervalMs: Int,
+    spriteSizeDp: Dp,
+    modifier: Modifier = Modifier,
 ) {
     val resolvedFrames = frames.ifEmpty { listOf(0) }
     var currentFrameIndex by remember(resolvedFrames) { mutableStateOf(0) }
@@ -670,9 +676,7 @@ private fun ReadyAnimationPreview(
     val currentBox = currentFrame?.let { frameIndex -> boxByFrameIndex[frameIndex] }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -680,7 +684,7 @@ private fun ReadyAnimationPreview(
         Box(
             modifier = Modifier
                 .padding(vertical = 8.dp)
-                .size(96.dp),
+                .size(spriteSizeDp),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -710,6 +714,107 @@ private fun ReadyAnimationPreview(
             style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
             color = Color.Gray
         )
+    }
+}
+
+@Composable
+private fun ReadyAnimationSettingsPane(
+    selectedAnimation: String,
+    onSelectedAnimationChange: (String) -> Unit,
+    readyFrameInput: String,
+    onReadyFrameInputChange: (String) -> Unit,
+    readyIntervalInput: String,
+    onReadyIntervalInputChange: (String) -> Unit,
+    readyFramesError: String?,
+    readyIntervalError: String?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Readyアニメ設定")
+        AnimationDropdown(
+            items = listOf("Ready", "Insertion"),
+            selectedItem = selectedAnimation,
+            onSelectedItemChange = onSelectedAnimationChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (selectedAnimation == "Ready") {
+            ReadyForm(
+                readyFrameInput = readyFrameInput,
+                onReadyFrameInputChange = onReadyFrameInputChange,
+                readyIntervalInput = readyIntervalInput,
+                onReadyIntervalInputChange = onReadyIntervalInputChange,
+                readyFramesError = readyFramesError,
+                readyIntervalError = readyIntervalError
+            )
+        } else {
+            Text("未実装", modifier = Modifier.padding(vertical = 8.dp))
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+    }
+}
+
+@Composable
+private fun ReadyAnimationPreviewPane(
+    imageBitmap: ImageBitmap,
+    spriteSheetConfig: SpriteSheetConfig,
+    frames: List<Int>,
+    intervalMs: Int,
+    onApply: () -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            val rawSpriteSize = minOf(maxWidth * 0.9f, maxHeight * 0.45f)
+            val spriteSize = rawSpriteSize.coerceIn(96.dp, 220.dp)
+            val stackButtons = maxWidth < 260.dp
+
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ReadyAnimationPreview(
+                    imageBitmap = imageBitmap,
+                    spriteSheetConfig = spriteSheetConfig,
+                    frames = frames,
+                    intervalMs = intervalMs,
+                    spriteSizeDp = spriteSize,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.weight(1f, fill = true))
+                if (stackButtons) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(modifier = Modifier.fillMaxWidth(), onClick = onApply) { Text("更新") }
+                        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("保存") }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(modifier = Modifier.weight(1f), onClick = onApply) { Text("更新") }
+                        Button(modifier = Modifier.weight(1f), onClick = onSave) { Text("保存") }
+                    }
+                }
+            }
+        }
     }
 }
 
