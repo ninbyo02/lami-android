@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,6 +37,8 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -640,7 +643,11 @@ private fun ReadyAnimationPreview(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("プレビュー", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+        Text(
+            text = "プレビュー",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.fillMaxWidth()
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -671,17 +678,24 @@ private fun ReadyAnimationPreview(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .padding(start = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.Start
             ) {
-                Text("フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}")
-                Text("周期: ${intervalMs}ms")
+                Text(
+                    text = "フレーム: ${(currentFrame ?: 0) + 1} / ${spriteSheetConfig.frameCount}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "周期: ${intervalMs}ms",
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 val appliedFramesUi = resolvedFrames.map { it + 1 }
                 Text(
-                    "Applied: frames=${appliedFramesUi.joinToString(",")} interval=${intervalMs}ms",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    text = "Applied: ${appliedFramesUi.joinToString(\",\")} / ${intervalMs}ms",
+                    style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -707,7 +721,11 @@ private fun ReadyAnimationSettingsPane(
             .padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Readyアニメ設定")
+        Text(
+            text = "Readyアニメ設定",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
         AnimationDropdown(
             items = listOf("Ready", "Insertion"),
             selectedItem = selectedAnimation,
@@ -748,7 +766,7 @@ private fun ReadyAnimationPreviewPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 300.dp)
-                .padding(12.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
             val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
@@ -756,7 +774,7 @@ private fun ReadyAnimationPreviewPane(
 
             Column(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 ReadyAnimationPreview(
@@ -770,18 +788,42 @@ private fun ReadyAnimationPreviewPane(
                 if (stackButtons) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Button(modifier = Modifier.fillMaxWidth(), onClick = onApply) { Text("更新") }
-                        Button(modifier = Modifier.fillMaxWidth(), onClick = onSave) { Text("保存") }
+                        FilledTonalButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                            onClick = onApply,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                        ) { Text("更新") }
+                        FilledTonalButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp),
+                            onClick = onSave,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                        ) { Text("保存") }
                     }
                 } else {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(modifier = Modifier.weight(1f), onClick = onApply) { Text("更新") }
-                        Button(modifier = Modifier.weight(1f), onClick = onSave) { Text("保存") }
+                        FilledTonalButton(
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp),
+                            onClick = onApply,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                        ) { Text("更新") }
+                        FilledTonalButton(
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp),
+                            onClick = onSave,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                        ) { Text("保存") }
                     }
                 }
             }
