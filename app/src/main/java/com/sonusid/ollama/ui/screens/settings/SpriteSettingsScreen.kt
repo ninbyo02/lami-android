@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -1846,4 +1847,3 @@ private fun formatInsertionDetail(
     // keep short to avoid card growth; joins with double space to mimic spec formatting
     return parts.joinToString(separator = "  ")
 }
-import androidx.compose.foundation.layout.windowInsetsPadding
