@@ -692,7 +692,7 @@ private fun ReadyAnimationPreview(
                 )
                 val appliedFramesUi = resolvedFrames.map { it + 1 }
                 Text(
-                    text = "Applied: ${appliedFramesUi.joinToString(\",\")} / ${intervalMs}ms",
+                    text = "Applied: ${appliedFramesUi.joinToString(",")} / ${intervalMs}ms",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray,
                     maxLines = 1,
