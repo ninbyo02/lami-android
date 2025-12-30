@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -1193,6 +1192,7 @@ private fun ReadyAnimationTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .padding(top = 8.dp, bottom = 8.dp)
     ) {
         Surface(
@@ -1215,9 +1215,7 @@ private fun ReadyAnimationTab(
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .imePadding()
-                .navigationBarsPadding(),
+                .fillMaxWidth(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp)
