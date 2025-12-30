@@ -1575,6 +1575,7 @@ private fun ReadyAnimationPreview(
     showDetails: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val paramYOffsetDp = 3
     val normalizedConfig = remember(spriteSheetConfig) {
         val validationError = spriteSheetConfig.validate()
         val safeConfig = if (spriteSheetConfig.isUninitialized() || validationError != null) {
@@ -1697,7 +1698,6 @@ private fun ReadyAnimationPreviewPane(
     modifier: Modifier = Modifier,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
-    val paramYOffsetDp = 3
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
@@ -1753,7 +1753,7 @@ private fun ReadyAnimationPreviewPane(
                         // TEMP: preview padding adjusters (remove later)
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Y:+${paramYOffsetDp}dp",
+                                text = "Y:+3dp",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             Row(
