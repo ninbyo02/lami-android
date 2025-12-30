@@ -90,10 +90,10 @@ import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
-import com.sonusid.ollama.ui.components.toDstRect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
@@ -1354,6 +1354,114 @@ private fun AnimationDropdown(
                         expanded = false
                     }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadyAnimationPreview(
+    imageBitmap: ImageBitmap,
+    spriteSheetConfig: SpriteSheetConfig,
+    summary: AnimationSummary,
+    insertionSummary: AnimationSummary,
+    insertionPreviewValues: InsertionPreviewValues,
+    spriteSizeDp: Dp,
+    showDetails: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val normalizedConfig = remember(spriteSheetConfig) {
+        val validationError = spriteSheetConfig.validate()
+        val safeConfig = if (spriteSheetConfig.isUninitialized() || validationError != null) {
+            SpriteSheetConfig.default3x3()
+        } else {
+            spriteSheetConfig
+        }
+        safeConfig.copy(boxes = safeConfig.boxesWithInternalIndex())
+    }
+    val baseFrames = remember(summary) { summary.frames.ifEmpty { listOf(0) } }
+    val insertionFrames = remember(insertionSummary) { insertionSummary.frames.ifEmpty { emptyList() } }
+    val playbackFrames = remember(baseFrames, insertionFrames) {
+        buildList {
+            addAll(baseFrames)
+            if (insertionFrames.isNotEmpty()) addAll(insertionFrames)
+        }.ifEmpty { listOf(0) }
+    }
+    var currentFramePosition by remember(playbackFrames) { mutableIntStateOf(0) }
+    val totalFrames = playbackFrames.size.coerceAtLeast(1)
+    val isInsertionFrame = insertionFrames.isNotEmpty() && currentFramePosition >= baseFrames.size
+    val currentIntervalMs = (if (isInsertionFrame) insertionSummary.intervalMs else summary.intervalMs)
+        .coerceAtLeast(16)
+    val currentFrameIndex = playbackFrames.getOrElse(currentFramePosition) { baseFrames.first() }
+    val frameRegion = remember(normalizedConfig, currentFrameIndex) {
+        val internalIndex = normalizedConfig.toInternalFrameIndex(currentFrameIndex) ?: return@remember null
+        val box = normalizedConfig.boxes.getOrNull(internalIndex) ?: return@remember null
+        SpriteFrameRegion(
+            srcOffset = IntOffset(box.x, box.y),
+            srcSize = IntSize(box.width, box.height)
+        )
+    }
+
+    LaunchedEffect(playbackFrames, summary.intervalMs, insertionSummary.intervalMs) {
+        currentFramePosition = 0
+        while (isActive && playbackFrames.isNotEmpty()) {
+            val isInsertion = insertionFrames.isNotEmpty() && currentFramePosition >= baseFrames.size
+            val delayMs = (if (isInsertion) insertionSummary.intervalMs else summary.intervalMs)
+                .coerceAtLeast(16)
+            delay(delayMs.toLong())
+            currentFramePosition = (currentFramePosition + 1) % playbackFrames.size
+        }
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(spriteSizeDp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val dstSize = IntSize(
+                    width = size.width.roundToInt().coerceAtLeast(1),
+                    height = size.height.roundToInt().coerceAtLeast(1)
+                )
+                drawFrameRegion(
+                    sheet = imageBitmap,
+                    region = frameRegion,
+                    dstSize = dstSize,
+                    placeholder = { offset, placeholderSize ->
+                        drawFramePlaceholder(offset = offset, size = placeholderSize)
+                    }
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "フレーム: ${currentFramePosition + 1}/${totalFrames}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = "周期: ${currentIntervalMs}ms",
+                style = MaterialTheme.typography.bodySmall
+            )
+            AnimatedVisibility(visible = showDetails) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = formatAppliedLine(summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
