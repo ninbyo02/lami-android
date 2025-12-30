@@ -738,8 +738,8 @@ private fun ReadyAnimationPreviewPane(
                 .padding(12.dp)
         ) {
             val effectiveMaxHeight = if (constraints.hasBoundedHeight) maxHeight else 320.dp
-            val rawSpriteSize = minOf(maxWidth * 0.85f, effectiveMaxHeight * 0.35f)
-            val spriteSize = rawSpriteSize.coerceIn(96.dp, 220.dp)
+            val rawSpriteSize = minOf(maxWidth, effectiveMaxHeight) * 0.6f
+            val spriteSize = rawSpriteSize.coerceIn(160.dp, 220.dp)
             val stackButtons = maxWidth < 260.dp
 
             Column(
