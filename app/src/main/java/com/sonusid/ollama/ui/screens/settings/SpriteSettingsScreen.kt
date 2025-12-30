@@ -3,7 +3,6 @@ package com.sonusid.ollama.ui.screens.settings
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,8 +19,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,7 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -68,11 +65,9 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -315,7 +310,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .imePadding()
             ) {
                 IconButton(
                     onClick = { navController.popBackStack() },
@@ -515,36 +509,45 @@ private fun ReadyAnimationTab(
     onApply: () -> Unit,
     onSave: () -> Unit,
 ) {
-    val settingsScrollState = rememberScrollState()
-    Column(
+    val lazyListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val scrollToSettings: () -> Unit = {
+        coroutineScope.launch { lazyListState.animateScrollToItem(1) }
+    }
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 12.dp),
+            .imePadding(),
+        state = lazyListState,
+        contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ReadyAnimationPreviewPane(
-            imageBitmap = imageBitmap,
-            spriteSheetConfig = spriteSheetConfig,
-            frames = appliedFrames,
-            intervalMs = appliedIntervalMs,
-            onApply = onApply,
-            onSave = onSave,
-            modifier = Modifier.fillMaxWidth()
-        )
-        ReadyAnimationSettingsPane(
-            selectedAnimation = selectedAnimation,
-            onSelectedAnimationChange = onSelectedAnimationChange,
-            readyFrameInput = readyFrameInput,
-            onReadyFrameInputChange = onReadyFrameInputChange,
-            readyIntervalInput = readyIntervalInput,
-            onReadyIntervalInputChange = onReadyIntervalInputChange,
-            readyFramesError = readyFramesError,
-            readyIntervalError = readyIntervalError,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = true)
-                .verticalScroll(settingsScrollState)
-        )
+        item {
+            ReadyAnimationPreviewPane(
+                imageBitmap = imageBitmap,
+                spriteSheetConfig = spriteSheetConfig,
+                frames = appliedFrames,
+                intervalMs = appliedIntervalMs,
+                onApply = onApply,
+                onSave = onSave,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            ReadyAnimationSettingsPane(
+                selectedAnimation = selectedAnimation,
+                onSelectedAnimationChange = onSelectedAnimationChange,
+                readyFrameInput = readyFrameInput,
+                onReadyFrameInputChange = onReadyFrameInputChange,
+                readyIntervalInput = readyIntervalInput,
+                onReadyIntervalInputChange = onReadyIntervalInputChange,
+                readyFramesError = readyFramesError,
+                readyIntervalError = readyIntervalError,
+                onFieldFocused = scrollToSettings,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -590,7 +593,6 @@ private fun AnimationDropdown(
 }
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 private fun ReadyForm(
     readyFrameInput: String,
     onReadyFrameInputChange: (String) -> Unit,
@@ -598,10 +600,8 @@ private fun ReadyForm(
     onReadyIntervalInputChange: (String) -> Unit,
     readyFramesError: String?,
     readyIntervalError: String?,
+    onFieldFocused: () -> Unit,
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val readyFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
-    val readyIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -611,11 +611,8 @@ private fun ReadyForm(
             onValueChange = onReadyFrameInputChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .bringIntoViewRequester(readyFramesBringIntoViewRequester)
-                .onFocusEvent { event ->
-                    if (event.isFocused) {
-                        coroutineScope.launch { readyFramesBringIntoViewRequester.bringIntoView() }
-                    }
+                .onFocusChanged { event ->
+                    if (event.isFocused) onFieldFocused()
                 },
             label = { Text("フレーム列 (例: 1,2,3)") },
             singleLine = true,
@@ -629,11 +626,8 @@ private fun ReadyForm(
             onValueChange = onReadyIntervalInputChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .bringIntoViewRequester(readyIntervalBringIntoViewRequester)
-                .onFocusEvent { event ->
-                    if (event.isFocused) {
-                        coroutineScope.launch { readyIntervalBringIntoViewRequester.bringIntoView() }
-                    }
+                .onFocusChanged { event ->
+                    if (event.isFocused) onFieldFocused()
                 },
             label = { Text("周期 (ms)") },
             singleLine = true,
@@ -750,6 +744,7 @@ private fun ReadyAnimationSettingsPane(
     onReadyIntervalInputChange: (String) -> Unit,
     readyFramesError: String?,
     readyIntervalError: String?,
+    onFieldFocused: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -776,7 +771,8 @@ private fun ReadyAnimationSettingsPane(
                 readyIntervalInput = readyIntervalInput,
                 onReadyIntervalInputChange = onReadyIntervalInputChange,
                 readyFramesError = readyFramesError,
-                readyIntervalError = readyIntervalError
+                readyIntervalError = readyIntervalError,
+                onFieldFocused = onFieldFocused
             )
         } else {
             Text("未実装", modifier = Modifier.padding(vertical = 8.dp))
