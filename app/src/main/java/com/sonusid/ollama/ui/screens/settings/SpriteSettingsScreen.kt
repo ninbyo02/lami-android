@@ -1663,9 +1663,14 @@ private fun ReadyAnimationTab(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
+    val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val onCopyDevJson: () -> Unit = {
+        val jsonString = buildDevJson(devSettings)
+        clipboardManager.setText(AnnotatedString(jsonString))
+    }
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
@@ -1721,7 +1726,7 @@ private fun ReadyAnimationTab(
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
                 onDevSettingsChange = onDevSettingsChange,
-                onCopy = { copyDevJson(devPreviewSettings) }
+                onCopy = onCopyDevJson
             )
         }
         LazyColumn(
