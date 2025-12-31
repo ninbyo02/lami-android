@@ -90,6 +90,10 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
+    val spriteSheetConfigJson: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[spriteSheetConfigKey]
+    }
+
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
         val json = preferences[spriteSheetConfigKey]
         val parsed = json?.let { SpriteSheetConfig.fromJson(it) }
