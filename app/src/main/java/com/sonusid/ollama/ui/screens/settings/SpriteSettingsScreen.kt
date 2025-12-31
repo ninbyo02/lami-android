@@ -50,8 +50,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -193,6 +195,8 @@ private object DevDefaults {
     const val headerSpacerDp = 0
     const val bodySpacerDp = 0
 }
+
+private val LocalDevSettingsDefaults = compositionLocalOf<DevSettingsDefaults?> { null }
 
 private data class DevSettingsDefaults(
     val cardMaxHeightDp: Int?,
@@ -1327,21 +1331,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         summary = selectedInsertionSummary,
                                         previewValues = selectedInsertionPreviewValues
                                     )
-                                    ReadyAnimationTab(
-                                        imageBitmap = imageBitmap,
-                                        spriteSheetConfig = spriteSheetConfig,
-                                        selectionState = selectionState,
-                                        baseState = baseState,
-                                        insertionState = insertionState,
-                                        isImeVisible = imeVisible,
-                                        contentPadding = contentPadding,
-                                        footerHeight = footerHeight,
-                                        onCopyJson = { devSettings ->
-                                            copyAppliedSettings(devSettings)
-                                        },
-                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
-                                        devFromJson = devFromJson
-                                    )
+                                    CompositionLocalProvider(LocalDevSettingsDefaults provides devFromJson) {
+                                        ReadyAnimationTab(
+                                            imageBitmap = imageBitmap,
+                                            spriteSheetConfig = spriteSheetConfig,
+                                            selectionState = selectionState,
+                                            baseState = baseState,
+                                            insertionState = insertionState,
+                                            isImeVisible = imeVisible,
+                                            contentPadding = contentPadding,
+                                            footerHeight = footerHeight,
+                                            onCopyJson = { devSettings ->
+                                                copyAppliedSettings(devSettings)
+                                            },
+                                            initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1423,7 +1428,6 @@ private fun ReadyAnimationTab(
     footerHeight: Dp,
     onCopyJson: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
-    devFromJson: DevSettingsDefaults?,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1919,9 +1923,9 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     initialHeaderLeftXOffsetDp: Int?,
-    devFromJson: DevSettingsDefaults?,
     onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
+    val devFromJson = LocalDevSettingsDefaults.current
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
