@@ -1723,7 +1723,7 @@ private fun ReadyAnimationPreviewPane(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "CharY:${abs(charYOffsetDp)}dp",
+                        text = "CharY:${charYOffsetDp}dp",
                         style = MaterialTheme.typography.labelSmall
                     )
                     IconButton(
@@ -1751,14 +1751,14 @@ private fun ReadyAnimationPreviewPane(
                     )
                     IconButton(
                         onClick = {
-                            outerBottomDp = (outerBottomDp + 1).coerceIn(-80, 80)
+                            outerBottomDp = (outerBottomDp + 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▲")
                     }
                     IconButton(
                         onClick = {
-                            outerBottomDp = (outerBottomDp - 1).coerceIn(-80, 80)
+                            outerBottomDp = (outerBottomDp - 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▼")
@@ -1774,14 +1774,14 @@ private fun ReadyAnimationPreviewPane(
                     )
                     IconButton(
                         onClick = {
-                            innerBottomDp = (innerBottomDp + 1).coerceIn(-80, 80)
+                            innerBottomDp = (innerBottomDp + 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▲")
                     }
                     IconButton(
                         onClick = {
-                            innerBottomDp = (innerBottomDp - 1).coerceIn(-80, 80)
+                            innerBottomDp = (innerBottomDp - 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▼")
