@@ -1395,9 +1395,6 @@ private fun ReadyAnimationTab(
                 onCopyJson = onCopyJson
             )
         }
-        if (showDetails) {
-            Spacer(modifier = Modifier.height(8.dp))
-        }
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
