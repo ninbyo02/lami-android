@@ -1112,24 +1112,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
-                    val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, start = 2.dp, end = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Text(
-                            text = headerText,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
                     TabRow(
                         selectedTabIndex = tabIndex,
                         modifier = Modifier
@@ -1217,10 +1199,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                             displayScale = newContainerSize.width / imageBitmap.width.toFloat()
                                                         }
                                                     },
-                                                contentScale = ContentScale.Fit
-                                            )
-                                            if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
-                                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                            contentScale = ContentScale.Fit
+                                        )
+                                        if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                            Canvas(modifier = Modifier.fillMaxSize()) {
                                                     val scaleX = this.size.width / imageBitmap.width
                                                     val scaleY = this.size.height / imageBitmap.height
                                                     val scale = min(scaleX, scaleY)
@@ -1239,66 +1221,49 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                             height = boxSizePx * scale
                                                         ),
                                                         style = Stroke(width = 2.dp.toPx())
-                                                    )
-                                                }
+                                                )
                                             }
                                         }
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .verticalScroll(rememberScrollState())
-                                                .padding(top = 8.dp, bottom = 8.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.Start,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
-                                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                                                )
-                                                val coordinateText =
-                                                    selectedPosition?.let { position ->
-                                                        "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-                                                    } ?: "座標: -, -, -, -"
-                                                Text(
-                                                    text = "選択中: ${selectedNumber}/9",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = " | ",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = "サイズ: ${boxSizePx}px",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = " | ",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = coordinateText,
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                            }
-                                            SpriteSettingsControls(
-                                                selectedPosition = selectedPosition,
-                                                boxSizePx = boxSizePx,
-                                                onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
+                                    }
+                                    val resolutionAndScale = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                    val coordinateText =
+                                        selectedPosition?.let { position ->
+                                            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                        } ?: "座標: -, -, -, -"
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                                    ) {
+                                        val infoTextStyle = MaterialTheme.typography.labelSmall.copy(
+                                            lineHeight = MaterialTheme.typography.labelSmall.fontSize
+                                        )
+                                        Text(
+                                            text = resolutionAndScale,
+                                            style = infoTextStyle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | ${coordinateText}",
+                                            style = infoTextStyle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(top = 4.dp, bottom = 8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        SpriteSettingsControls(
+                                            selectedPosition = selectedPosition,
+                                            boxSizePx = boxSizePx,
+                                            onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
                                                 onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
                                                 onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
                                                 onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
