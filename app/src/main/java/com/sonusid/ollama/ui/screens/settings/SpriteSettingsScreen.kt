@@ -1722,7 +1722,7 @@ private fun ReadyAnimationPreviewPane(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "CharY:${abs(charYOffsetDp)}dp",
+                        text = "CharY:${charYOffsetDp}dp",
                         style = MaterialTheme.typography.labelSmall
                     )
                     IconButton(
@@ -1745,19 +1745,19 @@ private fun ReadyAnimationPreviewPane(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "OuterBottom:${abs(outerBottomDp)}dp",
+                        text = "OuterBottom:${outerBottomDp}dp",
                         style = MaterialTheme.typography.labelSmall
                     )
                     IconButton(
                         onClick = {
-                            outerBottomDp = (outerBottomDp + 1).coerceIn(-80, 80)
+                            outerBottomDp = (outerBottomDp + 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▲")
                     }
                     IconButton(
                         onClick = {
-                            outerBottomDp = (outerBottomDp - 1).coerceIn(-80, 80)
+                            outerBottomDp = (outerBottomDp - 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▼")
@@ -1768,19 +1768,19 @@ private fun ReadyAnimationPreviewPane(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "InnerBottom:${abs(innerBottomDp)}dp",
+                        text = "InnerBottom:${innerBottomDp}dp",
                         style = MaterialTheme.typography.labelSmall
                     )
                     IconButton(
                         onClick = {
-                            innerBottomDp = (innerBottomDp + 1).coerceIn(-80, 80)
+                            innerBottomDp = (innerBottomDp + 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▲")
                     }
                     IconButton(
                         onClick = {
-                            innerBottomDp = (innerBottomDp - 1).coerceIn(-80, 80)
+                            innerBottomDp = (innerBottomDp - 1).coerceIn(0, 80)
                         }
                     ) {
                         Text("▼")
@@ -1816,7 +1816,7 @@ private fun ReadyAnimationPreviewPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize()
-                .padding(bottom = outerBottomDp.dp),
+                .offset(y = outerBottomDp.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
             ),
@@ -1839,7 +1839,7 @@ private fun ReadyAnimationPreviewPane(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = innerBottomDp.dp),
+                        .offset(y = innerBottomDp.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
