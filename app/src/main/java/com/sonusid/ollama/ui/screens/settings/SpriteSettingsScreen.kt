@@ -2409,8 +2409,10 @@ private fun ReadyAnimationPreviewPane(
                 BoxWithConstraints(
                     modifier = cardHeightModifier
                 ) {
-                    // DEVパネル開閉で親コンテナの高さ制約が変わってもキャラサイズがぶれないよう、幅ベースで決定する
-                    val rawSpriteSize = maxWidth * 0.30f
+                    // DEVパネル開閉で親コンテナの高さ制約が変わってもキャラサイズがぶれないよう、幅・高さ双方の制約で正方形サイズを決定する
+                    val rawWidthBased = maxWidth * 0.30f
+                    val rawHeightBased = maxHeight * 0.45f
+                    val rawSpriteSize = minOf(rawWidthBased, rawHeightBased).coerceAtLeast(1.dp)
                     val spriteSize = if (isImeVisible) {
                         rawSpriteSize.coerceIn(56.dp, 96.dp)
                     } else {
