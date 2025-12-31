@@ -113,6 +113,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
@@ -1669,23 +1670,20 @@ private fun AnimationDropdown(
     }
 }
 
+private data class ReadyAnimationState(
+    val frameRegion: SpriteFrameRegion?,
+    val currentFramePosition: Int,
+    val totalFrames: Int,
+    val currentIntervalMs: Int,
+)
+
 @Composable
-private fun ReadyAnimationPreview(
-    imageBitmap: ImageBitmap,
+private fun rememberReadyAnimationState(
     spriteSheetConfig: SpriteSheetConfig,
     summary: AnimationSummary,
     insertionSummary: AnimationSummary,
     insertionEnabled: Boolean,
-    insertionPreviewValues: InsertionPreviewValues,
-    spriteSizeDp: Dp,
-    showDetails: Boolean,
-    charYOffsetDp: Int,
-    infoYOffsetDp: Int,
-    detailsMaxHeightDp: Int?,
-    detailsMaxLines: Int,
-    modifier: Modifier = Modifier,
-) {
-    val paramYOffsetDp = 3
+): ReadyAnimationState {
     val normalizedConfig = remember(spriteSheetConfig) {
         val validationError = spriteSheetConfig.validate()
         val safeConfig = if (spriteSheetConfig.isUninitialized() || validationError != null) {
@@ -1731,75 +1729,102 @@ private fun ReadyAnimationPreview(
         }
     }
 
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.Top, // 右側情報ブロックを上寄せにする
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    return ReadyAnimationState(
+        frameRegion = frameRegion,
+        currentFramePosition = currentFramePosition,
+        totalFrames = totalFrames,
+        currentIntervalMs = currentIntervalMs
+    )
+}
+
+@Composable
+private fun ReadyAnimationCharacter(
+    imageBitmap: ImageBitmap,
+    frameRegion: SpriteFrameRegion?,
+    spriteSizeDp: Dp,
+    charYOffsetDp: Int,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(spriteSizeDp)
+            .offset(y = charYOffsetDp.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(spriteSizeDp)
-                .offset(y = charYOffsetDp.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val dstSize = IntSize(
-                    width = size.width.roundToInt().coerceAtLeast(1),
-                    height = size.height.roundToInt().coerceAtLeast(1)
-                )
-                drawFrameRegion(
-                    sheet = imageBitmap,
-                    region = frameRegion,
-                    dstSize = dstSize,
-                    placeholder = { offset, placeholderSize ->
-                        drawFramePlaceholder(offset = offset, size = placeholderSize)
-                    }
-                )
-            }
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val dstW = size.width.roundToInt().coerceAtLeast(1)
+            val dstH = size.height.roundToInt().coerceAtLeast(1)
+            val side = min(dstW, dstH).coerceAtLeast(1)
+            val squareSize = IntSize(side, side)
+            val offset = IntOffset((dstW - side) / 2, (dstH - side) / 2)
+
+            drawFrameRegion(
+                sheet = imageBitmap,
+                region = frameRegion,
+                dstSize = squareSize,
+                dstOffset = offset,
+                placeholder = { placeholderOffset, placeholderSize ->
+                    drawFramePlaceholder(offset = placeholderOffset, size = placeholderSize)
+                }
+            )
         }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                // TEMP: dev adjuster for info block Y offset (remove later)
-                .offset(y = (paramYOffsetDp + infoYOffsetDp).dp), // TEMP: fix param Y to +3dp
-            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
-        ) {
-            Text(
-                text = "フレーム: ${currentFramePosition + 1}/${totalFrames}",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Text(
-                text = "周期: ${currentIntervalMs}ms",
-                style = MaterialTheme.typography.bodySmall
-            )
-            AnimatedVisibility(visible = showDetails) {
-                val detailModifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .let { scrollModifier ->
-                        detailsMaxHeightDp?.let { maxHeightDp ->
-                            scrollModifier.heightIn(max = maxHeightDp.dp)
-                        } ?: scrollModifier
-                    }
-                Column(
-                    modifier = detailModifier,
-                    verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
-                ) {
+    }
+}
+
+@Composable
+private fun ReadyAnimationInfo(
+    state: ReadyAnimationState,
+    summary: AnimationSummary,
+    insertionSummary: AnimationSummary,
+    insertionPreviewValues: InsertionPreviewValues,
+    insertionEnabled: Boolean,
+    showDetails: Boolean,
+    detailsMaxHeightDp: Int?,
+    detailsMaxLines: Int,
+    infoYOffsetDp: Int,
+    modifier: Modifier = Modifier,
+) {
+    val paramYOffsetDp = 3
+    Column(
+        modifier = modifier
+            .offset(y = (paramYOffsetDp + infoYOffsetDp).dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
+    ) {
+        Text(
+            text = "フレーム: ${state.currentFramePosition + 1}/${state.totalFrames}",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = "周期: ${state.currentIntervalMs}ms",
+            style = MaterialTheme.typography.bodySmall
+        )
+        AnimatedVisibility(visible = showDetails) {
+            val detailModifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .let { scrollModifier ->
+                    detailsMaxHeightDp?.let { maxHeightDp ->
+                        scrollModifier.heightIn(max = maxHeightDp.dp)
+                    } ?: scrollModifier
+                }
+            Column(
+                modifier = detailModifier,
+                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
+            ) {
+                Text(
+                    text = formatAppliedLine(summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = detailsMaxLines,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (insertionEnabled) {
                     Text(
-                        text = formatAppliedLine(summary),
+                        text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = detailsMaxLines,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Visible
                     )
-                    if (insertionEnabled) {
-                        Text(
-                            text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = detailsMaxLines,
-                            overflow = TextOverflow.Visible
-                        )
-                    }
                 }
             }
         }
@@ -2383,121 +2408,140 @@ private fun ReadyAnimationPreviewPane(
                     }
                 }
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateContentSize(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            val baseCardModifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
+            val cardHeightModifier = if (effectiveCardMaxH != null) {
+                baseCardModifier.heightIn(
+                    min = effectiveMinHeightDp.dp,
+                    max = effectiveCardMaxH.dp
+                )
+            } else {
+                baseCardModifier.heightIn(min = effectiveMinHeightDp.dp)
+            }
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth()
             ) {
-                val baseCardModifier = Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
-                val cardHeightModifier = if (effectiveCardMaxH != null) {
-                    baseCardModifier.heightIn(
-                        min = effectiveMinHeightDp.dp,
-                        max = effectiveCardMaxH.dp
-                    )
+                val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
+                val spriteSize = if (isImeVisible) {
+                    rawSpriteSize.coerceIn(56.dp, 96.dp)
                 } else {
-                    baseCardModifier.heightIn(min = effectiveMinHeightDp.dp)
+                    rawSpriteSize.coerceIn(72.dp, 120.dp)
                 }
-                    // TEMP: allow preview card height to shrink to content (keep max cap)
-                    // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                    .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
-                BoxWithConstraints(
-                    modifier = cardHeightModifier
+                val previewState = rememberReadyAnimationState(
+                    spriteSheetConfig = spriteSheetConfig,
+                    summary = baseSummary,
+                    insertionSummary = insertionSummary,
+                    insertionEnabled = insertionEnabled
+                )
+                var headerHeightPx by remember { mutableIntStateOf(0) }
+                val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
+                val contentHorizontalPadding = 12.dp
+
+                val innerPaddingColor = if (innerBottomDp >= 0) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                } else {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
+                }
+                val innerPaddingStroke = if (innerBottomDp >= 0) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                } else {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                }
+
+                Box(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // DEVパネル開閉で親コンテナの高さ制約が変わってもキャラサイズがぶれないよう、幅・高さ双方の制約で正方形サイズを決定する
-                    val rawWidthBased = maxWidth * 0.30f
-                    val rawHeightBased = maxHeight * 0.45f
-                    val rawSpriteSize = minOf(rawWidthBased, rawHeightBased).coerceAtLeast(1.dp)
-                    val spriteSize = if (isImeVisible) {
-                        rawSpriteSize.coerceIn(56.dp, 96.dp)
-                    } else {
-                        rawSpriteSize.coerceIn(72.dp, 120.dp)
-                    }
-
-                    val innerPaddingColor = if (innerBottomDp >= 0) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-                    } else {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
-                    }
-                    val innerPaddingStroke = if (innerBottomDp >= 0) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                    } else {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .drawBehind {
-                                val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
-                                if (indicatorHeight > 0f) {
-                                    val top = size.height - indicatorHeight
-                                    drawRect(
-                                        color = innerPaddingColor,
-                                        topLeft = Offset(x = 0f, y = top),
-                                        size = Size(width = size.width, height = indicatorHeight)
+                    Card(
+                        modifier = cardHeightModifier.animateContentSize(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = contentHorizontalPadding, vertical = effectiveInnerVPadDp.dp)
+                                .drawBehind {
+                                    val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
+                                    if (indicatorHeight > 0f) {
+                                        val top = size.height - indicatorHeight
+                                        drawRect(
+                                            color = innerPaddingColor,
+                                            topLeft = Offset(x = 0f, y = top),
+                                            size = Size(width = size.width, height = indicatorHeight)
+                                        )
+                                        drawLine(
+                                            color = innerPaddingStroke,
+                                            start = Offset(x = 0f, y = top),
+                                            end = Offset(x = size.width, y = top),
+                                            strokeWidth = 2f
+                                        )
+                                    }
+                                }
+                                .padding(bottom = effectiveInnerBottomDp.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onSizeChanged { headerHeightPx = it.height },
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    PreviewHeaderLeft(
+                                        baseSummary = baseSummary,
+                                        headerSpacerDp = headerSpacerDp,
+                                        modifier = Modifier.offset(
+                                            x = headerLeftXOffsetDp.dp,
+                                            y = headerLeftYOffsetDp.dp
+                                        )
                                     )
-                                    drawLine(
-                                        color = innerPaddingStroke,
-                                        start = Offset(x = 0f, y = top),
-                                        end = Offset(x = size.width, y = top),
-                                        strokeWidth = 2f
+                                }
+                                Box {
+                                    PreviewHeaderRight(
+                                        expanded = showDetails,
+                                        onClick = { showDetails = !showDetails },
+                                        modifier = Modifier
+                                            .offset(
+                                                x = headerRightXOffsetDp.dp,
+                                                y = headerRightYOffsetDp.dp
+                                            )
+                                            .alpha(if (isImeVisible) 0.6f else 1f)
                                     )
                                 }
                             }
-                            .padding(bottom = effectiveInnerBottomDp.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                PreviewHeaderLeft(
-                                    baseSummary = baseSummary,
-                                    headerSpacerDp = headerSpacerDp,
-                                    modifier = Modifier.offset(
-                                        x = headerLeftXOffsetDp.dp,
-                                        y = headerLeftYOffsetDp.dp
-                                    )
-                                )
-                            }
-                            Box {
-                                PreviewHeaderRight(
-                                    expanded = showDetails,
-                                    onClick = { showDetails = !showDetails },
-                                    modifier = Modifier
-                                        .offset(
-                                            x = headerRightXOffsetDp.dp,
-                                            y = headerRightYOffsetDp.dp
-                                        )
-                                        .alpha(if (isImeVisible) 0.6f else 1f)
-                                )
-                            }
+                            Spacer(modifier = Modifier.height(effectiveBodySpacerDp.dp))
+                            ReadyAnimationInfo(
+                                state = previewState,
+                                summary = baseSummary,
+                                insertionSummary = insertionSummary,
+                                insertionPreviewValues = insertionPreviewValues,
+                                insertionEnabled = insertionEnabled,
+                                showDetails = showDetails,
+                                detailsMaxHeightDp = effectiveDetailsMaxH,
+                                detailsMaxLines = detailsMaxLines,
+                                infoYOffsetDp = infoYOffsetDp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = spriteSize + 12.dp)
+                            )
                         }
-                        Spacer(modifier = Modifier.height(effectiveBodySpacerDp.dp))
-                        ReadyAnimationPreview(
-                            imageBitmap = imageBitmap,
-                            spriteSheetConfig = spriteSheetConfig,
-                            summary = baseSummary,
-                            insertionSummary = insertionSummary,
-                            insertionEnabled = insertionEnabled,
-                            insertionPreviewValues = insertionPreviewValues,
-                            spriteSizeDp = spriteSize,
-                            showDetails = showDetails,
-                            charYOffsetDp = charYOffsetDp,
-                            infoYOffsetDp = infoYOffsetDp,
-                            detailsMaxHeightDp = effectiveDetailsMaxH,
-                            detailsMaxLines = detailsMaxLines,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
+                    ReadyAnimationCharacter(
+                        imageBitmap = imageBitmap,
+                        frameRegion = previewState.frameRegion,
+                        spriteSizeDp = spriteSize,
+                        charYOffsetDp = charYOffsetDp,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(
+                                start = contentHorizontalPadding,
+                                top = effectiveInnerVPadDp.dp + headerHeightDp + effectiveBodySpacerDp.dp
+                            )
+                    )
                 }
             // FIX: missing brace for ReadyAnimationPreviewPane
             }
