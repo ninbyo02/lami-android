@@ -82,9 +82,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -95,7 +97,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.semantics.Role
 import androidx.navigation.NavController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -1722,253 +1723,306 @@ private fun ReadyAnimationPreviewPane(
     val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
 
     Column(modifier = modifier) {
-        // TEMP: dev layout adjusters (remove later)
-        if (BuildConfig.DEBUG) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 2.dp
+        var devExpanded by rememberSaveable { mutableStateOf(false) }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 2.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                val maxHeightDp = if (isImeVisible) 220 else 300
+                val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { devExpanded = !devExpanded },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "CharY:${charYOffsetDp}dp",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "InfoY:${infoYOffsetDp}dp / 情報ブロックY",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                infoYOffsetDp = (infoYOffsetDp - 1).coerceIn(-200, 200)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                infoYOffsetDp = (infoYOffsetDp + 1).coerceIn(-200, 200)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "OuterBottom:${abs(outerBottomDp)}dp / カード下余白",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                outerBottomDp = (outerBottomDp + 1).coerceIn(0, 80)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                outerBottomDp = (outerBottomDp - 1).coerceIn(0, 80)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "InnerBottom:${abs(innerBottomDp)}dp / 情報ブロック下余白",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                innerBottomDp = (innerBottomDp + 1).coerceIn(0, 80)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                innerBottomDp = (innerBottomDp - 1).coerceIn(0, 80)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "InnerVPad:${abs(innerVPadDp)}dp",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val maxHeightDp = if (isImeVisible) 220 else 300
-                        val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
-                        Text(
-                            text = "MinHeight:${effectiveMinDp}dp / カード最小高",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(0, 320) // TEMP: dev allow 0dp
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(0, 320) // TEMP: dev allow 0dp
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "DetailsMaxH:${detailsMaxHeightDp}dp / 詳細最大高",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                detailsMaxHeightDp = (detailsMaxHeightDp + 1).coerceIn(0, 120)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                detailsMaxHeightDp = (detailsMaxHeightDp - 1).coerceIn(0, 120)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "DetailsLines:${detailsMaxLines} / 詳細行数",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                detailsMaxLines = (detailsMaxLines + 1).coerceIn(1, 6)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                detailsMaxLines = (detailsMaxLines - 1).coerceIn(1, 6)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "HeaderSp:${headerSpacerDp}dp / 見出し余白",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                headerSpacerDp = (headerSpacerDp + 1).coerceIn(0, 24)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                headerSpacerDp = (headerSpacerDp - 1).coerceIn(0, 24)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "BodySp:${bodySpacerDp}dp / 本文余白",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = {
-                                bodySpacerDp = (bodySpacerDp + 1).coerceIn(0, 24)
-                            }
-                        ) {
-                            Text("▲")
-                        }
-                        IconButton(
-                            onClick = {
-                                bodySpacerDp = (bodySpacerDp - 1).coerceIn(0, 24)
-                            }
-                        ) {
-                            Text("▼")
-                        }
-                    }
-                    // TEMP: dev preview content metrics
                     Text(
-                        text = "ContentH:${contentHeightDp.value.roundToInt()}dp",
-                        style = MaterialTheme.typography.labelSmall
+                        text = "DEV ${if (devExpanded) "▴" else "▾"}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
                     )
+                    Text(
+                        text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) "ON" else "OFF"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                AnimatedVisibility(visible = devExpanded) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Offsets",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "CharY:${charYOffsetDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "InfoY:${infoYOffsetDp}dp / 情報ブロックY",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        infoYOffsetDp = (infoYOffsetDp - 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        infoYOffsetDp = (infoYOffsetDp + 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Padding",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "OuterBottom:${abs(outerBottomDp)}dp / カード下余白",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        outerBottomDp = (outerBottomDp + 1).coerceIn(0, 80)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        outerBottomDp = (outerBottomDp - 1).coerceIn(0, 80)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "InnerBottom:${abs(innerBottomDp)}dp / 情報ブロック下余白",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        innerBottomDp = (innerBottomDp + 1).coerceIn(0, 80)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        innerBottomDp = (innerBottomDp - 1).coerceIn(0, 80)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "InnerVPad:${abs(innerVPadDp)}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Details",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "MinHeight:${effectiveMinDp}dp / カード最小高",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(0, 320)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(0, 320)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "DetailsMaxH:${detailsMaxHeightDp}dp / 詳細最大高",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        detailsMaxHeightDp = (detailsMaxHeightDp + 1).coerceIn(0, 120)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        detailsMaxHeightDp = (detailsMaxHeightDp - 1).coerceIn(0, 120)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "DetailsLines:${detailsMaxLines} / 詳細行数",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        detailsMaxLines = (detailsMaxLines + 1).coerceIn(1, 6)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        detailsMaxLines = (detailsMaxLines - 1).coerceIn(1, 6)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "HeaderSp:${headerSpacerDp}dp / 見出し余白",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        headerSpacerDp = (headerSpacerDp + 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        headerSpacerDp = (headerSpacerDp - 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "BodySp:${bodySpacerDp}dp / 本文余白",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        bodySpacerDp = (bodySpacerDp + 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        bodySpacerDp = (bodySpacerDp - 1).coerceIn(0, 24)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Text(
+                                text = "ContentH:${contentHeightDp.value.roundToInt()}dp",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
                 }
             }
         }
