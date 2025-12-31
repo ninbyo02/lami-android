@@ -273,51 +273,51 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
-    var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
+    var readyFrameInput by rememberSaveable { mutableStateOf("0,1,2,1") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
     var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(700) }
     var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
-    var talkingFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
+    var talkingFrameInput by rememberSaveable { mutableStateOf("0,1,2,1") }
     var talkingIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedTalkingFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
     var appliedTalkingIntervalMs by rememberSaveable { mutableStateOf(700) }
     var talkingFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
-    var readyInsertionFrameInput by rememberSaveable { mutableStateOf("4,5,6") }
+    var readyInsertionFrameInput by rememberSaveable { mutableStateOf("3,4,5") }
     var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("200") }
     var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
     var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
     var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
     var readyInsertionEnabled by rememberSaveable { mutableStateOf(false) }
     var readyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
-    var appliedReadyInsertionFrames by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.frameSequence) }
-    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.intervalMs) }
-    var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.everyNLoops) }
-    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.probabilityPercent) }
-    var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.cooldownLoops) }
-    var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.enabled) }
-    var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.exclusive) }
+    var appliedReadyInsertionFrames by rememberSaveable { mutableStateOf(listOf(3, 4, 5)) }
+    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(200) }
+    var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(1) }
+    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
+    var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(0) }
+    var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(false) }
+    var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var readyInsertionFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionEveryNError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
-    var talkingInsertionFrameInput by rememberSaveable { mutableStateOf("4,5,6") }
+    var talkingInsertionFrameInput by rememberSaveable { mutableStateOf("3,4,5") }
     var talkingInsertionIntervalInput by rememberSaveable { mutableStateOf("200") }
     var talkingInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
     var talkingInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
     var talkingInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
     var talkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
-    var appliedTalkingInsertionFrames by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.frameSequence) }
-    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.intervalMs) }
-    var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.everyNLoops) }
-    var appliedTalkingInsertionProbabilityPercent by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.probabilityPercent) }
-    var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.cooldownLoops) }
-    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.enabled) }
-    var appliedTalkingInsertionExclusive by rememberSaveable { mutableStateOf(InsertionAnimationSettings.DEFAULT.exclusive) }
+    var appliedTalkingInsertionFrames by rememberSaveable { mutableStateOf(listOf(3, 4, 5)) }
+    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(200) }
+    var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(1) }
+    var appliedTalkingInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
+    var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(0) }
+    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
+    var appliedTalkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionEveryNError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -343,7 +343,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val normalizedFrames = readyAnimationSettings.frameSequence.ifEmpty { listOf(0) }
         appliedReadyFrames = normalizedFrames
         appliedReadyIntervalMs = readyAnimationSettings.intervalMs
-        readyFrameInput = normalizedFrames.joinToString(separator = ",") { value -> (value + 1).toString() }
+        readyFrameInput = normalizedFrames.joinToString(separator = ",")
         readyIntervalInput = readyAnimationSettings.intervalMs.toString()
     }
 
@@ -351,7 +351,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val normalizedFrames = talkingAnimationSettings.frameSequence.ifEmpty { listOf(0) }
         appliedTalkingFrames = normalizedFrames
         appliedTalkingIntervalMs = talkingAnimationSettings.intervalMs
-        talkingFrameInput = normalizedFrames.joinToString(separator = ",") { value -> (value + 1).toString() }
+        talkingFrameInput = normalizedFrames.joinToString(separator = ",")
         talkingIntervalInput = talkingAnimationSettings.intervalMs.toString()
     }
 
@@ -364,7 +364,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         appliedReadyInsertionCooldownLoops = readyInsertionAnimationSettings.cooldownLoops
         appliedReadyInsertionEnabled = readyInsertionAnimationSettings.enabled
         appliedReadyInsertionExclusive = readyInsertionAnimationSettings.exclusive
-        readyInsertionFrameInput = normalizedFrames.joinToString(separator = ",") { value -> (value + 1).toString() }
+        readyInsertionFrameInput = normalizedFrames.joinToString(separator = ",")
         readyInsertionIntervalInput = readyInsertionAnimationSettings.intervalMs.toString()
         readyInsertionEveryNInput = readyInsertionAnimationSettings.everyNLoops.toString()
         readyInsertionProbabilityInput = readyInsertionAnimationSettings.probabilityPercent.toString()
@@ -382,7 +382,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         appliedTalkingInsertionCooldownLoops = talkingInsertionAnimationSettings.cooldownLoops
         appliedTalkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         appliedTalkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
-        talkingInsertionFrameInput = normalizedFrames.joinToString(separator = ",") { value -> (value + 1).toString() }
+        talkingInsertionFrameInput = normalizedFrames.joinToString(separator = ",")
         talkingInsertionIntervalInput = talkingInsertionAnimationSettings.intervalMs.toString()
         talkingInsertionEveryNInput = talkingInsertionAnimationSettings.everyNLoops.toString()
         talkingInsertionProbabilityInput = talkingInsertionAnimationSettings.probabilityPercent.toString()
@@ -461,16 +461,30 @@ fun SpriteSettingsScreen(navController: NavController) {
             .map { token -> token.trim() }
             .filter { token -> token.isNotEmpty() }
         val maxFrameIndex = frameCount.coerceAtLeast(1)
-        if (normalized.isEmpty()) return ValidationResult(null, "1〜${maxFrameIndex}のカンマ区切りで入力してください")
-        val parsed = normalized.mapNotNull { token -> token.toIntOrNull() }
-        if (parsed.size != normalized.size) return ValidationResult(null, "数値で入力してください")
-        if (parsed.any { value -> value !in 1..maxFrameIndex }) {
-            return ValidationResult(null, "1〜${maxFrameIndex}の範囲で入力してください")
+        if (normalized.isEmpty()) {
+            return ValidationResult(null, "0〜${maxFrameIndex - 1} または 1〜${maxFrameIndex} のカンマ区切りで入力してください")
         }
-        if (!allowDuplicates && parsed.size != parsed.distinct().size) {
+        val parsed = normalized.mapNotNull { token -> token.toIntOrNull() }
+        if (parsed.size != normalized.size) {
+            return ValidationResult(null, "数値で入力してください")
+        }
+        val converted = parsed.map { value ->
+            when {
+                value in 0 until maxFrameIndex -> value
+                value in 1..maxFrameIndex -> value - 1
+                else -> return ValidationResult(
+                    null,
+                    "0〜${maxFrameIndex - 1} または 1〜${maxFrameIndex}の範囲で入力してください"
+                )
+            }
+        }
+        if (converted.any { value -> value !in 0 until maxFrameIndex }) {
+            return ValidationResult(null, "0〜${maxFrameIndex - 1} または 1〜${maxFrameIndex}の範囲で入力してください")
+        }
+        if (!allowDuplicates && converted.size != converted.distinct().size) {
             return ValidationResult(null, duplicateErrorMessage)
         }
-        return ValidationResult(parsed.map { value -> value - 1 }, null)
+        return ValidationResult(converted, null)
     }
 
     fun parseIntervalMsInput(input: String): ValidationResult<Int> {
@@ -1790,19 +1804,19 @@ private fun ReadyAnimationPreviewPane(
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
-    var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
-    var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var innerVPadDp by rememberSaveable { mutableIntStateOf(8) }
+    var charYOffsetDp by rememberSaveable { mutableIntStateOf(-32) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(240) }
-    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(400) }
+    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(107) }
+    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(1) }
     var headerRightXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerRightYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
-    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(96) }
-    var detailsMaxLines by rememberSaveable { mutableIntStateOf(6) }
-    var headerSpacerDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 2 else 4) }
-    var bodySpacerDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 4 else 8) }
+    var cardMinHeightDp by rememberSaveable { mutableIntStateOf(155) }
+    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(100) }
+    var detailsMaxLines by rememberSaveable { mutableIntStateOf(2) }
+    var headerSpacerDp by rememberSaveable { mutableIntStateOf(0) }
+    var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
 
