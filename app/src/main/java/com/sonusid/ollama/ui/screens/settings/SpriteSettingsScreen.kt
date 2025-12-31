@@ -106,6 +106,7 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
@@ -1573,6 +1574,7 @@ private fun ReadyAnimationPreview(
     insertionPreviewValues: InsertionPreviewValues,
     spriteSizeDp: Dp,
     showDetails: Boolean,
+    charYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
     val paramYOffsetDp = 3
@@ -1627,7 +1629,9 @@ private fun ReadyAnimationPreview(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
-            modifier = Modifier.size(spriteSizeDp),
+            modifier = Modifier
+                .size(spriteSizeDp)
+                .offset(y = charYOffsetDp.dp),
             contentAlignment = Alignment.Center
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -1701,152 +1705,183 @@ private fun ReadyAnimationPreviewPane(
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
+    var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
 
-    Card(
-        modifier = modifier
-            .animateContentSize()
-            // TEMP: preview padding adjusters (remove later)
-            .padding(bottom = outerBottomDp.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (isImeVisible) 220.dp else 300.dp)
-                // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
+    Column(modifier = modifier) {
+        // TEMP: dev layout adjusters (remove later)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 2.dp
         ) {
-            val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
-            val spriteSize = if (isImeVisible) {
-                rawSpriteSize.coerceIn(56.dp, 96.dp)
-            } else {
-                rawSpriteSize.coerceIn(72.dp, 120.dp)
-            }
-
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = innerBottomDp.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "プレビュー",
-                        style = MaterialTheme.typography.titleSmall
+                        text = "CharY:${abs(charYOffsetDp)}dp",
+                        style = MaterialTheme.typography.labelSmall
                     )
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
-                    ) {
-                        DetailsToggle(
-                            expanded = showDetails,
-                            onClick = { showDetails = !showDetails },
-                        )
-                        // TEMP: preview padding adjusters (remove later)
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = "Y:+3dp",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "OuterBottom:${outerBottomDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(
-                                    onClick = {
-                                        outerBottomDp = (outerBottomDp + 1).coerceIn(-80, 80)
-                                    }
-                                ) {
-                                    Text("▲")
-                                }
-                                IconButton(
-                                    onClick = {
-                                        outerBottomDp = (outerBottomDp - 1).coerceIn(-80, 80)
-                                    }
-                                ) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "InnerBottom:${innerBottomDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(
-                                    onClick = {
-                                        innerBottomDp = (innerBottomDp + 1).coerceIn(-80, 80)
-                                    }
-                                ) {
-                                    Text("▲")
-                                }
-                                IconButton(
-                                    onClick = {
-                                        innerBottomDp = (innerBottomDp - 1).coerceIn(-80, 80)
-                                    }
-                                ) {
-                                    Text("▼")
-                                }
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "InnerVPad:${innerVPadDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                IconButton(
-                                    onClick = {
-                                        innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24)
-                                    }
-                                ) {
-                                    Text("▲")
-                                }
-                                IconButton(
-                                    onClick = {
-                                        innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24)
-                                    }
-                                ) {
-                                    Text("▼")
-                                }
-                            }
+                    IconButton(
+                        onClick = {
+                            charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200)
                         }
+                    ) {
+                        Text("▲")
+                    }
+                    IconButton(
+                        onClick = {
+                            charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200)
+                        }
+                    ) {
+                        Text("▼")
                     }
                 }
-                Spacer(modifier = Modifier.height(if (isImeVisible) 2.dp else 4.dp))
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = "現在: ${baseSummary.label}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(if (isImeVisible) 4.dp else 8.dp))
-                ReadyAnimationPreview(
-                    imageBitmap = imageBitmap,
-                    spriteSheetConfig = spriteSheetConfig,
-                    summary = baseSummary,
-                    insertionSummary = insertionSummary,
-                    insertionEnabled = insertionEnabled,
-                    insertionPreviewValues = insertionPreviewValues,
-                    spriteSizeDp = spriteSize,
-                    showDetails = showDetails,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "OuterBottom:${abs(outerBottomDp)}dp",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    IconButton(
+                        onClick = {
+                            outerBottomDp = (outerBottomDp + 1).coerceIn(-80, 80)
+                        }
+                    ) {
+                        Text("▲")
+                    }
+                    IconButton(
+                        onClick = {
+                            outerBottomDp = (outerBottomDp - 1).coerceIn(-80, 80)
+                        }
+                    ) {
+                        Text("▼")
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "InnerBottom:${abs(innerBottomDp)}dp",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    IconButton(
+                        onClick = {
+                            innerBottomDp = (innerBottomDp + 1).coerceIn(-80, 80)
+                        }
+                    ) {
+                        Text("▲")
+                    }
+                    IconButton(
+                        onClick = {
+                            innerBottomDp = (innerBottomDp - 1).coerceIn(-80, 80)
+                        }
+                    ) {
+                        Text("▼")
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "InnerVPad:${abs(innerVPadDp)}dp",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    IconButton(
+                        onClick = {
+                            innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24)
+                        }
+                    ) {
+                        Text("▲")
+                    }
+                    IconButton(
+                        onClick = {
+                            innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24)
+                        }
+                    ) {
+                        Text("▼")
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize()
+                .padding(bottom = outerBottomDp.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (isImeVisible) 220.dp else 300.dp)
+                    // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
+                    .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
+            ) {
+                val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
+                val spriteSize = if (isImeVisible) {
+                    rawSpriteSize.coerceIn(56.dp, 96.dp)
+                } else {
+                    rawSpriteSize.coerceIn(72.dp, 120.dp)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = innerBottomDp.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "プレビュー",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
+                        ) {
+                            DetailsToggle(
+                                expanded = showDetails,
+                                onClick = { showDetails = !showDetails },
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(if (isImeVisible) 2.dp else 4.dp))
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "現在: ${baseSummary.label}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(if (isImeVisible) 4.dp else 8.dp))
+                    ReadyAnimationPreview(
+                        imageBitmap = imageBitmap,
+                        spriteSheetConfig = spriteSheetConfig,
+                        summary = baseSummary,
+                        insertionSummary = insertionSummary,
+                        insertionEnabled = insertionEnabled,
+                        insertionPreviewValues = insertionPreviewValues,
+                        spriteSizeDp = spriteSize,
+                        showDetails = showDetails,
+                        charYOffsetDp = charYOffsetDp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
