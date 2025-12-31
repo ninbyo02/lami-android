@@ -1707,6 +1707,7 @@ private fun ReadyAnimationPreviewPane(
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
 
     Column(modifier = modifier) {
         // TEMP: dev layout adjusters (remove later)
@@ -1810,6 +1811,32 @@ private fun ReadyAnimationPreviewPane(
                         Text("▼")
                     }
                 }
+                // TEMP: dev adjuster for preview card min height (remove later)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val maxHeightDp = if (isImeVisible) 220 else 300
+                    val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
+                    Text(
+                        text = "MinHeight:${effectiveMinDp}dp / カード最小高",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    IconButton(
+                        onClick = {
+                            cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(120, 320)
+                        }
+                    ) {
+                        Text("▲")
+                    }
+                    IconButton(
+                        onClick = {
+                            cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(120, 320)
+                        }
+                    ) {
+                        Text("▼")
+                    }
+                }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -1855,99 +1882,101 @@ private fun ReadyAnimationPreviewPane(
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(
-                        min = if (isImeVisible) 180.dp else 210.dp,
-                        max = if (isImeVisible) 220.dp else 300.dp
-                    )
-                    // TEMP: allow preview card height to shrink to content (keep max cap)
-                    // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                    .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
-            ) {
-                val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
-                val spriteSize = if (isImeVisible) {
-                    rawSpriteSize.coerceIn(56.dp, 96.dp)
-                } else {
-                    rawSpriteSize.coerceIn(72.dp, 120.dp)
-                }
-
-                val innerPaddingColor = if (innerBottomDp >= 0) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-                } else {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
-                }
-                val innerPaddingStroke = if (innerBottomDp >= 0) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                } else {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
-                }
-
-                Column(
+                val maxHeightDp = if (isImeVisible) 220 else 300
+                val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .drawBehind {
-                            val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
-                            if (indicatorHeight > 0f) {
-                                val top = size.height - indicatorHeight
-                                drawRect(
-                                    color = innerPaddingColor,
-                                    topLeft = Offset(x = 0f, y = top),
-                                    size = Size(width = size.width, height = indicatorHeight)
-                                )
-                                drawLine(
-                                    color = innerPaddingStroke,
-                                    start = Offset(x = 0f, y = top),
-                                    end = Offset(x = size.width, y = top),
-                                    strokeWidth = 2f
+                        .heightIn(
+                            min = effectiveMinDp.dp,
+                            max = maxHeightDp.dp
+                        )
+                        // TEMP: allow preview card height to shrink to content (keep max cap)
+                        // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
+                        .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
+                ) {
+                    val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
+                    val spriteSize = if (isImeVisible) {
+                        rawSpriteSize.coerceIn(56.dp, 96.dp)
+                    } else {
+                        rawSpriteSize.coerceIn(72.dp, 120.dp)
+                    }
+
+                    val innerPaddingColor = if (innerBottomDp >= 0) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
+                    }
+                    val innerPaddingStroke = if (innerBottomDp >= 0) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .drawBehind {
+                                val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
+                                if (indicatorHeight > 0f) {
+                                    val top = size.height - indicatorHeight
+                                    drawRect(
+                                        color = innerPaddingColor,
+                                        topLeft = Offset(x = 0f, y = top),
+                                        size = Size(width = size.width, height = indicatorHeight)
+                                    )
+                                    drawLine(
+                                        color = innerPaddingStroke,
+                                        start = Offset(x = 0f, y = top),
+                                        end = Offset(x = size.width, y = top),
+                                        strokeWidth = 2f
+                                    )
+                                }
+                            }
+                            .padding(bottom = innerBottomDp.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "プレビュー",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
+                            ) {
+                                DetailsToggle(
+                                    expanded = showDetails,
+                                    onClick = { showDetails = !showDetails },
                                 )
                             }
                         }
-                        .padding(bottom = innerBottomDp.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
+                        Spacer(modifier = Modifier.height(if (isImeVisible) 2.dp else 4.dp))
                         Text(
-                            text = "プレビュー",
-                            style = MaterialTheme.typography.titleSmall
+                            modifier = Modifier.fillMaxWidth(),
+                            text = "現在: ${baseSummary.label}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Column(
-                            horizontalAlignment = Alignment.End,
-                            modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
-                        ) {
-                            DetailsToggle(
-                                expanded = showDetails,
-                                onClick = { showDetails = !showDetails },
-                            )
-                        }
+                        Spacer(modifier = Modifier.height(if (isImeVisible) 4.dp else 8.dp))
+                        ReadyAnimationPreview(
+                            imageBitmap = imageBitmap,
+                            spriteSheetConfig = spriteSheetConfig,
+                            summary = baseSummary,
+                            insertionSummary = insertionSummary,
+                            insertionEnabled = insertionEnabled,
+                            insertionPreviewValues = insertionPreviewValues,
+                            spriteSizeDp = spriteSize,
+                            showDetails = showDetails,
+                            charYOffsetDp = charYOffsetDp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-                    Spacer(modifier = Modifier.height(if (isImeVisible) 2.dp else 4.dp))
-                    Text(
-                        modifier = Modifier.fillMaxWidth(),
-                        text = "現在: ${baseSummary.label}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(if (isImeVisible) 4.dp else 8.dp))
-                    ReadyAnimationPreview(
-                        imageBitmap = imageBitmap,
-                        spriteSheetConfig = spriteSheetConfig,
-                        summary = baseSummary,
-                        insertionSummary = insertionSummary,
-                        insertionEnabled = insertionEnabled,
-                        insertionPreviewValues = insertionPreviewValues,
-                        spriteSizeDp = spriteSize,
-                        showDetails = showDetails,
-                        charYOffsetDp = charYOffsetDp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
-            }
             // FIX: missing brace for ReadyAnimationPreviewPane
             }
         }
