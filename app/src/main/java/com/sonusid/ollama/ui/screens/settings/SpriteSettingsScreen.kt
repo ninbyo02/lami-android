@@ -145,7 +145,19 @@ private data class InsertionPreviewValues(
     val exclusiveText: String,
 )
 
+private enum class DetailsLayoutMode(val id: Int, val label: String) {
+    AutoGrow(id = 0, label = "AutoGrow"),
+    ScrollDetails(id = 1, label = "ScrollDetails");
+
+    companion object {
+        fun fromId(value: Int): DetailsLayoutMode =
+            values().firstOrNull { mode -> mode.id == value } ?: AutoGrow
+    }
+}
+
 private data class DevPreviewSettings(
+    val detailsLayoutMode: Int,
+    val cardMaxHeightDp: Int,
     val innerBottomDp: Int,
     val outerBottomDp: Int,
     val innerVPadDp: Int,
@@ -1670,7 +1682,8 @@ private fun ReadyAnimationPreview(
     showDetails: Boolean,
     charYOffsetDp: Int,
     infoYOffsetDp: Int,
-    detailsMaxHeightDp: Int,
+    detailsLayoutMode: DetailsLayoutMode,
+    detailsMaxHeightDp: Int?,
     detailsMaxLines: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -1762,8 +1775,19 @@ private fun ReadyAnimationPreview(
                 style = MaterialTheme.typography.bodySmall
             )
             AnimatedVisibility(visible = showDetails) {
+                val detailScrollState = rememberScrollState()
+                val detailModifier = when (detailsLayoutMode) {
+                    DetailsLayoutMode.AutoGrow -> Modifier
+                    DetailsLayoutMode.ScrollDetails -> {
+                        var mod: Modifier = Modifier.verticalScroll(detailScrollState)
+                        if (detailsMaxHeightDp != null) {
+                            mod = mod.heightIn(max = detailsMaxHeightDp.dp)
+                        }
+                        mod
+                    }
+                }
                 Column(
-                    modifier = Modifier.heightIn(max = detailsMaxHeightDp.dp),
+                    modifier = detailModifier,
                     verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
                 ) {
                     Text(
@@ -1801,6 +1825,9 @@ private fun ReadyAnimationPreviewPane(
     onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
+    var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.AutoGrow.id) }
+    val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
+    var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(300) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(8) }
@@ -1818,6 +1845,20 @@ private fun ReadyAnimationPreviewPane(
     var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
+    val baseMaxHeightDp = if (isImeVisible) 220 else 300
+    val effectiveCardMaxH: Int? = if (!showDetails) {
+        baseMaxHeightDp
+    } else if (cardMaxHeightDp == 0) {
+        null
+    } else {
+        maxOf(baseMaxHeightDp, cardMaxHeightDp)
+    }
+    val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
+    val effectiveDetailsMaxH: Int? = if (detailsLayoutMode == DetailsLayoutMode.ScrollDetails) {
+        if (detailsMaxHeightDp == 0) null else detailsMaxHeightDp
+    } else {
+        null
+    }
     val effectiveOuterBottomDp = if (showDetails) outerBottomDp else 0
     val effectiveInnerBottomDp = if (showDetails) innerBottomDp else 0
     val effectiveInnerVPadDp = if (showDetails) innerVPadDp else 0
@@ -1836,38 +1877,40 @@ private fun ReadyAnimationPreviewPane(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val maxHeightDp = if (isImeVisible) 220 else 300
-                val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
+                val effectiveMinDp = boundedMinHeightDp
+                val effectiveMaxLabel = effectiveCardMaxH?.toString() ?: "∞"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { devExpanded = !devExpanded },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    val devArrow = if (devExpanded) "▴" else "▾"
-                    val detailsStatus = if (showDetails) "ON" else "OFF"
-                    Text(
-                        text = "DEV $devArrow",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:$detailsStatus  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { devExpanded = !devExpanded },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val devArrow = if (devExpanded) "▴" else "▾"
+                        val detailsStatus = if (showDetails) "ON" else "OFF"
+                        Text(
+                            text = "DEV $devArrow",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoY:${infoYOffsetDp}  Details:$detailsStatus  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     FilledTonalButton(
                         onClick = {
                             onCopyJson(
                                 DevPreviewSettings(
+                                    detailsLayoutMode = detailsLayoutMode.id,
+                                    cardMaxHeightDp = cardMaxHeightDp,
                                     innerBottomDp = innerBottomDp,
                                     outerBottomDp = outerBottomDp,
                                     innerVPadDp = innerVPadDp,
@@ -2162,6 +2205,51 @@ private fun ReadyAnimationPreviewPane(
                             )
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Layout:${detailsLayoutMode.label}（0=伸長 / 1=詳細スクロール）",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                FilledTonalButton(
+                                    onClick = { detailsLayoutModeId = DetailsLayoutMode.AutoGrow.id },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("伸長")
+                                }
+                                FilledTonalButton(
+                                    onClick = { detailsLayoutModeId = DetailsLayoutMode.ScrollDetails.id },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("詳細だけスクロール")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val cardMaxLabel = effectiveCardMaxH?.let { "${it}dp" } ?: "制限なし"
+                                Text(
+                                    text = "CardMax:${cardMaxLabel} / DEV:${cardMaxHeightDp}dp / Base:${baseMaxHeightDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        cardMaxHeightDp = (cardMaxHeightDp + 10).coerceIn(0, 1200)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        cardMaxHeightDp = (cardMaxHeightDp - 10).coerceIn(0, 1200)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
@@ -2188,19 +2276,19 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "DetailsMaxH:${detailsMaxHeightDp}dp / 詳細最大高",
+                                    text = "DetailsMaxH:${effectiveDetailsMaxH?.let { "${it}dp" } ?: "制限なし"} / DEV:${detailsMaxHeightDp}dp",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
                                     onClick = {
-                                        detailsMaxHeightDp = (detailsMaxHeightDp + 1).coerceIn(0, 120)
+                                        detailsMaxHeightDp = (detailsMaxHeightDp + 10).coerceIn(0, 1200)
                                     }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
                                     onClick = {
-                                        detailsMaxHeightDp = (detailsMaxHeightDp - 1).coerceIn(0, 120)
+                                        detailsMaxHeightDp = (detailsMaxHeightDp - 10).coerceIn(0, 1200)
                                     }
                                 ) {
                                     Text("▼")
@@ -2329,19 +2417,29 @@ private fun ReadyAnimationPreviewPane(
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                val maxHeightDp = if (isImeVisible) 220 else 300
-                val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
-                BoxWithConstraints(
-                    modifier = Modifier
+                val effectiveMinDp = boundedMinHeightDp
+                val cardHeightModifier = if (effectiveCardMaxH != null) {
+                    Modifier
                         .fillMaxWidth()
                         .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
                         .heightIn(
                             min = effectiveMinDp.dp,
-                            max = maxHeightDp.dp
+                            max = effectiveCardMaxH.dp
                         )
                         // TEMP: allow preview card height to shrink to content (keep max cap)
                         // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
                         .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
+                } else {
+                    Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
+                        .heightIn(min = effectiveMinDp.dp)
+                        // TEMP: allow preview card height to shrink to content (keep max cap)
+                        // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
+                        .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
+                }
+                BoxWithConstraints(
+                    modifier = cardHeightModifier
                 ) {
                     // DEVパネル開閉で親コンテナの高さ制約が変わってもキャラサイズがぶれないよう、幅ベースで決定する
                     val rawSpriteSize = maxWidth * 0.30f
@@ -2425,7 +2523,8 @@ private fun ReadyAnimationPreviewPane(
                             showDetails = showDetails,
                             charYOffsetDp = charYOffsetDp,
                             infoYOffsetDp = infoYOffsetDp,
-                            detailsMaxHeightDp = detailsMaxHeightDp,
+                            detailsLayoutMode = detailsLayoutMode,
+                            detailsMaxHeightDp = effectiveDetailsMaxH,
                             detailsMaxLines = detailsMaxLines,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -2719,6 +2818,8 @@ private fun SpriteSheetConfig.toJsonObject(): JSONObject =
 
 private fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
+        .put("detailsLayoutMode", detailsLayoutMode)
+        .put("cardMaxHeightDp", cardMaxHeightDp)
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)
         .put("headerOffsetLimitDp", headerOffsetLimitDp)
