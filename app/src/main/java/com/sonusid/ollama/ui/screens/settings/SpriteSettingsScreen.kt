@@ -2184,7 +2184,8 @@ private fun ReadyAnimationPreviewPane(
                         // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
                         .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
                 ) {
-                    val rawSpriteSize = minOf(maxWidth, maxHeight) * 0.30f
+                    // DEVパネル開閉で親コンテナの高さ制約が変わってもキャラサイズがぶれないよう、幅ベースで決定する
+                    val rawSpriteSize = maxWidth * 0.30f
                     val spriteSize = if (isImeVisible) {
                         rawSpriteSize.coerceIn(56.dp, 96.dp)
                     } else {
