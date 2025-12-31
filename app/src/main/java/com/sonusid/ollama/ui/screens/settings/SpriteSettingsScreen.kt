@@ -1608,7 +1608,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         }
     }
-}
 
 private data class AnimationSelectionState(
     val selectedAnimation: AnimationType,
