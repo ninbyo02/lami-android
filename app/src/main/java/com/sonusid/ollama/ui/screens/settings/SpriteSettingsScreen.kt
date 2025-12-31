@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -84,7 +83,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
@@ -94,8 +92,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.ui.semantics.Role
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
@@ -156,6 +152,18 @@ private enum class DetailsLayoutMode(val id: Int, val label: String) {
     }
 }
 
+private enum class DevOverlayPosition(val id: Int, val label: String) {
+    TopLeft(id = 1, label = "左上"),
+    TopRight(id = 2, label = "右上"),
+    BottomLeft(id = 3, label = "左下"),
+    BottomRight(id = 4, label = "右下");
+
+    companion object {
+        fun fromId(value: Int): DevOverlayPosition =
+            values().firstOrNull { position -> position.id == value } ?: TopRight
+    }
+}
+
 private data class DevPreviewSettings(
     val cardMaxHeightDp: Int,
     val innerBottomDp: Int,
@@ -173,6 +181,7 @@ private data class DevPreviewSettings(
     val detailsMaxLines: Int,
     val headerSpacerDp: Int,
     val bodySpacerDp: Int,
+    val devOverlayPosition: DevOverlayPosition,
 )
 
 private fun buildInsertionPreviewSummary(
@@ -1778,9 +1787,6 @@ private fun ReadyAnimationInfo(
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
-    showDetails: Boolean,
-    detailsMaxHeightDp: Int?,
-    detailsMaxLines: Int,
     infoYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -1798,17 +1804,144 @@ private fun ReadyAnimationInfo(
             text = "周期: ${state.currentIntervalMs}ms",
             style = MaterialTheme.typography.bodySmall
         )
-        AnimatedVisibility(visible = showDetails) {
-            val detailModifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .let { scrollModifier ->
-                    detailsMaxHeightDp?.let { maxHeightDp ->
-                        scrollModifier.heightIn(max = maxHeightDp.dp)
-                    } ?: scrollModifier
+    }
+}
+
+private fun DevOverlayPosition.toAlignment(): Alignment =
+    when (this) {
+        DevOverlayPosition.TopLeft -> Alignment.TopStart
+        DevOverlayPosition.TopRight -> Alignment.TopEnd
+        DevOverlayPosition.BottomLeft -> Alignment.BottomStart
+        DevOverlayPosition.BottomRight -> Alignment.BottomEnd
+    }
+
+@Composable
+private fun PreviewDevOverlayControls(
+    showDetails: Boolean,
+    onToggleDetails: () -> Unit,
+    detailsMaxHeightDp: Int,
+    onIncDetailsMaxH: () -> Unit,
+    onDecDetailsMaxH: () -> Unit,
+    detailsMaxLines: Int,
+    onIncDetailsLines: () -> Unit,
+    onDecDetailsLines: () -> Unit,
+    position: DevOverlayPosition,
+    onPositionChange: (DevOverlayPosition) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "開発パネル",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                FilledTonalButton(
+                    onClick = onToggleDetails,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(text = if (showDetails) "詳細 OFF" else "詳細 ON")
                 }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "DetailsMaxH:${detailsMaxHeightDp}dp",
+                    style = MaterialTheme.typography.labelSmall
+                )
+                IconButton(onClick = onIncDetailsMaxH) { Text("▲") }
+                IconButton(onClick = onDecDetailsMaxH) { Text("▼") }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "DetailsLines:${detailsMaxLines}",
+                    style = MaterialTheme.typography.labelSmall
+                )
+                IconButton(onClick = onIncDetailsLines) { Text("▲") }
+                IconButton(onClick = onDecDetailsLines) { Text("▼") }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "位置プリセット",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    DevOverlayPosition.values().forEach { candidate ->
+                        FilledTonalButton(
+                            onClick = { onPositionChange(candidate) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .alpha(if (candidate == position) 1f else 0.8f)
+                        ) {
+                            Text(
+                                text = candidate.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (candidate == position) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewDetailsOverlay(
+    showDetails: Boolean,
+    summary: AnimationSummary,
+    insertionSummary: AnimationSummary,
+    insertionPreviewValues: InsertionPreviewValues,
+    insertionEnabled: Boolean,
+    detailsMaxHeightDp: Int,
+    detailsMaxLines: Int,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(visible = showDetails) {
+        Card(
+            modifier = modifier,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shape = RoundedCornerShape(12.dp)
+        ) {
             Column(
-                modifier = detailModifier,
-                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
+                modifier = Modifier
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(max = detailsMaxHeightDp.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
             ) {
                 Text(
                     text = formatAppliedLine(summary),
@@ -1846,6 +1979,8 @@ private fun ReadyAnimationPreviewPane(
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
+    var devOverlayPositionId by rememberSaveable { mutableIntStateOf(DevOverlayPosition.TopRight.id) }
+    val devOverlayPosition = remember(devOverlayPositionId) { DevOverlayPosition.fromId(devOverlayPositionId) }
     var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(130) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
@@ -1940,6 +2075,7 @@ private fun ReadyAnimationPreviewPane(
                                     detailsMaxLines = detailsMaxLines,
                                     headerSpacerDp = headerSpacerDp,
                                     bodySpacerDp = bodySpacerDp,
+                                    devOverlayPosition = devOverlayPosition,
                                 )
                             )
                         },
@@ -2419,45 +2555,45 @@ private fun ReadyAnimationPreviewPane(
             } else {
                 baseCardModifier.heightIn(min = effectiveMinHeightDp.dp)
             }
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
+            Card(
+                modifier = cardHeightModifier.animateContentSize(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
-                val spriteSize = if (isImeVisible) {
-                    rawSpriteSize.coerceIn(56.dp, 96.dp)
-                } else {
-                    rawSpriteSize.coerceIn(72.dp, 120.dp)
-                }
-                val previewState = rememberReadyAnimationState(
-                    spriteSheetConfig = spriteSheetConfig,
-                    summary = baseSummary,
-                    insertionSummary = insertionSummary,
-                    insertionEnabled = insertionEnabled
-                )
-                var headerHeightPx by remember { mutableIntStateOf(0) }
-                val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
-                val contentHorizontalPadding = 12.dp
-
-                val innerPaddingColor = if (innerBottomDp >= 0) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
-                } else {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
-                }
-                val innerPaddingStroke = if (innerBottomDp >= 0) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                } else {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
-                }
-
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Card(
-                        modifier = cardHeightModifier.animateContentSize(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
+                    val spriteSize = if (isImeVisible) {
+                        rawSpriteSize.coerceIn(56.dp, 96.dp)
+                    } else {
+                        rawSpriteSize.coerceIn(72.dp, 120.dp)
+                    }
+                    val previewState = rememberReadyAnimationState(
+                        spriteSheetConfig = spriteSheetConfig,
+                        summary = baseSummary,
+                        insertionSummary = insertionSummary,
+                        insertionEnabled = insertionEnabled
+                    )
+                    var headerHeightPx by remember { mutableIntStateOf(0) }
+                    val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
+                    val contentHorizontalPadding = 12.dp
+
+                    val innerPaddingColor = if (innerBottomDp >= 0) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
+                    }
+                    val innerPaddingStroke = if (innerBottomDp >= 0) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    } else {
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                    }
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
@@ -2500,18 +2636,7 @@ private fun ReadyAnimationPreviewPane(
                                         )
                                     )
                                 }
-                                Box {
-                                    PreviewHeaderRight(
-                                        expanded = showDetails,
-                                        onClick = { showDetails = !showDetails },
-                                        modifier = Modifier
-                                            .offset(
-                                                x = headerRightXOffsetDp.dp,
-                                                y = headerRightYOffsetDp.dp
-                                            )
-                                            .alpha(if (isImeVisible) 0.6f else 1f)
-                                    )
-                                }
+                                Spacer(modifier = Modifier.width(contentHorizontalPadding))
                             }
                             Spacer(modifier = Modifier.height(effectiveBodySpacerDp.dp))
                             ReadyAnimationInfo(
@@ -2520,30 +2645,56 @@ private fun ReadyAnimationPreviewPane(
                                 insertionSummary = insertionSummary,
                                 insertionPreviewValues = insertionPreviewValues,
                                 insertionEnabled = insertionEnabled,
-                                showDetails = showDetails,
-                                detailsMaxHeightDp = effectiveDetailsMaxH,
-                                detailsMaxLines = detailsMaxLines,
                                 infoYOffsetDp = infoYOffsetDp,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(start = spriteSize + 12.dp)
                             )
                         }
-                    }
-                    ReadyAnimationCharacter(
-                        imageBitmap = imageBitmap,
-                        frameRegion = previewState.frameRegion,
-                        spriteSizeDp = spriteSize,
-                        charYOffsetDp = charYOffsetDp,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(
-                                start = contentHorizontalPadding,
-                                top = effectiveInnerVPadDp.dp + headerHeightDp + effectiveBodySpacerDp.dp
+                        ReadyAnimationCharacter(
+                            imageBitmap = imageBitmap,
+                            frameRegion = previewState.frameRegion,
+                            spriteSizeDp = spriteSize,
+                            charYOffsetDp = charYOffsetDp,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(
+                                    start = contentHorizontalPadding,
+                                    top = effectiveInnerVPadDp.dp + headerHeightDp + effectiveBodySpacerDp.dp
+                                )
+                        )
+                        val overlayAlignment = devOverlayPosition.toAlignment()
+                        Column(
+                            modifier = Modifier
+                                .align(overlayAlignment)
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            PreviewDevOverlayControls(
+                                showDetails = showDetails,
+                                onToggleDetails = { showDetails = !showDetails },
+                                detailsMaxHeightDp = effectiveDetailsMaxH,
+                                onIncDetailsMaxH = { detailsMaxHeightDp = (detailsMaxHeightDp + 10).coerceIn(0, 1200) },
+                                onDecDetailsMaxH = { detailsMaxHeightDp = (detailsMaxHeightDp - 10).coerceIn(0, 1200) },
+                                detailsMaxLines = detailsMaxLines,
+                                onIncDetailsLines = { detailsMaxLines = (detailsMaxLines + 1).coerceIn(1, 6) },
+                                onDecDetailsLines = { detailsMaxLines = (detailsMaxLines - 1).coerceIn(1, 6) },
+                                position = devOverlayPosition,
+                                onPositionChange = { candidate -> devOverlayPositionId = candidate.id }
                             )
-                    )
+                            PreviewDetailsOverlay(
+                                showDetails = showDetails,
+                                summary = baseSummary,
+                                insertionSummary = insertionSummary,
+                                insertionPreviewValues = insertionPreviewValues,
+                                insertionEnabled = insertionEnabled,
+                                detailsMaxHeightDp = effectiveDetailsMaxH,
+                                detailsMaxLines = detailsMaxLines
+                            )
+                        }
+                    }
                 }
-            // FIX: missing brace for ReadyAnimationPreviewPane
             }
         }
     }
@@ -2570,42 +2721,6 @@ private fun PreviewHeaderLeft(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-@Composable
-private fun PreviewHeaderRight(
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(modifier = modifier) {
-        DetailsToggle(
-            expanded = expanded,
-            onClick = onClick
-        )
-    }
-}
-
-@Composable
-private fun DetailsToggle(
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val arrow = if (expanded) "▴" else "▾"
-    Text(
-        text = "詳細 $arrow",
-        color = MaterialTheme.colorScheme.primary,
-        style = MaterialTheme.typography.labelLarge,
-        modifier = modifier
-            .wrapContentHeight()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = false),
-                role = Role.Button,
-                onClick = onClick
-            )
-    )
 }
 
 @Composable
@@ -2847,6 +2962,7 @@ private fun DevPreviewSettings.toJsonObject(): JSONObject =
         .put("detailsLines", detailsMaxLines)
         .put("headerSpacerDp", headerSpacerDp)
         .put("bodySpacerDp", bodySpacerDp)
+        .put("devOverlayPosition", devOverlayPosition.name)
 
 private fun List<Int>.toJsonArray(): JSONArray =
     JSONArray().apply { forEach { value -> put(value) } }
