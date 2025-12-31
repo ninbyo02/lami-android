@@ -75,6 +75,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.imageResource
@@ -900,19 +901,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun copyDevJson(devSettings: DevPreviewSettings) {
-        coroutineScope.launch {
-            runCatching {
-                val jsonString = buildDevJson(devSettings)
-                clipboardManager.setText(AnnotatedString(jsonString))
-            }.onSuccess {
-                snackbarHostState.showSnackbar("DEV JSONをコピーしました")
-            }.onFailure { throwable ->
-                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
-            }
-        }
-    }
-
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
@@ -1700,9 +1688,7 @@ private fun ReadyAnimationTab(
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val onCopyDevJson: () -> Unit = {
-        copyDevJson(devSettings)
-    }
+    val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
@@ -3093,6 +3079,14 @@ private fun buildSettingsJson(
     root.put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
     root.put("dev", devSettings.toJsonObject())
     return root.toString(2)
+}
+
+private fun copyDevJson(
+    clipboardManager: ClipboardManager,
+    devSettings: DevPreviewSettings,
+) {
+    val jsonString = buildDevJson(devSettings)
+    clipboardManager.setText(AnnotatedString(jsonString))
 }
 
 private fun buildDevJson(
