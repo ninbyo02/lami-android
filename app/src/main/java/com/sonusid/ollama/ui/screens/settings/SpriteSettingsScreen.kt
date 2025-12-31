@@ -1684,7 +1684,7 @@ private fun ReadyAnimationPreview(
     charYOffsetDp: Int,
     infoYOffsetDp: Int,
     detailsLayoutMode: DetailsLayoutMode,
-    detailsMaxHeightDp: Int?,
+    detailsMaxHeightDp: Int,
     detailsMaxLines: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -1779,13 +1779,11 @@ private fun ReadyAnimationPreview(
                 val detailScrollState = rememberScrollState()
                 val detailModifier = when (detailsLayoutMode) {
                     DetailsLayoutMode.AutoGrow -> Modifier
-                    DetailsLayoutMode.ScrollDetails -> {
-                        var mod: Modifier = Modifier.verticalScroll(detailScrollState)
-                        if (detailsMaxHeightDp != null) {
-                            mod = mod.heightIn(max = detailsMaxHeightDp.dp)
-                        }
-                        mod
-                    }
+                        .verticalScroll(detailScrollState)
+                        .heightIn(max = effectiveDetailsMaxH.dp)
+                    DetailsLayoutMode.ScrollDetails -> Modifier
+                        .verticalScroll(detailScrollState)
+                        .heightIn(max = effectiveDetailsMaxH.dp)
                 }
                 Column(
                     modifier = detailModifier,
@@ -1850,18 +1848,12 @@ private fun ReadyAnimationPreviewPane(
     val autoMinHeightDp = maxOf(155, ceil(contentHeightDp.value).toInt() + safetyMarginDp)
     val baseMaxHeightDp = if (isImeVisible) 220 else 300
     val customCardMaxHeightDp = cardMaxHeightDp.takeUnless { it == 0 }
-    val effectiveCardMaxH: Int? = if (showDetails) {
-        null
-    } else {
-        customCardMaxHeightDp ?: baseMaxHeightDp
-    }
+    val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
-    val effectiveMinHeightDp = if (showDetails) autoMinHeightDp else boundedMinHeightDp
-    val effectiveDetailsMaxH: Int? = if (detailsLayoutMode == DetailsLayoutMode.ScrollDetails) {
-        if (detailsMaxHeightDp == 0) null else detailsMaxHeightDp
-    } else {
-        null
+    val effectiveMinHeightDp = (if (showDetails) autoMinHeightDp else boundedMinHeightDp).let { minHeight ->
+        effectiveCardMaxH?.let { max -> minHeight.coerceAtMost(max) } ?: minHeight
     }
+    val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
     val effectiveOuterBottomDp = if (showDetails) outerBottomDp else 0
     val effectiveInnerBottomDp = if (showDetails) innerBottomDp else 0
     val effectiveInnerVPadDp = innerVPadDp
@@ -2279,7 +2271,7 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "DetailsMaxH:${effectiveDetailsMaxH?.let { "${it}dp" } ?: "制限なし"} / DEV:${detailsMaxHeightDp}dp",
+                                    text = "DetailsMaxH:${effectiveDetailsMaxH}dp / DEV:${detailsMaxHeightDp}dp",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
