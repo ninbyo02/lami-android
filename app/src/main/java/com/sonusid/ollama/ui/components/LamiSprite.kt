@@ -66,14 +66,17 @@ fun LamiSprite(
     Canvas(modifier = modifier) {
         val dstW = size.width.roundToInt().coerceAtLeast(1)
         val dstH = size.height.roundToInt().coerceAtLeast(1)
+        val side = dstW.coerceAtMost(dstH)
+        val offsetX = (dstW - side) / 2
+        val offsetY = (dstH - side) / 2
 
         drawIntoCanvas { canvas ->
             canvas.drawImageRect(
                 image = bitmap,
                 srcOffset = IntOffset(srcX, srcY),
                 srcSize = IntSize(resolvedFrameWidth, resolvedFrameHeight),
-                dstOffset = IntOffset(0, 0),
-                dstSize = IntSize(dstW, dstH),
+                dstOffset = IntOffset(offsetX, offsetY),
+                dstSize = IntSize(side, side),
                 paint = Paint()
             )
         }
