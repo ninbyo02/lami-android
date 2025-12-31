@@ -1242,7 +1242,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                             SpriteSettingsControls(
-                                                selectedNumber = selectedNumber,
                                                 selectedPosition = selectedPosition,
                                                 boxSizePx = boxSizePx,
                                                 onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
@@ -2907,7 +2906,6 @@ private fun DetailsToggle(
 
 @Composable
 private fun SpriteSettingsControls(
-    selectedNumber: Int,
     selectedPosition: BoxPosition?,
     boxSizePx: Int,
     onPrev: () -> Unit,
