@@ -240,7 +240,6 @@ private data class DevSettingsDefaults(
             }.getOrNull()
         }
     }
-}
 
 private fun JSONObject.optIntOrNull(key: String): Int? = if (has(key)) getInt(key) else null
 
