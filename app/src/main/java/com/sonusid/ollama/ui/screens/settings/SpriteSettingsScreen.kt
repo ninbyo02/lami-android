@@ -1826,25 +1826,27 @@ private fun ReadyAnimationPreviewPane(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { devExpanded = !devExpanded },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            text = "DEV ${if (devExpanded) "▴" else "▾"}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) \"ON\" else \"OFF\"}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { devExpanded = !devExpanded },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val devArrow = if (devExpanded) "▴" else "▾"
+                    val detailsStatus = if (showDetails) "ON" else "OFF"
+                    Text(
+                        text = "DEV $devArrow",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:$detailsStatus  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                     FilledTonalButton(
                         onClick = {
                             onCopyJson(
@@ -2459,8 +2461,9 @@ private fun DetailsToggle(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val arrow = if (expanded) "▴" else "▾"
     Text(
-        text = "詳細 ${if (expanded) "▴" else "▾"}",
+        text = "詳細 $arrow",
         color = MaterialTheme.colorScheme.primary,
         style = MaterialTheme.typography.labelLarge,
         modifier = modifier
