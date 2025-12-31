@@ -1576,6 +1576,7 @@ private fun ReadyAnimationPreview(
     spriteSizeDp: Dp,
     showDetails: Boolean,
     charYOffsetDp: Int,
+    infoYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
     val paramYOffsetDp = 3
@@ -1653,7 +1654,8 @@ private fun ReadyAnimationPreview(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .offset(y = paramYOffsetDp.dp), // TEMP: fix param Y to +3dp
+                // TEMP: dev adjuster for info block Y offset (remove later)
+                .offset(y = (paramYOffsetDp + infoYOffsetDp).dp), // TEMP: fix param Y to +3dp
             verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
         ) {
             Text(
@@ -1707,6 +1709,7 @@ private fun ReadyAnimationPreviewPane(
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
 
     Column(modifier = modifier) {
@@ -1737,6 +1740,29 @@ private fun ReadyAnimationPreviewPane(
                     IconButton(
                         onClick = {
                             charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200)
+                        }
+                    ) {
+                        Text("▼")
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "InfoY:${infoYOffsetDp}dp / 情報ブロックY",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    IconButton(
+                        onClick = {
+                            infoYOffsetDp = (infoYOffsetDp - 1).coerceIn(-200, 200)
+                        }
+                    ) {
+                        Text("▲")
+                    }
+                    IconButton(
+                        onClick = {
+                            infoYOffsetDp = (infoYOffsetDp + 1).coerceIn(-200, 200)
                         }
                     ) {
                         Text("▼")
@@ -1973,6 +1999,7 @@ private fun ReadyAnimationPreviewPane(
                             spriteSizeDp = spriteSize,
                             showDetails = showDetails,
                             charYOffsetDp = charYOffsetDp,
+                            infoYOffsetDp = infoYOffsetDp,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
