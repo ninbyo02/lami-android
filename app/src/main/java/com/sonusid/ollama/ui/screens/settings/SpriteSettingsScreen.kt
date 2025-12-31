@@ -52,10 +52,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -197,8 +195,6 @@ private object DevDefaults {
     const val headerSpacerDp = 0
     const val bodySpacerDp = 0
 }
-
-private val LocalDevSettingsDefaults = compositionLocalOf<DevSettingsDefaults?> { null }
 
 private data class DevSettingsDefaults(
     val cardMaxHeightDp: Int?,
@@ -350,6 +346,12 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = SpriteSheetConfig.default3x3())
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
+    }
+    val devPreviewDefaults = remember(devFromJson) {
+        devFromJson?.toDevPreviewSettings() ?: DevDefaults.toDevPreviewSettings()
+    }
+    var devPreviewSettings by rememberSaveable(stateSaver = devPreviewSettingsSaver()) {
+        mutableStateOf(devPreviewDefaults)
     }
     val initialHeaderLeftXOffsetDp = devFromJson?.headerLeftXOffsetDp
     val readyAnimationSettings by settingsPreferences.readyAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
@@ -811,6 +813,19 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun copyDevJson(devSettings: DevPreviewSettings) {
+        coroutineScope.launch {
+            runCatching {
+                val jsonString = buildDevJson(devSettings)
+                clipboardManager.setText(AnnotatedString(jsonString))
+            }.onSuccess {
+                snackbarHostState.showSnackbar("DEV JSONをコピーしました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val footerHeight = 40.dp
 
@@ -956,105 +971,119 @@ fun SpriteSettingsScreen(navController: NavController) {
             bottom = innerPadding.calculateBottomPadding()
         )
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Surface(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(contentPadding)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Top
                 ) {
-                    IconButton(
-                        onClick = { navController.popBackStack() },
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(start = 8.dp, top = 8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.back),
-                            contentDescription = "戻る"
-                        )
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(contentPadding)
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Top
-                    ) {
+                        IconButton(
+                            onClick = { navController.popBackStack() },
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "戻る"
+                            )
+                        }
                         Text(
                             text = "Sprite Settings",
                             style = MaterialTheme.typography.titleSmall
                         )
-                        val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp, start = 4.dp, end = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start
-                        ) {
-                            Text(
-                                text = headerText,
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        Spacer(modifier = Modifier.size(32.dp))
+                    }
+                    val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp, start = 2.dp, end = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Text(
+                            text = headerText,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                lineHeight = MaterialTheme.typography.labelMedium.fontSize
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    TabRow(
+                        selectedTabIndex = tabIndex,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp),
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                        indicator = { tabPositions ->
+                            TabRowDefaults.SecondaryIndicator(
+                                modifier = Modifier
+                                    .tabIndicatorOffset(tabPositions[tabIndex])
+                                    .padding(horizontal = 6.dp),
+                                height = 2.dp
                             )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        TabRow(
-                            selectedTabIndex = tabIndex,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(36.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-                            indicator = { tabPositions ->
-                                TabRowDefaults.SecondaryIndicator(
-                                    modifier = Modifier
-                                        .tabIndicatorOffset(tabPositions[tabIndex])
-                                        .padding(horizontal = 8.dp),
-                                    height = 2.dp
+                        },
+                        divider = { Divider(thickness = 0.5.dp) }
+                    ) {
+                        Tab(
+                            selected = tabIndex == 0,
+                            onClick = { tabIndex = 0 },
+                            text = {
+                                Text(
+                                    text = "調整",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1
                                 )
                             },
-                            divider = {}
-                        ) {
-                            Tab(
-                                selected = tabIndex == 0,
-                                onClick = { tabIndex = 0 },
-                                text = {
-                                    Text(
-                                        text = "調整",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 1
-                                    )
-                                },
-                                selectedContentColor = MaterialTheme.colorScheme.primary,
-                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Tab(
-                                selected = tabIndex == 1,
-                                onClick = { tabIndex = 1 },
-                                text = {
-                                    Text(
-                                        text = "アニメ",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 1
-                                    )
-                                },
-                                selectedContentColor = MaterialTheme.colorScheme.primary,
-                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = true)
-                        ) {
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Tab(
+                            selected = tabIndex == 1,
+                            onClick = { tabIndex = 1 },
+                            text = {
+                                Text(
+                                    text = "アニメ",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1
+                                )
+                            },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Tab(
+                            selected = tabIndex == 2,
+                            onClick = { tabIndex = 2 },
+                            text = {
+                                Text(
+                                    text = "DEV",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1
+                                )
+                            },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = true)
+                    ) {
                             when (tabIndex) {
                                 0 -> {
                                     Column(
@@ -1135,8 +1164,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
                                                 onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
                                                 onSizeDecrease = { updateBoxSize(-4) },
-                                                onSizeIncrease = { updateBoxSize(4) },
-                                                onCopy = { copySpriteSheetConfig() }
+                                                onSizeIncrease = { updateBoxSize(4) }
                                             )
                                         }
                                     }
@@ -1388,21 +1416,71 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         summary = selectedInsertionSummary,
                                         previewValues = selectedInsertionPreviewValues
                                     )
-                                    CompositionLocalProvider(LocalDevSettingsDefaults provides devFromJson) {
-                                        ReadyAnimationTab(
-                                            imageBitmap = imageBitmap,
-                                            spriteSheetConfig = spriteSheetConfig,
-                                            selectionState = selectionState,
-                                            baseState = baseState,
-                                            insertionState = insertionState,
-                                            isImeVisible = imeVisible,
-                                            contentPadding = contentPadding,
-                                            footerHeight = footerHeight,
-                                            onCopyJson = { devSettings ->
-                                                copyAppliedSettings(devSettings)
-                                            },
-                                            initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
-                                        )
+                                    ReadyAnimationTab(
+                                        imageBitmap = imageBitmap,
+                                        spriteSheetConfig = spriteSheetConfig,
+                                        selectionState = selectionState,
+                                        baseState = baseState,
+                                        insertionState = insertionState,
+                                        isImeVisible = imeVisible,
+                                        contentPadding = contentPadding,
+                                        footerHeight = footerHeight,
+                                        devSettings = devPreviewSettings,
+                                        onDevSettingsChange = { updated -> devPreviewSettings = updated },
+                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                                    )
+                                }
+
+                                2 -> {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .weight(1f, fill = true)
+                                                .padding(top = 4.dp)
+                                                .heightIn(min = 220.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Image(
+                                                painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
+                                                contentDescription = "Sprite Preview",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        }
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp, horizontal = 12.dp)
+                                                .verticalScroll(rememberScrollState()),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "DEVパラメータのコピーは下部ボタンから行えます",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            Divider()
+                                            Text(
+                                                text = "現在のDEV設定概要",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = "CardMax:${devPreviewSettings.cardMaxHeightDp}  MinH:${devPreviewSettings.cardMinHeightDp}  Details:${devPreviewSettings.detailsMaxHeightDp} / ${devPreviewSettings.detailsMaxLines}",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                            Text(
+                                                text = "Offsets L(${devPreviewSettings.headerLeftXOffsetDp},${devPreviewSettings.headerLeftYOffsetDp}) R(${devPreviewSettings.headerRightXOffsetDp},${devPreviewSettings.headerRightYOffsetDp}) InfoY:${devPreviewSettings.infoYOffsetDp} CharY:${devPreviewSettings.charYOffsetDp}",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                            Text(
+                                                text = "Padding Outer:${devPreviewSettings.outerBottomDp}  Inner:${devPreviewSettings.innerBottomDp}  VPad:${devPreviewSettings.innerVPadDp}  Spacer H:${devPreviewSettings.headerSpacerDp} / B:${devPreviewSettings.bodySpacerDp}",
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1410,22 +1488,33 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
+            val copyLabel = when (tabIndex) {
+                0 -> "コピー(調整)"
+                1 -> "コピー(アニメ)"
+                else -> "コピー(DEV)"
+            }
             SpriteSettingsFooter(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
+                copyLabel = copyLabel,
                 onUpdate = {
-                    if (tabIndex == 0) {
-                        coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                    } else {
-                        onAnimationApply()
+                    when (tabIndex) {
+                        0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                        1 -> onAnimationApply()
+                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
                     }
                 },
                 onSave = {
-                    if (tabIndex == 0) {
-                        saveSpriteSheetConfig()
-                    } else {
-                        onAnimationSave()
+                    when (tabIndex) {
+                        0 -> saveSpriteSheetConfig()
+                        1 -> onAnimationSave()
+                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
+                    }
+                },
+                onCopy = {
+                    when (tabIndex) {
+                        0 -> copySpriteSheetConfig()
+                        1 -> copyAppliedSettings(devPreviewSettings)
+                        else -> copyDevJson(devPreviewSettings)
                     }
                 }
             )
@@ -1483,7 +1572,8 @@ private fun ReadyAnimationTab(
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
     footerHeight: Dp,
-    onCopyJson: (DevPreviewSettings) -> Unit,
+    devSettings: DevPreviewSettings,
+    onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
@@ -1541,8 +1631,9 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                onCopyJson = onCopyJson,
-                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                devSettings = devSettings,
+                onDevSettingsChange = onDevSettingsChange
             )
         }
         LazyColumn(
@@ -1980,61 +2071,73 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     initialHeaderLeftXOffsetDp: Int?,
-    onCopyJson: (DevPreviewSettings) -> Unit,
+    devSettings: DevPreviewSettings,
+    onDevSettingsChange: (DevPreviewSettings) -> Unit,
 ) {
-    val devFromJson = LocalDevSettingsDefaults.current
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
-    var cardMaxHeightDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.cardMaxHeightDp ?: DevDefaults.cardMaxHeightDp)
-    }
-    var innerBottomDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.innerBottomDp ?: DevDefaults.innerBottomDp)
-    }
-    var outerBottomDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.outerBottomDp ?: DevDefaults.outerBottomDp)
-    }
-    var innerVPadDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.innerVPadDp ?: DevDefaults.innerVPadDp)
-    }
-    var charYOffsetDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.charYOffsetDp ?: DevDefaults.charYOffsetDp)
-    }
-    var infoYOffsetDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.infoYOffsetDp ?: DevDefaults.infoYOffsetDp)
-    }
-    var headerOffsetLimitDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.headerOffsetLimitDp ?: DevDefaults.headerOffsetLimitDp)
-    }
-    var headerLeftXOffsetDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.headerLeftXOffsetDp ?: DevDefaults.headerLeftXOffsetDp)
-    }
-    var headerLeftYOffsetDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.headerLeftYOffsetDp ?: DevDefaults.headerLeftYOffsetDp)
-    }
-    var headerRightXOffsetDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.headerRightXOffsetDp ?: DevDefaults.headerRightXOffsetDp)
-    }
-    var headerRightYOffsetDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.headerRightYOffsetDp ?: DevDefaults.headerRightYOffsetDp)
-    }
-    var cardMinHeightDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.cardMinHeightDp ?: DevDefaults.minHeightDp)
-    }
-    var detailsMaxHeightDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.detailsMaxHeightDp ?: DevDefaults.detailsMaxH)
-    }
-    var detailsMaxLines by rememberSaveable {
-        mutableIntStateOf(devFromJson?.detailsMaxLines ?: DevDefaults.detailsLines)
-    }
-    var headerSpacerDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.headerSpacerDp ?: DevDefaults.headerSpacerDp)
-    }
-    var bodySpacerDp by rememberSaveable {
-        mutableIntStateOf(devFromJson?.bodySpacerDp ?: DevDefaults.bodySpacerDp)
-    }
+    var cardMaxHeightDp by rememberSaveable(devSettings.cardMaxHeightDp) { mutableIntStateOf(devSettings.cardMaxHeightDp) }
+    var innerBottomDp by rememberSaveable(devSettings.innerBottomDp) { mutableIntStateOf(devSettings.innerBottomDp) }
+    var outerBottomDp by rememberSaveable(devSettings.outerBottomDp) { mutableIntStateOf(devSettings.outerBottomDp) }
+    var innerVPadDp by rememberSaveable(devSettings.innerVPadDp) { mutableIntStateOf(devSettings.innerVPadDp) }
+    var charYOffsetDp by rememberSaveable(devSettings.charYOffsetDp) { mutableIntStateOf(devSettings.charYOffsetDp) }
+    var infoYOffsetDp by rememberSaveable(devSettings.infoYOffsetDp) { mutableIntStateOf(devSettings.infoYOffsetDp) }
+    var headerOffsetLimitDp by rememberSaveable(devSettings.headerOffsetLimitDp) { mutableIntStateOf(devSettings.headerOffsetLimitDp) }
+    var headerLeftXOffsetDp by rememberSaveable(devSettings.headerLeftXOffsetDp) { mutableIntStateOf(devSettings.headerLeftXOffsetDp) }
+    var headerLeftYOffsetDp by rememberSaveable(devSettings.headerLeftYOffsetDp) { mutableIntStateOf(devSettings.headerLeftYOffsetDp) }
+    var headerRightXOffsetDp by rememberSaveable(devSettings.headerRightXOffsetDp) { mutableIntStateOf(devSettings.headerRightXOffsetDp) }
+    var headerRightYOffsetDp by rememberSaveable(devSettings.headerRightYOffsetDp) { mutableIntStateOf(devSettings.headerRightYOffsetDp) }
+    var cardMinHeightDp by rememberSaveable(devSettings.cardMinHeightDp) { mutableIntStateOf(devSettings.cardMinHeightDp) }
+    var detailsMaxHeightDp by rememberSaveable(devSettings.detailsMaxHeightDp) { mutableIntStateOf(devSettings.detailsMaxHeightDp) }
+    var detailsMaxLines by rememberSaveable(devSettings.detailsMaxLines) { mutableIntStateOf(devSettings.detailsMaxLines) }
+    var headerSpacerDp by rememberSaveable(devSettings.headerSpacerDp) { mutableIntStateOf(devSettings.headerSpacerDp) }
+    var bodySpacerDp by rememberSaveable(devSettings.bodySpacerDp) { mutableIntStateOf(devSettings.bodySpacerDp) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
+    LaunchedEffect(devSettings) {
+        cardMaxHeightDp = devSettings.cardMaxHeightDp
+        innerBottomDp = devSettings.innerBottomDp
+        outerBottomDp = devSettings.outerBottomDp
+        innerVPadDp = devSettings.innerVPadDp
+        charYOffsetDp = devSettings.charYOffsetDp
+        infoYOffsetDp = devSettings.infoYOffsetDp
+        headerOffsetLimitDp = devSettings.headerOffsetLimitDp
+        headerLeftXOffsetDp = devSettings.headerLeftXOffsetDp
+        headerLeftYOffsetDp = devSettings.headerLeftYOffsetDp
+        headerRightXOffsetDp = devSettings.headerRightXOffsetDp
+        headerRightYOffsetDp = devSettings.headerRightYOffsetDp
+        cardMinHeightDp = devSettings.cardMinHeightDp
+        detailsMaxHeightDp = devSettings.detailsMaxHeightDp
+        detailsMaxLines = devSettings.detailsMaxLines
+        headerSpacerDp = devSettings.headerSpacerDp
+        bodySpacerDp = devSettings.bodySpacerDp
+    }
+    fun propagateDevSettings() {
+        onDevSettingsChange(
+            DevPreviewSettings(
+                cardMaxHeightDp = cardMaxHeightDp,
+                innerBottomDp = innerBottomDp,
+                outerBottomDp = outerBottomDp,
+                innerVPadDp = innerVPadDp,
+                charYOffsetDp = charYOffsetDp,
+                infoYOffsetDp = infoYOffsetDp,
+                headerOffsetLimitDp = headerOffsetLimitDp,
+                headerLeftXOffsetDp = headerLeftXOffsetDp,
+                headerLeftYOffsetDp = headerLeftYOffsetDp,
+                headerRightXOffsetDp = headerRightXOffsetDp,
+                headerRightYOffsetDp = headerRightYOffsetDp,
+                cardMinHeightDp = cardMinHeightDp,
+                detailsMaxHeightDp = detailsMaxHeightDp,
+                detailsMaxLines = detailsMaxLines,
+                headerSpacerDp = headerSpacerDp,
+                bodySpacerDp = bodySpacerDp,
+            )
+        )
+    }
+    fun updateDevSettings(block: () -> Unit) {
+        block()
+        propagateDevSettings()
+    }
     LaunchedEffect(initialHeaderLeftXOffsetDp) {
         initialHeaderLeftXOffsetDp?.let { initial ->
             headerLeftXOffsetDp = initial.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
@@ -2149,16 +2252,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200)
-                                    }
+                                    onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200)
-                                    }
+                                    onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2172,16 +2271,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        infoYOffsetDp = (infoYOffsetDp - 1).coerceIn(-200, 200)
-                                    }
+                                    onClick = { updateDevSettings { infoYOffsetDp = (infoYOffsetDp - 1).coerceIn(-200, 200) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        infoYOffsetDp = (infoYOffsetDp + 1).coerceIn(-200, 200)
-                                    }
+                                    onClick = { updateDevSettings { infoYOffsetDp = (infoYOffsetDp + 1).coerceIn(-200, 200) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2196,22 +2291,26 @@ private fun ReadyAnimationPreviewPane(
                                 )
                                 IconButton(
                                     onClick = {
-                                        headerOffsetLimitDp = (headerOffsetLimitDp + 10).coerceIn(0, 400)
-                                        headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        updateDevSettings {
+                                            headerOffsetLimitDp = (headerOffsetLimitDp + 10).coerceIn(0, 400)
+                                            headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                            headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                            headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                            headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        }
                                     }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
                                     onClick = {
-                                        headerOffsetLimitDp = (headerOffsetLimitDp - 10).coerceIn(0, 400)
-                                        headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        updateDevSettings {
+                                            headerOffsetLimitDp = (headerOffsetLimitDp - 10).coerceIn(0, 400)
+                                            headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                            headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                            headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                            headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        }
                                     }
                                 ) {
                                     Text("▼")
@@ -2226,16 +2325,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        headerLeftXOffsetDp = (headerLeftXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerLeftXOffsetDp = (headerLeftXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        headerLeftXOffsetDp = (headerLeftXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerLeftXOffsetDp = (headerLeftXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2249,16 +2344,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        headerLeftYOffsetDp = (headerLeftYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerLeftYOffsetDp = (headerLeftYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        headerLeftYOffsetDp = (headerLeftYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerLeftYOffsetDp = (headerLeftYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2272,16 +2363,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        headerRightXOffsetDp = (headerRightXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerRightXOffsetDp = (headerRightXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        headerRightXOffsetDp = (headerRightXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerRightXOffsetDp = (headerRightXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2295,16 +2382,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        headerRightYOffsetDp = (headerRightYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerRightYOffsetDp = (headerRightYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        headerRightYOffsetDp = (headerRightYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                    }
+                                    onClick = { updateDevSettings { headerRightYOffsetDp = (headerRightYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2326,16 +2409,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        outerBottomDp = (outerBottomDp + 1).coerceIn(0, 80)
-                                    }
+                                    onClick = { updateDevSettings { outerBottomDp = (outerBottomDp + 1).coerceIn(0, 80) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        outerBottomDp = (outerBottomDp - 1).coerceIn(0, 80)
-                                    }
+                                    onClick = { updateDevSettings { outerBottomDp = (outerBottomDp - 1).coerceIn(0, 80) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2349,16 +2428,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        innerBottomDp = (innerBottomDp + 1).coerceIn(0, 80)
-                                    }
+                                    onClick = { updateDevSettings { innerBottomDp = (innerBottomDp + 1).coerceIn(0, 80) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        innerBottomDp = (innerBottomDp - 1).coerceIn(0, 80)
-                                    }
+                                    onClick = { updateDevSettings { innerBottomDp = (innerBottomDp - 1).coerceIn(0, 80) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2372,16 +2447,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24)
-                                    }
+                                    onClick = { updateDevSettings { innerVPadDp = (innerVPadDp + 1).coerceIn(0, 24) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24)
-                                    }
+                                    onClick = { updateDevSettings { innerVPadDp = (innerVPadDp - 1).coerceIn(0, 24) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2413,16 +2484,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        cardMaxHeightDp = (cardMaxHeightDp + 10).coerceIn(0, 1200)
-                                    }
+                                    onClick = { updateDevSettings { cardMaxHeightDp = (cardMaxHeightDp + 10).coerceIn(0, 1200) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        cardMaxHeightDp = (cardMaxHeightDp - 10).coerceIn(0, 1200)
-                                    }
+                                    onClick = { updateDevSettings { cardMaxHeightDp = (cardMaxHeightDp - 10).coerceIn(0, 1200) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2436,16 +2503,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(0, 320)
-                                    }
+                                    onClick = { updateDevSettings { cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(0, 320) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(0, 320)
-                                    }
+                                    onClick = { updateDevSettings { cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(0, 320) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2459,16 +2522,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        detailsMaxHeightDp = (detailsMaxHeightDp + 10).coerceIn(0, 1200)
-                                    }
+                                    onClick = { updateDevSettings { detailsMaxHeightDp = (detailsMaxHeightDp + 10).coerceIn(0, 1200) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        detailsMaxHeightDp = (detailsMaxHeightDp - 10).coerceIn(0, 1200)
-                                    }
+                                    onClick = { updateDevSettings { detailsMaxHeightDp = (detailsMaxHeightDp - 10).coerceIn(0, 1200) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2482,16 +2541,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        detailsMaxLines = (detailsMaxLines + 1).coerceIn(1, 6)
-                                    }
+                                    onClick = { updateDevSettings { detailsMaxLines = (detailsMaxLines + 1).coerceIn(1, 6) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        detailsMaxLines = (detailsMaxLines - 1).coerceIn(1, 6)
-                                    }
+                                    onClick = { updateDevSettings { detailsMaxLines = (detailsMaxLines - 1).coerceIn(1, 6) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2505,16 +2560,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        headerSpacerDp = (headerSpacerDp + 1).coerceIn(0, 24)
-                                    }
+                                    onClick = { updateDevSettings { headerSpacerDp = (headerSpacerDp + 1).coerceIn(0, 24) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        headerSpacerDp = (headerSpacerDp - 1).coerceIn(0, 24)
-                                    }
+                                    onClick = { updateDevSettings { headerSpacerDp = (headerSpacerDp - 1).coerceIn(0, 24) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2528,16 +2579,12 @@ private fun ReadyAnimationPreviewPane(
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
-                                    onClick = {
-                                        bodySpacerDp = (bodySpacerDp + 1).coerceIn(0, 24)
-                                    }
+                                    onClick = { updateDevSettings { bodySpacerDp = (bodySpacerDp + 1).coerceIn(0, 24) } }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
-                                    onClick = {
-                                        bodySpacerDp = (bodySpacerDp - 1).coerceIn(0, 24)
-                                    }
+                                    onClick = { updateDevSettings { bodySpacerDp = (bodySpacerDp - 1).coerceIn(0, 24) } }
                                 ) {
                                     Text("▼")
                                 }
@@ -2798,7 +2845,6 @@ private fun SpriteSettingsControls(
     onMoveYPositive: () -> Unit,
     onSizeDecrease: () -> Unit,
     onSizeIncrease: () -> Unit,
-    onCopy: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -2852,20 +2898,16 @@ private fun SpriteSettingsControls(
                 "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
             } ?: "座標: -, -, -, -"
         )
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onCopy
-        ) {
-            Text(text = "コピー")
-        }
     }
 }
 
 @Composable
 private fun SpriteSettingsFooter(
     modifier: Modifier = Modifier,
+    copyLabel: String,
     onUpdate: () -> Unit,
     onSave: () -> Unit,
+    onCopy: () -> Unit,
 ) {
     Column(
         modifier = modifier
@@ -2884,7 +2926,7 @@ private fun SpriteSettingsFooter(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
@@ -2899,6 +2941,13 @@ private fun SpriteSettingsFooter(
                     contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
                     Text("保存")
+                }
+                FilledTonalButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onCopy,
+                    contentPadding = PaddingValues(vertical = 6.dp)
+                ) {
+                    Text(copyLabel)
                 }
             }
         }
@@ -2965,6 +3014,14 @@ private fun buildSettingsJson(
             .put("insertion", talkingInsertion.toJsonObject())
     )
     root.put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
+    root.put("dev", devSettings.toJsonObject())
+    return root.toString(2)
+}
+
+private fun buildDevJson(
+    devSettings: DevPreviewSettings,
+): String {
+    val root = JSONObject()
     root.put("dev", devSettings.toJsonObject())
     return root.toString(2)
 }
