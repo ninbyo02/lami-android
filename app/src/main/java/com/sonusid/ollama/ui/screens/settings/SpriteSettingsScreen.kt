@@ -361,19 +361,19 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
-    var readyFrameInput by rememberSaveable { mutableStateOf("0,1,2,1") }
+    var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
     var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(700) }
     var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
-    var talkingFrameInput by rememberSaveable { mutableStateOf("0,1,2,1") }
+    var talkingFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var talkingIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedTalkingFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
     var appliedTalkingIntervalMs by rememberSaveable { mutableStateOf(700) }
     var talkingFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
-    var readyInsertionFrameInput by rememberSaveable { mutableStateOf("3,4,5") }
+    var readyInsertionFrameInput by rememberSaveable { mutableStateOf("4,5,6") }
     var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("200") }
     var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
     var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
@@ -392,7 +392,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyInsertionEveryNError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
-    var talkingInsertionFrameInput by rememberSaveable { mutableStateOf("3,4,5") }
+    var talkingInsertionFrameInput by rememberSaveable { mutableStateOf("4,5,6") }
     var talkingInsertionIntervalInput by rememberSaveable { mutableStateOf("200") }
     var talkingInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
     var talkingInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
@@ -431,7 +431,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         val normalizedFrames = readyAnimationSettings.frameSequence.ifEmpty { listOf(0) }
         appliedReadyFrames = normalizedFrames
         appliedReadyIntervalMs = readyAnimationSettings.intervalMs
-        readyFrameInput = normalizedFrames.joinToString(separator = ",")
+        readyFrameInput = normalizedFrames
+            .map { value -> value + 1 }
+            .joinToString(separator = ",")
         readyIntervalInput = readyAnimationSettings.intervalMs.toString()
     }
 
@@ -439,7 +441,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         val normalizedFrames = talkingAnimationSettings.frameSequence.ifEmpty { listOf(0) }
         appliedTalkingFrames = normalizedFrames
         appliedTalkingIntervalMs = talkingAnimationSettings.intervalMs
-        talkingFrameInput = normalizedFrames.joinToString(separator = ",")
+        talkingFrameInput = normalizedFrames
+            .map { value -> value + 1 }
+            .joinToString(separator = ",")
         talkingIntervalInput = talkingAnimationSettings.intervalMs.toString()
     }
 
@@ -452,7 +456,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         appliedReadyInsertionCooldownLoops = readyInsertionAnimationSettings.cooldownLoops
         appliedReadyInsertionEnabled = readyInsertionAnimationSettings.enabled
         appliedReadyInsertionExclusive = readyInsertionAnimationSettings.exclusive
-        readyInsertionFrameInput = normalizedFrames.joinToString(separator = ",")
+        readyInsertionFrameInput = normalizedFrames
+            .map { value -> value + 1 }
+            .joinToString(separator = ",")
         readyInsertionIntervalInput = readyInsertionAnimationSettings.intervalMs.toString()
         readyInsertionEveryNInput = readyInsertionAnimationSettings.everyNLoops.toString()
         readyInsertionProbabilityInput = readyInsertionAnimationSettings.probabilityPercent.toString()
@@ -470,7 +476,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         appliedTalkingInsertionCooldownLoops = talkingInsertionAnimationSettings.cooldownLoops
         appliedTalkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         appliedTalkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
-        talkingInsertionFrameInput = normalizedFrames.joinToString(separator = ",")
+        talkingInsertionFrameInput = normalizedFrames
+            .map { value -> value + 1 }
+            .joinToString(separator = ",")
         talkingInsertionIntervalInput = talkingInsertionAnimationSettings.intervalMs.toString()
         talkingInsertionEveryNInput = talkingInsertionAnimationSettings.everyNLoops.toString()
         talkingInsertionProbabilityInput = talkingInsertionAnimationSettings.probabilityPercent.toString()
@@ -550,25 +558,16 @@ fun SpriteSettingsScreen(navController: NavController) {
             .filter { token -> token.isNotEmpty() }
         val maxFrameIndex = frameCount.coerceAtLeast(1)
         if (normalized.isEmpty()) {
-            return ValidationResult(null, "0〜${maxFrameIndex - 1} または 1〜${maxFrameIndex} のカンマ区切りで入力してください")
+            return ValidationResult(null, "1〜${maxFrameIndex} のカンマ区切りで入力してください")
         }
         val parsed = normalized.mapNotNull { token -> token.toIntOrNull() }
         if (parsed.size != normalized.size) {
             return ValidationResult(null, "数値で入力してください")
         }
-        val converted = parsed.map { value ->
-            when {
-                value in 0 until maxFrameIndex -> value
-                value in 1..maxFrameIndex -> value - 1
-                else -> return ValidationResult(
-                    null,
-                    "0〜${maxFrameIndex - 1} または 1〜${maxFrameIndex}の範囲で入力してください"
-                )
-            }
+        if (parsed.any { value -> value !in 1..maxFrameIndex }) {
+            return ValidationResult(null, "1〜${maxFrameIndex}の範囲で入力してください")
         }
-        if (converted.any { value -> value !in 0 until maxFrameIndex }) {
-            return ValidationResult(null, "0〜${maxFrameIndex - 1} または 1〜${maxFrameIndex}の範囲で入力してください")
-        }
+        val converted = parsed.map { value -> value - 1 }
         if (!allowDuplicates && converted.size != converted.distinct().size) {
             return ValidationResult(null, duplicateErrorMessage)
         }
