@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,9 +25,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -47,6 +48,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -1112,24 +1114,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
-                    val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, start = 2.dp, end = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Text(
-                            text = headerText,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
                     TabRow(
                         selectedTabIndex = tabIndex,
                         modifier = Modifier
@@ -1193,121 +1177,68 @@ fun SpriteSettingsScreen(navController: NavController) {
                     ) {
                             when (tabIndex) {
                                 0 -> {
+                                    val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                    val coordinateText =
+                                        selectedPosition?.let { position ->
+                                            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                        } ?: "座標: -, -, -, -"
                                     Column(
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState()),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Box(
+                                        SpritePreviewBlock(
+                                            imageBitmap = imageBitmap,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .weight(1f, fill = true)
-                                                .aspectRatio(1f)
-                                                .padding(top = 6.dp)
-                                                .heightIn(min = 220.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Image(
-                                                painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
-                                                contentDescription = "Sprite Preview",
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .onSizeChanged { newContainerSize: IntSize ->
-                                                        containerSize = newContainerSize
-                                                        if (imageBitmap.width != 0) {
-                                                            displayScale = newContainerSize.width / imageBitmap.width.toFloat()
-                                                        }
-                                                    },
-                                                contentScale = ContentScale.Fit
-                                            )
-                                            if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
-                                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                                    val scaleX = this.size.width / imageBitmap.width
-                                                    val scaleY = this.size.height / imageBitmap.height
-                                                    val scale = min(scaleX, scaleY)
-                                                    val destinationWidth = imageBitmap.width * scale
-                                                    val destinationHeight = imageBitmap.height * scale
-                                                    val offsetX = (this.size.width - destinationWidth) / 2f
-                                                    val offsetY = (this.size.height - destinationHeight) / 2f
-                                                    drawRect(
-                                                        color = Color.Red,
-                                                        topLeft = Offset(
-                                                            x = offsetX + selectedPosition.x * scale,
-                                                            y = offsetY + selectedPosition.y * scale
-                                                        ),
-                                                        size = Size(
-                                                            width = boxSizePx * scale,
-                                                            height = boxSizePx * scale
-                                                        ),
-                                                        style = Stroke(width = 2.dp.toPx())
-                                                    )
+                                                .padding(top = 6.dp),
+                                            line1Text = previewHeaderText,
+                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                            onContainerSizeChanged = { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
+                                                if (imageBitmap.width != 0) {
+                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                                }
+                                            },
+                                            overlayContent = {
+                                                if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                                        val scaleX = this.size.width / imageBitmap.width
+                                                        val scaleY = this.size.height / imageBitmap.height
+                                                        val scale = min(scaleX, scaleY)
+                                                        val destinationWidth = imageBitmap.width * scale
+                                                        val destinationHeight = imageBitmap.height * scale
+                                                        val offsetX = (this.size.width - destinationWidth) / 2f
+                                                        val offsetY = (this.size.height - destinationHeight) / 2f
+                                                        drawRect(
+                                                            color = Color.Red,
+                                                            topLeft = Offset(
+                                                                x = offsetX + selectedPosition.x * scale,
+                                                                y = offsetY + selectedPosition.y * scale
+                                                            ),
+                                                            size = Size(
+                                                                width = boxSizePx * scale,
+                                                                height = boxSizePx * scale
+                                                            ),
+                                                            style = Stroke(width = 2.dp.toPx())
+                                                        )
+                                                    }
                                                 }
                                             }
-                                        }
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .verticalScroll(rememberScrollState())
-                                                .padding(top = 8.dp, bottom = 8.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.Start,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
-                                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                                                )
-                                                val coordinateText =
-                                                    selectedPosition?.let { position ->
-                                                        "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-                                                    } ?: "座標: -, -, -, -"
-                                                Text(
-                                                    text = "選択中: ${selectedNumber}/9",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = " | ",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = "サイズ: ${boxSizePx}px",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = " | ",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = coordinateText,
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                            }
-                                            SpriteSettingsControls(
-                                                selectedPosition = selectedPosition,
-                                                boxSizePx = boxSizePx,
-                                                onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
-                                                onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
-                                                onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
-                                                onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
-                                                onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
-                                                onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
-                                                onSizeDecrease = { updateBoxSize(-4) },
-                                                onSizeIncrease = { updateBoxSize(4) }
-                                            )
-                                        }
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        SpriteSettingsControls(
+                                            boxSizePx = boxSizePx,
+                                            onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
+                                            onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
+                                            onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
+                                            onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
+                                            onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
+                                            onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
+                                            onSizeDecrease = { updateBoxSize(-4) },
+                                            onSizeIncrease = { updateBoxSize(4) }
+                                        )
                                     }
                                 }
 
@@ -1572,25 +1503,29 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 }
 
                                 2 -> {
+                                    val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                    val coordinateText =
+                                        selectedPosition?.let { position ->
+                                            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                        } ?: "座標: -, -, -, -"
                                     Column(
                                         modifier = Modifier.fillMaxSize(),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Box(
+                                        SpritePreviewBlock(
+                                            imageBitmap = imageBitmap,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .weight(1f, fill = true)
-                                                .padding(top = 4.dp)
-                                                .heightIn(min = 220.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Image(
-                                                painter = painterResource(id = R.drawable.lami_sprite_3x3_288),
-                                                contentDescription = "Sprite Preview",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Fit
-                                            )
-                                        }
+                                                .padding(top = 6.dp),
+                                            line1Text = previewHeaderText,
+                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                            onContainerSizeChanged = { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
+                                                if (imageBitmap.width != 0) {
+                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                                }
+                                            }
+                                        )
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -2902,8 +2837,64 @@ private fun DetailsToggle(
 }
 
 @Composable
+private fun SpritePreviewBlock(
+    imageBitmap: ImageBitmap,
+    line1Text: String,
+    line2Text: String,
+    modifier: Modifier = Modifier,
+    onContainerSizeChanged: ((IntSize) -> Unit)? = null,
+    overlayContent: (BoxScope.() -> Unit)? = null,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .heightIn(min = 220.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                bitmap = imageBitmap,
+                contentDescription = "Sprite Preview",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
+                contentScale = ContentScale.Fit
+            )
+            overlayContent?.invoke(this)
+        }
+        val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
+            lineHeight = MaterialTheme.typography.labelMedium.fontSize
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                text = line1Text,
+                style = infoTextStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = line2Text,
+                style = infoTextStyle,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun SpriteSettingsControls(
-    selectedPosition: BoxPosition?,
     boxSizePx: Int,
     onPrev: () -> Unit,
     onNext: () -> Unit,
@@ -2922,41 +2913,81 @@ private fun SpriteSettingsControls(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onPrev) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onPrev,
+                    modifier = Modifier.sizeIn(minWidth = 72.dp, minHeight = 48.dp),
+                ) {
                     Text(text = "前へ")
                 }
-                Button(onClick = onNext) {
+                FilledTonalButton(
+                    onClick = onNext,
+                    modifier = Modifier.sizeIn(minWidth = 72.dp, minHeight = 48.dp),
+                ) {
                     Text(text = "次へ")
                 }
             }
-            Spacer(modifier = Modifier.weight(1f))
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onMoveXNegative) { Text("X-") }
-                    IconButton(onClick = onMoveXPositive) { Text("X+") }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilledTonalButton(
+                        onClick = onMoveXNegative,
+                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
+                    ) {
+                        Text("X-")
+                    }
+                    FilledTonalButton(
+                        onClick = onMoveXPositive,
+                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
+                    ) {
+                        Text("X+")
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onMoveYNegative) { Text("Y-") }
-                    IconButton(onClick = onMoveYPositive) { Text("Y+") }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilledTonalButton(
+                        onClick = onMoveYNegative,
+                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
+                    ) {
+                        Text("Y-")
+                    }
+                    FilledTonalButton(
+                        onClick = onMoveYPositive,
+                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
+                    ) {
+                        Text("Y+")
+                    }
                 }
             }
         }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(text = "サイズ: ${boxSizePx}px")
-            Spacer(modifier = Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(onClick = onSizeDecrease) { Text("-") }
-                IconButton(onClick = onSizeIncrease) { Text("+") }
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onSizeDecrease,
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                ) { Text("-") }
+                Spacer(modifier = Modifier.width(10.dp))
+                FilledTonalButton(
+                    onClick = onSizeIncrease,
+                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                ) { Text("+") }
             }
         }
     }
