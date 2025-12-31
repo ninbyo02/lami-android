@@ -1720,7 +1720,8 @@ private fun ReadyAnimationTab(
                 modifier = Modifier.fillMaxWidth(),
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
-                onDevSettingsChange = onDevSettingsChange
+                onDevSettingsChange = onDevSettingsChange,
+                onCopy = { copyDevJson(devPreviewSettings) }
             )
         }
         LazyColumn(
@@ -2160,6 +2161,7 @@ private fun ReadyAnimationPreviewPane(
     initialHeaderLeftXOffsetDp: Int?,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
+    onCopy: () -> Unit,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
@@ -2288,28 +2290,7 @@ private fun ReadyAnimationPreviewPane(
                         )
                     }
                     FilledTonalButton(
-                        onClick = {
-                            copyDevJson(
-                                DevPreviewSettings(
-                                    cardMaxHeightDp = cardMaxHeightDp,
-                                    innerBottomDp = innerBottomDp,
-                                    outerBottomDp = outerBottomDp,
-                                    innerVPadDp = innerVPadDp,
-                                    charYOffsetDp = charYOffsetDp,
-                                    infoYOffsetDp = infoYOffsetDp,
-                                    headerOffsetLimitDp = headerOffsetLimitDp,
-                                    headerLeftXOffsetDp = headerLeftXOffsetDp,
-                                    headerLeftYOffsetDp = headerLeftYOffsetDp,
-                                    headerRightXOffsetDp = headerRightXOffsetDp,
-                                    headerRightYOffsetDp = headerRightYOffsetDp,
-                                    cardMinHeightDp = cardMinHeightDp,
-                                    detailsMaxHeightDp = detailsMaxHeightDp,
-                                    detailsMaxLines = detailsMaxLines,
-                                    headerSpacerDp = headerSpacerDp,
-                                    bodySpacerDp = bodySpacerDp,
-                                )
-                            )
-                        },
+                        onClick = onCopy,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text("JSONコピー")
