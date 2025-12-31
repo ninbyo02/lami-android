@@ -147,17 +147,15 @@ private data class InsertionPreviewValues(
 )
 
 private enum class DetailsLayoutMode(val id: Int, val label: String) {
-    AutoGrow(id = 0, label = "AutoGrow"),
     ScrollDetails(id = 1, label = "ScrollDetails");
 
     companion object {
         fun fromId(value: Int): DetailsLayoutMode =
-            values().firstOrNull { mode -> mode.id == value } ?: AutoGrow
+            values().firstOrNull { mode -> mode.id == value } ?: ScrollDetails
     }
 }
 
 private data class DevPreviewSettings(
-    val detailsLayoutMode: Int,
     val cardMaxHeightDp: Int,
     val innerBottomDp: Int,
     val outerBottomDp: Int,
@@ -1683,7 +1681,6 @@ private fun ReadyAnimationPreview(
     showDetails: Boolean,
     charYOffsetDp: Int,
     infoYOffsetDp: Int,
-    detailsLayoutMode: DetailsLayoutMode,
     detailsMaxHeightDp: Int?,
     detailsMaxLines: Int,
     modifier: Modifier = Modifier,
@@ -1776,15 +1773,13 @@ private fun ReadyAnimationPreview(
                 style = MaterialTheme.typography.bodySmall
             )
             AnimatedVisibility(visible = showDetails) {
-                val detailModifier = when (detailsLayoutMode) {
-                    DetailsLayoutMode.AutoGrow -> Modifier
-                    DetailsLayoutMode.ScrollDetails -> {
-                        val scrollModifier = Modifier.verticalScroll(rememberScrollState())
+                val detailModifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .let { scrollModifier ->
                         detailsMaxHeightDp?.let { maxHeightDp ->
                             scrollModifier.heightIn(max = maxHeightDp.dp)
                         } ?: scrollModifier
                     }
-                }
                 Column(
                     modifier = detailModifier,
                     verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
@@ -1824,7 +1819,7 @@ private fun ReadyAnimationPreviewPane(
     onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
-    var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.AutoGrow.id) }
+    var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
     var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(0) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
@@ -1904,7 +1899,6 @@ private fun ReadyAnimationPreviewPane(
                         onClick = {
                             onCopyJson(
                                 DevPreviewSettings(
-                                    detailsLayoutMode = detailsLayoutMode.id,
                                     cardMaxHeightDp = cardMaxHeightDp,
                                     innerBottomDp = innerBottomDp,
                                     outerBottomDp = outerBottomDp,
@@ -2203,21 +2197,9 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "Layout:${detailsLayoutMode.label}（0=伸長 / 1=詳細スクロール）",
+                                    text = "Layout:${detailsLayoutMode.label}（詳細はスクロール固定）",
                                     style = MaterialTheme.typography.labelSmall
                                 )
-                                FilledTonalButton(
-                                    onClick = { detailsLayoutModeId = DetailsLayoutMode.AutoGrow.id },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Text("伸長")
-                                }
-                                FilledTonalButton(
-                                    onClick = { detailsLayoutModeId = DetailsLayoutMode.ScrollDetails.id },
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                ) {
-                                    Text("詳細だけスクロール")
-                                }
                             }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -2509,7 +2491,6 @@ private fun ReadyAnimationPreviewPane(
                             showDetails = showDetails,
                             charYOffsetDp = charYOffsetDp,
                             infoYOffsetDp = infoYOffsetDp,
-                            detailsLayoutMode = detailsLayoutMode,
                             detailsMaxHeightDp = effectiveDetailsMaxH,
                             detailsMaxLines = detailsMaxLines,
                             modifier = Modifier.fillMaxWidth()
@@ -2804,7 +2785,6 @@ private fun SpriteSheetConfig.toJsonObject(): JSONObject =
 
 private fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
-        .put("detailsLayoutMode", detailsLayoutMode)
         .put("cardMaxHeightDp", cardMaxHeightDp)
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)
