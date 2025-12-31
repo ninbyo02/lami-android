@@ -1684,7 +1684,7 @@ private fun ReadyAnimationPreview(
     charYOffsetDp: Int,
     infoYOffsetDp: Int,
     detailsLayoutMode: DetailsLayoutMode,
-    detailsMaxHeightDp: Int,
+    detailsMaxHeightDp: Int?,
     detailsMaxLines: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -1776,14 +1776,14 @@ private fun ReadyAnimationPreview(
                 style = MaterialTheme.typography.bodySmall
             )
             AnimatedVisibility(visible = showDetails) {
-                val detailScrollState = rememberScrollState()
                 val detailModifier = when (detailsLayoutMode) {
                     DetailsLayoutMode.AutoGrow -> Modifier
-                        .verticalScroll(detailScrollState)
-                        .heightIn(max = effectiveDetailsMaxH.dp)
-                    DetailsLayoutMode.ScrollDetails -> Modifier
-                        .verticalScroll(detailScrollState)
-                        .heightIn(max = effectiveDetailsMaxH.dp)
+                    DetailsLayoutMode.ScrollDetails -> {
+                        val scrollModifier = Modifier.verticalScroll(rememberScrollState())
+                        detailsMaxHeightDp?.let { maxHeightDp ->
+                            scrollModifier.heightIn(max = maxHeightDp.dp)
+                        } ?: scrollModifier
+                    }
                 }
                 Column(
                     modifier = detailModifier,
