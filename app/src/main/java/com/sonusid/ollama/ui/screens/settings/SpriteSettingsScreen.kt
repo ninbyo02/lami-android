@@ -179,6 +179,9 @@ private data class DevPreviewSettings(
 
 private object DevDefaults {
     const val cardMaxHeightDp = 130
+    const val innerBottomDp = 0
+    const val outerBottomDp = 0
+    const val innerVPadDp = 8
     const val charYOffsetDp = -32
     const val infoYOffsetDp = 0
     const val headerOffsetLimitDp = 150
@@ -186,14 +189,31 @@ private object DevDefaults {
     const val headerLeftYOffsetDp = 1
     const val headerRightXOffsetDp = 0
     const val headerRightYOffsetDp = 0
-    const val innerVPadDp = 8
-    const val innerBottomDp = 0
-    const val outerBottomDp = 0
-    const val minHeightDp = 156
-    const val detailsMaxH = 40
-    const val detailsLines = 2
+    const val cardMinHeightDp = 156
+    const val detailsMaxHeightDp = 40
+    const val detailsMaxLines = 2
     const val headerSpacerDp = 0
     const val bodySpacerDp = 0
+
+    fun toDevPreviewSettings(): DevPreviewSettings =
+        DevPreviewSettings(
+            cardMaxHeightDp = cardMaxHeightDp,
+            innerBottomDp = innerBottomDp,
+            outerBottomDp = outerBottomDp,
+            innerVPadDp = innerVPadDp,
+            charYOffsetDp = charYOffsetDp,
+            infoYOffsetDp = infoYOffsetDp,
+            headerOffsetLimitDp = headerOffsetLimitDp,
+            headerLeftXOffsetDp = headerLeftXOffsetDp,
+            headerLeftYOffsetDp = headerLeftYOffsetDp,
+            headerRightXOffsetDp = headerRightXOffsetDp,
+            headerRightYOffsetDp = headerRightYOffsetDp,
+            cardMinHeightDp = cardMinHeightDp,
+            detailsMaxHeightDp = detailsMaxHeightDp,
+            detailsMaxLines = detailsMaxLines,
+            headerSpacerDp = headerSpacerDp,
+            bodySpacerDp = bodySpacerDp,
+        )
 }
 
 private data class DevSettingsDefaults(
@@ -231,17 +251,39 @@ private data class DevSettingsDefaults(
                     headerLeftYOffsetDp = dev.optIntOrNull("headerLeftYOffsetDp"),
                     headerRightXOffsetDp = dev.optIntOrNull("headerRightXOffsetDp"),
                     headerRightYOffsetDp = dev.optIntOrNull("headerRightYOffsetDp"),
-                    cardMinHeightDp = dev.optIntOrNull("minHeightDp"),
-                    detailsMaxHeightDp = dev.optIntOrNull("detailsMaxH"),
-                    detailsMaxLines = dev.optIntOrNull("detailsLines"),
+                    cardMinHeightDp = dev.optIntOrNull("cardMinHeightDp") ?: dev.optIntOrNull("minHeightDp"),
+                    detailsMaxHeightDp = dev.optIntOrNull("detailsMaxHeightDp") ?: dev.optIntOrNull("detailsMaxH"),
+                    detailsMaxLines = dev.optIntOrNull("detailsMaxLines") ?: dev.optIntOrNull("detailsLines"),
                     headerSpacerDp = dev.optIntOrNull("headerSpacerDp"),
                     bodySpacerDp = dev.optIntOrNull("bodySpacerDp"),
                 )
             }.getOrNull()
         }
     }
+}
 
-private fun JSONObject.optIntOrNull(key: String): Int? = if (has(key)) getInt(key) else null
+private fun DevSettingsDefaults.toDevPreviewSettings(): DevPreviewSettings =
+    DevPreviewSettings(
+        cardMaxHeightDp = cardMaxHeightDp ?: DevDefaults.cardMaxHeightDp,
+        innerBottomDp = innerBottomDp ?: DevDefaults.innerBottomDp,
+        outerBottomDp = outerBottomDp ?: DevDefaults.outerBottomDp,
+        innerVPadDp = innerVPadDp ?: DevDefaults.innerVPadDp,
+        charYOffsetDp = charYOffsetDp ?: DevDefaults.charYOffsetDp,
+        infoYOffsetDp = infoYOffsetDp ?: DevDefaults.infoYOffsetDp,
+        headerOffsetLimitDp = headerOffsetLimitDp ?: DevDefaults.headerOffsetLimitDp,
+        headerLeftXOffsetDp = headerLeftXOffsetDp ?: DevDefaults.headerLeftXOffsetDp,
+        headerLeftYOffsetDp = headerLeftYOffsetDp ?: DevDefaults.headerLeftYOffsetDp,
+        headerRightXOffsetDp = headerRightXOffsetDp ?: DevDefaults.headerRightXOffsetDp,
+        headerRightYOffsetDp = headerRightYOffsetDp ?: DevDefaults.headerRightYOffsetDp,
+        cardMinHeightDp = cardMinHeightDp ?: DevDefaults.cardMinHeightDp,
+        detailsMaxHeightDp = detailsMaxHeightDp ?: DevDefaults.detailsMaxHeightDp,
+        detailsMaxLines = detailsMaxLines ?: DevDefaults.detailsMaxLines,
+        headerSpacerDp = headerSpacerDp ?: DevDefaults.headerSpacerDp,
+        bodySpacerDp = bodySpacerDp ?: DevDefaults.bodySpacerDp,
+    )
+
+private fun JSONObject.optIntOrNull(key: String): Int? =
+    if (has(key) && !isNull(key)) optInt(key) else null
 
 private fun buildInsertionPreviewSummary(
     label: String,
@@ -319,6 +361,53 @@ private fun boxPositionsSaver() = androidx.compose.runtime.saveable.listSaver<Li
     restore = { flat ->
         flat.chunked(2).map { (x, y) ->
             BoxPosition(x = x, y = y)
+        }
+    }
+)
+
+private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSaver<DevPreviewSettings, Int>(
+    save = { settings ->
+        listOf(
+            settings.cardMaxHeightDp,
+            settings.innerBottomDp,
+            settings.outerBottomDp,
+            settings.innerVPadDp,
+            settings.charYOffsetDp,
+            settings.infoYOffsetDp,
+            settings.headerOffsetLimitDp,
+            settings.headerLeftXOffsetDp,
+            settings.headerLeftYOffsetDp,
+            settings.headerRightXOffsetDp,
+            settings.headerRightYOffsetDp,
+            settings.cardMinHeightDp,
+            settings.detailsMaxHeightDp,
+            settings.detailsMaxLines,
+            settings.headerSpacerDp,
+            settings.bodySpacerDp,
+        )
+    },
+    restore = { values ->
+        if (values.size < 16) {
+            DevDefaults.toDevPreviewSettings()
+        } else {
+            DevPreviewSettings(
+                cardMaxHeightDp = values[0],
+                innerBottomDp = values[1],
+                outerBottomDp = values[2],
+                innerVPadDp = values[3],
+                charYOffsetDp = values[4],
+                infoYOffsetDp = values[5],
+                headerOffsetLimitDp = values[6],
+                headerLeftXOffsetDp = values[7],
+                headerLeftYOffsetDp = values[8],
+                headerRightXOffsetDp = values[9],
+                headerRightYOffsetDp = values[10],
+                cardMinHeightDp = values[11],
+                detailsMaxHeightDp = values[12],
+                detailsMaxLines = values[13],
+                headerSpacerDp = values[14],
+                bodySpacerDp = values[15],
+            )
         }
     }
 )
@@ -3075,9 +3164,9 @@ private fun DevPreviewSettings.toJsonObject(): JSONObject =
         .put("innerVPadDp", innerVPadDp)
         .put("innerBottomDp", innerBottomDp)
         .put("outerBottomDp", outerBottomDp)
-        .put("minHeightDp", cardMinHeightDp)
-        .put("detailsMaxH", detailsMaxHeightDp)
-        .put("detailsLines", detailsMaxLines)
+        .put("cardMinHeightDp", cardMinHeightDp)
+        .put("detailsMaxHeightDp", detailsMaxHeightDp)
+        .put("detailsMaxLines", detailsMaxLines)
         .put("headerSpacerDp", headerSpacerDp)
         .put("bodySpacerDp", bodySpacerDp)
 
