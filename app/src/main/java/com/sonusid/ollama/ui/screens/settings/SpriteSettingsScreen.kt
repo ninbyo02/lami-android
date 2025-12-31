@@ -1982,19 +1982,19 @@ private fun ReadyAnimationPreviewPane(
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
     var devOverlayPositionId by rememberSaveable { mutableIntStateOf(DevOverlayPosition.TopRight.id) }
     val devOverlayPosition = remember(devOverlayPositionId) { DevOverlayPosition.fromId(devOverlayPositionId) }
-    var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(130) }
+    var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(150) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(8) }
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(-32) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(150) }
-    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(84) }
-    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(1) }
+    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(116) }
+    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerRightXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerRightYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(156) }
-    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(40) }
+    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(50) }
     var detailsMaxLines by rememberSaveable { mutableIntStateOf(2) }
     var headerSpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
