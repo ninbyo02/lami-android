@@ -1944,6 +1944,8 @@ private fun ReadyAnimationPreviewPane(
                     )
                 }
             }
+            // FIX: missing brace for ReadyAnimationPreviewPane
+            }
         }
     }
 }
