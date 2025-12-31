@@ -112,6 +112,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
@@ -1845,13 +1846,17 @@ private fun ReadyAnimationPreviewPane(
     var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
+    val safetyMarginDp = 12
+    val autoMinHeightDp = maxOf(155, ceil(contentHeightDp.value).toInt() + safetyMarginDp)
     val baseMaxHeightDp = if (isImeVisible) 220 else 300
-    val effectiveCardMaxH: Int? = if (!showDetails) {
-        baseMaxHeightDp
+    val customCardMaxHeightDp = cardMaxHeightDp.takeUnless { it == 0 }
+    val effectiveCardMaxH: Int? = if (showDetails) {
+        null
     } else {
-        cardMaxHeightDp.takeUnless { it == 0 }
+        customCardMaxHeightDp ?: baseMaxHeightDp
     }
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
+    val effectiveMinHeightDp = if (showDetails) autoMinHeightDp else boundedMinHeightDp
     val effectiveDetailsMaxH: Int? = if (detailsLayoutMode == DetailsLayoutMode.ScrollDetails) {
         if (detailsMaxHeightDp == 0) null else detailsMaxHeightDp
     } else {
@@ -1875,7 +1880,7 @@ private fun ReadyAnimationPreviewPane(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val effectiveMinDp = boundedMinHeightDp
+                val effectiveMinDp = effectiveMinHeightDp
                 val effectiveMaxLabel = effectiveCardMaxH?.toString() ?: "∞"
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2413,17 +2418,16 @@ private fun ReadyAnimationPreviewPane(
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                val effectiveMinDp = boundedMinHeightDp
                 val baseCardModifier = Modifier
                     .fillMaxWidth()
                     .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
                 val cardHeightModifier = if (effectiveCardMaxH != null) {
                     baseCardModifier.heightIn(
-                        min = effectiveMinDp.dp,
+                        min = effectiveMinHeightDp.dp,
                         max = effectiveCardMaxH.dp
                     )
                 } else {
-                    baseCardModifier.heightIn(min = effectiveMinDp.dp)
+                    baseCardModifier.heightIn(min = effectiveMinHeightDp.dp)
                 }
                     // TEMP: allow preview card height to shrink to content (keep max cap)
                     // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
