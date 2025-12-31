@@ -1395,7 +1395,9 @@ private fun ReadyAnimationTab(
                 onCopyJson = onCopyJson
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        if (showDetails) {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -1819,6 +1821,10 @@ private fun ReadyAnimationPreviewPane(
     var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
+    val effectiveOuterBottomDp = if (showDetails) outerBottomDp else 0
+    val effectiveInnerBottomDp = if (showDetails) innerBottomDp else 0
+    val effectiveInnerVPadDp = if (showDetails) innerVPadDp else 0
+    val effectiveBodySpacerDp = if (showDetails) bodySpacerDp else 0
 
     Column(modifier = modifier) {
         var devExpanded by rememberSaveable { mutableStateOf(false) }
@@ -2281,7 +2287,9 @@ private fun ReadyAnimationPreviewPane(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        if (showDetails) {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         val outerPaddingColor = if (outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         } else {
@@ -2296,7 +2304,7 @@ private fun ReadyAnimationPreviewPane(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = outerBottomDp.dp)
+                .padding(bottom = effectiveOuterBottomDp.dp)
                 .drawBehind {
                     val indicatorHeight = abs(outerBottomDp).dp.toPx().coerceAtMost(size.height)
                     if (indicatorHeight > 0f) {
@@ -2336,7 +2344,7 @@ private fun ReadyAnimationPreviewPane(
                         )
                         // TEMP: allow preview card height to shrink to content (keep max cap)
                         // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                        .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
+                        .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
                 ) {
                     // DEVパネル開閉で親コンテナの高さ制約が変わってもキャラサイズがぶれないよう、幅ベースで決定する
                     val rawSpriteSize = maxWidth * 0.30f
@@ -2377,7 +2385,7 @@ private fun ReadyAnimationPreviewPane(
                                     )
                                 }
                             }
-                            .padding(bottom = innerBottomDp.dp),
+                            .padding(bottom = effectiveInnerBottomDp.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Row(
@@ -2408,7 +2416,7 @@ private fun ReadyAnimationPreviewPane(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(bodySpacerDp.dp))
+                        Spacer(modifier = Modifier.height(effectiveBodySpacerDp.dp))
                         ReadyAnimationPreview(
                             imageBitmap = imageBitmap,
                             spriteSheetConfig = spriteSheetConfig,
