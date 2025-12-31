@@ -1711,6 +1711,8 @@ private fun ReadyAnimationPreviewPane(
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
+    var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
+    val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
 
     Column(modifier = modifier) {
         // TEMP: dev layout adjusters (remove later)
@@ -1850,19 +1852,24 @@ private fun ReadyAnimationPreviewPane(
                     )
                     IconButton(
                         onClick = {
-                            cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(120, 320)
+                            cardMinHeightDp = (cardMinHeightDp + 1).coerceIn(0, 320) // TEMP: dev allow 0dp
                         }
                     ) {
                         Text("▲")
                     }
                     IconButton(
                         onClick = {
-                            cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(120, 320)
+                            cardMinHeightDp = (cardMinHeightDp - 1).coerceIn(0, 320) // TEMP: dev allow 0dp
                         }
                     ) {
                         Text("▼")
                     }
                 }
+                // TEMP: dev preview content metrics
+                Text(
+                    text = "ContentH:${contentHeightDp.value.roundToInt()}dp",
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -1913,6 +1920,7 @@ private fun ReadyAnimationPreviewPane(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
                         .heightIn(
                             min = effectiveMinDp.dp,
                             max = maxHeightDp.dp
