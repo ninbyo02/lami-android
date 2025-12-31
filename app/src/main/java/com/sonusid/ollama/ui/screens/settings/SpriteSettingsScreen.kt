@@ -43,6 +43,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.FilledTonalButton
@@ -979,22 +980,73 @@ fun SpriteSettingsScreen(navController: NavController) {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(contentPadding)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
-                        Text("Sprite Settings")
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TabRow(selectedTabIndex = tabIndex) {
+                        Text(
+                            text = "Sprite Settings",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp, start = 4.dp, end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            Text(
+                                text = headerText,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TabRow(
+                            selectedTabIndex = tabIndex,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                            indicator = { tabPositions ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier
+                                        .tabIndicatorOffset(tabPositions[tabIndex])
+                                        .padding(horizontal = 8.dp),
+                                    height = 2.dp
+                                )
+                            },
+                            divider = {}
+                        ) {
                             Tab(
                                 selected = tabIndex == 0,
                                 onClick = { tabIndex = 0 },
-                                text = { Text("調整") }
+                                text = {
+                                    Text(
+                                        text = "調整",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1
+                                    )
+                                },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Tab(
                                 selected = tabIndex == 1,
                                 onClick = { tabIndex = 1 },
-                                text = { Text("アニメ") }
+                                text = {
+                                    Text(
+                                        text = "アニメ",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1
+                                    )
+                                },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Box(
@@ -1005,24 +1057,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                             when (tabIndex) {
                                 0 -> {
                                     Column(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxSize(),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 4.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally
-                                        ) {
-                                            Text("元画像解像度: ${imageBitmap.width} x ${imageBitmap.height} px")
-                                            Text("表示倍率: ${"%.2f".format(displayScale)}x")
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .aspectRatio(1f)
-                                                .padding(top = 12.dp),
+                                                .weight(1f, fill = true)
+                                                .padding(top = 6.dp)
+                                                .heightIn(min = 220.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Image(
@@ -1057,30 +1100,44 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 }
                                             }
                                         }
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .verticalScroll(rememberScrollState())
+                                                .padding(top = 8.dp, bottom = 8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
-                                            Text("操作バーは下部に固定されています")
-                                            Text("選択中: ${selectedNumber}/9")
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "選択中: ${selectedNumber}/9",
+                                                    style = MaterialTheme.typography.labelMedium
+                                                )
+                                                Text(
+                                                    text = "操作バーは下部に固定されています",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            SpriteSettingsControls(
+                                                selectedNumber = selectedNumber,
+                                                selectedPosition = selectedPosition,
+                                                boxSizePx = boxSizePx,
+                                                onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
+                                                onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
+                                                onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
+                                                onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
+                                                onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
+                                                onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
+                                                onSizeDecrease = { updateBoxSize(-4) },
+                                                onSizeIncrease = { updateBoxSize(4) },
+                                                onCopy = { copySpriteSheetConfig() }
+                                            )
                                         }
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        SpriteSettingsControls(
-                                            selectedNumber = selectedNumber,
-                                            selectedPosition = selectedPosition,
-                                            boxSizePx = boxSizePx,
-                                            onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
-                                            onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
-                                            onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
-                                            onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
-                                            onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
-                                            onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
-                                            onSizeDecrease = { updateBoxSize(-4) },
-                                            onSizeIncrease = { updateBoxSize(4) },
-                                            onCopy = { copySpriteSheetConfig() }
-                                        )
                                     }
                                 }
 
