@@ -1234,17 +1234,46 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         ) {
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                horizontalArrangement = Arrangement.Start,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
+                                                val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
+                                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
+                                                )
+                                                val coordinateText =
+                                                    selectedPosition?.let { position ->
+                                                        "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                                    } ?: "座標: -, -, -, -"
                                                 Text(
                                                     text = "選択中: ${selectedNumber}/9",
-                                                    style = MaterialTheme.typography.labelMedium
+                                                    style = infoTextStyle,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Clip
                                                 )
                                                 Text(
-                                                    text = "操作バーは下部に固定されています",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    text = " | ",
+                                                    style = infoTextStyle,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Clip
+                                                )
+                                                Text(
+                                                    text = "サイズ: ${boxSizePx}px",
+                                                    style = infoTextStyle,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Clip
+                                                )
+                                                Text(
+                                                    text = " | ",
+                                                    style = infoTextStyle,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Clip
+                                                )
+                                                Text(
+                                                    text = coordinateText,
+                                                    style = infoTextStyle,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f)
                                                 )
                                             }
                                             SpriteSettingsControls(
@@ -2968,12 +2997,6 @@ private fun SpriteSettingsControls(
                 IconButton(onClick = onSizeIncrease) { Text("+") }
             }
         }
-
-        Text(
-            text = selectedPosition?.let { position ->
-                "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-            } ?: "座標: -, -, -, -"
-        )
     }
 }
 
