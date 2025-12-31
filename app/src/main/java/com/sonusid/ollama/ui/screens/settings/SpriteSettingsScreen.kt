@@ -740,7 +740,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun copySpriteSheetConfig() {
+    fun copyAdjustJson() {
         coroutineScope.launch {
             runCatching {
                 val config = buildSpriteSheetConfig()
@@ -748,7 +748,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 if (error != null) {
                     throw IllegalArgumentException(error)
                 }
-                val jsonString = config.toJson()
+                val jsonString = buildAdjustJson(config)
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
                 snackbarHostState.showSnackbar("JSONをコピーしました")
@@ -758,14 +758,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun copyAppliedSettings(devSettings: DevPreviewSettings) {
+    fun copyAnimationJson() {
         coroutineScope.launch {
             runCatching {
-                val config = buildSpriteSheetConfig()
-                val error = config.validate()
-                if (error != null) {
-                    throw IllegalArgumentException(error)
-                }
                 val readyBase = ReadyAnimationSettings(
                     frameSequence = appliedReadyFrames,
                     intervalMs = appliedReadyIntervalMs
@@ -793,18 +788,29 @@ fun SpriteSettingsScreen(navController: NavController) {
                     exclusive = appliedTalkingInsertionExclusive,
                 )
 
-                val jsonString = buildSettingsJson(
+                val jsonString = buildAnimJson(
                     animationType = selectedAnimation,
-                    spriteSheetConfig = config,
                     readyBase = readyBase,
                     talkingBase = talkingBase,
                     readyInsertion = readyInsertion,
-                    talkingInsertion = talkingInsertion,
-                    devSettings = devSettings,
+                    talkingInsertion = talkingInsertion
                 )
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
-                snackbarHostState.showSnackbar("設定JSONをコピーしました")
+                snackbarHostState.showSnackbar("JSONをコピーしました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
+    fun copyDevJson(devSettings: DevPreviewSettings) {
+        coroutineScope.launch {
+            runCatching {
+                val jsonString = buildDevJson(devSettings)
+                clipboardManager.setText(AnnotatedString(jsonString))
+            }.onSuccess {
+                snackbarHostState.showSnackbar("JSONをコピーしました")
             }.onFailure { throwable ->
                 snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
             }
@@ -813,6 +819,11 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val footerHeight = 40.dp
+    val footerCopyAction = when (tabIndex) {
+        0 -> FooterCopyAction(label = "コピー(調整JSON)", onCopy = { copyAdjustJson() })
+        1 -> FooterCopyAction(label = "コピー(アニメJSON)", onCopy = { copyAnimationJson() })
+        else -> null
+    }
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -1135,8 +1146,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
                                                 onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
                                                 onSizeDecrease = { updateBoxSize(-4) },
-                                                onSizeIncrease = { updateBoxSize(4) },
-                                                onCopy = { copySpriteSheetConfig() }
+                                                onSizeIncrease = { updateBoxSize(4) }
                                             )
                                         }
                                     }
@@ -1398,8 +1408,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             isImeVisible = imeVisible,
                                             contentPadding = contentPadding,
                                             footerHeight = footerHeight,
-                                            onCopyJson = { devSettings ->
-                                                copyAppliedSettings(devSettings)
+                                            onCopyDevJson = { devSettings ->
+                                                copyDevJson(devSettings)
                                             },
                                             initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
                                         )
@@ -1414,6 +1424,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth(),
+                copyAction = footerCopyAction,
                 onUpdate = {
                     if (tabIndex == 0) {
                         coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
@@ -1483,7 +1494,7 @@ private fun ReadyAnimationTab(
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
     footerHeight: Dp,
-    onCopyJson: (DevPreviewSettings) -> Unit,
+    onCopyDevJson: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
@@ -1541,7 +1552,7 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                onCopyJson = onCopyJson,
+                onCopyDevJson = onCopyDevJson,
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
             )
         }
@@ -1980,7 +1991,7 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     initialHeaderLeftXOffsetDp: Int?,
-    onCopyJson: (DevPreviewSettings) -> Unit,
+    onCopyDevJson: (DevPreviewSettings) -> Unit,
 ) {
     val devFromJson = LocalDevSettingsDefaults.current
     var showDetails by rememberSaveable { mutableStateOf(false) }
@@ -2098,31 +2109,10 @@ private fun ReadyAnimationPreviewPane(
                         )
                     }
                     FilledTonalButton(
-                        onClick = {
-                            onCopyJson(
-                                DevPreviewSettings(
-                                    cardMaxHeightDp = cardMaxHeightDp,
-                                    innerBottomDp = innerBottomDp,
-                                    outerBottomDp = outerBottomDp,
-                                    innerVPadDp = innerVPadDp,
-                                    charYOffsetDp = charYOffsetDp,
-                                    infoYOffsetDp = infoYOffsetDp,
-                                    headerOffsetLimitDp = headerOffsetLimitDp,
-                                    headerLeftXOffsetDp = headerLeftXOffsetDp,
-                                    headerLeftYOffsetDp = headerLeftYOffsetDp,
-                                    headerRightXOffsetDp = headerRightXOffsetDp,
-                                    headerRightYOffsetDp = headerRightYOffsetDp,
-                                    cardMinHeightDp = cardMinHeightDp,
-                                    detailsMaxHeightDp = detailsMaxHeightDp,
-                                    detailsMaxLines = detailsMaxLines,
-                                    headerSpacerDp = headerSpacerDp,
-                                    bodySpacerDp = bodySpacerDp,
-                                )
-                            )
-                        },
+                        onClick = { devExpanded = !devExpanded },
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
-                        Text("JSONコピー")
+                        Text(if (devExpanded) "閉じる" else "開く")
                     }
                 }
 
@@ -2134,6 +2124,35 @@ private fun ReadyAnimationPreviewPane(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        val currentDevSettings = DevPreviewSettings(
+                            cardMaxHeightDp = cardMaxHeightDp,
+                            innerBottomDp = innerBottomDp,
+                            outerBottomDp = outerBottomDp,
+                            innerVPadDp = innerVPadDp,
+                            charYOffsetDp = charYOffsetDp,
+                            infoYOffsetDp = infoYOffsetDp,
+                            headerOffsetLimitDp = headerOffsetLimitDp,
+                            headerLeftXOffsetDp = headerLeftXOffsetDp,
+                            headerLeftYOffsetDp = headerLeftYOffsetDp,
+                            headerRightXOffsetDp = headerRightXOffsetDp,
+                            headerRightYOffsetDp = headerRightYOffsetDp,
+                            cardMinHeightDp = cardMinHeightDp,
+                            detailsMaxHeightDp = detailsMaxHeightDp,
+                            detailsMaxLines = detailsMaxLines,
+                            headerSpacerDp = headerSpacerDp,
+                            bodySpacerDp = bodySpacerDp,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            FilledTonalButton(
+                                onClick = { onCopyDevJson(currentDevSettings) },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("JSONコピー")
+                            }
+                        }
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = "Offsets",
@@ -2797,8 +2816,7 @@ private fun SpriteSettingsControls(
     onMoveYNegative: () -> Unit,
     onMoveYPositive: () -> Unit,
     onSizeDecrease: () -> Unit,
-    onSizeIncrease: () -> Unit,
-    onCopy: () -> Unit
+    onSizeIncrease: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -2852,18 +2870,18 @@ private fun SpriteSettingsControls(
                 "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
             } ?: "座標: -, -, -, -"
         )
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = onCopy
-        ) {
-            Text(text = "コピー")
-        }
     }
 }
+
+private data class FooterCopyAction(
+    val label: String,
+    val onCopy: () -> Unit,
+)
 
 @Composable
 private fun SpriteSettingsFooter(
     modifier: Modifier = Modifier,
+    copyAction: FooterCopyAction?,
     onUpdate: () -> Unit,
     onSave: () -> Unit,
 ) {
@@ -2886,6 +2904,15 @@ private fun SpriteSettingsFooter(
                     .padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                copyAction?.let { action ->
+                    FilledTonalButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = action.onCopy,
+                        contentPadding = PaddingValues(vertical = 6.dp)
+                    ) {
+                        Text(action.label)
+                    }
+                }
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
                     onClick = onUpdate,
@@ -2941,14 +2968,17 @@ private fun formatInsertionDetail(
     }
 }
 
-private fun buildSettingsJson(
+private fun buildAdjustJson(spriteSheetConfig: SpriteSheetConfig): String =
+    JSONObject()
+        .put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
+        .toString(2)
+
+private fun buildAnimJson(
     animationType: AnimationType,
-    spriteSheetConfig: SpriteSheetConfig,
     readyBase: ReadyAnimationSettings,
     talkingBase: ReadyAnimationSettings,
     readyInsertion: InsertionAnimationSettings,
     talkingInsertion: InsertionAnimationSettings,
-    devSettings: DevPreviewSettings,
 ): String {
     val root = JSONObject()
     root.put("animationType", animationType.label)
@@ -2964,10 +2994,13 @@ private fun buildSettingsJson(
             .put("base", talkingBase.toJsonObject())
             .put("insertion", talkingInsertion.toJsonObject())
     )
-    root.put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
-    root.put("dev", devSettings.toJsonObject())
     return root.toString(2)
 }
+
+private fun buildDevJson(devSettings: DevPreviewSettings): String =
+    JSONObject()
+        .put("dev", devSettings.toJsonObject())
+        .toString(2)
 
 private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
     JSONObject()
