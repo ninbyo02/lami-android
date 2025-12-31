@@ -175,6 +175,54 @@ private data class DevPreviewSettings(
     val bodySpacerDp: Int,
 )
 
+private data class DevSettingsDefaults(
+    val cardMaxHeightDp: Int?,
+    val innerBottomDp: Int?,
+    val outerBottomDp: Int?,
+    val innerVPadDp: Int?,
+    val charYOffsetDp: Int?,
+    val infoYOffsetDp: Int?,
+    val headerOffsetLimitDp: Int?,
+    val headerLeftXOffsetDp: Int?,
+    val headerLeftYOffsetDp: Int?,
+    val headerRightXOffsetDp: Int?,
+    val headerRightYOffsetDp: Int?,
+    val cardMinHeightDp: Int?,
+    val detailsMaxHeightDp: Int?,
+    val detailsMaxLines: Int?,
+    val headerSpacerDp: Int?,
+    val bodySpacerDp: Int?,
+) {
+    companion object {
+        fun fromJson(json: String?): DevSettingsDefaults? {
+            if (json.isNullOrBlank()) return null
+            return runCatching {
+                val dev = JSONObject(json).optJSONObject("dev") ?: return null
+                DevSettingsDefaults(
+                    cardMaxHeightDp = dev.optIntOrNull("cardMaxHeightDp"),
+                    innerBottomDp = dev.optIntOrNull("innerBottomDp"),
+                    outerBottomDp = dev.optIntOrNull("outerBottomDp"),
+                    innerVPadDp = dev.optIntOrNull("innerVPadDp"),
+                    charYOffsetDp = dev.optIntOrNull("charYOffsetDp"),
+                    infoYOffsetDp = dev.optIntOrNull("infoYOffsetDp"),
+                    headerOffsetLimitDp = dev.optIntOrNull("headerOffsetLimitDp"),
+                    headerLeftXOffsetDp = dev.optIntOrNull("headerLeftXOffsetDp"),
+                    headerLeftYOffsetDp = dev.optIntOrNull("headerLeftYOffsetDp"),
+                    headerRightXOffsetDp = dev.optIntOrNull("headerRightXOffsetDp"),
+                    headerRightYOffsetDp = dev.optIntOrNull("headerRightYOffsetDp"),
+                    cardMinHeightDp = dev.optIntOrNull("minHeightDp"),
+                    detailsMaxHeightDp = dev.optIntOrNull("detailsMaxH"),
+                    detailsMaxLines = dev.optIntOrNull("detailsLines"),
+                    headerSpacerDp = dev.optIntOrNull("headerSpacerDp"),
+                    bodySpacerDp = dev.optIntOrNull("bodySpacerDp"),
+                )
+            }.getOrNull()
+        }
+    }
+}
+
+private fun JSONObject.optIntOrNull(key: String): Int? = if (has(key)) getInt(key) else null
+
 private fun buildInsertionPreviewSummary(
     label: String,
     enabled: Boolean,
@@ -259,16 +307,7 @@ private fun defaultBoxPositions(): List<BoxPosition> =
     SpriteSheetConfig.default3x3()
         .boxesWithInternalIndex()
         .sortedBy { it.frameIndex }
-        .map { box -> BoxPosition(box.x, box.y) }
-
-private fun extractHeaderLeftXOffsetDp(json: String?): Int? {
-    if (json.isNullOrBlank()) return null
-    return runCatching {
-        val dev = JSONObject(json).optJSONObject("dev") ?: return@runCatching null
-        if (!dev.has("headerLeftXOffsetDp")) return@runCatching null
-        dev.getInt("headerLeftXOffsetDp")
-    }.getOrNull()
-}
+            .map { box -> BoxPosition(box.x, box.y) }
 
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
@@ -284,9 +323,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = SpriteSheetConfig.default3x3())
-    val initialHeaderLeftXOffsetDp = remember(spriteSheetConfigJson) {
-        extractHeaderLeftXOffsetDp(spriteSheetConfigJson)
+    val devSettingsDefaults = remember(spriteSheetConfigJson) {
+        DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
+    val initialHeaderLeftXOffsetDp = devSettingsDefaults?.headerLeftXOffsetDp
     val readyAnimationSettings by settingsPreferences.readyAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val talkingAnimationSettings by settingsPreferences.talkingAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val readyInsertionAnimationSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
@@ -1863,22 +1903,54 @@ private fun ReadyAnimationPreviewPane(
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
-    var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(130) }
-    var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
-    var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
-    var innerVPadDp by rememberSaveable { mutableIntStateOf(8) }
-    var charYOffsetDp by rememberSaveable { mutableIntStateOf(-32) }
-    var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(150) }
-    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(114) }
-    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(1) }
-    var headerRightXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var headerRightYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var cardMinHeightDp by rememberSaveable { mutableIntStateOf(156) }
-    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(40) }
-    var detailsMaxLines by rememberSaveable { mutableIntStateOf(2) }
-    var headerSpacerDp by rememberSaveable { mutableIntStateOf(0) }
-    var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
+    var cardMaxHeightDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.cardMaxHeightDp ?: 130)
+    }
+    var innerBottomDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.innerBottomDp ?: 0)
+    }
+    var outerBottomDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.outerBottomDp ?: 0)
+    }
+    var innerVPadDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.innerVPadDp ?: 8)
+    }
+    var charYOffsetDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.charYOffsetDp ?: -32)
+    }
+    var infoYOffsetDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.infoYOffsetDp ?: 0)
+    }
+    var headerOffsetLimitDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.headerOffsetLimitDp ?: 150)
+    }
+    var headerLeftXOffsetDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.headerLeftXOffsetDp ?: 114)
+    }
+    var headerLeftYOffsetDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.headerLeftYOffsetDp ?: 1)
+    }
+    var headerRightXOffsetDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.headerRightXOffsetDp ?: 0)
+    }
+    var headerRightYOffsetDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.headerRightYOffsetDp ?: 0)
+    }
+    var cardMinHeightDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.cardMinHeightDp ?: 156)
+    }
+    var detailsMaxHeightDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.detailsMaxHeightDp ?: 40)
+    }
+    var detailsMaxLines by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.detailsMaxLines ?: 2)
+    }
+    var headerSpacerDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.headerSpacerDp ?: 0)
+    }
+    var bodySpacerDp by rememberSaveable(devSettingsDefaults) {
+        mutableIntStateOf(devSettingsDefaults?.bodySpacerDp ?: 0)
+    }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     LaunchedEffect(initialHeaderLeftXOffsetDp) {
         initialHeaderLeftXOffsetDp?.let { initial ->
