@@ -63,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -1745,7 +1746,7 @@ private fun ReadyAnimationPreviewPane(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "OuterBottom:${abs(outerBottomDp)}dp",
+                        text = "OuterBottom:${abs(outerBottomDp)}dp / カード下余白",
                         style = MaterialTheme.typography.labelSmall
                     )
                     IconButton(
@@ -1768,7 +1769,7 @@ private fun ReadyAnimationPreviewPane(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "InnerBottom:${abs(innerBottomDp)}dp",
+                        text = "InnerBottom:${abs(innerBottomDp)}dp / 情報ブロック下余白",
                         style = MaterialTheme.typography.labelSmall
                     )
                     IconButton(
@@ -1812,16 +1813,48 @@ private fun ReadyAnimationPreviewPane(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Card(
+        val outerPaddingColor = if (outerBottomDp >= 0) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        } else {
+            MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+        }
+        val outerPaddingStroke = if (outerBottomDp >= 0) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+        } else {
+            MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+        }
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize()
-                .padding(bottom = outerBottomDp.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                .padding(bottom = outerBottomDp.dp)
+                .drawBehind {
+                    val indicatorHeight = abs(outerBottomDp).dp.toPx().coerceAtMost(size.height)
+                    if (indicatorHeight > 0f) {
+                        val top = size.height - indicatorHeight
+                        drawRect(
+                            color = outerPaddingColor,
+                            topLeft = Offset(x = 0f, y = top),
+                            size = Size(width = size.width, height = indicatorHeight)
+                        )
+                        drawLine(
+                            color = outerPaddingStroke,
+                            start = Offset(x = 0f, y = top),
+                            end = Offset(x = size.width, y = top),
+                            strokeWidth = 2f
+                        )
+                    }
+                }
         ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1836,9 +1869,37 @@ private fun ReadyAnimationPreviewPane(
                     rawSpriteSize.coerceIn(72.dp, 120.dp)
                 }
 
+                val innerPaddingColor = if (innerBottomDp >= 0) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                } else {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
+                }
+                val innerPaddingStroke = if (innerBottomDp >= 0) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                } else {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .drawBehind {
+                            val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
+                            if (indicatorHeight > 0f) {
+                                val top = size.height - indicatorHeight
+                                drawRect(
+                                    color = innerPaddingColor,
+                                    topLeft = Offset(x = 0f, y = top),
+                                    size = Size(width = size.width, height = indicatorHeight)
+                                )
+                                drawLine(
+                                    color = innerPaddingStroke,
+                                    start = Offset(x = 0f, y = top),
+                                    end = Offset(x = size.width, y = top),
+                                    strokeWidth = 2f
+                                )
+                            }
+                        }
                         .padding(bottom = innerBottomDp.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
