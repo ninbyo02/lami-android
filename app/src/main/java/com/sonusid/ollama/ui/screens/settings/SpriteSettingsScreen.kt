@@ -54,7 +54,6 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -915,7 +914,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-    val footerHeight = 40.dp
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -1049,7 +1047,40 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            val copyLabel = when (tabIndex) {
+                0 -> "コピー(調整)"
+                1 -> "コピー(アニメ)"
+                else -> "コピー(DEV)"
+            }
+            SpriteSettingsFooter(
+                modifier = Modifier.fillMaxWidth(),
+                copyLabel = copyLabel,
+                onUpdate = {
+                    when (tabIndex) {
+                        0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                        1 -> onAnimationApply()
+                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
+                    }
+                },
+                onSave = {
+                    when (tabIndex) {
+                        0 -> saveSpriteSheetConfig()
+                        1 -> onAnimationSave()
+                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
+                    }
+                },
+                onCopy = {
+                    when (tabIndex) {
+                        0 -> copySpriteSheetConfig()
+                        1 -> copyAppliedSettings(devPreviewSettings)
+                        else -> { /* DEVはフッターからコピーしない */ }
+                    }
+                },
+                isCopyEnabled = tabIndex != 2
+            )
+        }
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
         val contentPadding = PaddingValues(
@@ -1546,7 +1577,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         insertionState = insertionState,
                                         isImeVisible = imeVisible,
                                         contentPadding = contentPadding,
-                                        footerHeight = footerHeight,
                                         devSettings = devPreviewSettings,
                                         onDevSettingsChange = { updated -> devPreviewSettings = updated },
                                         initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
@@ -1581,7 +1611,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Text(
-                                                text = "DEVパラメータのコピーは下部ボタンから行えます",
+                                                text = "DEVパラメータのコピーはDEVセクション内のボタンから行えます",
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
                                             Divider()
@@ -1610,36 +1640,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
-            val copyLabel = when (tabIndex) {
-                0 -> "コピー(調整)"
-                1 -> "コピー(アニメ)"
-                else -> "コピー(DEV)"
-            }
-            SpriteSettingsFooter(
-                modifier = Modifier.fillMaxWidth(),
-                copyLabel = copyLabel,
-                onUpdate = {
-                    when (tabIndex) {
-                        0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                        1 -> onAnimationApply()
-                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
-                    }
-                },
-                onSave = {
-                    when (tabIndex) {
-                        0 -> saveSpriteSheetConfig()
-                        1 -> onAnimationSave()
-                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
-                    }
-                },
-                onCopy = {
-                    when (tabIndex) {
-                        0 -> copySpriteSheetConfig()
-                        1 -> copyAppliedSettings(devPreviewSettings)
-                        else -> copyDevJson(devPreviewSettings)
-                    }
-                }
-            )
         }
     }
 
@@ -1692,7 +1692,6 @@ private fun ReadyAnimationTab(
     insertionState: InsertionAnimationUiState,
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
-    footerHeight: Dp,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
@@ -1702,36 +1701,13 @@ private fun ReadyAnimationTab(
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val onCopyDevJson: () -> Unit = {
-        val jsonString = buildDevJson(devSettings)
-        clipboardManager.setText(AnnotatedString(jsonString))
+        copyDevJson(devSettings)
     }
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
-    val needsBottomInset by remember(lazyListState) {
-        derivedStateOf {
-            val info = lazyListState.layoutInfo
-            val totalItemsCount = info.totalItemsCount
-            if (totalItemsCount == 0) return@derivedStateOf false
-            val visibleItems = info.visibleItemsInfo
-            if (visibleItems.isEmpty()) return@derivedStateOf false
-
-            val firstItem = visibleItems.first()
-            val lastItem = visibleItems.last()
-            val canScrollUp = firstItem.index > 0 || firstItem.offset < info.viewportStartOffset
-            val canScrollDown = lastItem.index < totalItemsCount - 1 ||
-                (lastItem.offset + lastItem.size) > info.viewportEndOffset
-
-            canScrollUp || canScrollDown
-        }
-    }
     val layoutDirection = LocalLayoutDirection.current
-    val bottomContentPadding = if (isImeVisible) {
-        contentPadding.calculateBottomPadding() + 2.dp
-    } else {
-        contentPadding.calculateBottomPadding() +
-            if (needsBottomInset) footerHeight + 2.dp else 0.dp
-    }
+    val bottomContentPadding = contentPadding.calculateBottomPadding() + if (isImeVisible) 2.dp else 0.dp
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
@@ -3007,6 +2983,7 @@ private fun SpriteSettingsFooter(
     onUpdate: () -> Unit,
     onSave: () -> Unit,
     onCopy: () -> Unit,
+    isCopyEnabled: Boolean,
 ) {
     Column(
         modifier = modifier
@@ -3015,8 +2992,8 @@ private fun SpriteSettingsFooter(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 40.dp, max = 52.dp)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .heightIn(min = 56.dp, max = 72.dp)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             tonalElevation = 4.dp,
             shadowElevation = 2.dp
@@ -3024,27 +3001,28 @@ private fun SpriteSettingsFooter(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
                     onClick = onUpdate,
-                    contentPadding = PaddingValues(vertical = 6.dp)
+                    contentPadding = PaddingValues(vertical = 10.dp)
                 ) {
                     Text("更新")
                 }
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
                     onClick = onSave,
-                    contentPadding = PaddingValues(vertical = 6.dp)
+                    contentPadding = PaddingValues(vertical = 10.dp)
                 ) {
                     Text("保存")
                 }
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
                     onClick = onCopy,
-                    contentPadding = PaddingValues(vertical = 6.dp)
+                    enabled = isCopyEnabled,
+                    contentPadding = PaddingValues(vertical = 10.dp)
                 ) {
                     Text(copyLabel)
                 }
