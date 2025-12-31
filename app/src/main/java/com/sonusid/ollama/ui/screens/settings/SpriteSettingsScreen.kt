@@ -1088,7 +1088,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(contentPadding)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top
                 ) {
@@ -1112,24 +1112,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
-                    val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp, start = 2.dp, end = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Text(
-                            text = headerText,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
                     TabRow(
                         selectedTabIndex = tabIndex,
                         modifier = Modifier
@@ -1202,7 +1184,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 .fillMaxWidth()
                                                 .weight(1f, fill = true)
                                                 .aspectRatio(1f)
-                                                .padding(top = 6.dp)
+                                                .padding(top = 0.dp)
                                                 .heightIn(min = 220.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -1243,58 +1225,44 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 }
                                             }
                                         }
+                                        val headerText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                        val infoTextStyle = MaterialTheme.typography.labelSmall.copy(
+                                            lineHeight = MaterialTheme.typography.labelSmall.fontSize
+                                        )
+                                        val coordinateText =
+                                            selectedPosition?.let { position ->
+                                                "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                            } ?: "座標: -, -, -, -"
+                                        val selectionLine =
+                                            "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | ${coordinateText}"
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 2.dp),
+                                            verticalArrangement = Arrangement.spacedBy(0.dp),
+                                            horizontalAlignment = Alignment.Start
+                                        ) {
+                                            Text(
+                                                text = headerText,
+                                                style = infoTextStyle,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = selectionLine,
+                                                style = infoTextStyle,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .verticalScroll(rememberScrollState())
-                                                .padding(top = 8.dp, bottom = 8.dp),
+                                                .padding(top = 4.dp, bottom = 4.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.Start,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
-                                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
-                                                )
-                                                val coordinateText =
-                                                    selectedPosition?.let { position ->
-                                                        "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-                                                    } ?: "座標: -, -, -, -"
-                                                Text(
-                                                    text = "選択中: ${selectedNumber}/9",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = " | ",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = "サイズ: ${boxSizePx}px",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = " | ",
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Clip
-                                                )
-                                                Text(
-                                                    text = coordinateText,
-                                                    style = infoTextStyle,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                            }
                                             SpriteSettingsControls(
                                                 selectedPosition = selectedPosition,
                                                 boxSizePx = boxSizePx,
