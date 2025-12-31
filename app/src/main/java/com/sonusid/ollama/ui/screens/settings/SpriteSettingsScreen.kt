@@ -1827,7 +1827,7 @@ private fun ReadyAnimationPreviewPane(
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.AutoGrow.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
-    var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(300) }
+    var cardMaxHeightDp by rememberSaveable { mutableIntStateOf(0) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var outerBottomDp by rememberSaveable { mutableIntStateOf(0) }
     var innerVPadDp by rememberSaveable { mutableIntStateOf(8) }
@@ -1848,10 +1848,8 @@ private fun ReadyAnimationPreviewPane(
     val baseMaxHeightDp = if (isImeVisible) 220 else 300
     val effectiveCardMaxH: Int? = if (!showDetails) {
         baseMaxHeightDp
-    } else if (cardMaxHeightDp == 0) {
-        null
     } else {
-        maxOf(baseMaxHeightDp, cardMaxHeightDp)
+        cardMaxHeightDp.takeUnless { it == 0 }
     }
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
     val effectiveDetailsMaxH: Int? = if (detailsLayoutMode == DetailsLayoutMode.ScrollDetails) {
@@ -1861,7 +1859,7 @@ private fun ReadyAnimationPreviewPane(
     }
     val effectiveOuterBottomDp = if (showDetails) outerBottomDp else 0
     val effectiveInnerBottomDp = if (showDetails) innerBottomDp else 0
-    val effectiveInnerVPadDp = if (showDetails) innerVPadDp else 0
+    val effectiveInnerVPadDp = innerVPadDp
     val effectiveBodySpacerDp = if (showDetails) bodySpacerDp else 0
 
     Column(modifier = modifier) {
@@ -2372,9 +2370,7 @@ private fun ReadyAnimationPreviewPane(
                 }
             }
         }
-        if (showDetails) {
-            Spacer(modifier = Modifier.height(8.dp))
-        }
+        Spacer(modifier = Modifier.height(8.dp))
         val outerPaddingColor = if (outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         } else {
@@ -2418,26 +2414,20 @@ private fun ReadyAnimationPreviewPane(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 val effectiveMinDp = boundedMinHeightDp
+                val baseCardModifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
                 val cardHeightModifier = if (effectiveCardMaxH != null) {
-                    Modifier
-                        .fillMaxWidth()
-                        .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
-                        .heightIn(
-                            min = effectiveMinDp.dp,
-                            max = effectiveCardMaxH.dp
-                        )
-                        // TEMP: allow preview card height to shrink to content (keep max cap)
-                        // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                        .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
+                    baseCardModifier.heightIn(
+                        min = effectiveMinDp.dp,
+                        max = effectiveCardMaxH.dp
+                    )
                 } else {
-                    Modifier
-                        .fillMaxWidth()
-                        .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
-                        .heightIn(min = effectiveMinDp.dp)
-                        // TEMP: allow preview card height to shrink to content (keep max cap)
-                        // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
-                        .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
+                    baseCardModifier.heightIn(min = effectiveMinDp.dp)
                 }
+                    // TEMP: allow preview card height to shrink to content (keep max cap)
+                    // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
+                    .padding(horizontal = 12.dp, vertical = effectiveInnerVPadDp.dp)
                 BoxWithConstraints(
                     modifier = cardHeightModifier
                 ) {
