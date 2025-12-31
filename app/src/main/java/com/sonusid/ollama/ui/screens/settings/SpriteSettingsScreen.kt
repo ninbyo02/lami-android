@@ -2289,7 +2289,7 @@ private fun ReadyAnimationPreviewPane(
                     }
                     FilledTonalButton(
                         onClick = {
-                            onCopyJson(
+                            copyDevJson(
                                 DevPreviewSettings(
                                     cardMaxHeightDp = cardMaxHeightDp,
                                     innerBottomDp = innerBottomDp,
