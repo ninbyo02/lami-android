@@ -1989,11 +1989,11 @@ private fun ReadyAnimationPreviewPane(
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(-32) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(150) }
-    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(116) }
-    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(114) }
+    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(1) }
     var headerRightXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerRightYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var cardMinHeightDp by rememberSaveable { mutableIntStateOf(156) }
+    var cardMinHeightDp by rememberSaveable { mutableIntStateOf(153) }
     var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(50) }
     var detailsMaxLines by rememberSaveable { mutableIntStateOf(2) }
     var headerSpacerDp by rememberSaveable { mutableIntStateOf(0) }
