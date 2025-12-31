@@ -152,8 +152,10 @@ private data class DevPreviewSettings(
     val charYOffsetDp: Int,
     val infoYOffsetDp: Int,
     val headerOffsetLimitDp: Int,
-    val headerXOffsetDp: Int,
-    val headerYOffsetDp: Int,
+    val headerLeftXOffsetDp: Int,
+    val headerLeftYOffsetDp: Int,
+    val headerRightXOffsetDp: Int,
+    val headerRightYOffsetDp: Int,
     val cardMinHeightDp: Int,
     val detailsMaxHeightDp: Int,
     val detailsMaxLines: Int,
@@ -1792,8 +1794,10 @@ private fun ReadyAnimationPreviewPane(
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(240) }
-    var headerXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
-    var headerYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerRightXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerRightYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
     var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(96) }
     var detailsMaxLines by rememberSaveable { mutableIntStateOf(6) }
@@ -1835,7 +1839,7 @@ private fun ReadyAnimationPreviewPane(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) "ON" else "OFF"}  HdrX:${headerXOffsetDp}  HdrY:${headerYOffsetDp}",
+                            text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) \"ON\" else \"OFF\"}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1851,8 +1855,10 @@ private fun ReadyAnimationPreviewPane(
                                     charYOffsetDp = charYOffsetDp,
                                     infoYOffsetDp = infoYOffsetDp,
                                     headerOffsetLimitDp = headerOffsetLimitDp,
-                                    headerXOffsetDp = headerXOffsetDp,
-                                    headerYOffsetDp = headerYOffsetDp,
+                                    headerLeftXOffsetDp = headerLeftXOffsetDp,
+                                    headerLeftYOffsetDp = headerLeftYOffsetDp,
+                                    headerRightXOffsetDp = headerRightXOffsetDp,
+                                    headerRightYOffsetDp = headerRightYOffsetDp,
                                     cardMinHeightDp = cardMinHeightDp,
                                     detailsMaxHeightDp = detailsMaxHeightDp,
                                     detailsMaxLines = detailsMaxLines,
@@ -1938,8 +1944,10 @@ private fun ReadyAnimationPreviewPane(
                                 IconButton(
                                     onClick = {
                                         headerOffsetLimitDp = (headerOffsetLimitDp + 10).coerceIn(0, 400)
-                                        headerXOffsetDp = headerXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerYOffsetDp = headerYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▲")
@@ -1947,8 +1955,10 @@ private fun ReadyAnimationPreviewPane(
                                 IconButton(
                                     onClick = {
                                         headerOffsetLimitDp = (headerOffsetLimitDp - 10).coerceIn(0, 400)
-                                        headerXOffsetDp = headerXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                                        headerYOffsetDp = headerYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▼")
@@ -1959,19 +1969,19 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "HeaderX:${headerXOffsetDp}dp / 見出しX",
+                                    text = "HeaderLeftX:${headerLeftXOffsetDp}dp / 見出し左X",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
                                     onClick = {
-                                        headerXOffsetDp = (headerXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftXOffsetDp = (headerLeftXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
                                     onClick = {
-                                        headerXOffsetDp = (headerXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftXOffsetDp = (headerLeftXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▼")
@@ -1982,19 +1992,65 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "HeaderY:${headerYOffsetDp}dp / 見出しY",
+                                    text = "HeaderLeftY:${headerLeftYOffsetDp}dp / 見出し左Y",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
                                     onClick = {
-                                        headerYOffsetDp = (headerYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftYOffsetDp = (headerLeftYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
                                     onClick = {
-                                        headerYOffsetDp = (headerYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerLeftYOffsetDp = (headerLeftYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "HeaderRightX:${headerRightXOffsetDp}dp / 見出し右X",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        headerRightXOffsetDp = (headerRightXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        headerRightXOffsetDp = (headerRightXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "HeaderRightY:${headerRightYOffsetDp}dp / 見出し右Y",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        headerRightYOffsetDp = (headerRightYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        headerRightYOffsetDp = (headerRightYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▼")
@@ -2310,38 +2366,29 @@ private fun ReadyAnimationPreviewPane(
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .offset(
-                                        x = headerXOffsetDp.dp,
-                                        y = headerYOffsetDp.dp
+                            Box(modifier = Modifier.weight(1f)) {
+                                PreviewHeaderLeft(
+                                    baseSummary = baseSummary,
+                                    headerSpacerDp = headerSpacerDp,
+                                    modifier = Modifier.offset(
+                                        x = headerLeftXOffsetDp.dp,
+                                        y = headerLeftYOffsetDp.dp
                                     )
-                                    .fillMaxWidth()
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = "プレビュー",
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    DetailsToggle(
-                                        expanded = showDetails,
-                                        onClick = { showDetails = !showDetails },
-                                        modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(headerSpacerDp.dp))
-                                Text(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    text = "現在: ${baseSummary.label}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Box {
+                                PreviewHeaderRight(
+                                    expanded = showDetails,
+                                    onClick = { showDetails = !showDetails },
+                                    modifier = Modifier
+                                        .offset(
+                                            x = headerRightXOffsetDp.dp,
+                                            y = headerRightYOffsetDp.dp
+                                        )
+                                        .alpha(if (isImeVisible) 0.6f else 1f)
                                 )
                             }
                         }
@@ -2366,6 +2413,43 @@ private fun ReadyAnimationPreviewPane(
             // FIX: missing brace for ReadyAnimationPreviewPane
             }
         }
+    }
+}
+
+@Composable
+private fun PreviewHeaderLeft(
+    baseSummary: AnimationSummary,
+    headerSpacerDp: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(headerSpacerDp.dp)
+    ) {
+        Text(
+            text = "プレビュー",
+            style = MaterialTheme.typography.titleSmall
+        )
+        Text(
+            modifier = Modifier.fillMaxWidth(),
+            text = "現在: ${baseSummary.label}",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun PreviewHeaderRight(
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        DetailsToggle(
+            expanded = expanded,
+            onClick = onClick
+        )
     }
 }
 
@@ -2616,8 +2700,10 @@ private fun DevPreviewSettings.toJsonObject(): JSONObject =
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)
         .put("headerOffsetLimitDp", headerOffsetLimitDp)
-        .put("headerXOffsetDp", headerXOffsetDp)
-        .put("headerYOffsetDp", headerYOffsetDp)
+        .put("headerLeftXOffsetDp", headerLeftXOffsetDp)
+        .put("headerLeftYOffsetDp", headerLeftYOffsetDp)
+        .put("headerRightXOffsetDp", headerRightXOffsetDp)
+        .put("headerRightYOffsetDp", headerRightYOffsetDp)
         .put("innerVPadDp", innerVPadDp)
         .put("innerBottomDp", innerBottomDp)
         .put("outerBottomDp", outerBottomDp)
