@@ -1182,6 +1182,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .weight(1f, fill = true)
+                                                .aspectRatio(1f)
                                                 .padding(top = 6.dp)
                                                 .heightIn(min = 220.dp),
                                             contentAlignment = Alignment.Center
@@ -1203,15 +1204,20 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                                     val scaleX = this.size.width / imageBitmap.width
                                                     val scaleY = this.size.height / imageBitmap.height
+                                                    val scale = min(scaleX, scaleY)
+                                                    val destinationWidth = imageBitmap.width * scale
+                                                    val destinationHeight = imageBitmap.height * scale
+                                                    val offsetX = (this.size.width - destinationWidth) / 2f
+                                                    val offsetY = (this.size.height - destinationHeight) / 2f
                                                     drawRect(
                                                         color = Color.Red,
                                                         topLeft = Offset(
-                                                            x = selectedPosition.x * scaleX,
-                                                            y = selectedPosition.y * scaleY
+                                                            x = offsetX + selectedPosition.x * scale,
+                                                            y = offsetY + selectedPosition.y * scale
                                                         ),
                                                         size = Size(
-                                                            width = boxSizePx * scaleX,
-                                                            height = boxSizePx * scaleY
+                                                            width = boxSizePx * scale,
+                                                            height = boxSizePx * scale
                                                         ),
                                                         style = Stroke(width = 2.dp.toPx())
                                                     )
