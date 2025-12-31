@@ -1812,23 +1812,50 @@ private fun ReadyAnimationPreviewPane(
                 val maxHeightDp = if (isImeVisible) 220 else 300
                 val effectiveMinDp = cardMinHeightDp.coerceAtMost(maxHeightDp)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { devExpanded = !devExpanded },
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = "DEV ${if (devExpanded) "▴" else "▾"}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) "ON" else "OFF"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { devExpanded = !devExpanded },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "DEV ${if (devExpanded) "▴" else "▾"}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) "ON" else "OFF"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            onCopyJson(
+                                DevPreviewSettings(
+                                    innerBottomDp = innerBottomDp,
+                                    outerBottomDp = outerBottomDp,
+                                    innerVPadDp = innerVPadDp,
+                                    charYOffsetDp = charYOffsetDp,
+                                    infoYOffsetDp = infoYOffsetDp,
+                                    cardMinHeightDp = cardMinHeightDp,
+                                    detailsMaxHeightDp = detailsMaxHeightDp,
+                                    detailsMaxLines = detailsMaxLines,
+                                    headerSpacerDp = headerSpacerDp,
+                                    bodySpacerDp = bodySpacerDp,
+                                )
+                            )
+                        },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("JSONコピー")
+                    }
                 }
 
                 AnimatedVisibility(visible = devExpanded) {
@@ -2207,37 +2234,11 @@ private fun ReadyAnimationPreviewPane(
                                 text = "プレビュー",
                                 style = MaterialTheme.typography.titleSmall
                             )
-                            Column(
-                                horizontalAlignment = Alignment.End,
+                            DetailsToggle(
+                                expanded = showDetails,
+                                onClick = { showDetails = !showDetails },
                                 modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
-                            ) {
-                                DetailsToggle(
-                                    expanded = showDetails,
-                                    onClick = { showDetails = !showDetails },
-                                )
-                                FilledTonalButton(
-                                    onClick = {
-                                        onCopyJson(
-                                            DevPreviewSettings(
-                                                innerBottomDp = innerBottomDp,
-                                                outerBottomDp = outerBottomDp,
-                                                innerVPadDp = innerVPadDp,
-                                                charYOffsetDp = charYOffsetDp,
-                                                infoYOffsetDp = infoYOffsetDp,
-                                                cardMinHeightDp = cardMinHeightDp,
-                                                detailsMaxHeightDp = detailsMaxHeightDp,
-                                                detailsMaxLines = detailsMaxLines,
-                                                headerSpacerDp = headerSpacerDp,
-                                                bodySpacerDp = bodySpacerDp,
-                                            )
-                                        )
-                                    },
-                                    modifier = Modifier.padding(top = 4.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("JSONコピー")
-                                }
-                            }
+                            )
                         }
                         Spacer(modifier = Modifier.height(headerSpacerDp.dp))
                         Text(
