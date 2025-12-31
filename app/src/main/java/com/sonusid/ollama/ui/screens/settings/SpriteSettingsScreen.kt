@@ -2936,7 +2936,6 @@ private fun SpriteSettingsControls(
                 Button(onClick = onNext) {
                     Text(text = "次へ")
                 }
-                Text(text = "選択中: $selectedNumber/9")
             }
             Spacer(modifier = Modifier.weight(1f))
             Column(
