@@ -151,6 +151,8 @@ private data class DevPreviewSettings(
     val innerVPadDp: Int,
     val charYOffsetDp: Int,
     val infoYOffsetDp: Int,
+    val headerXOffsetDp: Int,
+    val headerYOffsetDp: Int,
     val cardMinHeightDp: Int,
     val detailsMaxHeightDp: Int,
     val detailsMaxLines: Int,
@@ -1788,6 +1790,8 @@ private fun ReadyAnimationPreviewPane(
     var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
     var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(96) }
     var detailsMaxLines by rememberSaveable { mutableIntStateOf(6) }
@@ -1829,7 +1833,7 @@ private fun ReadyAnimationPreviewPane(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) "ON" else "OFF"}",
+                            text = "MinH:${effectiveMinDp}  InfoY:${infoYOffsetDp}  Details:${if (showDetails) "ON" else "OFF"}  HdrX:${headerXOffsetDp}  HdrY:${headerYOffsetDp}",
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -1844,6 +1848,8 @@ private fun ReadyAnimationPreviewPane(
                                     innerVPadDp = innerVPadDp,
                                     charYOffsetDp = charYOffsetDp,
                                     infoYOffsetDp = infoYOffsetDp,
+                                    headerXOffsetDp = headerXOffsetDp,
+                                    headerYOffsetDp = headerYOffsetDp,
                                     cardMinHeightDp = cardMinHeightDp,
                                     detailsMaxHeightDp = detailsMaxHeightDp,
                                     detailsMaxLines = detailsMaxLines,
@@ -1913,6 +1919,52 @@ private fun ReadyAnimationPreviewPane(
                                 IconButton(
                                     onClick = {
                                         infoYOffsetDp = (infoYOffsetDp + 1).coerceIn(-200, 200)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "HeaderX:${headerXOffsetDp}dp / 見出しX",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        headerXOffsetDp = (headerXOffsetDp - 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        headerXOffsetDp = (headerXOffsetDp + 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "HeaderY:${headerYOffsetDp}dp / 見出しY",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        headerYOffsetDp = (headerYOffsetDp - 1).coerceIn(-80, 80)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        headerYOffsetDp = (headerYOffsetDp + 1).coerceIn(-80, 80)
                                     }
                                 ) {
                                     Text("▼")
@@ -2231,23 +2283,38 @@ private fun ReadyAnimationPreviewPane(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "プレビュー",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            DetailsToggle(
-                                expanded = showDetails,
-                                onClick = { showDetails = !showDetails },
-                                modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .offset(
+                                        x = headerXOffsetDp.dp,
+                                        y = headerYOffsetDp.dp
+                                    )
+                                    .fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "プレビュー",
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    DetailsToggle(
+                                        expanded = showDetails,
+                                        onClick = { showDetails = !showDetails },
+                                        modifier = Modifier.alpha(if (isImeVisible) 0.6f else 1f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(headerSpacerDp.dp))
+                                Text(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    text = "現在: ${baseSummary.label}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.height(headerSpacerDp.dp))
-                        Text(
-                            modifier = Modifier.fillMaxWidth(),
-                            text = "現在: ${baseSummary.label}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Spacer(modifier = Modifier.height(bodySpacerDp.dp))
                         ReadyAnimationPreview(
                             imageBitmap = imageBitmap,
@@ -2518,6 +2585,8 @@ private fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)
+        .put("headerXOffsetDp", headerXOffsetDp)
+        .put("headerYOffsetDp", headerYOffsetDp)
         .put("innerVPadDp", innerVPadDp)
         .put("innerBottomDp", innerBottomDp)
         .put("outerBottomDp", outerBottomDp)
