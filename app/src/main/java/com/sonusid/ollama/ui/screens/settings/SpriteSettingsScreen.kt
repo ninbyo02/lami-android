@@ -261,6 +261,15 @@ private fun defaultBoxPositions(): List<BoxPosition> =
         .sortedBy { it.frameIndex }
         .map { box -> BoxPosition(box.x, box.y) }
 
+private fun extractHeaderLeftXOffsetDp(json: String?): Int? {
+    if (json.isNullOrBlank()) return null
+    return runCatching {
+        val dev = JSONObject(json).optJSONObject("dev") ?: return@runCatching null
+        if (!dev.has("headerLeftXOffsetDp")) return@runCatching null
+        dev.getInt("headerLeftXOffsetDp")
+    }.getOrNull()
+}
+
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
     val imageBitmap: ImageBitmap =
@@ -273,7 +282,11 @@ fun SpriteSettingsScreen(navController: NavController) {
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
+    val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = SpriteSheetConfig.default3x3())
+    val initialHeaderLeftXOffsetDp = remember(spriteSheetConfigJson) {
+        extractHeaderLeftXOffsetDp(spriteSheetConfigJson)
+    }
     val readyAnimationSettings by settingsPreferences.readyAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val talkingAnimationSettings by settingsPreferences.talkingAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val readyInsertionAnimationSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
@@ -1266,7 +1279,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         footerHeight = footerHeight,
                                         onCopyJson = { devSettings ->
                                             copyAppliedSettings(devSettings)
-                                        }
+                                        },
+                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
                                     )
                                 }
                             }
@@ -1348,6 +1362,7 @@ private fun ReadyAnimationTab(
     contentPadding: PaddingValues,
     footerHeight: Dp,
     onCopyJson: (DevPreviewSettings) -> Unit,
+    initialHeaderLeftXOffsetDp: Int?,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1404,7 +1419,8 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                onCopyJson = onCopyJson
+                onCopyJson = onCopyJson,
+                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
             )
         }
         LazyColumn(
@@ -1841,6 +1857,7 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
+    initialHeaderLeftXOffsetDp: Int?,
     onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
@@ -1853,7 +1870,7 @@ private fun ReadyAnimationPreviewPane(
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(-32) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(150) }
-    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(84) }
+    var headerLeftXOffsetDp by rememberSaveable { mutableIntStateOf(114) }
     var headerLeftYOffsetDp by rememberSaveable { mutableIntStateOf(1) }
     var headerRightXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerRightYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
@@ -1863,6 +1880,11 @@ private fun ReadyAnimationPreviewPane(
     var headerSpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var bodySpacerDp by rememberSaveable { mutableIntStateOf(0) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
+    LaunchedEffect(initialHeaderLeftXOffsetDp) {
+        initialHeaderLeftXOffsetDp?.let { initial ->
+            headerLeftXOffsetDp = initial.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+        }
+    }
     val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
     val safetyMarginDp = 12
     val autoMinHeightDp = maxOf(155, ceil(contentHeightDp.value).toInt() + safetyMarginDp)
