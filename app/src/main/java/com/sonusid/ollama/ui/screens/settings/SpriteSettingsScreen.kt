@@ -175,6 +175,25 @@ private data class DevPreviewSettings(
     val bodySpacerDp: Int,
 )
 
+private object DevDefaults {
+    const val cardMaxHeightDp = 130
+    const val charYOffsetDp = -32
+    const val infoYOffsetDp = 0
+    const val headerOffsetLimitDp = 150
+    const val headerLeftXOffsetDp = 114
+    const val headerLeftYOffsetDp = 1
+    const val headerRightXOffsetDp = 0
+    const val headerRightYOffsetDp = 0
+    const val innerVPadDp = 8
+    const val innerBottomDp = 0
+    const val outerBottomDp = 0
+    const val minHeightDp = 156
+    const val detailsMaxH = 40
+    const val detailsLines = 2
+    const val headerSpacerDp = 0
+    const val bodySpacerDp = 0
+}
+
 private data class DevSettingsDefaults(
     val cardMaxHeightDp: Int?,
     val innerBottomDp: Int?,
@@ -323,10 +342,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = SpriteSheetConfig.default3x3())
-    val devSettingsDefaults = remember(spriteSheetConfigJson) {
+    val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
-    val initialHeaderLeftXOffsetDp = devSettingsDefaults?.headerLeftXOffsetDp
+    val initialHeaderLeftXOffsetDp = devFromJson?.headerLeftXOffsetDp
     val readyAnimationSettings by settingsPreferences.readyAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val talkingAnimationSettings by settingsPreferences.talkingAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val readyInsertionAnimationSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
@@ -1320,7 +1339,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         onCopyJson = { devSettings ->
                                             copyAppliedSettings(devSettings)
                                         },
-                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                                        devFromJson = devFromJson
                                     )
                                 }
                             }
@@ -1403,6 +1423,7 @@ private fun ReadyAnimationTab(
     footerHeight: Dp,
     onCopyJson: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
+    devFromJson: DevSettingsDefaults?,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1898,58 +1919,59 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     initialHeaderLeftXOffsetDp: Int?,
+    devFromJson: DevSettingsDefaults?,
     onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
     val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
-    var cardMaxHeightDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.cardMaxHeightDp ?: 130)
+    var cardMaxHeightDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.cardMaxHeightDp ?: DevDefaults.cardMaxHeightDp)
     }
-    var innerBottomDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.innerBottomDp ?: 0)
+    var innerBottomDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.innerBottomDp ?: DevDefaults.innerBottomDp)
     }
-    var outerBottomDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.outerBottomDp ?: 0)
+    var outerBottomDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.outerBottomDp ?: DevDefaults.outerBottomDp)
     }
-    var innerVPadDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.innerVPadDp ?: 8)
+    var innerVPadDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.innerVPadDp ?: DevDefaults.innerVPadDp)
     }
-    var charYOffsetDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.charYOffsetDp ?: -32)
+    var charYOffsetDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.charYOffsetDp ?: DevDefaults.charYOffsetDp)
     }
-    var infoYOffsetDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.infoYOffsetDp ?: 0)
+    var infoYOffsetDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.infoYOffsetDp ?: DevDefaults.infoYOffsetDp)
     }
-    var headerOffsetLimitDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.headerOffsetLimitDp ?: 150)
+    var headerOffsetLimitDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.headerOffsetLimitDp ?: DevDefaults.headerOffsetLimitDp)
     }
-    var headerLeftXOffsetDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.headerLeftXOffsetDp ?: 114)
+    var headerLeftXOffsetDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.headerLeftXOffsetDp ?: DevDefaults.headerLeftXOffsetDp)
     }
-    var headerLeftYOffsetDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.headerLeftYOffsetDp ?: 1)
+    var headerLeftYOffsetDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.headerLeftYOffsetDp ?: DevDefaults.headerLeftYOffsetDp)
     }
-    var headerRightXOffsetDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.headerRightXOffsetDp ?: 0)
+    var headerRightXOffsetDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.headerRightXOffsetDp ?: DevDefaults.headerRightXOffsetDp)
     }
-    var headerRightYOffsetDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.headerRightYOffsetDp ?: 0)
+    var headerRightYOffsetDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.headerRightYOffsetDp ?: DevDefaults.headerRightYOffsetDp)
     }
-    var cardMinHeightDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.cardMinHeightDp ?: 156)
+    var cardMinHeightDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.cardMinHeightDp ?: DevDefaults.minHeightDp)
     }
-    var detailsMaxHeightDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.detailsMaxHeightDp ?: 40)
+    var detailsMaxHeightDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.detailsMaxHeightDp ?: DevDefaults.detailsMaxH)
     }
-    var detailsMaxLines by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.detailsMaxLines ?: 2)
+    var detailsMaxLines by rememberSaveable {
+        mutableIntStateOf(devFromJson?.detailsMaxLines ?: DevDefaults.detailsLines)
     }
-    var headerSpacerDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.headerSpacerDp ?: 0)
+    var headerSpacerDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.headerSpacerDp ?: DevDefaults.headerSpacerDp)
     }
-    var bodySpacerDp by rememberSaveable(devSettingsDefaults) {
-        mutableIntStateOf(devSettingsDefaults?.bodySpacerDp ?: 0)
+    var bodySpacerDp by rememberSaveable {
+        mutableIntStateOf(devFromJson?.bodySpacerDp ?: DevDefaults.bodySpacerDp)
     }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     LaunchedEffect(initialHeaderLeftXOffsetDp) {
