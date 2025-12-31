@@ -109,6 +109,8 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -141,6 +143,19 @@ private data class InsertionPreviewValues(
     val probabilityText: String,
     val cooldownText: String,
     val exclusiveText: String,
+)
+
+private data class DevPreviewSettings(
+    val innerBottomDp: Int,
+    val outerBottomDp: Int,
+    val innerVPadDp: Int,
+    val charYOffsetDp: Int,
+    val infoYOffsetDp: Int,
+    val cardMinHeightDp: Int,
+    val detailsMaxHeightDp: Int,
+    val detailsMaxLines: Int,
+    val headerSpacerDp: Int,
+    val bodySpacerDp: Int,
 )
 
 private fun buildInsertionPreviewSummary(
@@ -629,6 +644,59 @@ fun SpriteSettingsScreen(navController: NavController) {
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
                 snackbarHostState.showSnackbar("JSONをコピーしました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
+    fun copyAppliedSettings(devSettings: DevPreviewSettings) {
+        coroutineScope.launch {
+            runCatching {
+                val config = buildSpriteSheetConfig()
+                val error = config.validate()
+                if (error != null) {
+                    throw IllegalArgumentException(error)
+                }
+                val readyBase = ReadyAnimationSettings(
+                    frameSequence = appliedReadyFrames,
+                    intervalMs = appliedReadyIntervalMs
+                )
+                val talkingBase = ReadyAnimationSettings(
+                    frameSequence = appliedTalkingFrames,
+                    intervalMs = appliedTalkingIntervalMs
+                )
+                val readyInsertion = InsertionAnimationSettings(
+                    enabled = appliedReadyInsertionEnabled,
+                    frameSequence = appliedReadyInsertionFrames,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                )
+                val talkingInsertion = InsertionAnimationSettings(
+                    enabled = appliedTalkingInsertionEnabled,
+                    frameSequence = appliedTalkingInsertionFrames,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                )
+
+                val jsonString = buildSettingsJson(
+                    animationType = selectedAnimation,
+                    spriteSheetConfig = config,
+                    readyBase = readyBase,
+                    talkingBase = talkingBase,
+                    readyInsertion = readyInsertion,
+                    talkingInsertion = talkingInsertion,
+                    devSettings = devSettings,
+                )
+                clipboardManager.setText(AnnotatedString(jsonString))
+            }.onSuccess {
+                snackbarHostState.showSnackbar("設定JSONをコピーしました")
             }.onFailure { throwable ->
                 snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
             }
@@ -1164,7 +1232,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         insertionState = insertionState,
                                         isImeVisible = imeVisible,
                                         contentPadding = contentPadding,
-                                        footerHeight = footerHeight
+                                        footerHeight = footerHeight,
+                                        onCopyJson = { devSettings ->
+                                            copyAppliedSettings(devSettings)
+                                        }
                                     )
                                 }
                             }
@@ -1245,6 +1316,7 @@ private fun ReadyAnimationTab(
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
     footerHeight: Dp,
+    onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1300,7 +1372,8 @@ private fun ReadyAnimationTab(
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                onCopyJson = onCopyJson
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -1688,7 +1761,7 @@ private fun ReadyAnimationPreview(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = detailsMaxLines,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Visible
                         )
                     }
                 }
@@ -1707,6 +1780,7 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
+    onCopyJson: (DevPreviewSettings) -> Unit,
 ) {
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var innerBottomDp by rememberSaveable { mutableIntStateOf(0) }
@@ -1715,8 +1789,8 @@ private fun ReadyAnimationPreviewPane(
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
-    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(72) }
-    var detailsMaxLines by rememberSaveable { mutableIntStateOf(3) }
+    var detailsMaxHeightDp by rememberSaveable { mutableIntStateOf(96) }
+    var detailsMaxLines by rememberSaveable { mutableIntStateOf(6) }
     var headerSpacerDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 2 else 4) }
     var bodySpacerDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 4 else 8) }
     var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
@@ -2141,6 +2215,28 @@ private fun ReadyAnimationPreviewPane(
                                     expanded = showDetails,
                                     onClick = { showDetails = !showDetails },
                                 )
+                                FilledTonalButton(
+                                    onClick = {
+                                        onCopyJson(
+                                            DevPreviewSettings(
+                                                innerBottomDp = innerBottomDp,
+                                                outerBottomDp = outerBottomDp,
+                                                innerVPadDp = innerVPadDp,
+                                                charYOffsetDp = charYOffsetDp,
+                                                infoYOffsetDp = infoYOffsetDp,
+                                                cardMinHeightDp = cardMinHeightDp,
+                                                detailsMaxHeightDp = detailsMaxHeightDp,
+                                                detailsMaxLines = detailsMaxLines,
+                                                headerSpacerDp = headerSpacerDp,
+                                                bodySpacerDp = bodySpacerDp,
+                                            )
+                                        )
+                                    },
+                                    modifier = Modifier.padding(top = 4.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("JSONコピー")
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(headerSpacerDp.dp))
@@ -2340,13 +2436,94 @@ private fun formatInsertionDetail(
     val cooldownText = previewValues?.cooldownText?.ifBlank { "-" } ?: "-"
     val exclusiveText = previewValues?.exclusiveText ?: "-"
 
-    val parts = buildList {
-        add("${summary.label}: $framesText / ${intervalText}ms")
-        add("N:$everyNText")
-        add("P:${if (probabilityText == "-") "-" else "$probabilityText%"}")
-        add("CD:$cooldownText")
-        add("Excl:$exclusiveText")
+    val probabilityDisplay = if (probabilityText == "-") "-" else "$probabilityText%"
+    return buildString {
+        append("${summary.label}: $framesText / ${intervalText}ms")
+        append("\n")
+        append("N:$everyNText  ")
+        append("P:$probabilityDisplay  ")
+        append("CD:$cooldownText  ")
+        append("Excl:$exclusiveText")
     }
-    // keep short to avoid card growth; joins with double space to mimic spec formatting
-    return parts.joinToString(separator = "  ")
 }
+
+private fun buildSettingsJson(
+    animationType: AnimationType,
+    spriteSheetConfig: SpriteSheetConfig,
+    readyBase: ReadyAnimationSettings,
+    talkingBase: ReadyAnimationSettings,
+    readyInsertion: InsertionAnimationSettings,
+    talkingInsertion: InsertionAnimationSettings,
+    devSettings: DevPreviewSettings,
+): String {
+    val root = JSONObject()
+    root.put("animationType", animationType.label)
+    root.put(
+        "ready",
+        JSONObject()
+            .put("base", readyBase.toJsonObject())
+            .put("insertion", readyInsertion.toJsonObject())
+    )
+    root.put(
+        "talking",
+        JSONObject()
+            .put("base", talkingBase.toJsonObject())
+            .put("insertion", talkingInsertion.toJsonObject())
+    )
+    root.put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
+    root.put("dev", devSettings.toJsonObject())
+    return root.toString(2)
+}
+
+private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
+    JSONObject()
+        .put("frames", frameSequence.toJsonArray())
+        .put("intervalMs", intervalMs)
+
+private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
+    JSONObject()
+        .put("enabled", enabled)
+        .put("frames", frameSequence.toJsonArray())
+        .put("intervalMs", intervalMs)
+        .put("everyNLoops", everyNLoops)
+        .put("probabilityPercent", probabilityPercent)
+        .put("cooldownLoops", cooldownLoops)
+        .put("exclusive", exclusive)
+
+private fun SpriteSheetConfig.toJsonObject(): JSONObject =
+    JSONObject()
+        .put("rows", rows)
+        .put("cols", cols)
+        .put("frameWidth", frameWidth)
+        .put("frameHeight", frameHeight)
+        .put(
+            "boxes",
+            JSONArray().apply {
+                boxes.forEach { box ->
+                    put(
+                        JSONObject()
+                            .put("frameIndex", box.frameIndex)
+                            .put("x", box.x)
+                            .put("y", box.y)
+                            .put("width", box.width)
+                            .put("height", box.height)
+                    )
+                }
+            }
+        )
+
+private fun DevPreviewSettings.toJsonObject(): JSONObject =
+    JSONObject()
+        .put("charYOffsetDp", charYOffsetDp)
+        .put("infoYOffsetDp", infoYOffsetDp)
+        .put("innerVPadDp", innerVPadDp)
+        .put("innerBottomDp", innerBottomDp)
+        .put("outerBottomDp", outerBottomDp)
+        .put("minHeightDp", cardMinHeightDp)
+        .put("detailsMaxH", detailsMaxHeightDp)
+        .put("detailsLines", detailsMaxLines)
+        .put("headerSpacerDp", headerSpacerDp)
+        .put("bodySpacerDp", bodySpacerDp)
+
+private fun List<Int>.toJsonArray(): JSONArray =
+    JSONArray().apply { forEach { value -> put(value) } }
