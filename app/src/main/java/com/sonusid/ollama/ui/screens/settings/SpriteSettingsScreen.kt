@@ -1858,7 +1858,11 @@ private fun ReadyAnimationPreviewPane(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (isImeVisible) 220.dp else 300.dp)
+                    .heightIn(
+                        min = if (isImeVisible) 180.dp else 210.dp,
+                        max = if (isImeVisible) 220.dp else 300.dp
+                    )
+                    // TEMP: allow preview card height to shrink to content (keep max cap)
                     // プレビューカード全体の余白を軽く圧縮して情報ブロックを上寄せ
                     .padding(horizontal = 12.dp, vertical = innerVPadDp.dp)
             ) {
