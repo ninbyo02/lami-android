@@ -151,6 +151,7 @@ private data class DevPreviewSettings(
     val innerVPadDp: Int,
     val charYOffsetDp: Int,
     val infoYOffsetDp: Int,
+    val headerOffsetLimitDp: Int,
     val headerXOffsetDp: Int,
     val headerYOffsetDp: Int,
     val cardMinHeightDp: Int,
@@ -1790,6 +1791,7 @@ private fun ReadyAnimationPreviewPane(
     var innerVPadDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 0 else 2) }
     var charYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var infoYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
+    var headerOffsetLimitDp by rememberSaveable { mutableIntStateOf(240) }
     var headerXOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var headerYOffsetDp by rememberSaveable { mutableIntStateOf(0) }
     var cardMinHeightDp by rememberSaveable { mutableIntStateOf(if (isImeVisible) 180 else 210) }
@@ -1848,6 +1850,7 @@ private fun ReadyAnimationPreviewPane(
                                     innerVPadDp = innerVPadDp,
                                     charYOffsetDp = charYOffsetDp,
                                     infoYOffsetDp = infoYOffsetDp,
+                                    headerOffsetLimitDp = headerOffsetLimitDp,
                                     headerXOffsetDp = headerXOffsetDp,
                                     headerYOffsetDp = headerYOffsetDp,
                                     cardMinHeightDp = cardMinHeightDp,
@@ -1929,19 +1932,46 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "HeaderX:${headerXOffsetDp}dp / 見出しX",
+                                    text = "HeaderLimit:${headerOffsetLimitDp}dp / 見出し移動限界",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
                                     onClick = {
-                                        headerXOffsetDp = (headerXOffsetDp - 1).coerceIn(-80, 80)
+                                        headerOffsetLimitDp = (headerOffsetLimitDp + 10).coerceIn(0, 400)
+                                        headerXOffsetDp = headerXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerYOffsetDp = headerYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
                                     onClick = {
-                                        headerXOffsetDp = (headerXOffsetDp + 1).coerceIn(-80, 80)
+                                        headerOffsetLimitDp = (headerOffsetLimitDp - 10).coerceIn(0, 400)
+                                        headerXOffsetDp = headerXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                        headerYOffsetDp = headerYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                    }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "HeaderX:${headerXOffsetDp}dp / 見出しX",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        headerXOffsetDp = (headerXOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        headerXOffsetDp = (headerXOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▼")
@@ -1957,14 +1987,14 @@ private fun ReadyAnimationPreviewPane(
                                 )
                                 IconButton(
                                     onClick = {
-                                        headerYOffsetDp = (headerYOffsetDp - 1).coerceIn(-80, 80)
+                                        headerYOffsetDp = (headerYOffsetDp - 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▲")
                                 }
                                 IconButton(
                                     onClick = {
-                                        headerYOffsetDp = (headerYOffsetDp + 1).coerceIn(-80, 80)
+                                        headerYOffsetDp = (headerYOffsetDp + 1).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                                     }
                                 ) {
                                     Text("▼")
@@ -2585,6 +2615,7 @@ private fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)
+        .put("headerOffsetLimitDp", headerOffsetLimitDp)
         .put("headerXOffsetDp", headerXOffsetDp)
         .put("headerYOffsetDp", headerYOffsetDp)
         .put("innerVPadDp", innerVPadDp)
