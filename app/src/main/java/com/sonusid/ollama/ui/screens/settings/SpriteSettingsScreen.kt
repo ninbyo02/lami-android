@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -2843,7 +2844,7 @@ private fun SpritePreviewBlock(
     line2Text: String,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
-    overlayContent: (BoxScope.() -> Unit)? = null,
+    overlayContent: @Composable BoxScope.() -> Unit = {},
 ) {
     Column(
         modifier = modifier,
@@ -2865,7 +2866,7 @@ private fun SpritePreviewBlock(
                     .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
                 contentScale = ContentScale.Fit
             )
-            overlayContent?.invoke(this)
+            overlayContent()
         }
         val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
             lineHeight = MaterialTheme.typography.labelMedium.fontSize
