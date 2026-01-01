@@ -2866,6 +2866,7 @@ private fun ReadyAnimationPreviewPane(
         }
     }
 }
+}
 
 @Composable
 private fun SpritePreviewBlock(
