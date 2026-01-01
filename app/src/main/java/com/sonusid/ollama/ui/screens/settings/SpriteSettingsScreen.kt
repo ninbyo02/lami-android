@@ -90,7 +90,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -904,6 +903,19 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun copyDevSettings(devSettings: DevPreviewSettings) {
+        coroutineScope.launch {
+            runCatching {
+                val jsonString = buildDevJson(devSettings)
+                clipboardManager.setText(AnnotatedString(jsonString))
+            }.onSuccess {
+                snackbarHostState.showSnackbar("JSONをコピーしました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
@@ -1038,40 +1050,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        bottomBar = {
-            val copyLabel = when (tabIndex) {
-                0 -> "コピー(調整)"
-                1 -> "コピー(アニメ)"
-                else -> "コピー(DEV)"
-            }
-            SpriteSettingsFooter(
-                modifier = Modifier.fillMaxWidth(),
-                copyLabel = copyLabel,
-                onUpdate = {
-                    when (tabIndex) {
-                        0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                        1 -> onAnimationApply()
-                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
-                    }
-                },
-                onSave = {
-                    when (tabIndex) {
-                        0 -> saveSpriteSheetConfig()
-                        1 -> onAnimationSave()
-                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
-                    }
-                },
-                onCopy = {
-                    when (tabIndex) {
-                        0 -> copySpriteSheetConfig()
-                        1 -> copyAppliedSettings(devPreviewSettings)
-                        else -> { /* DEVはフッターからコピーしない */ }
-                    }
-                },
-                isCopyEnabled = tabIndex != 2
-            )
-        }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
         val contentPadding = PaddingValues(
@@ -1170,6 +1149,66 @@ fun SpriteSettingsScreen(navController: NavController) {
                             selectedContentColor = MaterialTheme.colorScheme.primary,
                             unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    val actionButtonModifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 36.dp)
+                    val actionButtonPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilledTonalButton(
+                            modifier = actionButtonModifier,
+                            onClick = {
+                                when (tabIndex) {
+                                    0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                                    1 -> onAnimationApply()
+                                    else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
+                                }
+                            },
+                            contentPadding = actionButtonPadding
+                        ) {
+                            Text(
+                                text = "更新",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        FilledTonalButton(
+                            modifier = actionButtonModifier,
+                            onClick = {
+                                when (tabIndex) {
+                                    0 -> saveSpriteSheetConfig()
+                                    1 -> onAnimationSave()
+                                    else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
+                                }
+                            },
+                            contentPadding = actionButtonPadding
+                        ) {
+                            Text(
+                                text = "保存",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        FilledTonalButton(
+                            modifier = actionButtonModifier,
+                            onClick = {
+                                when (tabIndex) {
+                                    0 -> copySpriteSheetConfig()
+                                    1 -> copyAppliedSettings(devPreviewSettings)
+                                    else -> copyDevSettings(devPreviewSettings)
+                                }
+                            },
+                            contentPadding = actionButtonPadding
+                        ) {
+                            Text(
+                                text = "コピー",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
                     }
                     Box(
                         modifier = Modifier
@@ -2989,61 +3028,6 @@ private fun SpriteSettingsControls(
                     onClick = onSizeIncrease,
                     modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
                 ) { Text("+") }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SpriteSettingsFooter(
-    modifier: Modifier = Modifier,
-    copyLabel: String,
-    onUpdate: () -> Unit,
-    onSave: () -> Unit,
-    onCopy: () -> Unit,
-    isCopyEnabled: Boolean,
-) {
-    Column(
-        modifier = modifier
-    ) {
-        Divider()
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp, max = 72.dp)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            tonalElevation = 4.dp,
-            shadowElevation = 2.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilledTonalButton(
-                    modifier = Modifier.weight(1f),
-                    onClick = onUpdate,
-                    contentPadding = PaddingValues(vertical = 10.dp)
-                ) {
-                    Text("更新")
-                }
-                FilledTonalButton(
-                    modifier = Modifier.weight(1f),
-                    onClick = onSave,
-                    contentPadding = PaddingValues(vertical = 10.dp)
-                ) {
-                    Text("保存")
-                }
-                FilledTonalButton(
-                    modifier = Modifier.weight(1f),
-                    onClick = onCopy,
-                    enabled = isCopyEnabled,
-                    contentPadding = PaddingValues(vertical = 10.dp)
-                ) {
-                    Text(copyLabel)
-                }
             }
         }
     }
