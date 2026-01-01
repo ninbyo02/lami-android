@@ -104,7 +104,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -528,6 +527,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(devUnlocked) {
         if (!devUnlocked) {
             devExpanded = false
+            if (tabIndex == 2) tabIndex = 1
         }
     }
 
@@ -1118,24 +1118,27 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
+                    val effectiveTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
                     TabRow(
-                        selectedTabIndex = tabIndex,
+                        selectedTabIndex = effectiveTabIndex,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(32.dp),
                         containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
                         indicator = { tabPositions ->
-                            TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[tabIndex])
-                                    .padding(horizontal = 6.dp),
-                                height = 2.dp
-                            )
+                            tabPositions.getOrNull(effectiveTabIndex)?.let { position ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier
+                                        .tabIndicatorOffset(position)
+                                        .padding(horizontal = 6.dp),
+                                    height = 2.dp
+                                )
+                            }
                         },
                         divider = { Divider(thickness = 0.5.dp) }
                     ) {
                         Tab(
-                            selected = tabIndex == 0,
+                            selected = effectiveTabIndex == 0,
                             onClick = {
                                 tabIndex = 0
                                 animTabTapCount = 0
@@ -1151,7 +1154,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Tab(
-                            selected = tabIndex == 1,
+                            selected = effectiveTabIndex == 1,
                             onClick = {
                                 tabIndex = 1
                                 animTabTapCount += 1
@@ -1178,22 +1181,24 @@ fun SpriteSettingsScreen(navController: NavController) {
                             selectedContentColor = MaterialTheme.colorScheme.primary,
                             unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Tab(
-                            selected = tabIndex == 2,
-                            onClick = {
-                                tabIndex = 2
-                                animTabTapCount = 0
-                            },
-                            text = {
-                                Text(
-                                    text = "DEV",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1
-                                )
-                            },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (devUnlocked) {
+                            Tab(
+                                selected = effectiveTabIndex == 2,
+                                onClick = {
+                                    tabIndex = 2
+                                    animTabTapCount = 0
+                                },
+                                text = {
+                                    Text(
+                                        text = "DEV",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1
+                                    )
+                                },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
                     val actionButtonModifier = Modifier
@@ -1216,7 +1221,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         FilledTonalButton(
                             modifier = actionButtonModifier,
                             onClick = {
-                                when (tabIndex) {
+                                when (effectiveTabIndex) {
                                     0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
                                     1 -> onAnimationApply()
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
@@ -1233,7 +1238,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         FilledTonalButton(
                             modifier = actionButtonModifier,
                             onClick = {
-                                when (tabIndex) {
+                                when (effectiveTabIndex) {
                                     0 -> saveSpriteSheetConfig()
                                     1 -> onAnimationSave()
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
@@ -1250,7 +1255,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         FilledTonalButton(
                             modifier = actionButtonModifier,
                             onClick = {
-                                when (tabIndex) {
+                                when (effectiveTabIndex) {
                                     0 -> copySpriteSheetConfig()
                                     1 -> copyAppliedSettings(devPreviewSettings)
                                     else -> copyDevSettings(devPreviewSettings)
@@ -1270,7 +1275,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             .fillMaxWidth()
                             .weight(1f, fill = true)
                     ) {
-                            when (tabIndex) {
+                            when (effectiveTabIndex) {
                                 0 -> {
                                     val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
                                     val coordinateText =
@@ -1595,7 +1600,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         contentPadding = contentPadding,
                                         devSettings = devPreviewSettings,
                                         onDevSettingsChange = { updated -> devPreviewSettings = updated },
-                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                                        devUnlocked = devUnlocked,
+                                        devExpanded = devExpanded,
+                                        onDevExpandedChange = { expanded -> devExpanded = expanded }
                                     )
                                 }
 
@@ -1715,6 +1723,9 @@ private fun ReadyAnimationTab(
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
+    devUnlocked: Boolean,
+    devExpanded: Boolean,
+    onDevExpandedChange: (Boolean) -> Unit,
 ) {
     val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
@@ -1732,8 +1743,6 @@ private fun ReadyAnimationTab(
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
-    val devUnlocked = BuildConfig.DEBUG
-    var devExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -1754,7 +1763,7 @@ private fun ReadyAnimationTab(
                 isImeVisible = isImeVisible,
                 devUnlocked = devUnlocked,
                 devExpanded = devExpanded,
-                onDevExpandedChange = { expanded -> devExpanded = expanded },
+                onDevExpandedChange = onDevExpandedChange,
                 modifier = Modifier.fillMaxWidth(),
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
