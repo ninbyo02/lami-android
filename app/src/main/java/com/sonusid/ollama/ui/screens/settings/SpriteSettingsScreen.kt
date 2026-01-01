@@ -99,6 +99,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
@@ -2959,15 +2961,15 @@ private fun SpriteSettingsControls(
             ) {
                 FilledTonalButton(
                     onClick = onPrev,
-                    modifier = buttonModifier,
+                    modifier = buttonModifier.semantics { contentDescription = "Previous" },
                 ) {
-                    Text(text = "前へ")
+                    Text(text = "◀")
                 }
                 FilledTonalButton(
                     onClick = onNext,
-                    modifier = buttonModifier,
+                    modifier = buttonModifier.semantics { contentDescription = "Next" },
                 ) {
-                    Text(text = "次へ")
+                    Text(text = "▶")
                 }
                 FilledTonalButton(
                     onClick = onMoveXNegative,
