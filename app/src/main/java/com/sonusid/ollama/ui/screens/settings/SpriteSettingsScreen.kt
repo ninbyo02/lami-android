@@ -343,8 +343,8 @@ private fun buildInsertionPreviewSummary(
 }
 
 private const val DEFAULT_BOX_SIZE_PX = 88
-private const val INFO_X_OFFSET_MIN = -60
-private const val INFO_X_OFFSET_MAX = 60
+private const val INFO_X_OFFSET_MIN = -500
+private const val INFO_X_OFFSET_MAX = 500
 
 private fun clampPosition(
     position: BoxPosition,
