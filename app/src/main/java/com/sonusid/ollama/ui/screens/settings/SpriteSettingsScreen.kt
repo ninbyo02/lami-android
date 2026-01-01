@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -71,6 +72,7 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -1151,10 +1153,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                             unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    val actionButtonHeight = 48.dp
                     val actionButtonModifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 36.dp)
+                        .height(actionButtonHeight)
                     val actionButtonPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    val actionButtonShape = MaterialTheme.shapes.small
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1171,7 +1175,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
                                 }
                             },
-                            contentPadding = actionButtonPadding
+                            contentPadding = actionButtonPadding,
+                            shape = actionButtonShape
                         ) {
                             Text(
                                 text = "更新",
@@ -1187,7 +1192,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
                                 }
                             },
-                            contentPadding = actionButtonPadding
+                            contentPadding = actionButtonPadding,
+                            shape = actionButtonShape
                         ) {
                             Text(
                                 text = "保存",
@@ -1203,7 +1209,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     else -> copyDevSettings(devPreviewSettings)
                                 }
                             },
-                            contentPadding = actionButtonPadding
+                            contentPadding = actionButtonPadding,
+                            shape = actionButtonShape
                         ) {
                             Text(
                                 text = "コピー",
@@ -1270,6 +1277,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
                                         SpriteSettingsControls(
+                                            buttonHeight = actionButtonHeight,
+                                            buttonContentPadding = actionButtonPadding,
+                                            buttonShape = actionButtonShape,
                                             onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
                                             onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
                                             onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
@@ -2935,6 +2945,9 @@ private fun SpritePreviewBlock(
 
 @Composable
 private fun SpriteSettingsControls(
+    buttonHeight: Dp,
+    buttonContentPadding: PaddingValues,
+    buttonShape: Shape,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onMoveXNegative: () -> Unit,
@@ -2952,7 +2965,12 @@ private fun SpriteSettingsControls(
     ) {
         val buttonModifier = Modifier
             .weight(1f)
-            .heightIn(min = 48.dp)
+            .height(buttonHeight)
+
+        val navigatorButtonColors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -2962,24 +2980,34 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onPrev,
                     modifier = buttonModifier.semantics { contentDescription = "Previous" },
+                    colors = navigatorButtonColors,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text(text = "◀")
                 }
                 FilledTonalButton(
                     onClick = onNext,
                     modifier = buttonModifier.semantics { contentDescription = "Next" },
+                    colors = navigatorButtonColors,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text(text = "▶")
                 }
                 FilledTonalButton(
                     onClick = onMoveXNegative,
                     modifier = buttonModifier,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text("X-")
                 }
                 FilledTonalButton(
                     onClick = onMoveXPositive,
                     modifier = buttonModifier,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text("X+")
                 }
@@ -2991,24 +3019,32 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onSizeDecrease,
                     modifier = buttonModifier,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text("-")
                 }
                 FilledTonalButton(
                     onClick = onSizeIncrease,
                     modifier = buttonModifier,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text("+")
                 }
                 FilledTonalButton(
                     onClick = onMoveYNegative,
                     modifier = buttonModifier,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text("Y-")
                 }
                 FilledTonalButton(
                     onClick = onMoveYPositive,
                     modifier = buttonModifier,
+                    contentPadding = buttonContentPadding,
+                    shape = buttonShape
                 ) {
                     Text("Y+")
                 }
@@ -3016,6 +3052,8 @@ private fun SpriteSettingsControls(
         }
     }
 }
+
+// UI調整: 操作ボタンの高さを上部と統一し、矢印ボタンを軽く強調。
 
 private fun formatAppliedLine(
     summary: AnimationSummary,
