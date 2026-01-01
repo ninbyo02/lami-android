@@ -63,6 +63,7 @@ data class InsertionAnimationSettings(
 
 class SettingsPreferences(private val context: Context) {
 
+    private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color_enabled")
     private val spriteSheetConfigKey = stringPreferencesKey("sprite_sheet_config")
     private val readyFrameSequenceKey = stringPreferencesKey("ready_frame_sequence")
@@ -97,7 +98,7 @@ class SettingsPreferences(private val context: Context) {
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
         val json = preferences[spriteSheetConfigKey]
         val parsed = json?.let { SpriteSheetConfig.fromJson(it) }
-        parsed?.normalize(SpriteSheetConfig.default3x3()) ?: SpriteSheetConfig.default3x3()
+        parsed?.normalize(defaultSpriteSheetConfig) ?: defaultSpriteSheetConfig
     }
 
     val readyAnimationSettings: Flow<ReadyAnimationSettings> = context.dataStore.data.map { preferences ->
@@ -105,7 +106,7 @@ class SettingsPreferences(private val context: Context) {
         val parsedFrames = frameSequenceString
             ?.split(",")
             ?.mapNotNull { value -> value.trim().toIntOrNull() }
-            ?.filter { it in 0..8 }
+            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
             .orEmpty()
             .ifEmpty { ReadyAnimationSettings.DEFAULT.frameSequence }
 
@@ -124,7 +125,7 @@ class SettingsPreferences(private val context: Context) {
         val parsedFrames = frameSequenceString
             ?.split(",")
             ?.mapNotNull { value -> value.trim().toIntOrNull() }
-            ?.filter { it in 0 until SpriteSheetConfig.default3x3().frameCount }
+            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
             .orEmpty()
             .ifEmpty { ReadyAnimationSettings.DEFAULT.frameSequence }
 
@@ -143,7 +144,7 @@ class SettingsPreferences(private val context: Context) {
         val parsedFrames = frameSequenceString
             ?.split(",")
             ?.mapNotNull { value -> value.trim().toIntOrNull() }
-            ?.filter { it in 0 until SpriteSheetConfig.default3x3().frameCount }
+            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
             .orEmpty()
             .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence }
 
@@ -185,7 +186,7 @@ class SettingsPreferences(private val context: Context) {
         val parsedFrames = frameSequenceString
             ?.split(",")
             ?.mapNotNull { value -> value.trim().toIntOrNull() }
-            ?.filter { it in 0 until SpriteSheetConfig.default3x3().frameCount }
+            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
             .orEmpty()
             .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence }
 
@@ -235,7 +236,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     suspend fun resetSpriteSheetConfig() {
-        saveSpriteSheetConfig(SpriteSheetConfig.default3x3())
+        saveSpriteSheetConfig(defaultSpriteSheetConfig)
     }
 
     suspend fun saveReadyAnimationSettings(settings: ReadyAnimationSettings) {
