@@ -262,7 +262,6 @@ private data class DevSettingsDefaults(
         }
     }
 }
-
 private fun DevSettingsDefaults.toDevPreviewSettings(): DevPreviewSettings =
     DevPreviewSettings(
         cardMaxHeightDp = cardMaxHeightDp ?: DevDefaults.cardMaxHeightDp,
@@ -2894,8 +2893,6 @@ private fun ReadyAnimationPreviewPane(
             }
         }
     }
-}
-}
 }
 
 @Composable
