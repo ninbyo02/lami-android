@@ -29,6 +29,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -1157,8 +1161,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                     val actionButtonModifier = Modifier
                         .weight(1f)
                         .height(actionButtonHeight)
-                    val actionButtonPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                    val actionButtonShape = MaterialTheme.shapes.small
+                    val actionButtonPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    val actionButtonShape = RoundedCornerShape(999.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2967,10 +2971,11 @@ private fun SpriteSettingsControls(
             .weight(1f)
             .height(buttonHeight)
 
-        val navigatorButtonColors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        val navigatorButtonColors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF6A00FF),
+            contentColor = Color.White
         )
+        val defaultControlButtonColors = ButtonDefaults.filledTonalButtonColors()
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -2984,7 +2989,10 @@ private fun SpriteSettingsControls(
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
-                    Text(text = "◀")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null
+                    )
                 }
                 FilledTonalButton(
                     onClick = onNext,
@@ -2993,11 +3001,15 @@ private fun SpriteSettingsControls(
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
-                    Text(text = "▶")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null
+                    )
                 }
                 FilledTonalButton(
                     onClick = onMoveXNegative,
                     modifier = buttonModifier,
+                    colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
@@ -3006,6 +3018,7 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onMoveXPositive,
                     modifier = buttonModifier,
+                    colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
@@ -3019,6 +3032,7 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onSizeDecrease,
                     modifier = buttonModifier,
+                    colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
@@ -3027,6 +3041,7 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onSizeIncrease,
                     modifier = buttonModifier,
+                    colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
@@ -3035,6 +3050,7 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onMoveYNegative,
                     modifier = buttonModifier,
+                    colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
@@ -3043,6 +3059,7 @@ private fun SpriteSettingsControls(
                 FilledTonalButton(
                     onClick = onMoveYPositive,
                     modifier = buttonModifier,
+                    colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
@@ -3053,7 +3070,7 @@ private fun SpriteSettingsControls(
     }
 }
 
-// UI調整: 操作ボタンの高さを上部と統一し、矢印ボタンを軽く強調。
+// UI調整: 下部操作ボタンをピル形状に戻し、矢印を真紫で視認性を向上。
 
 private fun formatAppliedLine(
     summary: AnimationSummary,
