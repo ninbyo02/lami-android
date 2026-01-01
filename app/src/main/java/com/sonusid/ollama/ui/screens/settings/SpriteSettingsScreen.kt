@@ -2887,11 +2887,11 @@ private fun ReadyAnimationPreviewPane(
                                 top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
                             )
                     )
-                }
-            // FIX: missing brace for ReadyAnimationPreviewPane
+                } // FIX: close ReadyAnimationPreviewPane content Box
             }
         }
     }
+}
 }
 }
 
