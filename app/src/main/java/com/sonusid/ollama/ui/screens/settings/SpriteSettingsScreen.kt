@@ -104,6 +104,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -1731,6 +1732,8 @@ private fun ReadyAnimationTab(
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
+    val devUnlocked = BuildConfig.DEBUG
+    var devExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
