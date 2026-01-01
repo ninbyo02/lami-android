@@ -1157,11 +1157,14 @@ fun SpriteSettingsScreen(navController: NavController) {
                             unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    val actionButtonHeight = 48.dp
+                    val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
                     val actionButtonModifier = Modifier
                         .weight(1f)
                         .height(actionButtonHeight)
-                    val actionButtonPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    val actionButtonPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 0.dp
+                    ) // 内部余白を最小化して厚みを揃える
                     val actionButtonShape = RoundedCornerShape(999.dp)
                     val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
                     val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
