@@ -2151,7 +2151,6 @@ private fun ReadyAnimationCharacter(
         }
     }
 }
-}
 
 @Composable
 private fun ReadyAnimationInfo(
