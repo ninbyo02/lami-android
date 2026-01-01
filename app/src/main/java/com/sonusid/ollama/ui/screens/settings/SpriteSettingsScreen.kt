@@ -1685,6 +1685,9 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
         }
     }
+}
+
+// FIX: close SpriteSettingsScreen before helper declarations
 
 private data class AnimationSelectionState(
     val selectedAnimation: AnimationType,
