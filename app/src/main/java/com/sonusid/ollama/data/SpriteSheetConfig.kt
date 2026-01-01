@@ -4,7 +4,6 @@ import android.os.Parcelable
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import kotlinx.parcelize.Parcelize
-import kotlin.math.roundToInt
 
 @Parcelize
 data class BoxPosition(
@@ -56,43 +55,48 @@ data class SpriteSheetConfig(
     }
 
     companion object {
-        val DEFAULT: SpriteSheetConfig = SpriteSheetConfig(
+        const val DEFAULT_JSON: String = """
+            {
+              "boxes": [
+                {"frameIndex":0,"height":88,"width":88,"x":0,"y":9},
+                {"frameIndex":1,"height":88,"width":88,"x":96,"y":9},
+                {"frameIndex":2,"height":88,"width":88,"x":191,"y":9},
+                {"frameIndex":3,"height":88,"width":88,"x":0,"y":104},
+                {"frameIndex":4,"height":88,"width":88,"x":95,"y":104},
+                {"frameIndex":5,"height":88,"width":88,"x":191,"y":103},
+                {"frameIndex":6,"height":88,"width":88,"x":0,"y":196},
+                {"frameIndex":7,"height":88,"width":88,"x":95,"y":196},
+                {"frameIndex":8,"height":88,"width":88,"x":191,"y":196}
+              ],
+              "cols": 3,
+              "rows": 3,
+              "frameCount": 9,
+              "frameWidth": 88,
+              "frameHeight": 88,
+              "insertionEnabled": false
+            }
+        """
+
+        val DEFAULT: SpriteSheetConfig = fromJson(DEFAULT_JSON) ?: SpriteSheetConfig(
             rows = 3,
             cols = 3,
             frameWidth = 88,
             frameHeight = 88,
             boxes = listOf(
-                BoxPosition(frameIndex = 0, height = 88, width = 88, x = 3, y = 9),
+                BoxPosition(frameIndex = 0, height = 88, width = 88, x = 0, y = 9),
                 BoxPosition(frameIndex = 1, height = 88, width = 88, x = 96, y = 9),
-                BoxPosition(frameIndex = 2, height = 88, width = 88, x = 188, y = 9),
-                BoxPosition(frameIndex = 3, height = 88, width = 88, x = 3, y = 103),
-                BoxPosition(frameIndex = 4, height = 88, width = 88, x = 95, y = 103),
-                BoxPosition(frameIndex = 5, height = 88, width = 88, x = 188, y = 103),
-                BoxPosition(frameIndex = 6, height = 88, width = 88, x = 3, y = 196),
+                BoxPosition(frameIndex = 2, height = 88, width = 88, x = 191, y = 9),
+                BoxPosition(frameIndex = 3, height = 88, width = 88, x = 0, y = 104),
+                BoxPosition(frameIndex = 4, height = 88, width = 88, x = 95, y = 104),
+                BoxPosition(frameIndex = 5, height = 88, width = 88, x = 191, y = 103),
+                BoxPosition(frameIndex = 6, height = 88, width = 88, x = 0, y = 196),
                 BoxPosition(frameIndex = 7, height = 88, width = 88, x = 95, y = 196),
-                BoxPosition(frameIndex = 8, height = 88, width = 88, x = 188, y = 196),
+                BoxPosition(frameIndex = 8, height = 88, width = 88, x = 191, y = 196),
             ),
             insertionEnabled = false,
         )
 
-        fun default3x3(frameSize: Int = DEFAULT.frameWidth): SpriteSheetConfig {
-            if (frameSize == DEFAULT.frameWidth) return DEFAULT
-            val scale = frameSize.toFloat() / DEFAULT.frameWidth.toFloat()
-            val scaledBoxes = DEFAULT.boxes.map { box ->
-                box.copy(
-                    x = (box.x * scale).roundToInt(),
-                    y = (box.y * scale).roundToInt(),
-                    width = (box.width * scale).roundToInt().coerceAtLeast(1),
-                    height = (box.height * scale).roundToInt().coerceAtLeast(1),
-                )
-            }
-            return DEFAULT.copy(
-                frameWidth = frameSize,
-                frameHeight = frameSize,
-                boxes = scaledBoxes,
-                insertionEnabled = DEFAULT.insertionEnabled,
-            )
-        }
+        fun default3x3(): SpriteSheetConfig = DEFAULT
 
         fun fromJson(json: String, gson: Gson = Gson()): SpriteSheetConfig? {
             return try {

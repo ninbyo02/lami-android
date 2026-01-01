@@ -433,6 +433,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         ImageBitmap.imageResource(LocalContext.current.resources, R.drawable.lami_sprite_3x3_288)
 
     val context = LocalContext.current
+    val defaultSpriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -440,7 +441,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         SettingsPreferences(context.applicationContext)
     }
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
-    val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = SpriteSheetConfig.default3x3())
+    val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
@@ -518,7 +519,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val validConfig = spriteSheetConfig
             .takeIf { it.isUninitialized().not() && it.validate() == null }
             ?.copy(boxes = spriteSheetConfig.boxesWithInternalIndex())
-            ?: SpriteSheetConfig.default3x3()
+            ?: defaultSpriteSheetConfig
 
         val resolvedBoxes = validConfig.boxes
         boxSizePx = validConfig.frameWidth.coerceAtLeast(1)
@@ -625,9 +626,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     fun buildSpriteSheetConfig(): SpriteSheetConfig {
-        val spriteSheetConfig = SpriteSheetConfig(
-            rows = 3,
-            cols = 3,
+        return SpriteSheetConfig(
+            rows = defaultSpriteSheetConfig.rows,
+            cols = defaultSpriteSheetConfig.cols,
             frameWidth = boxSizePx,
             frameHeight = boxSizePx,
             boxes = boxPositions.mapIndexed { index, position ->
@@ -638,9 +639,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                     width = boxSizePx,
                     height = boxSizePx
                 )
-            }
+            },
+            insertionEnabled = defaultSpriteSheetConfig.insertionEnabled,
         )
-        return spriteSheetConfig
     }
 
     data class ValidationResult<T>(val value: T?, val error: String?)
