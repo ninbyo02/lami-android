@@ -345,6 +345,8 @@ private fun buildInsertionPreviewSummary(
 private const val DEFAULT_BOX_SIZE_PX = 88
 private const val INFO_X_OFFSET_MIN = -500
 private const val INFO_X_OFFSET_MAX = 500
+private const val DEV_UNLOCK_TAP_THRESHOLD = 20
+private const val DEV_UNLOCK_RESET_MS = 10_000L
 
 private fun clampPosition(
     position: BoxPosition,
@@ -460,6 +462,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var devUnlocked by rememberSaveable { mutableStateOf(false) }
+    var animTabTapCount by rememberSaveable { mutableIntStateOf(0) }
+    var devExpanded by rememberSaveable { mutableStateOf(false) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
@@ -511,6 +516,19 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
+
+    LaunchedEffect(animTabTapCount) {
+        if (animTabTapCount > 0) {
+            delay(DEV_UNLOCK_RESET_MS)
+            animTabTapCount = 0
+        }
+    }
+
+    LaunchedEffect(devUnlocked) {
+        if (!devUnlocked) {
+            devExpanded = false
+        }
+    }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -1117,7 +1135,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                     ) {
                         Tab(
                             selected = tabIndex == 0,
-                            onClick = { tabIndex = 0 },
+                            onClick = {
+                                tabIndex = 0
+                                animTabTapCount = 0
+                            },
                             text = {
                                 Text(
                                     text = "調整",
@@ -1130,7 +1151,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Tab(
                             selected = tabIndex == 1,
-                            onClick = { tabIndex = 1 },
+                            onClick = {
+                                tabIndex = 1
+                                animTabTapCount += 1
+                                if (animTabTapCount >= DEV_UNLOCK_TAP_THRESHOLD) {
+                                    devUnlocked = !devUnlocked
+                                    if (!devUnlocked) {
+                                        devExpanded = false
+                                    }
+                                    animTabTapCount = 0
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            "開発メニュー: ${if (devUnlocked) "ON" else "OFF"}"
+                                        )
+                                    }
+                                }
+                            },
                             text = {
                                 Text(
                                     text = "アニメ",
@@ -1143,7 +1179,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Tab(
                             selected = tabIndex == 2,
-                            onClick = { tabIndex = 2 },
+                            onClick = {
+                                tabIndex = 2
+                                animTabTapCount = 0
+                            },
                             text = {
                                 Text(
                                     text = "DEV",
@@ -1710,6 +1749,9 @@ private fun ReadyAnimationTab(
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
+                devUnlocked = devUnlocked,
+                devExpanded = devExpanded,
+                onDevExpandedChange = { expanded -> devExpanded = expanded },
                 modifier = Modifier.fillMaxWidth(),
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
@@ -2164,6 +2206,9 @@ private fun ReadyAnimationPreviewPane(
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
+    devUnlocked: Boolean,
+    devExpanded: Boolean,
+    onDevExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     initialHeaderLeftXOffsetDp: Int?,
     devSettings: DevPreviewSettings,
@@ -2252,86 +2297,85 @@ private fun ReadyAnimationPreviewPane(
     val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
 
     Column(modifier = modifier) {
-        var devExpanded by rememberSaveable { mutableStateOf(false) }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            tonalElevation = 2.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+        if (devUnlocked) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 2.dp
             ) {
-                val effectiveMinDp = effectiveMinHeightDp
-                val effectiveMaxLabel = effectiveCardMaxH?.toString() ?: "∞"
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    val effectiveMinDp = effectiveMinHeightDp
+                    val effectiveMaxLabel = effectiveCardMaxH?.toString() ?: "∞"
                     Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { devExpanded = !devExpanded },
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val devArrow = if (devExpanded) "▴" else "▾"
-                        Text(
-                            text = "DEV $devArrow",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoX:${infoXOffsetDp}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    FilledTonalButton(
-                        onClick = onCopy,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("JSONコピー")
-                    }
-                }
-
-                AnimatedVisibility(visible = devExpanded) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 220.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onDevExpandedChange(!devExpanded) },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            val devArrow = if (devExpanded) "▴" else "▾"
                             Text(
-                                text = "Offsets",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "DEV $devArrow",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
+                            Text(
+                                text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoX:${infoXOffsetDp}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        FilledTonalButton(
+                            onClick = onCopy,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("JSONコピー")
+                        }
+                    }
+
+                    AnimatedVisibility(visible = devExpanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 220.dp)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
-                                    text = "CharY:${charYOffsetDp}dp",
-                                    style = MaterialTheme.typography.labelSmall
+                                    text = "Offsets",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                IconButton(
-                                    onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200) } }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Text("▲")
+                                    Text(
+                                        text = "CharY:${charYOffsetDp}dp",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                    IconButton(
+                                        onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp - 1).coerceIn(-200, 200) } }
+                                    ) {
+                                        Text("▲")
+                                    }
+                                    IconButton(
+                                        onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200) } }
+                                    ) {
+                                        Text("▼")
+                                    }
                                 }
-                                IconButton(
-                                    onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200) } }
-                                ) {
-                                    Text("▼")
-                                }
-                            }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
