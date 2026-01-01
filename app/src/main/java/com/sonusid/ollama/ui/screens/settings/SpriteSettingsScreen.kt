@@ -160,6 +160,7 @@ private data class DevPreviewSettings(
     val outerBottomDp: Int,
     val innerVPadDp: Int,
     val charYOffsetDp: Int,
+    val infoXOffsetDp: Int,
     val infoYOffsetDp: Int,
     val headerOffsetLimitDp: Int,
     val headerLeftXOffsetDp: Int,
@@ -179,6 +180,7 @@ private object DevDefaults {
     const val outerBottomDp = 0
     const val innerVPadDp = 8
     const val charYOffsetDp = -32
+    const val infoXOffsetDp = 0
     const val infoYOffsetDp = 0
     const val headerOffsetLimitDp = 150
     const val headerLeftXOffsetDp = 114
@@ -198,6 +200,7 @@ private object DevDefaults {
             outerBottomDp = outerBottomDp,
             innerVPadDp = innerVPadDp,
             charYOffsetDp = charYOffsetDp,
+            infoXOffsetDp = infoXOffsetDp,
             infoYOffsetDp = infoYOffsetDp,
             headerOffsetLimitDp = headerOffsetLimitDp,
             headerLeftXOffsetDp = headerLeftXOffsetDp,
@@ -218,6 +221,7 @@ private data class DevSettingsDefaults(
     val outerBottomDp: Int?,
     val innerVPadDp: Int?,
     val charYOffsetDp: Int?,
+    val infoXOffsetDp: Int?,
     val infoYOffsetDp: Int?,
     val headerOffsetLimitDp: Int?,
     val headerLeftXOffsetDp: Int?,
@@ -241,6 +245,7 @@ private data class DevSettingsDefaults(
                     outerBottomDp = dev.optIntOrNull("outerBottomDp"),
                     innerVPadDp = dev.optIntOrNull("innerVPadDp"),
                     charYOffsetDp = dev.optIntOrNull("charYOffsetDp"),
+                    infoXOffsetDp = dev.optIntOrNull("infoXOffsetDp"),
                     infoYOffsetDp = dev.optIntOrNull("infoYOffsetDp"),
                     headerOffsetLimitDp = dev.optIntOrNull("headerOffsetLimitDp"),
                     headerLeftXOffsetDp = dev.optIntOrNull("headerLeftXOffsetDp"),
@@ -265,6 +270,7 @@ private fun DevSettingsDefaults.toDevPreviewSettings(): DevPreviewSettings =
         outerBottomDp = outerBottomDp ?: DevDefaults.outerBottomDp,
         innerVPadDp = innerVPadDp ?: DevDefaults.innerVPadDp,
         charYOffsetDp = charYOffsetDp ?: DevDefaults.charYOffsetDp,
+        infoXOffsetDp = (infoXOffsetDp ?: DevDefaults.infoXOffsetDp).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX),
         infoYOffsetDp = infoYOffsetDp ?: DevDefaults.infoYOffsetDp,
         headerOffsetLimitDp = headerOffsetLimitDp ?: DevDefaults.headerOffsetLimitDp,
         headerLeftXOffsetDp = headerLeftXOffsetDp ?: DevDefaults.headerLeftXOffsetDp,
@@ -337,6 +343,8 @@ private fun buildInsertionPreviewSummary(
 }
 
 private const val DEFAULT_BOX_SIZE_PX = 88
+private const val INFO_X_OFFSET_MIN = -60
+private const val INFO_X_OFFSET_MAX = 60
 
 private fun clampPosition(
     position: BoxPosition,
@@ -380,6 +388,7 @@ private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSa
             settings.detailsMaxLines,
             settings.headerSpacerDp,
             settings.bodySpacerDp,
+            settings.infoXOffsetDp,
         )
     },
     restore = { values ->
@@ -393,6 +402,7 @@ private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSa
                 innerVPadDp = values[3],
                 charYOffsetDp = values[4],
                 infoYOffsetDp = values[5],
+                infoXOffsetDp = values.getOrNull(16)?.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) ?: DevDefaults.infoXOffsetDp,
                 headerOffsetLimitDp = values[6],
                 headerLeftXOffsetDp = values[7],
                 headerLeftYOffsetDp = values[8],
@@ -1595,7 +1605,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 style = MaterialTheme.typography.labelSmall
                                             )
                                             Text(
-                                                text = "Offsets L(${devPreviewSettings.headerLeftXOffsetDp},${devPreviewSettings.headerLeftYOffsetDp}) R(${devPreviewSettings.headerRightXOffsetDp},${devPreviewSettings.headerRightYOffsetDp}) InfoY:${devPreviewSettings.infoYOffsetDp} CharY:${devPreviewSettings.charYOffsetDp}",
+                                                text = "Offsets L(${devPreviewSettings.headerLeftXOffsetDp},${devPreviewSettings.headerLeftYOffsetDp}) R(${devPreviewSettings.headerRightXOffsetDp},${devPreviewSettings.headerRightYOffsetDp}) InfoX:${devPreviewSettings.infoXOffsetDp} InfoY:${devPreviewSettings.infoYOffsetDp} CharY:${devPreviewSettings.charYOffsetDp}",
                                                 style = MaterialTheme.typography.labelSmall
                                             )
                                             Text(
@@ -2165,6 +2175,7 @@ private fun ReadyAnimationPreviewPane(
     var outerBottomDp by rememberSaveable(devSettings.outerBottomDp) { mutableIntStateOf(devSettings.outerBottomDp) }
     var innerVPadDp by rememberSaveable(devSettings.innerVPadDp) { mutableIntStateOf(devSettings.innerVPadDp) }
     var charYOffsetDp by rememberSaveable(devSettings.charYOffsetDp) { mutableIntStateOf(devSettings.charYOffsetDp) }
+    var infoXOffsetDp by rememberSaveable(devSettings.infoXOffsetDp) { mutableIntStateOf(devSettings.infoXOffsetDp) }
     var infoYOffsetDp by rememberSaveable(devSettings.infoYOffsetDp) { mutableIntStateOf(devSettings.infoYOffsetDp) }
     var headerOffsetLimitDp by rememberSaveable(devSettings.headerOffsetLimitDp) { mutableIntStateOf(devSettings.headerOffsetLimitDp) }
     var headerLeftXOffsetDp by rememberSaveable(devSettings.headerLeftXOffsetDp) { mutableIntStateOf(devSettings.headerLeftXOffsetDp) }
@@ -2182,6 +2193,7 @@ private fun ReadyAnimationPreviewPane(
         outerBottomDp = devSettings.outerBottomDp
         innerVPadDp = devSettings.innerVPadDp
         charYOffsetDp = devSettings.charYOffsetDp
+        infoXOffsetDp = devSettings.infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
         infoYOffsetDp = devSettings.infoYOffsetDp
         headerOffsetLimitDp = devSettings.headerOffsetLimitDp
         headerLeftXOffsetDp = devSettings.headerLeftXOffsetDp
@@ -2195,6 +2207,8 @@ private fun ReadyAnimationPreviewPane(
         bodySpacerDp = devSettings.bodySpacerDp
     }
     fun propagateDevSettings() {
+        val clampedInfoXOffsetDp = infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
+        infoXOffsetDp = clampedInfoXOffsetDp
         onDevSettingsChange(
             DevPreviewSettings(
                 cardMaxHeightDp = cardMaxHeightDp,
@@ -2202,6 +2216,7 @@ private fun ReadyAnimationPreviewPane(
                 outerBottomDp = outerBottomDp,
                 innerVPadDp = innerVPadDp,
                 charYOffsetDp = charYOffsetDp,
+                infoXOffsetDp = clampedInfoXOffsetDp,
                 infoYOffsetDp = infoYOffsetDp,
                 headerOffsetLimitDp = headerOffsetLimitDp,
                 headerLeftXOffsetDp = headerLeftXOffsetDp,
@@ -2270,7 +2285,7 @@ private fun ReadyAnimationPreviewPane(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
+                            text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoX:${infoXOffsetDp}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -2313,6 +2328,33 @@ private fun ReadyAnimationPreviewPane(
                                 }
                                 IconButton(
                                     onClick = { updateDevSettings { charYOffsetDp = (charYOffsetDp + 1).coerceIn(-200, 200) } }
+                                ) {
+                                    Text("▼")
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "InfoX:${infoXOffsetDp}dp / 情報ブロックX",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(
+                                    onClick = {
+                                        updateDevSettings {
+                                            infoXOffsetDp = (infoXOffsetDp - 1).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
+                                        }
+                                    }
+                                ) {
+                                    Text("▲")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        updateDevSettings {
+                                            infoXOffsetDp = (infoXOffsetDp + 1).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
+                                        }
+                                    }
                                 ) {
                                     Text("▼")
                                 }
@@ -2758,7 +2800,7 @@ private fun ReadyAnimationPreviewPane(
                                         x = headerLeftXOffsetDp.dp,
                                         y = headerLeftYOffsetDp.dp
                                     )
-                                    .padding(start = spriteSize + 8.dp)
+                                    .padding(start = spriteSize + 8.dp + infoXOffsetDp.dp)
                             )
                         }
                     }
@@ -3049,6 +3091,7 @@ private fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("cardMaxHeightDp", cardMaxHeightDp)
         .put("charYOffsetDp", charYOffsetDp)
+        .put("infoXOffsetDp", infoXOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)
         .put("headerOffsetLimitDp", headerOffsetLimitDp)
         .put("headerLeftXOffsetDp", headerLeftXOffsetDp)
