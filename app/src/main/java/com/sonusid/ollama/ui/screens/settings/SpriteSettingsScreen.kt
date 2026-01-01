@@ -1,7 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -28,7 +27,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -94,17 +92,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
@@ -157,15 +153,6 @@ private data class InsertionPreviewValues(
     val cooldownText: String,
     val exclusiveText: String,
 )
-
-private enum class DetailsLayoutMode(val id: Int, val label: String) {
-    ScrollDetails(id = 1, label = "ScrollDetails");
-
-    companion object {
-        fun fromId(value: Int): DetailsLayoutMode =
-            values().firstOrNull { mode -> mode.id == value } ?: ScrollDetails
-    }
-}
 
 private data class DevPreviewSettings(
     val cardMaxHeightDp: Int,
@@ -2091,56 +2078,70 @@ private fun ReadyAnimationInfo(
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
-    showDetails: Boolean,
-    detailsMaxHeightDp: Int?,
-    detailsMaxLines: Int,
     infoYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
-    val paramYOffsetDp = 3
+    val paramYOffsetDp = 2
+    val lineSpacing = 4.dp
+    val baseFramesText = summary.frames.ifEmpty { listOf(0) }
+        .joinToString(",") { value -> (value + 1).toString() }
+    val insertionFramesText = insertionSummary.frames.ifEmpty { listOf(0) }
+        .joinToString(",") { value -> (value + 1).toString() }
+    val insertionLine = if (insertionEnabled && insertionSummary.enabled) {
+        "挿入: ${insertionSummary.intervalMs}ms/$insertionFramesText"
+    } else {
+        "挿入: OFF"
+    }
+    val everyNText = insertionPreviewValues.everyNText.ifBlank { "-" }
+    val probabilityText = insertionPreviewValues.probabilityText.ifBlank { "-" }
+    val cooldownText = insertionPreviewValues.cooldownText.ifBlank { "-" }
+    val exclusiveText = insertionPreviewValues.exclusiveText.ifBlank { "-" }
     Column(
         modifier = modifier
             .offset(y = (paramYOffsetDp + infoYOffsetDp).dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top)
+        verticalArrangement = Arrangement.spacedBy(lineSpacing, Alignment.Top)
     ) {
-        Text(
-            text = "フレーム: ${state.currentFramePosition + 1}/${state.totalFrames}",
-            style = MaterialTheme.typography.bodySmall
-        )
-        Text(
-            text = "周期: ${state.currentIntervalMs}ms",
-            style = MaterialTheme.typography.bodySmall
-        )
-        AnimatedVisibility(visible = showDetails) {
-            val detailModifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .let { scrollModifier ->
-                    detailsMaxHeightDp?.let { maxHeightDp ->
-                        scrollModifier.heightIn(max = maxHeightDp.dp)
-                    } ?: scrollModifier
-                }
-            Column(
-                modifier = detailModifier,
-                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Top)
-            ) {
-                Text(
-                    text = formatAppliedLine(summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = detailsMaxLines,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (insertionEnabled) {
-                    Text(
-                        text = formatInsertionDetail(insertionSummary, insertionPreviewValues),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = detailsMaxLines,
-                        overflow = TextOverflow.Visible
-                    )
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "State:${summary.label}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = "プレビュー",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
+            )
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "フレーム: ${state.currentFramePosition + 1}/${state.totalFrames}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = "周期: ${state.currentIntervalMs}ms",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        Text(
+            text = "Base: ${summary.intervalMs}ms/$baseFramesText",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = insertionLine,
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = "N:$everyNText    P:$probabilityText    CD:$cooldownText    Excl:$exclusiveText",
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 
@@ -2159,9 +2160,6 @@ private fun ReadyAnimationPreviewPane(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     onCopy: () -> Unit,
 ) {
-    var showDetails by rememberSaveable { mutableStateOf(false) }
-    var detailsLayoutModeId by rememberSaveable { mutableIntStateOf(DetailsLayoutMode.ScrollDetails.id) }
-    val detailsLayoutMode = remember(detailsLayoutModeId) { DetailsLayoutMode.fromId(detailsLayoutModeId) }
     var cardMaxHeightDp by rememberSaveable(devSettings.cardMaxHeightDp) { mutableIntStateOf(devSettings.cardMaxHeightDp) }
     var innerBottomDp by rememberSaveable(devSettings.innerBottomDp) { mutableIntStateOf(devSettings.innerBottomDp) }
     var outerBottomDp by rememberSaveable(devSettings.outerBottomDp) { mutableIntStateOf(devSettings.outerBottomDp) }
@@ -2178,7 +2176,6 @@ private fun ReadyAnimationPreviewPane(
     var detailsMaxLines by rememberSaveable(devSettings.detailsMaxLines) { mutableIntStateOf(devSettings.detailsMaxLines) }
     var headerSpacerDp by rememberSaveable(devSettings.headerSpacerDp) { mutableIntStateOf(devSettings.headerSpacerDp) }
     var bodySpacerDp by rememberSaveable(devSettings.bodySpacerDp) { mutableIntStateOf(devSettings.bodySpacerDp) }
-    var contentHeightPx by remember { mutableIntStateOf(0) } // TEMP: dev content height capture
     LaunchedEffect(devSettings) {
         cardMaxHeightDp = devSettings.cardMaxHeightDp
         innerBottomDp = devSettings.innerBottomDp
@@ -2228,21 +2225,15 @@ private fun ReadyAnimationPreviewPane(
             headerLeftXOffsetDp = initial.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
         }
     }
-    val contentHeightDp = with(LocalDensity.current) { contentHeightPx.toDp() }
-    val safetyMarginDp = 12
-    val autoMinHeightDp = maxOf(155, ceil(contentHeightDp.value).toInt() + safetyMarginDp)
     val baseMaxHeightDp = if (isImeVisible) 220 else 300
     val customCardMaxHeightDp = cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
-    val effectiveMinHeightDp = (if (showDetails) autoMinHeightDp else boundedMinHeightDp).let { minHeight ->
-        effectiveCardMaxH?.let { max -> minHeight.coerceAtMost(max) } ?: minHeight
-    }
-    val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
-    val effectiveOuterBottomDp = if (showDetails) outerBottomDp else 0
-    val effectiveInnerBottomDp = if (showDetails) innerBottomDp else 0
+    val effectiveMinHeightDp = effectiveCardMaxH?.let { max -> boundedMinHeightDp.coerceAtMost(max) } ?: boundedMinHeightDp
+    val effectiveOuterBottomDp = outerBottomDp
+    val effectiveInnerBottomDp = innerBottomDp
     val effectiveInnerVPadDp = innerVPadDp
-    val effectiveBodySpacerDp = if (showDetails) bodySpacerDp else 0
+    val effectiveBodySpacerDp = bodySpacerDp
 
     Column(modifier = modifier) {
         var devExpanded by rememberSaveable { mutableStateOf(false) }
@@ -2272,14 +2263,13 @@ private fun ReadyAnimationPreviewPane(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         val devArrow = if (devExpanded) "▴" else "▾"
-                        val detailsStatus = if (showDetails) "ON" else "OFF"
                         Text(
                             text = "DEV $devArrow",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoY:${infoYOffsetDp}  Details:$detailsStatus  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
+                            text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -2531,15 +2521,6 @@ private fun ReadyAnimationPreviewPane(
                             )
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "Layout:${detailsLayoutMode.label}（詳細はスクロール固定）",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 val cardMaxLabel = effectiveCardMaxH?.let { "${it}dp" } ?: "制限なし"
@@ -2653,10 +2634,6 @@ private fun ReadyAnimationPreviewPane(
                                     Text("▼")
                                 }
                             }
-                            Text(
-                                text = "ContentH:${contentHeightDp.value.roundToInt()}dp",
-                                style = MaterialTheme.typography.labelSmall
-                            )
                         }
                     }
                 }
@@ -2696,9 +2673,7 @@ private fun ReadyAnimationPreviewPane(
                     }
                 }
         ) {
-            val baseCardModifier = Modifier
-                .fillMaxWidth()
-                .onSizeChanged { contentHeightPx = it.height } // TEMP: dev measure content height
+            val baseCardModifier = Modifier.fillMaxWidth()
             val cardHeightModifier = if (effectiveCardMaxH != null) {
                 baseCardModifier.heightIn(
                     min = effectiveMinHeightDp.dp,
@@ -2722,8 +2697,6 @@ private fun ReadyAnimationPreviewPane(
                     insertionSummary = insertionSummary,
                     insertionEnabled = insertionEnabled
                 )
-                var headerHeightPx by remember { mutableIntStateOf(0) }
-                val headerHeightDp = with(LocalDensity.current) { headerHeightPx.toDp() }
                 val contentHorizontalPadding = 12.dp
 
                 val innerPaddingColor = if (innerBottomDp >= 0) {
@@ -2741,7 +2714,7 @@ private fun ReadyAnimationPreviewPane(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Card(
-                        modifier = cardHeightModifier.animateContentSize(),
+                        modifier = cardHeightModifier,
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
                         ),
@@ -2771,50 +2744,20 @@ private fun ReadyAnimationPreviewPane(
                                 .padding(bottom = effectiveInnerBottomDp.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .onSizeChanged { headerHeightPx = it.height },
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    PreviewHeaderLeft(
-                                        baseSummary = baseSummary,
-                                        headerSpacerDp = headerSpacerDp,
-                                        modifier = Modifier.offset(
-                                            x = headerLeftXOffsetDp.dp,
-                                            y = headerLeftYOffsetDp.dp
-                                        )
-                                    )
-                                }
-                                Box {
-                                    PreviewHeaderRight(
-                                        expanded = showDetails,
-                                        onClick = { showDetails = !showDetails },
-                                        modifier = Modifier
-                                            .offset(
-                                                x = headerRightXOffsetDp.dp,
-                                                y = headerRightYOffsetDp.dp
-                                            )
-                                            .alpha(if (isImeVisible) 0.6f else 1f)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(effectiveBodySpacerDp.dp))
                             ReadyAnimationInfo(
                                 state = previewState,
                                 summary = baseSummary,
                                 insertionSummary = insertionSummary,
                                 insertionPreviewValues = insertionPreviewValues,
                                 insertionEnabled = insertionEnabled,
-                                showDetails = showDetails,
-                                detailsMaxHeightDp = effectiveDetailsMaxH,
-                                detailsMaxLines = detailsMaxLines,
-                                infoYOffsetDp = infoYOffsetDp,
+                                infoYOffsetDp = infoYOffsetDp + headerSpacerDp,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = spriteSize + 12.dp)
+                                    .offset(
+                                        x = headerLeftXOffsetDp.dp,
+                                        y = headerLeftYOffsetDp.dp
+                                    )
+                                    .padding(start = spriteSize + 8.dp)
                             )
                         }
                     }
@@ -2827,7 +2770,7 @@ private fun ReadyAnimationPreviewPane(
                             .align(Alignment.TopStart)
                             .padding(
                                 start = contentHorizontalPadding,
-                                top = effectiveInnerVPadDp.dp + headerHeightDp + effectiveBodySpacerDp.dp
+                                top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
                             )
                     )
                 }
@@ -2835,65 +2778,6 @@ private fun ReadyAnimationPreviewPane(
             }
         }
     }
-}
-
-@Composable
-private fun PreviewHeaderLeft(
-    baseSummary: AnimationSummary,
-    headerSpacerDp: Int,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(headerSpacerDp.dp)
-    ) {
-        Text(
-            text = "プレビュー",
-            style = MaterialTheme.typography.titleSmall
-        )
-        Text(
-            modifier = Modifier.fillMaxWidth(),
-            text = "現在: ${baseSummary.label}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun PreviewHeaderRight(
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(modifier = modifier) {
-        DetailsToggle(
-            expanded = expanded,
-            onClick = onClick
-        )
-    }
-}
-
-@Composable
-private fun DetailsToggle(
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val arrow = if (expanded) "▴" else "▾"
-    Text(
-        text = "詳細 $arrow",
-        color = MaterialTheme.colorScheme.primary,
-        style = MaterialTheme.typography.labelLarge,
-        modifier = modifier
-            .wrapContentHeight()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = false),
-                role = Role.Button,
-                onClick = onClick
-            )
-    )
 }
 
 @Composable
@@ -3079,43 +2963,6 @@ private fun SpriteSettingsControls(
 }
 
 // UI調整: 下部操作ボタンをピル形状に戻し、矢印を真紫で視認性を向上。
-
-private fun formatAppliedLine(
-    summary: AnimationSummary,
-    insertionPreviewValues: InsertionPreviewValues? = null
-): String {
-    if (insertionPreviewValues != null) {
-        val framesText = insertionPreviewValues.framesText.ifBlank { "-" }
-        val intervalText = insertionPreviewValues.intervalText.ifBlank { "-" }
-        return "${summary.label}: $framesText / ${intervalText}ms"
-    }
-    val frames = summary.frames.ifEmpty { listOf(0) }.joinToString(",") { value -> (value + 1).toString() }
-    return "${summary.label}: $frames / ${summary.intervalMs}ms"
-}
-
-private fun formatInsertionDetail(
-    summary: AnimationSummary,
-    previewValues: InsertionPreviewValues?
-): String {
-    if (previewValues == null) return formatAppliedLine(summary)
-    val framesText = previewValues?.framesText?.ifBlank { "-" } ?: "-"
-    val intervalText = previewValues?.intervalText?.ifBlank { "-" } ?: "-"
-    val everyNText = previewValues?.everyNText?.ifBlank { "-" } ?: "-"
-    val probabilityText = previewValues?.probabilityText?.ifBlank { "-" } ?: "-"
-    val cooldownText = previewValues?.cooldownText?.ifBlank { "-" } ?: "-"
-    val exclusiveText = previewValues?.exclusiveText ?: "-"
-
-    val probabilityDisplay = if (probabilityText == "-") "-" else "$probabilityText%"
-    return buildString {
-        append("${summary.label}: $framesText / ${intervalText}ms")
-        append("\n")
-        append("N:$everyNText  ")
-        append("P:$probabilityDisplay  ")
-        append("CD:$cooldownText  ")
-        append("Excl:$exclusiveText")
-    }
-}
-
 private fun buildSettingsJson(
     animationType: AnimationType,
     spriteSheetConfig: SpriteSheetConfig,
