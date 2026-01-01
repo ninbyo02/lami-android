@@ -3024,13 +3024,13 @@ private fun SpriteSettingsControls(
                     Text("X-")
                 }
                 FilledTonalButton(
-                    onClick = onMoveXPositive,
+                    onClick = onMoveYNegative,
                     modifier = buttonModifier,
                     colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
-                    Text("X+")
+                    Text("Y-")
                 }
             }
             Row(
@@ -3056,13 +3056,13 @@ private fun SpriteSettingsControls(
                     Text("+")
                 }
                 FilledTonalButton(
-                    onClick = onMoveYNegative,
+                    onClick = onMoveXPositive,
                     modifier = buttonModifier,
                     colors = defaultControlButtonColors,
                     contentPadding = buttonContentPadding,
                     shape = buttonShape
                 ) {
-                    Text("Y-")
+                    Text("X+")
                 }
                 FilledTonalButton(
                     onClick = onMoveYPositive,
