@@ -2234,6 +2234,7 @@ private fun ReadyAnimationPreviewPane(
     val effectiveInnerBottomDp = innerBottomDp
     val effectiveInnerVPadDp = innerVPadDp
     val effectiveBodySpacerDp = bodySpacerDp
+    val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
 
     Column(modifier = modifier) {
         var devExpanded by rememberSaveable { mutableStateOf(false) }
