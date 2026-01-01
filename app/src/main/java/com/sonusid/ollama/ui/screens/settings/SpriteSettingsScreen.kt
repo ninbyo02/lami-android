@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -347,7 +348,7 @@ private const val DEFAULT_BOX_SIZE_PX = 88
 private const val INFO_X_OFFSET_MIN = -500
 private const val INFO_X_OFFSET_MAX = 500
 private const val DEV_UNLOCK_TAP_THRESHOLD = 20
-private const val DEV_UNLOCK_RESET_MS = 10_000L
+private const val DEV_UNLOCK_WINDOW_MS = 12_000L
 
 private fun clampPosition(
     position: BoxPosition,
@@ -465,6 +466,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     var devUnlocked by rememberSaveable { mutableStateOf(false) }
     var animTabTapCount by rememberSaveable { mutableIntStateOf(0) }
+    var firstAnimTabTapAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var devExpanded by rememberSaveable { mutableStateOf(false) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
@@ -518,14 +520,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
 
-    LaunchedEffect(animTabTapCount) {
-        if (animTabTapCount > 0) {
-            delay(DEV_UNLOCK_RESET_MS)
-            animTabTapCount = 0
+    LaunchedEffect(devUnlocked, tabIndex) {
+        if (!devUnlocked && tabIndex == 2) {
+            tabIndex = 1
         }
-    }
-
-    LaunchedEffect(devUnlocked) {
         if (!devUnlocked) {
             devExpanded = false
         }
@@ -1118,8 +1116,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
+                    val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
+
                     TabRow(
-                        selectedTabIndex = tabIndex,
+                        selectedTabIndex = displayedTabIndex,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(32.dp),
@@ -1127,7 +1127,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         indicator = { tabPositions ->
                             TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[tabIndex])
+                                    .tabIndicatorOffset(tabPositions[displayedTabIndex])
                                     .padding(horizontal = 6.dp),
                                 height = 2.dp
                             )
@@ -1154,13 +1154,21 @@ fun SpriteSettingsScreen(navController: NavController) {
                             selected = tabIndex == 1,
                             onClick = {
                                 tabIndex = 1
-                                animTabTapCount += 1
+                                val now = System.currentTimeMillis()
+                                val elapsed = if (firstAnimTabTapAtMs == 0L) 0L else now - firstAnimTabTapAtMs
+                                if (firstAnimTabTapAtMs == 0L || elapsed > DEV_UNLOCK_WINDOW_MS) {
+                                    firstAnimTabTapAtMs = now
+                                    animTabTapCount = 1
+                                } else {
+                                    animTabTapCount += 1
+                                }
                                 if (animTabTapCount >= DEV_UNLOCK_TAP_THRESHOLD) {
                                     devUnlocked = !devUnlocked
                                     if (!devUnlocked) {
                                         devExpanded = false
                                     }
                                     animTabTapCount = 0
+                                    firstAnimTabTapAtMs = 0L
                                     coroutineScope.launch {
                                         snackbarHostState.showSnackbar(
                                             "開発メニュー: ${if (devUnlocked) "ON" else "OFF"}"
@@ -1178,22 +1186,24 @@ fun SpriteSettingsScreen(navController: NavController) {
                             selectedContentColor = MaterialTheme.colorScheme.primary,
                             unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Tab(
-                            selected = tabIndex == 2,
-                            onClick = {
-                                tabIndex = 2
-                                animTabTapCount = 0
-                            },
-                            text = {
-                                Text(
-                                    text = "DEV",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1
-                                )
-                            },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (devUnlocked) {
+                            Tab(
+                                selected = tabIndex == 2,
+                                onClick = {
+                                    tabIndex = 2
+                                    animTabTapCount = 0
+                                },
+                                text = {
+                                    Text(
+                                        text = "DEV",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1
+                                    )
+                                },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
                     val actionButtonModifier = Modifier
@@ -1216,7 +1226,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         FilledTonalButton(
                             modifier = actionButtonModifier,
                             onClick = {
-                                when (tabIndex) {
+                                when (displayedTabIndex) {
                                     0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
                                     1 -> onAnimationApply()
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
@@ -1233,7 +1243,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         FilledTonalButton(
                             modifier = actionButtonModifier,
                             onClick = {
-                                when (tabIndex) {
+                                when (displayedTabIndex) {
                                     0 -> saveSpriteSheetConfig()
                                     1 -> onAnimationSave()
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
@@ -1250,7 +1260,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         FilledTonalButton(
                             modifier = actionButtonModifier,
                             onClick = {
-                                when (tabIndex) {
+                                when (displayedTabIndex) {
                                     0 -> copySpriteSheetConfig()
                                     1 -> copyAppliedSettings(devPreviewSettings)
                                     else -> copyDevSettings(devPreviewSettings)
@@ -1270,391 +1280,394 @@ fun SpriteSettingsScreen(navController: NavController) {
                             .fillMaxWidth()
                             .weight(1f, fill = true)
                     ) {
-                            when (tabIndex) {
-                                0 -> {
-                                    val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                                    val coordinateText =
-                                        selectedPosition?.let { position ->
-                                            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-                                        } ?: "座標: -, -, -, -"
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .verticalScroll(rememberScrollState()),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        SpritePreviewBlock(
-                                            imageBitmap = imageBitmap,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 6.dp),
-                                            line1Text = previewHeaderText,
-                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
-                                            onContainerSizeChanged = { newContainerSize: IntSize ->
-                                                containerSize = newContainerSize
-                                                if (imageBitmap.width != 0) {
-                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
-                                                }
-                                            },
-                                            overlayContent = {
-                                                if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
-                                                    Canvas(modifier = Modifier.fillMaxSize()) {
-                                                        val scaleX = this.size.width / imageBitmap.width
-                                                        val scaleY = this.size.height / imageBitmap.height
-                                                        val scale = min(scaleX, scaleY)
-                                                        val destinationWidth = imageBitmap.width * scale
-                                                        val destinationHeight = imageBitmap.height * scale
-                                                        val offsetX = (this.size.width - destinationWidth) / 2f
-                                                        val offsetY = (this.size.height - destinationHeight) / 2f
-                                                        drawRect(
-                                                            color = Color.Red,
-                                                            topLeft = Offset(
-                                                                x = offsetX + selectedPosition.x * scale,
-                                                                y = offsetY + selectedPosition.y * scale
-                                                            ),
-                                                            size = Size(
-                                                                width = boxSizePx * scale,
-                                                                height = boxSizePx * scale
-                                                            ),
-                                                            style = Stroke(width = 2.dp.toPx())
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        SpriteSettingsControls(
-                                            buttonHeight = controlButtonHeight,
-                                            buttonContentPadding = controlButtonPadding,
-                                            buttonShape = actionButtonShape,
-                                            onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
-                                            onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
-                                            onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
-                                            onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
-                                            onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
-                                            onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
-                                            onSizeDecrease = { updateBoxSize(-4) },
-                                            onSizeIncrease = { updateBoxSize(4) }
-                                        )
-                                    }
+                        val animationTabContent: @Composable () -> Unit = {
+                            val animationOptions = remember { AnimationType.options }
+                            val selectedFrameInput: String
+                            val selectedIntervalInput: String
+                            val selectedFramesError: String?
+                            val selectedIntervalError: String?
+                            val selectedInsertionFrameInput: String
+                            val selectedInsertionIntervalInput: String
+                            val selectedInsertionEveryNInput: String
+                            val selectedInsertionProbabilityInput: String
+                            val selectedInsertionCooldownInput: String
+                            val selectedInsertionEnabled: Boolean
+                            val selectedInsertionExclusive: Boolean
+                            val selectedInsertionFramesError: String?
+                            val selectedInsertionIntervalError: String?
+                            val selectedInsertionEveryNError: String?
+                            val selectedInsertionProbabilityError: String?
+                            val selectedInsertionCooldownError: String?
+                            when (selectedAnimation) {
+                                AnimationType.READY -> {
+                                    selectedFrameInput = readyFrameInput
+                                    selectedIntervalInput = readyIntervalInput
+                                    selectedFramesError = readyFramesError
+                                    selectedIntervalError = readyIntervalError
+                                    selectedInsertionFrameInput = readyInsertionFrameInput
+                                    selectedInsertionIntervalInput = readyInsertionIntervalInput
+                                    selectedInsertionEveryNInput = readyInsertionEveryNInput
+                                    selectedInsertionProbabilityInput = readyInsertionProbabilityInput
+                                    selectedInsertionCooldownInput = readyInsertionCooldownInput
+                                    selectedInsertionEnabled = readyInsertionEnabled
+                                    selectedInsertionExclusive = readyInsertionExclusive
+                                    selectedInsertionFramesError = readyInsertionFramesError
+                                    selectedInsertionIntervalError = readyInsertionIntervalError
+                                    selectedInsertionEveryNError = readyInsertionEveryNError
+                                    selectedInsertionProbabilityError = readyInsertionProbabilityError
+                                    selectedInsertionCooldownError = readyInsertionCooldownError
                                 }
 
-                                1 -> {
-                                    val animationOptions = remember { AnimationType.options }
-                                    val selectedFrameInput: String
-                                    val selectedIntervalInput: String
-                                    val selectedFramesError: String?
-                                    val selectedIntervalError: String?
-                                    val selectedInsertionFrameInput: String
-                                    val selectedInsertionIntervalInput: String
-                                    val selectedInsertionEveryNInput: String
-                                    val selectedInsertionProbabilityInput: String
-                                    val selectedInsertionCooldownInput: String
-                                    val selectedInsertionEnabled: Boolean
-                                    val selectedInsertionExclusive: Boolean
-                                    val selectedInsertionFramesError: String?
-                                    val selectedInsertionIntervalError: String?
-                                    val selectedInsertionEveryNError: String?
-                                    val selectedInsertionProbabilityError: String?
-                                    val selectedInsertionCooldownError: String?
+                                AnimationType.TALKING -> {
+                                    selectedFrameInput = talkingFrameInput
+                                    selectedIntervalInput = talkingIntervalInput
+                                    selectedFramesError = talkingFramesError
+                                    selectedIntervalError = talkingIntervalError
+                                    selectedInsertionFrameInput = talkingInsertionFrameInput
+                                    selectedInsertionIntervalInput = talkingInsertionIntervalInput
+                                    selectedInsertionEveryNInput = talkingInsertionEveryNInput
+                                    selectedInsertionProbabilityInput = talkingInsertionProbabilityInput
+                                    selectedInsertionCooldownInput = talkingInsertionCooldownInput
+                                    selectedInsertionEnabled = talkingInsertionEnabled
+                                    selectedInsertionExclusive = talkingInsertionExclusive
+                                    selectedInsertionFramesError = talkingInsertionFramesError
+                                    selectedInsertionIntervalError = talkingInsertionIntervalError
+                                    selectedInsertionEveryNError = talkingInsertionEveryNError
+                                    selectedInsertionProbabilityError = talkingInsertionProbabilityError
+                                    selectedInsertionCooldownError = talkingInsertionCooldownError
+                                }
+                            }
+                            val readyBaseSummary = remember(appliedReadyFrames, appliedReadyIntervalMs) {
+                                AnimationSummary(label = AnimationType.READY.label, frames = appliedReadyFrames, intervalMs = appliedReadyIntervalMs)
+                            }
+                            val talkingBaseSummary = remember(appliedTalkingFrames, appliedTalkingIntervalMs) {
+                                AnimationSummary(label = AnimationType.TALKING.label, frames = appliedTalkingFrames, intervalMs = appliedTalkingIntervalMs)
+                            }
+                            val readyInsertionPreview = remember(
+                                readyInsertionFrameInput,
+                                readyInsertionIntervalInput,
+                                readyInsertionEveryNInput,
+                                readyInsertionProbabilityInput,
+                                readyInsertionCooldownInput,
+                                readyInsertionEnabled,
+                                readyInsertionExclusive,
+                                spriteSheetConfig.frameCount
+                            ) {
+                                buildInsertionPreviewSummary(
+                                    label = "挿入",
+                                    enabled = readyInsertionEnabled,
+                                    frameInput = readyInsertionFrameInput,
+                                    intervalInput = readyInsertionIntervalInput,
+                                    everyNInput = readyInsertionEveryNInput,
+                                    probabilityInput = readyInsertionProbabilityInput,
+                                    cooldownInput = readyInsertionCooldownInput,
+                                    exclusive = readyInsertionExclusive,
+                                    frameCount = spriteSheetConfig.frameCount
+                                )
+                            }
+                            val talkingInsertionPreview = remember(
+                                talkingInsertionFrameInput,
+                                talkingInsertionIntervalInput,
+                                talkingInsertionEveryNInput,
+                                talkingInsertionProbabilityInput,
+                                talkingInsertionCooldownInput,
+                                talkingInsertionEnabled,
+                                talkingInsertionExclusive,
+                                spriteSheetConfig.frameCount
+                            ) {
+                                buildInsertionPreviewSummary(
+                                    label = "挿入",
+                                    enabled = talkingInsertionEnabled,
+                                    frameInput = talkingInsertionFrameInput,
+                                    intervalInput = talkingInsertionIntervalInput,
+                                    everyNInput = talkingInsertionEveryNInput,
+                                    probabilityInput = talkingInsertionProbabilityInput,
+                                    cooldownInput = talkingInsertionCooldownInput,
+                                    exclusive = talkingInsertionExclusive,
+                                    frameCount = spriteSheetConfig.frameCount
+                                )
+                            }
+                            val (selectedInsertionSummary, selectedInsertionPreviewValues) = when (selectedAnimation) {
+                                AnimationType.READY -> readyInsertionPreview
+                                AnimationType.TALKING -> talkingInsertionPreview
+                            }
+                            val selectedBaseSummary = when (selectedAnimation) {
+                                AnimationType.READY -> readyBaseSummary
+                                AnimationType.TALKING -> talkingBaseSummary
+                            }
+                            val selectionState = AnimationSelectionState(
+                                selectedAnimation = selectedAnimation,
+                                animationOptions = animationOptions,
+                                onSelectedAnimationChange = { selectedAnimation = it }
+                            )
+                            val baseState = BaseAnimationUiState(
+                                frameInput = selectedFrameInput,
+                                onFrameInputChange = { updated ->
                                     when (selectedAnimation) {
                                         AnimationType.READY -> {
-                                            selectedFrameInput = readyFrameInput
-                                            selectedIntervalInput = readyIntervalInput
-                                            selectedFramesError = readyFramesError
-                                            selectedIntervalError = readyIntervalError
-                                            selectedInsertionFrameInput = readyInsertionFrameInput
-                                            selectedInsertionIntervalInput = readyInsertionIntervalInput
-                                            selectedInsertionEveryNInput = readyInsertionEveryNInput
-                                            selectedInsertionProbabilityInput = readyInsertionProbabilityInput
-                                            selectedInsertionCooldownInput = readyInsertionCooldownInput
-                                            selectedInsertionEnabled = readyInsertionEnabled
-                                            selectedInsertionExclusive = readyInsertionExclusive
-                                            selectedInsertionFramesError = readyInsertionFramesError
-                                            selectedInsertionIntervalError = readyInsertionIntervalError
-                                            selectedInsertionEveryNError = readyInsertionEveryNError
-                                            selectedInsertionProbabilityError = readyInsertionProbabilityError
-                                            selectedInsertionCooldownError = readyInsertionCooldownError
+                                            readyFrameInput = updated
+                                            readyFramesError = null
                                         }
 
                                         AnimationType.TALKING -> {
-                                            selectedFrameInput = talkingFrameInput
-                                            selectedIntervalInput = talkingIntervalInput
-                                            selectedFramesError = talkingFramesError
-                                            selectedIntervalError = talkingIntervalError
-                                            selectedInsertionFrameInput = talkingInsertionFrameInput
-                                            selectedInsertionIntervalInput = talkingInsertionIntervalInput
-                                            selectedInsertionEveryNInput = talkingInsertionEveryNInput
-                                            selectedInsertionProbabilityInput = talkingInsertionProbabilityInput
-                                            selectedInsertionCooldownInput = talkingInsertionCooldownInput
-                                            selectedInsertionEnabled = talkingInsertionEnabled
-                                            selectedInsertionExclusive = talkingInsertionExclusive
-                                            selectedInsertionFramesError = talkingInsertionFramesError
-                                            selectedInsertionIntervalError = talkingInsertionIntervalError
-                                            selectedInsertionEveryNError = talkingInsertionEveryNError
-                                            selectedInsertionProbabilityError = talkingInsertionProbabilityError
-                                            selectedInsertionCooldownError = talkingInsertionCooldownError
+                                            talkingFrameInput = updated
+                                            talkingFramesError = null
                                         }
                                     }
-                                    val readyBaseSummary = remember(appliedReadyFrames, appliedReadyIntervalMs) {
-                                        AnimationSummary(label = AnimationType.READY.label, frames = appliedReadyFrames, intervalMs = appliedReadyIntervalMs)
+                                },
+                                intervalInput = selectedIntervalInput,
+                                onIntervalInputChange = { updated ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> {
+                                            readyIntervalInput = updated
+                                            readyIntervalError = null
+                                        }
+
+                                        AnimationType.TALKING -> {
+                                            talkingIntervalInput = updated
+                                            talkingIntervalError = null
+                                        }
                                     }
-                                    val talkingBaseSummary = remember(appliedTalkingFrames, appliedTalkingIntervalMs) {
-                                        AnimationSummary(label = AnimationType.TALKING.label, frames = appliedTalkingFrames, intervalMs = appliedTalkingIntervalMs)
+                                },
+                                framesError = selectedFramesError,
+                                intervalError = selectedIntervalError,
+                                summary = selectedBaseSummary
+                            )
+                            val insertionState = InsertionAnimationUiState(
+                                frameInput = selectedInsertionFrameInput,
+                                onFrameInputChange = { updated ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> {
+                                            readyInsertionFrameInput = updated
+                                            readyInsertionFramesError = null
+                                        }
+
+                                        AnimationType.TALKING -> {
+                                            talkingInsertionFrameInput = updated
+                                            talkingInsertionFramesError = null
+                                        }
                                     }
-                                    val readyInsertionPreview = remember(
-                                        readyInsertionFrameInput,
-                                        readyInsertionIntervalInput,
-                                        readyInsertionEveryNInput,
-                                        readyInsertionProbabilityInput,
-                                        readyInsertionCooldownInput,
-                                        readyInsertionEnabled,
-                                        readyInsertionExclusive,
-                                        spriteSheetConfig.frameCount
-                                    ) {
-                                        buildInsertionPreviewSummary(
-                                            label = "挿入",
-                                            enabled = readyInsertionEnabled,
-                                            frameInput = readyInsertionFrameInput,
-                                            intervalInput = readyInsertionIntervalInput,
-                                            everyNInput = readyInsertionEveryNInput,
-                                            probabilityInput = readyInsertionProbabilityInput,
-                                            cooldownInput = readyInsertionCooldownInput,
-                                            exclusive = readyInsertionExclusive,
-                                            frameCount = spriteSheetConfig.frameCount
-                                        )
+                                },
+                                intervalInput = selectedInsertionIntervalInput,
+                                onIntervalInputChange = { updated ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> {
+                                            readyInsertionIntervalInput = updated
+                                            readyInsertionIntervalError = null
+                                        }
+
+                                        AnimationType.TALKING -> {
+                                            talkingInsertionIntervalInput = updated
+                                            talkingInsertionIntervalError = null
+                                        }
                                     }
-                                    val talkingInsertionPreview = remember(
-                                        talkingInsertionFrameInput,
-                                        talkingInsertionIntervalInput,
-                                        talkingInsertionEveryNInput,
-                                        talkingInsertionProbabilityInput,
-                                        talkingInsertionCooldownInput,
-                                        talkingInsertionEnabled,
-                                        talkingInsertionExclusive,
-                                        spriteSheetConfig.frameCount
-                                    ) {
-                                        buildInsertionPreviewSummary(
-                                            label = "挿入",
-                                            enabled = talkingInsertionEnabled,
-                                            frameInput = talkingInsertionFrameInput,
-                                            intervalInput = talkingInsertionIntervalInput,
-                                            everyNInput = talkingInsertionEveryNInput,
-                                            probabilityInput = talkingInsertionProbabilityInput,
-                                            cooldownInput = talkingInsertionCooldownInput,
-                                            exclusive = talkingInsertionExclusive,
-                                            frameCount = spriteSheetConfig.frameCount
-                                        )
+                                },
+                                everyNInput = selectedInsertionEveryNInput,
+                                onEveryNInputChange = { updated ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> {
+                                            readyInsertionEveryNInput = updated
+                                            readyInsertionEveryNError = null
+                                        }
+
+                                        AnimationType.TALKING -> {
+                                            talkingInsertionEveryNInput = updated
+                                            talkingInsertionEveryNError = null
+                                        }
                                     }
-                                    val (selectedInsertionSummary, selectedInsertionPreviewValues) = when (selectedAnimation) {
-                                        AnimationType.READY -> readyInsertionPreview
-                                        AnimationType.TALKING -> talkingInsertionPreview
+                                },
+                                probabilityInput = selectedInsertionProbabilityInput,
+                                onProbabilityInputChange = { updated ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> {
+                                            readyInsertionProbabilityInput = updated
+                                            readyInsertionProbabilityError = null
+                                        }
+
+                                        AnimationType.TALKING -> {
+                                            talkingInsertionProbabilityInput = updated
+                                            talkingInsertionProbabilityError = null
+                                        }
                                     }
-                                    val selectedBaseSummary = when (selectedAnimation) {
-                                        AnimationType.READY -> readyBaseSummary
-                                        AnimationType.TALKING -> talkingBaseSummary
+                                },
+                                cooldownInput = selectedInsertionCooldownInput,
+                                onCooldownInputChange = { updated ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> {
+                                            readyInsertionCooldownInput = updated
+                                            readyInsertionCooldownError = null
+                                        }
+
+                                        AnimationType.TALKING -> {
+                                            talkingInsertionCooldownInput = updated
+                                            talkingInsertionCooldownError = null
+                                        }
                                     }
-                                    val selectionState = AnimationSelectionState(
-                                        selectedAnimation = selectedAnimation,
-                                        animationOptions = animationOptions,
-                                        onSelectedAnimationChange = { selectedAnimation = it }
-                                    )
-                                    val baseState = BaseAnimationUiState(
-                                        frameInput = selectedFrameInput,
-                                        onFrameInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyFrameInput = updated
-                                                    readyFramesError = null
-                                                }
+                                },
+                                enabled = selectedInsertionEnabled,
+                                onEnabledChange = { checked ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> readyInsertionEnabled = checked
+                                        AnimationType.TALKING -> talkingInsertionEnabled = checked
+                                    }
+                                },
+                                exclusive = selectedInsertionExclusive,
+                                onExclusiveChange = { checked ->
+                                    when (selectedAnimation) {
+                                        AnimationType.READY -> readyInsertionExclusive = checked
+                                        AnimationType.TALKING -> talkingInsertionExclusive = checked
+                                    }
+                                },
+                                framesError = selectedInsertionFramesError,
+                                intervalError = selectedInsertionIntervalError,
+                                everyNError = selectedInsertionEveryNError,
+                                probabilityError = selectedInsertionProbabilityError,
+                                cooldownError = selectedInsertionCooldownError,
+                                summary = selectedInsertionSummary,
+                                previewValues = selectedInsertionPreviewValues
+                            )
+                            ReadyAnimationTab(
+                                imageBitmap = imageBitmap,
+                                spriteSheetConfig = spriteSheetConfig,
+                                selectionState = selectionState,
+                                baseState = baseState,
+                                insertionState = insertionState,
+                                isImeVisible = imeVisible,
+                                contentPadding = contentPadding,
+                                devSettings = devPreviewSettings,
+                                onDevSettingsChange = { updated -> devPreviewSettings = updated },
+                                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                            )
+                        }
 
-                                                AnimationType.TALKING -> {
-                                                    talkingFrameInput = updated
-                                                    talkingFramesError = null
-                                                }
-                                            }
-                                        },
-                                        intervalInput = selectedIntervalInput,
-                                        onIntervalInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyIntervalInput = updated
-                                                    readyIntervalError = null
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    talkingIntervalInput = updated
-                                                    talkingIntervalError = null
-                                                }
-                                            }
-                                        },
-                                        framesError = selectedFramesError,
-                                        intervalError = selectedIntervalError,
-                                        summary = selectedBaseSummary
-                                    )
-                                    val insertionState = InsertionAnimationUiState(
-                                        frameInput = selectedInsertionFrameInput,
-                                        onFrameInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyInsertionFrameInput = updated
-                                                    readyInsertionFramesError = null
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    talkingInsertionFrameInput = updated
-                                                    talkingInsertionFramesError = null
-                                                }
-                                            }
-                                        },
-                                        intervalInput = selectedInsertionIntervalInput,
-                                        onIntervalInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyInsertionIntervalInput = updated
-                                                    readyInsertionIntervalError = null
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    talkingInsertionIntervalInput = updated
-                                                    talkingInsertionIntervalError = null
-                                                }
-                                            }
-                                        },
-                                        everyNInput = selectedInsertionEveryNInput,
-                                        onEveryNInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyInsertionEveryNInput = updated
-                                                    readyInsertionEveryNError = null
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    talkingInsertionEveryNInput = updated
-                                                    talkingInsertionEveryNError = null
-                                                }
-                                            }
-                                        },
-                                        probabilityInput = selectedInsertionProbabilityInput,
-                                        onProbabilityInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyInsertionProbabilityInput = updated
-                                                    readyInsertionProbabilityError = null
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    talkingInsertionProbabilityInput = updated
-                                                    talkingInsertionProbabilityError = null
-                                                }
-                                            }
-                                        },
-                                        cooldownInput = selectedInsertionCooldownInput,
-                                        onCooldownInputChange = { updated ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> {
-                                                    readyInsertionCooldownInput = updated
-                                                    readyInsertionCooldownError = null
-                                                }
-
-                                                AnimationType.TALKING -> {
-                                                    talkingInsertionCooldownInput = updated
-                                                    talkingInsertionCooldownError = null
-                                                }
-                                            }
-                                        },
-                                        enabled = selectedInsertionEnabled,
-                                        onEnabledChange = { checked ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> readyInsertionEnabled = checked
-                                                AnimationType.TALKING -> talkingInsertionEnabled = checked
-                                            }
-                                        },
-                                        exclusive = selectedInsertionExclusive,
-                                        onExclusiveChange = { checked ->
-                                            when (selectedAnimation) {
-                                                AnimationType.READY -> readyInsertionExclusive = checked
-                                                AnimationType.TALKING -> talkingInsertionExclusive = checked
-                                            }
-                                        },
-                                        framesError = selectedInsertionFramesError,
-                                        intervalError = selectedInsertionIntervalError,
-                                        everyNError = selectedInsertionEveryNError,
-                                        probabilityError = selectedInsertionProbabilityError,
-                                        cooldownError = selectedInsertionCooldownError,
-                                        summary = selectedInsertionSummary,
-                                        previewValues = selectedInsertionPreviewValues
-                                    )
-                                    ReadyAnimationTab(
+                        when (displayedTabIndex) {
+                            0 -> {
+                                val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                val coordinateText =
+                                    selectedPosition?.let { position ->
+                                        "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                    } ?: "座標: -, -, -, -"
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(rememberScrollState()),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    SpritePreviewBlock(
                                         imageBitmap = imageBitmap,
-                                        spriteSheetConfig = spriteSheetConfig,
-                                        selectionState = selectionState,
-                                        baseState = baseState,
-                                        insertionState = insertionState,
-                                        isImeVisible = imeVisible,
-                                        contentPadding = contentPadding,
-                                        devSettings = devPreviewSettings,
-                                        onDevSettingsChange = { updated -> devPreviewSettings = updated },
-                                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
-                                    )
-                                }
-
-                                2 -> {
-                                    val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                                    val coordinateText =
-                                        selectedPosition?.let { position ->
-                                            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-                                        } ?: "座標: -, -, -, -"
-                                    Column(
-                                        modifier = Modifier.fillMaxSize(),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        SpritePreviewBlock(
-                                            imageBitmap = imageBitmap,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 6.dp),
-                                            line1Text = previewHeaderText,
-                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
-                                            onContainerSizeChanged = { newContainerSize: IntSize ->
-                                                containerSize = newContainerSize
-                                                if (imageBitmap.width != 0) {
-                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 6.dp),
+                                        line1Text = previewHeaderText,
+                                        line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                        onContainerSizeChanged = { newContainerSize: IntSize ->
+                                            containerSize = newContainerSize
+                                            if (imageBitmap.width != 0) {
+                                                displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                            }
+                                        },
+                                        overlayContent = {
+                                            if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                                    val scaleX = this.size.width / imageBitmap.width
+                                                    val scaleY = this.size.height / imageBitmap.height
+                                                    val scale = min(scaleX, scaleY)
+                                                    val destinationWidth = imageBitmap.width * scale
+                                                    val destinationHeight = imageBitmap.height * scale
+                                                    val offsetX = (this.size.width - destinationWidth) / 2f
+                                                    val offsetY = (this.size.height - destinationHeight) / 2f
+                                                    drawRect(
+                                                        color = Color.Red,
+                                                        topLeft = Offset(
+                                                            x = offsetX + selectedPosition.x * scale,
+                                                            y = offsetY + selectedPosition.y * scale
+                                                        ),
+                                                        size = Size(
+                                                            width = boxSizePx * scale,
+                                                            height = boxSizePx * scale
+                                                        ),
+                                                        style = Stroke(width = 2.dp.toPx())
+                                                    )
                                                 }
                                             }
-                                        )
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 8.dp, horizontal = 12.dp)
-                                                .verticalScroll(rememberScrollState()),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "DEVパラメータのコピーはDEVセクション内のボタンから行えます",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Divider()
-                                            Text(
-                                                text = "現在のDEV設定概要",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = "CardMax:${devPreviewSettings.cardMaxHeightDp}  MinH:${devPreviewSettings.cardMinHeightDp}  Details:${devPreviewSettings.detailsMaxHeightDp} / ${devPreviewSettings.detailsMaxLines}",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                            Text(
-                                                text = "Offsets L(${devPreviewSettings.headerLeftXOffsetDp},${devPreviewSettings.headerLeftYOffsetDp}) R(${devPreviewSettings.headerRightXOffsetDp},${devPreviewSettings.headerRightYOffsetDp}) InfoX:${devPreviewSettings.infoXOffsetDp} InfoY:${devPreviewSettings.infoYOffsetDp} CharY:${devPreviewSettings.charYOffsetDp}",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                            Text(
-                                                text = "Padding Outer:${devPreviewSettings.outerBottomDp}  Inner:${devPreviewSettings.innerBottomDp}  VPad:${devPreviewSettings.innerVPadDp}  Spacer H:${devPreviewSettings.headerSpacerDp} / B:${devPreviewSettings.bodySpacerDp}",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
                                         }
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    SpriteSettingsControls(
+                                        buttonHeight = controlButtonHeight,
+                                        buttonContentPadding = controlButtonPadding,
+                                        buttonShape = actionButtonShape,
+                                        onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
+                                        onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
+                                        onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
+                                        onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
+                                        onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
+                                        onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
+                                        onSizeDecrease = { updateBoxSize(-4) },
+                                        onSizeIncrease = { updateBoxSize(4) }
+                                    )
+                                }
+                            }
+
+                            1 -> animationTabContent()
+
+                            2 -> if (devUnlocked) {
+                                val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                val coordinateText =
+                                    selectedPosition?.let { position ->
+                                        "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+                                    } ?: "座標: -, -, -, -"
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    SpritePreviewBlock(
+                                        imageBitmap = imageBitmap,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 6.dp),
+                                        line1Text = previewHeaderText,
+                                        line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                        onContainerSizeChanged = { newContainerSize: IntSize ->
+                                            containerSize = newContainerSize
+                                            if (imageBitmap.width != 0) {
+                                                displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                            }
+                                        }
+                                    )
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 12.dp)
+                                            .verticalScroll(rememberScrollState()),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "DEVパラメータのコピーはDEVセクション内のボタンから行えます",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Divider()
+                                        Text(
+                                            text = "現在のDEV設定概要",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "CardMax:${devPreviewSettings.cardMaxHeightDp}  MinH:${devPreviewSettings.cardMinHeightDp}  Details:${devPreviewSettings.detailsMaxHeightDp} / ${devPreviewSettings.detailsMaxLines}",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                        Text(
+                                            text = "Offsets L(${devPreviewSettings.headerLeftXOffsetDp},${devPreviewSettings.headerLeftYOffsetDp}) R(${devPreviewSettings.headerRightXOffsetDp},${devPreviewSettings.headerRightYOffsetDp}) InfoX:${devPreviewSettings.infoXOffsetDp} InfoY:${devPreviewSettings.infoYOffsetDp} CharY:${devPreviewSettings.charYOffsetDp}",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                        Text(
+                                            text = "Padding Outer:${devPreviewSettings.outerBottomDp}  Inner:${devPreviewSettings.innerBottomDp}  VPad:${devPreviewSettings.innerVPadDp}  Spacer H:${devPreviewSettings.headerSpacerDp} / B:${devPreviewSettings.bodySpacerDp}",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
                                     }
                                 }
+                            } else {
+                                animationTabContent()
                             }
                         }
                     }
