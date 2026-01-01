@@ -1163,6 +1163,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                         .height(actionButtonHeight)
                     val actionButtonPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     val actionButtonShape = RoundedCornerShape(999.dp)
+                    val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
+                    val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1281,8 +1283,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
                                         SpriteSettingsControls(
-                                            buttonHeight = actionButtonHeight,
-                                            buttonContentPadding = actionButtonPadding,
+                                            buttonHeight = controlButtonHeight,
+                                            buttonContentPadding = controlButtonPadding,
                                             buttonShape = actionButtonShape,
                                             onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
                                             onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
@@ -2991,7 +2993,8 @@ private fun SpriteSettingsControls(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 FilledTonalButton(
@@ -3003,7 +3006,8 @@ private fun SpriteSettingsControls(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 FilledTonalButton(
