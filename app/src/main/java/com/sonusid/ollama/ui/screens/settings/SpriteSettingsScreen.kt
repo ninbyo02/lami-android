@@ -3077,6 +3077,8 @@ private fun SpriteSettingsControls(
     }
 }
 
+}
+
 // UI調整: 下部操作ボタンをピル形状に戻し、矢印を真紫で視認性を向上。
 private fun buildSettingsJson(
     animationType: AnimationType,
