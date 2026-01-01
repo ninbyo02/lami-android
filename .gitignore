@@ -28,3 +28,7 @@ key.properties
 
 # Kotlin
 .kotlin/
+
+# prevent accidental files
+/adb
+/info
