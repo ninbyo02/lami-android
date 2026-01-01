@@ -49,7 +49,6 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -1269,7 +1268,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         )
                                         Spacer(modifier = Modifier.height(12.dp))
                                         SpriteSettingsControls(
-                                            boxSizePx = boxSizePx,
                                             onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
                                             onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
                                             onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
@@ -2935,7 +2933,6 @@ private fun SpritePreviewBlock(
 
 @Composable
 private fun SpriteSettingsControls(
-    boxSizePx: Int,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onMoveXNegative: () -> Unit,
@@ -2951,83 +2948,68 @@ private fun SpriteSettingsControls(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        val buttonModifier = Modifier
+            .weight(1f)
+            .heightIn(min = 48.dp)
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledTonalButton(
                     onClick = onPrev,
-                    modifier = Modifier.sizeIn(minWidth = 72.dp, minHeight = 48.dp),
+                    modifier = buttonModifier,
                 ) {
                     Text(text = "前へ")
                 }
                 FilledTonalButton(
                     onClick = onNext,
-                    modifier = Modifier.sizeIn(minWidth = 72.dp, minHeight = 48.dp),
+                    modifier = buttonModifier,
                 ) {
                     Text(text = "次へ")
                 }
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilledTonalButton(
-                        onClick = onMoveXNegative,
-                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
-                    ) {
-                        Text("X-")
-                    }
-                    FilledTonalButton(
-                        onClick = onMoveXPositive,
-                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
-                    ) {
-                        Text("X+")
-                    }
+                FilledTonalButton(
+                    onClick = onMoveXNegative,
+                    modifier = buttonModifier,
+                ) {
+                    Text("X-")
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FilledTonalButton(
-                        onClick = onMoveYNegative,
-                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
-                    ) {
-                        Text("Y-")
-                    }
-                    FilledTonalButton(
-                        onClick = onMoveYPositive,
-                        modifier = Modifier.sizeIn(minWidth = 64.dp, minHeight = 48.dp),
-                    ) {
-                        Text("Y+")
-                    }
+                FilledTonalButton(
+                    onClick = onMoveXPositive,
+                    modifier = buttonModifier,
+                ) {
+                    Text("X+")
                 }
             }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(text = "サイズ: ${boxSizePx}px")
             Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = onSizeDecrease,
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                ) { Text("-") }
-                Spacer(modifier = Modifier.width(10.dp))
+                    modifier = buttonModifier,
+                ) {
+                    Text("-")
+                }
                 FilledTonalButton(
                     onClick = onSizeIncrease,
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                ) { Text("+") }
+                    modifier = buttonModifier,
+                ) {
+                    Text("+")
+                }
+                FilledTonalButton(
+                    onClick = onMoveYNegative,
+                    modifier = buttonModifier,
+                ) {
+                    Text("Y-")
+                }
+                FilledTonalButton(
+                    onClick = onMoveYPositive,
+                    modifier = buttonModifier,
+                ) {
+                    Text("Y+")
+                }
             }
         }
     }
