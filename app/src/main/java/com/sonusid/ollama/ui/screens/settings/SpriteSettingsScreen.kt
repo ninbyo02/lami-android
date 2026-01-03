@@ -2,6 +2,9 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
@@ -21,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -105,6 +107,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -1076,7 +1079,23 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    val imeVisible = imeBottomPx > 0
+    var isAnyFieldFocused by rememberSaveable { mutableStateOf(false) }
+    var showFloatingPreview by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(imeVisible, isAnyFieldFocused) {
+        if (imeVisible && isAnyFieldFocused) {
+            showFloatingPreview = true
+        } else if (!imeVisible) {
+            showFloatingPreview = false
+        } else {
+            delay(300)
+            showFloatingPreview = false
+        }
+    }
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -1234,56 +1253,56 @@ fun SpriteSettingsScreen(navController: NavController) {
         )
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
-    ) { innerPadding ->
-        val layoutDirection = LocalLayoutDirection.current
-        val contentPadding = PaddingValues(
-            start = innerPadding.calculateStartPadding(layoutDirection),
-            top = innerPadding.calculateTopPadding(),
-            end = innerPadding.calculateEndPadding(layoutDirection),
-            bottom = innerPadding.calculateBottomPadding()
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        ) { innerPadding ->
+            val layoutDirection = LocalLayoutDirection.current
+            val contentPadding = PaddingValues(
+                start = innerPadding.calculateStartPadding(layoutDirection),
+                top = innerPadding.calculateTopPadding(),
+                end = innerPadding.calculateEndPadding(layoutDirection),
+                bottom = innerPadding.calculateBottomPadding()
+            )
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .imePadding()
-        ) {
-            Surface(
+            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
             ) {
-                Column(
+                Surface(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(contentPadding)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Top
+                        .weight(1f)
+                        .fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(contentPadding)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        IconButton(
-                            onClick = { onBackRequested() },
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "戻る"
+                            IconButton(
+                                onClick = { onBackRequested() },
+                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = "戻る"
+                                )
+                            }
+                            Text(
+                                text = "Sprite Settings",
+                                style = MaterialTheme.typography.titleSmall
                             )
+                            Spacer(modifier = Modifier.size(32.dp))
                         }
-                        Text(
-                            text = "Sprite Settings",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Spacer(modifier = Modifier.size(32.dp))
-                    }
-                    val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
+                        val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
 
                     TabRow(
                         selectedTabIndex = displayedTabIndex,
@@ -1700,6 +1719,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 baseState = baseState,
                                 insertionState = insertionState,
                                 isImeVisible = imeVisible,
+                                onFieldFocusChange = { focused -> isAnyFieldFocused = focused },
                                 contentPadding = contentPadding,
                                 devSettings = devPreviewSettings,
                                 onDevSettingsChange = { updated -> devPreviewSettings = updated },
@@ -1714,52 +1734,55 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectedPosition?.let { position ->
                                         "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
                                     } ?: "座標: -, -, -, -"
+                                val showBasePreview = !imeVisible && !showFloatingPreview
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .verticalScroll(rememberScrollState()),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    SpritePreviewBlock(
-                                        imageBitmap = imageBitmap,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 6.dp),
-                                        line1Text = previewHeaderText,
-                                        line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
-                                        onContainerSizeChanged = { newContainerSize: IntSize ->
-                                            containerSize = newContainerSize
-                                            if (imageBitmap.width != 0) {
-                                                displayScale = newContainerSize.width / imageBitmap.width.toFloat()
-                                            }
-                                        },
-                                        overlayContent = {
-                                            if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
-                                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                                    val scaleX = this.size.width / imageBitmap.width
-                                                    val scaleY = this.size.height / imageBitmap.height
-                                                    val scale = min(scaleX, scaleY)
-                                                    val destinationWidth = imageBitmap.width * scale
-                                                    val destinationHeight = imageBitmap.height * scale
-                                                    val offsetX = (this.size.width - destinationWidth) / 2f
-                                                    val offsetY = (this.size.height - destinationHeight) / 2f
-                                                    drawRect(
-                                                        color = Color.Red,
-                                                        topLeft = Offset(
-                                                            x = offsetX + selectedPosition.x * scale,
-                                                            y = offsetY + selectedPosition.y * scale
-                                                        ),
-                                                        size = Size(
-                                                            width = boxSizePx * scale,
-                                                            height = boxSizePx * scale
-                                                        ),
-                                                        style = Stroke(width = 2.dp.toPx())
-                                                    )
+                                    if (showBasePreview) {
+                                        SpritePreviewBlock(
+                                            imageBitmap = imageBitmap,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 6.dp),
+                                            line1Text = previewHeaderText,
+                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                            onContainerSizeChanged = { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
+                                                if (imageBitmap.width != 0) {
+                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                                }
+                                            },
+                                            overlayContent = {
+                                                if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                                        val scaleX = this.size.width / imageBitmap.width
+                                                        val scaleY = this.size.height / imageBitmap.height
+                                                        val scale = min(scaleX, scaleY)
+                                                        val destinationWidth = imageBitmap.width * scale
+                                                        val destinationHeight = imageBitmap.height * scale
+                                                        val offsetX = (this.size.width - destinationWidth) / 2f
+                                                        val offsetY = (this.size.height - destinationHeight) / 2f
+                                                        drawRect(
+                                                            color = Color.Red,
+                                                            topLeft = Offset(
+                                                                x = offsetX + selectedPosition.x * scale,
+                                                                y = offsetY + selectedPosition.y * scale
+                                                            ),
+                                                            size = Size(
+                                                                width = boxSizePx * scale,
+                                                                height = boxSizePx * scale
+                                                            ),
+                                                            style = Stroke(width = 2.dp.toPx())
+                                                        )
+                                                    }
                                                 }
                                             }
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
                                     SpriteSettingsControls(
                                         buttonHeight = controlButtonHeight,
                                         buttonContentPadding = controlButtonPadding,
@@ -1784,24 +1807,27 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectedPosition?.let { position ->
                                         "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
                                     } ?: "座標: -, -, -, -"
+                                val showBasePreview = !imeVisible && !showFloatingPreview
                                 Column(
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    SpritePreviewBlock(
-                                        imageBitmap = imageBitmap,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 6.dp),
-                                        line1Text = previewHeaderText,
-                                        line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
-                                        onContainerSizeChanged = { newContainerSize: IntSize ->
-                                            containerSize = newContainerSize
-                                            if (imageBitmap.width != 0) {
-                                                displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                    if (showBasePreview) {
+                                        SpritePreviewBlock(
+                                            imageBitmap = imageBitmap,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 6.dp),
+                                            line1Text = previewHeaderText,
+                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                            onContainerSizeChanged = { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
+                                                if (imageBitmap.width != 0) {
+                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1840,6 +1866,59 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
+        }
+
+        val floatingPreviewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+        val floatingCoordinateText = selectedPosition?.let { position ->
+            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
+        } ?: "座標: -, -, -, -"
+        AnimatedVisibility(
+            visible = showFloatingPreview,
+            enter = fadeIn(animationSpec = tween(durationMillis = 300)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 300)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .offset(y = -imeBottomDp)
+                .zIndex(10f)
+        ) {
+            SpritePreviewBlock(
+                imageBitmap = imageBitmap,
+                modifier = Modifier.fillMaxWidth(),
+                line1Text = floatingPreviewHeaderText,
+                line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $floatingCoordinateText",
+                onContainerSizeChanged = { newContainerSize: IntSize ->
+                    containerSize = newContainerSize
+                    if (imageBitmap.width != 0) {
+                        displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                    }
+                },
+                overlayContent = {
+                    if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val scaleX = this.size.width / imageBitmap.width
+                            val scaleY = this.size.height / imageBitmap.height
+                            val scale = min(scaleX, scaleY)
+                            val destinationWidth = imageBitmap.width * scale
+                            val destinationHeight = imageBitmap.height * scale
+                            val offsetX = (this.size.width - destinationWidth) / 2f
+                            val offsetY = (this.size.height - destinationHeight) / 2f
+                            drawRect(
+                                color = Color.Red,
+                                topLeft = Offset(
+                                    x = offsetX + selectedPosition.x * scale,
+                                    y = offsetY + selectedPosition.y * scale
+                                ),
+                                size = Size(
+                                    width = boxSizePx * scale,
+                                    height = boxSizePx * scale
+                                ),
+                                style = Stroke(width = 2.dp.toPx())
+                            )
+                        }
+                    }
+                }
+            )
         }
     }
 }
@@ -1892,6 +1971,7 @@ private fun ReadyAnimationTab(
     baseState: BaseAnimationUiState,
     insertionState: InsertionAnimationUiState,
     isImeVisible: Boolean,
+    onFieldFocusChange: (Boolean) -> Unit,
     contentPadding: PaddingValues,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
@@ -1902,8 +1982,11 @@ private fun ReadyAnimationTab(
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
-    val onFieldFocused: (Int) -> Unit = { targetIndex ->
-        coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
+    val onFieldFocused: (Int, Boolean) -> Unit = { targetIndex, isFocused ->
+        if (isFocused) {
+            coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
+        }
+        onFieldFocusChange(isFocused)
     }
     val layoutDirection = LocalLayoutDirection.current
     val bottomContentPadding = contentPadding.calculateBottomPadding() + if (isImeVisible) 2.dp else 0.dp
@@ -1946,7 +2029,8 @@ private fun ReadyAnimationTab(
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .imePadding(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = listContentPadding
@@ -1996,7 +2080,7 @@ private fun ReadyAnimationTab(
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
                         .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(1)
+                            onFieldFocused(1, event.isFocused)
                         },
                     label = { Text("フレーム列 (例: 1,2,3)") },
                     singleLine = true,
@@ -2014,7 +2098,7 @@ private fun ReadyAnimationTab(
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
                         .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(2)
+                            onFieldFocused(2, event.isFocused)
                         },
                     label = { Text("周期 (ms)") },
                     singleLine = true,
@@ -2061,7 +2145,7 @@ private fun ReadyAnimationTab(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(4)
+                                    onFieldFocused(4, event.isFocused)
                                 },
                             label = { Text("挿入フレーム列（例: 4,5,6）") },
                             singleLine = true,
@@ -2077,7 +2161,7 @@ private fun ReadyAnimationTab(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(5)
+                                    onFieldFocused(5, event.isFocused)
                                 },
                             label = { Text("挿入周期（ms）") },
                             singleLine = true,
@@ -2094,7 +2178,7 @@ private fun ReadyAnimationTab(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(6)
+                                    onFieldFocused(6, event.isFocused)
                                 },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
@@ -2111,7 +2195,7 @@ private fun ReadyAnimationTab(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(7)
+                                    onFieldFocused(7, event.isFocused)
                                 },
                             label = { Text("確率（%）") },
                             singleLine = true,
@@ -2128,7 +2212,7 @@ private fun ReadyAnimationTab(
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(8)
+                                    onFieldFocused(8, event.isFocused)
                                 },
                             label = { Text("クールダウン（ループ）") },
                             singleLine = true,
