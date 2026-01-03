@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -53,9 +55,11 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -519,6 +523,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
+    var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(devUnlocked, tabIndex) {
         if (!devUnlocked && tabIndex == 2) {
@@ -605,6 +610,139 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     val selectedIndex = selectedNumber - 1
     val selectedPosition = boxPositions.getOrNull(selectedIndex)
+
+    fun isBaseInputSynced(target: AnimationType): Boolean {
+        val (inputFrames, inputInterval) = when (target) {
+            AnimationType.READY -> readyFrameInput to readyIntervalInput
+            AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
+        }
+        val (appliedFrames, appliedInterval) = when (target) {
+            AnimationType.READY -> appliedReadyFrames to appliedReadyIntervalMs
+            AnimationType.TALKING -> appliedTalkingFrames to appliedTalkingIntervalMs
+        }
+        val framesResult = parseFrameSequenceInput(
+            input = inputFrames,
+            frameCount = spriteSheetConfig.frameCount,
+            allowDuplicates = true
+        )
+        val intervalResult = parseIntervalMsInput(inputInterval)
+
+        val framesMatch = framesResult.value?.let { parsed -> parsed == appliedFrames } ?: false
+        val intervalMatch = intervalResult.value?.let { parsed -> parsed == appliedInterval } ?: false
+        return framesMatch && intervalMatch
+    }
+
+    fun isInsertionInputSynced(target: AnimationType): Boolean {
+        val inputEnabled: Boolean
+        val inputExclusive: Boolean
+        val framesResult: ValidationResult<List<Int>>
+        val intervalResult: ValidationResult<Int>
+        val everyNResult: ValidationResult<Int>
+        val probabilityResult: ValidationResult<Int>
+        val cooldownResult: ValidationResult<Int>
+        when (target) {
+            AnimationType.READY -> {
+                inputEnabled = readyInsertionEnabled
+                inputExclusive = readyInsertionExclusive
+                framesResult = parseFrameSequenceInput(
+                    input = readyInsertionFrameInput,
+                    frameCount = spriteSheetConfig.frameCount,
+                    duplicateErrorMessage = "挿入フレームは重複しないように入力してください"
+                )
+                intervalResult = parseIntervalMsInput(readyInsertionIntervalInput)
+                everyNResult = parseEveryNLoopsInput(readyInsertionEveryNInput)
+                probabilityResult = parseProbabilityPercentInput(readyInsertionProbabilityInput)
+                cooldownResult = parseCooldownLoopsInput(readyInsertionCooldownInput)
+            }
+
+            AnimationType.TALKING -> {
+                inputEnabled = talkingInsertionEnabled
+                inputExclusive = talkingInsertionExclusive
+                framesResult = parseFrameSequenceInput(
+                    input = talkingInsertionFrameInput,
+                    frameCount = spriteSheetConfig.frameCount,
+                    duplicateErrorMessage = "挿入フレームは重複しないように入力してください"
+                )
+                intervalResult = parseIntervalMsInput(talkingInsertionIntervalInput)
+                everyNResult = parseEveryNLoopsInput(talkingInsertionEveryNInput)
+                probabilityResult = parseProbabilityPercentInput(talkingInsertionProbabilityInput)
+                cooldownResult = parseCooldownLoopsInput(talkingInsertionCooldownInput)
+            }
+        }
+        val inputState = listOf(
+            framesResult.value,
+            intervalResult.value,
+            everyNResult.value,
+            probabilityResult.value,
+            cooldownResult.value
+        )
+        if (inputState.any { it == null }) {
+            return false
+        }
+
+        val parsedInsertion = InsertionAnimationSettings(
+            enabled = inputEnabled,
+            frameSequence = framesResult.value!!,
+            intervalMs = intervalResult.value!!,
+            everyNLoops = everyNResult.value!!,
+            probabilityPercent = probabilityResult.value!!,
+            cooldownLoops = cooldownResult.value!!,
+            exclusive = inputExclusive
+        )
+
+        val appliedState = when (target) {
+            AnimationType.READY -> InsertionAnimationSettings(
+                enabled = appliedReadyInsertionEnabled,
+                frameSequence = appliedReadyInsertionFrames,
+                intervalMs = appliedReadyInsertionIntervalMs,
+                everyNLoops = appliedReadyInsertionEveryNLoops,
+                probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                cooldownLoops = appliedReadyInsertionCooldownLoops,
+                exclusive = appliedReadyInsertionExclusive
+            )
+
+            AnimationType.TALKING -> InsertionAnimationSettings(
+                enabled = appliedTalkingInsertionEnabled,
+                frameSequence = appliedTalkingInsertionFrames,
+                intervalMs = appliedTalkingInsertionIntervalMs,
+                everyNLoops = appliedTalkingInsertionEveryNLoops,
+                probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                exclusive = appliedTalkingInsertionExclusive
+            )
+        }
+
+        if (parsedInsertion.enabled != appliedState.enabled || parsedInsertion.exclusive != appliedState.exclusive) {
+            return false
+        }
+
+        val frameMatches = parsedInsertion.frameSequence == appliedState.frameSequence
+        val intervalMatches = parsedInsertion.intervalMs == appliedState.intervalMs
+        val everyNMatches = parsedInsertion.everyNLoops == appliedState.everyNLoops
+        val probabilityMatches = parsedInsertion.probabilityPercent == appliedState.probabilityPercent
+        val cooldownMatches = parsedInsertion.cooldownLoops == appliedState.cooldownLoops
+
+        return frameMatches && intervalMatches && everyNMatches && probabilityMatches && cooldownMatches
+    }
+
+    fun hasUnsavedChanges(): Boolean {
+        val baseSynced = isBaseInputSynced(AnimationType.READY) && isBaseInputSynced(AnimationType.TALKING)
+        val insertionSynced =
+            isInsertionInputSynced(AnimationType.READY) && isInsertionInputSynced(AnimationType.TALKING)
+        return !(baseSynced && insertionSynced)
+    }
+
+    fun onBackRequested() {
+        if (showDiscardDialog) {
+            showDiscardDialog = false
+            return
+        }
+        if (hasUnsavedChanges()) {
+            showDiscardDialog = true
+        } else {
+            navController.popBackStack()
+        }
+    }
 
     fun clampAllPositions(newBoxSizePx: Int): List<BoxPosition> =
         boxPositions.map { position ->
@@ -1071,6 +1209,31 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    BackHandler(onBack = { onBackRequested() })
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardDialog = false
+                        navController.popBackStack()
+                    }
+                ) {
+                    Text(text = "破棄して戻る")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) {
+                    Text(text = "キャンセル")
+                }
+            },
+            title = { Text(text = "編集内容を破棄しますか？") },
+            text = { Text(text = "保存していない変更があります。破棄して戻りますか？") }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
@@ -1082,7 +1245,11 @@ fun SpriteSettingsScreen(navController: NavController) {
             bottom = innerPadding.calculateBottomPadding()
         )
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -1102,7 +1269,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { navController.popBackStack() },
+                            onClick = { onBackRequested() },
                             modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                         ) {
                             Icon(
