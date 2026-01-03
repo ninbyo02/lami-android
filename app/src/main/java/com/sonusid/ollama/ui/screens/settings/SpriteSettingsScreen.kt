@@ -2861,7 +2861,8 @@ private fun ReadyAnimationPreviewPane(
                                         x = headerLeftXOffsetDp.dp,
                                         y = headerLeftYOffsetDp.dp
                                     )
-                                    .padding(start = spriteSize + 8.dp + infoXOffsetDp.dp)
+                                    .padding(start = spriteSize + 8.dp)
+                                    .offset(x = infoXOffsetDp.dp)
                             )
                         }
                     }
