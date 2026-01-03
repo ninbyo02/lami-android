@@ -611,6 +611,76 @@ fun SpriteSettingsScreen(navController: NavController) {
     val selectedIndex = selectedNumber - 1
     val selectedPosition = boxPositions.getOrNull(selectedIndex)
 
+    data class ValidationResult<T>(val value: T?, val error: String?)
+
+    fun parseFrameSequenceInput(
+        input: String,
+        frameCount: Int,
+        allowDuplicates: Boolean = false,
+        duplicateErrorMessage: String = "重複しないように入力してください",
+    ): ValidationResult<List<Int>> {
+        val normalized = input
+            .replace("，", ",")
+            .replace("、", ",")
+            .split(",")
+            .map { token -> token.trim() }
+            .filter { token -> token.isNotEmpty() }
+        val maxFrameIndex = frameCount.coerceAtLeast(1)
+        if (normalized.isEmpty()) {
+            return ValidationResult(null, "1〜${maxFrameIndex} のカンマ区切りで入力してください")
+        }
+        val parsed = normalized.mapNotNull { token -> token.toIntOrNull() }
+        if (parsed.size != normalized.size) {
+            return ValidationResult(null, "数値で入力してください")
+        }
+        if (parsed.any { value -> value !in 1..maxFrameIndex }) {
+            return ValidationResult(null, "1〜${maxFrameIndex}の範囲で入力してください")
+        }
+        val converted = parsed.map { value -> value - 1 }
+        if (!allowDuplicates && converted.size != converted.distinct().size) {
+            return ValidationResult(null, duplicateErrorMessage)
+        }
+        return ValidationResult(converted, null)
+    }
+
+    fun parseIntervalMsInput(input: String): ValidationResult<Int> {
+        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
+        if (rawValue < ReadyAnimationSettings.MIN_INTERVAL_MS) {
+            return ValidationResult(null, "${ReadyAnimationSettings.MIN_INTERVAL_MS}以上で入力してください")
+        }
+        if (rawValue > ReadyAnimationSettings.MAX_INTERVAL_MS) {
+            return ValidationResult(
+                null,
+                "${ReadyAnimationSettings.MIN_INTERVAL_MS}〜${ReadyAnimationSettings.MAX_INTERVAL_MS}の範囲で入力してください"
+            )
+        }
+        return ValidationResult(rawValue, null)
+    }
+
+    fun parseEveryNLoopsInput(input: String): ValidationResult<Int> {
+        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
+        if (rawValue < InsertionAnimationSettings.MIN_EVERY_N_LOOPS) {
+            return ValidationResult(null, "${InsertionAnimationSettings.MIN_EVERY_N_LOOPS}以上で入力してください")
+        }
+        return ValidationResult(rawValue, null)
+    }
+
+    fun parseProbabilityPercentInput(input: String): ValidationResult<Int> {
+        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
+        if (rawValue !in InsertionAnimationSettings.MIN_PROBABILITY_PERCENT..InsertionAnimationSettings.MAX_PROBABILITY_PERCENT) {
+            return ValidationResult(null, "0〜100の範囲で入力してください")
+        }
+        return ValidationResult(rawValue, null)
+    }
+
+    fun parseCooldownLoopsInput(input: String): ValidationResult<Int> {
+        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
+        if (rawValue < InsertionAnimationSettings.MIN_COOLDOWN_LOOPS) {
+            return ValidationResult(null, "0以上で入力してください")
+        }
+        return ValidationResult(rawValue, null)
+    }
+
     fun isBaseInputSynced(target: AnimationType): Boolean {
         val (inputFrames, inputInterval) = when (target) {
             AnimationType.READY -> readyFrameInput to readyIntervalInput
@@ -794,76 +864,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             },
             insertionEnabled = defaultSpriteSheetConfig.insertionEnabled,
         )
-    }
-
-    data class ValidationResult<T>(val value: T?, val error: String?)
-
-    fun parseFrameSequenceInput(
-        input: String,
-        frameCount: Int,
-        allowDuplicates: Boolean = false,
-        duplicateErrorMessage: String = "重複しないように入力してください",
-    ): ValidationResult<List<Int>> {
-        val normalized = input
-            .replace("，", ",")
-            .replace("、", ",")
-            .split(",")
-            .map { token -> token.trim() }
-            .filter { token -> token.isNotEmpty() }
-        val maxFrameIndex = frameCount.coerceAtLeast(1)
-        if (normalized.isEmpty()) {
-            return ValidationResult(null, "1〜${maxFrameIndex} のカンマ区切りで入力してください")
-        }
-        val parsed = normalized.mapNotNull { token -> token.toIntOrNull() }
-        if (parsed.size != normalized.size) {
-            return ValidationResult(null, "数値で入力してください")
-        }
-        if (parsed.any { value -> value !in 1..maxFrameIndex }) {
-            return ValidationResult(null, "1〜${maxFrameIndex}の範囲で入力してください")
-        }
-        val converted = parsed.map { value -> value - 1 }
-        if (!allowDuplicates && converted.size != converted.distinct().size) {
-            return ValidationResult(null, duplicateErrorMessage)
-        }
-        return ValidationResult(converted, null)
-    }
-
-    fun parseIntervalMsInput(input: String): ValidationResult<Int> {
-        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
-        if (rawValue < ReadyAnimationSettings.MIN_INTERVAL_MS) {
-            return ValidationResult(null, "${ReadyAnimationSettings.MIN_INTERVAL_MS}以上で入力してください")
-        }
-        if (rawValue > ReadyAnimationSettings.MAX_INTERVAL_MS) {
-            return ValidationResult(
-                null,
-                "${ReadyAnimationSettings.MIN_INTERVAL_MS}〜${ReadyAnimationSettings.MAX_INTERVAL_MS}の範囲で入力してください"
-            )
-        }
-        return ValidationResult(rawValue, null)
-    }
-
-    fun parseEveryNLoopsInput(input: String): ValidationResult<Int> {
-        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
-        if (rawValue < InsertionAnimationSettings.MIN_EVERY_N_LOOPS) {
-            return ValidationResult(null, "${InsertionAnimationSettings.MIN_EVERY_N_LOOPS}以上で入力してください")
-        }
-        return ValidationResult(rawValue, null)
-    }
-
-    fun parseProbabilityPercentInput(input: String): ValidationResult<Int> {
-        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
-        if (rawValue !in InsertionAnimationSettings.MIN_PROBABILITY_PERCENT..InsertionAnimationSettings.MAX_PROBABILITY_PERCENT) {
-            return ValidationResult(null, "0〜100の範囲で入力してください")
-        }
-        return ValidationResult(rawValue, null)
-    }
-
-    fun parseCooldownLoopsInput(input: String): ValidationResult<Int> {
-        val rawValue = input.trim().toIntOrNull() ?: return ValidationResult(null, "数値を入力してください")
-        if (rawValue < InsertionAnimationSettings.MIN_COOLDOWN_LOOPS) {
-            return ValidationResult(null, "0以上で入力してください")
-        }
-        return ValidationResult(rawValue, null)
     }
 
     fun validateBaseInputs(target: AnimationType): ReadyAnimationSettings? {
