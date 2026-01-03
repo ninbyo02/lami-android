@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
@@ -2032,8 +2034,7 @@ private fun ReadyAnimationTab(
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth()
-                .imePadding(),
+                .fillMaxWidth(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = listContentPadding
@@ -3072,7 +3073,10 @@ private fun ReadyAnimationPreviewPane(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Card(
-                        modifier = cardHeightModifier,
+                        modifier = cardHeightModifier
+                            .navigationBarsPadding()
+                            .imePadding()
+                            .animateContentSize(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
                         ),
