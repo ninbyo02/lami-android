@@ -1923,6 +1923,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 }
 
+}
+
 private data class AnimationSelectionState(
     val selectedAnimation: AnimationType,
     val animationOptions: List<AnimationType>,
@@ -3130,11 +3132,11 @@ private fun ReadyAnimationPreviewPane(
                             )
                     )
                 }
-            // FIX: missing brace for ReadyAnimationPreviewPane
-            }
-        }
-    }
-}
+            } // BoxWithConstraints
+        } // Box
+    } // devUnlocked block
+} // Column
+} // ReadyAnimationPreviewPane
 
 @Composable
 private fun SpritePreviewBlock(
