@@ -14,16 +14,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.calculateLeftPadding
+import androidx.compose.foundation.layout.calculateRightPadding
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
@@ -75,7 +74,6 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -147,30 +145,6 @@ data class BoxPosition(val x: Int, val y: Int)
 private val PREVIEW_PEEK_DP = 56.dp
 private val PREVIEW_TOP_MARGIN_DP = 72.dp
 private const val IME_SCROLL_DELAY_MS = 45L
-// IME表示時の下余白を抑えつつ、スライダー操作に必要な最低限の余白を確保するためのクランプ値
-private val IME_BOTTOM_MIN_DP = 2.dp
-private val IME_BOTTOM_MAX_DP = 12.dp
-private val LIST_BOTTOM_IME_MIN_DP = 2.dp
-private val LIST_BOTTOM_IME_MAX_DP = 12.dp
-
-private data class SpriteSettingsImeMetrics(
-    val imeBottomPx: Float,
-    val imeBottomPxClamped: Float,
-    val imeBottomDp: Dp,
-    val navBottomPx: Float,
-    val isImeVisible: Boolean,
-    val rootHeightPx: Int,
-    val previewCardHeightPx: Int,
-    val peekPx: Float,
-    val topMarginPx: Float,
-    val collapsedY: Float,
-    val expandedY: Float,
-    val maxExpandedY: Float,
-    val listContentPaddingBottomBaseDp: Dp,
-    val listContentPaddingBottomFinalDp: Dp,
-    val screenDensity: Float,
-)
-
 private data class ImeBringIntoViewHandler(
     val modifier: Modifier,
     /** フォーカス変化をハンドリングし、フォーカス獲得時のみ true を返す */
@@ -182,22 +156,14 @@ private data class ImeBringIntoViewHandler(
 @Composable
 private fun rememberImeBringIntoViewHandler(
     requester: BringIntoViewRequester,
-    isImeVisible: Boolean,
     delayMs: Long = IME_SCROLL_DELAY_MS,
 ): ImeBringIntoViewHandler = composed {
     val coroutineScope = rememberCoroutineScope()
     var hasBroughtInIme by remember { mutableStateOf(false) }
     var wasFocused by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isImeVisible) {
-        if (!isImeVisible) {
-            hasBroughtInIme = false
-            wasFocused = false
-        }
-    }
-
-    val bringOnceIfImeVisible: () -> Unit = {
-        if (isImeVisible && !hasBroughtInIme) {
+    val bringOnce: () -> Unit = {
+        if (!hasBroughtInIme) {
             hasBroughtInIme = true
             coroutineScope.launch {
                 if (delayMs > 0) delay(delayMs)
@@ -209,7 +175,10 @@ private fun rememberImeBringIntoViewHandler(
     val focusHandler: (Boolean) -> Boolean = { isFocused ->
         val gainedFocus = isFocused && !wasFocused
         if (gainedFocus) {
-            bringOnceIfImeVisible()
+            bringOnce()
+        }
+        if (!isFocused) {
+            hasBroughtInIme = false
         }
         wasFocused = isFocused
         gainedFocus
@@ -219,9 +188,7 @@ private fun rememberImeBringIntoViewHandler(
         modifier = Modifier.bringIntoViewRequester(requester),
         onFocusChanged = focusHandler,
         requestOnInteraction = {
-            if (isImeVisible) {
-                bringOnceIfImeVisible()
-            }
+            bringOnce()
         }
     )
 }
@@ -1176,8 +1143,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
             coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
@@ -1798,7 +1763,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 selectionState = selectionState,
                                 baseState = baseState,
                                 insertionState = insertionState,
-                                isImeVisible = imeVisible,
                                 contentPadding = contentPadding,
                                 devSettings = devPreviewSettings,
                                 onDevSettingsChange = { updated -> devPreviewSettings = updated },
@@ -1991,7 +1955,6 @@ private fun ReadyAnimationTab(
     selectionState: AnimationSelectionState,
     baseState: BaseAnimationUiState,
     insertionState: InsertionAnimationUiState,
-    isImeVisible: Boolean,
     contentPadding: PaddingValues,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
@@ -2004,15 +1967,6 @@ private fun ReadyAnimationTab(
     var previewCardHeightPx by remember { mutableIntStateOf(0) }
     var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
     val swipeableState = rememberSwipeableState(initialValue = previewSnap)
-    val imeBottomPx = WindowInsets.ime.getBottom(density).toFloat()
-    val navBottomPx = WindowInsets.navigationBars.getBottom(density).toFloat()
-    val imeBottomPxClamped = remember(imeVisible, imeBottomPx, density) {
-        val minPx = with(density) { IME_BOTTOM_MIN_DP.toPx() }
-        val maxPx = with(density) { IME_BOTTOM_MAX_DP.toPx() }
-        if (imeVisible) imeBottomPx.coerceIn(minPx, maxPx) else imeBottomPx
-    }
-    val imeBottomPxForLayout = if (imeVisible) imeBottomPxClamped else imeBottomPx
-    val bottomInsetPx = max(imeBottomPxForLayout, navBottomPx)
     val collapsedY = remember(rootHeightPx, previewPeekPx) {
         if (rootHeightPx == 0) {
             0f
@@ -2020,14 +1974,14 @@ private fun ReadyAnimationTab(
             (rootHeightPx.toFloat() - previewPeekPx).coerceAtLeast(0f)
         }
     }
-    val maxExpandedY = remember(rootHeightPx, previewCardHeightPx, bottomInsetPx) {
+    val maxExpandedY = remember(rootHeightPx, previewCardHeightPx) {
         if (rootHeightPx == 0) {
             0f
         } else {
-            (rootHeightPx.toFloat() - previewCardHeightPx - bottomInsetPx).coerceAtLeast(0f)
+            (rootHeightPx.toFloat() - previewCardHeightPx).coerceAtLeast(0f)
         }
     }
-    val expandedY = remember(rootHeightPx, previewCardHeightPx, bottomInsetPx, topMarginPx, maxExpandedY) {
+    val expandedY = remember(rootHeightPx, previewCardHeightPx, topMarginPx, maxExpandedY) {
         if (rootHeightPx == 0) {
             0f
         } else {
@@ -2061,88 +2015,38 @@ private fun ReadyAnimationTab(
     val probabilityBringRequester = remember { BringIntoViewRequester() }
     val cooldownBringRequester = remember { BringIntoViewRequester() }
     val frameInputImeHandler = rememberImeBringIntoViewHandler(
-        requester = frameInputBringRequester,
-        isImeVisible = imeVisible
+        requester = frameInputBringRequester
     )
     val intervalInputImeHandler = rememberImeBringIntoViewHandler(
-        requester = intervalInputBringRequester,
-        isImeVisible = imeVisible
+        requester = intervalInputBringRequester
     )
     val insertionFrameImeHandler = rememberImeBringIntoViewHandler(
-        requester = insertionFrameBringRequester,
-        isImeVisible = imeVisible
+        requester = insertionFrameBringRequester
     )
     val insertionIntervalImeHandler = rememberImeBringIntoViewHandler(
-        requester = insertionIntervalBringRequester,
-        isImeVisible = imeVisible
+        requester = insertionIntervalBringRequester
     )
     val everyNImeHandler = rememberImeBringIntoViewHandler(
-        requester = everyNBringRequester,
-        isImeVisible = imeVisible
+        requester = everyNBringRequester
     )
     val probabilityImeHandler = rememberImeBringIntoViewHandler(
-        requester = probabilityBringRequester,
-        isImeVisible = imeVisible
+        requester = probabilityBringRequester
     )
     val cooldownImeHandler = rememberImeBringIntoViewHandler(
-        requester = cooldownBringRequester,
-        isImeVisible = imeVisible
+        requester = cooldownBringRequester
     )
     val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val bottomContentPadding = contentPadding.calculateBottomPadding()
-    val listBottomBase = bottomContentPadding + PREVIEW_PEEK_DP
-    val listBottomImePadding = if (imeVisible) {
-        bottomContentPadding.coerceIn(LIST_BOTTOM_IME_MIN_DP, LIST_BOTTOM_IME_MAX_DP)
-    } else {
-        bottomContentPadding
-    }
-    val listBottomFinal = listBottomImePadding + PREVIEW_PEEK_DP
+    val listBottomFinal = contentPadding.calculateBottomPadding() + PREVIEW_PEEK_DP
     val listContentPadding = PaddingValues(
-        start = contentPadding.calculateStartPadding(layoutDirection),
+        start = contentPadding.calculateLeftPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
-        end = contentPadding.calculateEndPadding(layoutDirection),
+        end = contentPadding.calculateRightPadding(layoutDirection),
         bottom = listBottomFinal
     )
-    val imeMetrics by remember(
-        imeBottomPx,
-        imeBottomPxClamped,
-        navBottomPx,
-        imeVisible,
-        rootHeightPx,
-        previewCardHeightPx,
-        previewPeekPx,
-        topMarginPx,
-        collapsedY,
-        expandedY,
-        maxExpandedY,
-        listBottomBase,
-        listBottomFinal,
-        density
-    ) {
-        derivedStateOf {
-            SpriteSettingsImeMetrics(
-                imeBottomPx = imeBottomPx,
-                imeBottomPxClamped = imeBottomPxClamped,
-                imeBottomDp = with(density) { imeBottomPx.toDp() },
-                navBottomPx = navBottomPx,
-                isImeVisible = imeVisible,
-                rootHeightPx = rootHeightPx,
-                previewCardHeightPx = previewCardHeightPx,
-                peekPx = previewPeekPx,
-                topMarginPx = topMarginPx,
-                collapsedY = collapsedY,
-                expandedY = expandedY,
-                maxExpandedY = maxExpandedY,
-                listContentPaddingBottomBaseDp = listBottomBase,
-                listContentPaddingBottomFinalDp = listBottomFinal,
-                screenDensity = density.density,
-            )
-        }
-    }
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -2418,7 +2322,6 @@ private fun ReadyAnimationTab(
                 insertionSummary = insertionState.summary,
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
-                isImeVisible = isImeVisible,
                 previewSnap = previewSnap,
                 onPreviewSnapToggle = {
                     previewSnap = if (previewSnap == PreviewSnap.Collapsed) {
@@ -2435,7 +2338,6 @@ private fun ReadyAnimationTab(
                 devSettings = devSettings,
                 onDevSettingsChange = onDevSettingsChange,
                 onCopy = onCopyDevJson,
-                imeMetrics = imeMetrics,
                 swipeableState = swipeableState,
                 swipeableAnchors = anchors,
                 swipeableEnabled = swipeableEnabled,
@@ -2670,7 +2572,6 @@ private fun ReadyAnimationPreviewPane(
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
-    isImeVisible: Boolean,
     previewSnap: PreviewSnap,
     onPreviewSnapToggle: () -> Unit,
     devUnlocked: Boolean,
@@ -2681,7 +2582,6 @@ private fun ReadyAnimationPreviewPane(
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     onCopy: () -> Unit,
-    imeMetrics: SpriteSettingsImeMetrics,
     swipeableState: SwipeableState<PreviewSnap>,
     swipeableAnchors: Map<Float, PreviewSnap>,
     swipeableEnabled: Boolean,
@@ -2757,7 +2657,7 @@ private fun ReadyAnimationPreviewPane(
             headerLeftXOffsetDp = initial.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
         }
     }
-    val baseMaxHeightDp = if (isImeVisible) 220 else 300
+    val baseMaxHeightDp = 300
     val customCardMaxHeightDp = cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
@@ -3275,11 +3175,7 @@ private fun ReadyAnimationPreviewPane(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
-                val spriteSize = if (isImeVisible) {
-                    rawSpriteSize.coerceIn(56.dp, 96.dp)
-                } else {
-                    rawSpriteSize.coerceIn(72.dp, 120.dp)
-                }
+                val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
                 val previewState = rememberReadyAnimationState(
                     spriteSheetConfig = spriteSheetConfig,
                     summary = baseSummary,
@@ -3363,60 +3259,11 @@ private fun ReadyAnimationPreviewPane(
                                 top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
                             )
                     )
-                    if (BuildConfig.DEBUG) {
-                        ImeMetricsOverlay(
-                            text = buildImeDebugText(imeMetrics),
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                        )
-                    }
                 }
             }
         }
     }
 }
-}
-
-@Composable
-private fun ImeMetricsOverlay(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-        tonalElevation = 1.dp,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelSmall,
-            lineHeight = MaterialTheme.typography.labelSmall.lineHeight,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-private fun buildImeDebugText(metrics: SpriteSettingsImeMetrics): String {
-    val peekDp = metrics.peekPx.toDp(metrics.screenDensity)
-    val topMarginDp = metrics.topMarginPx.toDp(metrics.screenDensity)
-    val collapsedDp = metrics.collapsedY.toDp(metrics.screenDensity)
-    val expandedDp = metrics.expandedY.toDp(metrics.screenDensity)
-    val maxExpandedDp = metrics.maxExpandedY.toDp(metrics.screenDensity)
-    val imeClampedDp = metrics.imeBottomPxClamped.toDp(metrics.screenDensity)
-    val imeLine = "IME(px)=${metrics.imeBottomPx.toInt()} clamp=${metrics.imeBottomPxClamped.toInt()} dp=${metrics.imeBottomDp.value.format1()}/${imeClampedDp} navPx=${metrics.navBottomPx.toInt()} vis=${metrics.isImeVisible}"
-    val layoutLine = "rootH=${metrics.rootHeightPx} cardH=${metrics.previewCardHeightPx} colY=${collapsedDp} expY=${expandedDp}/${maxExpandedDp}"
-    val paddingLine = "listBottomDp=${metrics.listContentPaddingBottomBaseDp.value.format1()}/${metrics.listContentPaddingBottomFinalDp.value.format1()} peekDp=${peekDp} topMarginDp=${topMarginDp} dens=${metrics.screenDensity.format1()}"
-    return listOf(imeLine, layoutLine, paddingLine).joinToString(separator = "\n")
-}
-
-private fun Float.toDp(density: Float): String = (this / density).format1()
-
-private fun Float.format1(): String = String.format("%.1f", this)
 
 @Composable
 private fun SpritePreviewBlock(
