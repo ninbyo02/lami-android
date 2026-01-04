@@ -2395,6 +2395,7 @@ private fun ReadyAnimationTab(
                             onCheckedChange = insertionState.onExclusiveChange
                         )
                     }
+                    val debugShiftLabel = if (debugShift) "DBG: SHIFT ON" else "DBG: SHIFT OFF"
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2402,9 +2403,7 @@ private fun ReadyAnimationTab(
                         horizontalArrangement = Arrangement.End
                     ) {
                         Button(onClick = { debugShift = !debugShift }) {
-                            Text(
-                                text = if (debugShift) "DBG: SHIFT ON" else "DBG: SHIFT OFF"
-                            )
+                            Text(text = debugShiftLabel)
                         }
                     }
                 }
