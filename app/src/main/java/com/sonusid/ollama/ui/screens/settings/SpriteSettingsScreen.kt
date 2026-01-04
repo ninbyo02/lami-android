@@ -1823,7 +1823,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     SpriteSettingsControls(
                                         buttonHeight = controlButtonHeight,
                                         buttonContentPadding = controlButtonPadding,
@@ -3283,7 +3283,7 @@ private fun SpritePreviewBlock(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             modifier = Modifier
