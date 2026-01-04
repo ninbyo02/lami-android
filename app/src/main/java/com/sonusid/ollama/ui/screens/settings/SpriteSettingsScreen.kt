@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -88,6 +90,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -166,6 +169,23 @@ private data class SpriteSettingsImeMetrics(
     val listContentPaddingBottomFinalDp: Dp,
     val screenDensity: Float,
 )
+
+@Composable
+private fun Modifier.autoBringIntoViewOnFocus(
+    requester: BringIntoViewRequester,
+    enabled: Boolean = true,
+    delayMs: Long = 50L,
+): Modifier = composed {
+    val coroutineScope = rememberCoroutineScope()
+    onFocusEvent { event ->
+        if (enabled && event.isFocused) {
+            coroutineScope.launch {
+                if (delayMs > 0) delay(delayMs)
+                requester.bringIntoView()
+            }
+        }
+    }.bringIntoViewRequester(requester)
+}
 
 private enum class PreviewSnap {
     Collapsed,
@@ -1994,6 +2014,13 @@ private fun ReadyAnimationTab(
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val frameInputBringRequester = remember { BringIntoViewRequester() }
+    val intervalInputBringRequester = remember { BringIntoViewRequester() }
+    val insertionFrameBringRequester = remember { BringIntoViewRequester() }
+    val insertionIntervalBringRequester = remember { BringIntoViewRequester() }
+    val everyNBringRequester = remember { BringIntoViewRequester() }
+    val probabilityBringRequester = remember { BringIntoViewRequester() }
+    val cooldownBringRequester = remember { BringIntoViewRequester() }
     val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
@@ -2129,6 +2156,10 @@ private fun ReadyAnimationTab(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
+                        .autoBringIntoViewOnFocus(
+                            requester = frameInputBringRequester,
+                            enabled = isImeVisible
+                        )
                         .onFocusEvent { event ->
                             if (event.isFocused) onFieldFocused(1)
                         },
@@ -2147,6 +2178,10 @@ private fun ReadyAnimationTab(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
+                        .autoBringIntoViewOnFocus(
+                            requester = intervalInputBringRequester,
+                            enabled = isImeVisible
+                        )
                         .onFocusEvent { event ->
                             if (event.isFocused) onFieldFocused(2)
                         },
@@ -2194,6 +2229,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .autoBringIntoViewOnFocus(
+                                    requester = insertionFrameBringRequester,
+                                    enabled = isImeVisible
+                                )
                                 .onFocusEvent { event ->
                                     if (event.isFocused) onFieldFocused(4)
                                 },
@@ -2210,6 +2249,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .autoBringIntoViewOnFocus(
+                                    requester = insertionIntervalBringRequester,
+                                    enabled = isImeVisible
+                                )
                                 .onFocusEvent { event ->
                                     if (event.isFocused) onFieldFocused(5)
                                 },
@@ -2227,6 +2270,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .autoBringIntoViewOnFocus(
+                                    requester = everyNBringRequester,
+                                    enabled = isImeVisible
+                                )
                                 .onFocusEvent { event ->
                                     if (event.isFocused) onFieldFocused(6)
                                 },
@@ -2244,6 +2291,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .autoBringIntoViewOnFocus(
+                                    requester = probabilityBringRequester,
+                                    enabled = isImeVisible
+                                )
                                 .onFocusEvent { event ->
                                     if (event.isFocused) onFieldFocused(7)
                                 },
@@ -2261,6 +2312,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .autoBringIntoViewOnFocus(
+                                    requester = cooldownBringRequester,
+                                    enabled = isImeVisible
+                                )
                                 .onFocusEvent { event ->
                                     if (event.isFocused) onFieldFocused(8)
                                 },
