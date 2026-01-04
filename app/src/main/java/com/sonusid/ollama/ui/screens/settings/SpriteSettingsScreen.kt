@@ -527,7 +527,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     LaunchedEffect(devUnlocked, tabIndex) {
         if (!devUnlocked && tabIndex == 2) {
-            tabIndex = 1
+            tabIndex = 0
         }
         if (!devUnlocked) {
             devExpanded = false
@@ -1283,7 +1283,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
-                    val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
+                    val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 0 else tabIndex
 
                     TabRow(
                         selectedTabIndex = displayedTabIndex,
@@ -1305,22 +1305,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                             selected = tabIndex == 0,
                             onClick = {
                                 tabIndex = 0
-                                animTabTapCount = 0
-                            },
-                            text = {
-                                Text(
-                                    text = "調整",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1
-                                )
-                            },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Tab(
-                            selected = tabIndex == 1,
-                            onClick = {
-                                tabIndex = 1
                                 val now = System.currentTimeMillis()
                                 val elapsed = if (firstAnimTabTapAtMs == 0L) 0L else now - firstAnimTabTapAtMs
                                 if (firstAnimTabTapAtMs == 0L || elapsed > DEV_UNLOCK_WINDOW_MS) {
@@ -1346,6 +1330,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                             text = {
                                 Text(
                                     text = "アニメ",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1
+                                )
+                            },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Tab(
+                            selected = tabIndex == 1,
+                            onClick = {
+                                tabIndex = 1
+                                animTabTapCount = 0
+                            },
+                            text = {
+                                Text(
+                                    text = "調整",
                                     style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1
                                 )
@@ -1394,8 +1394,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = actionButtonModifier,
                             onClick = {
                                 when (displayedTabIndex) {
-                                    0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                                    1 -> onAnimationApply()
+                                    0 -> onAnimationApply()
+                                    1 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
                                 }
                             },
@@ -1411,8 +1411,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = actionButtonModifier,
                             onClick = {
                                 when (displayedTabIndex) {
-                                    0 -> saveSpriteSheetConfig()
-                                    1 -> onAnimationSave()
+                                    0 -> onAnimationSave()
+                                    1 -> saveSpriteSheetConfig()
                                     else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
                                 }
                             },
@@ -1428,8 +1428,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = actionButtonModifier,
                             onClick = {
                                 when (displayedTabIndex) {
-                                    0 -> copySpriteSheetConfig()
-                                    1 -> copyAppliedSettings(devPreviewSettings)
+                                    0 -> copyAppliedSettings(devPreviewSettings)
+                                    1 -> copySpriteSheetConfig()
                                     else -> copyDevSettings(devPreviewSettings)
                                 }
                             },
@@ -1708,7 +1708,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
 
                         when (displayedTabIndex) {
-                            0 -> {
+                            0 -> animationTabContent()
+
+                            1 -> {
                                 val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
                                 val coordinateText =
                                     selectedPosition?.let { position ->
@@ -1775,8 +1777,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
                                 }
                             }
-
-                            1 -> animationTabContent()
 
                             2 -> if (devUnlocked) {
                                 val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
