@@ -1,6 +1,8 @@
 package com.sonusid.ollama
 
 import android.os.Bundle
+import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.children
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -43,6 +47,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
+        )
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         // Initialize Database & Repository
@@ -112,5 +119,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        propagateWindowInsetsToCompose()
+    }
+
+    private fun propagateWindowInsetsToCompose() {
+        val contentGroup = findViewById<ViewGroup>(android.R.id.content) ?: return
+        ViewCompat.setOnApplyWindowInsetsListener(contentGroup) { view, insets ->
+            view.children.forEach { child ->
+                ViewCompat.dispatchApplyWindowInsets(child, insets)
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(contentGroup)
     }
 }
