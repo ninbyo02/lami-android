@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -204,6 +205,44 @@ private fun rememberImeBringIntoViewHandler(
 private enum class PreviewSnap {
     Collapsed,
     Expanded,
+}
+
+@Composable
+private fun InsetsDebugOverlay(modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val navigationBottomPx = WindowInsets.navigationBars.getBottom(density)
+    val systemBottomPx = WindowInsets.systemBars.getBottom(density)
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp).copy(alpha = 0.92f),
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "IME: $imeBottomPx",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Nav: $navigationBottomPx",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Sys: $systemBottomPx",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
 }
 
 private enum class AnimationType(val label: String) {
@@ -1318,123 +1357,71 @@ fun SpriteSettingsScreen(navController: NavController) {
             bottom = innerPadding.calculateBottomPadding()
         )
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            Surface(
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
             ) {
-                Column(
+                Surface(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(contentPadding)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Top
+                        .weight(1f)
+                        .fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { onBackRequested() },
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "戻る"
-                            )
-                        }
-                        Text(
-                            text = "Sprite Settings",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Spacer(modifier = Modifier.size(32.dp))
-                    }
-                    val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
-
-                    TabRow(
-                        selectedTabIndex = displayedTabIndex,
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-                        indicator = { tabPositions ->
-                            TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[displayedTabIndex])
-                                    .padding(horizontal = 6.dp),
-                                height = 2.dp
-                            )
-                        },
-                        divider = { Divider(thickness = 0.5.dp) }
+                            .fillMaxSize()
+                            .padding(contentPadding)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        Tab(
-                            selected = tabIndex == 0,
-                            onClick = {
-                                tabIndex = 0
-                                animTabTapCount = 0
-                            },
-                            text = {
-                                Text(
-                                    text = "調整",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { onBackRequested() },
+                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = "戻る"
+                                )
+                            }
+                            Text(
+                                text = "Sprite Settings",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Spacer(modifier = Modifier.size(32.dp))
+                        }
+                        val displayedTabIndex = if (!devUnlocked && tabIndex == 2) 1 else tabIndex
+
+                        TabRow(
+                            selectedTabIndex = displayedTabIndex,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(32.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                            indicator = { tabPositions ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier
+                                        .tabIndicatorOffset(tabPositions[displayedTabIndex])
+                                        .padding(horizontal = 6.dp),
+                                    height = 2.dp
                                 )
                             },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Tab(
-                            selected = tabIndex == 1,
-                            onClick = {
-                                tabIndex = 1
-                                val now = System.currentTimeMillis()
-                                val elapsed = if (firstAnimTabTapAtMs == 0L) 0L else now - firstAnimTabTapAtMs
-                                if (firstAnimTabTapAtMs == 0L || elapsed > DEV_UNLOCK_WINDOW_MS) {
-                                    firstAnimTabTapAtMs = now
-                                    animTabTapCount = 1
-                                } else {
-                                    animTabTapCount += 1
-                                }
-                                if (animTabTapCount >= DEV_UNLOCK_TAP_THRESHOLD) {
-                                    devUnlocked = !devUnlocked
-                                    if (!devUnlocked) {
-                                        devExpanded = false
-                                    }
-                                    animTabTapCount = 0
-                                    firstAnimTabTapAtMs = 0L
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            "開発メニュー: ${if (devUnlocked) "ON" else "OFF"}"
-                                        )
-                                    }
-                                }
-                            },
-                            text = {
-                                Text(
-                                    text = "アニメ",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1
-                                )
-                            },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (devUnlocked) {
+                            divider = { Divider(thickness = 0.5.dp) }
+                        ) {
                             Tab(
-                                selected = tabIndex == 2,
+                                selected = tabIndex == 0,
                                 onClick = {
-                                    tabIndex = 2
+                                    tabIndex = 0
                                     animTabTapCount = 0
                                 },
                                 text = {
                                     Text(
-                                        text = "DEV",
+                                        text = "調整",
                                         style = MaterialTheme.typography.labelMedium,
                                         maxLines = 1
                                     )
@@ -1442,88 +1429,141 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 selectedContentColor = MaterialTheme.colorScheme.primary,
                                 unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                    }
-                    val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
-                    val actionButtonModifier = Modifier
-                        .weight(1f)
-                        .height(actionButtonHeight)
-                    val actionButtonPadding = PaddingValues(
-                        horizontal = 12.dp,
-                        vertical = 0.dp
-                    ) // 内部余白を最小化して厚みを揃える
-                    val actionButtonShape = RoundedCornerShape(999.dp)
-                    val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
-                    val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilledTonalButton(
-                            modifier = actionButtonModifier,
-                            onClick = {
-                                when (displayedTabIndex) {
-                                    0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                                    1 -> onAnimationApply()
-                                    else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
-                                }
-                            },
-                            contentPadding = actionButtonPadding,
-                            shape = actionButtonShape
-                        ) {
-                            Text(
-                                text = "更新",
-                                style = MaterialTheme.typography.labelLarge
+                            Tab(
+                                selected = tabIndex == 1,
+                                onClick = {
+                                    tabIndex = 1
+                                    val now = System.currentTimeMillis()
+                                    val elapsed = if (firstAnimTabTapAtMs == 0L) 0L else now - firstAnimTabTapAtMs
+                                    if (firstAnimTabTapAtMs == 0L || elapsed > DEV_UNLOCK_WINDOW_MS) {
+                                        firstAnimTabTapAtMs = now
+                                        animTabTapCount = 1
+                                    } else {
+                                        animTabTapCount += 1
+                                    }
+                                    if (animTabTapCount >= DEV_UNLOCK_TAP_THRESHOLD) {
+                                        devUnlocked = !devUnlocked
+                                        if (!devUnlocked) {
+                                            devExpanded = false
+                                        }
+                                        animTabTapCount = 0
+                                        firstAnimTabTapAtMs = 0L
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                "開発メニュー: ${if (devUnlocked) "ON" else "OFF"}"
+                                            )
+                                        }
+                                    }
+                                },
+                                text = {
+                                    Text(
+                                        text = "アニメ",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1
+                                    )
+                                },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (devUnlocked) {
+                                Tab(
+                                    selected = tabIndex == 2,
+                                    onClick = {
+                                        tabIndex = 2
+                                        animTabTapCount = 0
+                                    },
+                                    text = {
+                                        Text(
+                                            text = "DEV",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 1
+                                        )
+                                    },
+                                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        FilledTonalButton(
-                            modifier = actionButtonModifier,
-                            onClick = {
-                                when (displayedTabIndex) {
-                                    0 -> saveSpriteSheetConfig()
-                                    1 -> onAnimationSave()
-                                    else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
-                                }
-                            },
-                            contentPadding = actionButtonPadding,
-                            shape = actionButtonShape
+                        val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
+                        val actionButtonModifier = Modifier
+                            .weight(1f)
+                            .height(actionButtonHeight)
+                        val actionButtonPadding = PaddingValues(
+                            horizontal = 12.dp,
+                            vertical = 0.dp
+                        ) // 内部余白を最小化して厚みを揃える
+                        val actionButtonShape = RoundedCornerShape(999.dp)
+                        val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
+                        val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "保存",
-                                style = MaterialTheme.typography.labelLarge
-                            )
+                            FilledTonalButton(
+                                modifier = actionButtonModifier,
+                                onClick = {
+                                    when (displayedTabIndex) {
+                                        0 -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                                        1 -> onAnimationApply()
+                                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
+                                    }
+                                },
+                                contentPadding = actionButtonPadding,
+                                shape = actionButtonShape
+                            ) {
+                                Text(
+                                    text = "更新",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                            FilledTonalButton(
+                                modifier = actionButtonModifier,
+                                onClick = {
+                                    when (displayedTabIndex) {
+                                        0 -> saveSpriteSheetConfig()
+                                        1 -> onAnimationSave()
+                                        else -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
+                                    }
+                                },
+                                contentPadding = actionButtonPadding,
+                                shape = actionButtonShape
+                            ) {
+                                Text(
+                                    text = "保存",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                            FilledTonalButton(
+                                modifier = actionButtonModifier,
+                                onClick = {
+                                    when (displayedTabIndex) {
+                                        0 -> copySpriteSheetConfig()
+                                        1 -> copyAppliedSettings(devPreviewSettings)
+                                        else -> copyDevSettings(devPreviewSettings)
+                                    }
+                                },
+                                contentPadding = actionButtonPadding,
+                                shape = actionButtonShape
+                            ) {
+                                Text(
+                                    text = "コピー",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
                         }
-                        FilledTonalButton(
-                            modifier = actionButtonModifier,
-                            onClick = {
-                                when (displayedTabIndex) {
-                                    0 -> copySpriteSheetConfig()
-                                    1 -> copyAppliedSettings(devPreviewSettings)
-                                    else -> copyDevSettings(devPreviewSettings)
-                                }
-                            },
-                            contentPadding = actionButtonPadding,
-                            shape = actionButtonShape
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = true)
                         ) {
-                            Text(
-                                text = "コピー",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f, fill = true)
-                    ) {
-                        val animationTabContent: @Composable () -> Unit = {
-                            val animationOptions = remember { AnimationType.options }
-                            val selectedFrameInput: String
-                            val selectedIntervalInput: String
-                            val selectedFramesError: String?
+                            val animationTabContent: @Composable () -> Unit = {
+                                val animationOptions = remember { AnimationType.options }
+                                val selectedFrameInput: String
+                                val selectedIntervalInput: String
+                                val selectedFramesError: String?
                             val selectedIntervalError: String?
                             val selectedInsertionFrameInput: String
                             val selectedInsertionIntervalInput: String
@@ -1910,6 +1950,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
                     }
                 }
+            }
+            if (BuildConfig.DEBUG) {
+                InsetsDebugOverlay(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                )
             }
         }
     }
