@@ -2045,10 +2045,11 @@ private fun ReadyAnimationTab(
     val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
     // IME 分の余白はスクロール領域の contentPadding に集約する
     val bottomContentPadding = baseBottomPadding + imeBottomDp + PREVIEW_PEEK_DP
-    val insetTopPadding = contentPadding.calculateTopPadding()
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
-        top = insetTopPadding,
+        // Scaffold で付与済みの contentPadding と重複させないため top を 0dp にする。
+        // その結果、ステータスバー相当の余白（端末によって約 20〜24dp）が一段分減少する想定。
+        top = 0.dp,
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
