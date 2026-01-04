@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
@@ -136,6 +136,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -1266,7 +1267,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
         ) {
             Surface(
                 modifier = Modifier
@@ -1924,6 +1924,8 @@ private fun ReadyAnimationTab(
     var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
     val swipeableState = rememberSwipeableState(initialValue = previewSnap)
     val imeBottomPx = WindowInsets.ime.getBottom(density).toFloat()
+    val navBottomPx = WindowInsets.navigationBars.getBottom(density).toFloat()
+    val bottomInsetPx = max(imeBottomPx, navBottomPx)
     val collapsedY = remember(rootHeightPx, previewPeekPx) {
         if (rootHeightPx == 0) {
             0f
@@ -1931,11 +1933,11 @@ private fun ReadyAnimationTab(
             (rootHeightPx.toFloat() - previewPeekPx).coerceAtLeast(0f)
         }
     }
-    val expandedY = remember(rootHeightPx, previewCardHeightPx, imeBottomPx, topMarginPx) {
+    val expandedY = remember(rootHeightPx, previewCardHeightPx, bottomInsetPx, topMarginPx) {
         if (rootHeightPx == 0) {
             0f
         } else {
-            val maxExpandedY = (rootHeightPx.toFloat() - previewCardHeightPx - imeBottomPx).coerceAtLeast(0f)
+            val maxExpandedY = (rootHeightPx.toFloat() - previewCardHeightPx - bottomInsetPx).coerceAtLeast(0f)
             min(topMarginPx, maxExpandedY)
         }
     }
@@ -1949,11 +1951,11 @@ private fun ReadyAnimationTab(
                 expandedY to PreviewSnap.Expanded
             )
         } else {
-            emptyMap()
+            mapOf(collapsedY to PreviewSnap.Collapsed)
         }
     }
     val swipeableVelocityThreshold = with(density) { 800.dp.toPx() }
-    val currentOffsetY = if (swipeableEnabled) swipeableState.offset.value else targetOffsetY
+    val currentOffsetY = if (swipeableEnabled) swipeableState.offset.value else collapsedY
     val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1963,7 +1965,7 @@ private fun ReadyAnimationTab(
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val bottomContentPadding = contentPadding.calculateBottomPadding() + if (isImeVisible) 2.dp else 0.dp
+    val bottomContentPadding = contentPadding.calculateBottomPadding()
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
@@ -1997,7 +1999,7 @@ private fun ReadyAnimationTab(
     LaunchedEffect(
         rootHeightPx,
         previewCardHeightPx,
-        imeBottomPx,
+        bottomInsetPx,
         previewSnap,
         collapsedY,
         expandedY,
@@ -2009,7 +2011,7 @@ private fun ReadyAnimationTab(
                 lastLoggedValues = current
                 Log.d(
                     "SpriteSettings",
-                    "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx imeBottomPx=$imeBottomPx collapsedY=$collapsedY expandedY=$expandedY offsetY=$currentOffsetY snap=$previewSnap"
+                    "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx bottomInsetPx=$bottomInsetPx collapsedY=$collapsedY expandedY=$expandedY offsetY=$currentOffsetY snap=$previewSnap"
                 )
             }
         }
