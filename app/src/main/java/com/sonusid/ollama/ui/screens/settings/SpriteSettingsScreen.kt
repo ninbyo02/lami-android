@@ -2,15 +2,24 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.at
+import androidx.compose.foundation.gestures.rememberAnchoredDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.calculateBottomPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -74,6 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
@@ -130,6 +140,11 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
+
+private enum class PreviewSnap {
+    Collapsed,
+    Expanded
+}
 
 private enum class AnimationType(val label: String) {
     READY("Ready"),
@@ -1884,6 +1899,7 @@ private data class InsertionAnimationUiState(
     val previewValues: InsertionPreviewValues,
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
@@ -1916,40 +1932,55 @@ private fun ReadyAnimationTab(
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
 
-    Column(
+    val previewPeekDp = 56.dp
+    val previewTopMarginDp = 72.dp
+    val density = LocalDensity.current
+    val peekPx = with(density) { previewPeekDp.toPx() }
+    val topMarginPx = with(density) { previewTopMarginDp.toPx() }
+    val velocityThresholdPx = with(density) { 800.dp.toPx() }
+    var rootHeightPx by remember { mutableIntStateOf(0) }
+    var previewCardHeightPx by remember { mutableIntStateOf(0) }
+    val imeBottomPx = WindowInsets.ime.getBottom(LocalDensity.current).toFloat()
+    val initialAnchors = remember {
+        DraggableAnchors {
+            PreviewSnap.Collapsed at 0f
+            PreviewSnap.Expanded at 0f
+        }
+    }
+    val previewDraggableState = rememberAnchoredDraggableState(
+        initialValue = PreviewSnap.Collapsed,
+        positionalThreshold = { distance -> distance * 0.35f },
+        velocityThreshold = { velocityThresholdPx },
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        anchors = initialAnchors
+    )
+
+    LaunchedEffect(rootHeightPx, previewCardHeightPx, imeBottomPx) {
+        if (rootHeightPx <= 0) {
+            return@LaunchedEffect
+        }
+        val collapsedY = (rootHeightPx.toFloat() - peekPx).coerceAtLeast(0f)
+        val maxExpandedY = (rootHeightPx.toFloat() - previewCardHeightPx.toFloat() - imeBottomPx).coerceAtLeast(0f)
+        val expandedY = topMarginPx.coerceAtMost(maxExpandedY)
+        val anchors = DraggableAnchors {
+            PreviewSnap.Collapsed at collapsedY
+            PreviewSnap.Expanded at expandedY
+        }
+        previewDraggableState.updateAnchors(anchors)
+        previewDraggableState.snapTo(previewDraggableState.currentValue)
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 8.dp)
+            .onSizeChanged { newSize -> rootHeightPx = newSize.height }
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            ReadyAnimationPreviewPane(
-                imageBitmap = imageBitmap,
-                spriteSheetConfig = spriteSheetConfig,
-                baseSummary = baseState.summary,
-                insertionSummary = insertionState.summary,
-                insertionPreviewValues = insertionState.previewValues,
-                insertionEnabled = insertionState.enabled,
-                isImeVisible = isImeVisible,
-                devUnlocked = devUnlocked,
-                devExpanded = devExpanded,
-                onDevExpandedChange = { expanded -> devExpanded = expanded },
-                modifier = Modifier.fillMaxWidth(),
-                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
-                devSettings = devSettings,
-                onDevSettingsChange = onDevSettingsChange,
-                onCopy = onCopyDevJson
-            )
-        }
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = listContentPadding
+            contentPadding = listContentPadding.copy(bottom = listContentPadding.calculateBottomPadding() + previewPeekDp)
         ) {
             item {
                 Column(
@@ -2159,6 +2190,60 @@ private fun ReadyAnimationTab(
                             )
                         }
                     }
+                }
+            }
+        }
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .offset { IntOffset(0, previewDraggableState.requireOffset().roundToInt()) }
+                    .onSizeChanged { newSize -> previewCardHeightPx = newSize.height }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .padding(vertical = 8.dp)
+                        .anchoredDraggable(
+                            state = previewDraggableState,
+                            orientation = Orientation.Vertical
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                    )
+                }
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    // SNAP PREVIEW CARD
+                    ReadyAnimationPreviewPane(
+                        imageBitmap = imageBitmap,
+                        spriteSheetConfig = spriteSheetConfig,
+                        baseSummary = baseState.summary,
+                        insertionSummary = insertionState.summary,
+                        insertionPreviewValues = insertionState.previewValues,
+                        insertionEnabled = insertionState.enabled,
+                        isImeVisible = isImeVisible,
+                        devUnlocked = devUnlocked,
+                        devExpanded = devExpanded,
+                        onDevExpandedChange = { expanded -> devExpanded = expanded },
+                        modifier = Modifier.fillMaxWidth(),
+                        initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                        devSettings = devSettings,
+                        onDevSettingsChange = onDevSettingsChange,
+                        onCopy = onCopyDevJson
+                    )
                 }
             }
         }
