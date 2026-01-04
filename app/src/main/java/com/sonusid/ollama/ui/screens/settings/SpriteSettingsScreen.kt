@@ -1956,6 +1956,7 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
                 devUnlocked = devUnlocked,
+                devMenuEnabled = devMenuEnabled,
                 devExpanded = devExpanded,
                 onDevExpandedChange = { expanded -> devExpanded = expanded },
                 modifier = Modifier.fillMaxWidth(),
@@ -2439,6 +2440,7 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
     devUnlocked: Boolean,
+    devMenuEnabled: Boolean,
     devExpanded: Boolean,
     onDevExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -2529,7 +2531,7 @@ private fun ReadyAnimationPreviewPane(
     val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
 
     Column(modifier = modifier) {
-        if (devUnlocked) {
+        if (devUnlocked && devMenuEnabled) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 tonalElevation = 2.dp
@@ -2958,9 +2960,8 @@ private fun ReadyAnimationPreviewPane(
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         val outerPaddingColor = if (outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
