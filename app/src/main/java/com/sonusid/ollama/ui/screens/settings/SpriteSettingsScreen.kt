@@ -2046,7 +2046,7 @@ private fun ReadyAnimationTab(
     // IME 分の余白はスクロール領域の contentPadding に集約する
     val bottomContentPadding = baseBottomPadding + imeBottomDp + PREVIEW_PEEK_DP
     val insetTopPadding = contentPadding.calculateTopPadding()
-    val listTopPadding = maxOf(insetTopPadding, 8.dp)
+    val listTopPadding = insetTopPadding
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = listTopPadding,
@@ -2079,14 +2079,13 @@ private fun ReadyAnimationTab(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 8.dp)
             .onSizeChanged { newSize -> rootHeightPx = newSize.height }
     ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize(),
             state = lazyListState,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = listContentPadding
         ) {
             item {
