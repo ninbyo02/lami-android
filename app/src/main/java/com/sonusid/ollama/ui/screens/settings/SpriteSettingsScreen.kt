@@ -641,6 +641,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     var layoutDebugPaddingEnabled by rememberSaveable { mutableStateOf(false) }
     val debugPaddingTop = if (layoutDebugPaddingEnabled) 180.dp else 0.dp
+    var debugShift by rememberSaveable { mutableStateOf(false) }
+    val shiftDp = if (debugShift) 200.dp else 0.dp
 
     LaunchedEffect(devUnlocked, tabIndex) {
         if (!devUnlocked && tabIndex == 2) {
@@ -1350,6 +1352,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     Scaffold(
+        modifier = Modifier.padding(top = shiftDp),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
@@ -2390,6 +2393,18 @@ private fun ReadyAnimationTab(
                             checked = insertionState.exclusive,
                             onCheckedChange = insertionState.onExclusiveChange
                         )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { debugShift = !debugShift }) {
+                            Text(
+                                text = if (debugShift) "DBG: SHIFT ON" else "DBG: SHIFT OFF"
+                            )
+                        }
                     }
                 }
             }
