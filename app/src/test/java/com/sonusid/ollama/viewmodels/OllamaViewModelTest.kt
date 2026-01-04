@@ -163,7 +163,7 @@ private class FakeBaseUrlProvider(initialUrl: String) : BaseUrlProvider {
     }
 }
 
-private const val DEFAULT_BASE_URL = "http://localhost:11434/"
+private const val DEFAULT_BASE_URL = "http://localhost:13511/"
 
 private class FakeChatDao : ChatDao {
     private val chatsFlow = MutableStateFlow<List<Chat>>(emptyList())
