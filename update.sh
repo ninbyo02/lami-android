@@ -18,8 +18,7 @@ PHONE_IP="10.5.5.3"
 DEFAULT_PORT="40215"
 VERBOSE=0
 CODEX_GUIDE_LINE="────────────────────────"
-CODEX_STABLE_BRANCHES=("work/oldest-buildable-good")
-CODEX_RECOMMEND_REASON="ローカルとリモートが完全一致 / ビルド可能"
+CODEX_RECOMMENDED_BRANCH="work/oldest-buildable-good"
 
 # ===== Logging =====
 info() { echo "$*"; }
@@ -114,6 +113,8 @@ print_head_commit() {
     info "worktree: clean"
   fi
   info "========="
+
+  print_codex_branch_guidance
 }
 
 print_codex_branch_guidance() {
@@ -121,65 +122,45 @@ print_codex_branch_guidance() {
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
 
   local current_branch=""
-  current_branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo "(detached)")"
+  current_branch="$(git symbolic-ref --quiet --short HEAD || true)"
 
-  local worktree_clean=1
-  if [[ -n "$(git status --porcelain 2>/dev/null || true)" ]]; then
-    worktree_clean=0
-  fi
-
-  local upstream=""
+  local upstream="(none)"
   local upstream_set=0
-  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" 2>/dev/null || true)"
-  if [[ -n "$upstream" && "$upstream" != "@{upstream}" ]]; then
+  if git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" >/dev/null 2>&1; then
     upstream_set=1
+    upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" 2>/dev/null || true)"
   fi
 
-  local behind="0"
   local ahead="0"
+  local behind="0"
   if [[ "$upstream_set" -eq 1 ]]; then
     local counts=""
-    counts="$(git rev-list --left-right --count "${upstream}...HEAD" 2>/dev/null || true)"
+    counts="$(git rev-list --left-right --count "HEAD...@{upstream}" 2>/dev/null || true)"
     if [[ -n "$counts" ]]; then
-      behind="${counts%% *}"
-      ahead="${counts##* }"
+      ahead="${counts%% *}"
+      behind="${counts##* }"
     fi
   fi
 
-  local is_stable_branch=0
-  local stable=""
-  for stable in "${CODEX_STABLE_BRANCHES[@]}"; do
-    if [[ "$current_branch" == "$stable" ]]; then
-      is_stable_branch=1
-      break
-    fi
-  done
-
-  local recommend=0
-  if [[ "$worktree_clean" -eq 1 && "$is_stable_branch" -eq 1 && "$upstream_set" -eq 1 && "$ahead" == "0" && "$behind" == "0" ]]; then
-    recommend=1
+  local worktree_status="clean"
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    worktree_status="dirty"
   fi
 
-  if [[ "$recommend" -eq 1 ]]; then
+  if [[ "$current_branch" == "$CODEX_RECOMMENDED_BRANCH" && "$worktree_status" == "clean" && "$upstream_set" -eq 1 && "$ahead" == "0" && "$behind" == "0" ]]; then
     echo "$CODEX_GUIDE_LINE"
     echo "🤖 Codex 推奨ブランチ"
-    echo "  → ${current_branch}"
-    echo "（理由: ${CODEX_RECOMMEND_REASON}）"
+    echo "  → ${CODEX_RECOMMENDED_BRANCH}"
+    echo "  （理由: worktree clean / upstream差分 0 0）"
     echo "$CODEX_GUIDE_LINE"
-  else
-    echo "⚠️ Codex での作業は非推奨"
-    if [[ "$worktree_clean" -ne 1 ]]; then
-      echo "  - working tree が dirty"
-    fi
-    if [[ "$upstream_set" -eq 0 ]]; then
-      echo "  - upstream 未設定"
-    else
-      if [[ "$ahead" != "0" || "$behind" != "0" ]]; then
-        echo "  - upstream と差分あり（ahead ${ahead} / behind ${behind}）"
-      fi
-    fi
-    echo "  - 現在のブランチ: ${current_branch}"
+    return 0
   fi
+
+  echo "⚠️ Codexでの作業は非推奨"
+  echo "  - worktree: ${worktree_status}"
+  echo "  - upstream: ${upstream}"
+  echo "  - ahead/behind: ${ahead}/${behind}"
+  echo "  - current: ${current_branch}"
 }
 
 current_branch_or_die() {
@@ -361,7 +342,6 @@ cmd_update() {
 
   # ★追加: 実行開始時点のHEADを表示
   print_head_commit
-  print_codex_branch_guidance
 
   local auto_wip_commit=0
   maybe_auto_wip_commit "$no_wip" auto_wip_commit
@@ -437,7 +417,6 @@ cmd_switch() {
 
   # ★追加: 実行開始時点のHEADを表示
   print_head_commit
-  print_codex_branch_guidance
 
   git fetch -q "${REMOTE_NAME}" || true
 
@@ -542,7 +521,6 @@ cmd_test() {
 
   # ★追加: 実行開始時点のHEADを表示
   print_head_commit
-  print_codex_branch_guidance
 
   git fetch -q "${REMOTE_NAME}" || true
 
@@ -647,7 +625,6 @@ cmd_here_install() {
 
   # ★追加: 実行開始時点のHEADを表示
   print_head_commit
-  print_codex_branch_guidance
 
   local auto_wip_commit=0
   maybe_auto_wip_commit "$no_wip" auto_wip_commit
@@ -711,7 +688,6 @@ cmd_promote() {
 
   # ★追加: 実行開始時点のHEADを表示
   print_head_commit
-  print_codex_branch_guidance
 
   local auto_wip_commit=0
   maybe_auto_wip_commit "$no_wip" auto_wip_commit
