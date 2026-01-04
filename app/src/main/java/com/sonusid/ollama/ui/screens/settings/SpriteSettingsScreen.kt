@@ -1,18 +1,22 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -22,17 +26,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,32 +49,31 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -79,35 +86,28 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
@@ -130,6 +130,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
+
+private val PREVIEW_PEEK_DP = 56.dp
 
 private enum class AnimationType(val label: String) {
     READY("Ready"),
@@ -1897,6 +1899,22 @@ private fun ReadyAnimationTab(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
+    val density = LocalDensity.current
+    val previewPeekPx = with(density) { PREVIEW_PEEK_DP.toPx() }
+    var rootHeightPx by remember { mutableIntStateOf(0) }
+    var previewCardHeightPx by remember { mutableIntStateOf(0) }
+    val imeBottomPx = WindowInsets.ime.getBottom(density).toFloat()
+    val collapsedY = remember(rootHeightPx, previewCardHeightPx, imeBottomPx, previewPeekPx) {
+        if (rootHeightPx == 0) {
+            0f
+        } else {
+            val targetVisiblePx = min(
+                previewPeekPx,
+                if (previewCardHeightPx > 0) previewCardHeightPx.toFloat() else previewPeekPx
+            )
+            (rootHeightPx.toFloat() - targetVisiblePx - imeBottomPx).coerceAtLeast(0f)
+        }
+    }
     val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1911,42 +1929,29 @@ private fun ReadyAnimationTab(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
         end = contentPadding.calculateEndPadding(layoutDirection),
-        bottom = bottomContentPadding
+        bottom = bottomContentPadding + PREVIEW_PEEK_DP
     )
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
 
-    Column(
+    LaunchedEffect(rootHeightPx, previewCardHeightPx, imeBottomPx, collapsedY) {
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "SpriteSettings",
+                "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx imeBottomPx=$imeBottomPx collapsedY=$collapsedY"
+            )
+        }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 8.dp)
+            .onSizeChanged { newSize -> rootHeightPx = newSize.height }
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            ReadyAnimationPreviewPane(
-                imageBitmap = imageBitmap,
-                spriteSheetConfig = spriteSheetConfig,
-                baseSummary = baseState.summary,
-                insertionSummary = insertionState.summary,
-                insertionPreviewValues = insertionState.previewValues,
-                insertionEnabled = insertionState.enabled,
-                isImeVisible = isImeVisible,
-                devUnlocked = devUnlocked,
-                devExpanded = devExpanded,
-                onDevExpandedChange = { expanded -> devExpanded = expanded },
-                modifier = Modifier.fillMaxWidth(),
-                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
-                devSettings = devSettings,
-                onDevSettingsChange = onDevSettingsChange,
-                onCopy = onCopyDevJson
-            )
-        }
         LazyColumn(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxSize(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = listContentPadding
@@ -2161,6 +2166,31 @@ private fun ReadyAnimationTab(
                     }
                 }
             }
+        }
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(x = 0, y = collapsedY.roundToInt()) }
+                .onSizeChanged { newSize -> previewCardHeightPx = newSize.height },
+            color = MaterialTheme.colorScheme.background
+        ) {
+            ReadyAnimationPreviewPane(
+                imageBitmap = imageBitmap,
+                spriteSheetConfig = spriteSheetConfig,
+                baseSummary = baseState.summary,
+                insertionSummary = insertionState.summary,
+                insertionPreviewValues = insertionState.previewValues,
+                insertionEnabled = insertionState.enabled,
+                isImeVisible = isImeVisible,
+                devUnlocked = devUnlocked,
+                devExpanded = devExpanded,
+                onDevExpandedChange = { expanded -> devExpanded = expanded },
+                modifier = Modifier.fillMaxWidth(),
+                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                devSettings = devSettings,
+                onDevSettingsChange = onDevSettingsChange,
+                onCopy = onCopyDevJson
+            )
         }
     }
 }
