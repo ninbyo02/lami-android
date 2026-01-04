@@ -44,7 +44,7 @@ class BaseUrlRepository(private val baseUrlDao: BaseUrlDao) : BaseUrlProvider {
     }
 
     private companion object {
-        const val DEFAULT_BASE_URL = "http://localhost:11434/"
+        const val DEFAULT_BASE_URL = "http://localhost:13511/"
         val activeBaseUrlState = MutableStateFlow(DEFAULT_BASE_URL.trimEnd('/'))
         val activeBaseUrlFlow: StateFlow<String> = activeBaseUrlState.asStateFlow()
     }

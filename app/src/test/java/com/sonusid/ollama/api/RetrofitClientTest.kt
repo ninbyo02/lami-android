@@ -15,9 +15,9 @@ class RetrofitClientTest {
 
         val state = RetrofitClient.initialize(provider)
 
-        assertEquals("http://localhost:11434/", state.baseUrl)
+        assertEquals("http://localhost:13511/", state.baseUrl)
         assertTrue(state.usedFallback)
-        assertEquals(listOf("http://localhost:11434/"), provider.storedUrls())
+        assertEquals(listOf("http://localhost:13511/"), provider.storedUrls())
         assertTrue(provider.activeUrlIs(state.baseUrl))
     }
 

@@ -22,7 +22,7 @@ data class BaseUrlInitializationState(
 )
 
 object RetrofitClient {
-    private const val DEFAULT_BASE_URL = "http://localhost:11434/" // Default URL
+    private const val DEFAULT_BASE_URL = "http://localhost:13511/" // Default URL
     private var baseUrl: String = DEFAULT_BASE_URL
     private var lastInitializationState: BaseUrlInitializationState? = null
 
