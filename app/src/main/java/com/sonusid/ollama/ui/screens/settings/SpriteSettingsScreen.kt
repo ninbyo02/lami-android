@@ -64,9 +64,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -355,8 +353,6 @@ private fun buildInsertionPreviewSummary(
 private const val DEFAULT_BOX_SIZE_PX = 88
 private const val INFO_X_OFFSET_MIN = -500
 private const val INFO_X_OFFSET_MAX = 500
-private const val DEV_UNLOCK_TAP_THRESHOLD = 20
-private const val DEV_UNLOCK_WINDOW_MS = 12_000L
 
 private fun clampPosition(
     position: BoxPosition,
@@ -472,9 +468,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
-    var devUnlocked by rememberSaveable { mutableStateOf(false) }
-    var animTabTapCount by rememberSaveable { mutableIntStateOf(0) }
-    var firstAnimTabTapAtMs by rememberSaveable { mutableLongStateOf(0L) }
+    val devUnlocked = true
     var devExpanded by rememberSaveable { mutableStateOf(false) }
     var devMenuEnabled by rememberSaveable { mutableStateOf(false) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
@@ -529,12 +523,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(devUnlocked) {
-        if (!devUnlocked) {
-            devExpanded = false
-        }
-    }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -1297,27 +1285,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selected = selectedTab == SpriteTab.ANIM,
                                     onClick = {
                                         selectedTab = SpriteTab.ANIM
-                                        val now = System.currentTimeMillis()
-                                        val elapsed = if (firstAnimTabTapAtMs == 0L) 0L else now - firstAnimTabTapAtMs
-                                        if (firstAnimTabTapAtMs == 0L || elapsed > DEV_UNLOCK_WINDOW_MS) {
-                                            firstAnimTabTapAtMs = now
-                                            animTabTapCount = 1
-                                        } else {
-                                            animTabTapCount += 1
-                                        }
-                                        if (animTabTapCount >= DEV_UNLOCK_TAP_THRESHOLD) {
-                                            devUnlocked = !devUnlocked
-                                            if (!devUnlocked) {
-                                                devExpanded = false
-                                            }
-                                            animTabTapCount = 0
-                                            firstAnimTabTapAtMs = 0L
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(
-                                                    "開発メニュー: ${if (devUnlocked) "ON" else "OFF"}"
-                                                )
-                                            }
-                                        }
                                     },
                                     text = {
                                         Text(
@@ -1334,7 +1301,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selected = selectedTab == SpriteTab.ADJUST,
                                     onClick = {
                                         selectedTab = SpriteTab.ADJUST
-                                        animTabTapCount = 0
                                     },
                                     text = {
                                         Text(
