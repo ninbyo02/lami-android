@@ -477,6 +477,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var animTabTapCount by rememberSaveable { mutableIntStateOf(0) }
     var firstAnimTabTapAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var devExpanded by rememberSaveable { mutableStateOf(false) }
+    var devMenuEnabled by rememberSaveable { mutableStateOf(false) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
@@ -1716,6 +1717,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 isImeVisible = imeVisible,
                                 contentPadding = contentPadding,
                                 devUnlocked = devUnlocked,
+                                devMenuEnabled = devMenuEnabled,
+                                onDevMenuEnabledChange = { enabled -> devMenuEnabled = enabled },
                                 devSettings = devPreviewSettings,
                                 onDevSettingsChange = { updated -> devPreviewSettings = updated },
                                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
@@ -1911,6 +1914,8 @@ private fun ReadyAnimationTab(
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
     devUnlocked: Boolean,
+    devMenuEnabled: Boolean,
+    onDevMenuEnabledChange: (Boolean) -> Unit,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
@@ -2066,6 +2071,32 @@ private fun ReadyAnimationTab(
                         checked = insertionState.enabled,
                         onCheckedChange = insertionState.onEnabledChange
                     )
+                }
+                if (devUnlocked) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "開発メニュー",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "開発メニューを表示",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = devMenuEnabled,
+                            onCheckedChange = onDevMenuEnabledChange
+                        )
+                    }
                 }
             }
             item {
