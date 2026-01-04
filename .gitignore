@@ -32,3 +32,7 @@ key.properties
 # prevent accidental files
 /adb
 /info
+
+# update.sh backups
+/update.sh.bak.*
+/update.sh.bak_*
