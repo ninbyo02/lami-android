@@ -2084,7 +2084,12 @@ private fun ReadyAnimationTab(
                 .fillMaxSize(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = fixedContentPadding
+            contentPadding = PaddingValues(
+                start = 0.dp,
+                top = 0.dp,
+                end = 0.dp,
+                bottom = bottomContentPadding
+            )
         ) {
             item {
                 Column(
