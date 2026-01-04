@@ -639,6 +639,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    var layoutDebugPaddingEnabled by rememberSaveable { mutableStateOf(false) }
+    val debugPaddingTop = if (layoutDebugPaddingEnabled) 180.dp else 0.dp
 
     LaunchedEffect(devUnlocked, tabIndex) {
         if (!devUnlocked && tabIndex == 2) {
@@ -1358,11 +1360,33 @@ fun SpriteSettingsScreen(navController: NavController) {
             bottom = innerPadding.calculateBottomPadding()
         )
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = debugPaddingTop)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(contentPadding)
             ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "デバッグ: ルートに180dp上余白を付与",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Switch(
+                        checked = layoutDebugPaddingEnabled,
+                        onCheckedChange = { layoutDebugPaddingEnabled = it }
+                    )
+                }
                 Surface(
                     modifier = Modifier
                         .weight(1f)
@@ -1371,7 +1395,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(contentPadding)
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
@@ -1400,9 +1423,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
                         TabRow(
                             selectedTabIndex = displayedTabIndex,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(32.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
                             indicator = { tabPositions ->
                                 TabRowDefaults.SecondaryIndicator(
@@ -1485,16 +1506,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 )
                             }
                         }
-                        val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
-                        val actionButtonModifier = Modifier
-                            .weight(1f)
-                            .height(actionButtonHeight)
+                        val actionButtonModifier = Modifier.weight(1f)
                         val actionButtonPadding = PaddingValues(
                             horizontal = 12.dp,
                             vertical = 0.dp
                         ) // 内部余白を最小化して厚みを揃える
                         val actionButtonShape = RoundedCornerShape(999.dp)
-                        val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
                         val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         Row(
                             modifier = Modifier
@@ -1873,7 +1890,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     SpriteSettingsControls(
-                                        buttonHeight = controlButtonHeight,
                                         buttonContentPadding = controlButtonPadding,
                                         buttonShape = actionButtonShape,
                                         onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
@@ -2019,19 +2035,21 @@ private fun ReadyAnimationTab(
     val density = LocalDensity.current
     val view = LocalView.current
     var keyboardVisible by remember { mutableStateOf(false) }
+    var keyboardHeightPx by remember { mutableStateOf(0) }
     DisposableEffect(view) {
         val listener = ViewTreeObserver.OnGlobalLayoutListener {
             val windowVisibleFrame = Rect()
             view.getWindowVisibleDisplayFrame(windowVisibleFrame)
             val screenHeight = view.rootView.height
-            val keypadHeight = screenHeight - windowVisibleFrame.bottom
+            val keypadHeight = (screenHeight - windowVisibleFrame.bottom).coerceAtLeast(0)
+            keyboardHeightPx = keypadHeight
             keyboardVisible = keypadHeight > screenHeight * 0.15
         }
         view.viewTreeObserver.addOnGlobalLayoutListener(listener)
         onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
     }
-    LaunchedEffect(keyboardVisible) {
-        Log.d("SpriteSettingsScreen", "Keyboard visible = $keyboardVisible")
+    LaunchedEffect(keyboardVisible, keyboardHeightPx) {
+        Log.d("SpriteSettingsScreen", "Keyboard visible = $keyboardVisible, heightPx = $keyboardHeightPx")
     }
     var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
     val swipeableState = rememberSwipeableState(initialValue = previewSnap)
@@ -2074,6 +2092,12 @@ private fun ReadyAnimationTab(
     )
     val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
     val baseBottomPadding = contentPadding.calculateBottomPadding()
+    val keyboardBottomPaddingDp = with(density) { keyboardHeightPx.toDp() }
+    val effectiveBottomPadding = if (keyboardBottomPaddingDp > baseBottomPadding) {
+        keyboardBottomPaddingDp
+    } else {
+        baseBottomPadding
+    }
     var previewMeasuredHeightDp by remember { mutableStateOf(0.dp) }
     val previewHeightDp = if (keyboardVisible) 0.dp else previewMeasuredHeightDp
     val previewSpacingDp = if (keyboardVisible) 0.dp else 12.dp
@@ -2154,12 +2178,11 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .imePadding()
                 .padding(
                     start = 0.dp,
                     top = previewTopPadding,
                     end = 0.dp,
-                    bottom = baseBottomPadding
+                    bottom = effectiveBottomPadding
                 ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -2813,7 +2836,6 @@ private fun ReadyAnimationPreviewPane(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 220.dp)
                                 .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
@@ -3402,7 +3424,6 @@ private fun SpritePreviewBlock(
 
 @Composable
 private fun SpriteSettingsControls(
-    buttonHeight: Dp,
     buttonContentPadding: PaddingValues,
     buttonShape: Shape,
     onPrev: () -> Unit,
@@ -3422,7 +3443,6 @@ private fun SpriteSettingsControls(
     ) {
         val buttonModifier = Modifier
             .weight(1f)
-            .height(buttonHeight)
 
         val navigatorButtonColors = ButtonDefaults.buttonColors(
             containerColor = Color(0xFF6A00FF),
