@@ -1,6 +1,8 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.graphics.Rect
 import android.util.Log
+import android.view.ViewTreeObserver
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -28,7 +30,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.onSizeChanged
@@ -38,8 +39,6 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -82,6 +81,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -112,6 +112,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -151,7 +152,7 @@ import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
-private const val IME_SCROLL_DELAY_MS = 45L
+private const val IME_SCROLL_DELAY_MS = 120L
 private data class ImeBringIntoViewHandler(
     val modifier: Modifier,
     /** フォーカス変化をハンドリングし、フォーカス獲得時のみ true を返す */
@@ -2016,10 +2017,21 @@ private fun ReadyAnimationTab(
     initialHeaderLeftXOffsetDp: Int?,
 ) {
     val density = LocalDensity.current
-    val imeBottomPx = WindowInsets.ime.getBottom(density)
-    val isImeVisible = imeBottomPx > 0
-    LaunchedEffect(imeBottomPx) {
-        Log.d("SpriteSettingsScreen", "IME bottom(px) = $imeBottomPx")
+    val view = LocalView.current
+    var keyboardVisible by remember { mutableStateOf(false) }
+    DisposableEffect(view) {
+        val listener = ViewTreeObserver.OnGlobalLayoutListener {
+            val windowVisibleFrame = Rect()
+            view.getWindowVisibleDisplayFrame(windowVisibleFrame)
+            val screenHeight = view.rootView.height
+            val keypadHeight = screenHeight - windowVisibleFrame.bottom
+            keyboardVisible = keypadHeight > screenHeight * 0.15
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+    }
+    LaunchedEffect(keyboardVisible) {
+        Log.d("SpriteSettingsScreen", "Keyboard visible = $keyboardVisible")
     }
     var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
     val swipeableState = rememberSwipeableState(initialValue = previewSnap)
@@ -2030,7 +2042,7 @@ private fun ReadyAnimationTab(
     val swipeableVelocityThreshold = with(density) { 800.dp.toPx() }
     val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
-    val lazyListState = rememberLazyListState()
+    val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     val frameInputBringRequester = remember { BringIntoViewRequester() }
     val intervalInputBringRequester = remember { BringIntoViewRequester() }
@@ -2061,22 +2073,13 @@ private fun ReadyAnimationTab(
         requester = cooldownBringRequester
     )
     val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
-    val onFieldFocused: (Int) -> Unit = { targetIndex ->
-        coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
-    }
     val baseBottomPadding = contentPadding.calculateBottomPadding()
     var previewMeasuredHeightDp by remember { mutableStateOf(0.dp) }
-    val previewHeightDp = if (isImeVisible) 0.dp else previewMeasuredHeightDp
-    val previewSpacingDp = if (isImeVisible) 0.dp else 12.dp
+    val previewHeightDp = if (keyboardVisible) 0.dp else previewMeasuredHeightDp
+    val previewSpacingDp = if (keyboardVisible) 0.dp else 12.dp
     val previewTopPadding = previewHeightDp + previewSpacingDp
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
-
-    val animationSettingsIndex = 0
-    val baseFrameIndex = 1
-    val baseIntervalIndex = 2
-    val insertionToggleIndex = 3
-    val insertionFieldsIndex = 4
 
     LaunchedEffect(previewSnap, swipeableEnabled, anchors) {
         if (swipeableEnabled) {
@@ -2101,7 +2104,7 @@ private fun ReadyAnimationTab(
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             modifier = Modifier.align(Alignment.TopCenter),
-            visible = !isImeVisible,
+            visible = !keyboardVisible,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -2147,240 +2150,223 @@ private fun ReadyAnimationTab(
             }
         }
 
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding(),
-            state = lazyListState,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(
-                start = 0.dp,
-                top = previewTopPadding,
-                end = 0.dp,
-                bottom = baseBottomPadding
-            )
+                .verticalScroll(scrollState)
+                .imePadding()
+                .padding(
+                    start = 0.dp,
+                    top = previewTopPadding,
+                    end = 0.dp,
+                    bottom = baseBottomPadding
+                ),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            item(key = animationSettingsIndex) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = stringResource(R.string.sprite_animation_settings_title),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.sprite_animation_settings_selected,
-                                selectedAnimation.label
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    AnimationDropdown(
-                        items = selectionState.animationOptions,
-                        selectedItem = selectedAnimation,
-                        onSelectedItemChange = selectionState.onSelectedAnimationChange,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            item(key = baseFrameIndex) {
-                OutlinedTextField(
-                    value = baseState.frameInput,
-                    onValueChange = baseState.onFrameInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .then(frameInputImeHandler.modifier)
-                        .onFocusEvent { event ->
-                            val gainedFocus = frameInputImeHandler.onFocusChanged(event.isFocused)
-                            if (gainedFocus) onFieldFocused(baseFrameIndex)
-                        },
-                    label = { Text("フレーム列 (例: 1,2,3)") },
-                    singleLine = true,
-                    isError = baseState.framesError != null,
-                    supportingText = baseState.framesError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item(key = baseIntervalIndex) {
-                OutlinedTextField(
-                    value = baseState.intervalInput,
-                    onValueChange = baseState.onIntervalInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .then(intervalInputImeHandler.modifier)
-                        .onFocusEvent { event ->
-                            val gainedFocus = intervalInputImeHandler.onFocusChanged(event.isFocused)
-                            if (gainedFocus) onFieldFocused(baseIntervalIndex)
-                        },
-                    label = { Text("周期 (ms)") },
-                    singleLine = true,
-                    isError = baseState.intervalError != null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = baseState.intervalError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item(key = insertionToggleIndex) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
+                        .padding(bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
-                        Text(
-                            text = "挿入設定",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "挿入を使う",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = insertionState.enabled,
-                        onCheckedChange = insertionState.onEnabledChange
+                    Text(
+                        text = stringResource(R.string.sprite_animation_settings_title),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.sprite_animation_settings_selected,
+                            selectedAnimation.label
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+                AnimationDropdown(
+                    items = selectionState.animationOptions,
+                    selectedItem = selectedAnimation,
+                    onSelectedItemChange = selectionState.onSelectedAnimationChange,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            item(key = insertionFieldsIndex) {
-                AnimatedVisibility(visible = insertionState.enabled) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = insertionState.frameInput,
-                            onValueChange = insertionState.onFrameInputChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                                .then(insertionFrameImeHandler.modifier)
-                                .onFocusEvent { event ->
-                                    val gainedFocus = insertionFrameImeHandler.onFocusChanged(event.isFocused)
-                                    if (gainedFocus) onFieldFocused(insertionFieldsIndex)
-                                },
-                            label = { Text("挿入フレーム列（例: 4,5,6）") },
-                            singleLine = true,
-                            isError = insertionState.framesError != null,
-                            supportingText = insertionState.framesError?.let { errorText ->
-                                { Text(errorText, color = Color.Red) }
-                            }
-                        )
-                        OutlinedTextField(
-                            value = insertionState.intervalInput,
-                            onValueChange = insertionState.onIntervalInputChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                                .then(insertionIntervalImeHandler.modifier)
-                                .onFocusEvent { event ->
-                                    val gainedFocus = insertionIntervalImeHandler.onFocusChanged(event.isFocused)
-                                    if (gainedFocus) onFieldFocused(insertionFieldsIndex)
-                                },
-                            label = { Text("挿入周期（ms）") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isError = insertionState.intervalError != null,
-                            supportingText = insertionState.intervalError?.let { errorText ->
-                                { Text(errorText, color = Color.Red) }
-                            }
-                        )
-                        OutlinedTextField(
-                            value = insertionState.everyNInput,
-                            onValueChange = insertionState.onEveryNInputChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                                .then(everyNImeHandler.modifier)
-                                .onFocusEvent { event ->
-                                    val gainedFocus = everyNImeHandler.onFocusChanged(event.isFocused)
-                                    if (gainedFocus) onFieldFocused(insertionFieldsIndex)
-                                },
-                            label = { Text("毎 N ループ") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isError = insertionState.everyNError != null,
-                            supportingText = insertionState.everyNError?.let { errorText ->
-                                { Text(errorText, color = Color.Red) }
-                            }
-                        )
-                        OutlinedTextField(
-                            value = insertionState.probabilityInput,
-                            onValueChange = insertionState.onProbabilityInputChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                                .then(probabilityImeHandler.modifier)
-                                .onFocusEvent { event ->
-                                    val gainedFocus = probabilityImeHandler.onFocusChanged(event.isFocused)
-                                    if (gainedFocus) onFieldFocused(insertionFieldsIndex)
-                                },
-                            label = { Text("確率（%）") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isError = insertionState.probabilityError != null,
-                            supportingText = insertionState.probabilityError?.let { errorText ->
-                                { Text(errorText, color = Color.Red) }
-                            }
-                        )
-                        OutlinedTextField(
-                            value = insertionState.cooldownInput,
-                            onValueChange = insertionState.onCooldownInputChange,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                                .then(cooldownImeHandler.modifier)
-                                .onFocusEvent { event ->
-                                    val gainedFocus = cooldownImeHandler.onFocusChanged(event.isFocused)
-                                    if (gainedFocus) onFieldFocused(insertionFieldsIndex)
-                                },
-                            label = { Text("クールダウン（ループ）") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isError = insertionState.cooldownError != null,
-                            supportingText = insertionState.cooldownError?.let { errorText ->
-                                { Text(errorText, color = Color.Red) }
-                            }
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Exclusive（Ready中は挿入しない）")
-                                Text(
-                                    text = "ONにするとReady再生中は挿入を抑制します",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = insertionState.exclusive,
-                                onCheckedChange = insertionState.onExclusiveChange
+            OutlinedTextField(
+                value = baseState.frameInput,
+                onValueChange = baseState.onFrameInputChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .then(frameInputImeHandler.modifier)
+                    .onFocusEvent { event ->
+                        frameInputImeHandler.onFocusChanged(event.isFocused)
+                    },
+                label = { Text("フレーム列 (例: 1,2,3)") },
+                singleLine = true,
+                isError = baseState.framesError != null,
+                supportingText = baseState.framesError?.let { errorText ->
+                    { Text(errorText, color = Color.Red) }
+                }
+            )
+            OutlinedTextField(
+                value = baseState.intervalInput,
+                onValueChange = baseState.onIntervalInputChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .then(intervalInputImeHandler.modifier)
+                    .onFocusEvent { event ->
+                        intervalInputImeHandler.onFocusChanged(event.isFocused)
+                    },
+                label = { Text("周期 (ms)") },
+                singleLine = true,
+                isError = baseState.intervalError != null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = baseState.intervalError?.let { errorText ->
+                    { Text(errorText, color = Color.Red) }
+                }
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "挿入設定",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "挿入を使う",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = insertionState.enabled,
+                    onCheckedChange = insertionState.onEnabledChange
+                )
+            }
+            AnimatedVisibility(visible = insertionState.enabled) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = insertionState.frameInput,
+                        onValueChange = insertionState.onFrameInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .then(insertionFrameImeHandler.modifier)
+                            .onFocusEvent { event ->
+                                insertionFrameImeHandler.onFocusChanged(event.isFocused)
+                            },
+                        label = { Text("挿入フレーム列（例: 4,5,6）") },
+                        singleLine = true,
+                        isError = insertionState.framesError != null,
+                        supportingText = insertionState.framesError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = insertionState.intervalInput,
+                        onValueChange = insertionState.onIntervalInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .then(insertionIntervalImeHandler.modifier)
+                            .onFocusEvent { event ->
+                                insertionIntervalImeHandler.onFocusChanged(event.isFocused)
+                            },
+                        label = { Text("挿入周期（ms）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionState.intervalError != null,
+                        supportingText = insertionState.intervalError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = insertionState.everyNInput,
+                        onValueChange = insertionState.onEveryNInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .then(everyNImeHandler.modifier)
+                            .onFocusEvent { event ->
+                                everyNImeHandler.onFocusChanged(event.isFocused)
+                            },
+                        label = { Text("毎 N ループ") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionState.everyNError != null,
+                        supportingText = insertionState.everyNError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = insertionState.probabilityInput,
+                        onValueChange = insertionState.onProbabilityInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .then(probabilityImeHandler.modifier)
+                            .onFocusEvent { event ->
+                                probabilityImeHandler.onFocusChanged(event.isFocused)
+                            },
+                        label = { Text("確率（%）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionState.probabilityError != null,
+                        supportingText = insertionState.probabilityError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = insertionState.cooldownInput,
+                        onValueChange = insertionState.onCooldownInputChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .then(cooldownImeHandler.modifier)
+                            .onFocusEvent { event ->
+                                cooldownImeHandler.onFocusChanged(event.isFocused)
+                            },
+                        label = { Text("クールダウン（ループ）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = insertionState.cooldownError != null,
+                        supportingText = insertionState.cooldownError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Exclusive（Ready中は挿入しない）")
+                            Text(
+                                text = "ONにするとReady再生中は挿入を抑制します",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Switch(
+                            checked = insertionState.exclusive,
+                            onCheckedChange = insertionState.onExclusiveChange
+                        )
                     }
                 }
             }
