@@ -11,7 +11,7 @@ set -euo pipefail
 #
 # ==============================================================================
 # ===== Config =====
-WORK_BRANCH="work/oldest-buildable-good"
+WORK_BRANCH="future"
 REMOTE_NAME="origin"
 WIP_PREFIX="wip(auto):"
 PHONE_IP="10.5.5.3"
