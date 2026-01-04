@@ -3,6 +3,8 @@ package com.sonusid.ollama.ui.screens.settings
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -35,6 +37,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -81,6 +84,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
@@ -132,6 +136,12 @@ import kotlin.math.roundToInt
 data class BoxPosition(val x: Int, val y: Int)
 
 private val PREVIEW_PEEK_DP = 56.dp
+private val PREVIEW_TOP_MARGIN_DP = 72.dp
+
+private enum class PreviewSnap {
+    Collapsed,
+    Expanded,
+}
 
 private enum class AnimationType(val label: String) {
     READY("Ready"),
@@ -1901,20 +1911,32 @@ private fun ReadyAnimationTab(
 ) {
     val density = LocalDensity.current
     val previewPeekPx = with(density) { PREVIEW_PEEK_DP.toPx() }
+    val topMarginPx = with(density) { PREVIEW_TOP_MARGIN_DP.toPx() }
     var rootHeightPx by remember { mutableIntStateOf(0) }
     var previewCardHeightPx by remember { mutableIntStateOf(0) }
+    var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
     val imeBottomPx = WindowInsets.ime.getBottom(density).toFloat()
-    val collapsedY = remember(rootHeightPx, previewCardHeightPx, imeBottomPx, previewPeekPx) {
+    val collapsedY = remember(rootHeightPx, previewPeekPx) {
         if (rootHeightPx == 0) {
             0f
         } else {
-            val targetVisiblePx = min(
-                previewPeekPx,
-                if (previewCardHeightPx > 0) previewCardHeightPx.toFloat() else previewPeekPx
-            )
-            (rootHeightPx.toFloat() - targetVisiblePx - imeBottomPx).coerceAtLeast(0f)
+            (rootHeightPx.toFloat() - previewPeekPx).coerceAtLeast(0f)
         }
     }
+    val expandedY = remember(rootHeightPx, previewCardHeightPx, imeBottomPx, topMarginPx) {
+        if (rootHeightPx == 0) {
+            0f
+        } else {
+            val maxExpandedY = (rootHeightPx.toFloat() - previewCardHeightPx - imeBottomPx).coerceAtLeast(0f)
+            min(topMarginPx, maxExpandedY)
+        }
+    }
+    val targetOffsetY = if (previewSnap == PreviewSnap.Expanded) expandedY else collapsedY
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = targetOffsetY,
+        animationSpec = spring(),
+        label = "previewOffsetY"
+    )
     val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1933,13 +1955,26 @@ private fun ReadyAnimationTab(
     )
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
+    var lastLoggedValues by remember { mutableStateOf<Triple<Float, Float, Float>?>(null) }
 
-    LaunchedEffect(rootHeightPx, previewCardHeightPx, imeBottomPx, collapsedY) {
+    LaunchedEffect(
+        rootHeightPx,
+        previewCardHeightPx,
+        imeBottomPx,
+        previewSnap,
+        collapsedY,
+        expandedY,
+        targetOffsetY
+    ) {
         if (BuildConfig.DEBUG) {
-            Log.d(
-                "SpriteSettings",
-                "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx imeBottomPx=$imeBottomPx collapsedY=$collapsedY"
-            )
+            val current = Triple(collapsedY, expandedY, targetOffsetY)
+            if (current != lastLoggedValues) {
+                lastLoggedValues = current
+                Log.d(
+                    "SpriteSettings",
+                    "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx imeBottomPx=$imeBottomPx collapsedY=$collapsedY expandedY=$expandedY offsetY=$targetOffsetY snap=$previewSnap"
+                )
+            }
         }
     }
 
@@ -2170,7 +2205,7 @@ private fun ReadyAnimationTab(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(x = 0, y = collapsedY.roundToInt()) }
+                .offset { IntOffset(x = 0, y = animatedOffsetY.roundToInt()) }
                 .onSizeChanged { newSize -> previewCardHeightPx = newSize.height },
             color = MaterialTheme.colorScheme.background
         ) {
@@ -2182,6 +2217,14 @@ private fun ReadyAnimationTab(
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
+                previewSnap = previewSnap,
+                onPreviewSnapToggle = {
+                    previewSnap = if (previewSnap == PreviewSnap.Collapsed) {
+                        PreviewSnap.Expanded
+                    } else {
+                        PreviewSnap.Collapsed
+                    }
+                },
                 devUnlocked = devUnlocked,
                 devExpanded = devExpanded,
                 onDevExpandedChange = { expanded -> devExpanded = expanded },
@@ -2420,6 +2463,8 @@ private fun ReadyAnimationPreviewPane(
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
+    previewSnap: PreviewSnap,
+    onPreviewSnapToggle: () -> Unit,
     devUnlocked: Boolean,
     devExpanded: Boolean,
     onDevExpandedChange: (Boolean) -> Unit,
@@ -2511,6 +2556,22 @@ private fun ReadyAnimationPreviewPane(
     val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
 
     Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .clickable(onClick = onPreviewSnapToggle),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(52.dp)
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+                    .alpha(if (previewSnap == PreviewSnap.Expanded) 1f else 0.9f)
+            )
+        }
         if (devUnlocked) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
