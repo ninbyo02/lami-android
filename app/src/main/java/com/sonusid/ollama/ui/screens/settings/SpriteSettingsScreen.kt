@@ -143,9 +143,15 @@ data class BoxPosition(val x: Int, val y: Int)
 
 private val PREVIEW_PEEK_DP = 56.dp
 private val PREVIEW_TOP_MARGIN_DP = 72.dp
+// IME表示時の下余白を抑えつつ、スライダー操作に必要な最低限の余白を確保するためのクランプ値
+private val IME_BOTTOM_MIN_DP = 2.dp
+private val IME_BOTTOM_MAX_DP = 12.dp
+private val LIST_BOTTOM_IME_MIN_DP = 2.dp
+private val LIST_BOTTOM_IME_MAX_DP = 12.dp
 
 private data class SpriteSettingsImeMetrics(
     val imeBottomPx: Float,
+    val imeBottomPxClamped: Float,
     val imeBottomDp: Dp,
     val navBottomPx: Float,
     val isImeVisible: Boolean,
@@ -156,7 +162,8 @@ private data class SpriteSettingsImeMetrics(
     val collapsedY: Float,
     val expandedY: Float,
     val maxExpandedY: Float,
-    val listContentPaddingBottomDp: Dp,
+    val listContentPaddingBottomBaseDp: Dp,
+    val listContentPaddingBottomFinalDp: Dp,
     val screenDensity: Float,
 )
 
@@ -1940,7 +1947,13 @@ private fun ReadyAnimationTab(
     val swipeableState = rememberSwipeableState(initialValue = previewSnap)
     val imeBottomPx = WindowInsets.ime.getBottom(density).toFloat()
     val navBottomPx = WindowInsets.navigationBars.getBottom(density).toFloat()
-    val bottomInsetPx = max(imeBottomPx, navBottomPx)
+    val imeBottomPxClamped = remember(imeVisible, imeBottomPx, density) {
+        val minPx = with(density) { IME_BOTTOM_MIN_DP.toPx() }
+        val maxPx = with(density) { IME_BOTTOM_MAX_DP.toPx() }
+        if (imeVisible) imeBottomPx.coerceIn(minPx, maxPx) else imeBottomPx
+    }
+    val imeBottomPxForLayout = if (imeVisible) imeBottomPxClamped else imeBottomPx
+    val bottomInsetPx = max(imeBottomPxForLayout, navBottomPx)
     val collapsedY = remember(rootHeightPx, previewPeekPx) {
         if (rootHeightPx == 0) {
             0f
@@ -1987,14 +2000,22 @@ private fun ReadyAnimationTab(
     }
     val layoutDirection = LocalLayoutDirection.current
     val bottomContentPadding = contentPadding.calculateBottomPadding()
+    val listBottomBase = bottomContentPadding + PREVIEW_PEEK_DP
+    val listBottomImePadding = if (imeVisible) {
+        bottomContentPadding.coerceIn(LIST_BOTTOM_IME_MIN_DP, LIST_BOTTOM_IME_MAX_DP)
+    } else {
+        bottomContentPadding
+    }
+    val listBottomFinal = listBottomImePadding + PREVIEW_PEEK_DP
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
         end = contentPadding.calculateEndPadding(layoutDirection),
-        bottom = bottomContentPadding + PREVIEW_PEEK_DP
+        bottom = listBottomFinal
     )
     val imeMetrics by remember(
         imeBottomPx,
+        imeBottomPxClamped,
         navBottomPx,
         imeVisible,
         rootHeightPx,
@@ -2004,12 +2025,14 @@ private fun ReadyAnimationTab(
         collapsedY,
         expandedY,
         maxExpandedY,
-        listContentPadding,
+        listBottomBase,
+        listBottomFinal,
         density
     ) {
         derivedStateOf {
             SpriteSettingsImeMetrics(
                 imeBottomPx = imeBottomPx,
+                imeBottomPxClamped = imeBottomPxClamped,
                 imeBottomDp = with(density) { imeBottomPx.toDp() },
                 navBottomPx = navBottomPx,
                 isImeVisible = imeVisible,
@@ -2020,7 +2043,8 @@ private fun ReadyAnimationTab(
                 collapsedY = collapsedY,
                 expandedY = expandedY,
                 maxExpandedY = maxExpandedY,
-                listContentPaddingBottomDp = listContentPadding.calculateBottomPadding(),
+                listContentPaddingBottomBaseDp = listBottomBase,
+                listContentPaddingBottomFinalDp = listBottomFinal,
                 screenDensity = density.density,
             )
         }
@@ -3275,9 +3299,10 @@ private fun buildImeDebugText(metrics: SpriteSettingsImeMetrics): String {
     val collapsedDp = metrics.collapsedY.toDp(metrics.screenDensity)
     val expandedDp = metrics.expandedY.toDp(metrics.screenDensity)
     val maxExpandedDp = metrics.maxExpandedY.toDp(metrics.screenDensity)
-    val imeLine = "IME(px)=${metrics.imeBottomPx.toInt()} dp=${metrics.imeBottomDp.value.format1()} navPx=${metrics.navBottomPx.toInt()} vis=${metrics.isImeVisible}"
+    val imeClampedDp = metrics.imeBottomPxClamped.toDp(metrics.screenDensity)
+    val imeLine = "IME(px)=${metrics.imeBottomPx.toInt()} clamp=${metrics.imeBottomPxClamped.toInt()} dp=${metrics.imeBottomDp.value.format1()}/${imeClampedDp} navPx=${metrics.navBottomPx.toInt()} vis=${metrics.isImeVisible}"
     val layoutLine = "rootH=${metrics.rootHeightPx} cardH=${metrics.previewCardHeightPx} colY=${collapsedDp} expY=${expandedDp}/${maxExpandedDp}"
-    val paddingLine = "listBottomDp=${metrics.listContentPaddingBottomDp.value.format1()} peekDp=${peekDp} topMarginDp=${topMarginDp} dens=${metrics.screenDensity.format1()}"
+    val paddingLine = "listBottomDp=${metrics.listContentPaddingBottomBaseDp.value.format1()}/${metrics.listContentPaddingBottomFinalDp.value.format1()} peekDp=${peekDp} topMarginDp=${topMarginDp} dens=${metrics.screenDensity.format1()}"
     return listOf(imeLine, layoutLine, paddingLine).joinToString(separator = "\n")
 }
 
