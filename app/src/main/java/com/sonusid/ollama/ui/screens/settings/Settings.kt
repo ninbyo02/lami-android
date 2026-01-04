@@ -151,7 +151,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         } else {
             listOf(
                 ServerInput(
-                    url = "http://localhost:11434",
+                    url = "http://localhost:13511/",
                     isActive = true
                 )
             )
@@ -390,7 +390,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         } else {
                                             serverInputs.add(
                                                 ServerInput(
-                                                    url = "http://localhost:11434",
+                                                    url = "http://localhost:13511/",
                                                     isActive = false
                                                 )
                                             )
