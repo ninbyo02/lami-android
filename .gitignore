@@ -12,7 +12,6 @@
 /captures
 .externalNativeBuild
 .cxx
-update.sh
 local.properties
 .env
 secrets.*
