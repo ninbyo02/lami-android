@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.calculateLeftPadding
-import androidx.compose.foundation.layout.calculateRightPadding
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -2045,16 +2043,15 @@ private fun ReadyAnimationTab(
     val layoutDirection = LocalLayoutDirection.current
     val baseBottomPadding = contentPadding.calculateBottomPadding()
     val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-    val navigationBarsBottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
-    val bottomInsetDp = (maxOf(imeBottomDp, navigationBarsBottomDp) - baseBottomPadding).coerceAtLeast(0.dp)
+    // IME 分の余白はスクロール領域の contentPadding に集約する
+    val bottomContentPadding = baseBottomPadding + imeBottomDp + PREVIEW_PEEK_DP
     val insetTopPadding = contentPadding.calculateTopPadding()
     val listTopPadding = maxOf(insetTopPadding, 20.dp)
-    val listBottomFinal = baseBottomPadding + bottomInsetDp + PREVIEW_PEEK_DP
     val listContentPadding = PaddingValues(
-        start = contentPadding.calculateLeftPadding(layoutDirection),
+        start = contentPadding.calculateStartPadding(layoutDirection),
         top = listTopPadding,
-        end = contentPadding.calculateRightPadding(layoutDirection),
-        bottom = listBottomFinal
+        end = contentPadding.calculateEndPadding(layoutDirection),
+        bottom = bottomContentPadding
     )
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
