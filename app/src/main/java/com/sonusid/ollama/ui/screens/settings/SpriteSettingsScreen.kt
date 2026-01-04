@@ -109,7 +109,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -1716,6 +1715,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 insertionState = insertionState,
                                 isImeVisible = imeVisible,
                                 contentPadding = contentPadding,
+                                devUnlocked = devUnlocked,
                                 devSettings = devPreviewSettings,
                                 onDevSettingsChange = { updated -> devPreviewSettings = updated },
                                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
@@ -1910,6 +1910,7 @@ private fun ReadyAnimationTab(
     insertionState: InsertionAnimationUiState,
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
+    devUnlocked: Boolean,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
@@ -1930,7 +1931,6 @@ private fun ReadyAnimationTab(
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
-    val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
