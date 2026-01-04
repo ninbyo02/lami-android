@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -2319,6 +2320,7 @@ private fun ReadyAnimationTab(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .wrapContentHeight()
                 .offset { IntOffset(x = 0, y = currentOffsetY.roundToInt()) }
                 .onSizeChanged { newSize -> previewCardHeightPx = newSize.height },
             color = MaterialTheme.colorScheme.background
@@ -2341,7 +2343,9 @@ private fun ReadyAnimationTab(
                 devUnlocked = devUnlocked,
                 devExpanded = devExpanded,
                 onDevExpandedChange = { expanded -> devExpanded = expanded },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
                 onDevSettingsChange = onDevSettingsChange,
@@ -2676,7 +2680,9 @@ private fun ReadyAnimationPreviewPane(
     val effectiveBodySpacerDp = bodySpacerDp
     val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
 
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier.wrapContentHeight()
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
