@@ -131,27 +131,27 @@ print_codex_branch_guidance() {
     upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" 2>/dev/null || true)"
   fi
 
-  local ahead="0"
-  local behind="0"
+  local AHEAD="0"
+  local BEHIND="0"
   if [[ "$upstream_set" -eq 1 ]]; then
-    local counts=""
-    counts="$(git rev-list --left-right --count "HEAD...@{upstream}" 2>/dev/null || true)"
-    if [[ -n "$counts" ]]; then
-      ahead="${counts%% *}"
-      behind="${counts##* }"
-    fi
+    read -r AHEAD BEHIND < <(
+      git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null
+    )
   fi
+  AHEAD="${AHEAD:-0}"
+  BEHIND="${BEHIND:-0}"
+  local AHEAD_BEHIND_DISPLAY="${AHEAD}/${BEHIND}"
 
   local worktree_status="clean"
   if ! git diff --quiet || ! git diff --cached --quiet; then
     worktree_status="dirty"
   fi
 
-  if [[ "$current_branch" == "$CODEX_RECOMMENDED_BRANCH" && "$worktree_status" == "clean" && "$upstream_set" -eq 1 && "$ahead" == "0" && "$behind" == "0" ]]; then
+  if [[ "$current_branch" == "$CODEX_RECOMMENDED_BRANCH" && "$worktree_status" == "clean" && "$upstream_set" -eq 1 && "$AHEAD" -eq 0 && "$BEHIND" -eq 0 ]]; then
     echo "$CODEX_GUIDE_LINE"
     echo "🤖 Codex 推奨ブランチ"
     echo "  → ${CODEX_RECOMMENDED_BRANCH}"
-    echo "  （理由: worktree clean / upstream差分 0 0）"
+    echo "  （理由: worktree clean / upstream差分 ${AHEAD_BEHIND_DISPLAY}）"
     echo "$CODEX_GUIDE_LINE"
     return 0
   fi
@@ -159,7 +159,7 @@ print_codex_branch_guidance() {
   echo "⚠️ Codexでの作業は非推奨"
   echo "  - worktree: ${worktree_status}"
   echo "  - upstream: ${upstream}"
-  echo "  - ahead/behind: ${ahead}/${behind}"
+  echo "  - ahead/behind: ${AHEAD_BEHIND_DISPLAY}"
   echo "  - current: ${current_branch}"
 }
 
