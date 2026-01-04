@@ -3,8 +3,6 @@ package com.sonusid.ollama.ui.screens.settings
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -40,9 +38,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.SwipeableState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.rememberSwipeableState
+import androidx.compose.material.swipeable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -81,6 +83,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -112,6 +115,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.material.FractionalThreshold
 import androidx.navigation.NavController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
@@ -124,6 +129,7 @@ import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -1896,6 +1902,7 @@ private data class InsertionAnimationUiState(
     val previewValues: InsertionPreviewValues,
 )
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
@@ -1915,6 +1922,7 @@ private fun ReadyAnimationTab(
     var rootHeightPx by remember { mutableIntStateOf(0) }
     var previewCardHeightPx by remember { mutableIntStateOf(0) }
     var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
+    val swipeableState = rememberSwipeableState(initialValue = previewSnap)
     val imeBottomPx = WindowInsets.ime.getBottom(density).toFloat()
     val collapsedY = remember(rootHeightPx, previewPeekPx) {
         if (rootHeightPx == 0) {
@@ -1932,11 +1940,20 @@ private fun ReadyAnimationTab(
         }
     }
     val targetOffsetY = if (previewSnap == PreviewSnap.Expanded) expandedY else collapsedY
-    val animatedOffsetY by animateFloatAsState(
-        targetValue = targetOffsetY,
-        animationSpec = spring(),
-        label = "previewOffsetY"
-    )
+    val anchorDistance = abs(expandedY - collapsedY)
+    val swipeableEnabled = anchorDistance >= 1f
+    val anchors = remember(collapsedY, expandedY, swipeableEnabled) {
+        if (swipeableEnabled) {
+            mapOf(
+                collapsedY to PreviewSnap.Collapsed,
+                expandedY to PreviewSnap.Expanded
+            )
+        } else {
+            emptyMap()
+        }
+    }
+    val swipeableVelocityThreshold = with(density) { 800.dp.toPx() }
+    val currentOffsetY = if (swipeableEnabled) swipeableState.offset.value else targetOffsetY
     val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
@@ -1957,6 +1974,26 @@ private fun ReadyAnimationTab(
     var devExpanded by rememberSaveable { mutableStateOf(false) }
     var lastLoggedValues by remember { mutableStateOf<Triple<Float, Float, Float>?>(null) }
 
+    LaunchedEffect(previewSnap, swipeableEnabled, anchors) {
+        if (swipeableEnabled) {
+            if (swipeableState.currentValue != previewSnap) {
+                swipeableState.animateTo(previewSnap)
+            }
+        } else {
+            swipeableState.snapTo(previewSnap)
+        }
+    }
+
+    LaunchedEffect(swipeableState) {
+        snapshotFlow { swipeableState.currentValue }
+            .distinctUntilChanged()
+            .collect { value ->
+                if (value != previewSnap) {
+                    previewSnap = value
+                }
+            }
+    }
+
     LaunchedEffect(
         rootHeightPx,
         previewCardHeightPx,
@@ -1967,12 +2004,12 @@ private fun ReadyAnimationTab(
         targetOffsetY
     ) {
         if (BuildConfig.DEBUG) {
-            val current = Triple(collapsedY, expandedY, targetOffsetY)
+            val current = Triple(collapsedY, expandedY, currentOffsetY)
             if (current != lastLoggedValues) {
                 lastLoggedValues = current
                 Log.d(
                     "SpriteSettings",
-                    "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx imeBottomPx=$imeBottomPx collapsedY=$collapsedY expandedY=$expandedY offsetY=$targetOffsetY snap=$previewSnap"
+                    "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx imeBottomPx=$imeBottomPx collapsedY=$collapsedY expandedY=$expandedY offsetY=$currentOffsetY snap=$previewSnap"
                 )
             }
         }
@@ -2205,7 +2242,7 @@ private fun ReadyAnimationTab(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(x = 0, y = animatedOffsetY.roundToInt()) }
+                .offset { IntOffset(x = 0, y = currentOffsetY.roundToInt()) }
                 .onSizeChanged { newSize -> previewCardHeightPx = newSize.height },
             color = MaterialTheme.colorScheme.background
         ) {
@@ -2232,7 +2269,11 @@ private fun ReadyAnimationTab(
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
                 onDevSettingsChange = onDevSettingsChange,
-                onCopy = onCopyDevJson
+                onCopy = onCopyDevJson,
+                swipeableState = swipeableState,
+                swipeableAnchors = anchors,
+                swipeableEnabled = swipeableEnabled,
+                swipeableVelocityThreshold = swipeableVelocityThreshold
             )
         }
     }
@@ -2454,6 +2495,7 @@ private fun ReadyAnimationInfo(
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 private fun ReadyAnimationPreviewPane(
     imageBitmap: ImageBitmap,
@@ -2473,6 +2515,10 @@ private fun ReadyAnimationPreviewPane(
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     onCopy: () -> Unit,
+    swipeableState: SwipeableState<PreviewSnap>,
+    swipeableAnchors: Map<Float, PreviewSnap>,
+    swipeableEnabled: Boolean,
+    swipeableVelocityThreshold: Float,
 ) {
     var cardMaxHeightDp by rememberSaveable(devSettings.cardMaxHeightDp) { mutableIntStateOf(devSettings.cardMaxHeightDp) }
     var innerBottomDp by rememberSaveable(devSettings.innerBottomDp) { mutableIntStateOf(devSettings.innerBottomDp) }
@@ -2560,7 +2606,21 @@ private fun ReadyAnimationPreviewPane(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .clickable(onClick = onPreviewSnapToggle),
+                .clickable(onClick = onPreviewSnapToggle)
+                .then(
+                    if (swipeableEnabled && swipeableAnchors.isNotEmpty()) {
+                        Modifier.swipeable(
+                            state = swipeableState,
+                            anchors = swipeableAnchors,
+                            orientation = Orientation.Vertical,
+                            thresholds = { _, _ -> FractionalThreshold(0.35f) },
+                            velocityThreshold = swipeableVelocityThreshold,
+                            enabled = swipeableEnabled
+                        )
+                    } else {
+                        Modifier
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             Box(
