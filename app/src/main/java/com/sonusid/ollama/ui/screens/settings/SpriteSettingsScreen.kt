@@ -142,7 +142,6 @@ private enum class AnimationType(val label: String) {
 private enum class SpriteTab {
     ANIM,
     ADJUST,
-    DEV,
 }
 
 private data class AnimationSummary(
@@ -477,6 +476,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var animTabTapCount by rememberSaveable { mutableIntStateOf(0) }
     var firstAnimTabTapAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var devExpanded by rememberSaveable { mutableStateOf(false) }
+    var devMenuEnabled by rememberSaveable { mutableStateOf(false) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
@@ -530,10 +530,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(devUnlocked, selectedTab) {
-        if (!devUnlocked && selectedTab == SpriteTab.DEV) {
-            selectedTab = SpriteTab.ANIM
-        }
+    LaunchedEffect(devUnlocked) {
         if (!devUnlocked) {
             devExpanded = false
         }
@@ -1068,19 +1065,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun copyDevSettings(devSettings: DevPreviewSettings) {
-        coroutineScope.launch {
-            runCatching {
-                val jsonString = buildDevJson(devSettings)
-                clipboardManager.setText(AnnotatedString(jsonString))
-            }.onSuccess {
-                snackbarHostState.showSnackbar("JSONをコピーしました")
-            }.onFailure { throwable ->
-                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
-            }
-        }
-    }
-
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
@@ -1288,11 +1272,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         )
                         Spacer(modifier = Modifier.size(32.dp))
                     }
-                    val displayedTabs = if (devUnlocked) {
-                        listOf(SpriteTab.ANIM, SpriteTab.ADJUST, SpriteTab.DEV)
-                    } else {
-                        listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
-                    }
+                    val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
                     val displayedTabIndex = displayedTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
 
                     TabRow(
@@ -1366,23 +1346,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectedContentColor = MaterialTheme.colorScheme.primary,
                                     unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-
-                                SpriteTab.DEV -> Tab(
-                                    selected = selectedTab == SpriteTab.DEV,
-                                    onClick = {
-                                        selectedTab = SpriteTab.DEV
-                                        animTabTapCount = 0
-                                    },
-                                    text = {
-                                        Text(
-                                            text = "DEV",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1
-                                        )
-                                    },
-                                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
                     }
@@ -1410,7 +1373,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 when (selectedTab) {
                                     SpriteTab.ANIM -> onAnimationApply()
                                     SpriteTab.ADJUST -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                                    SpriteTab.DEV -> coroutineScope.launch { snackbarHostState.showSnackbar("DEVプレビューを更新しました") }
                                 }
                             },
                             contentPadding = actionButtonPadding,
@@ -1427,7 +1389,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 when (selectedTab) {
                                     SpriteTab.ANIM -> onAnimationSave()
                                     SpriteTab.ADJUST -> saveSpriteSheetConfig()
-                                    SpriteTab.DEV -> coroutineScope.launch { snackbarHostState.showSnackbar("DEV設定の保存は未対応です") }
                                 }
                             },
                             contentPadding = actionButtonPadding,
@@ -1444,7 +1405,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 when (selectedTab) {
                                     SpriteTab.ANIM -> copyAppliedSettings(devPreviewSettings)
                                     SpriteTab.ADJUST -> copySpriteSheetConfig()
-                                    SpriteTab.DEV -> copyDevSettings(devPreviewSettings)
                                 }
                             },
                             contentPadding = actionButtonPadding,
@@ -1716,6 +1676,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 isImeVisible = imeVisible,
                                 contentPadding = contentPadding,
                                 devUnlocked = devUnlocked,
+                                devMenuEnabled = devMenuEnabled,
+                                onDevMenuEnabledChange = { enabled -> devMenuEnabled = enabled },
                                 devSettings = devPreviewSettings,
                                 onDevSettingsChange = { updated -> devPreviewSettings = updated },
                                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
@@ -1792,67 +1754,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
                                 }
                             }
-
-                            SpriteTab.DEV -> {
-                                if (devUnlocked) {
-                                    val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
-                                    val coordinateText =
-                                        selectedPosition?.let { position ->
-                                            "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
-                                        } ?: "座標: -, -, -, -"
-                                    Column(
-                                        modifier = Modifier.fillMaxSize(),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        SpritePreviewBlock(
-                                            imageBitmap = imageBitmap,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 6.dp),
-                                            line1Text = previewHeaderText,
-                                            line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
-                                            onContainerSizeChanged = { newContainerSize: IntSize ->
-                                                containerSize = newContainerSize
-                                                if (imageBitmap.width != 0) {
-                                                    displayScale = newContainerSize.width / imageBitmap.width.toFloat()
-                                                }
-                                            }
-                                        )
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 8.dp, horizontal = 12.dp)
-                                                .verticalScroll(rememberScrollState()),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "DEVパラメータのコピーはDEVセクション内のボタンから行えます",
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Divider()
-                                            Text(
-                                                text = "現在のDEV設定概要",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                            Text(
-                                                text = "CardMax:${devPreviewSettings.cardMaxHeightDp}  MinH:${devPreviewSettings.cardMinHeightDp}  Details:${devPreviewSettings.detailsMaxHeightDp} / ${devPreviewSettings.detailsMaxLines}",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                            Text(
-                                                text = "Offsets L(${devPreviewSettings.headerLeftXOffsetDp},${devPreviewSettings.headerLeftYOffsetDp}) R(${devPreviewSettings.headerRightXOffsetDp},${devPreviewSettings.headerRightYOffsetDp}) InfoX:${devPreviewSettings.infoXOffsetDp} InfoY:${devPreviewSettings.infoYOffsetDp} CharY:${devPreviewSettings.charYOffsetDp}",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                            Text(
-                                                text = "Padding Outer:${devPreviewSettings.outerBottomDp}  Inner:${devPreviewSettings.innerBottomDp}  VPad:${devPreviewSettings.innerVPadDp}  Spacer H:${devPreviewSettings.headerSpacerDp} / B:${devPreviewSettings.bodySpacerDp}",
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    animationTabContent()
-                                }
-                            }
                         }
                     }
                 }
@@ -1911,6 +1812,8 @@ private fun ReadyAnimationTab(
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
     devUnlocked: Boolean,
+    devMenuEnabled: Boolean,
+    onDevMenuEnabledChange: (Boolean) -> Unit,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
@@ -1951,6 +1854,7 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
                 devUnlocked = devUnlocked,
+                devMenuEnabled = devMenuEnabled,
                 devExpanded = devExpanded,
                 onDevExpandedChange = { expanded -> devExpanded = expanded },
                 modifier = Modifier.fillMaxWidth(),
@@ -2066,6 +1970,32 @@ private fun ReadyAnimationTab(
                         checked = insertionState.enabled,
                         onCheckedChange = insertionState.onEnabledChange
                     )
+                }
+                if (devUnlocked) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "開発メニュー",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "開発メニューを表示",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = devMenuEnabled,
+                            onCheckedChange = onDevMenuEnabledChange
+                        )
+                    }
                 }
             }
             item {
@@ -2408,6 +2338,7 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
     devUnlocked: Boolean,
+    devMenuEnabled: Boolean,
     devExpanded: Boolean,
     onDevExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -2498,7 +2429,7 @@ private fun ReadyAnimationPreviewPane(
     val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
 
     Column(modifier = modifier) {
-        if (devUnlocked) {
+        if (devUnlocked && devMenuEnabled) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 tonalElevation = 2.dp
@@ -2927,9 +2858,8 @@ private fun ReadyAnimationPreviewPane(
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         val outerPaddingColor = if (outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
