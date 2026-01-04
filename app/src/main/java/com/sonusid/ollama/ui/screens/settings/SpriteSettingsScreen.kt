@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateLeftPadding
 import androidx.compose.foundation.layout.calculateRightPadding
@@ -28,6 +29,8 @@ import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -2040,10 +2043,16 @@ private fun ReadyAnimationTab(
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val listBottomFinal = contentPadding.calculateBottomPadding() + PREVIEW_PEEK_DP
+    val baseBottomPadding = contentPadding.calculateBottomPadding()
+    val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+    val navigationBarsBottomDp = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
+    val bottomInsetDp = (maxOf(imeBottomDp, navigationBarsBottomDp) - baseBottomPadding).coerceAtLeast(0.dp)
+    val insetTopPadding = contentPadding.calculateTopPadding()
+    val listTopPadding = maxOf(insetTopPadding, 20.dp)
+    val listBottomFinal = baseBottomPadding + bottomInsetDp + PREVIEW_PEEK_DP
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateLeftPadding(layoutDirection),
-        top = contentPadding.calculateTopPadding() + 20.dp,
+        top = listTopPadding,
         end = contentPadding.calculateRightPadding(layoutDirection),
         bottom = listBottomFinal
     )
