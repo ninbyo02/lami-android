@@ -153,6 +153,8 @@ private data class ImeBringIntoViewHandler(
     val requestOnInteraction: () -> Unit,
 )
 
+private const val READY_PREVIEW_DEBUG_OVERLAY = true
+
 @Composable
 private fun rememberImeBringIntoViewHandler(
     requester: BringIntoViewRequester,
@@ -2425,11 +2427,13 @@ private fun ReadyAnimationCharacter(
     spriteSizeDp: Dp,
     charYOffsetDp: Int,
     modifier: Modifier = Modifier,
+    onSizeChanged: ((IntSize) -> Unit)? = null,
 ) {
     Box(
         modifier = modifier
             .size(spriteSizeDp)
-            .offset(y = charYOffsetDp.dp),
+            .offset(y = charYOffsetDp.dp)
+            .onSizeChanged { newSize -> onSizeChanged?.invoke(newSize) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -2567,6 +2571,23 @@ private fun ReadyAnimationPreviewPane(
     var detailsMaxLines by rememberSaveable(devSettings.detailsMaxLines) { mutableIntStateOf(devSettings.detailsMaxLines) }
     var headerSpacerDp by rememberSaveable(devSettings.headerSpacerDp) { mutableIntStateOf(devSettings.headerSpacerDp) }
     var bodySpacerDp by rememberSaveable(devSettings.bodySpacerDp) { mutableIntStateOf(devSettings.bodySpacerDp) }
+    val density = LocalDensity.current
+    val showDiagnostics = READY_PREVIEW_DEBUG_OVERLAY && BuildConfig.DEBUG
+    var paneHeightDp by remember { mutableStateOf<Int?>(null) }
+    var cardHeightDp by remember { mutableStateOf<Int?>(null) }
+    var spriteBoxHeightDp by remember { mutableStateOf<Int?>(null) }
+    var detailsHeightDp by remember { mutableStateOf<Int?>(null) }
+    fun Int.toDpInt(): Int = with(density) { this@toDpInt.toDp().value.roundToInt() }
+    val debugHeightLabel = if (showDiagnostics) {
+        listOf(
+            "paneH=${paneHeightDp?.let { "${it}dp" } ?: "--"}",
+            "cardH=${cardHeightDp?.let { "${it}dp" } ?: "--"}",
+            "spriteH=${spriteBoxHeightDp?.let { "${it}dp" } ?: "--"}",
+            "detailsH=${detailsHeightDp?.let { "${it}dp" } ?: "--"}",
+        ).joinToString(separator = "  ")
+    } else {
+        null
+    }
     LaunchedEffect(devSettings) {
         cardMaxHeightDp = devSettings.cardMaxHeightDp
         innerBottomDp = devSettings.innerBottomDp
@@ -2623,16 +2644,23 @@ private fun ReadyAnimationPreviewPane(
     val baseMaxHeightDp = 300
     val customCardMaxHeightDp = cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
-    val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
-    val effectiveMinHeightDp = effectiveCardMaxH?.let { max -> boundedMinHeightDp.coerceAtMost(max) } ?: boundedMinHeightDp
     val effectiveOuterBottomDp = outerBottomDp
     val effectiveInnerBottomDp = innerBottomDp
     val effectiveInnerVPadDp = innerVPadDp
     val effectiveBodySpacerDp = bodySpacerDp
     val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
+    val minHeightLabel = if (cardMinHeightDp > 0) "wrap(${cardMinHeightDp}dp)" else "wrap"
 
     Column(
-        modifier = modifier.wrapContentHeight()
+        modifier = modifier
+            .wrapContentHeight()
+            .then(
+                if (showDiagnostics) {
+                    Modifier.onSizeChanged { size -> paneHeightDp = size.height.toDpInt() }
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Box(
             modifier = Modifier
@@ -2664,6 +2692,16 @@ private fun ReadyAnimationPreviewPane(
                     .alpha(if (previewSnap == PreviewSnap.Expanded) 1f else 0.9f)
             )
         }
+        if (debugHeightLabel != null) {
+            Text(
+                text = debugHeightLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            )
+        }
         if (devUnlocked) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -2675,7 +2713,6 @@ private fun ReadyAnimationPreviewPane(
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val effectiveMinDp = effectiveMinHeightDp
                     val effectiveMaxLabel = effectiveCardMaxH?.toString() ?: "∞"
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2696,7 +2733,7 @@ private fun ReadyAnimationPreviewPane(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "MinH:${effectiveMinDp} / MaxH:${effectiveMaxLabel}  InfoX:${infoXOffsetDp}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
+                                text = "MinH:${minHeightLabel} / MaxH:${effectiveMaxLabel}  InfoX:${infoXOffsetDp}  InfoY:${infoYOffsetDp}  HdrL:(${headerLeftXOffsetDp},${headerLeftYOffsetDp})  HdrR:(${headerRightXOffsetDp},${headerRightYOffsetDp})",
                                 style = MaterialTheme.typography.labelSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2998,7 +3035,7 @@ private fun ReadyAnimationPreviewPane(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "MinHeight:${effectiveMinDp}dp / カード最小高",
+                                    text = "MinHeight:${minHeightLabel} / 設定:${cardMinHeightDp}dp",
                                     style = MaterialTheme.typography.labelSmall
                                 )
                                 IconButton(
@@ -3129,13 +3166,15 @@ private fun ReadyAnimationPreviewPane(
                 }
         ) {
             val baseCardModifier = Modifier.fillMaxWidth()
-            val cardHeightModifier = if (effectiveCardMaxH != null) {
-                baseCardModifier.heightIn(
-                    min = effectiveMinHeightDp.dp,
-                    max = effectiveCardMaxH.dp
-                )
+            val cardBaseModifier = if (effectiveCardMaxH != null) {
+                baseCardModifier.heightIn(max = effectiveCardMaxH.dp)
             } else {
-                baseCardModifier.heightIn(min = effectiveMinHeightDp.dp)
+                baseCardModifier
+            }
+            val cardHeightModifier = if (showDiagnostics) {
+                cardBaseModifier.onSizeChanged { size -> cardHeightDp = size.height.toDpInt() }
+            } else {
+                cardBaseModifier
             }
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
@@ -3210,6 +3249,13 @@ private fun ReadyAnimationPreviewPane(
                                     )
                                     .padding(start = spriteSize + 8.dp)
                                     .offset(x = infoXOffsetDp.dp)
+                                    .then(
+                                        if (showDiagnostics) {
+                                            Modifier.onSizeChanged { size -> detailsHeightDp = size.height.toDpInt() }
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
                             )
                         }
                     }
@@ -3223,7 +3269,12 @@ private fun ReadyAnimationPreviewPane(
                             .padding(
                                 start = contentHorizontalPadding,
                                 top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
-                            )
+                            ),
+                        onSizeChanged = if (showDiagnostics) {
+                            { size -> spriteBoxHeightDp = size.height.toDpInt() }
+                        } else {
+                            null
+                        }
                     )
                 }
             }
