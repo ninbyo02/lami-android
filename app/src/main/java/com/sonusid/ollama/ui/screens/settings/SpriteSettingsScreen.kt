@@ -1,6 +1,12 @@
 package com.sonusid.ollama.ui.screens.settings
+
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -22,13 +28,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.onSizeChanged
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +46,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.FractionalThreshold
 import androidx.compose.material.SwipeableState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -87,10 +94,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -118,7 +125,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.material.FractionalThreshold
 import androidx.navigation.NavController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
@@ -1963,6 +1969,11 @@ private fun ReadyAnimationTab(
     initialHeaderLeftXOffsetDp: Int?,
 ) {
     val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val isImeVisible = imeBottomPx > 0
+    LaunchedEffect(imeBottomPx) {
+        Log.d("SpriteSettingsScreen", "IME bottom(px) = $imeBottomPx")
+    }
     var previewSnap by rememberSaveable { mutableStateOf(PreviewSnap.Collapsed) }
     val swipeableState = rememberSwipeableState(initialValue = previewSnap)
     val swipeableEnabled = false
@@ -2007,8 +2018,9 @@ private fun ReadyAnimationTab(
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
     val baseBottomPadding = contentPadding.calculateBottomPadding()
-    var previewHeightDp by remember { mutableStateOf(0.dp) }
-    val previewSpacingDp = 12.dp
+    var previewMeasuredHeightDp by remember { mutableStateOf(0.dp) }
+    val previewHeightDp = if (isImeVisible) 0.dp else previewMeasuredHeightDp
+    val previewSpacingDp = if (isImeVisible) 0.dp else 12.dp
     val previewTopPadding = previewHeightDp + previewSpacingDp
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
@@ -2040,46 +2052,52 @@ private fun ReadyAnimationTab(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .onSizeChanged { size ->
-                    previewHeightDp = with(density) { size.height.toDp() }
-                },
-            color = MaterialTheme.colorScheme.background
+        AnimatedVisibility(
+            modifier = Modifier.align(Alignment.TopCenter),
+            visible = !isImeVisible,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
-            ReadyAnimationPreviewPane(
-                imageBitmap = imageBitmap,
-                spriteSheetConfig = spriteSheetConfig,
-                baseSummary = baseState.summary,
-                insertionSummary = insertionState.summary,
-                insertionPreviewValues = insertionState.previewValues,
-                insertionEnabled = insertionState.enabled,
-                previewSnap = previewSnap,
-                onPreviewSnapToggle = {
-                    previewSnap = if (previewSnap == PreviewSnap.Collapsed) {
-                        PreviewSnap.Expanded
-                    } else {
-                        PreviewSnap.Collapsed
-                    }
-                },
-                devUnlocked = devUnlocked,
-                devExpanded = devExpanded,
-                onDevExpandedChange = { expanded -> devExpanded = expanded },
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentHeight(),
-                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
-                devSettings = devSettings,
-                onDevSettingsChange = onDevSettingsChange,
-                onCopy = onCopyDevJson,
-                swipeableState = swipeableState,
-                swipeableAnchors = anchors,
-                swipeableEnabled = swipeableEnabled,
-                swipeableVelocityThreshold = swipeableVelocityThreshold
-            )
+                    .wrapContentHeight()
+                    .onSizeChanged { size ->
+                        previewMeasuredHeightDp = with(density) { size.height.toDp() }
+                    },
+                color = MaterialTheme.colorScheme.background
+            ) {
+                ReadyAnimationPreviewPane(
+                    imageBitmap = imageBitmap,
+                    spriteSheetConfig = spriteSheetConfig,
+                    baseSummary = baseState.summary,
+                    insertionSummary = insertionState.summary,
+                    insertionPreviewValues = insertionState.previewValues,
+                    insertionEnabled = insertionState.enabled,
+                    previewSnap = previewSnap,
+                    onPreviewSnapToggle = {
+                        previewSnap = if (previewSnap == PreviewSnap.Collapsed) {
+                            PreviewSnap.Expanded
+                        } else {
+                            PreviewSnap.Collapsed
+                        }
+                    },
+                    devUnlocked = devUnlocked,
+                    devExpanded = devExpanded,
+                    onDevExpandedChange = { expanded -> devExpanded = expanded },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                    devSettings = devSettings,
+                    onDevSettingsChange = onDevSettingsChange,
+                    onCopy = onCopyDevJson,
+                    swipeableState = swipeableState,
+                    swipeableAnchors = anchors,
+                    swipeableEnabled = swipeableEnabled,
+                    swipeableVelocityThreshold = swipeableVelocityThreshold
+                )
+            }
         }
 
         LazyColumn(
