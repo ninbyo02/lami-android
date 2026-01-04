@@ -2046,7 +2046,7 @@ private fun ReadyAnimationTab(
     // IME 分の余白はスクロール領域の contentPadding に集約する
     val bottomContentPadding = baseBottomPadding + imeBottomDp + PREVIEW_PEEK_DP
     val insetTopPadding = contentPadding.calculateTopPadding()
-    val listTopPadding = maxOf(insetTopPadding, 20.dp)
+    val listTopPadding = maxOf(insetTopPadding, 8.dp)
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = listTopPadding,
