@@ -54,6 +54,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.rememberSwipeableState
 import androidx.compose.material.swipeable
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -549,6 +550,8 @@ private fun defaultBoxPositions(): List<BoxPosition> =
 
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
+    var debugShift by rememberSaveable { mutableStateOf(false) }
+    val shiftDp = if (debugShift) 200.dp else 0.dp
     val imageBitmap: ImageBitmap =
         ImageBitmap.imageResource(LocalContext.current.resources, R.drawable.lami_sprite_3x3_288)
 
@@ -641,8 +644,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     var layoutDebugPaddingEnabled by rememberSaveable { mutableStateOf(false) }
     val debugPaddingTop = if (layoutDebugPaddingEnabled) 180.dp else 0.dp
-    var debugShift by rememberSaveable { mutableStateOf(false) }
-    val shiftDp = if (debugShift) 200.dp else 0.dp
 
     LaunchedEffect(devUnlocked, tabIndex) {
         if (!devUnlocked && tabIndex == 2) {
@@ -2400,7 +2401,7 @@ private fun ReadyAnimationTab(
                             .padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = { debugShift = !debugShift }) {
+                        Button(onClick = { debugShift = !debugShift }) {
                             Text(
                                 text = if (debugShift) "DBG: SHIFT ON" else "DBG: SHIFT OFF"
                             )
