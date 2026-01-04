@@ -2,18 +2,12 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.anchoredDraggable
-import androidx.compose.foundation.gestures.at
-import androidx.compose.foundation.gestures.rememberAnchoredDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -42,6 +36,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.FractionalThreshold
+import androidx.compose.material.rememberSwipeableState
+import androidx.compose.material.swipeable
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -1899,7 +1897,7 @@ private data class InsertionAnimationUiState(
     val previewValues: InsertionPreviewValues,
 )
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
 @Composable
 private fun ReadyAnimationTab(
     imageBitmap: ImageBitmap,
@@ -1929,6 +1927,7 @@ private fun ReadyAnimationTab(
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
+    val listContentPaddingBottom = listContentPadding.getBottom(layoutDirection)
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
 
@@ -1937,37 +1936,29 @@ private fun ReadyAnimationTab(
     val density = LocalDensity.current
     val peekPx = with(density) { previewPeekDp.toPx() }
     val topMarginPx = with(density) { previewTopMarginDp.toPx() }
-    val velocityThresholdPx = with(density) { 800.dp.toPx() }
     var rootHeightPx by remember { mutableIntStateOf(0) }
     var previewCardHeightPx by remember { mutableIntStateOf(0) }
     val imeBottomPx = WindowInsets.ime.getBottom(LocalDensity.current).toFloat()
-    val initialAnchors = remember {
-        DraggableAnchors {
-            PreviewSnap.Collapsed at 0f
-            PreviewSnap.Expanded at 0f
-        }
-    }
-    val previewDraggableState = rememberAnchoredDraggableState(
-        initialValue = PreviewSnap.Collapsed,
-        positionalThreshold = { distance -> distance * 0.35f },
-        velocityThreshold = { velocityThresholdPx },
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        anchors = initialAnchors
-    )
+    var collapsedY by remember { mutableStateOf(0f) }
+    var expandedY by remember { mutableStateOf(0f) }
+    val previewSwipeState = rememberSwipeableState(PreviewSnap.Collapsed)
 
     LaunchedEffect(rootHeightPx, previewCardHeightPx, imeBottomPx) {
         if (rootHeightPx <= 0) {
             return@LaunchedEffect
         }
-        val collapsedY = (rootHeightPx.toFloat() - peekPx).coerceAtLeast(0f)
+        val newCollapsedY = (rootHeightPx.toFloat() - peekPx).coerceAtLeast(0f)
         val maxExpandedY = (rootHeightPx.toFloat() - previewCardHeightPx.toFloat() - imeBottomPx).coerceAtLeast(0f)
-        val expandedY = topMarginPx.coerceAtMost(maxExpandedY)
-        val anchors = DraggableAnchors {
-            PreviewSnap.Collapsed at collapsedY
-            PreviewSnap.Expanded at expandedY
-        }
-        previewDraggableState.updateAnchors(anchors)
-        previewDraggableState.snapTo(previewDraggableState.currentValue)
+        val newExpandedY = topMarginPx.coerceAtMost(maxExpandedY).coerceIn(0f, newCollapsedY)
+        collapsedY = newCollapsedY
+        expandedY = newExpandedY
+    }
+
+    val anchors = remember(collapsedY, expandedY) {
+        mapOf(
+            collapsedY to PreviewSnap.Collapsed,
+            expandedY to PreviewSnap.Expanded
+        )
     }
 
     Box(
@@ -1980,7 +1971,7 @@ private fun ReadyAnimationTab(
             modifier = Modifier.fillMaxSize(),
             state = lazyListState,
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = listContentPadding.copy(bottom = listContentPadding.calculateBottomPadding() + previewPeekDp)
+            contentPadding = listContentPadding.copy(bottom = listContentPaddingBottom + previewPeekDp)
         ) {
             item {
                 Column(
@@ -2200,7 +2191,7 @@ private fun ReadyAnimationTab(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .offset { IntOffset(0, previewDraggableState.requireOffset().roundToInt()) }
+                    .offset { IntOffset(0, previewSwipeState.offset.value.roundToInt()) }
                     .onSizeChanged { newSize -> previewCardHeightPx = newSize.height }
             ) {
                 Box(
@@ -2208,9 +2199,12 @@ private fun ReadyAnimationTab(
                         .fillMaxWidth()
                         .height(36.dp)
                         .padding(vertical = 8.dp)
-                        .anchoredDraggable(
-                            state = previewDraggableState,
-                            orientation = Orientation.Vertical
+                        .swipeable(
+                            state = previewSwipeState,
+                            anchors = anchors,
+                            orientation = Orientation.Vertical,
+                            thresholds = { _, _ -> FractionalThreshold(0.35f) },
+                            velocityThreshold = 800.dp
                         ),
                     contentAlignment = Alignment.Center
                 ) {
