@@ -2152,7 +2152,7 @@ private fun rememberReadyAnimationState(
             if (insertionFrames.isNotEmpty()) addAll(insertionFrames)
         }.ifEmpty { listOf(0) }
     }
-    var currentFramePosition by remember(playbackFrames) { mutableIntStateOf(0) }
+    var currentFramePosition by remember(playbackFrames) { mutableStateOf(0) }
     val totalFrames = playbackFrames.size.coerceAtLeast(1)
     val isInsertionFrame = insertionFrames.isNotEmpty() && currentFramePosition >= baseFrames.size
     val currentIntervalMs = (if (isInsertionFrame) insertionSummary.intervalMs else summary.intervalMs)
@@ -2313,23 +2313,23 @@ private fun ReadyAnimationPreviewPane(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     onCopy: () -> Unit,
 ) {
-    var cardMaxHeightDp by rememberSaveable(devSettings.cardMaxHeightDp) { mutableIntStateOf(devSettings.cardMaxHeightDp) }
-    var innerBottomDp by rememberSaveable(devSettings.innerBottomDp) { mutableIntStateOf(devSettings.innerBottomDp) }
-    var outerBottomDp by rememberSaveable(devSettings.outerBottomDp) { mutableIntStateOf(devSettings.outerBottomDp) }
-    var innerVPadDp by rememberSaveable(devSettings.innerVPadDp) { mutableIntStateOf(devSettings.innerVPadDp) }
-    var charYOffsetDp by rememberSaveable(devSettings.charYOffsetDp) { mutableIntStateOf(devSettings.charYOffsetDp) }
-    var infoXOffsetDp by rememberSaveable(devSettings.infoXOffsetDp) { mutableIntStateOf(devSettings.infoXOffsetDp) }
-    var infoYOffsetDp by rememberSaveable(devSettings.infoYOffsetDp) { mutableIntStateOf(devSettings.infoYOffsetDp) }
-    var headerOffsetLimitDp by rememberSaveable(devSettings.headerOffsetLimitDp) { mutableIntStateOf(devSettings.headerOffsetLimitDp) }
-    var headerLeftXOffsetDp by rememberSaveable(devSettings.headerLeftXOffsetDp) { mutableIntStateOf(devSettings.headerLeftXOffsetDp) }
-    var headerLeftYOffsetDp by rememberSaveable(devSettings.headerLeftYOffsetDp) { mutableIntStateOf(devSettings.headerLeftYOffsetDp) }
-    var headerRightXOffsetDp by rememberSaveable(devSettings.headerRightXOffsetDp) { mutableIntStateOf(devSettings.headerRightXOffsetDp) }
-    var headerRightYOffsetDp by rememberSaveable(devSettings.headerRightYOffsetDp) { mutableIntStateOf(devSettings.headerRightYOffsetDp) }
-    var cardMinHeightDp by rememberSaveable(devSettings.cardMinHeightDp) { mutableIntStateOf(devSettings.cardMinHeightDp) }
-    var detailsMaxHeightDp by rememberSaveable(devSettings.detailsMaxHeightDp) { mutableIntStateOf(devSettings.detailsMaxHeightDp) }
-    var detailsMaxLines by rememberSaveable(devSettings.detailsMaxLines) { mutableIntStateOf(devSettings.detailsMaxLines) }
-    var headerSpacerDp by rememberSaveable(devSettings.headerSpacerDp) { mutableIntStateOf(devSettings.headerSpacerDp) }
-    var bodySpacerDp by rememberSaveable(devSettings.bodySpacerDp) { mutableIntStateOf(devSettings.bodySpacerDp) }
+    var cardMaxHeightDp by rememberSaveable(devSettings.cardMaxHeightDp) { mutableStateOf(devSettings.cardMaxHeightDp) }
+    var innerBottomDp by rememberSaveable(devSettings.innerBottomDp) { mutableStateOf(devSettings.innerBottomDp) }
+    var outerBottomDp by rememberSaveable(devSettings.outerBottomDp) { mutableStateOf(devSettings.outerBottomDp) }
+    var innerVPadDp by rememberSaveable(devSettings.innerVPadDp) { mutableStateOf(devSettings.innerVPadDp) }
+    var charYOffsetDp by rememberSaveable(devSettings.charYOffsetDp) { mutableStateOf(devSettings.charYOffsetDp) }
+    var infoXOffsetDp by rememberSaveable(devSettings.infoXOffsetDp) { mutableStateOf(devSettings.infoXOffsetDp) }
+    var infoYOffsetDp by rememberSaveable(devSettings.infoYOffsetDp) { mutableStateOf(devSettings.infoYOffsetDp) }
+    var headerOffsetLimitDp by rememberSaveable(devSettings.headerOffsetLimitDp) { mutableStateOf(devSettings.headerOffsetLimitDp) }
+    var headerLeftXOffsetDp by rememberSaveable(devSettings.headerLeftXOffsetDp) { mutableStateOf(devSettings.headerLeftXOffsetDp) }
+    var headerLeftYOffsetDp by rememberSaveable(devSettings.headerLeftYOffsetDp) { mutableStateOf(devSettings.headerLeftYOffsetDp) }
+    var headerRightXOffsetDp by rememberSaveable(devSettings.headerRightXOffsetDp) { mutableStateOf(devSettings.headerRightXOffsetDp) }
+    var headerRightYOffsetDp by rememberSaveable(devSettings.headerRightYOffsetDp) { mutableStateOf(devSettings.headerRightYOffsetDp) }
+    var cardMinHeightDp by rememberSaveable(devSettings.cardMinHeightDp) { mutableStateOf(devSettings.cardMinHeightDp) }
+    var detailsMaxHeightDp by rememberSaveable(devSettings.detailsMaxHeightDp) { mutableStateOf(devSettings.detailsMaxHeightDp) }
+    var detailsMaxLines by rememberSaveable(devSettings.detailsMaxLines) { mutableStateOf(devSettings.detailsMaxLines) }
+    var headerSpacerDp by rememberSaveable(devSettings.headerSpacerDp) { mutableStateOf(devSettings.headerSpacerDp) }
+    var bodySpacerDp by rememberSaveable(devSettings.bodySpacerDp) { mutableStateOf(devSettings.bodySpacerDp) }
     LaunchedEffect(devSettings) {
         cardMaxHeightDp = devSettings.cardMaxHeightDp
         innerBottomDp = devSettings.innerBottomDp
