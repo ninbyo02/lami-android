@@ -1,6 +1,4 @@
 package com.sonusid.ollama.ui.screens.settings
-
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
@@ -75,6 +73,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -144,6 +143,22 @@ data class BoxPosition(val x: Int, val y: Int)
 
 private val PREVIEW_PEEK_DP = 56.dp
 private val PREVIEW_TOP_MARGIN_DP = 72.dp
+
+private data class SpriteSettingsImeMetrics(
+    val imeBottomPx: Float,
+    val imeBottomDp: Dp,
+    val navBottomPx: Float,
+    val isImeVisible: Boolean,
+    val rootHeightPx: Int,
+    val previewCardHeightPx: Int,
+    val peekPx: Float,
+    val topMarginPx: Float,
+    val collapsedY: Float,
+    val expandedY: Float,
+    val maxExpandedY: Float,
+    val listContentPaddingBottomDp: Dp,
+    val screenDensity: Float,
+)
 
 private enum class PreviewSnap {
     Collapsed,
@@ -1933,11 +1948,17 @@ private fun ReadyAnimationTab(
             (rootHeightPx.toFloat() - previewPeekPx).coerceAtLeast(0f)
         }
     }
-    val expandedY = remember(rootHeightPx, previewCardHeightPx, bottomInsetPx, topMarginPx) {
+    val maxExpandedY = remember(rootHeightPx, previewCardHeightPx, bottomInsetPx) {
         if (rootHeightPx == 0) {
             0f
         } else {
-            val maxExpandedY = (rootHeightPx.toFloat() - previewCardHeightPx - bottomInsetPx).coerceAtLeast(0f)
+            (rootHeightPx.toFloat() - previewCardHeightPx - bottomInsetPx).coerceAtLeast(0f)
+        }
+    }
+    val expandedY = remember(rootHeightPx, previewCardHeightPx, bottomInsetPx, topMarginPx, maxExpandedY) {
+        if (rootHeightPx == 0) {
+            0f
+        } else {
             min(topMarginPx, maxExpandedY)
         }
     }
@@ -1972,9 +1993,40 @@ private fun ReadyAnimationTab(
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding + PREVIEW_PEEK_DP
     )
+    val imeMetrics by remember(
+        imeBottomPx,
+        navBottomPx,
+        imeVisible,
+        rootHeightPx,
+        previewCardHeightPx,
+        previewPeekPx,
+        topMarginPx,
+        collapsedY,
+        expandedY,
+        maxExpandedY,
+        listContentPadding,
+        density
+    ) {
+        derivedStateOf {
+            SpriteSettingsImeMetrics(
+                imeBottomPx = imeBottomPx,
+                imeBottomDp = with(density) { imeBottomPx.toDp() },
+                navBottomPx = navBottomPx,
+                isImeVisible = imeVisible,
+                rootHeightPx = rootHeightPx,
+                previewCardHeightPx = previewCardHeightPx,
+                peekPx = previewPeekPx,
+                topMarginPx = topMarginPx,
+                collapsedY = collapsedY,
+                expandedY = expandedY,
+                maxExpandedY = maxExpandedY,
+                listContentPaddingBottomDp = listContentPadding.calculateBottomPadding(),
+                screenDensity = density.density,
+            )
+        }
+    }
     val devUnlocked = BuildConfig.DEBUG
     var devExpanded by rememberSaveable { mutableStateOf(false) }
-    var lastLoggedValues by remember { mutableStateOf<Triple<Float, Float, Float>?>(null) }
 
     LaunchedEffect(previewSnap, swipeableEnabled, anchors) {
         if (swipeableEnabled) {
@@ -1994,27 +2046,6 @@ private fun ReadyAnimationTab(
                     previewSnap = value
                 }
             }
-    }
-
-    LaunchedEffect(
-        rootHeightPx,
-        previewCardHeightPx,
-        bottomInsetPx,
-        previewSnap,
-        collapsedY,
-        expandedY,
-        targetOffsetY
-    ) {
-        if (BuildConfig.DEBUG) {
-            val current = Triple(collapsedY, expandedY, currentOffsetY)
-            if (current != lastLoggedValues) {
-                lastLoggedValues = current
-                Log.d(
-                    "SpriteSettings",
-                    "rootHeightPx=$rootHeightPx previewCardHeightPx=$previewCardHeightPx bottomInsetPx=$bottomInsetPx collapsedY=$collapsedY expandedY=$expandedY offsetY=$currentOffsetY snap=$previewSnap"
-                )
-            }
-        }
     }
 
     Box(
@@ -2272,6 +2303,7 @@ private fun ReadyAnimationTab(
                 devSettings = devSettings,
                 onDevSettingsChange = onDevSettingsChange,
                 onCopy = onCopyDevJson,
+                imeMetrics = imeMetrics,
                 swipeableState = swipeableState,
                 swipeableAnchors = anchors,
                 swipeableEnabled = swipeableEnabled,
@@ -2517,6 +2549,7 @@ private fun ReadyAnimationPreviewPane(
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     onCopy: () -> Unit,
+    imeMetrics: SpriteSettingsImeMetrics,
     swipeableState: SwipeableState<PreviewSnap>,
     swipeableAnchors: Map<Float, PreviewSnap>,
     swipeableEnabled: Boolean,
@@ -3198,13 +3231,59 @@ private fun ReadyAnimationPreviewPane(
                                 top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
                             )
                     )
+                    if (BuildConfig.DEBUG) {
+                        ImeMetricsOverlay(
+                            text = buildImeDebugText(imeMetrics),
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                        )
+                    }
                 }
-            // FIX: missing brace for ReadyAnimationPreviewPane
             }
         }
     }
 }
 }
+
+@Composable
+private fun ImeMetricsOverlay(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+        tonalElevation = 1.dp,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelSmall,
+            lineHeight = MaterialTheme.typography.labelSmall.lineHeight,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+private fun buildImeDebugText(metrics: SpriteSettingsImeMetrics): String {
+    val peekDp = metrics.peekPx.toDp(metrics.screenDensity)
+    val topMarginDp = metrics.topMarginPx.toDp(metrics.screenDensity)
+    val collapsedDp = metrics.collapsedY.toDp(metrics.screenDensity)
+    val expandedDp = metrics.expandedY.toDp(metrics.screenDensity)
+    val maxExpandedDp = metrics.maxExpandedY.toDp(metrics.screenDensity)
+    val imeLine = "IME(px)=${metrics.imeBottomPx.toInt()} dp=${metrics.imeBottomDp.value.format1()} navPx=${metrics.navBottomPx.toInt()} vis=${metrics.isImeVisible}"
+    val layoutLine = "rootH=${metrics.rootHeightPx} cardH=${metrics.previewCardHeightPx} colY=${collapsedDp} expY=${expandedDp}/${maxExpandedDp}"
+    val paddingLine = "listBottomDp=${metrics.listContentPaddingBottomDp.value.format1()} peekDp=${peekDp} topMarginDp=${topMarginDp} dens=${metrics.screenDensity.format1()}"
+    return listOf(imeLine, layoutLine, paddingLine).joinToString(separator = "\n")
+}
+
+private fun Float.toDp(density: Float): String = (this / density).format1()
+
+private fun Float.format1(): String = String.format("%.1f", this)
 
 @Composable
 private fun SpritePreviewBlock(
