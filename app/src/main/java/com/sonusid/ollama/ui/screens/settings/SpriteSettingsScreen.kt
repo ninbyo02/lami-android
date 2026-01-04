@@ -146,6 +146,7 @@ data class BoxPosition(val x: Int, val y: Int)
 
 private val PREVIEW_PEEK_DP = 56.dp
 private val PREVIEW_TOP_MARGIN_DP = 72.dp
+private const val IME_SCROLL_DELAY_MS = 45L
 // IME表示時の下余白を抑えつつ、スライダー操作に必要な最低限の余白を確保するためのクランプ値
 private val IME_BOTTOM_MIN_DP = 2.dp
 private val IME_BOTTOM_MAX_DP = 12.dp
@@ -170,21 +171,59 @@ private data class SpriteSettingsImeMetrics(
     val screenDensity: Float,
 )
 
+private data class ImeBringIntoViewHandler(
+    val modifier: Modifier,
+    /** フォーカス変化をハンドリングし、フォーカス獲得時のみ true を返す */
+    val onFocusChanged: (Boolean) -> Boolean,
+    /** ドラッグなどのユーザー操作開始時に呼び出して bringIntoView を一度だけ要求する */
+    val requestOnInteraction: () -> Unit,
+)
+
 @Composable
-private fun Modifier.autoBringIntoViewOnFocus(
+private fun rememberImeBringIntoViewHandler(
     requester: BringIntoViewRequester,
-    enabled: Boolean = true,
-    delayMs: Long = 50L,
-): Modifier = composed {
+    isImeVisible: Boolean,
+    delayMs: Long = IME_SCROLL_DELAY_MS,
+): ImeBringIntoViewHandler = composed {
     val coroutineScope = rememberCoroutineScope()
-    onFocusEvent { event ->
-        if (enabled && event.isFocused) {
+    var hasBroughtInIme by remember { mutableStateOf(false) }
+    var wasFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isImeVisible) {
+        if (!isImeVisible) {
+            hasBroughtInIme = false
+            wasFocused = false
+        }
+    }
+
+    val bringOnceIfImeVisible: () -> Unit = {
+        if (isImeVisible && !hasBroughtInIme) {
+            hasBroughtInIme = true
             coroutineScope.launch {
                 if (delayMs > 0) delay(delayMs)
                 requester.bringIntoView()
             }
         }
-    }.bringIntoViewRequester(requester)
+    }
+
+    val focusHandler: (Boolean) -> Boolean = { isFocused ->
+        val gainedFocus = isFocused && !wasFocused
+        if (gainedFocus) {
+            bringOnceIfImeVisible()
+        }
+        wasFocused = isFocused
+        gainedFocus
+    }
+
+    ImeBringIntoViewHandler(
+        modifier = Modifier.bringIntoViewRequester(requester),
+        onFocusChanged = focusHandler,
+        requestOnInteraction = {
+            if (isImeVisible) {
+                bringOnceIfImeVisible()
+            }
+        }
+    )
 }
 
 private enum class PreviewSnap {
@@ -2021,6 +2060,34 @@ private fun ReadyAnimationTab(
     val everyNBringRequester = remember { BringIntoViewRequester() }
     val probabilityBringRequester = remember { BringIntoViewRequester() }
     val cooldownBringRequester = remember { BringIntoViewRequester() }
+    val frameInputImeHandler = rememberImeBringIntoViewHandler(
+        requester = frameInputBringRequester,
+        isImeVisible = imeVisible
+    )
+    val intervalInputImeHandler = rememberImeBringIntoViewHandler(
+        requester = intervalInputBringRequester,
+        isImeVisible = imeVisible
+    )
+    val insertionFrameImeHandler = rememberImeBringIntoViewHandler(
+        requester = insertionFrameBringRequester,
+        isImeVisible = imeVisible
+    )
+    val insertionIntervalImeHandler = rememberImeBringIntoViewHandler(
+        requester = insertionIntervalBringRequester,
+        isImeVisible = imeVisible
+    )
+    val everyNImeHandler = rememberImeBringIntoViewHandler(
+        requester = everyNBringRequester,
+        isImeVisible = imeVisible
+    )
+    val probabilityImeHandler = rememberImeBringIntoViewHandler(
+        requester = probabilityBringRequester,
+        isImeVisible = imeVisible
+    )
+    val cooldownImeHandler = rememberImeBringIntoViewHandler(
+        requester = cooldownBringRequester,
+        isImeVisible = imeVisible
+    )
     val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
@@ -2156,12 +2223,10 @@ private fun ReadyAnimationTab(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
-                        .autoBringIntoViewOnFocus(
-                            requester = frameInputBringRequester,
-                            enabled = isImeVisible
-                        )
+                        .then(frameInputImeHandler.modifier)
                         .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(1)
+                            val gainedFocus = frameInputImeHandler.onFocusChanged(event.isFocused)
+                            if (gainedFocus) onFieldFocused(1)
                         },
                     label = { Text("フレーム列 (例: 1,2,3)") },
                     singleLine = true,
@@ -2178,12 +2243,10 @@ private fun ReadyAnimationTab(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
-                        .autoBringIntoViewOnFocus(
-                            requester = intervalInputBringRequester,
-                            enabled = isImeVisible
-                        )
+                        .then(intervalInputImeHandler.modifier)
                         .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(2)
+                            val gainedFocus = intervalInputImeHandler.onFocusChanged(event.isFocused)
+                            if (gainedFocus) onFieldFocused(2)
                         },
                     label = { Text("周期 (ms)") },
                     singleLine = true,
@@ -2229,12 +2292,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
-                                .autoBringIntoViewOnFocus(
-                                    requester = insertionFrameBringRequester,
-                                    enabled = isImeVisible
-                                )
+                                .then(insertionFrameImeHandler.modifier)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(4)
+                                    val gainedFocus = insertionFrameImeHandler.onFocusChanged(event.isFocused)
+                                    if (gainedFocus) onFieldFocused(4)
                                 },
                             label = { Text("挿入フレーム列（例: 4,5,6）") },
                             singleLine = true,
@@ -2249,12 +2310,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
-                                .autoBringIntoViewOnFocus(
-                                    requester = insertionIntervalBringRequester,
-                                    enabled = isImeVisible
-                                )
+                                .then(insertionIntervalImeHandler.modifier)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(5)
+                                    val gainedFocus = insertionIntervalImeHandler.onFocusChanged(event.isFocused)
+                                    if (gainedFocus) onFieldFocused(5)
                                 },
                             label = { Text("挿入周期（ms）") },
                             singleLine = true,
@@ -2270,12 +2329,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
-                                .autoBringIntoViewOnFocus(
-                                    requester = everyNBringRequester,
-                                    enabled = isImeVisible
-                                )
+                                .then(everyNImeHandler.modifier)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(6)
+                                    val gainedFocus = everyNImeHandler.onFocusChanged(event.isFocused)
+                                    if (gainedFocus) onFieldFocused(6)
                                 },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
@@ -2291,12 +2348,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
-                                .autoBringIntoViewOnFocus(
-                                    requester = probabilityBringRequester,
-                                    enabled = isImeVisible
-                                )
+                                .then(probabilityImeHandler.modifier)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(7)
+                                    val gainedFocus = probabilityImeHandler.onFocusChanged(event.isFocused)
+                                    if (gainedFocus) onFieldFocused(7)
                                 },
                             label = { Text("確率（%）") },
                             singleLine = true,
@@ -2312,12 +2367,10 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
-                                .autoBringIntoViewOnFocus(
-                                    requester = cooldownBringRequester,
-                                    enabled = isImeVisible
-                                )
+                                .then(cooldownImeHandler.modifier)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(8)
+                                    val gainedFocus = cooldownImeHandler.onFocusChanged(event.isFocused)
+                                    if (gainedFocus) onFieldFocused(8)
                                 },
                             label = { Text("クールダウン（ループ）") },
                             singleLine = true,
