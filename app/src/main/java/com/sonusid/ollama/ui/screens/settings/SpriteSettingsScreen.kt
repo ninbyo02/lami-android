@@ -2046,10 +2046,9 @@ private fun ReadyAnimationTab(
     // IME 分の余白はスクロール領域の contentPadding に集約する
     val bottomContentPadding = baseBottomPadding + imeBottomDp + PREVIEW_PEEK_DP
     val insetTopPadding = contentPadding.calculateTopPadding()
-    val listTopPadding = insetTopPadding
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
-        top = listTopPadding,
+        top = insetTopPadding,
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
@@ -3133,7 +3132,8 @@ private fun ReadyAnimationPreviewPane(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+
+        Spacer(modifier = Modifier.height(4.dp))
         val outerPaddingColor = if (outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         } else {
@@ -3287,8 +3287,7 @@ private fun SpritePreviewBlock(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
-                .heightIn(min = 220.dp),
+                .aspectRatio(1f),
             contentAlignment = Alignment.Center
         ) {
             Image(
