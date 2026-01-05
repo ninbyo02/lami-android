@@ -105,6 +105,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
@@ -2203,14 +2204,16 @@ private fun ReadyAnimationTab(
                     }
                 }
             }
-            item {
-                DevMenuSection(
-                    devUnlocked = devUnlocked,
-                    devMenuEnabled = devMenuEnabled,
-                    onDevMenuEnabledChange = onDevMenuEnabledChange,
-                    devMenuUiState = devMenuUiState,
-                    devMenuCallbacks = devMenuCallbacks
-                )
+            if (BuildConfig.DEBUG) {
+                item {
+                    DevMenuSection(
+                        devUnlocked = devUnlocked,
+                        devMenuEnabled = devMenuEnabled,
+                        onDevMenuEnabledChange = onDevMenuEnabledChange,
+                        devMenuUiState = devMenuUiState,
+                        devMenuCallbacks = devMenuCallbacks
+                    )
+                }
             }
         }
     }
