@@ -62,6 +62,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -229,6 +230,168 @@ private data class DevMenuCallbacks(
     val onHeaderSpacerChange: (Int) -> Unit,
     val onBodySpacerChange: (Int) -> Unit,
 )
+
+private class ReadyPreviewLayoutState(
+    cardMaxHeightDp: MutableState<Int>,
+    innerBottomDp: MutableState<Int>,
+    outerBottomDp: MutableState<Int>,
+    innerVPadDp: MutableState<Int>,
+    charYOffsetDp: MutableState<Int>,
+    infoXOffsetDp: MutableState<Int>,
+    infoYOffsetDp: MutableState<Int>,
+    headerOffsetLimitDp: MutableState<Int>,
+    headerLeftXOffsetDp: MutableState<Int>,
+    headerLeftYOffsetDp: MutableState<Int>,
+    headerRightXOffsetDp: MutableState<Int>,
+    headerRightYOffsetDp: MutableState<Int>,
+    cardMinHeightDp: MutableState<Int>,
+    detailsMaxHeightDp: MutableState<Int>,
+    detailsMaxLines: MutableState<Int>,
+    headerSpacerDp: MutableState<Int>,
+    bodySpacerDp: MutableState<Int>,
+    private val onDevSettingsChange: (DevPreviewSettings) -> Unit,
+) {
+    var cardMaxHeightDp by cardMaxHeightDp
+    var innerBottomDp by innerBottomDp
+    var outerBottomDp by outerBottomDp
+    var innerVPadDp by innerVPadDp
+    var charYOffsetDp by charYOffsetDp
+    var infoXOffsetDp by infoXOffsetDp
+    var infoYOffsetDp by infoYOffsetDp
+    var headerOffsetLimitDp by headerOffsetLimitDp
+    var headerLeftXOffsetDp by headerLeftXOffsetDp
+    var headerLeftYOffsetDp by headerLeftYOffsetDp
+    var headerRightXOffsetDp by headerRightXOffsetDp
+    var headerRightYOffsetDp by headerRightYOffsetDp
+    var cardMinHeightDp by cardMinHeightDp
+    var detailsMaxHeightDp by detailsMaxHeightDp
+    var detailsMaxLines by detailsMaxLines
+    var headerSpacerDp by headerSpacerDp
+    var bodySpacerDp by bodySpacerDp
+
+    fun updateFrom(devSettings: DevPreviewSettings) {
+        cardMaxHeightDp = devSettings.cardMaxHeightDp
+        innerBottomDp = devSettings.innerBottomDp
+        outerBottomDp = devSettings.outerBottomDp
+        innerVPadDp = devSettings.innerVPadDp
+        charYOffsetDp = devSettings.charYOffsetDp
+        infoXOffsetDp = devSettings.infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
+        infoYOffsetDp = devSettings.infoYOffsetDp
+        headerOffsetLimitDp = devSettings.headerOffsetLimitDp
+        headerLeftXOffsetDp = devSettings.headerLeftXOffsetDp
+        headerLeftYOffsetDp = devSettings.headerLeftYOffsetDp
+        headerRightXOffsetDp = devSettings.headerRightXOffsetDp
+        headerRightYOffsetDp = devSettings.headerRightYOffsetDp
+        cardMinHeightDp = devSettings.cardMinHeightDp
+        detailsMaxHeightDp = devSettings.detailsMaxHeightDp
+        detailsMaxLines = devSettings.detailsMaxLines
+        headerSpacerDp = devSettings.headerSpacerDp
+        bodySpacerDp = devSettings.bodySpacerDp
+    }
+
+    fun propagateDevSettings() {
+        val clampedInfoXOffsetDp = infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
+        infoXOffsetDp = clampedInfoXOffsetDp
+        onDevSettingsChange(
+            DevPreviewSettings(
+                cardMaxHeightDp = cardMaxHeightDp,
+                innerBottomDp = innerBottomDp,
+                outerBottomDp = outerBottomDp,
+                innerVPadDp = innerVPadDp,
+                charYOffsetDp = charYOffsetDp,
+                infoXOffsetDp = clampedInfoXOffsetDp,
+                infoYOffsetDp = infoYOffsetDp,
+                headerOffsetLimitDp = headerOffsetLimitDp,
+                headerLeftXOffsetDp = headerLeftXOffsetDp,
+                headerLeftYOffsetDp = headerLeftYOffsetDp,
+                headerRightXOffsetDp = headerRightXOffsetDp,
+                headerRightYOffsetDp = headerRightYOffsetDp,
+                cardMinHeightDp = cardMinHeightDp,
+                detailsMaxHeightDp = detailsMaxHeightDp,
+                detailsMaxLines = detailsMaxLines,
+                headerSpacerDp = headerSpacerDp,
+                bodySpacerDp = bodySpacerDp,
+            )
+        )
+    }
+
+    fun updateDevSettings(block: ReadyPreviewLayoutState.() -> Unit) {
+        block()
+        propagateDevSettings()
+    }
+}
+
+@Composable
+private fun rememberReadyPreviewLayoutState(
+    devSettings: DevPreviewSettings,
+    onDevSettingsChange: (DevPreviewSettings) -> Unit
+): ReadyPreviewLayoutState {
+    val cardMaxHeightDp = rememberSaveable(devSettings.cardMaxHeightDp) { mutableStateOf(devSettings.cardMaxHeightDp) }
+    val innerBottomDp = rememberSaveable(devSettings.innerBottomDp) { mutableStateOf(devSettings.innerBottomDp) }
+    val outerBottomDp = rememberSaveable(devSettings.outerBottomDp) { mutableStateOf(devSettings.outerBottomDp) }
+    val innerVPadDp = rememberSaveable(devSettings.innerVPadDp) { mutableStateOf(devSettings.innerVPadDp) }
+    val charYOffsetDp = rememberSaveable(devSettings.charYOffsetDp) { mutableStateOf(devSettings.charYOffsetDp) }
+    val infoXOffsetDp = rememberSaveable(devSettings.infoXOffsetDp) { mutableStateOf(devSettings.infoXOffsetDp) }
+    val infoYOffsetDp = rememberSaveable(devSettings.infoYOffsetDp) { mutableStateOf(devSettings.infoYOffsetDp) }
+    val headerOffsetLimitDp = rememberSaveable(devSettings.headerOffsetLimitDp) { mutableStateOf(devSettings.headerOffsetLimitDp) }
+    val headerLeftXOffsetDp = rememberSaveable(devSettings.headerLeftXOffsetDp) { mutableStateOf(devSettings.headerLeftXOffsetDp) }
+    val headerLeftYOffsetDp = rememberSaveable(devSettings.headerLeftYOffsetDp) { mutableStateOf(devSettings.headerLeftYOffsetDp) }
+    val headerRightXOffsetDp = rememberSaveable(devSettings.headerRightXOffsetDp) { mutableStateOf(devSettings.headerRightXOffsetDp) }
+    val headerRightYOffsetDp = rememberSaveable(devSettings.headerRightYOffsetDp) { mutableStateOf(devSettings.headerRightYOffsetDp) }
+    val cardMinHeightDp = rememberSaveable(devSettings.cardMinHeightDp) { mutableStateOf(devSettings.cardMinHeightDp) }
+    val detailsMaxHeightDp = rememberSaveable(devSettings.detailsMaxHeightDp) { mutableStateOf(devSettings.detailsMaxHeightDp) }
+    val detailsMaxLines = rememberSaveable(devSettings.detailsMaxLines) { mutableStateOf(devSettings.detailsMaxLines) }
+    val headerSpacerDp = rememberSaveable(devSettings.headerSpacerDp) { mutableStateOf(devSettings.headerSpacerDp) }
+    val bodySpacerDp = rememberSaveable(devSettings.bodySpacerDp) { mutableStateOf(devSettings.bodySpacerDp) }
+
+    val state = remember(
+        cardMaxHeightDp,
+        innerBottomDp,
+        outerBottomDp,
+        innerVPadDp,
+        charYOffsetDp,
+        infoXOffsetDp,
+        infoYOffsetDp,
+        headerOffsetLimitDp,
+        headerLeftXOffsetDp,
+        headerLeftYOffsetDp,
+        headerRightXOffsetDp,
+        headerRightYOffsetDp,
+        cardMinHeightDp,
+        detailsMaxHeightDp,
+        detailsMaxLines,
+        headerSpacerDp,
+        bodySpacerDp,
+        onDevSettingsChange
+    ) {
+        ReadyPreviewLayoutState(
+            cardMaxHeightDp = cardMaxHeightDp,
+            innerBottomDp = innerBottomDp,
+            outerBottomDp = outerBottomDp,
+            innerVPadDp = innerVPadDp,
+            charYOffsetDp = charYOffsetDp,
+            infoXOffsetDp = infoXOffsetDp,
+            infoYOffsetDp = infoYOffsetDp,
+            headerOffsetLimitDp = headerOffsetLimitDp,
+            headerLeftXOffsetDp = headerLeftXOffsetDp,
+            headerLeftYOffsetDp = headerLeftYOffsetDp,
+            headerRightXOffsetDp = headerRightXOffsetDp,
+            headerRightYOffsetDp = headerRightYOffsetDp,
+            cardMinHeightDp = cardMinHeightDp,
+            detailsMaxHeightDp = detailsMaxHeightDp,
+            detailsMaxLines = detailsMaxLines,
+            headerSpacerDp = headerSpacerDp,
+            bodySpacerDp = bodySpacerDp,
+            onDevSettingsChange = onDevSettingsChange
+        )
+    }
+
+    LaunchedEffect(devSettings) {
+        state.updateFrom(devSettings)
+    }
+
+    return state
+}
 
 // 作業メモ(Step0):
 // - devUnlocked/devMenuEnabled/devExpanded および DEV UI 本体は ReadyAnimationPreviewPane 内のDEVブロック（行2400前後）。
@@ -2378,127 +2541,66 @@ private fun ReadyAnimationPreviewPane(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     onCopy: () -> Unit,
 ) {
-    var cardMaxHeightDp by rememberSaveable(devSettings.cardMaxHeightDp) { mutableStateOf(devSettings.cardMaxHeightDp) }
-    var innerBottomDp by rememberSaveable(devSettings.innerBottomDp) { mutableStateOf(devSettings.innerBottomDp) }
-    var outerBottomDp by rememberSaveable(devSettings.outerBottomDp) { mutableStateOf(devSettings.outerBottomDp) }
-    var innerVPadDp by rememberSaveable(devSettings.innerVPadDp) { mutableStateOf(devSettings.innerVPadDp) }
-    var charYOffsetDp by rememberSaveable(devSettings.charYOffsetDp) { mutableStateOf(devSettings.charYOffsetDp) }
-    var infoXOffsetDp by rememberSaveable(devSettings.infoXOffsetDp) { mutableStateOf(devSettings.infoXOffsetDp) }
-    var infoYOffsetDp by rememberSaveable(devSettings.infoYOffsetDp) { mutableStateOf(devSettings.infoYOffsetDp) }
-    var headerOffsetLimitDp by rememberSaveable(devSettings.headerOffsetLimitDp) { mutableStateOf(devSettings.headerOffsetLimitDp) }
-    var headerLeftXOffsetDp by rememberSaveable(devSettings.headerLeftXOffsetDp) { mutableStateOf(devSettings.headerLeftXOffsetDp) }
-    var headerLeftYOffsetDp by rememberSaveable(devSettings.headerLeftYOffsetDp) { mutableStateOf(devSettings.headerLeftYOffsetDp) }
-    var headerRightXOffsetDp by rememberSaveable(devSettings.headerRightXOffsetDp) { mutableStateOf(devSettings.headerRightXOffsetDp) }
-    var headerRightYOffsetDp by rememberSaveable(devSettings.headerRightYOffsetDp) { mutableStateOf(devSettings.headerRightYOffsetDp) }
-    var cardMinHeightDp by rememberSaveable(devSettings.cardMinHeightDp) { mutableStateOf(devSettings.cardMinHeightDp) }
-    var detailsMaxHeightDp by rememberSaveable(devSettings.detailsMaxHeightDp) { mutableStateOf(devSettings.detailsMaxHeightDp) }
-    var detailsMaxLines by rememberSaveable(devSettings.detailsMaxLines) { mutableStateOf(devSettings.detailsMaxLines) }
-    var headerSpacerDp by rememberSaveable(devSettings.headerSpacerDp) { mutableStateOf(devSettings.headerSpacerDp) }
-    var bodySpacerDp by rememberSaveable(devSettings.bodySpacerDp) { mutableStateOf(devSettings.bodySpacerDp) }
-    LaunchedEffect(devSettings) {
-        cardMaxHeightDp = devSettings.cardMaxHeightDp
-        innerBottomDp = devSettings.innerBottomDp
-        outerBottomDp = devSettings.outerBottomDp
-        innerVPadDp = devSettings.innerVPadDp
-        charYOffsetDp = devSettings.charYOffsetDp
-        infoXOffsetDp = devSettings.infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
-        infoYOffsetDp = devSettings.infoYOffsetDp
-        headerOffsetLimitDp = devSettings.headerOffsetLimitDp
-        headerLeftXOffsetDp = devSettings.headerLeftXOffsetDp
-        headerLeftYOffsetDp = devSettings.headerLeftYOffsetDp
-        headerRightXOffsetDp = devSettings.headerRightXOffsetDp
-        headerRightYOffsetDp = devSettings.headerRightYOffsetDp
-        cardMinHeightDp = devSettings.cardMinHeightDp
-        detailsMaxHeightDp = devSettings.detailsMaxHeightDp
-        detailsMaxLines = devSettings.detailsMaxLines
-        headerSpacerDp = devSettings.headerSpacerDp
-        bodySpacerDp = devSettings.bodySpacerDp
-    }
-    fun propagateDevSettings() {
-        val clampedInfoXOffsetDp = infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
-        infoXOffsetDp = clampedInfoXOffsetDp
-        onDevSettingsChange(
-            DevPreviewSettings(
-                cardMaxHeightDp = cardMaxHeightDp,
-                innerBottomDp = innerBottomDp,
-                outerBottomDp = outerBottomDp,
-                innerVPadDp = innerVPadDp,
-                charYOffsetDp = charYOffsetDp,
-                infoXOffsetDp = clampedInfoXOffsetDp,
-                infoYOffsetDp = infoYOffsetDp,
-                headerOffsetLimitDp = headerOffsetLimitDp,
-                headerLeftXOffsetDp = headerLeftXOffsetDp,
-                headerLeftYOffsetDp = headerLeftYOffsetDp,
-                headerRightXOffsetDp = headerRightXOffsetDp,
-                headerRightYOffsetDp = headerRightYOffsetDp,
-                cardMinHeightDp = cardMinHeightDp,
-                detailsMaxHeightDp = detailsMaxHeightDp,
-                detailsMaxLines = detailsMaxLines,
-                headerSpacerDp = headerSpacerDp,
-                bodySpacerDp = bodySpacerDp,
-            )
-        )
-    }
-    fun updateDevSettings(block: () -> Unit) {
-        block()
-        propagateDevSettings()
-    }
+    val layoutState = rememberReadyPreviewLayoutState(
+        devSettings = devSettings,
+        onDevSettingsChange = onDevSettingsChange
+    )
     LaunchedEffect(initialHeaderLeftXOffsetDp) {
         initialHeaderLeftXOffsetDp?.let { initial ->
-            headerLeftXOffsetDp = initial.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+            layoutState.headerLeftXOffsetDp = initial.coerceIn(-layoutState.headerOffsetLimitDp, layoutState.headerOffsetLimitDp)
         }
     }
     val baseMaxHeightDp = if (isImeVisible) 220 else 300
-    val customCardMaxHeightDp = cardMaxHeightDp.takeUnless { it == 0 }
+    val customCardMaxHeightDp = layoutState.cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
-    val boundedMinHeightDp = effectiveCardMaxH?.let { max -> cardMinHeightDp.coerceAtMost(max) } ?: cardMinHeightDp
+    val boundedMinHeightDp = effectiveCardMaxH?.let { max -> layoutState.cardMinHeightDp.coerceAtMost(max) } ?: layoutState.cardMinHeightDp
     val effectiveMinHeightDp = effectiveCardMaxH?.let { max -> boundedMinHeightDp.coerceAtMost(max) } ?: boundedMinHeightDp
-    val effectiveOuterBottomDp = outerBottomDp
-    val effectiveInnerBottomDp = innerBottomDp
-    val effectiveInnerVPadDp = innerVPadDp
-    val effectiveBodySpacerDp = bodySpacerDp
-    val effectiveDetailsMaxH = detailsMaxHeightDp.coerceAtLeast(1)
+    val effectiveOuterBottomDp = layoutState.outerBottomDp
+    val effectiveInnerBottomDp = layoutState.innerBottomDp
+    val effectiveInnerVPadDp = layoutState.innerVPadDp
+    val effectiveBodySpacerDp = layoutState.bodySpacerDp
+    val effectiveDetailsMaxH = layoutState.detailsMaxHeightDp.coerceAtLeast(1)
 
     val devMenuUiState = DevMenuUiState(
         devUnlocked = devUnlocked,
         devMenuEnabled = devMenuEnabled,
         devExpanded = devExpanded,
-        charYOffsetDp = charYOffsetDp,
+        charYOffsetDp = layoutState.charYOffsetDp,
         effectiveMinHeightDp = effectiveMinHeightDp,
         effectiveCardMaxH = effectiveCardMaxH,
-        infoXOffsetDp = infoXOffsetDp,
-        infoYOffsetDp = infoYOffsetDp,
-        headerLeftXOffsetDp = headerLeftXOffsetDp,
-        headerLeftYOffsetDp = headerLeftYOffsetDp,
-        headerRightXOffsetDp = headerRightXOffsetDp,
-        headerRightYOffsetDp = headerRightYOffsetDp,
+        infoXOffsetDp = layoutState.infoXOffsetDp,
+        infoYOffsetDp = layoutState.infoYOffsetDp,
+        headerLeftXOffsetDp = layoutState.headerLeftXOffsetDp,
+        headerLeftYOffsetDp = layoutState.headerLeftYOffsetDp,
+        headerRightXOffsetDp = layoutState.headerRightXOffsetDp,
+        headerRightYOffsetDp = layoutState.headerRightYOffsetDp,
         baseMaxHeightDp = baseMaxHeightDp,
         effectiveDetailsMaxH = effectiveDetailsMaxH,
-        outerBottomDp = outerBottomDp,
-        innerBottomDp = innerBottomDp,
-        innerVPadDp = innerVPadDp,
-        detailsMaxHeightDp = detailsMaxHeightDp,
-        cardMaxHeightDp = cardMaxHeightDp,
-        cardMinHeightDp = cardMinHeightDp,
-        detailsMaxLines = detailsMaxLines,
-        headerOffsetLimitDp = headerOffsetLimitDp,
-        headerSpacerDp = headerSpacerDp,
-        bodySpacerDp = bodySpacerDp,
+        outerBottomDp = layoutState.outerBottomDp,
+        innerBottomDp = layoutState.innerBottomDp,
+        innerVPadDp = layoutState.innerVPadDp,
+        detailsMaxHeightDp = layoutState.detailsMaxHeightDp,
+        cardMaxHeightDp = layoutState.cardMaxHeightDp,
+        cardMinHeightDp = layoutState.cardMinHeightDp,
+        detailsMaxLines = layoutState.detailsMaxLines,
+        headerOffsetLimitDp = layoutState.headerOffsetLimitDp,
+        headerSpacerDp = layoutState.headerSpacerDp,
+        bodySpacerDp = layoutState.bodySpacerDp,
     )
     val devMenuCallbacks = DevMenuCallbacks(
         onDevExpandedChange = onDevExpandedChange,
         onCopy = onCopy,
         onCharYOffsetChange = { delta ->
-            updateDevSettings { charYOffsetDp = (charYOffsetDp + delta).coerceIn(-200, 200) }
+            layoutState.updateDevSettings { charYOffsetDp = (charYOffsetDp + delta).coerceIn(-200, 200) }
         },
         onInfoXOffsetChange = { delta ->
-            updateDevSettings { infoXOffsetDp = (infoXOffsetDp + delta).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) }
+            layoutState.updateDevSettings { infoXOffsetDp = (infoXOffsetDp + delta).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) }
         },
         onInfoYOffsetChange = { delta ->
-            updateDevSettings { infoYOffsetDp = (infoYOffsetDp + delta).coerceIn(-200, 200) }
+            layoutState.updateDevSettings { infoYOffsetDp = (infoYOffsetDp + delta).coerceIn(-200, 200) }
         },
         onHeaderOffsetLimitChange = { delta ->
-            updateDevSettings {
+            layoutState.updateDevSettings {
                 headerOffsetLimitDp = (headerOffsetLimitDp + delta).coerceIn(0, 400)
                 headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
                 headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
@@ -2507,43 +2609,43 @@ private fun ReadyAnimationPreviewPane(
             }
         },
         onHeaderLeftXOffsetChange = { delta ->
-            updateDevSettings { headerLeftXOffsetDp = (headerLeftXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+            layoutState.updateDevSettings { headerLeftXOffsetDp = (headerLeftXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
         },
         onHeaderLeftYOffsetChange = { delta ->
-            updateDevSettings { headerLeftYOffsetDp = (headerLeftYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+            layoutState.updateDevSettings { headerLeftYOffsetDp = (headerLeftYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
         },
         onHeaderRightXOffsetChange = { delta ->
-            updateDevSettings { headerRightXOffsetDp = (headerRightXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+            layoutState.updateDevSettings { headerRightXOffsetDp = (headerRightXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
         },
         onHeaderRightYOffsetChange = { delta ->
-            updateDevSettings { headerRightYOffsetDp = (headerRightYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+            layoutState.updateDevSettings { headerRightYOffsetDp = (headerRightYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
         },
         onOuterBottomChange = { delta ->
-            updateDevSettings { outerBottomDp = (outerBottomDp + delta).coerceIn(0, 80) }
+            layoutState.updateDevSettings { outerBottomDp = (outerBottomDp + delta).coerceIn(0, 80) }
         },
         onInnerBottomChange = { delta ->
-            updateDevSettings { innerBottomDp = (innerBottomDp + delta).coerceIn(0, 80) }
+            layoutState.updateDevSettings { innerBottomDp = (innerBottomDp + delta).coerceIn(0, 80) }
         },
         onInnerVPadChange = { delta ->
-            updateDevSettings { innerVPadDp = (innerVPadDp + delta).coerceIn(0, 24) }
+            layoutState.updateDevSettings { innerVPadDp = (innerVPadDp + delta).coerceIn(0, 24) }
         },
         onDetailsMaxHeightChange = { delta ->
-            updateDevSettings { detailsMaxHeightDp = (detailsMaxHeightDp + delta).coerceIn(0, 1200) }
+            layoutState.updateDevSettings { detailsMaxHeightDp = (detailsMaxHeightDp + delta).coerceIn(0, 1200) }
         },
         onCardMaxHeightChange = { delta ->
-            updateDevSettings { cardMaxHeightDp = (cardMaxHeightDp + delta).coerceIn(0, 1200) }
+            layoutState.updateDevSettings { cardMaxHeightDp = (cardMaxHeightDp + delta).coerceIn(0, 1200) }
         },
         onCardMinHeightChange = { delta ->
-            updateDevSettings { cardMinHeightDp = (cardMinHeightDp + delta).coerceIn(0, 320) }
+            layoutState.updateDevSettings { cardMinHeightDp = (cardMinHeightDp + delta).coerceIn(0, 320) }
         },
         onDetailsMaxLinesChange = { delta ->
-            updateDevSettings { detailsMaxLines = (detailsMaxLines + delta).coerceIn(1, 6) }
+            layoutState.updateDevSettings { detailsMaxLines = (detailsMaxLines + delta).coerceIn(1, 6) }
         },
         onHeaderSpacerChange = { delta ->
-            updateDevSettings { headerSpacerDp = (headerSpacerDp + delta).coerceIn(0, 24) }
+            layoutState.updateDevSettings { headerSpacerDp = (headerSpacerDp + delta).coerceIn(0, 24) }
         },
         onBodySpacerChange = { delta ->
-            updateDevSettings { bodySpacerDp = (bodySpacerDp + delta).coerceIn(0, 24) }
+            layoutState.updateDevSettings { bodySpacerDp = (bodySpacerDp + delta).coerceIn(0, 24) }
         },
     )
 
@@ -2552,12 +2654,12 @@ private fun ReadyAnimationPreviewPane(
     }
 
     Column(modifier = modifier) {
-        val outerPaddingColor = if (outerBottomDp >= 0) {
+        val outerPaddingColor = if (layoutState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         } else {
             MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
         }
-        val outerPaddingStroke = if (outerBottomDp >= 0) {
+        val outerPaddingStroke = if (layoutState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
         } else {
             MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
@@ -2568,7 +2670,7 @@ private fun ReadyAnimationPreviewPane(
                 .fillMaxWidth()
                 .padding(bottom = effectiveOuterBottomDp.dp)
                 .drawBehind {
-                    val indicatorHeight = abs(outerBottomDp).dp.toPx().coerceAtMost(size.height)
+                    val indicatorHeight = abs(layoutState.outerBottomDp).dp.toPx().coerceAtMost(size.height)
                     if (indicatorHeight > 0f) {
                         val top = size.height - indicatorHeight
                         drawRect(
@@ -2611,12 +2713,12 @@ private fun ReadyAnimationPreviewPane(
                 )
                 val contentHorizontalPadding = 12.dp
 
-                val innerPaddingColor = if (innerBottomDp >= 0) {
+                val innerPaddingColor = if (layoutState.innerBottomDp >= 0) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
                 } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
                 }
-                val innerPaddingStroke = if (innerBottomDp >= 0) {
+                val innerPaddingStroke = if (layoutState.innerBottomDp >= 0) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                 } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
@@ -2626,7 +2728,7 @@ private fun ReadyAnimationPreviewPane(
                     cardHeightModifier = cardHeightModifier,
                     contentHorizontalPadding = contentHorizontalPadding,
                     effectiveInnerVPadDp = effectiveInnerVPadDp,
-                    innerBottomDp = innerBottomDp,
+                    innerBottomDp = layoutState.innerBottomDp,
                     effectiveInnerBottomDp = effectiveInnerBottomDp,
                     innerPaddingColor = innerPaddingColor,
                     innerPaddingStroke = innerPaddingStroke,
@@ -2635,12 +2737,12 @@ private fun ReadyAnimationPreviewPane(
                             imageBitmap = imageBitmap,
                             frameRegion = previewState.frameRegion,
                             spriteSizeDp = spriteSize,
-                            charYOffsetDp = charYOffsetDp,
+                            charYOffsetDp = layoutState.charYOffsetDp,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .padding(
                                     start = contentHorizontalPadding,
-                                    top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
+                                    top = effectiveInnerVPadDp.dp + layoutState.headerSpacerDp.dp
                                 )
                         )
                     },
@@ -2651,15 +2753,15 @@ private fun ReadyAnimationPreviewPane(
                             insertionSummary = insertionSummary,
                             insertionPreviewValues = insertionPreviewValues,
                             insertionEnabled = insertionEnabled,
-                            infoYOffsetDp = infoYOffsetDp + headerSpacerDp,
+                            infoYOffsetDp = layoutState.infoYOffsetDp + layoutState.headerSpacerDp,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .offset(
-                                    x = headerLeftXOffsetDp.dp,
-                                    y = headerLeftYOffsetDp.dp
+                                    x = layoutState.headerLeftXOffsetDp.dp,
+                                    y = layoutState.headerLeftYOffsetDp.dp
                                 )
                                 .padding(start = spriteSize + 8.dp)
-                                .offset(x = infoXOffsetDp.dp)
+                                .offset(x = layoutState.infoXOffsetDp.dp)
                         )
                     }
                 )
