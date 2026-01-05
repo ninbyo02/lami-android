@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -2361,6 +2362,82 @@ private fun ReadyAnimationInfo(
 }
 
 @Composable
+private fun ReadyPreviewCardShell(
+    cardHeightModifier: Modifier,
+    contentHorizontalPadding: Dp,
+    effectiveInnerVPadDp: Int,
+    innerBottomDp: Int,
+    effectiveInnerBottomDp: Int,
+    innerPaddingColor: Color,
+    innerPaddingStroke: Color,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = cardHeightModifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = contentHorizontalPadding, vertical = effectiveInnerVPadDp.dp)
+                .drawBehind {
+                    val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
+                    if (indicatorHeight > 0f) {
+                        val top = size.height - indicatorHeight
+                        drawRect(
+                            color = innerPaddingColor,
+                            topLeft = Offset(x = 0f, y = top),
+                            size = Size(width = size.width, height = indicatorHeight)
+                        )
+                        drawLine(
+                            color = innerPaddingStroke,
+                            start = Offset(x = 0f, y = top),
+                            end = Offset(x = size.width, y = top),
+                            strokeWidth = 2f
+                        )
+                    }
+                }
+                .padding(bottom = effectiveInnerBottomDp.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ReadyPreviewSlot(
+    cardHeightModifier: Modifier,
+    contentHorizontalPadding: Dp,
+    effectiveInnerVPadDp: Int,
+    innerBottomDp: Int,
+    effectiveInnerBottomDp: Int,
+    innerPaddingColor: Color,
+    innerPaddingStroke: Color,
+    sprite: @Composable () -> Unit,
+    info: @Composable ColumnScope.() -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        ReadyPreviewCardShell(
+            cardHeightModifier = cardHeightModifier,
+            contentHorizontalPadding = contentHorizontalPadding,
+            effectiveInnerVPadDp = effectiveInnerVPadDp,
+            innerBottomDp = innerBottomDp,
+            effectiveInnerBottomDp = effectiveInnerBottomDp,
+            innerPaddingColor = innerPaddingColor,
+            innerPaddingStroke = innerPaddingStroke,
+            content = info
+        )
+        sprite()
+    }
+}
+
+@Composable
 private fun ReadyAnimationPreviewPane(
     imageBitmap: ImageBitmap,
     spriteSheetConfig: SpriteSheetConfig,
@@ -2624,71 +2701,47 @@ private fun ReadyAnimationPreviewPane(
                     MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
                 }
 
-                Box(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Card(
-                        modifier = cardHeightModifier,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Column(
+                ReadyPreviewSlot(
+                    cardHeightModifier = cardHeightModifier,
+                    contentHorizontalPadding = contentHorizontalPadding,
+                    effectiveInnerVPadDp = effectiveInnerVPadDp,
+                    innerBottomDp = innerBottomDp,
+                    effectiveInnerBottomDp = effectiveInnerBottomDp,
+                    innerPaddingColor = innerPaddingColor,
+                    innerPaddingStroke = innerPaddingStroke,
+                    sprite = {
+                        ReadyAnimationCharacter(
+                            imageBitmap = imageBitmap,
+                            frameRegion = previewState.frameRegion,
+                            spriteSizeDp = spriteSize,
+                            charYOffsetDp = charYOffsetDp,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(
+                                    start = contentHorizontalPadding,
+                                    top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
+                                )
+                        )
+                    },
+                    info = {
+                        ReadyAnimationInfo(
+                            state = previewState,
+                            summary = baseSummary,
+                            insertionSummary = insertionSummary,
+                            insertionPreviewValues = insertionPreviewValues,
+                            insertionEnabled = insertionEnabled,
+                            infoYOffsetDp = infoYOffsetDp + headerSpacerDp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = contentHorizontalPadding, vertical = effectiveInnerVPadDp.dp)
-                                .drawBehind {
-                                    val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
-                                    if (indicatorHeight > 0f) {
-                                        val top = size.height - indicatorHeight
-                                        drawRect(
-                                            color = innerPaddingColor,
-                                            topLeft = Offset(x = 0f, y = top),
-                                            size = Size(width = size.width, height = indicatorHeight)
-                                        )
-                                        drawLine(
-                                            color = innerPaddingStroke,
-                                            start = Offset(x = 0f, y = top),
-                                            end = Offset(x = size.width, y = top),
-                                            strokeWidth = 2f
-                                        )
-                                    }
-                                }
-                                .padding(bottom = effectiveInnerBottomDp.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            ReadyAnimationInfo(
-                                state = previewState,
-                                summary = baseSummary,
-                                insertionSummary = insertionSummary,
-                                insertionPreviewValues = insertionPreviewValues,
-                                insertionEnabled = insertionEnabled,
-                                infoYOffsetDp = infoYOffsetDp + headerSpacerDp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .offset(
-                                        x = headerLeftXOffsetDp.dp,
-                                        y = headerLeftYOffsetDp.dp
-                                    )
-                                    .padding(start = spriteSize + 8.dp)
-                                    .offset(x = infoXOffsetDp.dp)
-                            )
-                        }
+                                .offset(
+                                    x = headerLeftXOffsetDp.dp,
+                                    y = headerLeftYOffsetDp.dp
+                                )
+                                .padding(start = spriteSize + 8.dp)
+                                .offset(x = infoXOffsetDp.dp)
+                        )
                     }
-                    ReadyAnimationCharacter(
-                        imageBitmap = imageBitmap,
-                        frameRegion = previewState.frameRegion,
-                        spriteSizeDp = spriteSize,
-                        charYOffsetDp = charYOffsetDp,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(
-                                start = contentHorizontalPadding,
-                                top = effectiveInnerVPadDp.dp + headerSpacerDp.dp
-                            )
-                    )
-                }
+                )
             }
         }
     }
