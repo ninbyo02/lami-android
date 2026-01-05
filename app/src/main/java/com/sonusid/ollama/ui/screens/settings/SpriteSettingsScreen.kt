@@ -1827,6 +1827,8 @@ private fun ReadyAnimationTab(
     val effectiveMinHeightDp = effectiveCardMaxH?.let { max -> boundedMinHeightDp.coerceAtMost(max) } ?: boundedMinHeightDp
     val effectiveDetailsMaxH = layoutState.detailsMaxHeightDp.coerceAtLeast(1)
 
+    val density = LocalDensity.current
+    val previewSnapSpacingPx = with(density) { 8.dp.roundToPx() }
     val readyPreviewUiState = ReadyPreviewUiState(
         charYOffsetDp = layoutState.charYOffsetDp,
         effectiveMinHeightDp = effectiveMinHeightDp,
@@ -1851,10 +1853,22 @@ private fun ReadyAnimationTab(
         bodySpacerDp = layoutState.bodySpacerDp,
     )
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
-        coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
+        coroutineScope.launch {
+            lazyListState.animateScrollToItem(
+                index = targetIndex,
+                scrollOffset = -previewSnapSpacingPx
+            )
+        }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val bottomContentPadding = if (isImeVisible) 0.dp else contentPadding.calculateBottomPadding()
+    val imeBottomPaddingDp = with(density) {
+        WindowInsets.ime.getBottom(this).toDp()
+    }
+    val bottomContentPadding = if (isImeVisible) {
+        contentPadding.calculateBottomPadding() + imeBottomPaddingDp + 24.dp
+    } else {
+        contentPadding.calculateBottomPadding()
+    }
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
@@ -1930,7 +1944,11 @@ private fun ReadyAnimationTab(
                     OutlinedTextField(
                         value = baseState.frameInput,
                         onValueChange = baseState.onFrameInputChange,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(0)
+                            },
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
                         isError = baseState.framesError != null,
@@ -1941,7 +1959,11 @@ private fun ReadyAnimationTab(
                     OutlinedTextField(
                         value = baseState.intervalInput,
                         onValueChange = baseState.onIntervalInputChange,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusEvent { event ->
+                                if (event.isFocused) onFieldFocused(0)
+                            },
                         label = { Text("周期 (ms)") },
                         singleLine = true,
                         isError = baseState.intervalError != null,
@@ -1990,7 +2012,7 @@ private fun ReadyAnimationTab(
                                 .bringIntoViewRequester(insertionFramesBringIntoViewRequester)
                                 .onFocusEvent { event ->
                                     if (event.isFocused) {
-                                        onFieldFocused(0)
+                                        onFieldFocused(1)
                                         coroutineScope.launch { insertionFramesBringIntoViewRequester.bringIntoView() }
                                     }
                                 },
@@ -2007,7 +2029,7 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(0)
+                                    if (event.isFocused) onFieldFocused(1)
                                 },
                             label = { Text("挿入周期（ms）") },
                             singleLine = true,
@@ -2023,7 +2045,7 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(0)
+                                    if (event.isFocused) onFieldFocused(1)
                                 },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
@@ -2039,7 +2061,7 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(0)
+                                    if (event.isFocused) onFieldFocused(1)
                                 },
                             label = { Text("確率（%）") },
                             singleLine = true,
@@ -2058,7 +2080,7 @@ private fun ReadyAnimationTab(
                                 .bringIntoViewRequester(cooldownBringIntoViewRequester)
                                 .onFocusEvent { event ->
                                     if (event.isFocused) {
-                                        onFieldFocused(0)
+                                        onFieldFocused(1)
                                         coroutineScope.launch { cooldownBringIntoViewRequester.bringIntoView() }
                                     }
                                 },
