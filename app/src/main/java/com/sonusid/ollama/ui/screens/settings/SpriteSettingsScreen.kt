@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -78,7 +79,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -129,6 +132,16 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
+
+private fun Modifier.debugBounds(tag: String): Modifier =
+    this.onGloballyPositioned { c ->
+        val r = c.boundsInWindow()
+        Log.d(
+            "SpritePos",
+            "$tag left=${r.left} top=${r.top} right=${r.right} bottom=${r.bottom} " +
+                "w=${r.width} h=${r.height}"
+        )
+    }
 
 private enum class AnimationType(val label: String) {
     READY("Ready"),
