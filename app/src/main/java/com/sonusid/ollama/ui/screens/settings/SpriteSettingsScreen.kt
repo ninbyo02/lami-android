@@ -59,7 +59,6 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1854,7 +1853,6 @@ private fun ReadyAnimationTab(
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
     val layoutDirection = LocalLayoutDirection.current
-    var devMenuContent by remember { mutableStateOf<(@Composable () -> Unit)?>(null) }
     val bottomContentPadding = contentPadding.calculateBottomPadding() + if (isImeVisible) 2.dp else 0.dp
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
@@ -1884,9 +1882,6 @@ private fun ReadyAnimationTab(
                 devMenuEnabled = devMenuEnabled,
                 devExpanded = devExpanded,
                 onDevExpandedChange = onDevExpandedChange,
-                devMenuSlot = { uiState, callbacks ->
-                    devMenuContent = { DevMenuBlock(uiState = uiState, callbacks = callbacks) }
-                },
                 modifier = Modifier.fillMaxWidth(),
                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
                 devSettings = devSettings,
@@ -2136,7 +2131,6 @@ private fun ReadyAnimationTab(
                             onCheckedChange = onDevMenuEnabledChange
                         )
                     }
-                    devMenuContent?.invoke()
                 }
             }
         }
@@ -2372,7 +2366,6 @@ private fun ReadyAnimationPreviewPane(
     devMenuEnabled: Boolean,
     devExpanded: Boolean,
     onDevExpandedChange: (Boolean) -> Unit,
-    devMenuSlot: ((DevMenuUiState, DevMenuCallbacks) -> Unit)? = null,
     modifier: Modifier = Modifier,
     initialHeaderLeftXOffsetDp: Int?,
     devSettings: DevPreviewSettings,
@@ -2487,10 +2480,6 @@ private fun ReadyAnimationPreviewPane(
         },
     )
 
-    SideEffect {
-        devMenuSlot?.invoke(devMenuUiState, devMenuCallbacks)
-    }
-
     Column(modifier = modifier) {
         val outerPaddingColor = if (layoutState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
@@ -2601,7 +2590,8 @@ private fun ReadyAnimationPreviewPane(
                                 .padding(start = spriteSize + 8.dp)
                                 .offset(x = layoutState.infoXOffsetDp.dp)
                         )
-                    }
+                    },
+                    controls = { DevMenuBlock(uiState = devMenuUiState, callbacks = devMenuCallbacks) }
                 )
             }
         }

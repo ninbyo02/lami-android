@@ -79,20 +79,24 @@ internal fun ReadyPreviewSlot(
     innerPaddingStroke: Color,
     sprite: @Composable () -> Unit,
     info: @Composable ColumnScope.() -> Unit,
+    controls: (@Composable () -> Unit)? = null,
 ) {
-    Box(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        ReadyPreviewCardShell(
-            cardHeightModifier = cardHeightModifier,
-            contentHorizontalPadding = contentHorizontalPadding,
-            effectiveInnerVPadDp = effectiveInnerVPadDp,
-            innerBottomDp = innerBottomDp,
-            effectiveInnerBottomDp = effectiveInnerBottomDp,
-            innerPaddingColor = innerPaddingColor,
-            innerPaddingStroke = innerPaddingStroke,
-            content = info
-        )
-        sprite()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            ReadyPreviewCardShell(
+                cardHeightModifier = cardHeightModifier,
+                contentHorizontalPadding = contentHorizontalPadding,
+                effectiveInnerVPadDp = effectiveInnerVPadDp,
+                innerBottomDp = innerBottomDp,
+                effectiveInnerBottomDp = effectiveInnerBottomDp,
+                innerPaddingColor = innerPaddingColor,
+                innerPaddingStroke = innerPaddingStroke,
+                content = info
+            )
+            sprite()
+        }
+        controls?.invoke()
     }
 }
