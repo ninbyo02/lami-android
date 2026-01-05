@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MAX
 import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MIN
 import com.sonusid.ollama.ui.screens.settings.ReadyPreviewUiState
@@ -81,6 +82,24 @@ internal data class DevMenuCallbacks(
     val onHeaderSpacerChange: (Int) -> Unit,
     val onBodySpacerChange: (Int) -> Unit,
 )
+
+@Composable
+internal fun DebugDevMenuSection(
+    devUnlocked: Boolean,
+    layoutState: ReadyPreviewLayoutState,
+    previewUiState: ReadyPreviewUiState,
+    onCopyDevJson: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!BuildConfig.DEBUG) return
+    DevMenuSection(
+        devUnlocked = devUnlocked,
+        layoutState = layoutState,
+        previewUiState = previewUiState,
+        onCopyDevJson = onCopyDevJson,
+        modifier = modifier,
+    )
+}
 
 @Composable
 internal fun DevMenuSection(
@@ -577,4 +596,3 @@ private fun DevMenuBlock(
         }
     }
 }
-

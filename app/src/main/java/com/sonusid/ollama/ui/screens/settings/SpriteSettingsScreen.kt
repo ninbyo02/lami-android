@@ -105,7 +105,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
@@ -114,7 +113,7 @@ import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
-import com.sonusid.ollama.ui.components.DevMenuSection
+import com.sonusid.ollama.ui.components.DebugDevMenuSection
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
@@ -2104,15 +2103,13 @@ private fun ReadyAnimationTab(
                     }
                 }
             }
-            if (BuildConfig.DEBUG) {
-                item {
-                    DevMenuSection(
-                        devUnlocked = devUnlocked,
-                        layoutState = layoutState,
-                        previewUiState = readyPreviewUiState,
-                        onCopyDevJson = onCopyDevJson
-                    )
-                }
+            item {
+                DebugDevMenuSection(
+                    devUnlocked = devUnlocked,
+                    layoutState = layoutState,
+                    previewUiState = readyPreviewUiState,
+                    onCopyDevJson = onCopyDevJson
+                )
             }
         }
     }
