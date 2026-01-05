@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.BackHandler
@@ -7,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -1884,6 +1883,88 @@ private fun ReadyAnimationTab(
                 previewUiState = readyPreviewUiState
             )
         }
+        Spacer(modifier = Modifier.height(6.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(R.string.sprite_animation_settings_title),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = stringResource(
+                        R.string.sprite_animation_settings_selected,
+                        selectedAnimation.label
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            AnimationDropdown(
+                items = selectionState.animationOptions,
+                selectedItem = selectedAnimation,
+                onSelectedItemChange = selectionState.onSelectedAnimationChange,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = baseState.frameInput,
+                onValueChange = baseState.onFrameInputChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("フレーム列 (例: 1,2,3)") },
+                singleLine = true,
+                isError = baseState.framesError != null,
+                supportingText = baseState.framesError?.let { errorText ->
+                    { Text(errorText, color = Color.Red) }
+                }
+            )
+            OutlinedTextField(
+                value = baseState.intervalInput,
+                onValueChange = baseState.onIntervalInputChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("周期 (ms)") },
+                singleLine = true,
+                isError = baseState.intervalError != null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                supportingText = baseState.intervalError?.let { errorText ->
+                    { Text(errorText, color = Color.Red) }
+                }
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = "挿入設定",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "挿入を使う",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = insertionState.enabled,
+                    onCheckedChange = insertionState.onEnabledChange
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -1893,124 +1974,22 @@ private fun ReadyAnimationTab(
             contentPadding = listContentPadding
         ) {
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = stringResource(R.string.sprite_animation_settings_title),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            text = stringResource(
-                                R.string.sprite_animation_settings_selected,
-                                selectedAnimation.label
-                            ),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    AnimationDropdown(
-                        items = selectionState.animationOptions,
-                        selectedItem = selectedAnimation,
-                        onSelectedItemChange = selectionState.onSelectedAnimationChange,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            item {
-                val frameInputBringIntoViewRequester = remember { BringIntoViewRequester() }
-                OutlinedTextField(
-                    value = baseState.frameInput,
-                    onValueChange = baseState.onFrameInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .bringIntoViewRequester(frameInputBringIntoViewRequester)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) {
-                                onFieldFocused(1)
-                                coroutineScope.launch { frameInputBringIntoViewRequester.bringIntoView() }
-                            }
-                        },
-                    label = { Text("フレーム列 (例: 1,2,3)") },
-                    singleLine = true,
-                    isError = baseState.framesError != null,
-                    supportingText = baseState.framesError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
-                OutlinedTextField(
-                    value = baseState.intervalInput,
-                    onValueChange = baseState.onIntervalInputChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                        .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(2)
-                        },
-                    label = { Text("周期 (ms)") },
-                    singleLine = true,
-                    isError = baseState.intervalError != null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supportingText = baseState.intervalError?.let { errorText ->
-                        { Text(errorText, color = Color.Red) }
-                    }
-                )
-            }
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = "挿入設定",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "挿入を使う",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = insertionState.enabled,
-                        onCheckedChange = insertionState.onEnabledChange
-                    )
-                }
-            }
-            item {
                 AnimatedVisibility(visible = insertionState.enabled) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    @OptIn(ExperimentalFoundationApi::class)
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         val insertionFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
                         OutlinedTextField(
                             value = insertionState.frameInput,
                             onValueChange = insertionState.onFrameInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
                                 .bringIntoViewRequester(insertionFramesBringIntoViewRequester)
                                 .onFocusEvent { event ->
                                     if (event.isFocused) {
-                                        onFieldFocused(4)
+                                        onFieldFocused(0)
                                         coroutineScope.launch { insertionFramesBringIntoViewRequester.bringIntoView() }
                                     }
                                 },
@@ -2026,9 +2005,8 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onIntervalInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(5)
+                                    if (event.isFocused) onFieldFocused(0)
                                 },
                             label = { Text("挿入周期（ms）") },
                             singleLine = true,
@@ -2043,9 +2021,8 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onEveryNInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(6)
+                                    if (event.isFocused) onFieldFocused(0)
                                 },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
@@ -2060,9 +2037,8 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onProbabilityInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(7)
+                                    if (event.isFocused) onFieldFocused(0)
                                 },
                             label = { Text("確率（%）") },
                             singleLine = true,
@@ -2078,11 +2054,10 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onCooldownInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
                                 .bringIntoViewRequester(cooldownBringIntoViewRequester)
                                 .onFocusEvent { event ->
                                     if (event.isFocused) {
-                                        onFieldFocused(8)
+                                        onFieldFocused(0)
                                         coroutineScope.launch { cooldownBringIntoViewRequester.bringIntoView() }
                                     }
                                 },
@@ -2095,9 +2070,7 @@ private fun ReadyAnimationTab(
                             }
                         )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
