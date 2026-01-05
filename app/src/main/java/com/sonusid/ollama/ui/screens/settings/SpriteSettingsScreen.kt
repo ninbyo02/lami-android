@@ -89,6 +89,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
@@ -1926,14 +1928,19 @@ private fun ReadyAnimationTab(
                 }
             }
             item {
+                val frameInputBringIntoViewRequester = remember { BringIntoViewRequester() }
                 OutlinedTextField(
                     value = baseState.frameInput,
                     onValueChange = baseState.onFrameInputChange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp)
+                        .bringIntoViewRequester(frameInputBringIntoViewRequester)
                         .onFocusEvent { event ->
-                            if (event.isFocused) onFieldFocused(1)
+                            if (event.isFocused) {
+                                onFieldFocused(1)
+                                coroutineScope.launch { frameInputBringIntoViewRequester.bringIntoView() }
+                            }
                         },
                     label = { Text("フレーム列 (例: 1,2,3)") },
                     singleLine = true,
@@ -1991,14 +1998,19 @@ private fun ReadyAnimationTab(
             item {
                 AnimatedVisibility(visible = insertionState.enabled) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        val insertionFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
                         OutlinedTextField(
                             value = insertionState.frameInput,
                             onValueChange = insertionState.onFrameInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .bringIntoViewRequester(insertionFramesBringIntoViewRequester)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(4)
+                                    if (event.isFocused) {
+                                        onFieldFocused(4)
+                                        coroutineScope.launch { insertionFramesBringIntoViewRequester.bringIntoView() }
+                                    }
                                 },
                             label = { Text("挿入フレーム列（例: 4,5,6）") },
                             singleLine = true,
@@ -2058,14 +2070,19 @@ private fun ReadyAnimationTab(
                                 { Text(errorText, color = Color.Red) }
                             }
                         )
+                        val cooldownBringIntoViewRequester = remember { BringIntoViewRequester() }
                         OutlinedTextField(
                             value = insertionState.cooldownInput,
                             onValueChange = insertionState.onCooldownInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 8.dp)
+                                .bringIntoViewRequester(cooldownBringIntoViewRequester)
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(8)
+                                    if (event.isFocused) {
+                                        onFieldFocused(8)
+                                        coroutineScope.launch { cooldownBringIntoViewRequester.bringIntoView() }
+                                    }
                                 },
                             label = { Text("クールダウン（ループ）") },
                             singleLine = true,
