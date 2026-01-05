@@ -1943,32 +1943,6 @@ private fun ReadyAnimationTab(
                         onCheckedChange = insertionState.onEnabledChange
                     )
                 }
-                if (devUnlocked) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = "開発メニュー",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "開発メニューを表示",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = devMenuEnabled,
-                            onCheckedChange = onDevMenuEnabledChange
-                        )
-                    }
-                }
             }
             item {
                 AnimatedVisibility(visible = insertionState.enabled) {
@@ -2077,6 +2051,32 @@ private fun ReadyAnimationTab(
                                 onCheckedChange = insertionState.onExclusiveChange
                             )
                         }
+                    }
+                }
+                if (devUnlocked) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "開発メニュー",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "開発メニューを表示",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = devMenuEnabled,
+                            onCheckedChange = onDevMenuEnabledChange
+                        )
                     }
                 }
             }
