@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -1252,7 +1251,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
         ) {
             Surface(
                 modifier = Modifier
@@ -1853,7 +1851,7 @@ private fun ReadyAnimationTab(
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
     }
     val layoutDirection = LocalLayoutDirection.current
-    val bottomContentPadding = contentPadding.calculateBottomPadding() + if (isImeVisible) 2.dp else 0.dp
+    val bottomContentPadding = if (isImeVisible) 0.dp else contentPadding.calculateBottomPadding()
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
