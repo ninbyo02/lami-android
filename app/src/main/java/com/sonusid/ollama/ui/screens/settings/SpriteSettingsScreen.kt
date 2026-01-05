@@ -33,11 +33,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -105,7 +105,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
@@ -114,7 +113,7 @@ import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
-import com.sonusid.ollama.ui.components.DevMenuSection
+import com.sonusid.ollama.ui.components.DebugDevMenuSection
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
@@ -1306,7 +1305,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 height = 2.dp
                             )
                         },
-                        divider = { Divider(thickness = 0.5.dp) }
+                        divider = { HorizontalDivider(thickness = 0.5.dp) }
                     ) {
                         displayedTabs.forEach { tab ->
                             when (tab) {
@@ -2104,15 +2103,13 @@ private fun ReadyAnimationTab(
                     }
                 }
             }
-            if (BuildConfig.DEBUG) {
-                item {
-                    DevMenuSection(
-                        devUnlocked = devUnlocked,
-                        layoutState = layoutState,
-                        previewUiState = readyPreviewUiState,
-                        onCopyDevJson = onCopyDevJson
-                    )
-                }
+            item {
+                DebugDevMenuSection(
+                    devUnlocked = devUnlocked,
+                    layoutState = layoutState,
+                    previewUiState = readyPreviewUiState,
+                    onCopyDevJson = onCopyDevJson
+                )
             }
         }
     }
