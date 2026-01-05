@@ -1884,87 +1884,6 @@ private fun ReadyAnimationTab(
             )
         }
         Spacer(modifier = Modifier.height(6.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(R.string.sprite_animation_settings_title),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = stringResource(
-                        R.string.sprite_animation_settings_selected,
-                        selectedAnimation.label
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            AnimationDropdown(
-                items = selectionState.animationOptions,
-                selectedItem = selectedAnimation,
-                onSelectedItemChange = selectionState.onSelectedAnimationChange,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = baseState.frameInput,
-                onValueChange = baseState.onFrameInputChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("フレーム列 (例: 1,2,3)") },
-                singleLine = true,
-                isError = baseState.framesError != null,
-                supportingText = baseState.framesError?.let { errorText ->
-                    { Text(errorText, color = Color.Red) }
-                }
-            )
-            OutlinedTextField(
-                value = baseState.intervalInput,
-                onValueChange = baseState.onIntervalInputChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("周期 (ms)") },
-                singleLine = true,
-                isError = baseState.intervalError != null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                supportingText = baseState.intervalError?.let { errorText ->
-                    { Text(errorText, color = Color.Red) }
-                }
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = "挿入設定",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "挿入を使う",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = insertionState.enabled,
-                    onCheckedChange = insertionState.onEnabledChange
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(6.dp))
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
@@ -1973,6 +1892,88 @@ private fun ReadyAnimationTab(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = listContentPadding
         ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(R.string.sprite_animation_settings_title),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = stringResource(
+                                R.string.sprite_animation_settings_selected,
+                                selectedAnimation.label
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    AnimationDropdown(
+                        items = selectionState.animationOptions,
+                        selectedItem = selectedAnimation,
+                        onSelectedItemChange = selectionState.onSelectedAnimationChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = baseState.frameInput,
+                        onValueChange = baseState.onFrameInputChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("フレーム列 (例: 1,2,3)") },
+                        singleLine = true,
+                        isError = baseState.framesError != null,
+                        supportingText = baseState.framesError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    OutlinedTextField(
+                        value = baseState.intervalInput,
+                        onValueChange = baseState.onIntervalInputChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("周期 (ms)") },
+                        singleLine = true,
+                        isError = baseState.intervalError != null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        supportingText = baseState.intervalError?.let { errorText ->
+                            { Text(errorText, color = Color.Red) }
+                        }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "挿入設定",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "挿入を使う",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = insertionState.enabled,
+                            onCheckedChange = insertionState.onEnabledChange
+                        )
+                    }
+                }
+            }
             item {
                 AnimatedVisibility(visible = insertionState.enabled) {
                     @OptIn(ExperimentalFoundationApi::class)
