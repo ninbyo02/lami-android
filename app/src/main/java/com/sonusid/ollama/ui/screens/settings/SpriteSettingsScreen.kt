@@ -105,16 +105,18 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.toInternalFrameIndex
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
+import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
+import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
-import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
-import com.sonusid.ollama.ui.components.ReadyPreviewSlot
+import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -228,6 +230,30 @@ private data class DevMenuCallbacks(
     val onDetailsMaxLinesChange: (Int) -> Unit,
     val onHeaderSpacerChange: (Int) -> Unit,
     val onBodySpacerChange: (Int) -> Unit,
+)
+
+private data class ReadyPreviewUiState(
+    val charYOffsetDp: Int,
+    val effectiveMinHeightDp: Int,
+    val effectiveCardMaxH: Int?,
+    val infoXOffsetDp: Int,
+    val infoYOffsetDp: Int,
+    val headerLeftXOffsetDp: Int,
+    val headerLeftYOffsetDp: Int,
+    val headerRightXOffsetDp: Int,
+    val headerRightYOffsetDp: Int,
+    val baseMaxHeightDp: Int,
+    val effectiveDetailsMaxH: Int,
+    val outerBottomDp: Int,
+    val innerBottomDp: Int,
+    val innerVPadDp: Int,
+    val detailsMaxHeightDp: Int,
+    val cardMaxHeightDp: Int,
+    val cardMinHeightDp: Int,
+    val detailsMaxLines: Int,
+    val headerOffsetLimitDp: Int,
+    val headerSpacerDp: Int,
+    val bodySpacerDp: Int,
 )
 
 // 作業メモ(Step0):
@@ -522,8 +548,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
     val devUnlocked = true
-    var devExpanded by rememberSaveable { mutableStateOf(false) }
-    var devMenuEnabled by rememberSaveable { mutableStateOf(false) }
     var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
@@ -1695,13 +1719,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 isImeVisible = imeVisible,
                                 contentPadding = contentPadding,
                                 devUnlocked = devUnlocked,
-                                devMenuEnabled = devMenuEnabled,
-                                onDevMenuEnabledChange = { enabled ->
-                                    devMenuEnabled = enabled
-                                    devExpanded = enabled
-                                },
-                                devExpanded = devExpanded,
-                                onDevExpandedChange = { expanded -> devExpanded = expanded },
                                 devSettings = devPreviewSettings,
                                 onDevSettingsChange = { updated -> devPreviewSettings = updated },
                                 initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
@@ -1836,10 +1853,6 @@ private fun ReadyAnimationTab(
     isImeVisible: Boolean,
     contentPadding: PaddingValues,
     devUnlocked: Boolean,
-    devMenuEnabled: Boolean,
-    onDevMenuEnabledChange: (Boolean) -> Unit,
-    devExpanded: Boolean,
-    onDevExpandedChange: (Boolean) -> Unit,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
@@ -1865,10 +1878,7 @@ private fun ReadyAnimationTab(
     val effectiveMinHeightDp = effectiveCardMaxH?.let { max -> boundedMinHeightDp.coerceAtMost(max) } ?: boundedMinHeightDp
     val effectiveDetailsMaxH = layoutState.detailsMaxHeightDp.coerceAtLeast(1)
 
-    val devMenuUiState = DevMenuUiState(
-        devUnlocked = devUnlocked,
-        devMenuEnabled = devMenuEnabled,
-        devExpanded = devExpanded,
+    val readyPreviewUiState = ReadyPreviewUiState(
         charYOffsetDp = layoutState.charYOffsetDp,
         effectiveMinHeightDp = effectiveMinHeightDp,
         effectiveCardMaxH = effectiveCardMaxH,
@@ -1890,67 +1900,6 @@ private fun ReadyAnimationTab(
         headerOffsetLimitDp = layoutState.headerOffsetLimitDp,
         headerSpacerDp = layoutState.headerSpacerDp,
         bodySpacerDp = layoutState.bodySpacerDp,
-    )
-    val devMenuCallbacks = DevMenuCallbacks(
-        onDevExpandedChange = onDevExpandedChange,
-        onCopy = onCopyDevJson,
-        onCharYOffsetChange = { delta ->
-            layoutState.updateDevSettings { charYOffsetDp = (charYOffsetDp + delta).coerceIn(-200, 200) }
-        },
-        onInfoXOffsetChange = { delta ->
-            layoutState.updateDevSettings { infoXOffsetDp = (infoXOffsetDp + delta).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) }
-        },
-        onInfoYOffsetChange = { delta ->
-            layoutState.updateDevSettings { infoYOffsetDp = (infoYOffsetDp + delta).coerceIn(-200, 200) }
-        },
-        onHeaderOffsetLimitChange = { delta ->
-            layoutState.updateDevSettings {
-                headerOffsetLimitDp = (headerOffsetLimitDp + delta).coerceIn(0, 400)
-                headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-                headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
-            }
-        },
-        onHeaderLeftXOffsetChange = { delta ->
-            layoutState.updateDevSettings { headerLeftXOffsetDp = (headerLeftXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
-        },
-        onHeaderLeftYOffsetChange = { delta ->
-            layoutState.updateDevSettings { headerLeftYOffsetDp = (headerLeftYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
-        },
-        onHeaderRightXOffsetChange = { delta ->
-            layoutState.updateDevSettings { headerRightXOffsetDp = (headerRightXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
-        },
-        onHeaderRightYOffsetChange = { delta ->
-            layoutState.updateDevSettings { headerRightYOffsetDp = (headerRightYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
-        },
-        onOuterBottomChange = { delta ->
-            layoutState.updateDevSettings { outerBottomDp = (outerBottomDp + delta).coerceIn(0, 80) }
-        },
-        onInnerBottomChange = { delta ->
-            layoutState.updateDevSettings { innerBottomDp = (innerBottomDp + delta).coerceIn(0, 80) }
-        },
-        onInnerVPadChange = { delta ->
-            layoutState.updateDevSettings { innerVPadDp = (innerVPadDp + delta).coerceIn(0, 24) }
-        },
-        onDetailsMaxHeightChange = { delta ->
-            layoutState.updateDevSettings { detailsMaxHeightDp = (detailsMaxHeightDp + delta).coerceIn(0, 1200) }
-        },
-        onCardMaxHeightChange = { delta ->
-            layoutState.updateDevSettings { cardMaxHeightDp = (cardMaxHeightDp + delta).coerceIn(0, 1200) }
-        },
-        onCardMinHeightChange = { delta ->
-            layoutState.updateDevSettings { cardMinHeightDp = (cardMinHeightDp + delta).coerceIn(0, 320) }
-        },
-        onDetailsMaxLinesChange = { delta ->
-            layoutState.updateDevSettings { detailsMaxLines = (detailsMaxLines + delta).coerceIn(1, 6) }
-        },
-        onHeaderSpacerChange = { delta ->
-            layoutState.updateDevSettings { headerSpacerDp = (headerSpacerDp + delta).coerceIn(0, 24) }
-        },
-        onBodySpacerChange = { delta ->
-            layoutState.updateDevSettings { bodySpacerDp = (bodySpacerDp + delta).coerceIn(0, 24) }
-        },
     )
     val onFieldFocused: (Int) -> Unit = { targetIndex ->
         coroutineScope.launch { lazyListState.animateScrollToItem(index = targetIndex) }
@@ -1982,7 +1931,7 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                devMenuUiState = devMenuUiState
+                previewUiState = readyPreviewUiState
             )
         }
         LazyColumn(
@@ -2203,14 +2152,15 @@ private fun ReadyAnimationTab(
                     }
                 }
             }
-            item {
-                DevMenuSection(
-                    devUnlocked = devUnlocked,
-                    devMenuEnabled = devMenuEnabled,
-                    onDevMenuEnabledChange = onDevMenuEnabledChange,
-                    devMenuUiState = devMenuUiState,
-                    devMenuCallbacks = devMenuCallbacks
-                )
+            if (BuildConfig.DEBUG) {
+                item {
+                    DevMenuSection(
+                        devUnlocked = devUnlocked,
+                        layoutState = layoutState,
+                        previewUiState = readyPreviewUiState,
+                        onCopyDevJson = onCopyDevJson
+                    )
+                }
             }
         }
     }
@@ -2442,15 +2392,16 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
-    devMenuUiState: DevMenuUiState,
+    previewUiState: ReadyPreviewUiState,
+    devMenuContent: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
-        val outerPaddingColor = if (devMenuUiState.outerBottomDp >= 0) {
+        val outerPaddingColor = if (previewUiState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
         } else {
             MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
         }
-        val outerPaddingStroke = if (devMenuUiState.outerBottomDp >= 0) {
+        val outerPaddingStroke = if (previewUiState.outerBottomDp >= 0) {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
         } else {
             MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
@@ -2459,9 +2410,9 @@ private fun ReadyAnimationPreviewPane(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = devMenuUiState.outerBottomDp.dp)
+                .padding(bottom = previewUiState.outerBottomDp.dp)
                 .drawBehind {
-                    val indicatorHeight = abs(devMenuUiState.outerBottomDp).dp.toPx().coerceAtMost(size.height)
+                    val indicatorHeight = abs(previewUiState.outerBottomDp).dp.toPx().coerceAtMost(size.height)
                     if (indicatorHeight > 0f) {
                         val top = size.height - indicatorHeight
                         drawRect(
@@ -2479,13 +2430,13 @@ private fun ReadyAnimationPreviewPane(
                 }
         ) {
             val baseCardModifier = Modifier.fillMaxWidth()
-            val cardHeightModifier = if (devMenuUiState.effectiveCardMaxH != null) {
+            val cardHeightModifier = if (previewUiState.effectiveCardMaxH != null) {
                 baseCardModifier.heightIn(
-                    min = devMenuUiState.effectiveMinHeightDp.dp,
-                    max = devMenuUiState.effectiveCardMaxH.dp
+                    min = previewUiState.effectiveMinHeightDp.dp,
+                    max = previewUiState.effectiveCardMaxH.dp
                 )
             } else {
-                baseCardModifier.heightIn(min = devMenuUiState.effectiveMinHeightDp.dp)
+                baseCardModifier.heightIn(min = previewUiState.effectiveMinHeightDp.dp)
             }
             BoxWithConstraints(
                 modifier = Modifier.fillMaxWidth()
@@ -2504,12 +2455,12 @@ private fun ReadyAnimationPreviewPane(
                 )
                 val contentHorizontalPadding = 12.dp
 
-                val innerPaddingColor = if (devMenuUiState.innerBottomDp >= 0) {
+                val innerPaddingColor = if (previewUiState.innerBottomDp >= 0) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
                 } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.06f)
                 }
-                val innerPaddingStroke = if (devMenuUiState.innerBottomDp >= 0) {
+                val innerPaddingStroke = if (previewUiState.innerBottomDp >= 0) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                 } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
@@ -2518,9 +2469,9 @@ private fun ReadyAnimationPreviewPane(
                 ReadyPreviewSlot(
                     cardHeightModifier = cardHeightModifier,
                     contentHorizontalPadding = contentHorizontalPadding,
-                    effectiveInnerVPadDp = devMenuUiState.innerVPadDp,
-                    innerBottomDp = devMenuUiState.innerBottomDp,
-                    effectiveInnerBottomDp = devMenuUiState.innerBottomDp,
+                    effectiveInnerVPadDp = previewUiState.innerVPadDp,
+                    innerBottomDp = previewUiState.innerBottomDp,
+                    effectiveInnerBottomDp = previewUiState.innerBottomDp,
                     innerPaddingColor = innerPaddingColor,
                     innerPaddingStroke = innerPaddingStroke,
                     sprite = {
@@ -2528,12 +2479,12 @@ private fun ReadyAnimationPreviewPane(
                             imageBitmap = imageBitmap,
                             frameRegion = previewState.frameRegion,
                             spriteSizeDp = spriteSize,
-                            charYOffsetDp = devMenuUiState.charYOffsetDp,
+                            charYOffsetDp = previewUiState.charYOffsetDp,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .padding(
                                     start = contentHorizontalPadding,
-                                    top = devMenuUiState.innerVPadDp.dp + devMenuUiState.headerSpacerDp.dp
+                                    top = previewUiState.innerVPadDp.dp + previewUiState.headerSpacerDp.dp
                                 )
                         )
                     },
@@ -2544,19 +2495,23 @@ private fun ReadyAnimationPreviewPane(
                             insertionSummary = insertionSummary,
                             insertionPreviewValues = insertionPreviewValues,
                             insertionEnabled = insertionEnabled,
-                            infoYOffsetDp = devMenuUiState.infoYOffsetDp + devMenuUiState.headerSpacerDp,
+                            infoYOffsetDp = previewUiState.infoYOffsetDp + previewUiState.headerSpacerDp,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .offset(
-                                    x = devMenuUiState.headerLeftXOffsetDp.dp,
-                                    y = devMenuUiState.headerLeftYOffsetDp.dp
+                                    x = previewUiState.headerLeftXOffsetDp.dp,
+                                    y = previewUiState.headerLeftYOffsetDp.dp
                                 )
                                 .padding(start = spriteSize + 8.dp)
-                                .offset(x = devMenuUiState.infoXOffsetDp.dp)
+                                .offset(x = previewUiState.infoXOffsetDp.dp)
                         )
                     }
                 )
             }
+        }
+        devMenuContent?.let { content ->
+            Spacer(modifier = Modifier.height(12.dp))
+            content()
         }
     }
 }
@@ -2564,13 +2519,102 @@ private fun ReadyAnimationPreviewPane(
 @Composable
 private fun DevMenuSection(
     devUnlocked: Boolean,
-    devMenuEnabled: Boolean,
-    onDevMenuEnabledChange: (Boolean) -> Unit,
-    devMenuUiState: DevMenuUiState,
-    devMenuCallbacks: DevMenuCallbacks,
+    layoutState: ReadyPreviewLayoutState,
+    previewUiState: ReadyPreviewUiState,
+    onCopyDevJson: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
+    var devMenuEnabled by rememberSaveable { mutableStateOf(false) }
+    var devExpanded by rememberSaveable { mutableStateOf(false) }
+
+    val devMenuUiState = DevMenuUiState(
+        devUnlocked = devUnlocked,
+        devMenuEnabled = devMenuEnabled,
+        devExpanded = devExpanded,
+        charYOffsetDp = layoutState.charYOffsetDp,
+        effectiveMinHeightDp = previewUiState.effectiveMinHeightDp,
+        effectiveCardMaxH = previewUiState.effectiveCardMaxH,
+        infoXOffsetDp = layoutState.infoXOffsetDp,
+        infoYOffsetDp = layoutState.infoYOffsetDp,
+        headerLeftXOffsetDp = layoutState.headerLeftXOffsetDp,
+        headerLeftYOffsetDp = layoutState.headerLeftYOffsetDp,
+        headerRightXOffsetDp = layoutState.headerRightXOffsetDp,
+        headerRightYOffsetDp = layoutState.headerRightYOffsetDp,
+        baseMaxHeightDp = previewUiState.baseMaxHeightDp,
+        effectiveDetailsMaxH = previewUiState.effectiveDetailsMaxH,
+        outerBottomDp = layoutState.outerBottomDp,
+        innerBottomDp = layoutState.innerBottomDp,
+        innerVPadDp = layoutState.innerVPadDp,
+        detailsMaxHeightDp = layoutState.detailsMaxHeightDp,
+        cardMaxHeightDp = layoutState.cardMaxHeightDp,
+        cardMinHeightDp = layoutState.cardMinHeightDp,
+        detailsMaxLines = layoutState.detailsMaxLines,
+        headerOffsetLimitDp = layoutState.headerOffsetLimitDp,
+        headerSpacerDp = layoutState.headerSpacerDp,
+        bodySpacerDp = layoutState.bodySpacerDp,
+    )
+    val devMenuCallbacks = DevMenuCallbacks(
+        onDevExpandedChange = { expanded -> devExpanded = expanded },
+        onCopy = onCopyDevJson,
+        onCharYOffsetChange = { delta ->
+            layoutState.updateDevSettings { charYOffsetDp = (charYOffsetDp + delta).coerceIn(-200, 200) }
+        },
+        onInfoXOffsetChange = { delta ->
+            layoutState.updateDevSettings { infoXOffsetDp = (infoXOffsetDp + delta).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) }
+        },
+        onInfoYOffsetChange = { delta ->
+            layoutState.updateDevSettings { infoYOffsetDp = (infoYOffsetDp + delta).coerceIn(-200, 200) }
+        },
+        onHeaderOffsetLimitChange = { delta ->
+            layoutState.updateDevSettings {
+                headerOffsetLimitDp = (headerOffsetLimitDp + delta).coerceIn(0, 400)
+                headerLeftXOffsetDp = headerLeftXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                headerLeftYOffsetDp = headerLeftYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                headerRightXOffsetDp = headerRightXOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+                headerRightYOffsetDp = headerRightYOffsetDp.coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp)
+            }
+        },
+        onHeaderLeftXOffsetChange = { delta ->
+            layoutState.updateDevSettings { headerLeftXOffsetDp = (headerLeftXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+        },
+        onHeaderLeftYOffsetChange = { delta ->
+            layoutState.updateDevSettings { headerLeftYOffsetDp = (headerLeftYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+        },
+        onHeaderRightXOffsetChange = { delta ->
+            layoutState.updateDevSettings { headerRightXOffsetDp = (headerRightXOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+        },
+        onHeaderRightYOffsetChange = { delta ->
+            layoutState.updateDevSettings { headerRightYOffsetDp = (headerRightYOffsetDp + delta).coerceIn(-headerOffsetLimitDp, headerOffsetLimitDp) }
+        },
+        onOuterBottomChange = { delta ->
+            layoutState.updateDevSettings { outerBottomDp = (outerBottomDp + delta).coerceIn(0, 80) }
+        },
+        onInnerBottomChange = { delta ->
+            layoutState.updateDevSettings { innerBottomDp = (innerBottomDp + delta).coerceIn(0, 80) }
+        },
+        onInnerVPadChange = { delta ->
+            layoutState.updateDevSettings { innerVPadDp = (innerVPadDp + delta).coerceIn(0, 24) }
+        },
+        onDetailsMaxHeightChange = { delta ->
+            layoutState.updateDevSettings { detailsMaxHeightDp = (detailsMaxHeightDp + delta).coerceIn(0, 1200) }
+        },
+        onCardMaxHeightChange = { delta ->
+            layoutState.updateDevSettings { cardMaxHeightDp = (cardMaxHeightDp + delta).coerceIn(0, 1200) }
+        },
+        onCardMinHeightChange = { delta ->
+            layoutState.updateDevSettings { cardMinHeightDp = (cardMinHeightDp + delta).coerceIn(0, 320) }
+        },
+        onDetailsMaxLinesChange = { delta ->
+            layoutState.updateDevSettings { detailsMaxLines = (detailsMaxLines + delta).coerceIn(1, 6) }
+        },
+        onHeaderSpacerChange = { delta ->
+            layoutState.updateDevSettings { headerSpacerDp = (headerSpacerDp + delta).coerceIn(0, 24) }
+        },
+        onBodySpacerChange = { delta ->
+            layoutState.updateDevSettings { bodySpacerDp = (bodySpacerDp + delta).coerceIn(0, 24) }
+        },
+    )
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -2596,7 +2640,10 @@ private fun DevMenuSection(
             }
             Switch(
                 checked = devMenuEnabled,
-                onCheckedChange = onDevMenuEnabledChange
+                onCheckedChange = { enabled ->
+                    devMenuEnabled = enabled
+                    devExpanded = enabled
+                }
             )
         }
         DevMenuBlock(uiState = devMenuUiState, callbacks = devMenuCallbacks)
