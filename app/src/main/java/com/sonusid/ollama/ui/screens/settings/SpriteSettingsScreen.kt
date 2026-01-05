@@ -33,11 +33,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -1306,7 +1306,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 height = 2.dp
                             )
                         },
-                        divider = { Divider(thickness = 0.5.dp) }
+                        divider = { HorizontalDivider(thickness = 0.5.dp) }
                     ) {
                         displayedTabs.forEach { tab ->
                             when (tab) {
