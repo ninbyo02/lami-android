@@ -2,7 +2,6 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -35,8 +33,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -118,6 +114,7 @@ import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
+import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -2358,82 +2355,6 @@ private fun ReadyAnimationInfo(
             text = "N:$everyNText    P:$probabilityText    CD:$cooldownText    Excl:$exclusiveText",
             style = MaterialTheme.typography.bodySmall
         )
-    }
-}
-
-@Composable
-private fun ReadyPreviewCardShell(
-    cardHeightModifier: Modifier,
-    contentHorizontalPadding: Dp,
-    effectiveInnerVPadDp: Int,
-    innerBottomDp: Int,
-    effectiveInnerBottomDp: Int,
-    innerPaddingColor: Color,
-    innerPaddingStroke: Color,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Card(
-        modifier = cardHeightModifier,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = contentHorizontalPadding, vertical = effectiveInnerVPadDp.dp)
-                .drawBehind {
-                    val indicatorHeight = abs(innerBottomDp).dp.toPx().coerceAtMost(size.height)
-                    if (indicatorHeight > 0f) {
-                        val top = size.height - indicatorHeight
-                        drawRect(
-                            color = innerPaddingColor,
-                            topLeft = Offset(x = 0f, y = top),
-                            size = Size(width = size.width, height = indicatorHeight)
-                        )
-                        drawLine(
-                            color = innerPaddingStroke,
-                            start = Offset(x = 0f, y = top),
-                            end = Offset(x = size.width, y = top),
-                            strokeWidth = 2f
-                        )
-                    }
-                }
-                .padding(bottom = effectiveInnerBottomDp.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ReadyPreviewSlot(
-    cardHeightModifier: Modifier,
-    contentHorizontalPadding: Dp,
-    effectiveInnerVPadDp: Int,
-    innerBottomDp: Int,
-    effectiveInnerBottomDp: Int,
-    innerPaddingColor: Color,
-    innerPaddingStroke: Color,
-    sprite: @Composable () -> Unit,
-    info: @Composable ColumnScope.() -> Unit,
-) {
-    Box(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        ReadyPreviewCardShell(
-            cardHeightModifier = cardHeightModifier,
-            contentHorizontalPadding = contentHorizontalPadding,
-            effectiveInnerVPadDp = effectiveInnerVPadDp,
-            innerBottomDp = innerBottomDp,
-            effectiveInnerBottomDp = effectiveInnerBottomDp,
-            innerPaddingColor = innerPaddingColor,
-            innerPaddingStroke = innerPaddingStroke,
-            content = info
-        )
-        sprite()
     }
 }
 
