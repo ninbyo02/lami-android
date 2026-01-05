@@ -22,17 +22,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MAX
 import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MIN
+import com.sonusid.ollama.ui.screens.settings.DevPreviewSettings
 import com.sonusid.ollama.ui.screens.settings.ReadyPreviewUiState
+import com.sonusid.ollama.ui.screens.settings.toJsonObject
+import androidx.compose.ui.text.AnnotatedString
 import kotlin.math.abs
+import org.json.JSONObject
 
 internal data class DevMenuUiState(
     val devUnlocked: Boolean,
@@ -88,10 +94,34 @@ internal fun DebugDevMenuSection(
     devUnlocked: Boolean,
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
-    onCopyDevJson: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    DevMenuSectionHost(
+        devUnlocked = devUnlocked,
+        layoutState = layoutState,
+        previewUiState = previewUiState,
+        modifier = modifier
+    )
+}
+
+@Composable
+internal fun DevMenuSectionHost(
+    devUnlocked: Boolean,
+    layoutState: ReadyPreviewLayoutState,
+    previewUiState: ReadyPreviewUiState,
     modifier: Modifier = Modifier,
 ) {
     if (!BuildConfig.DEBUG) return
+
+    val clipboardManager = LocalClipboardManager.current
+    val onCopyDevJson = remember(layoutState, clipboardManager) {
+        {
+            val devSettings = layoutState.toDevPreviewSettings()
+            val jsonString = buildDevJson(devSettings)
+            clipboardManager.setText(AnnotatedString(jsonString))
+        }
+    }
+
     DevMenuSection(
         devUnlocked = devUnlocked,
         layoutState = layoutState,
@@ -235,6 +265,33 @@ internal fun DevMenuSection(
             DevMenuBlock(uiState = devMenuUiState, callbacks = devMenuCallbacks)
         }
     }
+}
+
+private fun ReadyPreviewLayoutState.toDevPreviewSettings(): DevPreviewSettings =
+    DevPreviewSettings(
+        cardMaxHeightDp = cardMaxHeightDp,
+        innerBottomDp = innerBottomDp,
+        outerBottomDp = outerBottomDp,
+        innerVPadDp = innerVPadDp,
+        charYOffsetDp = charYOffsetDp,
+        infoXOffsetDp = infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX),
+        infoYOffsetDp = infoYOffsetDp,
+        headerOffsetLimitDp = headerOffsetLimitDp,
+        headerLeftXOffsetDp = headerLeftXOffsetDp,
+        headerLeftYOffsetDp = headerLeftYOffsetDp,
+        headerRightXOffsetDp = headerRightXOffsetDp,
+        headerRightYOffsetDp = headerRightYOffsetDp,
+        cardMinHeightDp = cardMinHeightDp,
+        detailsMaxHeightDp = detailsMaxHeightDp,
+        detailsMaxLines = detailsMaxLines,
+        headerSpacerDp = headerSpacerDp,
+        bodySpacerDp = bodySpacerDp,
+    )
+
+private fun buildDevJson(devSettings: DevPreviewSettings): String {
+    val root = JSONObject()
+    root.put("dev", devSettings.toJsonObject())
+    return root.toString(2)
 }
 
 @Composable
