@@ -81,7 +81,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.imageResource
@@ -113,7 +112,7 @@ import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
 import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
-import com.sonusid.ollama.ui.components.DebugDevMenuSection
+import com.sonusid.ollama.ui.components.DevMenuSectionHost
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
@@ -1808,11 +1807,9 @@ private fun ReadyAnimationTab(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
-    val clipboardManager = LocalClipboardManager.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    val onCopyDevJson: () -> Unit = { copyDevJson(clipboardManager, devSettings) }
     val layoutState = rememberReadyPreviewLayoutState(
         devSettings = devSettings,
         onDevSettingsChange = onDevSettingsChange
@@ -2104,11 +2101,10 @@ private fun ReadyAnimationTab(
                 }
             }
             item {
-                DebugDevMenuSection(
+                DevMenuSectionHost(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
-                    previewUiState = readyPreviewUiState,
-                    onCopyDevJson = onCopyDevJson
+                    previewUiState = readyPreviewUiState
                 )
             }
         }
@@ -2676,22 +2672,6 @@ private fun buildSettingsJson(
     return root.toString(2)
 }
 
-private fun copyDevJson(
-    clipboardManager: ClipboardManager,
-    devSettings: DevPreviewSettings,
-) {
-    val jsonString = buildDevJson(devSettings)
-    clipboardManager.setText(AnnotatedString(jsonString))
-}
-
-private fun buildDevJson(
-    devSettings: DevPreviewSettings,
-): String {
-    val root = JSONObject()
-    root.put("dev", devSettings.toJsonObject())
-    return root.toString(2)
-}
-
 private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("frames", frameSequence.toJsonArray())
@@ -2729,7 +2709,7 @@ private fun SpriteSheetConfig.toJsonObject(): JSONObject =
             }
         )
 
-private fun DevPreviewSettings.toJsonObject(): JSONObject =
+internal fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("cardMaxHeightDp", cardMaxHeightDp)
         .put("charYOffsetDp", charYOffsetDp)
