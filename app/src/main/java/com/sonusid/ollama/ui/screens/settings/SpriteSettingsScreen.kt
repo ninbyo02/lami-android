@@ -2322,7 +2322,6 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     previewUiState: ReadyPreviewUiState,
-    devMenuContent: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
         val outerPaddingColor = if (previewUiState.outerBottomDp >= 0) {
@@ -2437,10 +2436,6 @@ private fun ReadyAnimationPreviewPane(
                     }
                 )
             }
-        }
-        devMenuContent?.let { content ->
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
         }
     }
 }
