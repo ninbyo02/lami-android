@@ -1093,6 +1093,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    // [非dp] 下: IME の insets(インセット)に関係
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
@@ -1251,10 +1252,12 @@ fun SpriteSettingsScreen(navController: NavController) {
         )
     }
 
+    // [非dp] 縦: Scaffold の insets(インセット)に関係
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
+        // [非dp] 四方向: Scaffold の insets(インセット)に関係
         val contentPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection),
             top = innerPadding.calculateTopPadding(),
@@ -1263,29 +1266,38 @@ fun SpriteSettingsScreen(navController: NavController) {
         )
 
         Column(
+            // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
             modifier = Modifier
                 .fillMaxSize()
         ) {
             Surface(
+                // [非dp] 縦: 画面全体 の weight(制約)に関係
                 modifier = Modifier
                     .weight(1f)
+                    // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                     .fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier
+                        // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                         .fillMaxSize()
+                        // [非dp] 四方向: Scaffold の insets(インセット)に関係
                         .padding(contentPadding)
+                        // [dp] 縦横: 画面全体 の余白(余白)に関係
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top
                 ) {
                     Row(
+                        // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                         modifier = Modifier.fillMaxWidth(),
+                        // [非dp] 横: TopAppBar の SpaceBetween(間隔)に関係
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
                             onClick = { onBackRequested() },
+                            // [dp] 左上: TopAppBar の余白(余白)に関係
                             modifier = Modifier.padding(start = 4.dp, top = 2.dp)
                         ) {
                             Icon(
@@ -1297,6 +1309,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             text = "Sprite Settings",
                             style = MaterialTheme.typography.titleSmall
                         )
+                        // [dp] 縦横: TopAppBar の間隔(間隔)に関係
                         Spacer(modifier = Modifier.size(32.dp))
                     }
                     val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
@@ -1305,13 +1318,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                     TabRow(
                         selectedTabIndex = displayedTabIndex,
                         modifier = Modifier
+                            // [非dp] 横: TopAppBar の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            // [dp] 縦: TopAppBar の最小サイズ(最小サイズ)に関係
                             .height(32.dp),
                         containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
                         indicator = { tabPositions ->
                             TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier
                                     .tabIndicatorOffset(tabPositions[displayedTabIndex])
+                                    // [dp] 横: TopAppBar の余白(余白)に関係
                                     .padding(horizontal = 6.dp),
                                 height = 2.dp
                             )
@@ -1355,20 +1371,29 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
                     }
                     val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
+                    // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
                     val actionButtonModifier = Modifier
+                        // [非dp] 横: 画面全体 の weight(制約)に関係
                         .weight(1f)
+                        // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
                         .height(actionButtonHeight)
+                    // [dp] 縦横: 画面全体 の余白(余白)に関係
                     val actionButtonPadding = PaddingValues(
                         horizontal = 12.dp,
                         vertical = 0.dp
                     ) // 内部余白を最小化して厚みを揃える
                     val actionButtonShape = RoundedCornerShape(999.dp)
+                    // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
                     val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
+                    // [dp] 縦横: 画面全体 の余白(余白)に関係
                     val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     Row(
                         modifier = Modifier
+                            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            // [dp] 縦横: 画面全体 の余白(余白)に関係
                             .padding(horizontal = 4.dp, vertical = 6.dp),
+                        // [dp] 横: 画面全体 の間隔(間隔)に関係
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1423,7 +1448,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                     Box(
                         modifier = Modifier
+                            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            // [非dp] 縦: 画面全体 の weight(制約)に関係
                             .weight(1f, fill = true)
                     ) {
                         val animationTabContent: @Composable () -> Unit = {
@@ -1698,14 +1725,18 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     } ?: "座標: -, -, -, -"
                                 Column(
                                     modifier = Modifier
+                                        // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
                                         .fillMaxSize()
+                                        // [非dp] 縦: プレビュー の verticalScroll(制約)に関係
                                         .verticalScroll(rememberScrollState()),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     SpritePreviewBlock(
                                         imageBitmap = imageBitmap,
                                         modifier = Modifier
+                                            // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
+                                            // [dp] 上: プレビュー の余白(余白)に関係
                                             .padding(top = 6.dp),
                                         line1Text = previewHeaderText,
                                         line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
@@ -1741,6 +1772,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     )
+                                    // [dp] 縦: プレビュー の間隔(間隔)に関係
                                     Spacer(modifier = Modifier.height(12.dp))
                                     SpriteSettingsControls(
                                         buttonHeight = controlButtonHeight,
@@ -1830,6 +1862,7 @@ private fun ReadyAnimationTab(
             layoutState.headerLeftXOffsetDp = initial.coerceIn(-layoutState.headerOffsetLimitDp, layoutState.headerOffsetLimitDp)
         }
     }
+    // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
     val baseMaxHeightDp = if (isImeVisible) 220 else 300
     val customCardMaxHeightDp = layoutState.cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
@@ -1866,11 +1899,13 @@ private fun ReadyAnimationTab(
     val imeBottomPaddingDp = with(density) {
         imeBottomPx.toDp()
     }
+    // [非dp] 下: IME の insets(インセット)に関係
     val bottomContentPadding = if (isImeVisible) {
         contentPadding.calculateBottomPadding() + imeBottomPaddingDp + 24.dp
     } else {
         contentPadding.calculateBottomPadding()
     }
+    // [dp] 四方向: リスト の余白(余白)に関係
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
         top = contentPadding.calculateTopPadding() + 20.dp,
@@ -1880,10 +1915,13 @@ private fun ReadyAnimationTab(
 
     Column(
         modifier = Modifier
+            // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
             .fillMaxSize()
+            // [dp] 縦: 画面全体 の余白(余白)に関係
             .padding(vertical = 8.dp)
     ) {
         Surface(
+            // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.background
         ) {
@@ -1899,26 +1937,37 @@ private fun ReadyAnimationTab(
                 previewUiState = readyPreviewUiState
             )
         }
+        // [dp] 縦: プレビュー の間隔(間隔)に関係
         Spacer(modifier = Modifier.height(6.dp))
         LazyColumn(
             modifier = Modifier
+                // [非dp] 縦: リスト の weight(制約)に関係
                 .weight(1f)
+                // [非dp] 横: リスト の fillMaxWidth(制約)に関係
                 .fillMaxWidth(),
             state = lazyListState,
+            // [dp] 縦: リスト の間隔(間隔)に関係
             verticalArrangement = Arrangement.spacedBy(12.dp),
+            // [dp] 四方向: リスト の余白(余白)に関係
             contentPadding = listContentPadding
         ) {
             item {
                 Column(
                     modifier = Modifier
+                        // [非dp] 横: リスト の fillMaxWidth(制約)に関係
                         .fillMaxWidth()
+                        // [dp] 左右: リスト の余白(余白)に関係
                         .padding(horizontal = 8.dp),
+                    // [dp] 縦: リスト の間隔(間隔)に関係
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
                         modifier = Modifier
+                            // [非dp] 横: リスト の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            // [dp] 下: リスト の余白(余白)に関係
                             .padding(bottom = 4.dp),
+                        // [非dp] 横: リスト の SpaceBetween(間隔)に関係
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -1941,12 +1990,14 @@ private fun ReadyAnimationTab(
                         items = selectionState.animationOptions,
                         selectedItem = selectedAnimation,
                         onSelectedItemChange = selectionState.onSelectedAnimationChange,
+                        // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = baseState.frameInput,
                         onValueChange = baseState.onFrameInputChange,
                         modifier = Modifier
+                            // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth(),
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
@@ -1959,6 +2010,7 @@ private fun ReadyAnimationTab(
                         value = baseState.intervalInput,
                         onValueChange = baseState.onIntervalInputChange,
                         modifier = Modifier
+                            // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth(),
                         label = { Text("周期 (ms)") },
                         singleLine = true,
@@ -1969,8 +2021,10 @@ private fun ReadyAnimationTab(
                         }
                     )
                     Row(
+                        // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
+                        // [非dp] 横: 入力欄 の SpaceBetween(間隔)に関係
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
@@ -2003,6 +2057,7 @@ private fun ReadyAnimationTab(
                             value = insertionState.frameInput,
                             onValueChange = insertionState.onFrameInputChange,
                             modifier = Modifier
+                                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth(),
                             label = { Text("挿入フレーム列（例: 4,5,6）") },
                             singleLine = true,
@@ -2015,6 +2070,7 @@ private fun ReadyAnimationTab(
                             value = insertionState.intervalInput,
                             onValueChange = insertionState.onIntervalInputChange,
                             modifier = Modifier
+                                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth(),
                             label = { Text("挿入周期（ms）") },
                             singleLine = true,
@@ -2028,6 +2084,7 @@ private fun ReadyAnimationTab(
                             value = insertionState.everyNInput,
                             onValueChange = insertionState.onEveryNInputChange,
                             modifier = Modifier
+                                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth(),
                             label = { Text("毎 N ループ") },
                             singleLine = true,
@@ -2041,6 +2098,7 @@ private fun ReadyAnimationTab(
                             value = insertionState.probabilityInput,
                             onValueChange = insertionState.onProbabilityInputChange,
                             modifier = Modifier
+                                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth(),
                             label = { Text("確率（%）") },
                             singleLine = true,
@@ -2054,6 +2112,7 @@ private fun ReadyAnimationTab(
                             value = insertionState.cooldownInput,
                             onValueChange = insertionState.onCooldownInputChange,
                             modifier = Modifier
+                                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth(),
                             label = { Text("クールダウン（ループ）") },
                             singleLine = true,
@@ -2064,11 +2123,16 @@ private fun ReadyAnimationTab(
                             }
                         )
                         Row(
+                            // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
+                            // [非dp] 横: 入力欄 の SpaceBetween(間隔)に関係
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(
+                                // [非dp] 横: 入力欄 の weight(制約)に関係
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Text("Exclusive（Ready中は挿入しない）")
                                 Text(
                                     text = "ONにするとReady再生中は挿入を抑制します",
@@ -2117,6 +2181,7 @@ private fun AnimationDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor()
+                // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(
@@ -2213,7 +2278,9 @@ private fun ReadyAnimationCharacter(
 ) {
     Box(
         modifier = modifier
+            // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
             .size(spriteSizeDp)
+            // [dp] 上下: プレビュー の余白(余白)に関係
             .offset(y = charYOffsetDp.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -2248,6 +2315,7 @@ private fun ReadyAnimationInfo(
     modifier: Modifier = Modifier,
 ) {
     val paramYOffsetDp = 2
+    // [dp] 縦: プレビュー の間隔(間隔)に関係
     val lineSpacing = 4.dp
     val baseFramesText = summary.frames.ifEmpty { listOf(0) }
         .joinToString(",") { value -> (value + 1).toString() }
@@ -2264,11 +2332,15 @@ private fun ReadyAnimationInfo(
     val exclusiveText = insertionPreviewValues.exclusiveText.ifBlank { "-" }
     Column(
         modifier = modifier
+            // [dp] 縦: プレビュー の余白(余白)に関係
             .offset(y = (paramYOffsetDp + infoYOffsetDp).dp),
+        // [dp] 縦: プレビュー の間隔(間隔)に関係
         verticalArrangement = Arrangement.spacedBy(lineSpacing, Alignment.Top)
     ) {
         Row(
+            // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
             modifier = Modifier.fillMaxWidth(),
+            // [非dp] 横: プレビュー の SpaceBetween(間隔)に関係
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2283,7 +2355,9 @@ private fun ReadyAnimationInfo(
             )
         }
         Row(
+            // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
             modifier = Modifier.fillMaxWidth(),
+            // [非dp] 横: プレビュー の SpaceBetween(間隔)に関係
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2338,7 +2412,9 @@ private fun ReadyAnimationPreviewPane(
 
         Box(
             modifier = Modifier
+                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
+                // [dp] 下: プレビュー の余白(余白)に関係
                 .padding(bottom = previewUiState.outerBottomDp.dp)
                 .drawBehind {
                     val indicatorHeight = abs(previewUiState.outerBottomDp).dp.toPx().coerceAtMost(size.height)
@@ -2358,19 +2434,26 @@ private fun ReadyAnimationPreviewPane(
                     }
                 }
         ) {
+            // [非dp] 横: カード の fillMaxWidth(制約)に関係
             val baseCardModifier = Modifier.fillMaxWidth()
             val cardHeightModifier = if (previewUiState.effectiveCardMaxH != null) {
                 baseCardModifier.heightIn(
+                    // [dp] 縦: カード の最小サイズ(最小サイズ)に関係
                     min = previewUiState.effectiveMinHeightDp.dp,
+                    // [dp] 縦: カード の制約(制約)に関係
                     max = previewUiState.effectiveCardMaxH.dp
                 )
             } else {
                 baseCardModifier.heightIn(min = previewUiState.effectiveMinHeightDp.dp)
             }
             BoxWithConstraints(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
+                    .fillMaxWidth()
             ) {
+                // [非dp] 縦横: プレビュー の制約(制約)に関係
                 val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
+                // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
                 val spriteSize = if (isImeVisible) {
                     rawSpriteSize.coerceIn(56.dp, 96.dp)
                 } else {
@@ -2382,6 +2465,7 @@ private fun ReadyAnimationPreviewPane(
                     insertionSummary = insertionSummary,
                     insertionEnabled = insertionEnabled
                 )
+                // [dp] 左右: プレビュー の余白(余白)に関係
                 val contentHorizontalPadding = 12.dp
 
                 val innerPaddingColor = if (previewUiState.innerBottomDp >= 0) {
@@ -2411,6 +2495,7 @@ private fun ReadyAnimationPreviewPane(
                             charYOffsetDp = previewUiState.charYOffsetDp,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
+                                // [dp] 左上: プレビュー の余白(余白)に関係
                                 .padding(
                                     start = contentHorizontalPadding,
                                     top = previewUiState.innerVPadDp.dp + previewUiState.headerSpacerDp.dp
@@ -2426,12 +2511,15 @@ private fun ReadyAnimationPreviewPane(
                             insertionEnabled = insertionEnabled,
                             infoYOffsetDp = previewUiState.infoYOffsetDp + previewUiState.headerSpacerDp,
                             modifier = Modifier
+                                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
                                 .offset(
                                     x = previewUiState.headerLeftXOffsetDp.dp,
                                     y = previewUiState.headerLeftYOffsetDp.dp
                                 )
+                                // [dp] 左: プレビュー の余白(余白)に関係
                                 .padding(start = spriteSize + 8.dp)
+                                // [dp] 左右: プレビュー の余白(余白)に関係
                                 .offset(x = previewUiState.infoXOffsetDp.dp)
                         )
                     }
@@ -2439,6 +2527,7 @@ private fun ReadyAnimationPreviewPane(
             }
         }
         devMenuContent?.let { content ->
+            // [dp] 縦: 開発メニュー の間隔(間隔)に関係
             Spacer(modifier = Modifier.height(12.dp))
             content()
         }
@@ -2457,12 +2546,16 @@ private fun SpritePreviewBlock(
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
+        // [dp] 縦: プレビュー の間隔(間隔)に関係
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(
             modifier = Modifier
+                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
+                // [非dp] 縦横: プレビュー の aspectRatio(制約)に関係
                 .aspectRatio(1f)
+                // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
                 .heightIn(min = 220.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -2470,6 +2563,7 @@ private fun SpritePreviewBlock(
                 bitmap = imageBitmap,
                 contentDescription = "Sprite Preview",
                 modifier = Modifier
+                    // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
                     .fillMaxSize()
                     .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
                 contentScale = ContentScale.Fit
@@ -2481,8 +2575,11 @@ private fun SpritePreviewBlock(
         )
         Column(
             modifier = Modifier
+                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
+                // [dp] 左右: プレビュー の余白(余白)に関係
                 .padding(horizontal = 8.dp),
+            // [dp] 縦: プレビュー の間隔(間隔)に関係
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalAlignment = Alignment.Start
         ) {
@@ -2518,12 +2615,17 @@ private fun SpriteSettingsControls(
 ) {
     Column(
         modifier = Modifier
+            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
             .fillMaxWidth()
+            // [dp] 四方向: 画面全体 の余白(余白)に関係
             .padding(horizontal = 16.dp, vertical = 12.dp),
+        // [dp] 縦: 画面全体 の間隔(間隔)に関係
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         val buttonModifier = Modifier
+            // [非dp] 横: 画面全体 の weight(制約)に関係
             .weight(1f)
+            // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
             .height(buttonHeight)
 
         val navigatorButtonColors = ButtonDefaults.buttonColors(
@@ -2532,9 +2634,14 @@ private fun SpriteSettingsControls(
         )
         val defaultControlButtonColors = ButtonDefaults.filledTonalButtonColors()
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            // [dp] 縦: 画面全体 の間隔(間隔)に関係
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Row(
+                // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                 modifier = Modifier.fillMaxWidth(),
+                // [dp] 横: 画面全体 の間隔(間隔)に関係
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledTonalButton(
@@ -2583,7 +2690,9 @@ private fun SpriteSettingsControls(
                 }
             }
             Row(
+                // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                 modifier = Modifier.fillMaxWidth(),
+                // [dp] 横: 画面全体 の間隔(間隔)に関係
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledTonalButton(
@@ -2715,3 +2824,15 @@ internal fun DevPreviewSettings.toJsonObject(): JSONObject =
 
 private fun List<Int>.toJsonArray(): JSONArray =
     JSONArray().apply { forEach { value -> put(value) } }
+
+/*
+TODO: 余白候補一覧（SpriteSettingsScreen.kt）
+- [非dp] 上: Scaffold / システムバー (インセット) … L1255
+- [非dp] 下: IME / リスト の contentPadding(インセット) … L1903
+- [dp] 縦: TopAppBar の余白 IconButton padding(余白) … L1287
+- [dp] 縦: リスト の項目間隔 Arrangement.spacedBy(12.dp)(間隔) … L1946
+- [非dp] 下: カード の outerBottomDp padding(余白) … L2413
+- [dp] 左右: プレビュー の contentHorizontalPadding/padding(余白) … L2470
+- [非dp] 縦: プレビュー の aspectRatio/heightIn(制約) … L2554
+- [dp] 縦: 開発メニュー の Spacer(間隔) … L2530
+*/
