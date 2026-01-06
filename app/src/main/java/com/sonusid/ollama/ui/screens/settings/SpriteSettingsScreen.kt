@@ -1852,6 +1852,8 @@ private fun ReadyAnimationTab(
 
     val density = LocalDensity.current
     val previewSnapSpacingPx = with(density) { 8.dp.roundToPx() }
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val marginPx = with(density) { 12.dp.toPx() }
     val readyPreviewUiState = ReadyPreviewUiState(
         charYOffsetDp = layoutState.charYOffsetDp,
         effectiveMinHeightDp = effectiveMinHeightDp,
@@ -1885,15 +1887,17 @@ private fun ReadyAnimationTab(
     }
     val layoutDirection = LocalLayoutDirection.current
     val imeBottomPaddingDp = with(density) {
-        WindowInsets.ime.getBottom(this).toDp()
+        imeBottomPx.toDp()
     }
-    fun maybeScrollAboveIme(fieldRect: Rect?) {
+    fun maybeScrollAboveIme(
+        fieldRect: Rect?,
+        imeBottomPx: Int,
+        marginPx: Float,
+    ) {
         if (rootHeightPx == 0) return
         if (fieldRect == null) return
-        val imeBottomPx = WindowInsets.ime.getBottom(density)
         if (imeBottomPx == 0) return
         val imeTopPx = rootHeightPx - imeBottomPx
-        val marginPx = with(density) { 12.dp.toPx() }
         val deltaPx = fieldRect.bottom - (imeTopPx - marginPx)
         if (deltaPx > 0) {
             val deltaInt = deltaPx.roundToInt()
@@ -1999,7 +2003,7 @@ private fun ReadyAnimationTab(
                                     onFieldFocused(0)
                                     coroutineScope.launch {
                                         withFrameNanos { _ -> }
-                                        maybeScrollAboveIme(baseFramesFieldRect)
+                                        maybeScrollAboveIme(baseFramesFieldRect, imeBottomPx, marginPx)
                                     }
                                 }
                             },
@@ -2023,7 +2027,7 @@ private fun ReadyAnimationTab(
                                     onFieldFocused(0)
                                     coroutineScope.launch {
                                         withFrameNanos { _ -> }
-                                        maybeScrollAboveIme(baseIntervalFieldRect)
+                                        maybeScrollAboveIme(baseIntervalFieldRect, imeBottomPx, marginPx)
                                     }
                                 }
                             },
@@ -2082,7 +2086,7 @@ private fun ReadyAnimationTab(
                                         coroutineScope.launch {
                                             insertionFramesBringIntoViewRequester.bringIntoView()
                                             withFrameNanos { _ -> }
-                                            maybeScrollAboveIme(insertionFramesFieldRect)
+                                            maybeScrollAboveIme(insertionFramesFieldRect, imeBottomPx, marginPx)
                                         }
                                     }
                                 },
@@ -2106,7 +2110,7 @@ private fun ReadyAnimationTab(
                                         onFieldFocused(1)
                                         coroutineScope.launch {
                                             withFrameNanos { _ -> }
-                                            maybeScrollAboveIme(insertionIntervalFieldRect)
+                                            maybeScrollAboveIme(insertionIntervalFieldRect, imeBottomPx, marginPx)
                                         }
                                     }
                                 },
@@ -2131,7 +2135,7 @@ private fun ReadyAnimationTab(
                                         onFieldFocused(1)
                                         coroutineScope.launch {
                                             withFrameNanos { _ -> }
-                                            maybeScrollAboveIme(insertionEveryNFieldRect)
+                                            maybeScrollAboveIme(insertionEveryNFieldRect, imeBottomPx, marginPx)
                                         }
                                     }
                                 },
@@ -2156,7 +2160,7 @@ private fun ReadyAnimationTab(
                                         onFieldFocused(1)
                                         coroutineScope.launch {
                                             withFrameNanos { _ -> }
-                                            maybeScrollAboveIme(insertionProbabilityFieldRect)
+                                            maybeScrollAboveIme(insertionProbabilityFieldRect, imeBottomPx, marginPx)
                                         }
                                     }
                                 },
@@ -2184,7 +2188,7 @@ private fun ReadyAnimationTab(
                                         coroutineScope.launch {
                                             cooldownBringIntoViewRequester.bringIntoView()
                                             withFrameNanos { _ -> }
-                                            maybeScrollAboveIme(insertionCooldownFieldRect)
+                                            maybeScrollAboveIme(insertionCooldownFieldRect, imeBottomPx, marginPx)
                                         }
                                     }
                                 },
