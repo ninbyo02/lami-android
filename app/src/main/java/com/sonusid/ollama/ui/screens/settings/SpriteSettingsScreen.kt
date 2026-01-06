@@ -1896,7 +1896,14 @@ private fun ReadyAnimationTab(
         val marginPx = with(density) { 12.dp.toPx() }
         val deltaPx = fieldRect.bottom - (imeTopPx - marginPx)
         if (deltaPx > 0) {
-            coroutineScope.launch { lazyListState.animateScrollBy(deltaPx) }
+            val deltaInt = deltaPx.roundToInt()
+            coroutineScope.launch {
+                lazyListState.animateScrollToItem(
+                    index = lazyListState.firstVisibleItemIndex,
+                    scrollOffset = (lazyListState.firstVisibleItemScrollOffset + deltaInt)
+                        .coerceAtLeast(0)
+                )
+            }
         }
     }
     val bottomContentPadding = if (isImeVisible) {
