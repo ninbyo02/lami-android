@@ -67,12 +67,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -1824,6 +1826,14 @@ private fun ReadyAnimationTab(
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var rootHeightPx by remember { mutableStateOf(0) }
+    var baseFramesFieldRect by remember { mutableStateOf<Rect?>(null) }
+    var baseIntervalFieldRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionFramesFieldRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionIntervalFieldRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionEveryNFieldRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionProbabilityFieldRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionCooldownFieldRect by remember { mutableStateOf<Rect?>(null) }
     val layoutState = rememberReadyPreviewLayoutState(
         devSettings = devSettings,
         onDevSettingsChange = onDevSettingsChange
@@ -1877,6 +1887,18 @@ private fun ReadyAnimationTab(
     val imeBottomPaddingDp = with(density) {
         WindowInsets.ime.getBottom(this).toDp()
     }
+    fun maybeScrollAboveIme(fieldRect: Rect?) {
+        if (rootHeightPx == 0) return
+        if (fieldRect == null) return
+        val imeBottomPx = WindowInsets.ime.getBottom(density)
+        if (imeBottomPx == 0) return
+        val imeTopPx = rootHeightPx - imeBottomPx
+        val marginPx = with(density) { 12.dp.toPx() }
+        val deltaPx = fieldRect.bottom - (imeTopPx - marginPx)
+        if (deltaPx > 0) {
+            coroutineScope.launch { lazyListState.animateScrollBy(deltaPx) }
+        }
+    }
     val bottomContentPadding = if (isImeVisible) {
         contentPadding.calculateBottomPadding() + imeBottomPaddingDp + 24.dp
     } else {
@@ -1893,6 +1915,9 @@ private fun ReadyAnimationTab(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 8.dp)
+            .onGloballyPositioned { coordinates ->
+                rootHeightPx = coordinates.size.height
+            }
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -1959,8 +1984,17 @@ private fun ReadyAnimationTab(
                         onValueChange = baseState.onFrameInputChange,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onGloballyPositioned { coordinates ->
+                                baseFramesFieldRect = coordinates.boundsInWindow()
+                            }
                             .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(0)
+                                if (event.isFocused) {
+                                    onFieldFocused(0)
+                                    coroutineScope.launch {
+                                        withFrameNanos { _ -> }
+                                        maybeScrollAboveIme(baseFramesFieldRect)
+                                    }
+                                }
                             },
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
@@ -1974,8 +2008,17 @@ private fun ReadyAnimationTab(
                         onValueChange = baseState.onIntervalInputChange,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onGloballyPositioned { coordinates ->
+                                baseIntervalFieldRect = coordinates.boundsInWindow()
+                            }
                             .onFocusEvent { event ->
-                                if (event.isFocused) onFieldFocused(0)
+                                if (event.isFocused) {
+                                    onFieldFocused(0)
+                                    coroutineScope.launch {
+                                        withFrameNanos { _ -> }
+                                        maybeScrollAboveIme(baseIntervalFieldRect)
+                                    }
+                                }
                             },
                         label = { Text("周期 (ms)") },
                         singleLine = true,
@@ -2023,10 +2066,17 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .bringIntoViewRequester(insertionFramesBringIntoViewRequester)
+                                .onGloballyPositioned { coordinates ->
+                                    insertionFramesFieldRect = coordinates.boundsInWindow()
+                                }
                                 .onFocusEvent { event ->
                                     if (event.isFocused) {
                                         onFieldFocused(1)
-                                        coroutineScope.launch { insertionFramesBringIntoViewRequester.bringIntoView() }
+                                        coroutineScope.launch {
+                                            insertionFramesBringIntoViewRequester.bringIntoView()
+                                            withFrameNanos { _ -> }
+                                            maybeScrollAboveIme(insertionFramesFieldRect)
+                                        }
                                     }
                                 },
                             label = { Text("挿入フレーム列（例: 4,5,6）") },
@@ -2041,8 +2091,17 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onIntervalInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onGloballyPositioned { coordinates ->
+                                    insertionIntervalFieldRect = coordinates.boundsInWindow()
+                                }
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(1)
+                                    if (event.isFocused) {
+                                        onFieldFocused(1)
+                                        coroutineScope.launch {
+                                            withFrameNanos { _ -> }
+                                            maybeScrollAboveIme(insertionIntervalFieldRect)
+                                        }
+                                    }
                                 },
                             label = { Text("挿入周期（ms）") },
                             singleLine = true,
@@ -2057,8 +2116,17 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onEveryNInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onGloballyPositioned { coordinates ->
+                                    insertionEveryNFieldRect = coordinates.boundsInWindow()
+                                }
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(1)
+                                    if (event.isFocused) {
+                                        onFieldFocused(1)
+                                        coroutineScope.launch {
+                                            withFrameNanos { _ -> }
+                                            maybeScrollAboveIme(insertionEveryNFieldRect)
+                                        }
+                                    }
                                 },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
@@ -2073,8 +2141,17 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onProbabilityInputChange,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onGloballyPositioned { coordinates ->
+                                    insertionProbabilityFieldRect = coordinates.boundsInWindow()
+                                }
                                 .onFocusEvent { event ->
-                                    if (event.isFocused) onFieldFocused(1)
+                                    if (event.isFocused) {
+                                        onFieldFocused(1)
+                                        coroutineScope.launch {
+                                            withFrameNanos { _ -> }
+                                            maybeScrollAboveIme(insertionProbabilityFieldRect)
+                                        }
+                                    }
                                 },
                             label = { Text("確率（%）") },
                             singleLine = true,
@@ -2091,10 +2168,17 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .bringIntoViewRequester(cooldownBringIntoViewRequester)
+                                .onGloballyPositioned { coordinates ->
+                                    insertionCooldownFieldRect = coordinates.boundsInWindow()
+                                }
                                 .onFocusEvent { event ->
                                     if (event.isFocused) {
                                         onFieldFocused(1)
-                                        coroutineScope.launch { cooldownBringIntoViewRequester.bringIntoView() }
+                                        coroutineScope.launch {
+                                            cooldownBringIntoViewRequester.bringIntoView()
+                                            withFrameNanos { _ -> }
+                                            maybeScrollAboveIme(insertionCooldownFieldRect)
+                                        }
                                     }
                                 },
                             label = { Text("クールダウン（ループ）") },
