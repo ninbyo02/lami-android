@@ -127,7 +127,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.ceil
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -1257,7 +1256,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     // [非dp] 縦: Scaffold の insets(インセット)に関係
     val configuration = LocalConfiguration.current
-    val adaptiveHorizontalPadding = max(8.dp, minOf(16.dp, configuration.screenWidthDp.dp * 0.02f))
+    val adaptiveHorizontalPadding = maxOf(8.dp, minOf(16.dp, configuration.screenWidthDp.dp * 0.02f))
 
     Scaffold(
         topBar = {
@@ -2473,7 +2472,7 @@ private fun ReadyAnimationPreviewPane(
                     insertionEnabled = insertionEnabled
                 )
                 // [dp] 左右: プレビュー の余白(余白)に関係
-                val contentHorizontalPadding = max(8.dp, minOf(12.dp, maxWidth * 0.035f))
+                val contentHorizontalPadding = maxOf(8.dp, minOf(12.dp, maxWidth * 0.035f))
 
                 val innerPaddingColor = if (previewUiState.innerBottomDp >= 0) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
@@ -2591,7 +2590,7 @@ private fun SpritePreviewBlock(
         val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
             lineHeight = MaterialTheme.typography.labelMedium.fontSize
         )
-        val textHorizontalPadding = max(0.dp, minOf(4.dp, configuration.screenWidthDp.dp * 0.01f))
+        val textHorizontalPadding = maxOf(0.dp, minOf(4.dp, configuration.screenWidthDp.dp * 0.01f))
         Column(
             modifier = Modifier
                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
