@@ -130,6 +130,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -1899,14 +1900,18 @@ private fun ReadyAnimationTab(
         if (imeBottomPx == 0) return
         val imeTopPx = rootHeightPx - imeBottomPx
         val deltaPx = fieldRect.bottom - (imeTopPx - marginPx)
-        if (deltaPx > 0) {
-            val deltaInt = deltaPx.roundToInt()
-            coroutineScope.launch {
-                lazyListState.animateScrollToItem(
-                    index = lazyListState.firstVisibleItemIndex,
-                    scrollOffset = (lazyListState.firstVisibleItemScrollOffset + deltaInt)
-                        .coerceAtLeast(0)
-                )
+        if (deltaPx <= 0) return
+        val scaledPx = deltaPx * 0.5f
+        val minPushPx = with(density) { 12.dp.toPx() }
+        val pushPx = max(scaledPx, minPushPx)
+        val projectedBottomPx = fieldRect.bottom - pushPx
+        val stillHidden = projectedBottomPx > imeTopPx - marginPx
+        val additionalPushPx = if (stillHidden) deltaPx - pushPx else 0f
+
+        coroutineScope.launch {
+            lazyListState.animateScrollBy(pushPx)
+            if (additionalPushPx > 0f) {
+                lazyListState.animateScrollBy(additionalPushPx)
             }
         }
     }
