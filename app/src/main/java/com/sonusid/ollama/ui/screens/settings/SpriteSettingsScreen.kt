@@ -46,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SmallTopAppBar
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -81,6 +82,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -1253,15 +1255,43 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     // [非dp] 縦: Scaffold の insets(インセット)に関係
+    val configuration = LocalConfiguration.current
+    val adaptiveHorizontalPadding = max(8.dp, min(16.dp, configuration.screenWidthDp.dp * 0.02f))
+
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        topBar = {
+            SmallTopAppBar(
+                title = { Text(text = "Sprite Settings") },
+                navigationIcon = {
+                    IconButton(onClick = { onBackRequested() }) {
+                        Icon(
+                            painter = painterResource(R.drawable.back),
+                            contentDescription = "戻る"
+                        )
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { onAnimationApply() }) {
+                        Text(text = "プレビュー")
+                    }
+                    TextButton(onClick = { onAnimationSave() }) {
+                        Text(text = "保存")
+                    }
+                    TextButton(onClick = { copyAppliedSettings(devPreviewSettings) }) {
+                        Text(text = "共有")
+                    }
+                },
+                modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
+            )
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = WindowInsets.safeDrawing
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
-        // [非dp] 四方向: Scaffold の insets(インセット)に関係
         val contentPadding = PaddingValues(
-            start = innerPadding.calculateStartPadding(layoutDirection),
+            start = innerPadding.calculateStartPadding(layoutDirection) + adaptiveHorizontalPadding,
             top = innerPadding.calculateTopPadding(),
-            end = innerPadding.calculateEndPadding(layoutDirection),
+            end = innerPadding.calculateEndPadding(layoutDirection) + adaptiveHorizontalPadding,
             bottom = innerPadding.calculateBottomPadding()
         )
 
@@ -1282,36 +1312,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                         // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                         .fillMaxSize()
                         // [非dp] 四方向: Scaffold の insets(インセット)に関係
-                        .padding(contentPadding)
-                        // [dp] 縦横: 画面全体 の余白(余白)に関係
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(contentPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Top
                 ) {
-                    Row(
-                        // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-                        modifier = Modifier.fillMaxWidth(),
-                        // [非dp] 横: TopAppBar の SpaceBetween(間隔)に関係
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { onBackRequested() },
-                            // [dp] 左上: TopAppBar の余白(余白)に関係
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "戻る"
-                            )
-                        }
-                        Text(
-                            text = "Sprite Settings",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        // [dp] 縦横: TopAppBar の間隔(間隔)に関係
-                        Spacer(modifier = Modifier.size(32.dp))
-                    }
                     val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
                     val displayedTabIndex = displayedTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
 
@@ -1740,6 +1744,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .padding(top = 6.dp),
                                         line1Text = previewHeaderText,
                                         line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                        isImeVisible = imeVisible,
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
                                             if (imageBitmap.width != 0) {
@@ -1851,6 +1856,7 @@ private fun ReadyAnimationTab(
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
+    val configuration = LocalConfiguration.current
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val layoutState = rememberReadyPreviewLayoutState(
@@ -1872,43 +1878,47 @@ private fun ReadyAnimationTab(
 
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val heightScale = (configuration.screenHeightDp / 800f).coerceIn(0.85f, 1.15f)
+    fun scaledInt(value: Int): Int = (value * heightScale).roundToInt()
     val readyPreviewUiState = ReadyPreviewUiState(
-        charYOffsetDp = layoutState.charYOffsetDp,
+        charYOffsetDp = scaledInt(layoutState.charYOffsetDp),
         effectiveMinHeightDp = effectiveMinHeightDp,
         effectiveCardMaxH = effectiveCardMaxH,
         infoXOffsetDp = layoutState.infoXOffsetDp,
-        infoYOffsetDp = layoutState.infoYOffsetDp,
+        infoYOffsetDp = scaledInt(layoutState.infoYOffsetDp),
         headerLeftXOffsetDp = layoutState.headerLeftXOffsetDp,
         headerLeftYOffsetDp = layoutState.headerLeftYOffsetDp,
         headerRightXOffsetDp = layoutState.headerRightXOffsetDp,
         headerRightYOffsetDp = layoutState.headerRightYOffsetDp,
         baseMaxHeightDp = baseMaxHeightDp,
         effectiveDetailsMaxH = effectiveDetailsMaxH,
-        outerBottomDp = layoutState.outerBottomDp,
-        innerBottomDp = layoutState.innerBottomDp,
-        innerVPadDp = layoutState.innerVPadDp,
-        detailsMaxHeightDp = layoutState.detailsMaxHeightDp,
+        outerBottomDp = scaledInt(layoutState.outerBottomDp),
+        innerBottomDp = scaledInt(layoutState.innerBottomDp),
+        innerVPadDp = scaledInt(layoutState.innerVPadDp),
+        detailsMaxHeightDp = scaledInt(layoutState.detailsMaxHeightDp),
         cardMaxHeightDp = layoutState.cardMaxHeightDp,
         cardMinHeightDp = layoutState.cardMinHeightDp,
         detailsMaxLines = layoutState.detailsMaxLines,
         headerOffsetLimitDp = layoutState.headerOffsetLimitDp,
-        headerSpacerDp = layoutState.headerSpacerDp,
-        bodySpacerDp = layoutState.bodySpacerDp,
+        headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
+        bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
     val layoutDirection = LocalLayoutDirection.current
     val imeBottomPaddingDp = with(density) {
         imeBottomPx.toDp()
     }
+    val listTopExtraPadding = if (configuration.screenHeightDp < 660) 8.dp else 12.dp
+    val imeExtraPadding = if (isImeVisible) 14.dp else 0.dp
     // [非dp] 下: IME の insets(インセット)に関係
     val bottomContentPadding = if (isImeVisible) {
-        contentPadding.calculateBottomPadding() + imeBottomPaddingDp + 24.dp
+        contentPadding.calculateBottomPadding() + imeBottomPaddingDp + imeExtraPadding
     } else {
         contentPadding.calculateBottomPadding()
     }
     // [dp] 四方向: リスト の余白(余白)に関係
     val listContentPadding = PaddingValues(
         start = contentPadding.calculateStartPadding(layoutDirection),
-        top = contentPadding.calculateTopPadding() + 20.dp,
+        top = contentPadding.calculateTopPadding() + listTopExtraPadding,
         end = contentPadding.calculateEndPadding(layoutDirection),
         bottom = bottomContentPadding
     )
@@ -1917,8 +1927,6 @@ private fun ReadyAnimationTab(
         modifier = Modifier
             // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
             .fillMaxSize()
-            // [dp] 縦: 画面全体 の余白(余白)に関係
-            .padding(vertical = 8.dp)
     ) {
         Surface(
             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
@@ -1947,7 +1955,7 @@ private fun ReadyAnimationTab(
                 .fillMaxWidth(),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             // [dp] 四方向: リスト の余白(余白)に関係
             contentPadding = listContentPadding
         ) {
@@ -1955,11 +1963,9 @@ private fun ReadyAnimationTab(
                 Column(
                     modifier = Modifier
                         // [非dp] 横: リスト の fillMaxWidth(制約)に関係
-                        .fillMaxWidth()
-                        // [dp] 左右: リスト の余白(余白)に関係
-                        .padding(horizontal = 8.dp),
+                        .fillMaxWidth(),
                     // [dp] 縦: リスト の間隔(間隔)に関係
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -2050,8 +2056,8 @@ private fun ReadyAnimationTab(
                 AnimatedVisibility(visible = insertionState.enabled) {
                     @OptIn(ExperimentalFoundationApi::class)
                     Column(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
                             value = insertionState.frameInput,
@@ -2466,7 +2472,7 @@ private fun ReadyAnimationPreviewPane(
                     insertionEnabled = insertionEnabled
                 )
                 // [dp] 左右: プレビュー の余白(余白)に関係
-                val contentHorizontalPadding = 12.dp
+                val contentHorizontalPadding = max(8.dp, min(12.dp, maxWidth * 0.035f))
 
                 val innerPaddingColor = if (previewUiState.innerBottomDp >= 0) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
@@ -2509,7 +2515,7 @@ private fun ReadyAnimationPreviewPane(
                             insertionSummary = insertionSummary,
                             insertionPreviewValues = insertionPreviewValues,
                             insertionEnabled = insertionEnabled,
-                            infoYOffsetDp = previewUiState.infoYOffsetDp + previewUiState.headerSpacerDp,
+                            infoYOffsetDp = previewUiState.infoYOffsetDp,
                             modifier = Modifier
                                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
@@ -2518,7 +2524,9 @@ private fun ReadyAnimationPreviewPane(
                                     y = previewUiState.headerLeftYOffsetDp.dp
                                 )
                                 // [dp] 左: プレビュー の余白(余白)に関係
-                                .padding(start = spriteSize + 8.dp)
+                                .padding(
+                                    start = spriteSize + (spriteSize * 0.08f).coerceIn(4.dp, 6.dp)
+                                )
                                 // [dp] 左右: プレビュー の余白(余白)に関係
                                 .offset(x = previewUiState.infoXOffsetDp.dp)
                         )
@@ -2528,7 +2536,9 @@ private fun ReadyAnimationPreviewPane(
         }
         devMenuContent?.let { content ->
             // [dp] 縦: 開発メニュー の間隔(間隔)に関係
-            Spacer(modifier = Modifier.height(12.dp))
+            if (!isImeVisible) {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             content()
         }
     }
@@ -2539,6 +2549,7 @@ private fun SpritePreviewBlock(
     imageBitmap: ImageBitmap,
     line1Text: String,
     line2Text: String,
+    isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
@@ -2549,14 +2560,20 @@ private fun SpritePreviewBlock(
         // [dp] 縦: プレビュー の間隔(間隔)に関係
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        val minHeight = if (isImeVisible) 160.dp else 200.dp
+        val configuration = LocalConfiguration.current
+        val aspectRatio = min(
+            1f,
+            configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.toFloat()
+        ).coerceAtLeast(0.7f)
         Box(
             modifier = Modifier
                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
                 // [非dp] 縦横: プレビュー の aspectRatio(制約)に関係
-                .aspectRatio(1f)
+                .aspectRatio(aspectRatio)
                 // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-                .heightIn(min = 220.dp),
+                .heightIn(min = minHeight),
             contentAlignment = Alignment.Center
         ) {
             Image(
@@ -2573,12 +2590,13 @@ private fun SpritePreviewBlock(
         val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
             lineHeight = MaterialTheme.typography.labelMedium.fontSize
         )
+        val textHorizontalPadding = max(0.dp, min(4.dp, configuration.screenWidthDp.dp * 0.01f))
         Column(
             modifier = Modifier
                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
                 // [dp] 左右: プレビュー の余白(余白)に関係
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = textHorizontalPadding),
             // [dp] 縦: プレビュー の間隔(間隔)に関係
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalAlignment = Alignment.Start
