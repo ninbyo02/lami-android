@@ -1908,11 +1908,16 @@ private fun ReadyAnimationTab(
         val stillHidden = projectedBottomPx > imeTopPx - marginPx
         val additionalPushPx = if (stillHidden) deltaPx - pushPx else 0f
 
+        val totalPushPx = (pushPx + additionalPushPx).coerceAtLeast(0f)
+        val baseIndex = lazyListState.firstVisibleItemIndex
+        val baseOffset = lazyListState.firstVisibleItemScrollOffset
+        val targetOffset = baseOffset + totalPushPx.roundToInt()
+
         coroutineScope.launch {
-            lazyListState.animateScrollBy(pushPx)
-            if (additionalPushPx > 0f) {
-                lazyListState.animateScrollBy(additionalPushPx)
-            }
+            lazyListState.animateScrollToItem(
+                index = baseIndex,
+                scrollOffset = targetOffset
+            )
         }
     }
     val bottomContentPadding = if (isImeVisible) {
