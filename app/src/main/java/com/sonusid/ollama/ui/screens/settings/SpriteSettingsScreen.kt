@@ -121,6 +121,7 @@ import com.sonusid.ollama.ui.components.DevMenuSectionHost
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -1258,32 +1259,69 @@ fun SpriteSettingsScreen(navController: NavController) {
     // [非dp] 縦: Scaffold の insets(インセット)に関係
     val configuration = LocalConfiguration.current
     val adaptiveHorizontalPadding = maxOf(8.dp, minOf(16.dp, configuration.screenWidthDp.dp * 0.02f))
+    val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
+    // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
+    val actionButtonModifier = Modifier
+        // [非dp] 横: 画面全体 の weight(制約)に関係
+        .weight(1f)
+        // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
+        .height(actionButtonHeight)
+    // [dp] 縦横: 画面全体 の余白(余白)に関係
+    val actionButtonPadding = PaddingValues(
+        horizontal = 12.dp,
+        vertical = 0.dp
+    ) // 内部余白を最小化して厚みを揃える
+    val actionButtonShape = RoundedCornerShape(999.dp)
+    // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
+    val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
+    // [dp] 縦横: 画面全体 の余白(余白)に関係
+    val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+    // [dp] 縦横: 本文アクション列 の余白(余白)に関係
+    val contentActionRowPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+    // [dp] 縦横: TopAppBar 下段 の余白(余白)に関係
+    val topBarActionRowPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
 
     Scaffold(
         topBar = {
-            SmallTopAppBar(
-                title = { Text(text = "Sprite Settings") },
-                navigationIcon = {
-                    IconButton(onClick = { onBackRequested() }) {
-                        Icon(
-                            painter = painterResource(R.drawable.back),
-                            contentDescription = "戻る"
+            Column {
+                SmallTopAppBar(
+                    title = {
+                        Text(
+                            text = "Sprite Settings",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { onAnimationApply() }) {
-                        Text(text = "プレビュー")
-                    }
-                    TextButton(onClick = { onAnimationSave() }) {
-                        Text(text = "保存")
-                    }
-                    TextButton(onClick = { copyAppliedSettings(devPreviewSettings) }) {
-                        Text(text = "共有")
-                    }
-                },
-                modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
-            )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { onBackRequested() }) {
+                            Icon(
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "戻る"
+                            )
+                        }
+                    },
+                    actions = {},
+                    modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
+                )
+                Surface(tonalElevation = 2.dp) {
+                    // NOTE: フォントサイズ大・狭幅でもボタンが詰まらないか要確認
+                    SpriteActionPillsRow(
+                        selectedTab = selectedTab,
+                        coroutineScope = coroutineScope,
+                        snackbarHostState = snackbarHostState,
+                        devPreviewSettings = devPreviewSettings,
+                        onAnimationApply = onAnimationApply,
+                        onAnimationSave = onAnimationSave,
+                        saveSpriteSheetConfig = ::saveSpriteSheetConfig,
+                        copyAppliedSettings = ::copyAppliedSettings,
+                        copySpriteSheetConfig = ::copySpriteSheetConfig,
+                        actionButtonModifier = actionButtonModifier,
+                        actionButtonPadding = actionButtonPadding,
+                        actionButtonShape = actionButtonShape,
+                        rowPadding = topBarActionRowPadding
+                    )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = WindowInsets.systemBars
@@ -1375,82 +1413,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                             }
                         }
                     }
-                    val actionButtonHeight = 28.dp // 上部操作ボタンも下部と同じ厚みに統一
-                    // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
-                    val actionButtonModifier = Modifier
-                        // [非dp] 横: 画面全体 の weight(制約)に関係
-                        .weight(1f)
-                        // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
-                        .height(actionButtonHeight)
-                    // [dp] 縦横: 画面全体 の余白(余白)に関係
-                    val actionButtonPadding = PaddingValues(
-                        horizontal = 12.dp,
-                        vertical = 0.dp
-                    ) // 内部余白を最小化して厚みを揃える
-                    val actionButtonShape = RoundedCornerShape(999.dp)
-                    // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
-                    val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
-                    // [dp] 縦横: 画面全体 の余白(余白)に関係
-                    val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                    Row(
-                        modifier = Modifier
-                            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-                            .fillMaxWidth()
-                            // [dp] 縦横: 画面全体 の余白(余白)に関係
-                            .padding(horizontal = 4.dp, vertical = 6.dp),
-                        // [dp] 横: 画面全体 の間隔(間隔)に関係
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilledTonalButton(
-                            modifier = actionButtonModifier,
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationApply()
-                                    SpriteTab.ADJUST -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
-                                }
-                            },
-                            contentPadding = actionButtonPadding,
-                            shape = actionButtonShape
-                        ) {
-                            Text(
-                                text = "更新",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                        FilledTonalButton(
-                            modifier = actionButtonModifier,
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationSave()
-                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
-                                }
-                            },
-                            contentPadding = actionButtonPadding,
-                            shape = actionButtonShape
-                        ) {
-                            Text(
-                                text = "保存",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                        FilledTonalButton(
-                            modifier = actionButtonModifier,
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> copyAppliedSettings(devPreviewSettings)
-                                    SpriteTab.ADJUST -> copySpriteSheetConfig()
-                                }
-                            },
-                            contentPadding = actionButtonPadding,
-                            shape = actionButtonShape
-                        ) {
-                            Text(
-                                text = "コピー",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
+                    // TODO: TopBar統一後に本文側のアクション列は削除予定
+                    SpriteActionPillsRow(
+                        selectedTab = selectedTab,
+                        coroutineScope = coroutineScope,
+                        snackbarHostState = snackbarHostState,
+                        devPreviewSettings = devPreviewSettings,
+                        onAnimationApply = onAnimationApply,
+                        onAnimationSave = onAnimationSave,
+                        saveSpriteSheetConfig = ::saveSpriteSheetConfig,
+                        copyAppliedSettings = ::copyAppliedSettings,
+                        copySpriteSheetConfig = ::copySpriteSheetConfig,
+                        actionButtonModifier = actionButtonModifier,
+                        actionButtonPadding = actionButtonPadding,
+                        actionButtonShape = actionButtonShape,
+                        rowPadding = contentActionRowPadding
+                    )
                     Box(
                         modifier = Modifier
                             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
@@ -2751,6 +2729,84 @@ private fun SpriteSettingsControls(
                     Text("Y+")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SpriteActionPillsRow(
+    selectedTab: SpriteTab,
+    coroutineScope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
+    devPreviewSettings: DevPreviewSettings,
+    onAnimationApply: () -> Unit,
+    onAnimationSave: () -> Unit,
+    saveSpriteSheetConfig: () -> Unit,
+    copyAppliedSettings: (DevPreviewSettings) -> Unit,
+    copySpriteSheetConfig: () -> Unit,
+    actionButtonModifier: Modifier,
+    actionButtonPadding: PaddingValues,
+    actionButtonShape: Shape,
+    rowPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
+            .fillMaxWidth()
+            // [dp] 縦横: 画面全体 の余白(余白)に関係
+            .padding(rowPadding),
+        // [dp] 横: 画面全体 の間隔(間隔)に関係
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilledTonalButton(
+            modifier = actionButtonModifier,
+            onClick = {
+                when (selectedTab) {
+                    SpriteTab.ANIM -> onAnimationApply()
+                    SpriteTab.ADJUST -> coroutineScope.launch { snackbarHostState.showSnackbar("プレビューに適用しました") }
+                }
+            },
+            contentPadding = actionButtonPadding,
+            shape = actionButtonShape
+        ) {
+            Text(
+                text = "更新",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+        FilledTonalButton(
+            modifier = actionButtonModifier,
+            onClick = {
+                when (selectedTab) {
+                    SpriteTab.ANIM -> onAnimationSave()
+                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                }
+            },
+            contentPadding = actionButtonPadding,
+            shape = actionButtonShape
+        ) {
+            Text(
+                text = "保存",
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+        FilledTonalButton(
+            modifier = actionButtonModifier,
+            onClick = {
+                when (selectedTab) {
+                    SpriteTab.ANIM -> copyAppliedSettings(devPreviewSettings)
+                    SpriteTab.ADJUST -> copySpriteSheetConfig()
+                }
+            },
+            contentPadding = actionButtonPadding,
+            shape = actionButtonShape
+        ) {
+            Text(
+                text = "コピー",
+                style = MaterialTheme.typography.labelLarge
+            )
         }
     }
 }
