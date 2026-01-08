@@ -8,51 +8,28 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -70,7 +47,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SmallTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
@@ -1286,7 +1263,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
     val actionButtonModifier = Modifier
         // [非dp] 横: 画面全体 の weight(制約)に関係
-        .weight(1f)
+        .fillMaxWidth()
         // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
         .height(actionButtonHeight)
     // [dp] 縦横: 画面全体 の余白(余白)に関係
@@ -1307,7 +1284,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     Scaffold(
         topBar = {
             Column {
-                SmallTopAppBar(
+                TopAppBar(
                     title = {
                         Text(
                             text = "Sprite Settings",
@@ -1365,7 +1342,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             Surface(
                 // [非dp] 縦: 画面全体 の weight(制約)に関係
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                     .fillMaxWidth()
             ) {
@@ -1457,7 +1434,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
                             // [非dp] 縦: 画面全体 の weight(制約)に関係
-                            .weight(1f, fill = true)
+                            .fillMaxWidth()
                     ) {
                         val animationTabContent: @Composable () -> Unit = {
                             val animationOptions = remember { AnimationType.options }
@@ -1952,7 +1929,7 @@ private fun ReadyAnimationTab(
         LazyColumn(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
-                .weight(1f)
+                .fillMaxWidth()
                 // [非dp] 横: リスト の fillMaxWidth(制約)に関係
                 .fillMaxWidth(),
             state = lazyListState,
@@ -2139,7 +2116,7 @@ private fun ReadyAnimationTab(
                         ) {
                             Column(
                                 // [非dp] 横: 入力欄 の weight(制約)に関係
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("Exclusive（Ready中は挿入しない）")
                                 Text(
@@ -2644,7 +2621,7 @@ private fun SpriteSettingsControls(
     ) {
         val buttonModifier = Modifier
             // [非dp] 横: 画面全体 の weight(制約)に関係
-            .weight(1f)
+            .fillMaxWidth()
             // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
             .height(buttonHeight)
 
