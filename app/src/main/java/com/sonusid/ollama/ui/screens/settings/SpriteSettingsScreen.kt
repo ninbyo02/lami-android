@@ -1457,12 +1457,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         val layoutDirection = LocalLayoutDirection.current
         val contentPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection) + adaptiveHorizontalPadding,
-            // [dp] 上: TopAppBar/TabRow の欠け回避のため innerPadding を基準に調整
-            top = if (selectedTab == SpriteTab.ADJUST) {
-                (innerPadding.calculateTopPadding() - 12.dp).coerceAtLeast(0.dp)
-            } else {
-                innerPadding.calculateTopPadding()
-            },
+            // [dp] 上: TopAppBar/TabRow の見た目統一のため innerPadding のみ使用
+            top = innerPadding.calculateTopPadding(),
             end = innerPadding.calculateEndPadding(layoutDirection) + adaptiveHorizontalPadding,
             bottom = innerPadding.calculateBottomPadding()
         )
@@ -1546,6 +1542,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                             }
                         }
                     }
+                    val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
+                    // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
+                    Spacer(modifier = Modifier.height(contentTopGap))
                     Box(
                         modifier = Modifier
                             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
