@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
+import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
@@ -108,7 +109,7 @@ private data class InsertionSettingsKey(
     val cooldownLoops: Int,
     val exclusive: Boolean,
     val intervalMs: Int,
-    val frameSequence: List<Int>,
+    val patterns: List<InsertionPattern>,
 )
 
 // 挿入判定は InsertionAnimationSettings に統一し、旧 insertions は無効化する。
@@ -280,7 +281,7 @@ fun LamiStatusSprite(
                 cooldownLoops = settings.cooldownLoops,
                 exclusive = settings.exclusive,
                 intervalMs = settings.intervalMs,
-                frameSequence = settings.frameSequence,
+                patterns = settings.patterns,
             ).hashCode()
         } ?: 0
     }
@@ -337,15 +338,13 @@ fun LamiStatusSprite(
 
         val random = Random(System.currentTimeMillis())
 
-        suspend fun playInsertionFrames(settings: InsertionAnimationSettings) {
-            if (settings.frameSequence.isEmpty()) {
-                return
-            }
+        suspend fun playInsertionFrames(frameSequence: List<Int>, intervalMs: Int) {
+            if (frameSequence.isEmpty()) return
             // 設定の intervalMs を固定間隔として使用する
-            val intervalMs = settings.intervalMs.coerceAtLeast(0).toLong()
-            for (frame in settings.frameSequence) {
+            val resolvedIntervalMs = intervalMs.coerceAtLeast(0).toLong()
+            for (frame in frameSequence) {
                 currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                delay(intervalMs)
+                delay(resolvedIntervalMs)
             }
         }
 
@@ -360,9 +359,14 @@ fun LamiStatusSprite(
                 lastInsertionLoop = lastInsertionLoop,
                 random = random,
             ) == true
-            if (shouldInsert) {
+            if (shouldInsert && settings?.patterns?.isNotEmpty() == true) {
                 val activeSettings = requireNotNull(settings)
-                playInsertionFrames(settings = activeSettings)
+                // 挿入イベント内でランダムにパターンを選択する
+                val pattern = activeSettings.patterns.random(random)
+                playInsertionFrames(
+                    frameSequence = pattern.frameSequence,
+                    intervalMs = activeSettings.intervalMs,
+                )
                 lastInsertionLoopState.value = loopCount
                 if (activeSettings.exclusive) {
                     // exclusive：挿入が発生したループでは Base を再生せず次へ進む
