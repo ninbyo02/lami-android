@@ -1940,6 +1940,32 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .zIndex(10f)
+            ) { data ->
+                val isError = data.visuals.actionLabel == "ERROR"
+                val containerColor = if (isError) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseSurface
+                }
+                val contentColor = if (isError) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.inverseOnSurface
+                }
+                Snackbar(
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = containerColor,
+                    contentColor = contentColor
+                ) {
+                    Text(text = data.visuals.message)
+                }
+            }
         }
     }
 }
@@ -2685,32 +2711,6 @@ private fun ReadyAnimationPreviewPane(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             content()
-        }
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .zIndex(10f)
-        ) { data ->
-            val isError = data.visuals.actionLabel == "ERROR"
-            val containerColor = if (isError) {
-                MaterialTheme.colorScheme.errorContainer
-            } else {
-                MaterialTheme.colorScheme.inverseSurface
-            }
-            val contentColor = if (isError) {
-                MaterialTheme.colorScheme.onErrorContainer
-            } else {
-                MaterialTheme.colorScheme.inverseOnSurface
-            }
-            Snackbar(
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = containerColor,
-                contentColor = contentColor
-            ) {
-                Text(text = data.visuals.message)
-            }
         }
     }
 }
