@@ -1456,9 +1456,12 @@ fun SpriteSettingsScreen(navController: NavController) {
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
+        // [dp] 上: TopAppBar/TabRow の余白(余白)に関係
+        val topContentPadding = (innerPadding.calculateTopPadding() - if (selectedTab == SpriteTab.ADJUST) 6.dp else 0.dp)
+            .coerceAtLeast(0.dp)
         val contentPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection) + adaptiveHorizontalPadding,
-            top = innerPadding.calculateTopPadding(),
+            top = topContentPadding,
             end = innerPadding.calculateEndPadding(layoutDirection) + adaptiveHorizontalPadding,
             bottom = innerPadding.calculateBottomPadding()
         )
@@ -1833,7 +1836,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
                                             // [dp] 上: プレビュー の余白(余白)に関係
-                                            .padding(top = 6.dp),
+                                            .padding(top = 2.dp),
                                         line1Text = previewHeaderText,
                                         line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
                                         isImeVisible = imeVisible,
@@ -2637,7 +2640,8 @@ private fun SpritePreviewBlock(
         // [dp] 縦: プレビュー の間隔(間隔)に関係
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val minHeight = if (isImeVisible) 160.dp else 200.dp
+        // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
+        val minHeight = if (isImeVisible) 140.dp else 180.dp
         val configuration = LocalConfiguration.current
         val aspectRatio = min(
             1f,
@@ -2651,7 +2655,8 @@ private fun SpritePreviewBlock(
                 .aspectRatio(aspectRatio)
                 // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
                 .heightIn(min = minHeight),
-            contentAlignment = Alignment.Center
+            // [非dp] 縦: プレビュー の配置(配置)に関係
+            contentAlignment = Alignment.TopCenter
         ) {
             Image(
                 bitmap = imageBitmap,
