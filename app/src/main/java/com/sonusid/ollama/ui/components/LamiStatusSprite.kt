@@ -11,12 +11,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
@@ -182,20 +186,31 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.ReadyBlink to AnimationSpec(
         frames = listOf(0),
         frameDuration = FrameDurationSpec(minMs = 700L, maxMs = 1_200L, jitterFraction = 0.15f),
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(0, 7, 8, 7, 0),
-                frequency = InsertionFrequency.ByTime(3_500L..5_500L),
-                exclusive = false,
-                frameDuration = FrameDurationSpec(
-                    minMs = 35L,
-                    maxMs = 55L,
-                    jitterFraction = 0.1f,
-                ),
-            ),
-        ),
+        insertions = emptyList(),
     ),
 )
+
+private fun selectInsertionSettingsForStatus(
+    status: LamiSpriteStatus,
+    readySettings: InsertionAnimationSettings,
+    talkingSettings: InsertionAnimationSettings,
+): InsertionAnimationSettings? =
+    when (status) {
+        LamiSpriteStatus.ReadyBlink,
+        LamiSpriteStatus.Idle,
+        LamiSpriteStatus.Thinking,
+        LamiSpriteStatus.ErrorLight,
+        LamiSpriteStatus.ErrorHeavy,
+        -> readySettings
+        LamiSpriteStatus.TalkShort,
+        LamiSpriteStatus.TalkLong,
+        LamiSpriteStatus.TalkCalm,
+        -> talkingSettings
+        LamiSpriteStatus.OfflineEnter,
+        LamiSpriteStatus.OfflineLoop,
+        LamiSpriteStatus.OfflineExit,
+        -> null
+    }
 
 @Composable
 fun LamiStatusSprite(
@@ -252,6 +267,23 @@ fun LamiStatusSprite(
     val animSpec = remember(resolvedStatus) {
         statusAnimationMap[resolvedStatus] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
     }
+    val context = LocalContext.current
+    val settingsPreferences = remember(context) {
+        SettingsPreferences(context.applicationContext)
+    }
+    val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
+        initial = InsertionAnimationSettings.DEFAULT,
+    )
+    val talkingInsertionSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(
+        initial = InsertionAnimationSettings.DEFAULT,
+    )
+    val insertionSettings = remember(resolvedStatus, readyInsertionSettings, talkingInsertionSettings) {
+        selectInsertionSettingsForStatus(
+            status = resolvedStatus,
+            readySettings = readyInsertionSettings,
+            talkingSettings = talkingInsertionSettings,
+        )
+    }
 
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
@@ -289,7 +321,7 @@ fun LamiStatusSprite(
         }
     }
 
-    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
+    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionSettings) {
         currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
@@ -297,90 +329,48 @@ fun LamiStatusSprite(
 
         val random = Random(System.currentTimeMillis())
 
-        data class InsertionState(
-            val spec: InsertionSpec,
-            var loopsUntilInsertion: Int? = null,
-            var nextInsertionAtMs: Long? = null,
-        )
-
-        fun InsertionSpec.toState(now: Long): InsertionState {
-            val initialLoops = (frequency as? InsertionFrequency.ByLoops)?.loopRange?.let {
-                random.nextInt(it.first, it.last + 1)
+        suspend fun playInsertionFrames(settings: InsertionAnimationSettings) {
+            if (settings.frameSequence.isEmpty()) {
+                return
             }
-            val initialNextInsertion = (frequency as? InsertionFrequency.ByTime)?.msRange?.let {
-                now + random.nextLong(it.first, it.last + 1)
-            }
-            return InsertionState(
-                spec = this,
-                loopsUntilInsertion = initialLoops,
-                nextInsertionAtMs = initialNextInsertion,
-            )
-        }
-
-        fun resetInsertionState(state: InsertionState) {
-            when (val frequency = state.spec.frequency) {
-                is InsertionFrequency.ByLoops -> state.loopsUntilInsertion =
-                    random.nextInt(frequency.loopRange.first, frequency.loopRange.last + 1)
-                is InsertionFrequency.ByTime -> state.nextInsertionAtMs =
-                    System.currentTimeMillis() +
-                        random.nextLong(frequency.msRange.first, frequency.msRange.last + 1)
-                is InsertionFrequency.ByProbability -> Unit
-            }
-        }
-
-        val insertionStates = animSpec.insertions.map { insertionSpec ->
-            insertionSpec.toState(System.currentTimeMillis())
-        }
-
-        suspend fun playFrames(
-            frames: List<Int>,
-            frameDurationSpec: FrameDurationSpec? = null,
-        ) {
-            val durationSpec = frameDurationSpec ?: animSpec.frameDuration
-            for (frame in frames) {
+            // 設定の intervalMs を固定間隔として使用する
+            val intervalMs = settings.intervalMs.coerceAtLeast(0).toLong()
+            for (frame in settings.frameSequence) {
                 currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                delay(durationSpec.draw(random))
+                delay(intervalMs)
             }
         }
 
+        var loopCount = 0
+        var lastInsertionLoop: Int? = null
         while (true) {
+            loopCount += 1
+            // 設定に基づく挿入判定はループ単位で行う
+            val shouldInsert = insertionSettings?.shouldAttemptInsertion(
+                loopCount = loopCount,
+                lastInsertionLoop = lastInsertionLoop,
+                isReadyPlaying = resolvedStatus == LamiSpriteStatus.ReadyBlink,
+                random = random,
+            ) == true
+            if (shouldInsert && insertionSettings != null) {
+                playInsertionFrames(settings = insertionSettings)
+                lastInsertionLoop = loopCount
+                if (insertionSettings.exclusive) {
+                    // exclusive の場合は通常フレームを描画せず次のループへ進む
+                    if (!animSpec.loop) {
+                        break
+                    }
+                    continue
+                }
+            }
+
             for (frame in animSpec.frames) {
-                val triggeredInsertion = insertionStates.firstOrNull { state ->
-                    when (val frequency = state.spec.frequency) {
-                        is InsertionFrequency.ByProbability ->
-                            random.nextFloat() < frequency.probability
-                        is InsertionFrequency.ByLoops ->
-                            (state.loopsUntilInsertion ?: Int.MAX_VALUE) <= 0
-                        is InsertionFrequency.ByTime -> {
-                            val scheduledAt = state.nextInsertionAtMs
-                            scheduledAt != null && System.currentTimeMillis() >= scheduledAt
-                        }
-                    }
-                }
-
-                if (triggeredInsertion != null) {
-                    playFrames(
-                        frames = triggeredInsertion.spec.frames,
-                        frameDurationSpec = triggeredInsertion.spec.frameDuration,
-                    )
-                    resetInsertionState(triggeredInsertion)
-                    if (triggeredInsertion.spec.exclusive) {
-                        continue
-                    }
-                }
-
                 currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
                 delay(animSpec.frameDuration.draw(random))
             }
 
             if (!animSpec.loop) {
                 break
-            }
-
-            insertionStates.forEach { state ->
-                if (state.spec.frequency is InsertionFrequency.ByLoops) {
-                    state.loopsUntilInsertion = (state.loopsUntilInsertion ?: Int.MAX_VALUE) - 1
-                }
             }
         }
     }
