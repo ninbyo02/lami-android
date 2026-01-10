@@ -1828,7 +1828,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 Box(
                                     modifier = Modifier
                                         // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
-                                        .fillMaxSize()
+                                        .fillMaxSize(),
+                                    // [非dp] 縦: プレビュー/ステータス の上寄せ(配置)に関係
+                                    contentAlignment = Alignment.TopCenter
                                 ) {
                                     SpritePreviewBlock(
                                         imageBitmap = imageBitmap,
