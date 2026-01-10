@@ -2312,9 +2312,9 @@ private fun ReadyAnimationTab(
                                 // [非dp] 横: 入力欄 の weight(制約)に関係
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Exclusive（Ready中は挿入しない）")
+                                Text("Exclusive（挿入を抑制）")
                                 Text(
-                                    text = "ONにするとReady再生中は挿入を抑制します",
+                                    text = "ONにすると Base フレーム再生中は挿入フレームを再生しません",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
