@@ -500,7 +500,9 @@ fun InsertionAnimationSettings.shouldAttemptInsertion(
     if (hasCooldown && (loopCount - lastInsertionLoop) < cooldownLoops) return false
     if (everyNLoops <= 0) return false
     if (loopCount % everyNLoops != 0) return false
-    if (probabilityPercent <= 0) return false
-    val normalizedProbability = probabilityPercent / 100f
-    return random.nextFloat() < normalizedProbability.coerceIn(0f, 1f)
+    if (probabilityPercent <= 0) return false // 0は絶対出ない
+    if (probabilityPercent >= 100) return true // 100は必ず出る
+    val roll = random.nextInt(100) // rollは0..99
+    if (roll >= probabilityPercent) return false
+    return true
 }
