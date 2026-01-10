@@ -491,18 +491,16 @@ class SettingsPreferences(private val context: Context) {
 fun InsertionAnimationSettings.shouldAttemptInsertion(
     loopCount: Int,
     lastInsertionLoop: Int?,
-    isReadyPlaying: Boolean,
     random: Random = Random(System.currentTimeMillis()),
 ): Boolean {
     if (!enabled) return false
-    if (exclusive && isReadyPlaying) return false
     val hasCooldown = cooldownLoops > 0 && lastInsertionLoop != null
     if (hasCooldown && (loopCount - lastInsertionLoop) < cooldownLoops) return false
     if (everyNLoops <= 0) return false
     if (loopCount % everyNLoops != 0) return false
-    if (probabilityPercent <= 0) return false // 0は絶対出ない
-    if (probabilityPercent >= 100) return true // 100は必ず出る
-    val roll = random.nextInt(100) // rollは0..99
+    if (probabilityPercent == 0) return false
+    if (probabilityPercent == 100) return true
+    val roll = random.nextInt(100) // roll は 0..99
     if (roll >= probabilityPercent) return false
     return true
 }
