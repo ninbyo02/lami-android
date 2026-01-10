@@ -1883,7 +1883,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .padding(top = 2.dp)
                                             // [非dp] 上: プレビュー の配置(配置)に関係
                                             .align(Alignment.TopCenter),
-                                        isImeVisible = imeVisible,
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
                                             if (imageBitmap.width != 0) {
@@ -2047,7 +2046,7 @@ private fun ReadyAnimationTab(
         }
     }
     // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-    val baseMaxHeightDp = if (isImeVisible) 220 else 300
+    val baseMaxHeightDp = 300
     val customCardMaxHeightDp = layoutState.cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> layoutState.cardMinHeightDp.coerceAtMost(max) } ?: layoutState.cardMinHeightDp
@@ -2640,11 +2639,7 @@ private fun ReadyAnimationPreviewPane(
                 // [非dp] 縦横: プレビュー の制約(制約)に関係
                 val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
                 // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
-                val spriteSize = if (isImeVisible) {
-                    rawSpriteSize.coerceIn(56.dp, 96.dp)
-                } else {
-                    rawSpriteSize.coerceIn(72.dp, 120.dp)
-                }
+                val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
                 val previewState = rememberReadyAnimationState(
                     spriteSheetConfig = spriteSheetConfig,
                     summary = baseSummary,
@@ -2727,7 +2722,6 @@ private fun ReadyAnimationPreviewPane(
 @Composable
 private fun SpritePreviewBlock(
     imageBitmap: ImageBitmap,
-    isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
@@ -2739,7 +2733,7 @@ private fun SpritePreviewBlock(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-        val minHeight = if (isImeVisible) 140.dp else 180.dp
+        val minHeight = 180.dp
         val configuration = LocalConfiguration.current
         val aspectRatio = min(
             1f,
@@ -2788,8 +2782,8 @@ private fun SpriteSettingsControls(
         modifier = Modifier
             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
             .fillMaxWidth()
-            // [非dp] 下: ナビ/IME の insets(インセット)に関係
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+            // [非dp] 下: ナビゲーションバー の insets(インセット)に関係
+            .windowInsetsPadding(WindowInsets.navigationBars)
             // [dp] 左右: 下部バー の余白(余白)に関係
             .padding(horizontal = 12.dp)
             // [dp] 上下: 下部バー の余白(余白)に関係
