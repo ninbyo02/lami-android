@@ -1455,12 +1455,10 @@ fun SpriteSettingsScreen(navController: NavController) {
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
-        // [dp] 上: TopAppBar/TabRow の余白(余白)に関係
-        val topContentPadding = (innerPadding.calculateTopPadding() - if (selectedTab == SpriteTab.ADJUST) 6.dp else 0.dp)
-            .coerceAtLeast(0.dp)
         val contentPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection) + adaptiveHorizontalPadding,
-            top = topContentPadding,
+            // [dp] 上: TopAppBar/TabRow の余白を二重取得しないため固定
+            top = 0.dp,
             end = innerPadding.calculateEndPadding(layoutDirection) + adaptiveHorizontalPadding,
             bottom = innerPadding.calculateBottomPadding()
         )
