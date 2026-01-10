@@ -1457,8 +1457,12 @@ fun SpriteSettingsScreen(navController: NavController) {
         val layoutDirection = LocalLayoutDirection.current
         val contentPadding = PaddingValues(
             start = innerPadding.calculateStartPadding(layoutDirection) + adaptiveHorizontalPadding,
-            // [dp] 上: TopAppBar/TabRow の余白を二重取得しないため固定
-            top = 0.dp,
+            // [dp] 上: TopAppBar/TabRow の欠け回避のため innerPadding を基準に調整
+            top = if (selectedTab == SpriteTab.ADJUST) {
+                (innerPadding.calculateTopPadding() - 12.dp).coerceAtLeast(0.dp)
+            } else {
+                innerPadding.calculateTopPadding()
+            },
             end = innerPadding.calculateEndPadding(layoutDirection) + adaptiveHorizontalPadding,
             bottom = innerPadding.calculateBottomPadding()
         )
