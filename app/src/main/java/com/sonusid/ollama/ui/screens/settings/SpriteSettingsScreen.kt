@@ -70,6 +70,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -149,18 +150,195 @@ private fun Modifier.debugBounds(tag: String): Modifier =
     }
 
 private enum class AnimationType(val internalKey: String, val displayLabel: String) {
-    READY("Ready", "Ready"),
-    TALKING("Talking", "Speaking");
+    READY("Ready", "ReadyBlink"),
+    TALKING("Talking", "Speaking"),
+    IDLE("Idle", "Idle"),
+    THINKING("Thinking", "Thinking"),
+    TALK_SHORT("TalkShort", "TalkShort"),
+    TALK_LONG("TalkLong", "TalkLong"),
+    TALK_CALM("TalkCalm", "TalkCalm"),
+    ERROR_LIGHT("ErrorLight", "ErrorLight"),
+    ERROR_HEAVY("ErrorHeavy", "ErrorHeavy"),
+    OFFLINE_ENTER("OfflineEnter", "OfflineEnter"),
+    OFFLINE_LOOP("OfflineLoop", "OfflineLoop"),
+    OFFLINE_EXIT("OfflineExit", "OfflineExit");
 
     companion object {
-        val options = values().toList()
+        val options = listOf(
+            READY,
+            TALKING,
+            IDLE,
+            THINKING,
+            TALK_SHORT,
+            TALK_LONG,
+            TALK_CALM,
+            ERROR_LIGHT,
+            ERROR_HEAVY,
+            OFFLINE_ENTER,
+            OFFLINE_LOOP,
+            OFFLINE_EXIT,
+        )
     }
+
+    val supportsPersistence: Boolean
+        get() = this == READY || this == TALKING
 }
 
 private enum class SpriteTab {
     ANIM,
     ADJUST,
 }
+
+private data class AnimationDefaults(
+    val base: ReadyAnimationSettings,
+    val insertion: InsertionAnimationSettings,
+)
+
+private data class AnimationInputState(
+    val frameInput: String,
+    val intervalInput: String,
+    val framesError: String?,
+    val intervalError: String?,
+    val insertionFrameInput: String,
+    val insertionIntervalInput: String,
+    val insertionEveryNInput: String,
+    val insertionProbabilityInput: String,
+    val insertionCooldownInput: String,
+    val insertionEnabled: Boolean,
+    val insertionExclusive: Boolean,
+    val insertionFramesError: String?,
+    val insertionIntervalError: String?,
+    val insertionEveryNError: String?,
+    val insertionProbabilityError: String?,
+    val insertionCooldownError: String?,
+    val appliedBase: ReadyAnimationSettings,
+    val appliedInsertion: InsertionAnimationSettings,
+)
+
+// 暫定: statusAnimationMap に近い値をここで簡易マッピングする。
+private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapOf(
+    AnimationType.IDLE to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(0, 8, 0, 5, 0), intervalMs = 490),
+        insertion = InsertionAnimationSettings(
+            enabled = true,
+            frameSequence = listOf(0, 0, 8, 0),
+            intervalMs = 490,
+            everyNLoops = 8,
+            probabilityPercent = 100,
+            cooldownLoops = 0,
+            exclusive = false,
+        ),
+    ),
+    AnimationType.THINKING to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(4, 4, 4, 7, 4, 4, 4), intervalMs = 250),
+        insertion = InsertionAnimationSettings(
+            enabled = true,
+            frameSequence = listOf(4, 4, 5, 4),
+            intervalMs = 250,
+            everyNLoops = 4,
+            probabilityPercent = 100,
+            cooldownLoops = 0,
+            exclusive = false,
+        ),
+    ),
+    AnimationType.TALK_SHORT to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(0, 6, 2, 6, 0), intervalMs = 130),
+        insertion = InsertionAnimationSettings.DEFAULT.copy(
+            enabled = false,
+            frameSequence = listOf(0, 6, 2, 6, 0),
+            intervalMs = 130,
+        ),
+    ),
+    AnimationType.TALK_LONG to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(0, 4, 6, 4, 4, 6, 4, 0), intervalMs = 190),
+        insertion = InsertionAnimationSettings(
+            enabled = true,
+            frameSequence = listOf(1),
+            intervalMs = 190,
+            everyNLoops = 2,
+            probabilityPercent = 100,
+            cooldownLoops = 0,
+            exclusive = true,
+        ),
+    ),
+    AnimationType.TALK_CALM to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(7, 4, 7, 8, 7), intervalMs = 280),
+        insertion = InsertionAnimationSettings.DEFAULT.copy(
+            enabled = false,
+            frameSequence = listOf(7, 4, 7, 8, 7),
+            intervalMs = 280,
+        ),
+    ),
+    AnimationType.ERROR_LIGHT to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(5, 7, 5), intervalMs = 390),
+        insertion = InsertionAnimationSettings.DEFAULT.copy(
+            enabled = false,
+            frameSequence = listOf(5, 7, 5),
+            intervalMs = 390,
+        ),
+    ),
+    AnimationType.ERROR_HEAVY to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(5, 5, 5, 7, 5), intervalMs = 400),
+        insertion = InsertionAnimationSettings(
+            enabled = true,
+            frameSequence = listOf(2),
+            intervalMs = 400,
+            everyNLoops = 6,
+            probabilityPercent = 100,
+            cooldownLoops = 0,
+            exclusive = true,
+        ),
+    ),
+    AnimationType.OFFLINE_ENTER to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(0, 8, 8), intervalMs = 1_250),
+        insertion = InsertionAnimationSettings.DEFAULT.copy(
+            enabled = false,
+            frameSequence = listOf(0, 8, 8),
+            intervalMs = 1_250,
+        ),
+    ),
+    AnimationType.OFFLINE_LOOP to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(8, 8), intervalMs = 1_250),
+        insertion = InsertionAnimationSettings.DEFAULT.copy(
+            enabled = false,
+            frameSequence = listOf(8, 8),
+            intervalMs = 1_250,
+        ),
+    ),
+    AnimationType.OFFLINE_EXIT to AnimationDefaults(
+        base = ReadyAnimationSettings(frameSequence = listOf(8, 0), intervalMs = 1_250),
+        insertion = InsertionAnimationSettings.DEFAULT.copy(
+            enabled = false,
+            frameSequence = listOf(8, 0),
+            intervalMs = 1_250,
+        ),
+    ),
+)
+
+private fun List<Int>.toFrameInputText(): String =
+    joinToString(separator = ",") { value -> (value + 1).toString() }
+
+private fun AnimationDefaults.toInputState(): AnimationInputState =
+    AnimationInputState(
+        frameInput = base.frameSequence.toFrameInputText(),
+        intervalInput = base.intervalMs.toString(),
+        framesError = null,
+        intervalError = null,
+        insertionFrameInput = insertion.frameSequence.toFrameInputText(),
+        insertionIntervalInput = insertion.intervalMs.toString(),
+        insertionEveryNInput = insertion.everyNLoops.toString(),
+        insertionProbabilityInput = insertion.probabilityPercent.toString(),
+        insertionCooldownInput = insertion.cooldownLoops.toString(),
+        insertionEnabled = insertion.enabled,
+        insertionExclusive = insertion.exclusive,
+        insertionFramesError = null,
+        insertionIntervalError = null,
+        insertionEveryNError = null,
+        insertionProbabilityError = null,
+        insertionCooldownError = null,
+        appliedBase = base,
+        appliedInsertion = insertion,
+    )
 
 private data class AnimationSummary(
     val label: String,
@@ -599,6 +777,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -747,14 +926,116 @@ fun SpriteSettingsScreen(navController: NavController) {
         return ValidationResult(rawValue, null)
     }
 
+    fun resolveExtraState(target: AnimationType): AnimationInputState {
+        val existing = extraAnimationStates[target]
+        if (existing != null) {
+            return existing
+        }
+        val defaults = requireNotNull(extraAnimationDefaults[target]) { "対象外のアニメ種別です: $target" }
+        val initialState = defaults.toInputState()
+        extraAnimationStates[target] = initialState
+        return initialState
+    }
+
+    fun updateExtraState(target: AnimationType, transform: (AnimationInputState) -> AnimationInputState) {
+        val current = resolveExtraState(target)
+        extraAnimationStates[target] = transform(current)
+    }
+
+    fun resolveInputState(target: AnimationType): AnimationInputState {
+        return when (target) {
+            AnimationType.READY -> AnimationInputState(
+                frameInput = readyFrameInput,
+                intervalInput = readyIntervalInput,
+                framesError = readyFramesError,
+                intervalError = readyIntervalError,
+                insertionFrameInput = readyInsertionFrameInput,
+                insertionIntervalInput = readyInsertionIntervalInput,
+                insertionEveryNInput = readyInsertionEveryNInput,
+                insertionProbabilityInput = readyInsertionProbabilityInput,
+                insertionCooldownInput = readyInsertionCooldownInput,
+                insertionEnabled = readyInsertionEnabled,
+                insertionExclusive = readyInsertionExclusive,
+                insertionFramesError = readyInsertionFramesError,
+                insertionIntervalError = readyInsertionIntervalError,
+                insertionEveryNError = readyInsertionEveryNError,
+                insertionProbabilityError = readyInsertionProbabilityError,
+                insertionCooldownError = readyInsertionCooldownError,
+                appliedBase = ReadyAnimationSettings(
+                    frameSequence = appliedReadyFrames,
+                    intervalMs = appliedReadyIntervalMs,
+                ),
+                appliedInsertion = InsertionAnimationSettings(
+                    enabled = appliedReadyInsertionEnabled,
+                    frameSequence = appliedReadyInsertionFrames,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                ),
+            )
+
+            AnimationType.TALKING -> AnimationInputState(
+                frameInput = talkingFrameInput,
+                intervalInput = talkingIntervalInput,
+                framesError = talkingFramesError,
+                intervalError = talkingIntervalError,
+                insertionFrameInput = talkingInsertionFrameInput,
+                insertionIntervalInput = talkingInsertionIntervalInput,
+                insertionEveryNInput = talkingInsertionEveryNInput,
+                insertionProbabilityInput = talkingInsertionProbabilityInput,
+                insertionCooldownInput = talkingInsertionCooldownInput,
+                insertionEnabled = talkingInsertionEnabled,
+                insertionExclusive = talkingInsertionExclusive,
+                insertionFramesError = talkingInsertionFramesError,
+                insertionIntervalError = talkingInsertionIntervalError,
+                insertionEveryNError = talkingInsertionEveryNError,
+                insertionProbabilityError = talkingInsertionProbabilityError,
+                insertionCooldownError = talkingInsertionCooldownError,
+                appliedBase = ReadyAnimationSettings(
+                    frameSequence = appliedTalkingFrames,
+                    intervalMs = appliedTalkingIntervalMs,
+                ),
+                appliedInsertion = InsertionAnimationSettings(
+                    enabled = appliedTalkingInsertionEnabled,
+                    frameSequence = appliedTalkingInsertionFrames,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                ),
+            )
+
+            else -> resolveExtraState(target)
+        }
+    }
+
+    fun isInsertionEnabled(target: AnimationType): Boolean {
+        return when (target) {
+            AnimationType.READY -> readyInsertionEnabled
+            AnimationType.TALKING -> talkingInsertionEnabled
+            else -> resolveExtraState(target).insertionEnabled
+        }
+    }
+
     fun isBaseInputSynced(target: AnimationType): Boolean {
         val (inputFrames, inputInterval) = when (target) {
             AnimationType.READY -> readyFrameInput to readyIntervalInput
             AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
+            else -> {
+                val state = resolveExtraState(target)
+                state.frameInput to state.intervalInput
+            }
         }
         val (appliedFrames, appliedInterval) = when (target) {
             AnimationType.READY -> appliedReadyFrames to appliedReadyIntervalMs
             AnimationType.TALKING -> appliedTalkingFrames to appliedTalkingIntervalMs
+            else -> {
+                val state = resolveExtraState(target)
+                state.appliedBase.frameSequence to state.appliedBase.intervalMs
+            }
         }
         val framesResult = parseFrameSequenceInput(
             input = inputFrames,
@@ -804,6 +1085,21 @@ fun SpriteSettingsScreen(navController: NavController) {
                 probabilityResult = parseProbabilityPercentInput(talkingInsertionProbabilityInput)
                 cooldownResult = parseCooldownLoopsInput(talkingInsertionCooldownInput)
             }
+
+            else -> {
+                val state = resolveExtraState(target)
+                inputEnabled = state.insertionEnabled
+                inputExclusive = state.insertionExclusive
+                framesResult = parseFrameSequenceInput(
+                    input = state.insertionFrameInput,
+                    frameCount = spriteSheetConfig.frameCount,
+                    duplicateErrorMessage = "挿入フレームは重複しないように入力してください"
+                )
+                intervalResult = parseIntervalMsInput(state.insertionIntervalInput)
+                everyNResult = parseEveryNLoopsInput(state.insertionEveryNInput)
+                probabilityResult = parseProbabilityPercentInput(state.insertionProbabilityInput)
+                cooldownResult = parseCooldownLoopsInput(state.insertionCooldownInput)
+            }
         }
         val inputState = listOf(
             framesResult.value,
@@ -846,6 +1142,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 cooldownLoops = appliedTalkingInsertionCooldownLoops,
                 exclusive = appliedTalkingInsertionExclusive
             )
+
+            else -> resolveExtraState(target).appliedInsertion
         }
 
         if (parsedInsertion.enabled != appliedState.enabled || parsedInsertion.exclusive != appliedState.exclusive) {
@@ -936,6 +1234,10 @@ fun SpriteSettingsScreen(navController: NavController) {
         val (frameInput, intervalInput) = when (target) {
             AnimationType.READY -> readyFrameInput to readyIntervalInput
             AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
+            else -> {
+                val state = resolveExtraState(target)
+                state.frameInput to state.intervalInput
+            }
         }
         val framesResult = parseFrameSequenceInput(
             input = frameInput,
@@ -953,6 +1255,15 @@ fun SpriteSettingsScreen(navController: NavController) {
             AnimationType.TALKING -> {
                 talkingFramesError = framesResult.error
                 talkingIntervalError = intervalResult.error
+            }
+
+            else -> {
+                updateExtraState(target) { state ->
+                    state.copy(
+                        framesError = framesResult.error,
+                        intervalError = intervalResult.error,
+                    )
+                }
             }
         }
 
@@ -992,6 +1303,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                 cooldownInput = talkingInsertionCooldownInput
                 exclusive = talkingInsertionExclusive
             }
+
+            else -> {
+                val state = resolveExtraState(target)
+                frameInput = state.insertionFrameInput
+                intervalInput = state.insertionIntervalInput
+                everyNInput = state.insertionEveryNInput
+                probabilityInput = state.insertionProbabilityInput
+                cooldownInput = state.insertionCooldownInput
+                exclusive = state.insertionExclusive
+            }
         }
         val framesResult = parseFrameSequenceInput(
             input = frameInput,
@@ -1018,6 +1339,18 @@ fun SpriteSettingsScreen(navController: NavController) {
                 talkingInsertionEveryNError = everyNResult.error
                 talkingInsertionProbabilityError = probabilityResult.error
                 talkingInsertionCooldownError = cooldownResult.error
+            }
+
+            else -> {
+                updateExtraState(target) { state ->
+                    state.copy(
+                        insertionFramesError = framesResult.error,
+                        insertionIntervalError = intervalResult.error,
+                        insertionEveryNError = everyNResult.error,
+                        insertionProbabilityError = probabilityResult.error,
+                        insertionCooldownError = cooldownResult.error,
+                    )
+                }
             }
         }
 
@@ -1135,10 +1468,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 showTopSnackbarError("入力が不正です")
                 return@launch
             }
-            val validatedInsertion = if (
-                (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
-                (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
-            ) {
+            val validatedInsertion = if (isInsertionEnabled(selectedAnimation)) {
                 validateInsertionInputs(selectedAnimation) ?: run {
                     showTopSnackbarError("入力が不正です")
                     return@launch
@@ -1156,6 +1486,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                         frameSequence = appliedReadyFrames,
                         intervalMs = appliedReadyIntervalMs
                     )
+                    else -> ReadyAnimationSettings(
+                        frameSequence = appliedReadyFrames,
+                        intervalMs = appliedReadyIntervalMs
+                    )
                 }
                 val talkingBase = when (selectedAnimation) {
                     AnimationType.READY -> ReadyAnimationSettings(
@@ -1163,6 +1497,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                         intervalMs = appliedTalkingIntervalMs
                     )
                     AnimationType.TALKING -> validatedBase
+                    else -> ReadyAnimationSettings(
+                        frameSequence = appliedTalkingFrames,
+                        intervalMs = appliedTalkingIntervalMs
+                    )
                 }
                 val readyInsertion = if (selectedAnimation == AnimationType.READY) {
                     validatedInsertion ?: InsertionAnimationSettings(
@@ -1232,10 +1570,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             showTopSnackbarError("入力が不正です")
             return@onAnimationApply
         }
-        val validatedInsertion = if (
-            (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
-            (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
-        ) {
+        val validatedInsertion = if (isInsertionEnabled(selectedAnimation)) {
             validateInsertionInputs(selectedAnimation) ?: run {
                 showTopSnackbarError("入力が不正です")
                 return@onAnimationApply
@@ -1283,6 +1618,17 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
                 appliedTalkingInsertionExclusive = insertion.exclusive
             }
+
+            else -> {
+                val current = resolveExtraState(selectedAnimation)
+                val insertion = validatedInsertion ?: current.appliedInsertion.copy(enabled = false)
+                updateExtraState(selectedAnimation) { state ->
+                    state.copy(
+                        appliedBase = validatedBase,
+                        appliedInsertion = insertion,
+                    )
+                }
+            }
         }
         showTopSnackbarSuccess("プレビューに適用しました")
     }
@@ -1292,10 +1638,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             showTopSnackbarError("入力が不正です")
             return@onAnimationSave
         }
-        val validatedInsertion = if (
-            (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
-            (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
-        ) {
+        val validatedInsertion = if (isInsertionEnabled(selectedAnimation)) {
             validateInsertionInputs(selectedAnimation) ?: run {
                 showTopSnackbarError("入力が不正です")
                 return@onAnimationSave
@@ -1352,6 +1695,18 @@ fun SpriteSettingsScreen(navController: NavController) {
                     settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
                     showTopSnackbarSuccess("Speakingアニメを保存しました")
                 }
+            }
+
+            else -> {
+                val current = resolveExtraState(selectedAnimation)
+                val insertion = validatedInsertion ?: current.appliedInsertion.copy(enabled = false)
+                updateExtraState(selectedAnimation) { state ->
+                    state.copy(
+                        appliedBase = validatedBase,
+                        appliedInsertion = insertion,
+                    )
+                }
+                showTopSnackbarSuccess("保存先が未対応のため、プレビューのみ更新しました")
             }
         }
     }
@@ -1586,271 +1941,240 @@ fun SpriteSettingsScreen(navController: NavController) {
                         ) {
                             val animationTabContent: @Composable () -> Unit = {
                                 val animationOptions = remember { AnimationType.options }
-                                val selectedFrameInput: String
-                                val selectedIntervalInput: String
-                                val selectedFramesError: String?
-                                val selectedIntervalError: String?
-                                val selectedInsertionFrameInput: String
-                                val selectedInsertionIntervalInput: String
-                                val selectedInsertionEveryNInput: String
-                                val selectedInsertionProbabilityInput: String
-                                val selectedInsertionCooldownInput: String
-                                val selectedInsertionEnabled: Boolean
-                                val selectedInsertionExclusive: Boolean
-                            val selectedInsertionFramesError: String?
-                            val selectedInsertionIntervalError: String?
-                            val selectedInsertionEveryNError: String?
-                            val selectedInsertionProbabilityError: String?
-                            val selectedInsertionCooldownError: String?
-                            when (selectedAnimation) {
-                                AnimationType.READY -> {
-                                    selectedFrameInput = readyFrameInput
-                                    selectedIntervalInput = readyIntervalInput
-                                    selectedFramesError = readyFramesError
-                                    selectedIntervalError = readyIntervalError
-                                    selectedInsertionFrameInput = readyInsertionFrameInput
-                                    selectedInsertionIntervalInput = readyInsertionIntervalInput
-                                    selectedInsertionEveryNInput = readyInsertionEveryNInput
-                                    selectedInsertionProbabilityInput = readyInsertionProbabilityInput
-                                    selectedInsertionCooldownInput = readyInsertionCooldownInput
-                                    selectedInsertionEnabled = readyInsertionEnabled
-                                    selectedInsertionExclusive = readyInsertionExclusive
-                                    selectedInsertionFramesError = readyInsertionFramesError
-                                    selectedInsertionIntervalError = readyInsertionIntervalError
-                                    selectedInsertionEveryNError = readyInsertionEveryNError
-                                    selectedInsertionProbabilityError = readyInsertionProbabilityError
-                                    selectedInsertionCooldownError = readyInsertionCooldownError
+                                val selectedState = resolveInputState(selectedAnimation)
+                                val selectedBaseSummary = remember(
+                                    selectedAnimation,
+                                    selectedState.appliedBase.frameSequence,
+                                    selectedState.appliedBase.intervalMs,
+                                ) {
+                                    AnimationSummary(
+                                        label = selectedAnimation.displayLabel,
+                                        frames = selectedState.appliedBase.frameSequence,
+                                        intervalMs = selectedState.appliedBase.intervalMs,
+                                    )
                                 }
-
-                                AnimationType.TALKING -> {
-                                    selectedFrameInput = talkingFrameInput
-                                    selectedIntervalInput = talkingIntervalInput
-                                    selectedFramesError = talkingFramesError
-                                    selectedIntervalError = talkingIntervalError
-                                    selectedInsertionFrameInput = talkingInsertionFrameInput
-                                    selectedInsertionIntervalInput = talkingInsertionIntervalInput
-                                    selectedInsertionEveryNInput = talkingInsertionEveryNInput
-                                    selectedInsertionProbabilityInput = talkingInsertionProbabilityInput
-                                    selectedInsertionCooldownInput = talkingInsertionCooldownInput
-                                    selectedInsertionEnabled = talkingInsertionEnabled
-                                    selectedInsertionExclusive = talkingInsertionExclusive
-                                    selectedInsertionFramesError = talkingInsertionFramesError
-                                    selectedInsertionIntervalError = talkingInsertionIntervalError
-                                    selectedInsertionEveryNError = talkingInsertionEveryNError
-                                    selectedInsertionProbabilityError = talkingInsertionProbabilityError
-                                    selectedInsertionCooldownError = talkingInsertionCooldownError
+                                val selectedInsertionPreview = remember(
+                                    selectedState.insertionFrameInput,
+                                    selectedState.insertionIntervalInput,
+                                    selectedState.insertionEveryNInput,
+                                    selectedState.insertionProbabilityInput,
+                                    selectedState.insertionCooldownInput,
+                                    selectedState.insertionEnabled,
+                                    selectedState.insertionExclusive,
+                                    spriteSheetConfig.frameCount,
+                                ) {
+                                    buildInsertionPreviewSummary(
+                                        label = "挿入",
+                                        enabled = selectedState.insertionEnabled,
+                                        frameInput = selectedState.insertionFrameInput,
+                                        intervalInput = selectedState.insertionIntervalInput,
+                                        everyNInput = selectedState.insertionEveryNInput,
+                                        probabilityInput = selectedState.insertionProbabilityInput,
+                                        cooldownInput = selectedState.insertionCooldownInput,
+                                        exclusive = selectedState.insertionExclusive,
+                                        frameCount = spriteSheetConfig.frameCount,
+                                    )
                                 }
-                            }
-                            val readyBaseSummary = remember(appliedReadyFrames, appliedReadyIntervalMs) {
-                                AnimationSummary(
-                                    label = AnimationType.READY.displayLabel,
-                                    frames = appliedReadyFrames,
-                                    intervalMs = appliedReadyIntervalMs
+                                val (selectedInsertionSummary, selectedInsertionPreviewValues) = selectedInsertionPreview
+                                val selectionState = AnimationSelectionState(
+                                    selectedAnimation = selectedAnimation,
+                                    animationOptions = animationOptions,
+                                    onSelectedAnimationChange = { selectedAnimation = it }
                                 )
-                            }
-                            val talkingBaseSummary = remember(appliedTalkingFrames, appliedTalkingIntervalMs) {
-                                AnimationSummary(
-                                    label = AnimationType.TALKING.displayLabel,
-                                    frames = appliedTalkingFrames,
-                                    intervalMs = appliedTalkingIntervalMs
+                                val baseState = BaseAnimationUiState(
+                                    frameInput = selectedState.frameInput,
+                                    onFrameInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyFrameInput = updated
+                                                readyFramesError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingFrameInput = updated
+                                                talkingFramesError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    frameInput = updated,
+                                                    framesError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    intervalInput = selectedState.intervalInput,
+                                    onIntervalInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyIntervalInput = updated
+                                                readyIntervalError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingIntervalInput = updated
+                                                talkingIntervalError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    intervalInput = updated,
+                                                    intervalError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    framesError = selectedState.framesError,
+                                    intervalError = selectedState.intervalError,
+                                    summary = selectedBaseSummary
                                 )
-                            }
-                            val readyInsertionPreview = remember(
-                                readyInsertionFrameInput,
-                                readyInsertionIntervalInput,
-                                readyInsertionEveryNInput,
-                                readyInsertionProbabilityInput,
-                                readyInsertionCooldownInput,
-                                readyInsertionEnabled,
-                                readyInsertionExclusive,
-                                spriteSheetConfig.frameCount
-                            ) {
-                                buildInsertionPreviewSummary(
-                                    label = "挿入",
-                                    enabled = readyInsertionEnabled,
-                                    frameInput = readyInsertionFrameInput,
-                                    intervalInput = readyInsertionIntervalInput,
-                                    everyNInput = readyInsertionEveryNInput,
-                                    probabilityInput = readyInsertionProbabilityInput,
-                                    cooldownInput = readyInsertionCooldownInput,
-                                    exclusive = readyInsertionExclusive,
-                                    frameCount = spriteSheetConfig.frameCount
+                                val insertionState = InsertionAnimationUiState(
+                                    frameInput = selectedState.insertionFrameInput,
+                                    onFrameInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyInsertionFrameInput = updated
+                                                readyInsertionFramesError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingInsertionFrameInput = updated
+                                                talkingInsertionFramesError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    insertionFrameInput = updated,
+                                                    insertionFramesError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    intervalInput = selectedState.insertionIntervalInput,
+                                    onIntervalInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyInsertionIntervalInput = updated
+                                                readyInsertionIntervalError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingInsertionIntervalInput = updated
+                                                talkingInsertionIntervalError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    insertionIntervalInput = updated,
+                                                    insertionIntervalError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    everyNInput = selectedState.insertionEveryNInput,
+                                    onEveryNInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyInsertionEveryNInput = updated
+                                                readyInsertionEveryNError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingInsertionEveryNInput = updated
+                                                talkingInsertionEveryNError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    insertionEveryNInput = updated,
+                                                    insertionEveryNError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    probabilityInput = selectedState.insertionProbabilityInput,
+                                    onProbabilityInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyInsertionProbabilityInput = updated
+                                                readyInsertionProbabilityError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingInsertionProbabilityInput = updated
+                                                talkingInsertionProbabilityError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    insertionProbabilityInput = updated,
+                                                    insertionProbabilityError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    cooldownInput = selectedState.insertionCooldownInput,
+                                    onCooldownInputChange = { updated ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> {
+                                                readyInsertionCooldownInput = updated
+                                                readyInsertionCooldownError = null
+                                            }
+
+                                            AnimationType.TALKING -> {
+                                                talkingInsertionCooldownInput = updated
+                                                talkingInsertionCooldownError = null
+                                            }
+
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(
+                                                    insertionCooldownInput = updated,
+                                                    insertionCooldownError = null,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    enabled = selectedState.insertionEnabled,
+                                    onEnabledChange = { checked ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> readyInsertionEnabled = checked
+                                            AnimationType.TALKING -> talkingInsertionEnabled = checked
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(insertionEnabled = checked)
+                                            }
+                                        }
+                                    },
+                                    exclusive = selectedState.insertionExclusive,
+                                    onExclusiveChange = { checked ->
+                                        when (selectedAnimation) {
+                                            AnimationType.READY -> readyInsertionExclusive = checked
+                                            AnimationType.TALKING -> talkingInsertionExclusive = checked
+                                            else -> updateExtraState(selectedAnimation) { state ->
+                                                state.copy(insertionExclusive = checked)
+                                            }
+                                        }
+                                    },
+                                    framesError = selectedState.insertionFramesError,
+                                    intervalError = selectedState.insertionIntervalError,
+                                    everyNError = selectedState.insertionEveryNError,
+                                    probabilityError = selectedState.insertionProbabilityError,
+                                    cooldownError = selectedState.insertionCooldownError,
+                                    summary = selectedInsertionSummary,
+                                    previewValues = selectedInsertionPreviewValues
                                 )
-                            }
-                            val talkingInsertionPreview = remember(
-                                talkingInsertionFrameInput,
-                                talkingInsertionIntervalInput,
-                                talkingInsertionEveryNInput,
-                                talkingInsertionProbabilityInput,
-                                talkingInsertionCooldownInput,
-                                talkingInsertionEnabled,
-                                talkingInsertionExclusive,
-                                spriteSheetConfig.frameCount
-                            ) {
-                                buildInsertionPreviewSummary(
-                                    label = "挿入",
-                                    enabled = talkingInsertionEnabled,
-                                    frameInput = talkingInsertionFrameInput,
-                                    intervalInput = talkingInsertionIntervalInput,
-                                    everyNInput = talkingInsertionEveryNInput,
-                                    probabilityInput = talkingInsertionProbabilityInput,
-                                    cooldownInput = talkingInsertionCooldownInput,
-                                    exclusive = talkingInsertionExclusive,
-                                    frameCount = spriteSheetConfig.frameCount
+                                ReadyAnimationTab(
+                                    imageBitmap = imageBitmap,
+                                    spriteSheetConfig = spriteSheetConfig,
+                                    selectionState = selectionState,
+                                    baseState = baseState,
+                                    insertionState = insertionState,
+                                    isImeVisible = imeVisible,
+                                    contentPadding = contentPadding,
+                                    devUnlocked = devUnlocked,
+                                    devSettings = devPreviewSettings,
+                                    onDevSettingsChange = { updated -> devPreviewSettings = updated },
+                                    initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
                                 )
-                            }
-                            val (selectedInsertionSummary, selectedInsertionPreviewValues) = when (selectedAnimation) {
-                                AnimationType.READY -> readyInsertionPreview
-                                AnimationType.TALKING -> talkingInsertionPreview
-                            }
-                            val selectedBaseSummary = when (selectedAnimation) {
-                                AnimationType.READY -> readyBaseSummary
-                                AnimationType.TALKING -> talkingBaseSummary
-                            }
-                            val selectionState = AnimationSelectionState(
-                                selectedAnimation = selectedAnimation,
-                                animationOptions = animationOptions,
-                                onSelectedAnimationChange = { selectedAnimation = it }
-                            )
-                            val baseState = BaseAnimationUiState(
-                                frameInput = selectedFrameInput,
-                                onFrameInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyFrameInput = updated
-                                            readyFramesError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingFrameInput = updated
-                                            talkingFramesError = null
-                                        }
-                                    }
-                                },
-                                intervalInput = selectedIntervalInput,
-                                onIntervalInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyIntervalInput = updated
-                                            readyIntervalError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingIntervalInput = updated
-                                            talkingIntervalError = null
-                                        }
-                                    }
-                                },
-                                framesError = selectedFramesError,
-                                intervalError = selectedIntervalError,
-                                summary = selectedBaseSummary
-                            )
-                            val insertionState = InsertionAnimationUiState(
-                                frameInput = selectedInsertionFrameInput,
-                                onFrameInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyInsertionFrameInput = updated
-                                            readyInsertionFramesError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingInsertionFrameInput = updated
-                                            talkingInsertionFramesError = null
-                                        }
-                                    }
-                                },
-                                intervalInput = selectedInsertionIntervalInput,
-                                onIntervalInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyInsertionIntervalInput = updated
-                                            readyInsertionIntervalError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingInsertionIntervalInput = updated
-                                            talkingInsertionIntervalError = null
-                                        }
-                                    }
-                                },
-                                everyNInput = selectedInsertionEveryNInput,
-                                onEveryNInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyInsertionEveryNInput = updated
-                                            readyInsertionEveryNError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingInsertionEveryNInput = updated
-                                            talkingInsertionEveryNError = null
-                                        }
-                                    }
-                                },
-                                probabilityInput = selectedInsertionProbabilityInput,
-                                onProbabilityInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyInsertionProbabilityInput = updated
-                                            readyInsertionProbabilityError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingInsertionProbabilityInput = updated
-                                            talkingInsertionProbabilityError = null
-                                        }
-                                    }
-                                },
-                                cooldownInput = selectedInsertionCooldownInput,
-                                onCooldownInputChange = { updated ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> {
-                                            readyInsertionCooldownInput = updated
-                                            readyInsertionCooldownError = null
-                                        }
-
-                                        AnimationType.TALKING -> {
-                                            talkingInsertionCooldownInput = updated
-                                            talkingInsertionCooldownError = null
-                                        }
-                                    }
-                                },
-                                enabled = selectedInsertionEnabled,
-                                onEnabledChange = { checked ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> readyInsertionEnabled = checked
-                                        AnimationType.TALKING -> talkingInsertionEnabled = checked
-                                    }
-                                },
-                                exclusive = selectedInsertionExclusive,
-                                onExclusiveChange = { checked ->
-                                    when (selectedAnimation) {
-                                        AnimationType.READY -> readyInsertionExclusive = checked
-                                        AnimationType.TALKING -> talkingInsertionExclusive = checked
-                                    }
-                                },
-                                framesError = selectedInsertionFramesError,
-                                intervalError = selectedInsertionIntervalError,
-                                everyNError = selectedInsertionEveryNError,
-                                probabilityError = selectedInsertionProbabilityError,
-                                cooldownError = selectedInsertionCooldownError,
-                                summary = selectedInsertionSummary,
-                                previewValues = selectedInsertionPreviewValues
-                            )
-                            ReadyAnimationTab(
-                                imageBitmap = imageBitmap,
-                                spriteSheetConfig = spriteSheetConfig,
-                                selectionState = selectionState,
-                                baseState = baseState,
-                                insertionState = insertionState,
-                                isImeVisible = imeVisible,
-                                contentPadding = contentPadding,
-                                devUnlocked = devUnlocked,
-                                devSettings = devPreviewSettings,
-                                onDevSettingsChange = { updated -> devPreviewSettings = updated },
-                                initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
-                            )
                         }
 
                         when (selectedTab) {
