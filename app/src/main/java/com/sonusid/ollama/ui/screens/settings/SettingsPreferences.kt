@@ -10,6 +10,8 @@ import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.normalize
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.random.Random
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
@@ -84,6 +86,9 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
     private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
+    // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
+    // JSON形式: { "version": 1, "animations": { "<internalKey>": { "base": {...}, "insertion": {...} } } }
+    private val allAnimationsJsonKey = stringPreferencesKey("sprite_all_animations_json")
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
@@ -93,6 +98,10 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteSheetConfigJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteSheetConfigKey]
+    }
+
+    val allAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[allAnimationsJsonKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -235,6 +244,12 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveAllAnimationsJson(json: String) {
+        context.dataStore.edit { preferences ->
+            preferences[allAnimationsJsonKey] = json
+        }
+    }
+
     suspend fun resetSpriteSheetConfig() {
         saveSpriteSheetConfig(defaultSpriteSheetConfig)
     }
@@ -275,6 +290,197 @@ class SettingsPreferences(private val context: Context) {
             preferences[talkingInsertionCooldownLoopsKey] = settings.cooldownLoops
             preferences[talkingInsertionExclusiveKey] = settings.exclusive
         }
+    }
+
+    fun buildAllAnimationsJsonFromLegacy(
+        readyBase: ReadyAnimationSettings,
+        readyInsertion: InsertionAnimationSettings,
+        talkingBase: ReadyAnimationSettings,
+        talkingInsertion: InsertionAnimationSettings,
+    ): String {
+        val animations = JSONObject()
+        animations.put(
+            ALL_ANIMATIONS_READY_KEY,
+            JSONObject()
+                .put(JSON_BASE_KEY, normalizeReadySettings(readyBase).toJsonObject())
+                .put(JSON_INSERTION_KEY, normalizeInsertionSettings(readyInsertion).toJsonObject())
+        )
+        animations.put(
+            ALL_ANIMATIONS_TALKING_KEY,
+            JSONObject()
+                .put(JSON_BASE_KEY, normalizeReadySettings(talkingBase).toJsonObject())
+                .put(JSON_INSERTION_KEY, normalizeInsertionSettings(talkingInsertion).toJsonObject())
+        )
+        return JSONObject()
+            .put(JSON_VERSION_KEY, ALL_ANIMATIONS_JSON_VERSION)
+            .put(JSON_ANIMATIONS_KEY, animations)
+            .toString()
+    }
+
+    fun parseAndValidateAllAnimationsJson(json: String): Result<String> = runCatching {
+        val root = JSONObject(json)
+        val version = root.optInt(JSON_VERSION_KEY, -1)
+        if (version != ALL_ANIMATIONS_JSON_VERSION) {
+            error("unsupported version: $version")
+        }
+        val animationsObject = root.optJSONObject(JSON_ANIMATIONS_KEY)
+            ?: error("animations is missing")
+        val normalizedAnimations = JSONObject()
+        val keys = animationsObject.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val animationObject = animationsObject.optJSONObject(key) ?: continue
+            val baseObject = animationObject.optJSONObject(JSON_BASE_KEY)
+            val insertionObject = animationObject.optJSONObject(JSON_INSERTION_KEY)
+            val normalizedBase = parseReadySettings(baseObject).toJsonObject()
+            val normalizedInsertion = parseInsertionSettings(insertionObject).toJsonObject()
+            normalizedAnimations.put(
+                key,
+                JSONObject()
+                    .put(JSON_BASE_KEY, normalizedBase)
+                    .put(JSON_INSERTION_KEY, normalizedInsertion)
+            )
+        }
+        JSONObject()
+            .put(JSON_VERSION_KEY, ALL_ANIMATIONS_JSON_VERSION)
+            .put(JSON_ANIMATIONS_KEY, normalizedAnimations)
+            .toString()
+    }
+
+    fun legacyToAllAnimationsJsonOrNull(
+        currentAllAnimationsJson: String?,
+        readyBase: ReadyAnimationSettings,
+        readyInsertion: InsertionAnimationSettings,
+        talkingBase: ReadyAnimationSettings,
+        talkingInsertion: InsertionAnimationSettings,
+    ): String? {
+        if (!currentAllAnimationsJson.isNullOrBlank()) return null
+        return buildAllAnimationsJsonFromLegacy(
+            readyBase = readyBase,
+            readyInsertion = readyInsertion,
+            talkingBase = talkingBase,
+            talkingInsertion = talkingInsertion,
+        )
+    }
+
+    private fun parseReadySettings(json: JSONObject?): ReadyAnimationSettings {
+        val frames = parseFrames(json?.optJSONArray(JSON_FRAMES_KEY), ReadyAnimationSettings.DEFAULT.frameSequence)
+        val intervalMs = (json?.optInt(JSON_INTERVAL_MS_KEY, ReadyAnimationSettings.DEFAULT.intervalMs)
+            ?: ReadyAnimationSettings.DEFAULT.intervalMs)
+            .coerceIn(ReadyAnimationSettings.MIN_INTERVAL_MS, ReadyAnimationSettings.MAX_INTERVAL_MS)
+        return ReadyAnimationSettings(frameSequence = frames, intervalMs = intervalMs)
+    }
+
+    private fun parseInsertionSettings(json: JSONObject?): InsertionAnimationSettings {
+        val frames = parseFrames(json?.optJSONArray(JSON_FRAMES_KEY), InsertionAnimationSettings.DEFAULT.frameSequence)
+        val intervalMs = (json?.optInt(JSON_INTERVAL_MS_KEY, InsertionAnimationSettings.DEFAULT.intervalMs)
+            ?: InsertionAnimationSettings.DEFAULT.intervalMs)
+            .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
+        val everyNLoops = (json?.optInt(JSON_EVERY_N_LOOPS_KEY, InsertionAnimationSettings.DEFAULT.everyNLoops)
+            ?: InsertionAnimationSettings.DEFAULT.everyNLoops)
+            .coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
+        val probabilityPercent = (json?.optInt(
+            JSON_PROBABILITY_PERCENT_KEY,
+            InsertionAnimationSettings.DEFAULT.probabilityPercent
+        ) ?: InsertionAnimationSettings.DEFAULT.probabilityPercent)
+            .coerceIn(
+                InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
+                InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
+            )
+        val cooldownLoops = (json?.optInt(JSON_COOLDOWN_LOOPS_KEY, InsertionAnimationSettings.DEFAULT.cooldownLoops)
+            ?: InsertionAnimationSettings.DEFAULT.cooldownLoops)
+            .coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
+        val enabled = json?.optBoolean(JSON_ENABLED_KEY, InsertionAnimationSettings.DEFAULT.enabled)
+            ?: InsertionAnimationSettings.DEFAULT.enabled
+        val exclusive = json?.optBoolean(JSON_EXCLUSIVE_KEY, InsertionAnimationSettings.DEFAULT.exclusive)
+            ?: InsertionAnimationSettings.DEFAULT.exclusive
+        return InsertionAnimationSettings(
+            enabled = enabled,
+            frameSequence = frames,
+            intervalMs = intervalMs,
+            everyNLoops = everyNLoops,
+            probabilityPercent = probabilityPercent,
+            cooldownLoops = cooldownLoops,
+            exclusive = exclusive,
+        )
+    }
+
+    private fun normalizeReadySettings(settings: ReadyAnimationSettings): ReadyAnimationSettings =
+        ReadyAnimationSettings(
+            frameSequence = settings.frameSequence
+                .filter { it in 0 until defaultSpriteSheetConfig.frameCount }
+                .ifEmpty { ReadyAnimationSettings.DEFAULT.frameSequence },
+            intervalMs = settings.intervalMs.coerceIn(
+                ReadyAnimationSettings.MIN_INTERVAL_MS,
+                ReadyAnimationSettings.MAX_INTERVAL_MS
+            ),
+        )
+
+    private fun normalizeInsertionSettings(settings: InsertionAnimationSettings): InsertionAnimationSettings =
+        InsertionAnimationSettings(
+            enabled = settings.enabled,
+            frameSequence = settings.frameSequence
+                .filter { it in 0 until defaultSpriteSheetConfig.frameCount }
+                .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence },
+            intervalMs = settings.intervalMs.coerceIn(
+                InsertionAnimationSettings.MIN_INTERVAL_MS,
+                InsertionAnimationSettings.MAX_INTERVAL_MS
+            ),
+            everyNLoops = settings.everyNLoops.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS),
+            probabilityPercent = settings.probabilityPercent.coerceIn(
+                InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
+                InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
+            ),
+            cooldownLoops = settings.cooldownLoops.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS),
+            exclusive = settings.exclusive,
+        )
+
+    private fun parseFrames(array: JSONArray?, defaultSequence: List<Int>): List<Int> {
+        if (array == null) return defaultSequence
+        val frames = buildList {
+            for (index in 0 until array.length()) {
+                val value = array.optInt(index, -1)
+                if (value in 0 until defaultSpriteSheetConfig.frameCount) {
+                    add(value)
+                }
+            }
+        }
+        return frames.ifEmpty { defaultSequence }
+    }
+
+    private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
+        JSONObject()
+            .put(JSON_FRAMES_KEY, frameSequence.toJsonArray())
+            .put(JSON_INTERVAL_MS_KEY, intervalMs)
+
+    private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
+        JSONObject()
+            .put(JSON_ENABLED_KEY, enabled)
+            .put(JSON_FRAMES_KEY, frameSequence.toJsonArray())
+            .put(JSON_INTERVAL_MS_KEY, intervalMs)
+            .put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
+            .put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
+            .put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
+            .put(JSON_EXCLUSIVE_KEY, exclusive)
+
+    private fun List<Int>.toJsonArray(): JSONArray =
+        JSONArray().also { array -> forEach { array.put(it) } }
+
+    private companion object {
+        const val ALL_ANIMATIONS_JSON_VERSION = 1
+        const val ALL_ANIMATIONS_READY_KEY = "Ready"
+        const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
+        const val JSON_VERSION_KEY = "version"
+        const val JSON_ANIMATIONS_KEY = "animations"
+        const val JSON_BASE_KEY = "base"
+        const val JSON_INSERTION_KEY = "insertion"
+        const val JSON_ENABLED_KEY = "enabled"
+        const val JSON_FRAMES_KEY = "frames"
+        const val JSON_INTERVAL_MS_KEY = "intervalMs"
+        const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
+        const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
+        const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
+        const val JSON_EXCLUSIVE_KEY = "exclusive"
     }
 }
 
