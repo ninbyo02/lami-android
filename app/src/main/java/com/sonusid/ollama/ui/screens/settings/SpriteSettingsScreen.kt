@@ -2304,16 +2304,11 @@ private fun ReadyAnimationTab(
                         Row(
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            // 横: Switch との間隔を安定化するため spacedBy を指定
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(
                                 // [非dp] 横: 入力欄 の weight(制約)に関係
-                                modifier = Modifier
-                                    .weight(1f)
-                                    // 右: Switch との余白確保のため end padding を最小付与
-                                    .padding(end = 12.dp)
+                                modifier = Modifier.weight(1f)
                             ) {
                                 Text("Exclusive（挿入を抑制）")
                                 Text(
