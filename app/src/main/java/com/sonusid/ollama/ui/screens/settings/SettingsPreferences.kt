@@ -34,9 +34,13 @@ data class ReadyAnimationSettings(
     }
 }
 
+data class InsertionPattern(
+    val frameSequence: List<Int>,
+)
+
 data class InsertionAnimationSettings(
     val enabled: Boolean,
-    val frameSequence: List<Int>,
+    val patterns: List<InsertionPattern>,
     val intervalMs: Int,
     val everyNLoops: Int,
     val probabilityPercent: Int,
@@ -46,7 +50,7 @@ data class InsertionAnimationSettings(
     companion object {
         val DEFAULT = InsertionAnimationSettings(
             enabled = false,
-            frameSequence = listOf(3, 4, 5),
+            patterns = listOf(InsertionPattern(frameSequence = listOf(3, 4, 5))),
             intervalMs = 200,
             everyNLoops = 1,
             probabilityPercent = 50,
@@ -149,13 +153,11 @@ class SettingsPreferences(private val context: Context) {
     }
 
     val readyInsertionAnimationSettings: Flow<InsertionAnimationSettings> = context.dataStore.data.map { preferences ->
-        val frameSequenceString = preferences[readyInsertionFrameSequenceKey]
-        val parsedFrames = frameSequenceString
-            ?.split(",")
-            ?.mapNotNull { value -> value.trim().toIntOrNull() }
-            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
-            .orEmpty()
-            .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence }
+        val patternsText = preferences[readyInsertionFrameSequenceKey]
+        val parsedPatterns = parseInsertionPatternsFromText(
+            text = patternsText,
+            fallback = InsertionAnimationSettings.DEFAULT.patterns,
+        )
 
         val intervalMs = preferences[readyInsertionIntervalMsKey]
             ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
@@ -181,7 +183,7 @@ class SettingsPreferences(private val context: Context) {
 
         InsertionAnimationSettings(
             enabled = enabled,
-            frameSequence = parsedFrames,
+            patterns = parsedPatterns,
             intervalMs = intervalMs,
             everyNLoops = everyNLoops,
             probabilityPercent = probabilityPercent,
@@ -191,13 +193,11 @@ class SettingsPreferences(private val context: Context) {
     }
 
     val talkingInsertionAnimationSettings: Flow<InsertionAnimationSettings> = context.dataStore.data.map { preferences ->
-        val frameSequenceString = preferences[talkingInsertionFrameSequenceKey]
-        val parsedFrames = frameSequenceString
-            ?.split(",")
-            ?.mapNotNull { value -> value.trim().toIntOrNull() }
-            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
-            .orEmpty()
-            .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence }
+        val patternsText = preferences[talkingInsertionFrameSequenceKey]
+        val parsedPatterns = parseInsertionPatternsFromText(
+            text = patternsText,
+            fallback = InsertionAnimationSettings.DEFAULT.patterns,
+        )
 
         val intervalMs = preferences[talkingInsertionIntervalMsKey]
             ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
@@ -223,7 +223,7 @@ class SettingsPreferences(private val context: Context) {
 
         InsertionAnimationSettings(
             enabled = enabled,
-            frameSequence = parsedFrames,
+            patterns = parsedPatterns,
             intervalMs = intervalMs,
             everyNLoops = everyNLoops,
             probabilityPercent = probabilityPercent,
@@ -271,7 +271,7 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveReadyInsertionAnimationSettings(settings: InsertionAnimationSettings) {
         context.dataStore.edit { preferences ->
             preferences[readyInsertionEnabledKey] = settings.enabled
-            preferences[readyInsertionFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
+            preferences[readyInsertionFrameSequenceKey] = settings.patterns.toStorageText()
             preferences[readyInsertionIntervalMsKey] = settings.intervalMs
             preferences[readyInsertionEveryNLoopsKey] = settings.everyNLoops
             preferences[readyInsertionProbabilityKey] = settings.probabilityPercent
@@ -283,7 +283,7 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveTalkingInsertionAnimationSettings(settings: InsertionAnimationSettings) {
         context.dataStore.edit { preferences ->
             preferences[talkingInsertionEnabledKey] = settings.enabled
-            preferences[talkingInsertionFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
+            preferences[talkingInsertionFrameSequenceKey] = settings.patterns.toStorageText()
             preferences[talkingInsertionIntervalMsKey] = settings.intervalMs
             preferences[talkingInsertionEveryNLoopsKey] = settings.everyNLoops
             preferences[talkingInsertionProbabilityKey] = settings.probabilityPercent
@@ -372,7 +372,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     private fun parseInsertionSettings(json: JSONObject?): InsertionAnimationSettings {
-        val frames = parseFrames(json?.optJSONArray(JSON_FRAMES_KEY), InsertionAnimationSettings.DEFAULT.frameSequence)
+        val patterns = parseInsertionPatterns(json)
         val intervalMs = (json?.optInt(JSON_INTERVAL_MS_KEY, InsertionAnimationSettings.DEFAULT.intervalMs)
             ?: InsertionAnimationSettings.DEFAULT.intervalMs)
             .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
@@ -396,7 +396,7 @@ class SettingsPreferences(private val context: Context) {
             ?: InsertionAnimationSettings.DEFAULT.exclusive
         return InsertionAnimationSettings(
             enabled = enabled,
-            frameSequence = frames,
+            patterns = patterns,
             intervalMs = intervalMs,
             everyNLoops = everyNLoops,
             probabilityPercent = probabilityPercent,
@@ -419,9 +419,7 @@ class SettingsPreferences(private val context: Context) {
     private fun normalizeInsertionSettings(settings: InsertionAnimationSettings): InsertionAnimationSettings =
         InsertionAnimationSettings(
             enabled = settings.enabled,
-            frameSequence = settings.frameSequence
-                .filter { it in 0 until defaultSpriteSheetConfig.frameCount }
-                .ifEmpty { InsertionAnimationSettings.DEFAULT.frameSequence },
+            patterns = normalizeInsertionPatterns(settings.patterns),
             intervalMs = settings.intervalMs.coerceIn(
                 InsertionAnimationSettings.MIN_INTERVAL_MS,
                 InsertionAnimationSettings.MAX_INTERVAL_MS
@@ -434,6 +432,67 @@ class SettingsPreferences(private val context: Context) {
             cooldownLoops = settings.cooldownLoops.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS),
             exclusive = settings.exclusive,
         )
+
+    private fun parseInsertionPatterns(json: JSONObject?): List<InsertionPattern> {
+        val patternsArray = json?.optJSONArray(JSON_PATTERNS_KEY)
+        if (patternsArray != null) {
+            val parsedPatterns = buildList {
+                for (index in 0 until patternsArray.length()) {
+                    val patternObject = patternsArray.optJSONObject(index) ?: continue
+                    val frames = parsePatternFrames(patternObject.optJSONArray(JSON_FRAMES_KEY))
+                    if (frames.isNotEmpty()) {
+                        add(InsertionPattern(frameSequence = frames))
+                    }
+                }
+            }
+            return parsedPatterns
+        }
+        val legacyFrames = json?.optJSONArray(JSON_FRAMES_KEY)?.let { array ->
+            parseFrames(array, InsertionAnimationSettings.DEFAULT.patterns.first().frameSequence)
+        } ?: InsertionAnimationSettings.DEFAULT.patterns.first().frameSequence
+        return listOf(InsertionPattern(frameSequence = legacyFrames))
+    }
+
+    private fun parsePatternFrames(array: JSONArray?): List<Int> {
+        if (array == null) return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                val value = array.optInt(index, -1)
+                if (value in 0 until defaultSpriteSheetConfig.frameCount) {
+                    add(value)
+                }
+            }
+        }
+    }
+
+    private fun parseInsertionPatternsFromText(
+        text: String?,
+        fallback: List<InsertionPattern>,
+    ): List<InsertionPattern> {
+        if (text.isNullOrBlank()) return fallback
+        val rawPatterns = text
+            .replace("｜", "|")
+            .split("|")
+            .map { token -> token.trim() }
+            .filter { token -> token.isNotEmpty() }
+        if (rawPatterns.isEmpty()) return fallback
+        val parsed = rawPatterns.mapNotNull { patternText ->
+            val frames = patternText
+                .split(",")
+                .mapNotNull { value -> value.trim().toIntOrNull() }
+                .filter { it in 0 until defaultSpriteSheetConfig.frameCount }
+            if (frames.isEmpty()) null else InsertionPattern(frameSequence = frames)
+        }
+        return parsed.ifEmpty { fallback }
+    }
+
+    private fun normalizeInsertionPatterns(patterns: List<InsertionPattern>): List<InsertionPattern> {
+        if (patterns.isEmpty()) return emptyList()
+        return patterns.mapNotNull { pattern ->
+            val frames = pattern.frameSequence.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
+            if (frames.isEmpty()) null else InsertionPattern(frameSequence = frames)
+        }
+    }
 
     private fun parseFrames(array: JSONArray?, defaultSequence: List<Int>): List<Int> {
         if (array == null) return defaultSequence
@@ -456,15 +515,30 @@ class SettingsPreferences(private val context: Context) {
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
         JSONObject()
             .put(JSON_ENABLED_KEY, enabled)
-            .put(JSON_FRAMES_KEY, frameSequence.toJsonArray())
+            .put(JSON_PATTERNS_KEY, patterns.toJsonArray())
             .put(JSON_INTERVAL_MS_KEY, intervalMs)
             .put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
             .put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
             .put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
             .put(JSON_EXCLUSIVE_KEY, exclusive)
 
+    private fun List<InsertionPattern>.toJsonArray(): JSONArray =
+        JSONArray().also { array ->
+            forEach { pattern ->
+                array.put(
+                    JSONObject()
+                        .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
+                )
+            }
+        }
+
     private fun List<Int>.toJsonArray(): JSONArray =
         JSONArray().also { array -> forEach { array.put(it) } }
+
+    private fun List<InsertionPattern>.toStorageText(): String =
+        joinToString(separator = " | ") { pattern ->
+            pattern.frameSequence.joinToString(separator = ",")
+        }
 
     private companion object {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
@@ -475,6 +549,7 @@ class SettingsPreferences(private val context: Context) {
         const val JSON_BASE_KEY = "base"
         const val JSON_INSERTION_KEY = "insertion"
         const val JSON_ENABLED_KEY = "enabled"
+        const val JSON_PATTERNS_KEY = "patterns"
         const val JSON_FRAMES_KEY = "frames"
         const val JSON_INTERVAL_MS_KEY = "intervalMs"
         const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
