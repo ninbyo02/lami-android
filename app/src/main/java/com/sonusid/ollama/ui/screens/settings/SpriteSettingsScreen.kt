@@ -734,20 +734,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     val talkingAnimationSettings by settingsPreferences.talkingAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
     val readyInsertionAnimationSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
     val talkingInsertionAnimationSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
-    // 段階1: spriteAnimationsJson があれば優先しつつ、UI反映は段階2以降で実装予定。
-    @Suppress("UNUSED_VARIABLE")
-    val compositeAnimations = remember(
-        spriteAnimationsJson,
-        readyAnimationSettings,
-        talkingAnimationSettings,
-        readyInsertionAnimationSettings,
-        talkingInsertionAnimationSettings,
-    ) {
-        val legacyDefaults = resolveLegacyDefaultsFromSettings()
-        val json = spriteAnimationsJson?.takeIf { it.isNotBlank() } ?: return@remember legacyDefaults
-        importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
-    }
-
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
@@ -1704,6 +1690,22 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         }
         return ValidationResult(AllAnimations(resolved), null)
+    }
+
+    // 段階1: spriteAnimationsJson があれば優先しつつ、UI反映は段階2以降で実装予定。
+    @Suppress("UNUSED_VARIABLE")
+    val compositeAnimations = remember(
+        spriteAnimationsJson,
+        readyAnimationSettings,
+        talkingAnimationSettings,
+        readyInsertionAnimationSettings,
+        talkingInsertionAnimationSettings,
+    ) {
+        val legacyDefaults = resolveLegacyDefaultsFromSettings()
+        val json = spriteAnimationsJson?.takeIf { value: String ->
+            value.isNotBlank()
+        } ?: return@remember legacyDefaults
+        importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
     }
 
     fun saveSpriteSheetConfig() {
