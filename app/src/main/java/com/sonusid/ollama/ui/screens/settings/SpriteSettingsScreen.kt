@@ -1940,6 +1940,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
+        }
+            // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier
@@ -1966,7 +1968,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     Text(text = data.visuals.message)
                 }
             }
-        }
     }
 }
 
