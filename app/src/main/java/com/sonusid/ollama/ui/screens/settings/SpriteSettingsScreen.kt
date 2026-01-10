@@ -2012,24 +2012,25 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    val layoutDirection = LocalLayoutDirection.current
     val imeBottomPaddingDp = with(density) {
         imeBottomPx.toDp()
     }
-    val listTopExtraPadding = if (configuration.screenHeightDp < 660) 8.dp else 12.dp
     val imeExtraPadding = if (isImeVisible) 14.dp else 0.dp
-    // [非dp] 下: IME の insets(インセット)に関係
-    val bottomContentPadding = if (isImeVisible) {
-        contentPadding.calculateBottomPadding() + imeBottomPaddingDp + imeExtraPadding
+    // [dp] 下: IME の insets(インセット)に関係
+    val listBottomPadding = if (isImeVisible) {
+        imeBottomPaddingDp + imeExtraPadding
     } else {
-        contentPadding.calculateBottomPadding()
+        0.dp
     }
     // [dp] 四方向: リスト の余白(余白)に関係
     val listContentPadding = PaddingValues(
-        start = contentPadding.calculateStartPadding(layoutDirection),
-        top = contentPadding.calculateTopPadding() + listTopExtraPadding,
-        end = contentPadding.calculateEndPadding(layoutDirection),
-        bottom = bottomContentPadding
+        // 上: 外側の contentPadding に統一し、二重適用を防止
+        top = 0.dp,
+        // 左右: 外側の contentPadding に統一し、二重適用を防止
+        start = 0.dp,
+        end = 0.dp,
+        // 下: IME 表示時のみ追加して被りを回避
+        bottom = listBottomPadding
     )
 
     Column(
