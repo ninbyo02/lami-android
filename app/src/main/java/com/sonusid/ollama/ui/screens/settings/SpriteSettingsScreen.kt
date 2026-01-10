@@ -148,9 +148,9 @@ private fun Modifier.debugBounds(tag: String): Modifier =
         )
     }
 
-private enum class AnimationType(val label: String) {
-    READY("Ready"),
-    TALKING("Talking（ロング）");
+private enum class AnimationType(val internalKey: String, val displayLabel: String) {
+    READY("Ready", "Ready"),
+    TALKING("Talking", "Speaking");
 
     companion object {
         val options = values().toList()
@@ -1350,7 +1350,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 coroutineScope.launch {
                     settingsPreferences.saveTalkingAnimationSettings(validatedBase)
                     settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                    showTopSnackbarSuccess("Talkingアニメを保存しました")
+                    showTopSnackbarSuccess("Speakingアニメを保存しました")
                 }
             }
         }
@@ -1642,10 +1642,18 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 }
                             }
                             val readyBaseSummary = remember(appliedReadyFrames, appliedReadyIntervalMs) {
-                                AnimationSummary(label = AnimationType.READY.label, frames = appliedReadyFrames, intervalMs = appliedReadyIntervalMs)
+                                AnimationSummary(
+                                    label = AnimationType.READY.displayLabel,
+                                    frames = appliedReadyFrames,
+                                    intervalMs = appliedReadyIntervalMs
+                                )
                             }
                             val talkingBaseSummary = remember(appliedTalkingFrames, appliedTalkingIntervalMs) {
-                                AnimationSummary(label = AnimationType.TALKING.label, frames = appliedTalkingFrames, intervalMs = appliedTalkingIntervalMs)
+                                AnimationSummary(
+                                    label = AnimationType.TALKING.displayLabel,
+                                    frames = appliedTalkingFrames,
+                                    intervalMs = appliedTalkingIntervalMs
+                                )
                             }
                             val readyInsertionPreview = remember(
                                 readyInsertionFrameInput,
@@ -1875,7 +1883,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .padding(top = 2.dp)
                                             // [非dp] 上: プレビュー の配置(配置)に関係
                                             .align(Alignment.TopCenter),
-                                        isImeVisible = imeVisible,
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
                                             if (imageBitmap.width != 0) {
@@ -2039,7 +2046,7 @@ private fun ReadyAnimationTab(
         }
     }
     // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-    val baseMaxHeightDp = if (isImeVisible) 220 else 300
+    val baseMaxHeightDp = 300
     val customCardMaxHeightDp = layoutState.cardMaxHeightDp.takeUnless { it == 0 }
     val effectiveCardMaxH: Int? = customCardMaxHeightDp ?: baseMaxHeightDp
     val boundedMinHeightDp = effectiveCardMaxH?.let { max -> layoutState.cardMinHeightDp.coerceAtMost(max) } ?: layoutState.cardMinHeightDp
@@ -2157,7 +2164,7 @@ private fun ReadyAnimationTab(
                         Text(
                             text = stringResource(
                                 R.string.sprite_animation_settings_selected,
-                                selectedAnimation.label
+                                selectedAnimation.displayLabel
                             ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2352,7 +2359,7 @@ private fun AnimationDropdown(
         modifier = modifier
     ) {
         TextField(
-            value = selectedItem.label,
+            value = selectedItem.displayLabel,
             onValueChange = {},
             readOnly = true,
             label = { Text("アニメ種別") },
@@ -2368,7 +2375,7 @@ private fun AnimationDropdown(
         ) {
             items.forEach { item ->
                 DropdownMenuItem(
-                    text = { Text(item.label) },
+                    text = { Text(item.displayLabel) },
                     onClick = {
                         onSelectedItemChange(item)
                         expanded = false
@@ -2632,11 +2639,7 @@ private fun ReadyAnimationPreviewPane(
                 // [非dp] 縦横: プレビュー の制約(制約)に関係
                 val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
                 // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
-                val spriteSize = if (isImeVisible) {
-                    rawSpriteSize.coerceIn(56.dp, 96.dp)
-                } else {
-                    rawSpriteSize.coerceIn(72.dp, 120.dp)
-                }
+                val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
                 val previewState = rememberReadyAnimationState(
                     spriteSheetConfig = spriteSheetConfig,
                     summary = baseSummary,
@@ -2719,7 +2722,6 @@ private fun ReadyAnimationPreviewPane(
 @Composable
 private fun SpritePreviewBlock(
     imageBitmap: ImageBitmap,
-    isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
@@ -2731,7 +2733,7 @@ private fun SpritePreviewBlock(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-        val minHeight = if (isImeVisible) 140.dp else 180.dp
+        val minHeight = 180.dp
         val configuration = LocalConfiguration.current
         val aspectRatio = min(
             1f,
@@ -2780,8 +2782,8 @@ private fun SpriteSettingsControls(
         modifier = Modifier
             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
             .fillMaxWidth()
-            // [非dp] 下: ナビ/IME の insets(インセット)に関係
-            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+            // [非dp] 下: ナビゲーションバー の insets(インセット)に関係
+            .windowInsetsPadding(WindowInsets.navigationBars)
             // [dp] 左右: 下部バー の余白(余白)に関係
             .padding(horizontal = 12.dp)
             // [dp] 上下: 下部バー の余白(余白)に関係
@@ -2959,7 +2961,8 @@ private fun buildSettingsJson(
     devSettings: DevPreviewSettings,
 ): String {
     val root = JSONObject()
-    root.put("animationType", animationType.label)
+    // JSON互換のため、保存キーは従来の内部名を維持する
+    root.put("animationType", animationType.internalKey)
     root.put(
         "ready",
         JSONObject()
