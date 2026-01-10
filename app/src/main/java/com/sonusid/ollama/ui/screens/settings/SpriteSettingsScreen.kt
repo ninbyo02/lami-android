@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,8 +48,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Tab
@@ -93,7 +93,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -108,6 +107,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -492,8 +492,36 @@ fun SpriteSettingsScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
+    val successSnackbarDurationMs = 1200L
+    val errorSnackbarDurationMs = 1800L
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
+    }
+
+    fun showTopSnackbar(message: String, isError: Boolean) {
+        coroutineScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val dismissDelayMs = if (isError) errorSnackbarDurationMs else successSnackbarDurationMs
+            val dismissJob = launch {
+                delay(dismissDelayMs)
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+            snackbarHostState
+                .showSnackbar(
+                    message = message,
+                    actionLabel = if (isError) "ERROR" else null,
+                    duration = SnackbarDuration.Indefinite
+                )
+            dismissJob.cancel()
+        }
+    }
+
+    fun showTopSnackbarSuccess(message: String) {
+        showTopSnackbar(message = message, isError = false)
+    }
+
+    fun showTopSnackbarError(message: String) {
+        showTopSnackbar(message = message, isError = true)
     }
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
@@ -1023,9 +1051,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
-                snackbarHostState.showSnackbar("保存しました")
+                showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
-                snackbarHostState.showSnackbar("保存に失敗しました: ${throwable.message}")
+                showTopSnackbarError("保存に失敗しました: ${throwable.message}")
             }
         }
     }
@@ -1041,9 +1069,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 val jsonString = config.toJson()
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
-                snackbarHostState.showSnackbar("JSONをコピーしました")
+                showTopSnackbarSuccess("JSONをコピーしました")
             }.onFailure { throwable ->
-                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+                showTopSnackbarError("コピーに失敗しました: ${throwable.message}")
             }
         }
     }
@@ -1094,9 +1122,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
-                snackbarHostState.showSnackbar("設定JSONをコピーしました")
+                showTopSnackbarSuccess("設定JSONをコピーしました")
             }.onFailure { throwable ->
-                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+                showTopSnackbarError("コピーに失敗しました: ${throwable.message}")
             }
         }
     }
@@ -1104,7 +1132,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     fun copyEditingSettings(devSettings: DevPreviewSettings) {
         coroutineScope.launch {
             val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
-                snackbarHostState.showSnackbar("入力が不正です")
+                showTopSnackbarError("入力が不正です")
                 return@launch
             }
             val validatedInsertion = if (
@@ -1112,7 +1140,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
             ) {
                 validateInsertionInputs(selectedAnimation) ?: run {
-                    snackbarHostState.showSnackbar("入力が不正です")
+                    showTopSnackbarError("入力が不正です")
                     return@launch
                 }
             } else null
@@ -1189,9 +1217,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
-                snackbarHostState.showSnackbar("編集中の設定をコピーしました")
+                showTopSnackbarSuccess("編集中の設定をコピーしました")
             }.onFailure { throwable ->
-                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+                showTopSnackbarError("コピーに失敗しました: ${throwable.message}")
             }
         }
     }
@@ -1201,7 +1229,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
-            coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+            showTopSnackbarError("入力が不正です")
             return@onAnimationApply
         }
         val validatedInsertion = if (
@@ -1209,7 +1237,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
         ) {
             validateInsertionInputs(selectedAnimation) ?: run {
-                coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+                showTopSnackbarError("入力が不正です")
                 return@onAnimationApply
             }
         } else null
@@ -1256,14 +1284,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionExclusive = insertion.exclusive
             }
         }
-        coroutineScope.launch {
-            snackbarHostState.showSnackbar("プレビューに適用しました")
-        }
+        showTopSnackbarSuccess("プレビューに適用しました")
     }
 
     val onAnimationSave: () -> Unit = onAnimationSave@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
-            coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+            showTopSnackbarError("入力が不正です")
             return@onAnimationSave
         }
         val validatedInsertion = if (
@@ -1271,7 +1297,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
         ) {
             validateInsertionInputs(selectedAnimation) ?: run {
-                coroutineScope.launch { snackbarHostState.showSnackbar("入力が不正です") }
+                showTopSnackbarError("入力が不正です")
                 return@onAnimationSave
             }
         } else null
@@ -1298,7 +1324,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 coroutineScope.launch {
                     settingsPreferences.saveReadyAnimationSettings(validatedBase)
                     settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
-                    snackbarHostState.showSnackbar("Readyアニメを保存しました")
+                    showTopSnackbarSuccess("Readyアニメを保存しました")
                 }
             }
 
@@ -1324,7 +1350,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 coroutineScope.launch {
                     settingsPreferences.saveTalkingAnimationSettings(validatedBase)
                     settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                    snackbarHostState.showSnackbar("Talkingアニメを保存しました")
+                    showTopSnackbarSuccess("Talkingアニメを保存しました")
                 }
             }
         }
@@ -1392,9 +1418,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             onClick = {
                                 when (selectedTab) {
                                     SpriteTab.ANIM -> onAnimationApply()
-                                    SpriteTab.ADJUST -> coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("プレビューに適用しました")
-                                    }
+                                    SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
                                 }
                             }
                         ) {
@@ -1434,7 +1458,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
             }
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             if (selectedTab == SpriteTab.ADJUST) {
                 SpriteSettingsControls(
@@ -1454,117 +1477,126 @@ fun SpriteSettingsScreen(navController: NavController) {
         },
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
-        val layoutDirection = LocalLayoutDirection.current
-        val contentPadding = PaddingValues(
-            start = innerPadding.calculateStartPadding(layoutDirection) + adaptiveHorizontalPadding,
-            // [dp] 上: TopAppBar/TabRow の見た目統一のため innerPadding のみ使用
-            top = innerPadding.calculateTopPadding(),
-            end = innerPadding.calculateEndPadding(layoutDirection) + adaptiveHorizontalPadding,
-            bottom = innerPadding.calculateBottomPadding()
-        )
-
-        Column(
+        Box(
             // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
             modifier = Modifier
                 .fillMaxSize()
+                // [非dp] 四方向: Scaffold の innerPadding を Box で受ける(インセット)
+                .padding(innerPadding)
         ) {
-            Surface(
-                // [非dp] 縦: 画面全体 の weight(制約)に関係
+            val contentPadding = PaddingValues(
+                // [dp] 左右: 画面全体 の余白(余白)に関係
+                start = adaptiveHorizontalPadding,
+                // [dp] 上: Scaffold の innerPadding を Box 側で適用済みのため 0.dp
+                top = 0.dp,
+                // [dp] 左右: 画面全体 の余白(余白)に関係
+                end = adaptiveHorizontalPadding,
+                // [dp] 下: Scaffold の innerPadding を Box 側で適用済みのため 0.dp
+                bottom = 0.dp
+            )
+
+            Column(
+                // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                 modifier = Modifier
-                    .fillMaxWidth()
-                    // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-                    .fillMaxWidth()
+                    .fillMaxSize()
             ) {
-                Column(
+                Surface(
+                    // [非dp] 縦: 画面全体 の weight(制約)に関係
                     modifier = Modifier
-                        // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
-                        .fillMaxSize()
-                        // [非dp] 四方向: Scaffold の insets(インセット)に関係
-                        .padding(contentPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Top
+                        .fillMaxWidth()
+                        // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
+                        .fillMaxWidth()
                 ) {
-                    val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
-                    val displayedTabIndex = displayedTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
-
-                    TabRow(
-                        selectedTabIndex = displayedTabIndex,
+                    Column(
                         modifier = Modifier
-                            // [非dp] 横: TopAppBar の fillMaxWidth(制約)に関係
-                            .fillMaxWidth()
-                            // [dp] 縦: TopAppBar の最小サイズ(最小サイズ)に関係
-                            .height(32.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-                        indicator = { tabPositions ->
-                            TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[displayedTabIndex])
-                                    // [dp] 横: TopAppBar の余白(余白)に関係
-                                    .padding(horizontal = 6.dp),
-                                height = 2.dp
-                            )
-                        },
-                        divider = { HorizontalDivider(thickness = 0.5.dp) }
+                            // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
+                            .fillMaxSize()
+                            // [非dp] 四方向: Box の contentPadding(インセット)に関係
+                            .padding(contentPadding),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        displayedTabs.forEach { tab ->
-                            when (tab) {
-                                SpriteTab.ANIM -> Tab(
-                                    selected = selectedTab == SpriteTab.ANIM,
-                                    onClick = {
-                                        selectedTab = SpriteTab.ANIM
-                                    },
-                                    text = {
-                                        Text(
-                                            text = "アニメ",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1
-                                        )
-                                    },
-                                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
+                        val displayedTabIndex = displayedTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
 
-                                SpriteTab.ADJUST -> Tab(
-                                    selected = selectedTab == SpriteTab.ADJUST,
-                                    onClick = {
-                                        selectedTab = SpriteTab.ADJUST
-                                    },
-                                    text = {
-                                        Text(
-                                            text = "調整",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            maxLines = 1
-                                        )
-                                    },
-                                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        TabRow(
+                            selectedTabIndex = displayedTabIndex,
+                            modifier = Modifier
+                                // [非dp] 横: TopAppBar の fillMaxWidth(制約)に関係
+                                .fillMaxWidth()
+                                // [dp] 縦: TopAppBar の最小サイズ(最小サイズ)に関係
+                                .height(32.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                            indicator = { tabPositions ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier
+                                        .tabIndicatorOffset(tabPositions[displayedTabIndex])
+                                        // [dp] 横: TopAppBar の余白(余白)に関係
+                                        .padding(horizontal = 6.dp),
+                                    height = 2.dp
                                 )
+                            },
+                            divider = { HorizontalDivider(thickness = 0.5.dp) }
+                        ) {
+                            displayedTabs.forEach { tab ->
+                                when (tab) {
+                                    SpriteTab.ANIM -> Tab(
+                                        selected = selectedTab == SpriteTab.ANIM,
+                                        onClick = {
+                                            selectedTab = SpriteTab.ANIM
+                                        },
+                                        text = {
+                                            Text(
+                                                text = "アニメ",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                maxLines = 1
+                                            )
+                                        },
+                                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    SpriteTab.ADJUST -> Tab(
+                                        selected = selectedTab == SpriteTab.ADJUST,
+                                        onClick = {
+                                            selectedTab = SpriteTab.ADJUST
+                                        },
+                                        text = {
+                                            Text(
+                                                text = "調整",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                maxLines = 1
+                                            )
+                                        },
+                                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
-                    }
-                    val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
-                    // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
-                    Spacer(modifier = Modifier.height(contentTopGap))
-                    Box(
-                        modifier = Modifier
-                            // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
-                            .fillMaxWidth()
-                            // [非dp] 縦: 画面全体 の weight(制約)に関係
-                            .fillMaxWidth()
-                    ) {
-                        val animationTabContent: @Composable () -> Unit = {
-                            val animationOptions = remember { AnimationType.options }
-                            val selectedFrameInput: String
-                            val selectedIntervalInput: String
-                            val selectedFramesError: String?
-                            val selectedIntervalError: String?
-                            val selectedInsertionFrameInput: String
-                            val selectedInsertionIntervalInput: String
-                            val selectedInsertionEveryNInput: String
-                            val selectedInsertionProbabilityInput: String
-                            val selectedInsertionCooldownInput: String
-                            val selectedInsertionEnabled: Boolean
-                            val selectedInsertionExclusive: Boolean
+                        val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
+                        // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
+                        Spacer(modifier = Modifier.height(contentTopGap))
+                        Box(
+                            modifier = Modifier
+                                // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
+                                .fillMaxWidth()
+                                // [非dp] 縦: 画面全体 の weight(制約)に関係
+                                .fillMaxWidth()
+                        ) {
+                            val animationTabContent: @Composable () -> Unit = {
+                                val animationOptions = remember { AnimationType.options }
+                                val selectedFrameInput: String
+                                val selectedIntervalInput: String
+                                val selectedFramesError: String?
+                                val selectedIntervalError: String?
+                                val selectedInsertionFrameInput: String
+                                val selectedInsertionIntervalInput: String
+                                val selectedInsertionEveryNInput: String
+                                val selectedInsertionProbabilityInput: String
+                                val selectedInsertionCooldownInput: String
+                                val selectedInsertionEnabled: Boolean
+                                val selectedInsertionExclusive: Boolean
                             val selectedInsertionFramesError: String?
                             val selectedInsertionIntervalError: String?
                             val selectedInsertionEveryNError: String?
@@ -2653,6 +2685,32 @@ private fun ReadyAnimationPreviewPane(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             content()
+        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .zIndex(10f)
+        ) { data ->
+            val isError = data.visuals.actionLabel == "ERROR"
+            val containerColor = if (isError) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseSurface
+            }
+            val contentColor = if (isError) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.inverseOnSurface
+            }
+            Snackbar(
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = containerColor,
+                contentColor = contentColor
+            ) {
+                Text(text = data.visuals.message)
+            }
         }
     }
 }
