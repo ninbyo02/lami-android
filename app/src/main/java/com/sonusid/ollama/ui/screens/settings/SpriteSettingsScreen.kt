@@ -2202,11 +2202,12 @@ private fun ReadyAnimationTab(
                     Row(
                         // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        // [非dp] 横: 入力欄 の SpaceBetween(間隔)に関係
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(
+                            // [非dp] 横: 入力欄 の weight(制約)に関係
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text(
                                 text = "挿入設定",
                                 style = MaterialTheme.typography.titleSmall,
