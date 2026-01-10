@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -284,6 +285,12 @@ fun LamiStatusSprite(
             talkingSettings = talkingInsertionSettings,
         )
     }
+    // 設定更新でループ状態が初期化されないように、ステータス変更時のみリセットする
+    val loopCountState = remember(resolvedStatus) { mutableStateOf(0) }
+    // 設定更新ではリセットせず、挿入のクールダウン判定を安定させる
+    val lastInsertionLoopState = remember(resolvedStatus) { mutableStateOf<Int?>(null) }
+    // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
+    val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
@@ -321,7 +328,7 @@ fun LamiStatusSprite(
         }
     }
 
-    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionSettings) {
+    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
         currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
@@ -341,22 +348,23 @@ fun LamiStatusSprite(
             }
         }
 
-        var loopCount = 0
-        var lastInsertionLoop: Int? = null
         while (true) {
-            loopCount += 1
+            loopCountState.value += 1
+            val loopCount = loopCountState.value
+            val lastInsertionLoop = lastInsertionLoopState.value
+            val settings = insertionSettingsLatest
             // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
             // exclusive の意味その1：READY再生中は shouldAttemptInsertion 側で抑止される
-            val shouldInsert = insertionSettings?.shouldAttemptInsertion(
+            val shouldInsert = settings?.shouldAttemptInsertion(
                 loopCount = loopCount,
                 lastInsertionLoop = lastInsertionLoop,
                 isReadyPlaying = resolvedStatus == LamiSpriteStatus.ReadyBlink,
                 random = random,
             ) == true
-            if (shouldInsert && insertionSettings != null) {
-                playInsertionFrames(settings = insertionSettings)
-                lastInsertionLoop = loopCount
-                if (insertionSettings.exclusive) {
+            if (shouldInsert && settings != null) {
+                playInsertionFrames(settings = settings)
+                lastInsertionLoopState.value = loopCount
+                if (settings.exclusive) {
                     // exclusive の意味その2：挿入が発生したループでは通常フレームを描画せず次へ進む
                     if (!animSpec.loop) {
                         break
