@@ -101,6 +101,16 @@ data class AnimationSpec(
     val insertions: List<InsertionSpec> = emptyList(),
 )
 
+private data class InsertionSettingsKey(
+    val enabled: Boolean,
+    val everyNLoops: Int,
+    val probabilityPercent: Int,
+    val cooldownLoops: Int,
+    val exclusive: Boolean,
+    val intervalMs: Int,
+    val frameSequence: List<Int>,
+)
+
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimationSpec(
         frames = listOf(0, 8, 0, 5, 0),
@@ -285,9 +295,23 @@ fun LamiStatusSprite(
             talkingSettings = talkingInsertionSettings,
         )
     }
-    // 設定更新でループ状態が初期化されないように、ステータス変更時のみリセットする
+    // 挿入設定の変更検知用キー（null は 0 固定）
+    val insertionKey = remember(insertionSettings) {
+        insertionSettings?.let { settings ->
+            InsertionSettingsKey(
+                enabled = settings.enabled,
+                everyNLoops = settings.everyNLoops,
+                probabilityPercent = settings.probabilityPercent,
+                cooldownLoops = settings.cooldownLoops,
+                exclusive = settings.exclusive,
+                intervalMs = settings.intervalMs,
+                frameSequence = settings.frameSequence,
+            ).hashCode()
+        } ?: 0
+    }
+    // 設定変更時は Effect 開始時にループ状態をリセットする
     val loopCountState = remember(resolvedStatus) { mutableStateOf(0) }
-    // 設定更新ではリセットせず、挿入のクールダウン判定を安定させる
+    // 設定変更時は Effect 開始時にクールダウン状態もリセットする
     val lastInsertionLoopState = remember(resolvedStatus) { mutableStateOf<Int?>(null) }
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
@@ -328,7 +352,9 @@ fun LamiStatusSprite(
         }
     }
 
-    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec) {
+    LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionKey) {
+        loopCountState.value = 0
+        lastInsertionLoopState.value = null
         currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
