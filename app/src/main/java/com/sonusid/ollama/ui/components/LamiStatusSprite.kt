@@ -111,30 +111,19 @@ private data class InsertionSettingsKey(
     val frameSequence: List<Int>,
 )
 
+// 挿入判定は InsertionAnimationSettings に統一し、旧 insertions は無効化する。
 private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.Idle to AnimationSpec(
         frames = listOf(0, 8, 0, 5, 0),
         frameDuration = FrameDurationSpec(minMs = 420L, maxMs = 560L, jitterFraction = 0.2f),
         loop = true,
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(0, 0, 8, 0),
-                frequency = InsertionFrequency.ByTime(8_000L..15_000L),
-                exclusive = false,
-            ),
-        ),
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.Thinking to AnimationSpec(
         frames = listOf(4, 4, 4, 7, 4, 4, 4),
         frameDuration = FrameDurationSpec(minMs = 220L, maxMs = 280L, jitterFraction = 0.1f),
         loop = true,
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(4, 4, 5, 4),
-                frequency = InsertionFrequency.ByLoops(4..8),
-                exclusive = false,
-            ),
-        ),
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.TalkShort to AnimationSpec(
         frames = listOf(0, 6, 2, 6, 0),
@@ -145,18 +134,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         frames = listOf(0, 4, 6, 4, 4, 6, 4, 0),
         frameDuration = FrameDurationSpec(minMs = 170L, maxMs = 210L, jitterFraction = 0.1f),
         loop = true,
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(1),
-                frequency = InsertionFrequency.ByLoops(2..4),
-                exclusive = true,
-            ),
-            InsertionSpec(
-                frames = listOf(8),
-                frequency = InsertionFrequency.ByLoops(3..6),
-                exclusive = true,
-            ),
-        ),
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.TalkCalm to AnimationSpec(
         frames = listOf(7, 4, 7, 8, 7),
@@ -171,28 +149,25 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     LamiSpriteStatus.ErrorHeavy to AnimationSpec(
         frames = listOf(5, 5, 5, 7, 5),
         frameDuration = FrameDurationSpec(minMs = 340L, maxMs = 460L, jitterFraction = 0.1f),
-        insertions = listOf(
-            InsertionSpec(
-                frames = listOf(2),
-                frequency = InsertionFrequency.ByLoops(6..12),
-                exclusive = true,
-            ),
-        ),
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.OfflineEnter to AnimationSpec(
         frames = listOf(0, 8, 8),
         frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = false,
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.OfflineLoop to AnimationSpec(
         frames = listOf(8, 8),
         frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = true,
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.OfflineExit to AnimationSpec(
         frames = listOf(8, 0),
         frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = false,
+        insertions = emptyList(),
     ),
     LamiSpriteStatus.ReadyBlink to AnimationSpec(
         frames = listOf(0),
@@ -387,10 +362,11 @@ fun LamiStatusSprite(
                 isReadyPlaying = resolvedStatus == LamiSpriteStatus.ReadyBlink,
                 random = random,
             ) == true
-            if (shouldInsert && settings != null) {
-                playInsertionFrames(settings = settings)
+            if (shouldInsert) {
+                val activeSettings = requireNotNull(settings)
+                playInsertionFrames(settings = activeSettings)
                 lastInsertionLoopState.value = loopCount
-                if (settings.exclusive) {
+                if (activeSettings.exclusive) {
                     // exclusive の意味その2：挿入が発生したループでは通常フレームを描画せず次へ進む
                     if (!animSpec.loop) {
                         break
