@@ -2022,14 +2022,14 @@ private fun ReadyAnimationTab(
     } else {
         0.dp
     }
-    // [dp] 四方向: リスト の余白(余白)に関係
+    // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
-        // 上: 外側の contentPadding に統一し、二重適用を防止
+        // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
         top = 0.dp,
-        // 左右: 外側の contentPadding に統一し、二重適用を防止
+        // 左右: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
         start = 0.dp,
         end = 0.dp,
-        // 下: IME 表示時のみ追加して被りを回避
+        // 下: リスト(アニメタブ) の IME 回避用の余白のみ追加
         bottom = listBottomPadding
     )
 
@@ -2056,6 +2056,8 @@ private fun ReadyAnimationTab(
             )
         }
         // [dp] 縦: プレビュー の間隔(間隔)に関係
+        // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
+        // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
         Spacer(modifier = Modifier.height(6.dp))
         LazyColumn(
             modifier = Modifier
