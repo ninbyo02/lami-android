@@ -34,6 +34,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -1097,6 +1099,101 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun copyEditingSettings(devSettings: DevPreviewSettings) {
+        coroutineScope.launch {
+            val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
+                snackbarHostState.showSnackbar("入力が不正です")
+                return@launch
+            }
+            val validatedInsertion = if (
+                (selectedAnimation == AnimationType.READY && readyInsertionEnabled) ||
+                (selectedAnimation == AnimationType.TALKING && talkingInsertionEnabled)
+            ) {
+                validateInsertionInputs(selectedAnimation) ?: run {
+                    snackbarHostState.showSnackbar("入力が不正です")
+                    return@launch
+                }
+            } else null
+            runCatching {
+                val config = buildSpriteSheetConfig()
+                val error = config.validate()
+                if (error != null) {
+                    throw IllegalArgumentException(error)
+                }
+                val readyBase = when (selectedAnimation) {
+                    AnimationType.READY -> validatedBase
+                    AnimationType.TALKING -> ReadyAnimationSettings(
+                        frameSequence = appliedReadyFrames,
+                        intervalMs = appliedReadyIntervalMs
+                    )
+                }
+                val talkingBase = when (selectedAnimation) {
+                    AnimationType.READY -> ReadyAnimationSettings(
+                        frameSequence = appliedTalkingFrames,
+                        intervalMs = appliedTalkingIntervalMs
+                    )
+                    AnimationType.TALKING -> validatedBase
+                }
+                val readyInsertion = if (selectedAnimation == AnimationType.READY) {
+                    validatedInsertion ?: InsertionAnimationSettings(
+                        enabled = false,
+                        frameSequence = appliedReadyInsertionFrames,
+                        intervalMs = appliedReadyInsertionIntervalMs,
+                        everyNLoops = appliedReadyInsertionEveryNLoops,
+                        probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                        cooldownLoops = appliedReadyInsertionCooldownLoops,
+                        exclusive = appliedReadyInsertionExclusive,
+                    )
+                } else {
+                    InsertionAnimationSettings(
+                        enabled = appliedReadyInsertionEnabled,
+                        frameSequence = appliedReadyInsertionFrames,
+                        intervalMs = appliedReadyInsertionIntervalMs,
+                        everyNLoops = appliedReadyInsertionEveryNLoops,
+                        probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                        cooldownLoops = appliedReadyInsertionCooldownLoops,
+                        exclusive = appliedReadyInsertionExclusive,
+                    )
+                }
+                val talkingInsertion = if (selectedAnimation == AnimationType.TALKING) {
+                    validatedInsertion ?: InsertionAnimationSettings(
+                        enabled = false,
+                        frameSequence = appliedTalkingInsertionFrames,
+                        intervalMs = appliedTalkingInsertionIntervalMs,
+                        everyNLoops = appliedTalkingInsertionEveryNLoops,
+                        probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                        cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                        exclusive = appliedTalkingInsertionExclusive,
+                    )
+                } else {
+                    InsertionAnimationSettings(
+                        enabled = appliedTalkingInsertionEnabled,
+                        frameSequence = appliedTalkingInsertionFrames,
+                        intervalMs = appliedTalkingInsertionIntervalMs,
+                        everyNLoops = appliedTalkingInsertionEveryNLoops,
+                        probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                        cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                        exclusive = appliedTalkingInsertionExclusive,
+                    )
+                }
+                val jsonString = buildSettingsJson(
+                    animationType = selectedAnimation,
+                    spriteSheetConfig = config,
+                    readyBase = readyBase,
+                    talkingBase = talkingBase,
+                    readyInsertion = readyInsertion,
+                    talkingInsertion = talkingInsertion,
+                    devSettings = devSettings,
+                )
+                clipboardManager.setText(AnnotatedString(jsonString))
+            }.onSuccess {
+                snackbarHostState.showSnackbar("編集中の設定をコピーしました")
+            }.onFailure { throwable ->
+                snackbarHostState.showSnackbar("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
     // [非dp] 下: IME の insets(インセット)に関係
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
@@ -1300,7 +1397,34 @@ fun SpriteSettingsScreen(navController: NavController) {
                             )
                         }
                     },
-                    actions = {},
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                when (selectedTab) {
+                                    SpriteTab.ANIM -> copyEditingSettings(devPreviewSettings)
+                                    SpriteTab.ADJUST -> copySpriteSheetConfig()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "コピー"
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                when (selectedTab) {
+                                    SpriteTab.ANIM -> onAnimationSave()
+                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Save,
+                                contentDescription = "保存"
+                            )
+                        }
+                    },
                     modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
                 )
                 Surface(tonalElevation = 2.dp) {
@@ -2772,7 +2896,7 @@ private fun SpriteActionPillsRow(
             shape = actionButtonShape
         ) {
             Text(
-                text = "更新",
+                text = "プレビュー更新",
                 style = MaterialTheme.typography.labelLarge
             )
         }
