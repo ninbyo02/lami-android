@@ -345,7 +345,8 @@ fun LamiStatusSprite(
         var lastInsertionLoop: Int? = null
         while (true) {
             loopCount += 1
-            // 設定に基づく挿入判定はループ単位で行う
+            // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
+            // exclusive の意味その1：READY再生中は shouldAttemptInsertion 側で抑止される
             val shouldInsert = insertionSettings?.shouldAttemptInsertion(
                 loopCount = loopCount,
                 lastInsertionLoop = lastInsertionLoop,
@@ -356,7 +357,7 @@ fun LamiStatusSprite(
                 playInsertionFrames(settings = insertionSettings)
                 lastInsertionLoop = loopCount
                 if (insertionSettings.exclusive) {
-                    // exclusive の場合は通常フレームを描画せず次のループへ進む
+                    // exclusive の意味その2：挿入が発生したループでは通常フレームを描画せず次へ進む
                     if (!animSpec.loop) {
                         break
                     }
