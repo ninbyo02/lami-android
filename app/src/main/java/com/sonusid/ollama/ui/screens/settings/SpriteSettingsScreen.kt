@@ -148,9 +148,9 @@ private fun Modifier.debugBounds(tag: String): Modifier =
         )
     }
 
-private enum class AnimationType(val label: String) {
-    READY("Ready"),
-    TALKING("Talking（ロング）");
+private enum class AnimationType(val internalKey: String, val displayLabel: String) {
+    READY("Ready", "Ready"),
+    TALKING("Talking", "Speaking");
 
     companion object {
         val options = values().toList()
@@ -1350,7 +1350,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 coroutineScope.launch {
                     settingsPreferences.saveTalkingAnimationSettings(validatedBase)
                     settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                    showTopSnackbarSuccess("Talkingアニメを保存しました")
+                    showTopSnackbarSuccess("Speakingアニメを保存しました")
                 }
             }
         }
@@ -1642,10 +1642,18 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 }
                             }
                             val readyBaseSummary = remember(appliedReadyFrames, appliedReadyIntervalMs) {
-                                AnimationSummary(label = AnimationType.READY.label, frames = appliedReadyFrames, intervalMs = appliedReadyIntervalMs)
+                                AnimationSummary(
+                                    label = AnimationType.READY.displayLabel,
+                                    frames = appliedReadyFrames,
+                                    intervalMs = appliedReadyIntervalMs
+                                )
                             }
                             val talkingBaseSummary = remember(appliedTalkingFrames, appliedTalkingIntervalMs) {
-                                AnimationSummary(label = AnimationType.TALKING.label, frames = appliedTalkingFrames, intervalMs = appliedTalkingIntervalMs)
+                                AnimationSummary(
+                                    label = AnimationType.TALKING.displayLabel,
+                                    frames = appliedTalkingFrames,
+                                    intervalMs = appliedTalkingIntervalMs
+                                )
                             }
                             val readyInsertionPreview = remember(
                                 readyInsertionFrameInput,
@@ -2157,7 +2165,7 @@ private fun ReadyAnimationTab(
                         Text(
                             text = stringResource(
                                 R.string.sprite_animation_settings_selected,
-                                selectedAnimation.label
+                                selectedAnimation.displayLabel
                             ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2352,7 +2360,7 @@ private fun AnimationDropdown(
         modifier = modifier
     ) {
         TextField(
-            value = selectedItem.label,
+            value = selectedItem.displayLabel,
             onValueChange = {},
             readOnly = true,
             label = { Text("アニメ種別") },
@@ -2368,7 +2376,7 @@ private fun AnimationDropdown(
         ) {
             items.forEach { item ->
                 DropdownMenuItem(
-                    text = { Text(item.label) },
+                    text = { Text(item.displayLabel) },
                     onClick = {
                         onSelectedItemChange(item)
                         expanded = false
@@ -2959,7 +2967,8 @@ private fun buildSettingsJson(
     devSettings: DevPreviewSettings,
 ): String {
     val root = JSONObject()
-    root.put("animationType", animationType.label)
+    // JSON互換のため、保存キーは従来の内部名を維持する
+    root.put("animationType", animationType.internalKey)
     root.put(
         "ready",
         JSONObject()
