@@ -26,10 +26,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -1359,9 +1361,13 @@ fun SpriteSettingsScreen(navController: NavController) {
     val adaptiveHorizontalPadding = maxOf(8.dp, minOf(16.dp, configuration.screenWidthDp.dp * 0.02f))
     val actionButtonShape = RoundedCornerShape(999.dp)
     // [dp] 縦: 画面全体 の最小サイズ(最小サイズ)に関係
-    val controlButtonHeight = 28.dp // 下部操作ボタンをコンパクト化
+    val controlButtonHeight = 32.dp // 下部操作ボタンの見た目高さを統一
     // [dp] 縦横: 画面全体 の余白(余白)に関係
     val controlButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+
+    val onMove: (Int, Int) -> Unit = { deltaX, deltaY -> updateSelectedPosition(deltaX, deltaY) }
+    val onPrev: () -> Unit = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 }
+    val onNext: () -> Unit = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 }
 
     Scaffold(
         topBar = {
@@ -1430,6 +1436,23 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            if (selectedTab == SpriteTab.ADJUST) {
+                SpriteSettingsControls(
+                    buttonHeight = controlButtonHeight,
+                    buttonContentPadding = controlButtonPadding,
+                    buttonShape = actionButtonShape,
+                    onPrev = onPrev,
+                    onNext = onNext,
+                    onMoveXNegative = { onMove(-1, 0) },
+                    onMoveXPositive = { onMove(1, 0) },
+                    onMoveYNegative = { onMove(0, -1) },
+                    onMoveYPositive = { onMove(0, 1) },
+                    onSizeDecrease = { updateBoxSize(-4) },
+                    onSizeIncrease = { updateBoxSize(4) }
+                )
+            }
+        },
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
@@ -1845,21 +1868,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 }
                                             }
                                         }
-                                    )
-                                    // [dp] 縦: プレビュー の間隔(間隔)に関係
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    SpriteSettingsControls(
-                                        buttonHeight = controlButtonHeight,
-                                        buttonContentPadding = controlButtonPadding,
-                                        buttonShape = actionButtonShape,
-                                        onPrev = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 },
-                                        onNext = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 },
-                                        onMoveXNegative = { updateSelectedPosition(deltaX = -1, deltaY = 0) },
-                                        onMoveXPositive = { updateSelectedPosition(deltaX = 1, deltaY = 0) },
-                                        onMoveYNegative = { updateSelectedPosition(deltaX = 0, deltaY = -1) },
-                                        onMoveYPositive = { updateSelectedPosition(deltaX = 0, deltaY = 1) },
-                                        onSizeDecrease = { updateBoxSize(-4) },
-                                        onSizeIncrease = { updateBoxSize(4) }
                                     )
                                 }
                             }
@@ -2704,10 +2712,14 @@ private fun SpriteSettingsControls(
         modifier = Modifier
             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
             .fillMaxWidth()
-            // [dp] 四方向: 画面全体 の余白(余白)に関係
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        // [dp] 縦: 画面全体 の間隔(間隔)に関係
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            // [非dp] 下: ナビ/IME の insets(インセット)に関係
+            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+            // [dp] 左右: 下部バー の余白(余白)に関係
+            .padding(horizontal = 12.dp)
+            // [dp] 上下: 下部バー の余白(余白)に関係
+            .padding(vertical = 8.dp),
+        // [dp] 縦: 下部バー の間隔(間隔)に関係
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         val buttonModifier = Modifier
             // [非dp] 横: 画面全体 の weight(制約)に関係
@@ -2720,103 +2732,148 @@ private fun SpriteSettingsControls(
             contentColor = Color.White
         )
         val defaultControlButtonColors = ButtonDefaults.filledTonalButtonColors()
+        val cellModifier = Modifier
+            // [非dp] 横: 画面全体 の weight(制約)に関係
+            .weight(1f)
+            // [dp] 縦: ボタンのタップ領域(最小サイズ)に関係
+            .heightIn(min = 48.dp)
 
         Column(
             // [dp] 縦: 画面全体 の間隔(間隔)に関係
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                 modifier = Modifier.fillMaxWidth(),
                 // [dp] 横: 画面全体 の間隔(間隔)に関係
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                FilledTonalButton(
-                    onClick = onPrev,
-                    modifier = buttonModifier.semantics { contentDescription = "Previous" },
-                    colors = navigatorButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    FilledTonalButton(
+                        onClick = onPrev,
+                        modifier = buttonModifier.semantics { contentDescription = "Previous" },
+                        colors = navigatorButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-                FilledTonalButton(
-                    onClick = onNext,
-                    modifier = buttonModifier.semantics { contentDescription = "Next" },
-                    colors = navigatorButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    FilledTonalButton(
+                        onClick = onNext,
+                        modifier = buttonModifier.semantics { contentDescription = "Next" },
+                        colors = navigatorButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-                FilledTonalButton(
-                    onClick = onMoveXNegative,
-                    modifier = buttonModifier,
-                    colors = defaultControlButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("X-")
+                    FilledTonalButton(
+                        onClick = onMoveXNegative,
+                        modifier = buttonModifier,
+                        colors = defaultControlButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Text("X-")
+                    }
                 }
-                FilledTonalButton(
-                    onClick = onMoveYNegative,
-                    modifier = buttonModifier,
-                    colors = defaultControlButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Y-")
+                    FilledTonalButton(
+                        onClick = onMoveXPositive,
+                        modifier = buttonModifier,
+                        colors = defaultControlButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Text("X+")
+                    }
                 }
             }
             Row(
                 // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
                 modifier = Modifier.fillMaxWidth(),
                 // [dp] 横: 画面全体 の間隔(間隔)に関係
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                FilledTonalButton(
-                    onClick = onSizeDecrease,
-                    modifier = buttonModifier,
-                    colors = defaultControlButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("-")
+                    FilledTonalButton(
+                        onClick = onSizeDecrease,
+                        modifier = buttonModifier,
+                        colors = defaultControlButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Text("-")
+                    }
                 }
-                FilledTonalButton(
-                    onClick = onSizeIncrease,
-                    modifier = buttonModifier,
-                    colors = defaultControlButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("+")
+                    FilledTonalButton(
+                        onClick = onSizeIncrease,
+                        modifier = buttonModifier,
+                        colors = defaultControlButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Text("+")
+                    }
                 }
-                FilledTonalButton(
-                    onClick = onMoveXPositive,
-                    modifier = buttonModifier,
-                    colors = defaultControlButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("X+")
+                    FilledTonalButton(
+                        onClick = onMoveYNegative,
+                        modifier = buttonModifier,
+                        colors = defaultControlButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Text("Y-")
+                    }
                 }
-                FilledTonalButton(
-                    onClick = onMoveYPositive,
-                    modifier = buttonModifier,
-                    colors = defaultControlButtonColors,
-                    contentPadding = buttonContentPadding,
-                    shape = buttonShape
+                Box(
+                    modifier = cellModifier,
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Y+")
+                    FilledTonalButton(
+                        onClick = onMoveYPositive,
+                        modifier = buttonModifier,
+                        colors = defaultControlButtonColors,
+                        contentPadding = buttonContentPadding,
+                        shape = buttonShape
+                    ) {
+                        Text("Y+")
+                    }
                 }
             }
         }
