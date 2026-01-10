@@ -132,6 +132,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.random.Random
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.min
@@ -3051,6 +3052,11 @@ private data class ReadyAnimationState(
     val currentIntervalMs: Int,
 )
 
+private data class PreviewStep(
+    val frameIndex: Int,
+    val isInsertion: Boolean,
+)
+
 @Composable
 private fun rememberReadyAnimationState(
     spriteSheetConfig: SpriteSheetConfig,
@@ -3071,18 +3077,48 @@ private fun rememberReadyAnimationState(
     val insertionFrames = remember(insertionSummary, insertionEnabled) {
         if (insertionEnabled) insertionSummary.frames.ifEmpty { emptyList() } else emptyList()
     }
-    val playbackFrames = remember(baseFrames, insertionFrames) {
-        buildList {
-            addAll(baseFrames)
-            if (insertionFrames.isNotEmpty()) addAll(insertionFrames)
-        }.ifEmpty { listOf(0) }
+    val baseSteps = remember(baseFrames) { baseFrames.map { frame -> PreviewStep(frame, false) } }
+    val insertionSteps = remember(insertionFrames) { insertionFrames.map { frame -> PreviewStep(frame, true) } }
+    val insertionKey = remember(insertionEnabled, insertionSummary, insertionFrames) {
+        listOf(
+            insertionEnabled,
+            insertionSummary.enabled,
+            insertionFrames,
+            insertionSummary.intervalMs,
+            insertionSummary.everyNLoops,
+            insertionSummary.probabilityPercent,
+            insertionSummary.cooldownLoops,
+            insertionSummary.exclusive,
+        ).hashCode()
     }
-    var currentFramePosition by remember(playbackFrames) { mutableStateOf(0) }
-    val totalFrames = playbackFrames.size.coerceAtLeast(1)
-    val isInsertionFrame = insertionFrames.isNotEmpty() && currentFramePosition >= baseFrames.size
-    val currentIntervalMs = (if (isInsertionFrame) insertionSummary.intervalMs else summary.intervalMs)
+    val activeInsertionSettings = remember(insertionEnabled, insertionSummary, insertionFrames) {
+        if (!insertionEnabled || !insertionSummary.enabled || insertionFrames.isEmpty()) {
+            null
+        } else {
+            InsertionAnimationSettings(
+                enabled = true,
+                frameSequence = insertionFrames,
+                intervalMs = insertionSummary.intervalMs,
+                everyNLoops = insertionSummary.everyNLoops ?: InsertionAnimationSettings.DEFAULT.everyNLoops,
+                probabilityPercent = insertionSummary.probabilityPercent
+                    ?: InsertionAnimationSettings.DEFAULT.probabilityPercent,
+                cooldownLoops = insertionSummary.cooldownLoops ?: InsertionAnimationSettings.DEFAULT.cooldownLoops,
+                exclusive = insertionSummary.exclusive ?: InsertionAnimationSettings.DEFAULT.exclusive,
+            )
+        }
+    }
+    val random = remember { Random(System.currentTimeMillis()) }
+    var stepPosition by remember { mutableStateOf(0) }
+    var steps by remember { mutableStateOf<List<PreviewStep>>(emptyList()) }
+    var loopCount by remember { mutableStateOf(0) }
+    var lastInsertionLoop by remember { mutableStateOf<Int?>(null) }
+    val safeSteps = steps.ifEmpty { baseSteps }
+    val safeStepPosition = stepPosition.coerceIn(0, safeSteps.lastIndex.coerceAtLeast(0))
+    val currentStep = safeSteps.getOrNull(safeStepPosition) ?: PreviewStep(baseFrames.first(), false)
+    val totalFrames = safeSteps.size.coerceAtLeast(1)
+    val currentIntervalMs = (if (currentStep.isInsertion) insertionSummary.intervalMs else summary.intervalMs)
         .coerceAtLeast(16)
-    val currentFrameIndex = playbackFrames.getOrElse(currentFramePosition) { baseFrames.first() }
+    val currentFrameIndex = currentStep.frameIndex
     val frameRegion = remember(normalizedConfig, currentFrameIndex) {
         val internalIndex = normalizedConfig.toInternalFrameIndex(currentFrameIndex) ?: return@remember null
         val box = normalizedConfig.boxes.getOrNull(internalIndex) ?: return@remember null
@@ -3092,20 +3128,50 @@ private fun rememberReadyAnimationState(
         )
     }
 
-    LaunchedEffect(playbackFrames, summary.intervalMs, insertionSummary.intervalMs) {
-        currentFramePosition = 0
-        while (isActive && playbackFrames.isNotEmpty()) {
-            val isInsertion = insertionFrames.isNotEmpty() && currentFramePosition >= baseFrames.size
-            val delayMs = (if (isInsertion) insertionSummary.intervalMs else summary.intervalMs)
-                .coerceAtLeast(16)
-            delay(delayMs.toLong())
-            currentFramePosition = (currentFramePosition + 1) % playbackFrames.size
+    LaunchedEffect(
+        baseSteps,
+        insertionSteps,
+        summary.intervalMs,
+        insertionSummary.intervalMs,
+        insertionKey,
+    ) {
+        loopCount = 0
+        lastInsertionLoop = null
+        stepPosition = 0
+        steps = baseSteps
+        while (isActive) {
+            loopCount += 1
+            val insertionSettings = activeInsertionSettings
+            val shouldInsert = insertionSettings?.shouldAttemptInsertion(
+                loopCount = loopCount,
+                lastInsertionLoop = lastInsertionLoop,
+                isReadyPlaying = true,
+                random = random,
+            ) == true
+            val stepsForLoop = if (shouldInsert) {
+                lastInsertionLoop = loopCount
+                if (insertionSettings?.exclusive == true) {
+                    insertionSteps
+                } else {
+                    insertionSteps + baseSteps
+                }
+            } else {
+                baseSteps
+            }.ifEmpty { baseSteps }
+            steps = stepsForLoop
+            for (index in stepsForLoop.indices) {
+                stepPosition = index
+                val step = stepsForLoop[index]
+                val delayMs = (if (step.isInsertion) insertionSummary.intervalMs else summary.intervalMs)
+                    .coerceAtLeast(16)
+                delay(delayMs.toLong())
+            }
         }
     }
 
     return ReadyAnimationState(
         frameRegion = frameRegion,
-        currentFramePosition = currentFramePosition,
+        currentFramePosition = safeStepPosition,
         totalFrames = totalFrames,
         currentIntervalMs = currentIntervalMs
     )
