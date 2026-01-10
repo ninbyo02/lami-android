@@ -2977,9 +2977,9 @@ private fun ReadyAnimationTab(
                                 // [非dp] 横: 入力欄 の weight(制約)に関係
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Exclusive（挿入を抑制）")
+                                Text("Exclusive（挿入位置の固定）")
                                 Text(
-                                    text = "ONにすると Base フレーム再生中は挿入フレームを再生しません",
+                                    text = "ONにすると挿入ループでは Base を再生せず、挿入フレームで置き換えます",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -3145,7 +3145,6 @@ private fun rememberReadyAnimationState(
             val shouldInsert = insertionSettings?.shouldAttemptInsertion(
                 loopCount = loopCount,
                 lastInsertionLoop = lastInsertionLoop,
-                isReadyPlaying = true,
                 random = random,
             ) == true
             val stepsForLoop = if (shouldInsert) {
