@@ -1947,7 +1947,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .zIndex(10f)
+                    .zIndex(10f),
             ) { data ->
                 val isError = data.visuals.actionLabel == "ERROR"
                 val containerColor = if (isError) {
