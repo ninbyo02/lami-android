@@ -515,14 +515,14 @@ class SettingsPreferences(private val context: Context) {
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
         JSONObject()
             .put(JSON_ENABLED_KEY, enabled)
-            .put(JSON_PATTERNS_KEY, patterns.toJsonArray())
+            .put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray())
             .put(JSON_INTERVAL_MS_KEY, intervalMs)
             .put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
             .put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
             .put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
             .put(JSON_EXCLUSIVE_KEY, exclusive)
 
-    private fun List<InsertionPattern>.toJsonArray(): JSONArray =
+    private fun List<InsertionPattern>.toPatternsJsonArray(): JSONArray =
         JSONArray().also { array ->
             forEach { pattern ->
                 array.put(

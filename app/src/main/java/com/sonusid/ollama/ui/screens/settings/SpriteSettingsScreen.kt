@@ -3792,14 +3792,14 @@ private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
 private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("enabled", enabled)
-        .put("patterns", patterns.toJsonArray())
+        .put("patterns", patterns.toPatternsJsonArray())
         .put("intervalMs", intervalMs)
         .put("everyNLoops", everyNLoops)
         .put("probabilityPercent", probabilityPercent)
         .put("cooldownLoops", cooldownLoops)
         .put("exclusive", exclusive)
 
-private fun List<InsertionPattern>.toJsonArray(): JSONArray =
+private fun List<InsertionPattern>.toPatternsJsonArray(): JSONArray =
     JSONArray().apply {
         forEach { pattern ->
             put(
