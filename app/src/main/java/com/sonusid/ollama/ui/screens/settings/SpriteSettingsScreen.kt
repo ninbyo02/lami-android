@@ -99,9 +99,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -1822,13 +1820,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectedPosition?.let { position ->
                                         "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
                                     } ?: "座標: -, -, -, -"
-                                Column(
+                                val statusLine1Text = previewHeaderText
+                                val statusLine2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText"
+                                val statusTextStyle = MaterialTheme.typography.labelMedium.copy(
+                                    lineHeight = MaterialTheme.typography.labelMedium.fontSize
+                                )
+                                Box(
                                     modifier = Modifier
                                         // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
                                         .fillMaxSize()
-                                        // [非dp] 縦: プレビュー の verticalScroll(制約)に関係
-                                        .verticalScroll(rememberScrollState()),
-                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     SpritePreviewBlock(
                                         imageBitmap = imageBitmap,
@@ -1836,9 +1836,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
                                             // [dp] 上: プレビュー の余白(余白)に関係
-                                            .padding(top = 2.dp),
-                                        line1Text = previewHeaderText,
-                                        line2Text = "選択中: ${selectedNumber}/9 | サイズ: ${boxSizePx}px | $coordinateText",
+                                            .padding(top = 2.dp)
+                                            // [非dp] 上: プレビュー の配置(配置)に関係
+                                            .align(Alignment.TopCenter),
                                         isImeVisible = imeVisible,
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
@@ -1872,6 +1872,32 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     )
+                                    Column(
+                                        modifier = Modifier
+                                            // [非dp] 下: ステータス行 の配置(配置)に関係
+                                            .align(Alignment.BottomStart)
+                                            // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
+                                            .fillMaxWidth()
+                                            // [dp] 左右: ステータス行 の余白(余白)に関係
+                                            .padding(horizontal = 12.dp)
+                                            // [dp] 上下: ステータス行 の余白(余白)に関係
+                                            .padding(vertical = 8.dp),
+                                        // [dp] 縦: ステータス行 の間隔(間隔)に関係
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = statusLine1Text,
+                                            style = statusTextStyle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = statusLine2Text,
+                                            style = statusTextStyle,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -2627,8 +2653,6 @@ private fun ReadyAnimationPreviewPane(
 @Composable
 private fun SpritePreviewBlock(
     imageBitmap: ImageBitmap,
-    line1Text: String,
-    line2Text: String,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
@@ -2668,33 +2692,6 @@ private fun SpritePreviewBlock(
                 contentScale = ContentScale.Fit
             )
             overlayContent()
-        }
-        val infoTextStyle = MaterialTheme.typography.labelMedium.copy(
-            lineHeight = MaterialTheme.typography.labelMedium.fontSize
-        )
-        val textHorizontalPadding = maxOf(0.dp, minOf(4.dp, configuration.screenWidthDp.dp * 0.01f))
-        Column(
-            modifier = Modifier
-                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
-                .fillMaxWidth()
-                // [dp] 左右: プレビュー の余白(余白)に関係
-                .padding(horizontal = textHorizontalPadding),
-            // [dp] 縦: プレビュー の間隔(間隔)に関係
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text(
-                text = line1Text,
-                style = infoTextStyle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = line2Text,
-                style = infoTextStyle,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }
