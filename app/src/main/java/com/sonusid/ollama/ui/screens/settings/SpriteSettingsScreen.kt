@@ -2189,6 +2189,28 @@ fun SpriteSettingsScreen(navController: NavController) {
         return ValidationResult(AllAnimations(resolved), null)
     }
 
+    fun buildUpdatedAnimationsJson(
+        existingJson: String?,
+        animationKey: String,
+        base: ReadyAnimationSettings,
+        insertion: InsertionAnimationSettings,
+    ): String {
+        val existingRoot = existingJson
+            ?.takeIf { it.isNotBlank() }
+            ?.let { value -> runCatching { JSONObject(value) }.getOrNull() }
+        val animationsObject = existingRoot?.optJSONObject(JSON_ANIMATIONS_KEY) ?: JSONObject()
+        animationsObject.put(
+            animationKey,
+            JSONObject()
+                .put(JSON_BASE_KEY, base.toJsonObject())
+                .put(JSON_INSERTION_KEY, insertion.toJsonObject())
+        )
+        return JSONObject()
+            .put(JSON_VERSION_KEY, ALL_ANIMATIONS_JSON_VERSION)
+            .put(JSON_ANIMATIONS_KEY, animationsObject)
+            .toString()
+    }
+
     // 段階1: spriteAnimationsJson があれば優先しつつ、UI反映は段階2以降で実装予定。
     @Suppress("UNUSED_VARIABLE")
     val compositeAnimations = remember(
@@ -2541,6 +2563,34 @@ fun SpriteSettingsScreen(navController: NavController) {
                     settingsPreferences.saveIdleAnimationSettings(validatedBase)
                     settingsPreferences.saveIdleInsertionAnimationSettings(insertion)
                     showTopSnackbarSuccess("Idleアニメを保存しました")
+                }
+            }
+
+            AnimationType.THINKING -> {
+                val current = resolveExtraState(selectedAnimation)
+                val insertion = validatedInsertion ?: current.appliedInsertion.copy(enabled = false)
+                updateExtraState(selectedAnimation) { state ->
+                    state.copy(
+                        appliedBase = validatedBase,
+                        appliedInsertion = insertion,
+                    )
+                }
+                coroutineScope.launch {
+                    runCatching {
+                        val updatedJson = buildUpdatedAnimationsJson(
+                            existingJson = spriteAnimationsJson,
+                            animationKey = selectedAnimation.internalKey,
+                            base = validatedBase,
+                            insertion = insertion,
+                        )
+                        val normalizedJson = settingsPreferences.parseAndValidateAllAnimationsJson(updatedJson)
+                            .getOrThrow()
+                        settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
+                    }.onSuccess {
+                        showTopSnackbarSuccess("Thinkingアニメを保存しました")
+                    }.onFailure { throwable ->
+                        showTopSnackbarError("保存に失敗しました: ${throwable.message}")
+                    }
                 }
             }
 
