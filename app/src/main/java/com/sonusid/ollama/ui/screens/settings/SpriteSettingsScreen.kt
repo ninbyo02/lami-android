@@ -677,6 +677,25 @@ private fun buildEffectiveInsertionIntervalText(
     }
 }
 
+private fun selectWeightedInsertionPattern(
+    patterns: List<InsertionPattern>,
+    random: Random,
+): Pair<Int, InsertionPattern>? {
+    val candidates = patterns.withIndex().filter { (_, pattern) ->
+        pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
+    }
+    if (candidates.isEmpty()) return null
+    val totalWeight = candidates.sumOf { (_, pattern) -> pattern.weight }
+    if (totalWeight <= 0) return null
+    val roll = random.nextInt(totalWeight)
+    var cursor = 0
+    for ((index, pattern) in candidates) {
+        cursor += pattern.weight
+        if (roll < cursor) return index to pattern
+    }
+    return candidates.lastOrNull()?.let { (index, pattern) -> index to pattern }
+}
+
 private const val DEFAULT_BOX_SIZE_PX = 88
 internal const val INFO_X_OFFSET_MIN = -500
 internal const val INFO_X_OFFSET_MAX = 500
@@ -3706,10 +3725,14 @@ private data class ReadyAnimationState(
     val currentFramePosition: Int,
     val totalFrames: Int,
     val currentIntervalMs: Int,
+    val lastInsertionPatternIndex: Int?,
+    val lastInsertionResolvedIntervalMs: Int?,
+    val lastInsertionFrames: List<Int>?,
 )
 
 private data class PreviewStep(
     val frameIndex: Int,
+    val intervalMs: Int,
     val isInsertion: Boolean,
 )
 
@@ -3719,6 +3742,8 @@ private fun rememberReadyAnimationState(
     summary: AnimationSummary,
     insertionSummary: AnimationSummary,
     insertionEnabled: Boolean,
+    insertionPatterns: List<InsertionPattern>,
+    insertionDefaultIntervalMs: Int,
 ): ReadyAnimationState {
     val normalizedConfig = remember(spriteSheetConfig) {
         val validationError = spriteSheetConfig.validate()
@@ -3730,16 +3755,16 @@ private fun rememberReadyAnimationState(
         safeConfig.copy(boxes = safeConfig.boxesWithInternalIndex())
     }
     val baseFrames = remember(summary) { summary.frames.ifEmpty { listOf(0) } }
-    val insertionFrames = remember(insertionSummary, insertionEnabled) {
-        if (insertionEnabled) insertionSummary.frames.ifEmpty { emptyList() } else emptyList()
+    val baseSteps = remember(baseFrames, summary.intervalMs) {
+        baseFrames.map { frame ->
+            PreviewStep(frameIndex = frame, intervalMs = summary.intervalMs, isInsertion = false)
+        }
     }
-    val baseSteps = remember(baseFrames) { baseFrames.map { frame -> PreviewStep(frame, false) } }
-    val insertionSteps = remember(insertionFrames) { insertionFrames.map { frame -> PreviewStep(frame, true) } }
-    val insertionKey = remember(insertionEnabled, insertionSummary, insertionFrames) {
+    val insertionKey = remember(insertionEnabled, insertionSummary, insertionPatterns) {
         listOf(
             insertionEnabled,
             insertionSummary.enabled,
-            insertionFrames,
+            insertionPatterns,
             insertionSummary.intervalMs,
             insertionSummary.everyNLoops,
             insertionSummary.probabilityPercent,
@@ -3747,14 +3772,14 @@ private fun rememberReadyAnimationState(
             insertionSummary.exclusive,
         ).hashCode()
     }
-    val activeInsertionSettings = remember(insertionEnabled, insertionSummary, insertionFrames) {
-        if (!insertionEnabled || !insertionSummary.enabled || insertionFrames.isEmpty()) {
+    val activeInsertionSettings = remember(insertionEnabled, insertionSummary, insertionPatterns, insertionDefaultIntervalMs) {
+        if (!insertionEnabled || !insertionSummary.enabled || insertionPatterns.isEmpty()) {
             null
         } else {
             InsertionAnimationSettings(
                 enabled = true,
-                patterns = listOf(InsertionPattern(frameSequence = insertionFrames)),
-                intervalMs = insertionSummary.intervalMs,
+                patterns = insertionPatterns,
+                intervalMs = insertionDefaultIntervalMs,
                 everyNLoops = insertionSummary.everyNLoops ?: InsertionAnimationSettings.DEFAULT.everyNLoops,
                 probabilityPercent = insertionSummary.probabilityPercent
                     ?: InsertionAnimationSettings.DEFAULT.probabilityPercent,
@@ -3768,12 +3793,15 @@ private fun rememberReadyAnimationState(
     var steps by remember { mutableStateOf<List<PreviewStep>>(emptyList()) }
     var loopCount by remember { mutableStateOf(0) }
     var lastInsertionLoop by remember { mutableStateOf<Int?>(null) }
+    var lastInsertionPatternIndex by remember(insertionKey) { mutableStateOf<Int?>(null) }
+    var lastInsertionResolvedIntervalMs by remember(insertionKey) { mutableStateOf<Int?>(null) }
+    var lastInsertionFrames by remember(insertionKey) { mutableStateOf<List<Int>?>(null) }
     val safeSteps = steps.ifEmpty { baseSteps }
     val safeStepPosition = stepPosition.coerceIn(0, safeSteps.lastIndex.coerceAtLeast(0))
-    val currentStep = safeSteps.getOrNull(safeStepPosition) ?: PreviewStep(baseFrames.first(), false)
+    val currentStep = safeSteps.getOrNull(safeStepPosition)
+        ?: PreviewStep(frameIndex = baseFrames.first(), intervalMs = summary.intervalMs, isInsertion = false)
     val totalFrames = safeSteps.size.coerceAtLeast(1)
-    val currentIntervalMs = (if (currentStep.isInsertion) insertionSummary.intervalMs else summary.intervalMs)
-        .coerceAtLeast(16)
+    val currentIntervalMs = currentStep.intervalMs.coerceAtLeast(16)
     val currentFrameIndex = currentStep.frameIndex
     val frameRegion = remember(normalizedConfig, currentFrameIndex) {
         val internalIndex = normalizedConfig.toInternalFrameIndex(currentFrameIndex) ?: return@remember null
@@ -3786,7 +3814,8 @@ private fun rememberReadyAnimationState(
 
     LaunchedEffect(
         baseSteps,
-        insertionSteps,
+        insertionPatterns,
+        insertionDefaultIntervalMs,
         summary.intervalMs,
         insertionSummary.intervalMs,
         insertionKey,
@@ -3795,6 +3824,9 @@ private fun rememberReadyAnimationState(
         lastInsertionLoop = null
         stepPosition = 0
         steps = baseSteps
+        lastInsertionPatternIndex = null
+        lastInsertionResolvedIntervalMs = null
+        lastInsertionFrames = null
         while (isActive) {
             loopCount += 1
             val insertionSettings = activeInsertionSettings
@@ -3804,11 +3836,27 @@ private fun rememberReadyAnimationState(
                 random = random,
             ) == true
             val stepsForLoop = if (shouldInsert) {
-                lastInsertionLoop = loopCount
-                if (insertionSettings?.exclusive == true) {
-                    insertionSteps
+                val selection = selectWeightedInsertionPattern(
+                    patterns = insertionPatterns,
+                    random = random
+                )
+                if (selection != null) {
+                    val (patternIndex, pattern) = selection
+                    val resolvedIntervalMs = (pattern.intervalMs ?: insertionDefaultIntervalMs).coerceAtLeast(0)
+                    val insertionSteps = pattern.frameSequence.map { frame ->
+                        PreviewStep(frameIndex = frame, intervalMs = resolvedIntervalMs, isInsertion = true)
+                    }
+                    lastInsertionPatternIndex = patternIndex
+                    lastInsertionResolvedIntervalMs = resolvedIntervalMs
+                    lastInsertionFrames = pattern.frameSequence.toList()
+                    lastInsertionLoop = loopCount
+                    if (insertionSettings?.exclusive == true) {
+                        insertionSteps
+                    } else {
+                        insertionSteps + baseSteps
+                    }
                 } else {
-                    insertionSteps + baseSteps
+                    baseSteps
                 }
             } else {
                 baseSteps
@@ -3817,9 +3865,7 @@ private fun rememberReadyAnimationState(
             for (index in stepsForLoop.indices) {
                 stepPosition = index
                 val step = stepsForLoop[index]
-                val delayMs = (if (step.isInsertion) insertionSummary.intervalMs else summary.intervalMs)
-                    .coerceAtLeast(16)
-                delay(delayMs.toLong())
+                delay(step.intervalMs.coerceAtLeast(16).toLong())
             }
         }
     }
@@ -3828,7 +3874,10 @@ private fun rememberReadyAnimationState(
         frameRegion = frameRegion,
         currentFramePosition = safeStepPosition,
         totalFrames = totalFrames,
-        currentIntervalMs = currentIntervalMs
+        currentIntervalMs = currentIntervalMs,
+        lastInsertionPatternIndex = lastInsertionPatternIndex,
+        lastInsertionResolvedIntervalMs = lastInsertionResolvedIntervalMs,
+        lastInsertionFrames = lastInsertionFrames,
     )
 }
 
@@ -3885,24 +3934,44 @@ private fun ReadyAnimationInfo(
     val lineSpacing = 4.dp
     val baseFramesText = summary.frames.ifEmpty { listOf(0) }
         .joinToString(",") { value -> (value + 1).toString() }
-    val insertionFramesCount = insertionSummary.frames.ifEmpty { listOf(0) }.size
     val insertionLine = if (insertionEnabled && insertionSummary.enabled) {
-        val effectiveIntervalText = buildEffectiveInsertionIntervalText(
-            patterns = insertionPatterns,
-            defaultIntervalMs = insertionDefaultIntervalMs,
-        )
-        val defaultIntervalText = "${insertionDefaultIntervalMs}ms"
-        // 実効周期のみを短縮表記で表示し、必要時のみデフォルト周期を併記する
-        buildString {
-            append("挿入: ")
-            append(effectiveIntervalText)
-            if (effectiveIntervalText != defaultIntervalText) {
-                append(" (D")
-                append(insertionDefaultIntervalMs)
-                append(")")
+        val lastPatternIndex = state.lastInsertionPatternIndex
+        val lastIntervalMs = state.lastInsertionResolvedIntervalMs
+        val lastFrames = state.lastInsertionFrames
+        if (lastPatternIndex != null && lastIntervalMs != null && lastFrames != null) {
+            buildString {
+                append("挿入: P")
+                append(lastPatternIndex + 1)
+                append(" ")
+                append(lastIntervalMs)
+                append("ms")
+                if (lastIntervalMs != insertionDefaultIntervalMs) {
+                    append(" (D")
+                    append(insertionDefaultIntervalMs)
+                    append(")")
+                }
+                append(" F")
+                append(lastFrames.size)
             }
-            append(" F")
-            append(insertionFramesCount)
+        } else {
+            val effectiveIntervalText = buildEffectiveInsertionIntervalText(
+                patterns = insertionPatterns,
+                defaultIntervalMs = insertionDefaultIntervalMs,
+            )
+            val defaultIntervalText = "${insertionDefaultIntervalMs}ms"
+            val insertionFramesCount = insertionSummary.frames.ifEmpty { listOf(0) }.size
+            // 実効周期のみを短縮表記で表示し、必要時のみデフォルト周期を併記する
+            buildString {
+                append("挿入: ")
+                append(effectiveIntervalText)
+                if (effectiveIntervalText != defaultIntervalText) {
+                    append(" (D")
+                    append(insertionDefaultIntervalMs)
+                    append(")")
+                }
+                append(" F")
+                append(insertionFramesCount)
+            }
         }
     } else {
         "挿入: OFF"
@@ -4044,7 +4113,9 @@ private fun ReadyAnimationPreviewPane(
                     spriteSheetConfig = spriteSheetConfig,
                     summary = baseSummary,
                     insertionSummary = insertionSummary,
-                    insertionEnabled = insertionEnabled
+                    insertionEnabled = insertionEnabled,
+                    insertionPatterns = insertionPatterns,
+                    insertionDefaultIntervalMs = insertionDefaultIntervalMs,
                 )
                 // [dp] 左右: プレビュー の余白(余白)に関係
                 val contentHorizontalPadding = maxOf(8.dp, minOf(12.dp, maxWidth * 0.035f))

@@ -204,21 +204,21 @@ private fun selectInsertionSettingsForStatus(
 private fun selectWeightedInsertionPattern(
     patterns: List<InsertionPattern>,
     random: Random,
-): InsertionPattern? {
+): Pair<Int, InsertionPattern>? {
     // 抽選対象は weight>0 かつ frameSequence が空でないものに限定する
-    val candidates = patterns.filter { pattern ->
+    val candidates = patterns.withIndex().filter { (_, pattern) ->
         pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
     }
     if (candidates.isEmpty()) return null
-    val totalWeight = candidates.sumOf { pattern -> pattern.weight }
+    val totalWeight = candidates.sumOf { (_, pattern) -> pattern.weight }
     if (totalWeight <= 0) return null
     val roll = random.nextInt(totalWeight)
     var cursor = 0
-    for (pattern in candidates) {
+    for ((index, pattern) in candidates) {
         cursor += pattern.weight
-        if (roll < cursor) return pattern
+        if (roll < cursor) return index to pattern
     }
-    return candidates.lastOrNull()
+    return candidates.lastOrNull()?.let { (index, pattern) -> index to pattern }
 }
 
 @Composable
@@ -311,6 +311,10 @@ fun LamiStatusSprite(
     val loopCountState = remember(resolvedStatus) { mutableStateOf(0) }
     // 設定変更時は Effect 開始時にクールダウン状態もリセットする
     val lastInsertionLoopState = remember(resolvedStatus) { mutableStateOf<Int?>(null) }
+    // 挿入イベントの確定値を保持する
+    var lastInsertionPatternIndex by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
+    var lastInsertionResolvedIntervalMs by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
+    var lastInsertionFrames by remember(resolvedStatus, insertionKey) { mutableStateOf<List<Int>?>(null) }
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
@@ -353,6 +357,9 @@ fun LamiStatusSprite(
     LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionKey) {
         loopCountState.value = 0
         lastInsertionLoopState.value = null
+        lastInsertionPatternIndex = null
+        lastInsertionResolvedIntervalMs = null
+        lastInsertionFrames = null
         currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
@@ -384,14 +391,18 @@ fun LamiStatusSprite(
             if (shouldInsert && settings?.patterns?.isNotEmpty() == true) {
                 val activeSettings = requireNotNull(settings)
                 // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
-                val pattern = selectWeightedInsertionPattern(activeSettings.patterns, random)
+                val (patternIndex, pattern) = selectWeightedInsertionPattern(activeSettings.patterns, random)
                     ?: continue
                 val resolvedIntervalMs = pattern.intervalMs ?: activeSettings.intervalMs
+                lastInsertionPatternIndex = patternIndex
+                lastInsertionResolvedIntervalMs = resolvedIntervalMs
+                lastInsertionFrames = pattern.frameSequence.toList()
                 if (BuildConfig.DEBUG) {
                     // 実効 interval の決定根拠をログで確認できるようにする
                     Log.d(
                         "LamiStatusSprite",
                         "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
+                            "patternIndex=$patternIndex " +
                             "frames=${pattern.frameSequence} " +
                             "patternInterval=${pattern.intervalMs} " +
                             "defaultInterval=${activeSettings.intervalMs} " +
