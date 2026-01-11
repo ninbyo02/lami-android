@@ -185,7 +185,7 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
     }
 
     val supportsPersistence: Boolean
-        get() = this == READY || this == TALKING
+        get() = this == READY || this == TALKING || this == IDLE
 }
 
 private enum class SpriteTab {
@@ -236,16 +236,8 @@ private data class AnimationInputState(
 // 暫定: statusAnimationMap に近い値をここで簡易マッピングする。
 private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapOf(
     AnimationType.IDLE to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(0, 8, 0, 5, 0), intervalMs = 490),
-        insertion = InsertionAnimationSettings(
-            enabled = true,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(0, 0, 8, 0))),
-            intervalMs = 490,
-            everyNLoops = 8,
-            probabilityPercent = 100,
-            cooldownLoops = 0,
-            exclusive = false,
-        ),
+        base = ReadyAnimationSettings.IDLE_DEFAULT,
+        insertion = InsertionAnimationSettings.IDLE_DEFAULT,
     ),
     AnimationType.THINKING to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(4, 4, 4, 7, 4, 4, 4), intervalMs = 250),
@@ -866,6 +858,20 @@ fun SpriteSettingsScreen(navController: NavController) {
     val talkingInsertionAnimationSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(
         initial = InsertionAnimationSettings.TALKING_DEFAULT
     )
+    val idleAnimationSettings by settingsPreferences.idleAnimationSettings.collectAsState(
+        initial = ReadyAnimationSettings.IDLE_DEFAULT
+    )
+    val idleInsertionAnimationSettings by settingsPreferences.idleInsertionAnimationSettings.collectAsState(
+        initial = InsertionAnimationSettings.IDLE_DEFAULT
+    )
+    val extraAnimationDefaultsWithIdle = remember(idleAnimationSettings, idleInsertionAnimationSettings) {
+        extraAnimationDefaults + mapOf(
+            AnimationType.IDLE to AnimationDefaults(
+                base = idleAnimationSettings,
+                insertion = idleInsertionAnimationSettings,
+            )
+        )
+    }
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
@@ -1047,6 +1053,13 @@ fun SpriteSettingsScreen(navController: NavController) {
         talkingInsertionCooldownInput = talkingInsertionAnimationSettings.cooldownLoops.toString()
         talkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         talkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
+    }
+
+    LaunchedEffect(idleAnimationSettings, idleInsertionAnimationSettings) {
+        extraAnimationStates[AnimationType.IDLE] = AnimationDefaults(
+            base = idleAnimationSettings,
+            insertion = idleInsertionAnimationSettings,
+        ).toInputState()
     }
 
     val selectedIndex = selectedNumber - 1
@@ -1273,7 +1286,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (existing != null) {
             return existing
         }
-        val defaults = requireNotNull(extraAnimationDefaults[target]) { "対象外のアニメ種別です: $target" }
+        val defaults = requireNotNull(extraAnimationDefaultsWithIdle[target]) { "対象外のアニメ種別です: $target" }
         val initialState = defaults.toInputState()
         extraAnimationStates[target] = initialState
         return initialState
@@ -1821,7 +1834,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         return buildMap {
             put(AnimationType.READY, readyDefaults)
             put(AnimationType.TALKING, talkingDefaults)
-            putAll(extraAnimationDefaults)
+            putAll(extraAnimationDefaultsWithIdle)
         }
     }
 
@@ -1841,7 +1854,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     insertion = talkingInsertionAnimationSettings,
                 )
             )
-            putAll(extraAnimationDefaults)
+            putAll(extraAnimationDefaultsWithIdle)
         }
 
     fun parseFramesFromJson(
@@ -2512,6 +2525,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                     settingsPreferences.saveTalkingAnimationSettings(validatedBase)
                     settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
                     showTopSnackbarSuccess("Speakingアニメを保存しました")
+                }
+            }
+
+            AnimationType.IDLE -> {
+                val current = resolveExtraState(selectedAnimation)
+                val insertion = validatedInsertion ?: current.appliedInsertion.copy(enabled = false)
+                updateExtraState(selectedAnimation) { state ->
+                    state.copy(
+                        appliedBase = validatedBase,
+                        appliedInsertion = insertion,
+                    )
+                }
+                coroutineScope.launch {
+                    settingsPreferences.saveIdleAnimationSettings(validatedBase)
+                    settingsPreferences.saveIdleInsertionAnimationSettings(insertion)
+                    showTopSnackbarSuccess("Idleアニメを保存しました")
                 }
             }
 
