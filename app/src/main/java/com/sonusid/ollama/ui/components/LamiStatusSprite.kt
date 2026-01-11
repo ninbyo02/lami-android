@@ -388,14 +388,15 @@ fun LamiStatusSprite(
                     ?: continue
                 val resolvedIntervalMs = pattern.intervalMs ?: activeSettings.intervalMs
                 if (BuildConfig.DEBUG) {
+                    // 実効 interval の決定根拠をログで確認できるようにする
                     Log.d(
-                        "LamiSprite",
-                        "insertion pick: status=$resolvedStatus shouldInsert=$shouldInsert " +
-                            "default=${activeSettings.intervalMs} " +
+                        "LamiStatusSprite",
+                        "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
+                            "frames=${pattern.frameSequence} " +
                             "patternInterval=${pattern.intervalMs} " +
-                            "resolved=$resolvedIntervalMs " +
-                            "frames=${pattern.frameSequence} weight=${pattern.weight} " +
-                            "loopCount=$loopCount lastInsertionLoop=$lastInsertionLoop"
+                            "defaultInterval=${activeSettings.intervalMs} " +
+                            "resolvedInterval=$resolvedIntervalMs " +
+                            "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
                     )
                 }
                 playInsertionFrames(
