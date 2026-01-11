@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.components
 
+import android.util.Log
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
@@ -385,6 +387,14 @@ fun LamiStatusSprite(
                 val pattern = selectWeightedInsertionPattern(activeSettings.patterns, random)
                     ?: continue
                 val resolvedIntervalMs = pattern.intervalMs ?: activeSettings.intervalMs
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "insertion pick: patternInterval=${pattern.intervalMs} " +
+                            "default=${activeSettings.intervalMs} resolved=$resolvedIntervalMs " +
+                            "frames=${pattern.frameSequence} weight=${pattern.weight}"
+                    )
+                }
                 playInsertionFrames(
                     frameSequence = pattern.frameSequence,
                     intervalMs = resolvedIntervalMs,
