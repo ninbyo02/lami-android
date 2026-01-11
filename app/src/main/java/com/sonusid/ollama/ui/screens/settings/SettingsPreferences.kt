@@ -36,6 +36,7 @@ data class ReadyAnimationSettings(
 
 data class InsertionPattern(
     val frameSequence: List<Int>,
+    val weight: Int = 1,
 )
 
 data class InsertionAnimationSettings(
@@ -440,8 +441,9 @@ class SettingsPreferences(private val context: Context) {
                 for (index in 0 until patternsArray.length()) {
                     val patternObject = patternsArray.optJSONObject(index) ?: continue
                     val frames = parsePatternFrames(patternObject.optJSONArray(JSON_FRAMES_KEY))
+                    val weight = patternObject.optInt(JSON_WEIGHT_KEY, 1).coerceAtLeast(0)
                     if (frames.isNotEmpty()) {
-                        add(InsertionPattern(frameSequence = frames))
+                        add(InsertionPattern(frameSequence = frames, weight = weight))
                     }
                 }
             }
@@ -450,7 +452,7 @@ class SettingsPreferences(private val context: Context) {
         val legacyFrames = json?.optJSONArray(JSON_FRAMES_KEY)?.let { array ->
             parseFrames(array, InsertionAnimationSettings.DEFAULT.patterns.first().frameSequence)
         } ?: InsertionAnimationSettings.DEFAULT.patterns.first().frameSequence
-        return listOf(InsertionPattern(frameSequence = legacyFrames))
+        return listOf(InsertionPattern(frameSequence = legacyFrames, weight = 1))
     }
 
     private fun parsePatternFrames(array: JSONArray?): List<Int> {
@@ -477,11 +479,15 @@ class SettingsPreferences(private val context: Context) {
             .filter { token -> token.isNotEmpty() }
         if (rawPatterns.isEmpty()) return fallback
         val parsed = rawPatterns.mapNotNull { patternText ->
-            val frames = patternText
+            val (framesText, weightText) = patternText.split(":", limit = 2).let { parts ->
+                parts.firstOrNull().orEmpty() to parts.getOrNull(1)
+            }
+            val frames = framesText
                 .split(",")
                 .mapNotNull { value -> value.trim().toIntOrNull() }
                 .filter { it in 0 until defaultSpriteSheetConfig.frameCount }
-            if (frames.isEmpty()) null else InsertionPattern(frameSequence = frames)
+            val weight = weightText?.trim()?.toIntOrNull()?.coerceAtLeast(0) ?: 1
+            if (frames.isEmpty()) null else InsertionPattern(frameSequence = frames, weight = weight)
         }
         return parsed.ifEmpty { fallback }
     }
@@ -490,7 +496,8 @@ class SettingsPreferences(private val context: Context) {
         if (patterns.isEmpty()) return emptyList()
         return patterns.mapNotNull { pattern ->
             val frames = pattern.frameSequence.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
-            if (frames.isEmpty()) null else InsertionPattern(frameSequence = frames)
+            val weight = pattern.weight.coerceAtLeast(0)
+            if (frames.isEmpty()) null else InsertionPattern(frameSequence = frames, weight = weight)
         }
     }
 
@@ -528,6 +535,7 @@ class SettingsPreferences(private val context: Context) {
                 array.put(
                     JSONObject()
                         .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
+                        .put(JSON_WEIGHT_KEY, pattern.weight)
                 )
             }
         }
@@ -537,7 +545,7 @@ class SettingsPreferences(private val context: Context) {
 
     private fun List<InsertionPattern>.toStorageText(): String =
         joinToString(separator = " | ") { pattern ->
-            pattern.frameSequence.joinToString(separator = ",")
+            "${pattern.frameSequence.joinToString(separator = ",")}:${pattern.weight}"
         }
 
     private companion object {
@@ -551,6 +559,7 @@ class SettingsPreferences(private val context: Context) {
         const val JSON_ENABLED_KEY = "enabled"
         const val JSON_PATTERNS_KEY = "patterns"
         const val JSON_FRAMES_KEY = "frames"
+        const val JSON_WEIGHT_KEY = "weight"
         const val JSON_INTERVAL_MS_KEY = "intervalMs"
         const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
         const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
