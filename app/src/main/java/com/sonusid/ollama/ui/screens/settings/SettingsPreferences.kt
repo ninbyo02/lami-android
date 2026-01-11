@@ -1,11 +1,13 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.normalize
 import kotlinx.coroutines.flow.Flow
@@ -191,6 +193,16 @@ class SettingsPreferences(private val context: Context) {
 
         val enabled = preferences[readyInsertionEnabledKey] ?: InsertionAnimationSettings.DEFAULT.enabled
         val exclusive = preferences[readyInsertionExclusiveKey] ?: InsertionAnimationSettings.DEFAULT.exclusive
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "ready insertion restore: patternsText=${patternsText?.take(120)} " +
+                    "intervals=$patternIntervals " +
+                    "parsed=${formatPatternsForLog(parsedPatterns)} " +
+                    "adjusted=${formatPatternsForLog(adjustedPatterns)} " +
+                    "defaultInterval=$intervalMs"
+            )
+        }
 
         InsertionAnimationSettings(
             enabled = enabled,
@@ -236,6 +248,16 @@ class SettingsPreferences(private val context: Context) {
 
         val enabled = preferences[talkingInsertionEnabledKey] ?: InsertionAnimationSettings.DEFAULT.enabled
         val exclusive = preferences[talkingInsertionExclusiveKey] ?: InsertionAnimationSettings.DEFAULT.exclusive
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "talking insertion restore: patternsText=${patternsText?.take(120)} " +
+                    "intervals=$patternIntervals " +
+                    "parsed=${formatPatternsForLog(parsedPatterns)} " +
+                    "adjusted=${formatPatternsForLog(adjustedPatterns)} " +
+                    "defaultInterval=$intervalMs"
+            )
+        }
 
         InsertionAnimationSettings(
             enabled = enabled,
@@ -285,6 +307,17 @@ class SettingsPreferences(private val context: Context) {
     }
 
     suspend fun saveReadyInsertionAnimationSettings(settings: InsertionAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            settings.patterns.forEachIndexed { index, pattern ->
+                Log.d(
+                    "LamiSprite",
+                    "ready insertion save: index=$index frames=${pattern.frameSequence} " +
+                        "weight=${pattern.weight} interval=${pattern.intervalMs} " +
+                        "storedInterval=${patternIntervalToStorageValue(pattern.intervalMs)} " +
+                        "defaultInterval=${settings.intervalMs}"
+                )
+            }
+        }
         context.dataStore.edit { preferences ->
             preferences[readyInsertionEnabledKey] = settings.enabled
             preferences[readyInsertionFrameSequenceKey] = settings.patterns.toStorageText()
@@ -301,6 +334,17 @@ class SettingsPreferences(private val context: Context) {
     }
 
     suspend fun saveTalkingInsertionAnimationSettings(settings: InsertionAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            settings.patterns.forEachIndexed { index, pattern ->
+                Log.d(
+                    "LamiSprite",
+                    "talking insertion save: index=$index frames=${pattern.frameSequence} " +
+                        "weight=${pattern.weight} interval=${pattern.intervalMs} " +
+                        "storedInterval=${patternIntervalToStorageValue(pattern.intervalMs)} " +
+                        "defaultInterval=${settings.intervalMs}"
+                )
+            }
+        }
         context.dataStore.edit { preferences ->
             preferences[talkingInsertionEnabledKey] = settings.enabled
             preferences[talkingInsertionFrameSequenceKey] = settings.patterns.toStorageText()
@@ -603,10 +647,11 @@ class SettingsPreferences(private val context: Context) {
     ): List<InsertionPattern> =
         patterns.mapIndexed { index, pattern ->
             val intervalMs = intervals.getOrNull(index)
-            if (intervalMs == null) {
+            val resolvedIntervalMs = pattern.intervalMs ?: intervalMs
+            if (resolvedIntervalMs == null) {
                 pattern
             } else {
-                pattern.copy(intervalMs = intervalMs)
+                pattern.copy(intervalMs = resolvedIntervalMs)
             }
         }
 
@@ -618,6 +663,11 @@ class SettingsPreferences(private val context: Context) {
 
     private fun patternIntervalToStorageValue(intervalMs: Int?): Int =
         intervalMs?.coerceIn(0, InsertionAnimationSettings.MAX_INTERVAL_MS) ?: PATTERN_INTERVAL_UNSET
+
+    private fun formatPatternsForLog(patterns: List<InsertionPattern>): String =
+        patterns.mapIndexed { index, pattern ->
+            "index=$index frames=${pattern.frameSequence} weight=${pattern.weight} interval=${pattern.intervalMs}"
+        }.joinToString(separator = ", ")
 
     private companion object {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
