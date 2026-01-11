@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ButtonDefaults
@@ -113,6 +114,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -2377,6 +2379,28 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun copySavedSpriteAnimationsJson() {
+        coroutineScope.launch {
+            val savedJson = spriteAnimationsJson
+            if (savedJson.isNullOrBlank()) {
+                showTopSnackbarError("保存済みアニメJSONがありません")
+                return@launch
+            }
+            val previewLimit = 80
+            val previewLength = min(savedJson.length, previewLimit)
+            val preview = if (savedJson.length > previewLimit) {
+                "${savedJson.take(previewLimit)}…"
+            } else {
+                savedJson
+            }
+            clipboardManager.setText(AnnotatedString(savedJson))
+            showTopSnackbarSuccess(
+                "保存済みアニメJSONをコピーしました (len=${savedJson.length})\n" +
+                    "先頭${previewLength}文字: $preview"
+            )
+        }
+    }
+
     fun copyAppliedSettings(devSettings: DevPreviewSettings) {
         coroutineScope.launch {
             runCatching {
@@ -2702,6 +2726,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                         val normalizedJson = settingsPreferences.parseAndValidateAllAnimationsJson(updatedJson)
                             .getOrThrow()
                         settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
+                        if (BuildConfig.DEBUG) {
+                            Log.d("SpriteSettingsScreen", "saved len=${normalizedJson.length}")
+                        }
                     }.onSuccess {
                         showTopSnackbarSuccess("Thinkingアニメを保存しました")
                     }.onFailure { throwable ->
@@ -2807,6 +2834,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 imageVector = Icons.Filled.ContentCopy,
                                 contentDescription = "コピー"
                             )
+                        }
+                        if (selectedTab == SpriteTab.ANIM) {
+                            IconButton(
+                                onClick = { copySavedSpriteAnimationsJson() }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentPaste,
+                                    contentDescription = "保存済みアニメJSONをコピー"
+                                )
+                            }
                         }
                         IconButton(
                             onClick = {
