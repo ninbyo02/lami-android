@@ -34,6 +34,10 @@ data class ReadyAnimationSettings(
             frameSequence = listOf(0, 1, 2, 1),
             intervalMs = 700,
         )
+        val THINKING_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(7, 7, 7, 6, 7, 7, 6, 7),
+            intervalMs = 180,
+        )
         // 見た目: Idleの現行UI(1..9表記)に合わせ、左右上下の揺れ0px想定で間隔180msを採用
         private val IDLE_DEFAULT_UI_FRAMES = listOf(8, 8, 8, 7, 8, 8, 7, 8)
         val IDLE_DEFAULT = ReadyAnimationSettings(
@@ -82,6 +86,18 @@ data class InsertionAnimationSettings(
             everyNLoops = 1,
             probabilityPercent = 50,
             cooldownLoops = 0,
+            exclusive = false,
+        )
+        val THINKING_DEFAULT = InsertionAnimationSettings(
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5), weight = 3, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 80),
+            ),
+            intervalMs = 200,
+            everyNLoops = 5,
+            probabilityPercent = 80,
+            cooldownLoops = 4,
             exclusive = false,
         )
         // 見た目: Idleの現行UI(1..9表記)に合わせ、左右上下の揺れ0px想定で挿入パターンを更新
@@ -582,6 +598,8 @@ class SettingsPreferences(private val context: Context) {
             val (baseDefaults, insertionDefaults) = when (normalizedKey) {
                 ALL_ANIMATIONS_READY_KEY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
                 ALL_ANIMATIONS_TALKING_KEY -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
+                ALL_ANIMATIONS_THINKING_KEY ->
+                    ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
                 else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
             }
             val normalizedBase = parseReadySettings(baseObject, baseDefaults).toJsonObject()
@@ -869,6 +887,7 @@ class SettingsPreferences(private val context: Context) {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
         const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
+        const val ALL_ANIMATIONS_THINKING_KEY = "Thinking"
         const val ALL_ANIMATIONS_READY_LEGACY_KEY = "ReadyBlink"
         const val JSON_VERSION_KEY = "version"
         const val JSON_ANIMATIONS_KEY = "animations"
