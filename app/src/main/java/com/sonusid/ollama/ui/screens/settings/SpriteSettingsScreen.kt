@@ -2173,7 +2173,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     } else {
                         null
                     }
-                    ?: animationsObject.optJSONObject(type.internalKey)
+                    ?: animationsObject.optJSONObject(type.internalKey) // 表示名が異なる旧データを救済
                 ) ?: continue
             val baseObject = animationObject.optJSONObject(JSON_BASE_KEY)
             val insertionObject = animationObject.optJSONObject(JSON_INSERTION_KEY)
@@ -2215,8 +2215,8 @@ fun SpriteSettingsScreen(navController: NavController) {
             .toString()
     }
 
-    // 段階1: spriteAnimationsJson があれば優先しつつ、UI反映は段階2以降で実装予定。
-    @Suppress("UNUSED_VARIABLE")
+    // 段階1: spriteAnimationsJson があれば優先。
+    // 段階2: 取得したアニメ設定をUI状態へ反映する。
     val compositeAnimations = remember(
         spriteAnimationsJson,
         readyAnimationSettings,
@@ -2229,6 +2229,116 @@ fun SpriteSettingsScreen(navController: NavController) {
             value.isNotBlank()
         } ?: return@remember legacyDefaults
         importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
+    }
+
+    LaunchedEffect(spriteAnimationsJson, compositeAnimations, hasUserSelectedAnimation) {
+        val json = spriteAnimationsJson?.takeIf { value: String -> value.isNotBlank() } ?: return@LaunchedEffect
+        val validation = importAllAnimationsFromJson(json, resolveLegacyDefaultsFromSettings())
+        if (validation.value == null) {
+            showTopSnackbarError("JSONの読み込みに失敗しました: ${validation.error}")
+            return@LaunchedEffect
+        }
+        fun shouldApply(target: AnimationType): Boolean {
+            return !hasUserSelectedAnimation || (isBaseInputSynced(target) && isInsertionInputSynced(target))
+        }
+        fun applyReadyDefaults(defaults: AnimationDefaults) {
+            val base = defaults.base
+            val insertion = defaults.insertion
+            val normalizedFrames = base.frameSequence.ifEmpty { listOf(0) }
+            val patternInputs = insertion.patterns.toInsertionPatternInputs()
+            appliedReadyFrames = normalizedFrames
+            appliedReadyIntervalMs = base.intervalMs
+            readyFrameInput = normalizedFrames.toFrameInputText()
+            readyIntervalInput = base.intervalMs.toString()
+            readyFramesError = null
+            readyIntervalError = null
+            appliedReadyInsertionPatterns = insertion.patterns
+            appliedReadyInsertionIntervalMs = insertion.intervalMs
+            appliedReadyInsertionEveryNLoops = insertion.everyNLoops
+            appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
+            appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
+            appliedReadyInsertionEnabled = insertion.enabled
+            appliedReadyInsertionExclusive = insertion.exclusive
+            readyInsertionPattern1FramesInput = patternInputs.pattern1FramesInput
+            readyInsertionPattern1WeightInput = patternInputs.pattern1WeightInput
+            readyInsertionPattern1IntervalInput = patternInputs.pattern1IntervalInput
+            readyInsertionPattern2FramesInput = patternInputs.pattern2FramesInput
+            readyInsertionPattern2WeightInput = patternInputs.pattern2WeightInput
+            readyInsertionPattern2IntervalInput = patternInputs.pattern2IntervalInput
+            readyInsertionIntervalInput = insertion.intervalMs.toString()
+            readyInsertionEveryNInput = insertion.everyNLoops.toString()
+            readyInsertionProbabilityInput = insertion.probabilityPercent.toString()
+            readyInsertionCooldownInput = insertion.cooldownLoops.toString()
+            readyInsertionEnabled = insertion.enabled
+            readyInsertionExclusive = insertion.exclusive
+            readyInsertionPattern1FramesError = null
+            readyInsertionPattern1WeightError = null
+            readyInsertionPattern1IntervalError = null
+            readyInsertionPattern2FramesError = null
+            readyInsertionPattern2WeightError = null
+            readyInsertionPattern2IntervalError = null
+            readyInsertionIntervalError = null
+            readyInsertionEveryNError = null
+            readyInsertionProbabilityError = null
+            readyInsertionCooldownError = null
+        }
+        fun applyTalkingDefaults(defaults: AnimationDefaults) {
+            val base = defaults.base
+            val insertion = defaults.insertion
+            val normalizedFrames = base.frameSequence.ifEmpty { listOf(0) }
+            val patternInputs = insertion.patterns.toInsertionPatternInputs()
+            appliedTalkingFrames = normalizedFrames
+            appliedTalkingIntervalMs = base.intervalMs
+            talkingFrameInput = normalizedFrames.toFrameInputText()
+            talkingIntervalInput = base.intervalMs.toString()
+            talkingFramesError = null
+            talkingIntervalError = null
+            appliedTalkingInsertionPatterns = insertion.patterns
+            appliedTalkingInsertionIntervalMs = insertion.intervalMs
+            appliedTalkingInsertionEveryNLoops = insertion.everyNLoops
+            appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
+            appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
+            appliedTalkingInsertionEnabled = insertion.enabled
+            appliedTalkingInsertionExclusive = insertion.exclusive
+            talkingInsertionPattern1FramesInput = patternInputs.pattern1FramesInput
+            talkingInsertionPattern1WeightInput = patternInputs.pattern1WeightInput
+            talkingInsertionPattern1IntervalInput = patternInputs.pattern1IntervalInput
+            talkingInsertionPattern2FramesInput = patternInputs.pattern2FramesInput
+            talkingInsertionPattern2WeightInput = patternInputs.pattern2WeightInput
+            talkingInsertionPattern2IntervalInput = patternInputs.pattern2IntervalInput
+            talkingInsertionIntervalInput = insertion.intervalMs.toString()
+            talkingInsertionEveryNInput = insertion.everyNLoops.toString()
+            talkingInsertionProbabilityInput = insertion.probabilityPercent.toString()
+            talkingInsertionCooldownInput = insertion.cooldownLoops.toString()
+            talkingInsertionEnabled = insertion.enabled
+            talkingInsertionExclusive = insertion.exclusive
+            talkingInsertionPattern1FramesError = null
+            talkingInsertionPattern1WeightError = null
+            talkingInsertionPattern1IntervalError = null
+            talkingInsertionPattern2FramesError = null
+            talkingInsertionPattern2WeightError = null
+            talkingInsertionPattern2IntervalError = null
+            talkingInsertionIntervalError = null
+            talkingInsertionEveryNError = null
+            talkingInsertionProbabilityError = null
+            talkingInsertionCooldownError = null
+        }
+
+        if (shouldApply(AnimationType.READY)) {
+            compositeAnimations[AnimationType.READY]?.let { defaults -> applyReadyDefaults(defaults) }
+        }
+        if (shouldApply(AnimationType.TALKING)) {
+            compositeAnimations[AnimationType.TALKING]?.let { defaults -> applyTalkingDefaults(defaults) }
+        }
+        AnimationType.options
+            .filterNot { it == AnimationType.READY || it == AnimationType.TALKING }
+            .forEach { type ->
+                if (shouldApply(type)) {
+                    compositeAnimations[type]?.let { defaults ->
+                        updateExtraState(type) { defaults.toInputState() }
+                    }
+                }
+            }
     }
 
     fun saveSpriteSheetConfig() {
@@ -2583,6 +2693,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     runCatching {
                         val updatedJson = buildUpdatedAnimationsJson(
                             existingJson = spriteAnimationsJson,
+                            // 表示名で統一することで、Speaking/Talkingなどの差分を吸収する。
                             animationKey = selectedAnimation.displayLabel,
                             base = validatedBase,
                             insertion = insertion,
