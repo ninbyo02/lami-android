@@ -2166,11 +2166,15 @@ fun SpriteSettingsScreen(navController: NavController) {
         val resolved = defaults.toMutableMap()
         for (type in AnimationType.options) {
             val key = type.displayLabel
-            val animationObject = if (type == AnimationType.READY) {
-                animationsObject.optJSONObject(key) ?: animationsObject.optJSONObject(READY_LEGACY_LABEL)
-            } else {
+            val animationObject = (
                 animationsObject.optJSONObject(key)
-            } ?: continue
+                    ?: if (type == AnimationType.READY) {
+                        animationsObject.optJSONObject(READY_LEGACY_LABEL)
+                    } else {
+                        null
+                    }
+                    ?: animationsObject.optJSONObject(type.internalKey)
+                ) ?: continue
             val baseObject = animationObject.optJSONObject(JSON_BASE_KEY)
             val insertionObject = animationObject.optJSONObject(JSON_INSERTION_KEY)
             val baseResult = parseBaseFromJson(baseObject, defaults.getValue(type).base)
@@ -2579,7 +2583,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     runCatching {
                         val updatedJson = buildUpdatedAnimationsJson(
                             existingJson = spriteAnimationsJson,
-                            animationKey = selectedAnimation.internalKey,
+                            animationKey = selectedAnimation.displayLabel,
                             base = validatedBase,
                             insertion = insertion,
                         )
