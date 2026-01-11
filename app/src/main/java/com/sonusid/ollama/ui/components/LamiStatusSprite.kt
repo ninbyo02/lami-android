@@ -390,9 +390,12 @@ fun LamiStatusSprite(
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
-                        "insertion pick: patternInterval=${pattern.intervalMs} " +
-                            "default=${activeSettings.intervalMs} resolved=$resolvedIntervalMs " +
-                            "frames=${pattern.frameSequence} weight=${pattern.weight}"
+                        "insertion pick: status=$resolvedStatus shouldInsert=$shouldInsert " +
+                            "default=${activeSettings.intervalMs} " +
+                            "patternInterval=${pattern.intervalMs} " +
+                            "resolved=$resolvedIntervalMs " +
+                            "frames=${pattern.frameSequence} weight=${pattern.weight} " +
+                            "loopCount=$loopCount lastInsertionLoop=$lastInsertionLoop"
                     )
                 }
                 playInsertionFrames(
