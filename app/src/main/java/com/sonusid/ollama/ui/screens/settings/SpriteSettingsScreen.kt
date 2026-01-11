@@ -179,6 +179,9 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
             OFFLINE_LOOP,
             OFFLINE_EXIT,
         )
+
+        fun fromInternalKey(value: String?): AnimationType? =
+            options.firstOrNull { it.internalKey == value }
     }
 
     val supportsPersistence: Boolean
@@ -840,6 +843,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
+    val lastSelectedAnimationTypeKey by settingsPreferences.lastSelectedAnimationType.collectAsState(initial = null)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
@@ -949,8 +953,19 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
+    var hasUserSelectedAnimation by rememberSaveable { mutableStateOf(false) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
+
+    LaunchedEffect(lastSelectedAnimationTypeKey) {
+        if (hasUserSelectedAnimation) return@LaunchedEffect
+        val restored = AnimationType.fromInternalKey(lastSelectedAnimationTypeKey)
+            ?.takeIf { it in AnimationType.options }
+        if (restored != null) {
+            // 永続化されたアニメ種別が有効な場合のみ復元する
+            selectedAnimation = restored
+        }
+    }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -2790,7 +2805,14 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val selectionState = AnimationSelectionState(
                                     selectedAnimation = selectedAnimation,
                                     animationOptions = animationOptions,
-                                    onSelectedAnimationChange = { selectedAnimation = it }
+                                    onSelectedAnimationChange = { updated ->
+                                        selectedAnimation = updated
+                                        hasUserSelectedAnimation = true
+                                        // 画面再表示時に同じアニメ種別へ戻すため、選択直後に保存する
+                                        coroutineScope.launch {
+                                            settingsPreferences.saveLastSelectedAnimationType(updated.internalKey)
+                                        }
+                                    }
                                 )
                                 val baseState = BaseAnimationUiState(
                                     frameInput = selectedState.frameInput,

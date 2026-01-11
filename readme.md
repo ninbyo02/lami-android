@@ -46,6 +46,10 @@ LAMI は内部状態に応じてスプライトを切り替え、ユーザーへ
 
 段階1では、アニメーション設定を **DataStore の全アニメーションJSON** として一括保存できる土台を用意しています。UI での切替や編集は段階2で実施予定です。
 
+### アニメ種別の選択保持
+
+Sprite Settings で最後に選んだアニメ種別（内部ID）を DataStore に保存し、画面を開き直した際に同じ選択へ復元します。
+
 ### 挿入アニメーション設定
 
 挿入アニメーションは UI 設定の everyNLoops / probabilityPercent / cooldownLoops / exclusive に従って再生されます。everyNLoops と cooldownLoops は「ループ単位」で判定し、probabilityPercent=0 の場合は挿入が発生しません。exclusive は挿入位置をループ境界に固定し、挿入が起きたループでは Base フレームを再生しません。
