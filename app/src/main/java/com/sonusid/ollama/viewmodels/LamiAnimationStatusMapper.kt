@@ -13,7 +13,7 @@ enum class LamiAnimationStatus {
     OfflineEnter,
     OfflineLoop,
     OfflineExit,
-    ReadyBlink,
+    Ready,
 }
 
 private fun LamiAnimationStatus.isOffline(): Boolean {
@@ -94,7 +94,7 @@ fun mapToAnimationLamiStatus(
     }
 
     return if (hasModels) {
-        LamiAnimationStatus.ReadyBlink
+        LamiAnimationStatus.Ready
     } else {
         LamiAnimationStatus.Idle
     }
@@ -132,7 +132,7 @@ fun mapToAnimationLamiStatus(
         LamiAnimationStatus.OfflineEnter,
         LamiAnimationStatus.OfflineLoop,
         LamiAnimationStatus.OfflineExit -> LamiStatus.OFFLINE
-        LamiAnimationStatus.ReadyBlink -> LamiStatus.READY
+        LamiAnimationStatus.Ready -> LamiStatus.READY
         LamiAnimationStatus.Idle -> if (selectedModel.isNullOrBlank()) {
             LamiStatus.NO_MODELS
         } else {
