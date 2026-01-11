@@ -959,7 +959,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
-    var hasUserSelectedAnimation by rememberSaveable { mutableStateOf(false) }
+    // 再起動時は保存済みJSONを優先復元したいため、セッション内のみ選択状態を保持する。
+    var hasUserSelectedAnimation by remember { mutableStateOf(false) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
 
@@ -2195,7 +2196,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     fun buildUpdatedAnimationsJson(
         existingJson: String?,
-        animationKey: String,
+        animationLabelKey: String,
         base: ReadyAnimationSettings,
         insertion: InsertionAnimationSettings,
     ): String {
@@ -2204,7 +2205,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             ?.let { value -> runCatching { JSONObject(value) }.getOrNull() }
         val animationsObject = existingRoot?.optJSONObject(JSON_ANIMATIONS_KEY) ?: JSONObject()
         animationsObject.put(
-            animationKey,
+            animationLabelKey,
             JSONObject()
                 .put(JSON_BASE_KEY, base.toJsonObject())
                 .put(JSON_INSERTION_KEY, insertion.toJsonObject())
@@ -2694,7 +2695,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         val updatedJson = buildUpdatedAnimationsJson(
                             existingJson = spriteAnimationsJson,
                             // 表示名で統一することで、Speaking/Talkingなどの差分を吸収する。
-                            animationKey = selectedAnimation.displayLabel,
+                            animationLabelKey = selectedAnimation.displayLabel,
                             base = validatedBase,
                             insertion = insertion,
                         )
