@@ -151,7 +151,7 @@ private fun Modifier.debugBounds(tag: String): Modifier =
     }
 
 private enum class AnimationType(val internalKey: String, val displayLabel: String) {
-    READY("Ready", "ReadyBlink"),
+    READY("Ready", "Ready"),
     TALKING("Talking", "Speaking"),
     IDLE("Idle", "Idle"),
     THINKING("Thinking", "Thinking"),
@@ -258,7 +258,7 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
     ),
     AnimationType.TALK_SHORT to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(0, 6, 2, 6, 0), intervalMs = 130),
-        insertion = InsertionAnimationSettings.DEFAULT.copy(
+        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
             patterns = listOf(InsertionPattern(frameSequence = listOf(0, 6, 2, 6, 0))),
             intervalMs = 130,
@@ -278,7 +278,7 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
     ),
     AnimationType.TALK_CALM to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(7, 4, 7, 8, 7), intervalMs = 280),
-        insertion = InsertionAnimationSettings.DEFAULT.copy(
+        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
             patterns = listOf(InsertionPattern(frameSequence = listOf(7, 4, 7, 8, 7))),
             intervalMs = 280,
@@ -286,7 +286,7 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
     ),
     AnimationType.ERROR_LIGHT to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(5, 7, 5), intervalMs = 390),
-        insertion = InsertionAnimationSettings.DEFAULT.copy(
+        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
             patterns = listOf(InsertionPattern(frameSequence = listOf(5, 7, 5))),
             intervalMs = 390,
@@ -306,7 +306,7 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
     ),
     AnimationType.OFFLINE_ENTER to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(0, 8, 8), intervalMs = 1_250),
-        insertion = InsertionAnimationSettings.DEFAULT.copy(
+        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
             patterns = listOf(InsertionPattern(frameSequence = listOf(0, 8, 8))),
             intervalMs = 1_250,
@@ -314,7 +314,7 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
     ),
     AnimationType.OFFLINE_LOOP to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(8, 8), intervalMs = 1_250),
-        insertion = InsertionAnimationSettings.DEFAULT.copy(
+        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
             patterns = listOf(InsertionPattern(frameSequence = listOf(8, 8))),
             intervalMs = 1_250,
@@ -322,7 +322,7 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
     ),
     AnimationType.OFFLINE_EXIT to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(8, 0), intervalMs = 1_250),
-        insertion = InsertionAnimationSettings.DEFAULT.copy(
+        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
             patterns = listOf(InsertionPattern(frameSequence = listOf(8, 0))),
             intervalMs = 1_250,
@@ -585,6 +585,7 @@ private fun buildInsertionPreviewSummary(
     probabilityInput: String,
     cooldownInput: String,
     exclusive: Boolean,
+    defaultIntervalMs: Int,
     frameCount: Int
 ): Pair<AnimationSummary, InsertionPreviewValues> {
     val framesText = pattern1FramesInput.trim()
@@ -634,7 +635,7 @@ private fun buildInsertionPreviewSummary(
                 ?.minus(1)
         }
     val frames = parsedFrames.ifEmpty { listOf(0) }
-    val intervalMs = intervalText.toIntOrNull()?.takeIf { it > 0 } ?: InsertionAnimationSettings.DEFAULT.intervalMs
+    val intervalMs = intervalText.toIntOrNull()?.takeIf { it > 0 } ?: defaultIntervalMs
     val everyNLoops = everyNText.toIntOrNull()
     val probabilityPercent = probabilityText.toIntOrNull()
     val cooldownLoops = cooldownText.toIntOrNull()
@@ -714,6 +715,7 @@ private const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
 private const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
 private const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
 private const val JSON_EXCLUSIVE_KEY = "exclusive"
+private const val READY_LEGACY_LABEL = "ReadyBlink"
 
 private fun clampPosition(
     position: BoxPosition,
@@ -848,10 +850,18 @@ fun SpriteSettingsScreen(navController: NavController) {
         mutableStateOf(devPreviewDefaults)
     }
     val initialHeaderLeftXOffsetDp = devFromJson?.headerLeftXOffsetDp
-    val readyAnimationSettings by settingsPreferences.readyAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
-    val talkingAnimationSettings by settingsPreferences.talkingAnimationSettings.collectAsState(initial = ReadyAnimationSettings.DEFAULT)
-    val readyInsertionAnimationSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
-    val talkingInsertionAnimationSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(initial = InsertionAnimationSettings.DEFAULT)
+    val readyAnimationSettings by settingsPreferences.readyAnimationSettings.collectAsState(
+        initial = ReadyAnimationSettings.READY_DEFAULT
+    )
+    val talkingAnimationSettings by settingsPreferences.talkingAnimationSettings.collectAsState(
+        initial = ReadyAnimationSettings.TALKING_DEFAULT
+    )
+    val readyInsertionAnimationSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
+        initial = InsertionAnimationSettings.READY_DEFAULT
+    )
+    val talkingInsertionAnimationSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(
+        initial = InsertionAnimationSettings.TALKING_DEFAULT
+    )
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
@@ -859,10 +869,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
     val devUnlocked = true
-    var readyFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
-    var readyIntervalInput by rememberSaveable { mutableStateOf("700") }
-    var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
-    var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(700) }
+    var readyFrameInput by rememberSaveable { mutableStateOf("1,1,1,1") }
+    var readyIntervalInput by rememberSaveable { mutableStateOf("90") }
+    var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 0, 0, 0)) }
+    var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(90) }
     var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
@@ -871,26 +881,31 @@ fun SpriteSettingsScreen(navController: NavController) {
     var appliedTalkingIntervalMs by rememberSaveable { mutableStateOf(700) }
     var talkingFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
-    var readyInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("4,5,6") }
-    var readyInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("1") }
-    var readyInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("") }
-    var readyInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("") }
-    var readyInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("0") }
-    var readyInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("") }
-    var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("200") }
-    var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
-    var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
-    var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
-    var readyInsertionEnabled by rememberSaveable { mutableStateOf(false) }
+    var readyInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("6") }
+    var readyInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("3") }
+    var readyInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("110") }
+    var readyInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("6,1,6") }
+    var readyInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("1") }
+    var readyInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("70") }
+    var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("120") }
+    var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("5") }
+    var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("80") }
+    var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("3") }
+    var readyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var readyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var appliedReadyInsertionPatterns by rememberSaveable {
-        mutableStateOf(listOf(InsertionPattern(frameSequence = listOf(3, 4, 5))))
+        mutableStateOf(
+            listOf(
+                InsertionPattern(frameSequence = listOf(5), weight = 3, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 70),
+            )
+        )
     }
-    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(200) }
-    var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(1) }
-    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
-    var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(0) }
-    var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(false) }
+    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(120) }
+    var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(5) }
+    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(80) }
+    var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(3) }
+    var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var readyInsertionPattern1FramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionPattern1WeightError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -2089,7 +2104,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         return AnimationDefaults(base = baseSettings, insertion = insertionSettings)
     }
 
-    // メモ: 全アニメJSONは animationType/internalKey と混同しないよう、表示名(ReadyBlink等)をキーに統一する。
+    // メモ: 全アニメJSONは animationType/internalKey と混同しないよう、表示名(Ready等)をキーに統一する。
     fun exportAllAnimationsToJson(): String {
         val animationsObject = JSONObject()
         AnimationType.options.forEach { type ->
@@ -2123,7 +2138,11 @@ fun SpriteSettingsScreen(navController: NavController) {
         val resolved = defaults.toMutableMap()
         for (type in AnimationType.options) {
             val key = type.displayLabel
-            val animationObject = animationsObject.optJSONObject(key) ?: continue
+            val animationObject = if (type == AnimationType.READY) {
+                animationsObject.optJSONObject(key) ?: animationsObject.optJSONObject(READY_LEGACY_LABEL)
+            } else {
+                animationsObject.optJSONObject(key)
+            } ?: continue
             val baseObject = animationObject.optJSONObject(JSON_BASE_KEY)
             val insertionObject = animationObject.optJSONObject(JSON_INSERTION_KEY)
             val baseResult = parseBaseFromJson(baseObject, defaults.getValue(type).base)
@@ -2748,6 +2767,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectedState.insertionCooldownInput,
                                     selectedState.insertionEnabled,
                                     selectedState.insertionExclusive,
+                                    selectedState.appliedInsertion.intervalMs,
                                     spriteSheetConfig.frameCount,
                                 ) {
                                     buildInsertionPreviewSummary(
@@ -2762,6 +2782,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         probabilityInput = selectedState.insertionProbabilityInput,
                                         cooldownInput = selectedState.insertionCooldownInput,
                                         exclusive = selectedState.insertionExclusive,
+                                        defaultIntervalMs = selectedState.appliedInsertion.intervalMs,
                                         frameCount = spriteSheetConfig.frameCount,
                                     )
                                 }
@@ -3061,6 +3082,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     cooldownError = selectedState.insertionCooldownError,
                                     patterns = selectedState.appliedInsertion.patterns,
                                     defaultIntervalMs = selectedState.appliedInsertion.intervalMs,
+                                    defaults = selectedState.appliedInsertion,
                                     summary = selectedInsertionSummary,
                                     previewValues = selectedInsertionPreviewValues
                                 )
@@ -3258,6 +3280,7 @@ private data class InsertionAnimationUiState(
     val cooldownError: String?,
     val patterns: List<InsertionPattern>,
     val defaultIntervalMs: Int,
+    val defaults: InsertionAnimationSettings,
     val summary: AnimationSummary,
     val previewValues: InsertionPreviewValues,
 )
@@ -3363,6 +3386,7 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 insertionPatterns = insertionState.patterns,
                 insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
+                insertionDefaults = insertionState.defaults,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
                 previewUiState = readyPreviewUiState
@@ -3744,6 +3768,7 @@ private fun rememberReadyAnimationState(
     insertionEnabled: Boolean,
     insertionPatterns: List<InsertionPattern>,
     insertionDefaultIntervalMs: Int,
+    insertionDefaults: InsertionAnimationSettings,
 ): ReadyAnimationState {
     val normalizedConfig = remember(spriteSheetConfig) {
         val validationError = spriteSheetConfig.validate()
@@ -3780,11 +3805,11 @@ private fun rememberReadyAnimationState(
                 enabled = true,
                 patterns = insertionPatterns,
                 intervalMs = insertionDefaultIntervalMs,
-                everyNLoops = insertionSummary.everyNLoops ?: InsertionAnimationSettings.DEFAULT.everyNLoops,
+                everyNLoops = insertionSummary.everyNLoops ?: insertionDefaults.everyNLoops,
                 probabilityPercent = insertionSummary.probabilityPercent
-                    ?: InsertionAnimationSettings.DEFAULT.probabilityPercent,
-                cooldownLoops = insertionSummary.cooldownLoops ?: InsertionAnimationSettings.DEFAULT.cooldownLoops,
-                exclusive = insertionSummary.exclusive ?: InsertionAnimationSettings.DEFAULT.exclusive,
+                    ?: insertionDefaults.probabilityPercent,
+                cooldownLoops = insertionSummary.cooldownLoops ?: insertionDefaults.cooldownLoops,
+                exclusive = insertionSummary.exclusive ?: insertionDefaults.exclusive,
             )
         }
     }
@@ -4047,6 +4072,7 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     insertionPatterns: List<InsertionPattern>,
     insertionDefaultIntervalMs: Int,
+    insertionDefaults: InsertionAnimationSettings,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     previewUiState: ReadyPreviewUiState,
@@ -4116,6 +4142,7 @@ private fun ReadyAnimationPreviewPane(
                     insertionEnabled = insertionEnabled,
                     insertionPatterns = insertionPatterns,
                     insertionDefaultIntervalMs = insertionDefaultIntervalMs,
+                    insertionDefaults = insertionDefaults,
                 )
                 // [dp] 左右: プレビュー の余白(余白)に関係
                 val contentHorizontalPadding = maxOf(8.dp, minOf(12.dp, maxWidth * 0.035f))

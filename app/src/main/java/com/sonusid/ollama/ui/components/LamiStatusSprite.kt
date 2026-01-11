@@ -44,7 +44,7 @@ enum class LamiSpriteStatus {
     OfflineEnter,
     OfflineLoop,
     OfflineExit,
-    ReadyBlink,
+    Ready,
 }
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
@@ -172,7 +172,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         loop = false,
         insertions = emptyList(),
     ),
-    LamiSpriteStatus.ReadyBlink to AnimationSpec(
+    LamiSpriteStatus.Ready to AnimationSpec(
         frames = listOf(0),
         frameDuration = FrameDurationSpec(minMs = 700L, maxMs = 1_200L, jitterFraction = 0.15f),
         insertions = emptyList(),
@@ -185,7 +185,7 @@ private fun selectInsertionSettingsForStatus(
     talkingSettings: InsertionAnimationSettings,
 ): InsertionAnimationSettings? =
     when (status) {
-        LamiSpriteStatus.ReadyBlink,
+        LamiSpriteStatus.Ready,
         LamiSpriteStatus.Idle,
         LamiSpriteStatus.Thinking,
         LamiSpriteStatus.ErrorLight,
@@ -268,7 +268,7 @@ fun LamiStatusSprite(
     val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
         when {
             !replacementEnabled -> LamiSpriteStatus.Idle
-            !blinkEffectEnabled && status == LamiSpriteStatus.ReadyBlink -> LamiSpriteStatus.Idle
+            !blinkEffectEnabled && status == LamiSpriteStatus.Ready -> LamiSpriteStatus.Idle
             else -> status
         }
     }
@@ -281,10 +281,10 @@ fun LamiStatusSprite(
         SettingsPreferences(context.applicationContext)
     }
     val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
-        initial = InsertionAnimationSettings.DEFAULT,
+        initial = InsertionAnimationSettings.READY_DEFAULT,
     )
     val talkingInsertionSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(
-        initial = InsertionAnimationSettings.DEFAULT,
+        initial = InsertionAnimationSettings.TALKING_DEFAULT,
     )
     val insertionSettings = remember(resolvedStatus, readyInsertionSettings, talkingInsertionSettings) {
         selectInsertionSettingsForStatus(
@@ -522,7 +522,7 @@ fun LamiStatusSprite(
         val derived = status.value
         if (derived.isOfflineStatus() && previousAnimationStatus == LamiAnimationStatus.OfflineEnter) {
             LamiAnimationStatus.OfflineLoop
-        } else if (derived == LamiAnimationStatus.ReadyBlink && previousAnimationStatus.isOfflineStatus()) {
+        } else if (derived == LamiAnimationStatus.Ready && previousAnimationStatus.isOfflineStatus()) {
             LamiAnimationStatus.OfflineExit
         } else {
             derived
@@ -650,7 +650,7 @@ fun mapToLamiSpriteStatus(
                 else -> LamiSpriteStatus.TalkLong
             }
         LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
-        LamiStatus.READY -> LamiSpriteStatus.ReadyBlink
+        LamiStatus.READY -> LamiSpriteStatus.Ready
         LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
         LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.ErrorHeavy
         LamiStatus.OFFLINE -> if (lastError.isNullOrBlank()) {
@@ -674,7 +674,7 @@ private fun LamiAnimationStatus.toSpriteStatus(): LamiSpriteStatus {
         LamiAnimationStatus.OfflineEnter -> LamiSpriteStatus.OfflineEnter
         LamiAnimationStatus.OfflineLoop -> LamiSpriteStatus.OfflineLoop
         LamiAnimationStatus.OfflineExit -> LamiSpriteStatus.OfflineExit
-        LamiAnimationStatus.ReadyBlink -> LamiSpriteStatus.ReadyBlink
+        LamiAnimationStatus.Ready -> LamiSpriteStatus.Ready
     }
 }
 
@@ -695,7 +695,7 @@ private fun LamiStatus.toAnimationStatus(
         LamiStatus.READY -> if (previousStatus.isOfflineStatus()) {
             LamiAnimationStatus.OfflineExit
         } else {
-            LamiAnimationStatus.ReadyBlink
+            LamiAnimationStatus.Ready
         }
         LamiStatus.DEGRADED -> LamiAnimationStatus.Thinking
         LamiStatus.NO_MODELS -> if (previousStatus.isOfflineStatus()) {
