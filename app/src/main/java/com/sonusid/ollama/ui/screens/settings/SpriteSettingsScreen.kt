@@ -125,7 +125,7 @@ import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
-import com.sonusid.ollama.ui.components.rememberInvertColorFilterForDarkTheme
+import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -3915,7 +3915,7 @@ private fun ReadyAnimationCharacter(
     charYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
-    val spriteColorFilter = rememberInvertColorFilterForDarkTheme()
+    val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
     Box(
         modifier = modifier
             // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
@@ -4253,7 +4253,7 @@ private fun SpritePreviewBlock(
             // [非dp] 縦: プレビュー の配置(配置)に関係
             contentAlignment = Alignment.TopCenter
         ) {
-            val spriteColorFilter = rememberInvertColorFilterForDarkTheme()
+            val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
             Image(
                 bitmap = imageBitmap,
                 contentDescription = "Sprite Preview",

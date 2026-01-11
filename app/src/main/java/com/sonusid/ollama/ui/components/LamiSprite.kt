@@ -45,6 +45,11 @@ import kotlin.math.roundToInt
 
 private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
 
+// ダーク時の白ピークを抑えて眩しさを軽減するためのゲイン
+private const val NightSpriteColorGain = 0.90f
+// ダーク時の黒つぶれを防ぐための微小バイアス
+private const val NightSpriteColorBias = 6f
+
 @Composable
 fun LamiSprite(
     spriteRes: Int,
@@ -65,7 +70,7 @@ fun LamiSprite(
 
     val srcX = col * resolvedFrameWidth
     val srcY = row * resolvedFrameHeight
-    val spriteColorFilter = rememberInvertColorFilterForDarkTheme()
+    val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
     val spritePaint = remember(spriteColorFilter) {
         Paint().apply { colorFilter = spriteColorFilter }
     }
@@ -175,7 +180,7 @@ fun LamiSprite3x3(
         }
         IntOffset(x = resolvedXOffset, y = resolvedYOffset)
     }
-    val spriteColorFilter = rememberInvertColorFilterForDarkTheme()
+    val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
 
     Canvas(modifier = modifier.size(sizeDp)) {
         drawFrameRegion(
@@ -272,6 +277,29 @@ fun rememberInvertColorFilterForDarkTheme(
         contrast = contrast,
         brightness = brightness,
     )
+}
+
+@Composable
+fun rememberNightSpriteColorFilterForDarkTheme(
+    gain: Float = NightSpriteColorGain,
+    bias: Float = NightSpriteColorBias,
+): ColorFilter? {
+    val darkTheme = isSystemInDarkTheme()
+    return remember(darkTheme, gain, bias) {
+        if (!darkTheme) {
+            null
+        } else {
+            val matrix = ColorMatrix(
+                floatArrayOf(
+                    gain, 0f, 0f, 0f, bias,
+                    0f, gain, 0f, 0f, bias,
+                    0f, 0f, gain, 0f, bias,
+                    0f, 0f, 0f, 1f, 0f,
+                )
+            )
+            ColorFilter.colorMatrix(matrix)
+        }
+    }
 }
 
 @Composable
