@@ -384,9 +384,10 @@ fun LamiStatusSprite(
                 // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
                 val pattern = selectWeightedInsertionPattern(activeSettings.patterns, random)
                     ?: continue
+                val resolvedIntervalMs = pattern.intervalMs ?: activeSettings.intervalMs
                 playInsertionFrames(
                     frameSequence = pattern.frameSequence,
-                    intervalMs = activeSettings.intervalMs,
+                    intervalMs = resolvedIntervalMs,
                 )
                 lastInsertionLoopState.value = loopCount
                 if (activeSettings.exclusive) {
