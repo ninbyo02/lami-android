@@ -34,6 +34,11 @@ data class ReadyAnimationSettings(
             frameSequence = listOf(0, 1, 2, 1),
             intervalMs = 700,
         )
+        // Thinking のデフォルト: base の intervalMs=180ms/frames は指定JSONに合わせる
+        val THINKING_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(7, 7, 7, 6, 7, 7, 6, 7),
+            intervalMs = 180,
+        )
         val DEFAULT = READY_DEFAULT
 
         const val MIN_INTERVAL_MS: Int = 50
@@ -76,6 +81,20 @@ data class InsertionAnimationSettings(
             everyNLoops = 1,
             probabilityPercent = 50,
             cooldownLoops = 0,
+            exclusive = false,
+        )
+        // Thinking のデフォルト: pattern intervalMs/intervalMs は指定JSONに合わせる
+        // everyNLoops/probabilityPercent/cooldownLoops は連発抑制のための挿入判定パラメータ
+        val THINKING_DEFAULT = InsertionAnimationSettings(
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5, 7), weight = 2, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 80),
+            ),
+            intervalMs = 200,
+            everyNLoops = 5,
+            probabilityPercent = 65,
+            cooldownLoops = 5,
             exclusive = false,
         )
         val DEFAULT = READY_DEFAULT
@@ -426,6 +445,7 @@ class SettingsPreferences(private val context: Context) {
             val (baseDefaults, insertionDefaults) = when (normalizedKey) {
                 ALL_ANIMATIONS_READY_KEY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
                 ALL_ANIMATIONS_TALKING_KEY -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
+                ALL_ANIMATIONS_THINKING_KEY -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
                 else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
             }
             val normalizedBase = parseReadySettings(baseObject, baseDefaults).toJsonObject()
@@ -713,6 +733,7 @@ class SettingsPreferences(private val context: Context) {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
         const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
+        const val ALL_ANIMATIONS_THINKING_KEY = "Thinking"
         const val ALL_ANIMATIONS_READY_LEGACY_KEY = "ReadyBlink"
         const val JSON_VERSION_KEY = "version"
         const val JSON_ANIMATIONS_KEY = "animations"
