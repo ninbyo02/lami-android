@@ -3348,6 +3348,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     devUnlocked = devUnlocked,
                                     devSettings = devPreviewSettings,
                                     onDevSettingsChange = { updated -> devPreviewSettings = updated },
+                                    onCopyEditingSettings = { settings -> copyEditingSettings(settings) },
+                                    controlButtonHeight = controlButtonHeight,
+                                    controlButtonPadding = controlButtonPadding,
+                                    actionButtonShape = actionButtonShape,
                                     initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
                                 )
                         }
@@ -3548,6 +3552,10 @@ private fun ReadyAnimationTab(
     devUnlocked: Boolean,
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
+    onCopyEditingSettings: (DevPreviewSettings) -> Unit,
+    controlButtonHeight: Dp,
+    controlButtonPadding: PaddingValues,
+    actionButtonShape: Shape,
     initialHeaderLeftXOffsetDp: Int?,
 ) {
     val configuration = LocalConfiguration.current
@@ -3956,13 +3964,15 @@ private fun ReadyAnimationTab(
                     if (BuildConfig.DEBUG && devUnlocked) {
                         // 通常UIと重複するため、編集中の設定JSONコピーはDEV専用へ移動
                         FilledTonalButton(
-                            onClick = { copyEditingSettings(devPreviewSettings) },
+                            onClick = { onCopyEditingSettings(devSettings) },
                             modifier = Modifier
                                 // [非dp] 横: DEVメニュー の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
                                 // [dp] 縦: DEVメニュー の見た目高さ(最小サイズ)に関係
                                 .height(controlButtonHeight),
+                            // [dp] 左右: DEVメニュー の余白(余白)に関係
                             contentPadding = controlButtonPadding,
+                            // [非dp] 四隅: DEVメニュー の角丸(形状)に関係
                             shape = actionButtonShape
                         ) {
                             Text("編集中の設定JSONをコピー（DEV）")
