@@ -34,9 +34,11 @@ data class ReadyAnimationSettings(
             frameSequence = listOf(0, 1, 2, 1),
             intervalMs = 700,
         )
+        // 見た目: Idleの現行UI(1..9表記)に合わせ、左右上下の揺れ0px想定で間隔180msを採用
+        private val IDLE_DEFAULT_UI_FRAMES = listOf(8, 8, 8, 7, 8, 8, 7, 8)
         val IDLE_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(0, 8, 0, 5, 0),
-            intervalMs = 490,
+            frameSequence = IDLE_DEFAULT_UI_FRAMES.map { value -> value - 1 },
+            intervalMs = 180,
         )
         val DEFAULT = READY_DEFAULT
 
@@ -82,13 +84,21 @@ data class InsertionAnimationSettings(
             cooldownLoops = 0,
             exclusive = false,
         )
+        // 見た目: Idleの現行UI(1..9表記)に合わせ、左右上下の揺れ0px想定で挿入パターンを更新
+        private val IDLE_DEFAULT_INSERTION_UI_FRAMES = listOf(9)
         val IDLE_DEFAULT = InsertionAnimationSettings(
             enabled = true,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(0, 0, 8, 0))),
-            intervalMs = 490,
-            everyNLoops = 8,
-            probabilityPercent = 100,
-            cooldownLoops = 0,
+            patterns = listOf(
+                InsertionPattern(
+                    frameSequence = IDLE_DEFAULT_INSERTION_UI_FRAMES.map { value -> value - 1 },
+                    weight = 3,
+                    intervalMs = 70,
+                )
+            ),
+            intervalMs = 120,
+            everyNLoops = 4,
+            probabilityPercent = 80,
+            cooldownLoops = 6,
             exclusive = false,
         )
         val DEFAULT = READY_DEFAULT
