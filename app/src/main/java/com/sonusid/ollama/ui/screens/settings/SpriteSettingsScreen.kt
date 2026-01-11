@@ -2822,6 +2822,19 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 contentDescription = "プレビュー更新"
                             )
                         }
+                        IconButton(
+                            onClick = {
+                                when (selectedTab) {
+                                    SpriteTab.ANIM -> onAnimationSave()
+                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Save,
+                                contentDescription = "保存"
+                            )
+                        }
                         if (selectedTab == SpriteTab.ADJUST) {
                             IconButton(
                                 onClick = { copySpriteSheetConfig() }
@@ -2841,19 +2854,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     contentDescription = "保存済みアニメJSONをコピー"
                                 )
                             }
-                        }
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationSave()
-                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Save,
-                                contentDescription = "保存"
-                            )
                         }
                     },
                     modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
