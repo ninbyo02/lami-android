@@ -653,6 +653,30 @@ private fun buildInsertionPreviewSummary(
     return summary to previewValues
 }
 
+private fun buildEffectiveInsertionIntervalText(
+    patterns: List<InsertionPattern>,
+    defaultIntervalMs: Int,
+): String {
+    // 実効周期は候補パターンの interval とデフォルト値の組み合わせで表示する
+    val defaultInterval = defaultIntervalMs.coerceAtLeast(0)
+    val candidates = patterns.filter { pattern ->
+        pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
+    }
+    if (candidates.isEmpty()) {
+        return "${defaultInterval}ms"
+    }
+    val resolvedIntervals = candidates.map { pattern ->
+        (pattern.intervalMs ?: defaultInterval).coerceAtLeast(0)
+    }
+    val minInterval = resolvedIntervals.minOrNull() ?: defaultInterval
+    val maxInterval = resolvedIntervals.maxOrNull() ?: defaultInterval
+    return if (minInterval == maxInterval) {
+        "${minInterval}ms"
+    } else {
+        "${minInterval}〜${maxInterval}ms"
+    }
+}
+
 private const val DEFAULT_BOX_SIZE_PX = 88
 internal const val INFO_X_OFFSET_MIN = -500
 internal const val INFO_X_OFFSET_MAX = 500
@@ -3016,6 +3040,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     everyNError = selectedState.insertionEveryNError,
                                     probabilityError = selectedState.insertionProbabilityError,
                                     cooldownError = selectedState.insertionCooldownError,
+                                    patterns = selectedState.appliedInsertion.patterns,
+                                    defaultIntervalMs = selectedState.appliedInsertion.intervalMs,
                                     summary = selectedInsertionSummary,
                                     previewValues = selectedInsertionPreviewValues
                                 )
@@ -3211,6 +3237,8 @@ private data class InsertionAnimationUiState(
     val everyNError: String?,
     val probabilityError: String?,
     val cooldownError: String?,
+    val patterns: List<InsertionPattern>,
+    val defaultIntervalMs: Int,
     val summary: AnimationSummary,
     val previewValues: InsertionPreviewValues,
 )
@@ -3314,6 +3342,8 @@ private fun ReadyAnimationTab(
                 insertionSummary = insertionState.summary,
                 insertionPreviewValues = insertionState.previewValues,
                 insertionEnabled = insertionState.enabled,
+                insertionPatterns = insertionState.patterns,
+                insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
                 previewUiState = readyPreviewUiState
@@ -3845,6 +3875,8 @@ private fun ReadyAnimationInfo(
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
+    insertionPatterns: List<InsertionPattern>,
+    insertionDefaultIntervalMs: Int,
     infoYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -3856,7 +3888,12 @@ private fun ReadyAnimationInfo(
     val insertionFramesText = insertionSummary.frames.ifEmpty { listOf(0) }
         .joinToString(",") { value -> (value + 1).toString() }
     val insertionLine = if (insertionEnabled && insertionSummary.enabled) {
-        "挿入: ${insertionSummary.intervalMs}ms/$insertionFramesText"
+        val effectiveIntervalText = buildEffectiveInsertionIntervalText(
+            patterns = insertionPatterns,
+            defaultIntervalMs = insertionDefaultIntervalMs,
+        )
+        // 実効周期とデフォルト周期を併記し、表示と実挙動の差を明示する
+        "挿入: 実効 $effectiveIntervalText（デフォルト ${insertionDefaultIntervalMs}ms）/$insertionFramesText"
     } else {
         "挿入: OFF"
     }
@@ -3929,6 +3966,8 @@ private fun ReadyAnimationPreviewPane(
     insertionSummary: AnimationSummary,
     insertionPreviewValues: InsertionPreviewValues,
     insertionEnabled: Boolean,
+    insertionPatterns: List<InsertionPattern>,
+    insertionDefaultIntervalMs: Int,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     previewUiState: ReadyPreviewUiState,
@@ -4041,6 +4080,8 @@ private fun ReadyAnimationPreviewPane(
                             insertionSummary = insertionSummary,
                             insertionPreviewValues = insertionPreviewValues,
                             insertionEnabled = insertionEnabled,
+                            insertionPatterns = insertionPatterns,
+                            insertionDefaultIntervalMs = insertionDefaultIntervalMs,
                             infoYOffsetDp = previewUiState.infoYOffsetDp,
                             modifier = Modifier
                                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
