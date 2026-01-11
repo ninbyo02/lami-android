@@ -49,6 +49,7 @@ LAMI は内部状態に応じてスプライトを切り替え、ユーザーへ
 ### 挿入アニメーション設定
 
 挿入アニメーションは UI 設定の everyNLoops / probabilityPercent / cooldownLoops / exclusive に従って再生されます。everyNLoops と cooldownLoops は「ループ単位」で判定し、probabilityPercent=0 の場合は挿入が発生しません。exclusive は挿入位置をループ境界に固定し、挿入が起きたループでは Base フレームを再生しません。
+挿入パターンは「パターン1/2」の2枠で管理し、重み（比率）を指定して再生パターンを選択します。
 
 ## スプライト調整の反映確認手順
 

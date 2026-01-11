@@ -199,6 +199,26 @@ private fun selectInsertionSettingsForStatus(
         -> null
     }
 
+private fun selectWeightedInsertionPattern(
+    patterns: List<InsertionPattern>,
+    random: Random,
+): InsertionPattern? {
+    // 抽選対象は weight>0 かつ frameSequence が空でないものに限定する
+    val candidates = patterns.filter { pattern ->
+        pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
+    }
+    if (candidates.isEmpty()) return null
+    val totalWeight = candidates.sumOf { pattern -> pattern.weight }
+    if (totalWeight <= 0) return null
+    val roll = random.nextInt(totalWeight)
+    var cursor = 0
+    for (pattern in candidates) {
+        cursor += pattern.weight
+        if (roll < cursor) return pattern
+    }
+    return candidates.lastOrNull()
+}
+
 @Composable
 fun LamiStatusSprite(
     status: LamiSpriteStatus,
@@ -361,8 +381,9 @@ fun LamiStatusSprite(
             ) == true
             if (shouldInsert && settings?.patterns?.isNotEmpty() == true) {
                 val activeSettings = requireNotNull(settings)
-                // 挿入イベント内でランダムにパターンを選択する
-                val pattern = activeSettings.patterns.random(random)
+                // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
+                val pattern = selectWeightedInsertionPattern(activeSettings.patterns, random)
+                    ?: continue
                 playInsertionFrames(
                     frameSequence = pattern.frameSequence,
                     intervalMs = activeSettings.intervalMs,
