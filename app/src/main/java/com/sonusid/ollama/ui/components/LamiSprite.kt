@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,6 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
@@ -62,6 +65,10 @@ fun LamiSprite(
 
     val srcX = col * resolvedFrameWidth
     val srcY = row * resolvedFrameHeight
+    val spriteColorFilter = rememberInvertColorFilterForDarkTheme()
+    val spritePaint = remember(spriteColorFilter) {
+        Paint().apply { colorFilter = spriteColorFilter }
+    }
 
     Canvas(modifier = modifier) {
         val dstW = size.width.roundToInt().coerceAtLeast(1)
@@ -77,7 +84,7 @@ fun LamiSprite(
                 srcSize = IntSize(resolvedFrameWidth, resolvedFrameHeight),
                 dstOffset = IntOffset(offsetX, offsetY),
                 dstSize = IntSize(side, side),
-                paint = Paint()
+                paint = spritePaint
             )
         }
     }
@@ -168,6 +175,7 @@ fun LamiSprite3x3(
         }
         IntOffset(x = resolvedXOffset, y = resolvedYOffset)
     }
+    val spriteColorFilter = rememberInvertColorFilterForDarkTheme()
 
     Canvas(modifier = modifier.size(sizeDp)) {
         drawFrameRegion(
@@ -175,6 +183,7 @@ fun LamiSprite3x3(
             region = frameRegion,
             dstSize = dstSize,
             dstOffset = dstOffset,
+            colorFilter = spriteColorFilter,
             placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
         )
     }
@@ -251,5 +260,40 @@ fun LamiSprite(
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled,
         )
+    }
+}
+
+@Composable
+fun rememberInvertColorFilterForDarkTheme(
+    contrast: Float = 1.15f,
+    brightness: Float = 0.25f,
+): ColorFilter? {
+    return rememberBrightContrastColorFilterForDarkTheme(
+        contrast = contrast,
+        brightness = brightness,
+    )
+}
+
+@Composable
+fun rememberBrightContrastColorFilterForDarkTheme(
+    contrast: Float = 1.15f,
+    brightness: Float = 0.25f,
+): ColorFilter? {
+    val darkTheme = isSystemInDarkTheme()
+    return remember(darkTheme, contrast, brightness) {
+        if (!darkTheme) {
+            null
+        } else {
+            val brightnessOffset = 255f * brightness
+            val matrix = ColorMatrix(
+                floatArrayOf(
+                    contrast, 0f, 0f, 0f, brightnessOffset,
+                    0f, contrast, 0f, 0f, brightnessOffset,
+                    0f, 0f, contrast, 0f, brightnessOffset,
+                    0f, 0f, 0f, 1f, 0f,
+                )
+            )
+            ColorFilter.colorMatrix(matrix)
+        }
     }
 }
