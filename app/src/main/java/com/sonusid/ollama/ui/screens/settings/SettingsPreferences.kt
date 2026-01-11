@@ -34,6 +34,16 @@ data class ReadyAnimationSettings(
             frameSequence = listOf(0, 1, 2, 1),
             intervalMs = 700,
         )
+        val THINKING_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(7, 7, 7, 6, 7, 7, 6, 7),
+            intervalMs = 180,
+        )
+        // 見た目: Idleの現行UI(1..9表記)に合わせ、左右上下の揺れ0px想定で間隔180msを採用
+        private val IDLE_DEFAULT_UI_FRAMES = listOf(8, 8, 8, 7, 8, 8, 7, 8)
+        val IDLE_DEFAULT = ReadyAnimationSettings(
+            frameSequence = IDLE_DEFAULT_UI_FRAMES.map { value -> value - 1 },
+            intervalMs = 180,
+        )
         val DEFAULT = READY_DEFAULT
 
         const val MIN_INTERVAL_MS: Int = 50
@@ -78,6 +88,35 @@ data class InsertionAnimationSettings(
             cooldownLoops = 0,
             exclusive = false,
         )
+        val THINKING_DEFAULT = InsertionAnimationSettings(
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5), weight = 3, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 80),
+            ),
+            intervalMs = 200,
+            everyNLoops = 5,
+            probabilityPercent = 80,
+            cooldownLoops = 4,
+            exclusive = false,
+        )
+        // 見た目: Idleの現行UI(1..9表記)に合わせ、左右上下の揺れ0px想定で挿入パターンを更新
+        private val IDLE_DEFAULT_INSERTION_UI_FRAMES = listOf(9)
+        val IDLE_DEFAULT = InsertionAnimationSettings(
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(
+                    frameSequence = IDLE_DEFAULT_INSERTION_UI_FRAMES.map { value -> value - 1 },
+                    weight = 3,
+                    intervalMs = 70,
+                )
+            ),
+            intervalMs = 120,
+            everyNLoops = 4,
+            probabilityPercent = 80,
+            cooldownLoops = 6,
+            exclusive = false,
+        )
         val DEFAULT = READY_DEFAULT
 
         const val MIN_INTERVAL_MS: Int = ReadyAnimationSettings.MIN_INTERVAL_MS
@@ -116,9 +155,22 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
     private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
+    private val idleFrameSequenceKey = stringPreferencesKey("idle_frame_sequence")
+    private val idleIntervalMsKey = intPreferencesKey("idle_interval_ms")
+    private val idleInsertionEnabledKey = booleanPreferencesKey("idle_insertion_enabled")
+    private val idleInsertionFrameSequenceKey = stringPreferencesKey("idle_insertion_frame_sequence")
+    private val idleInsertionIntervalMsKey = intPreferencesKey("idle_insertion_interval_ms")
+    private val idleInsertionPattern1IntervalMsKey = intPreferencesKey("idle_insertion_pattern1_interval_ms")
+    private val idleInsertionPattern2IntervalMsKey = intPreferencesKey("idle_insertion_pattern2_interval_ms")
+    private val idleInsertionEveryNLoopsKey = intPreferencesKey("idle_insertion_every_n_loops")
+    private val idleInsertionProbabilityKey = intPreferencesKey("idle_insertion_probability_percent")
+    private val idleInsertionCooldownLoopsKey = intPreferencesKey("idle_insertion_cooldown_loops")
+    private val idleInsertionExclusiveKey = booleanPreferencesKey("idle_insertion_exclusive")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
+    // 画面を閉じても復元できるように、最後に選んだアニメ種別（内部ID）を保存するキー
+    private val lastSelectedAnimationTypeKey = stringPreferencesKey("last_selected_animation_type")
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
@@ -132,6 +184,11 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationsJsonKey]
+    }
+
+    // 最後に選んだアニメ種別（内部ID）を復元するための値
+    val lastSelectedAnimationType: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedAnimationTypeKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -171,6 +228,25 @@ class SettingsPreferences(private val context: Context) {
         val intervalMs = preferences[talkingIntervalMsKey]
             ?.coerceIn(ReadyAnimationSettings.MIN_INTERVAL_MS, ReadyAnimationSettings.MAX_INTERVAL_MS)
             ?: ReadyAnimationSettings.TALKING_DEFAULT.intervalMs
+
+        ReadyAnimationSettings(
+            frameSequence = parsedFrames,
+            intervalMs = intervalMs,
+        )
+    }
+
+    val idleAnimationSettings: Flow<ReadyAnimationSettings> = context.dataStore.data.map { preferences ->
+        val frameSequenceString = preferences[idleFrameSequenceKey]
+        val parsedFrames = frameSequenceString
+            ?.split(",")
+            ?.mapNotNull { value -> value.trim().toIntOrNull() }
+            ?.filter { it in 0 until defaultSpriteSheetConfig.frameCount }
+            .orEmpty()
+            .ifEmpty { ReadyAnimationSettings.IDLE_DEFAULT.frameSequence }
+
+        val intervalMs = preferences[idleIntervalMsKey]
+            ?.coerceIn(ReadyAnimationSettings.MIN_INTERVAL_MS, ReadyAnimationSettings.MAX_INTERVAL_MS)
+            ?: ReadyAnimationSettings.IDLE_DEFAULT.intervalMs
 
         ReadyAnimationSettings(
             frameSequence = parsedFrames,
@@ -288,6 +364,61 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
+    val idleInsertionAnimationSettings: Flow<InsertionAnimationSettings> = context.dataStore.data.map { preferences ->
+        val patternsText = preferences[idleInsertionFrameSequenceKey]
+        val parsedPatterns = parseInsertionPatternsFromText(
+            text = patternsText,
+            fallback = InsertionAnimationSettings.IDLE_DEFAULT.patterns,
+        )
+        val patternIntervals = listOf(
+            resolveStoredPatternInterval(preferences[idleInsertionPattern1IntervalMsKey]),
+            resolveStoredPatternInterval(preferences[idleInsertionPattern2IntervalMsKey]),
+        )
+        val adjustedPatterns = applyPatternIntervals(parsedPatterns, patternIntervals)
+
+        val intervalMs = preferences[idleInsertionIntervalMsKey]
+            ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
+            ?: InsertionAnimationSettings.IDLE_DEFAULT.intervalMs
+
+        val everyNLoops = preferences[idleInsertionEveryNLoopsKey]
+            ?.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
+            ?: InsertionAnimationSettings.IDLE_DEFAULT.everyNLoops
+
+        val probabilityPercent = preferences[idleInsertionProbabilityKey]
+            ?.coerceIn(
+                InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
+                InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
+            )
+            ?: InsertionAnimationSettings.IDLE_DEFAULT.probabilityPercent
+
+        val cooldownLoops = preferences[idleInsertionCooldownLoopsKey]
+            ?.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
+            ?: InsertionAnimationSettings.IDLE_DEFAULT.cooldownLoops
+
+        val enabled = preferences[idleInsertionEnabledKey] ?: InsertionAnimationSettings.IDLE_DEFAULT.enabled
+        val exclusive = preferences[idleInsertionExclusiveKey] ?: InsertionAnimationSettings.IDLE_DEFAULT.exclusive
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "idle insertion restore: patternsText=${patternsText?.take(120)} " +
+                    "intervals=$patternIntervals " +
+                    "parsed=${formatPatternsForLog(parsedPatterns)} " +
+                    "adjusted=${formatPatternsForLog(adjustedPatterns)} " +
+                    "defaultInterval=$intervalMs"
+            )
+        }
+
+        InsertionAnimationSettings(
+            enabled = enabled,
+            patterns = adjustedPatterns,
+            intervalMs = intervalMs,
+            everyNLoops = everyNLoops,
+            probabilityPercent = probabilityPercent,
+            cooldownLoops = cooldownLoops,
+            exclusive = exclusive,
+        )
+    }
+
     suspend fun updateDynamicColor(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[dynamicColorKey] = enabled
@@ -306,6 +437,13 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveLastSelectedAnimationType(value: String) {
+        // 画面復帰時に同じアニメ種別へ戻すため、内部IDを永続化する
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedAnimationTypeKey] = value
+        }
+    }
+
     suspend fun resetSpriteSheetConfig() {
         saveSpriteSheetConfig(defaultSpriteSheetConfig)
     }
@@ -321,6 +459,13 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[talkingFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
             preferences[talkingIntervalMsKey] = settings.intervalMs
+        }
+    }
+
+    suspend fun saveIdleAnimationSettings(settings: ReadyAnimationSettings) {
+        context.dataStore.edit { preferences ->
+            preferences[idleFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
+            preferences[idleIntervalMsKey] = settings.intervalMs
         }
     }
 
@@ -378,6 +523,33 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun saveIdleInsertionAnimationSettings(settings: InsertionAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            settings.patterns.forEachIndexed { index, pattern ->
+                Log.d(
+                    "LamiSprite",
+                    "idle insertion save: index=$index frames=${pattern.frameSequence} " +
+                        "weight=${pattern.weight} interval=${pattern.intervalMs} " +
+                        "storedInterval=${patternIntervalToStorageValue(pattern.intervalMs)} " +
+                        "defaultInterval=${settings.intervalMs}"
+                )
+            }
+        }
+        context.dataStore.edit { preferences ->
+            preferences[idleInsertionEnabledKey] = settings.enabled
+            preferences[idleInsertionFrameSequenceKey] = settings.patterns.toStorageText()
+            preferences[idleInsertionIntervalMsKey] = settings.intervalMs
+            preferences[idleInsertionPattern1IntervalMsKey] =
+                patternIntervalToStorageValue(settings.patterns.getOrNull(0)?.intervalMs)
+            preferences[idleInsertionPattern2IntervalMsKey] =
+                patternIntervalToStorageValue(settings.patterns.getOrNull(1)?.intervalMs)
+            preferences[idleInsertionEveryNLoopsKey] = settings.everyNLoops
+            preferences[idleInsertionProbabilityKey] = settings.probabilityPercent
+            preferences[idleInsertionCooldownLoopsKey] = settings.cooldownLoops
+            preferences[idleInsertionExclusiveKey] = settings.exclusive
+        }
+    }
+
     fun buildAllAnimationsJsonFromLegacy(
         readyBase: ReadyAnimationSettings,
         readyInsertion: InsertionAnimationSettings,
@@ -426,6 +598,8 @@ class SettingsPreferences(private val context: Context) {
             val (baseDefaults, insertionDefaults) = when (normalizedKey) {
                 ALL_ANIMATIONS_READY_KEY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
                 ALL_ANIMATIONS_TALKING_KEY -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
+                ALL_ANIMATIONS_THINKING_KEY ->
+                    ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
                 else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
             }
             val normalizedBase = parseReadySettings(baseObject, baseDefaults).toJsonObject()
@@ -713,6 +887,7 @@ class SettingsPreferences(private val context: Context) {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
         const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
+        const val ALL_ANIMATIONS_THINKING_KEY = "Thinking"
         const val ALL_ANIMATIONS_READY_LEGACY_KEY = "ReadyBlink"
         const val JSON_VERSION_KEY = "version"
         const val JSON_ANIMATIONS_KEY = "animations"
