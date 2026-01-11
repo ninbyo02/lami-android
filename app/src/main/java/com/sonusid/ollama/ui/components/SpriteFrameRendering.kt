@@ -73,7 +73,7 @@ fun DrawScope.drawFrameRegion(
         y = region.srcOffset.y.coerceIn(0, maxOffsetY),
     )
     return runCatching<Unit> {
-        drawImageRect(
+        drawImage(
             image = sheet,
             srcOffset = srcOffset,
             srcSize = IntSize(width = srcWidth, height = srcHeight),
