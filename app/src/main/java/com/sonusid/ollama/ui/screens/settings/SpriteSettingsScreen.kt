@@ -1934,6 +1934,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         val insertionPattern1WeightInput: String
         val insertionPattern2FramesInput: String
         val insertionPattern2WeightInput: String
+        val insertionPattern1IntervalInput: String
+        val insertionPattern2IntervalInput: String
         val insertionIntervalInput: String
         val insertionEveryNInput: String
         val insertionProbabilityInput: String
@@ -1948,6 +1950,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 insertionPattern1WeightInput = readyInsertionPattern1WeightInput
                 insertionPattern2FramesInput = readyInsertionPattern2FramesInput
                 insertionPattern2WeightInput = readyInsertionPattern2WeightInput
+                insertionPattern1IntervalInput = readyInsertionPattern1IntervalInput
+                insertionPattern2IntervalInput = readyInsertionPattern2IntervalInput
                 insertionIntervalInput = readyInsertionIntervalInput
                 insertionEveryNInput = readyInsertionEveryNInput
                 insertionProbabilityInput = readyInsertionProbabilityInput
@@ -1962,6 +1966,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 insertionPattern1WeightInput = talkingInsertionPattern1WeightInput
                 insertionPattern2FramesInput = talkingInsertionPattern2FramesInput
                 insertionPattern2WeightInput = talkingInsertionPattern2WeightInput
+                insertionPattern1IntervalInput = talkingInsertionPattern1IntervalInput
+                insertionPattern2IntervalInput = talkingInsertionPattern2IntervalInput
                 insertionIntervalInput = talkingInsertionIntervalInput
                 insertionEveryNInput = talkingInsertionEveryNInput
                 insertionProbabilityInput = talkingInsertionProbabilityInput
@@ -1977,6 +1983,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 insertionPattern1WeightInput = state.insertionPattern1WeightInput
                 insertionPattern2FramesInput = state.insertionPattern2FramesInput
                 insertionPattern2WeightInput = state.insertionPattern2WeightInput
+                insertionPattern1IntervalInput = state.insertionPattern1IntervalInput
+                insertionPattern2IntervalInput = state.insertionPattern2IntervalInput
                 insertionIntervalInput = state.insertionIntervalInput
                 insertionEveryNInput = state.insertionEveryNInput
                 insertionProbabilityInput = state.insertionProbabilityInput
@@ -2004,8 +2012,10 @@ fun SpriteSettingsScreen(navController: NavController) {
             val patternsResult = parseInsertionPatternsInput(
                 pattern1FramesInput = insertionPattern1FramesInput,
                 pattern1WeightInput = insertionPattern1WeightInput,
+                pattern1IntervalInput = insertionPattern1IntervalInput,
                 pattern2FramesInput = insertionPattern2FramesInput,
                 pattern2WeightInput = insertionPattern2WeightInput,
+                pattern2IntervalInput = insertionPattern2IntervalInput,
                 frameCount = spriteSheetConfig.frameCount
             )
             val intervalResult = parseIntervalMsInput(insertionIntervalInput)
