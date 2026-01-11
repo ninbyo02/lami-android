@@ -127,6 +127,7 @@ import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
+import com.sonusid.ollama.ui.components.rememberInvertColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -4188,6 +4189,7 @@ private fun ReadyAnimationCharacter(
     charYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
+    val invertFilter = rememberInvertColorFilterForDarkTheme()
     Box(
         modifier = modifier
             // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
@@ -4208,6 +4210,8 @@ private fun ReadyAnimationCharacter(
                 region = frameRegion,
                 dstSize = squareSize,
                 dstOffset = offset,
+                // ダークテーマ時のみ画像を反転（枠線・文字などには適用しない）
+                colorFilter = invertFilter,
                 placeholder = { placeholderOffset, placeholderSize ->
                     drawFramePlaceholder(offset = placeholderOffset, size = placeholderSize)
                 }
@@ -4500,6 +4504,7 @@ private fun SpritePreviewBlock(
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
 ) {
+    val invertFilter = rememberInvertColorFilterForDarkTheme()
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -4531,7 +4536,9 @@ private fun SpritePreviewBlock(
                     // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
                     .fillMaxSize()
                     .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
-                contentScale = ContentScale.Fit
+                contentScale = ContentScale.Fit,
+                // ダークテーマ時のみ画像を反転（枠線・文字などには適用しない）
+                colorFilter = invertFilter
             )
             overlayContent()
         }

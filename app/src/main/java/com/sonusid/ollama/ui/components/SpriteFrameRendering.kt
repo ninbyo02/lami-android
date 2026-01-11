@@ -6,7 +6,9 @@ import android.graphics.Paint as AndroidPaint
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asAndroidColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -61,6 +63,7 @@ fun DrawScope.drawFrameRegion(
     dstSize: IntSize,
     dstOffset: IntOffset = IntOffset.Zero,
     alpha: Float = 1f,
+    colorFilter: ColorFilter? = null,
     placeholder: (DrawScope.(IntOffset, IntSize) -> Unit)? = null,
 ): Boolean {
     val safeDstSize = IntSize(dstSize.width.coerceAtLeast(1), dstSize.height.coerceAtLeast(1))
@@ -93,6 +96,7 @@ fun DrawScope.drawFrameRegion(
         val paint = AndroidPaint().apply {
             this.alpha = (alpha * 255f).roundToInt().coerceIn(0, 255)
             this.isFilterBitmap = false
+            this.colorFilter = colorFilter?.asAndroidColorFilter()
         }
         drawIntoCanvas { canvas ->
             canvas.nativeCanvas.drawBitmap(bitmap, srcRect, dstRect, paint)
