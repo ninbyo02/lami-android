@@ -1,15 +1,10 @@
 package com.sonusid.ollama.ui.components
 
-import android.graphics.Rect
-import android.graphics.RectF
-import android.graphics.Paint as AndroidPaint
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -61,6 +56,7 @@ fun DrawScope.drawFrameRegion(
     dstSize: IntSize,
     dstOffset: IntOffset = IntOffset.Zero,
     alpha: Float = 1f,
+    colorFilter: ColorFilter? = null,
     placeholder: (DrawScope.(IntOffset, IntSize) -> Unit)? = null,
 ): Boolean {
     val safeDstSize = IntSize(dstSize.width.coerceAtLeast(1), dstSize.height.coerceAtLeast(1))
@@ -77,26 +73,15 @@ fun DrawScope.drawFrameRegion(
         y = region.srcOffset.y.coerceIn(0, maxOffsetY),
     )
     return runCatching<Unit> {
-        val bitmap = sheet.asAndroidBitmap()
-        val srcRect = Rect(
-            srcOffset.x,
-            srcOffset.y,
-            srcOffset.x + srcWidth,
-            srcOffset.y + srcHeight,
+        drawImageRect(
+            image = sheet,
+            srcOffset = srcOffset,
+            srcSize = IntSize(width = srcWidth, height = srcHeight),
+            dstOffset = dstOffset,
+            dstSize = safeDstSize,
+            alpha = alpha,
+            colorFilter = colorFilter,
         )
-        val dstRect = RectF(
-            dstOffset.x.toFloat(),
-            dstOffset.y.toFloat(),
-            (dstOffset.x + safeDstSize.width).toFloat(),
-            (dstOffset.y + safeDstSize.height).toFloat(),
-        )
-        val paint = AndroidPaint().apply {
-            this.alpha = (alpha * 255f).roundToInt().coerceIn(0, 255)
-            this.isFilterBitmap = false
-        }
-        drawIntoCanvas { canvas ->
-            canvas.nativeCanvas.drawBitmap(bitmap, srcRect, dstRect, paint)
-        }
     }.onFailure {
         placeholder?.invoke(this, dstOffset, safeDstSize)
     }.isSuccess
