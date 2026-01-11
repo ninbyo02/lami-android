@@ -119,6 +119,8 @@ class SettingsPreferences(private val context: Context) {
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
+    // 画面を閉じても復元できるように、最後に選んだアニメ種別（内部ID）を保存するキー
+    private val lastSelectedAnimationTypeKey = stringPreferencesKey("last_selected_animation_type")
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
@@ -132,6 +134,11 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationsJsonKey]
+    }
+
+    // 最後に選んだアニメ種別（内部ID）を復元するための値
+    val lastSelectedAnimationType: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedAnimationTypeKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -303,6 +310,13 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveSpriteAnimationsJson(json: String) {
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationsJsonKey] = json
+        }
+    }
+
+    suspend fun saveLastSelectedAnimationType(value: String) {
+        // 画面復帰時に同じアニメ種別へ戻すため、内部IDを永続化する
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedAnimationTypeKey] = value
         }
     }
 
