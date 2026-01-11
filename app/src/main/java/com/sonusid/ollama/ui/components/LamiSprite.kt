@@ -52,6 +52,7 @@ fun LamiSprite(
     modifier: Modifier = Modifier,
 ) {
     val bitmap = rememberSpriteSheet(spriteRes)
+    val invertFilter = rememberInvertColorFilterForDarkTheme()
     val resolvedFrameWidth = frameWidth.takeIf { it > 0 } ?: bitmap.width
     val resolvedFrameHeight = frameHeight.takeIf { it > 0 } ?: bitmap.height
 
@@ -77,7 +78,10 @@ fun LamiSprite(
                 srcSize = IntSize(resolvedFrameWidth, resolvedFrameHeight),
                 dstOffset = IntOffset(offsetX, offsetY),
                 dstSize = IntSize(side, side),
-                paint = Paint()
+                paint = Paint().apply {
+                    // ダークテーマ時のみ画像を反転（枠線・文字などには適用しない）
+                    colorFilter = invertFilter
+                }
             )
         }
     }
@@ -145,6 +149,7 @@ fun LamiSprite3x3(
             srcSize = srcSize,
         )
     }
+    val invertFilter = rememberInvertColorFilterForDarkTheme()
 
     val dstSize = with(LocalDensity.current) {
         val sizePx = sizeDp.roundToPx().coerceAtLeast(1)
@@ -175,6 +180,8 @@ fun LamiSprite3x3(
             region = frameRegion,
             dstSize = dstSize,
             dstOffset = dstOffset,
+            // ダークテーマ時のみ画像を反転（枠線・文字などには適用しない）
+            colorFilter = invertFilter,
             placeholder = { offset, size -> drawFramePlaceholder(offset, size) },
         )
     }
