@@ -3885,15 +3885,25 @@ private fun ReadyAnimationInfo(
     val lineSpacing = 4.dp
     val baseFramesText = summary.frames.ifEmpty { listOf(0) }
         .joinToString(",") { value -> (value + 1).toString() }
-    val insertionFramesText = insertionSummary.frames.ifEmpty { listOf(0) }
-        .joinToString(",") { value -> (value + 1).toString() }
+    val insertionFramesCount = insertionSummary.frames.ifEmpty { listOf(0) }.size
     val insertionLine = if (insertionEnabled && insertionSummary.enabled) {
         val effectiveIntervalText = buildEffectiveInsertionIntervalText(
             patterns = insertionPatterns,
             defaultIntervalMs = insertionDefaultIntervalMs,
         )
-        // 実効周期とデフォルト周期を併記し、表示と実挙動の差を明示する
-        "挿入: 実効 $effectiveIntervalText（デフォルト ${insertionDefaultIntervalMs}ms）/$insertionFramesText"
+        val defaultIntervalText = "${insertionDefaultIntervalMs}ms"
+        // 実効周期のみを短縮表記で表示し、必要時のみデフォルト周期を併記する
+        buildString {
+            append("挿入: ")
+            append(effectiveIntervalText)
+            if (effectiveIntervalText != defaultIntervalText) {
+                append(" (D")
+                append(insertionDefaultIntervalMs)
+                append(")")
+            }
+            append(" F")
+            append(insertionFramesCount)
+        }
     } else {
         "挿入: OFF"
     }
