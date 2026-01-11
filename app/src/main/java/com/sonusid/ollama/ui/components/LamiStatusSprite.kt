@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.components
 
+import android.util.Log
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.runtime.Composable
@@ -17,9 +18,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
+import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
@@ -41,7 +44,7 @@ enum class LamiSpriteStatus {
     OfflineEnter,
     OfflineLoop,
     OfflineExit,
-    ReadyBlink,
+    Ready,
 }
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
@@ -108,7 +111,7 @@ private data class InsertionSettingsKey(
     val cooldownLoops: Int,
     val exclusive: Boolean,
     val intervalMs: Int,
-    val frameSequence: List<Int>,
+    val patterns: List<InsertionPattern>,
 )
 
 // 挿入判定は InsertionAnimationSettings に統一し、旧 insertions は無効化する。
@@ -169,7 +172,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         loop = false,
         insertions = emptyList(),
     ),
-    LamiSpriteStatus.ReadyBlink to AnimationSpec(
+    LamiSpriteStatus.Ready to AnimationSpec(
         frames = listOf(0),
         frameDuration = FrameDurationSpec(minMs = 700L, maxMs = 1_200L, jitterFraction = 0.15f),
         insertions = emptyList(),
@@ -182,7 +185,7 @@ private fun selectInsertionSettingsForStatus(
     talkingSettings: InsertionAnimationSettings,
 ): InsertionAnimationSettings? =
     when (status) {
-        LamiSpriteStatus.ReadyBlink,
+        LamiSpriteStatus.Ready,
         LamiSpriteStatus.Idle,
         LamiSpriteStatus.Thinking,
         LamiSpriteStatus.ErrorLight,
@@ -197,6 +200,26 @@ private fun selectInsertionSettingsForStatus(
         LamiSpriteStatus.OfflineExit,
         -> null
     }
+
+private fun selectWeightedInsertionPattern(
+    patterns: List<InsertionPattern>,
+    random: Random,
+): Pair<Int, InsertionPattern>? {
+    // 抽選対象は weight>0 かつ frameSequence が空でないものに限定する
+    val candidates = patterns.withIndex().filter { (_, pattern) ->
+        pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
+    }
+    if (candidates.isEmpty()) return null
+    val totalWeight = candidates.sumOf { (_, pattern) -> pattern.weight }
+    if (totalWeight <= 0) return null
+    val roll = random.nextInt(totalWeight)
+    var cursor = 0
+    for ((index, pattern) in candidates) {
+        cursor += pattern.weight
+        if (roll < cursor) return index to pattern
+    }
+    return candidates.lastOrNull()?.let { (index, pattern) -> index to pattern }
+}
 
 @Composable
 fun LamiStatusSprite(
@@ -245,7 +268,7 @@ fun LamiStatusSprite(
     val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
         when {
             !replacementEnabled -> LamiSpriteStatus.Idle
-            !blinkEffectEnabled && status == LamiSpriteStatus.ReadyBlink -> LamiSpriteStatus.Idle
+            !blinkEffectEnabled && status == LamiSpriteStatus.Ready -> LamiSpriteStatus.Idle
             else -> status
         }
     }
@@ -258,10 +281,10 @@ fun LamiStatusSprite(
         SettingsPreferences(context.applicationContext)
     }
     val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
-        initial = InsertionAnimationSettings.DEFAULT,
+        initial = InsertionAnimationSettings.READY_DEFAULT,
     )
     val talkingInsertionSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(
-        initial = InsertionAnimationSettings.DEFAULT,
+        initial = InsertionAnimationSettings.TALKING_DEFAULT,
     )
     val insertionSettings = remember(resolvedStatus, readyInsertionSettings, talkingInsertionSettings) {
         selectInsertionSettingsForStatus(
@@ -280,7 +303,7 @@ fun LamiStatusSprite(
                 cooldownLoops = settings.cooldownLoops,
                 exclusive = settings.exclusive,
                 intervalMs = settings.intervalMs,
-                frameSequence = settings.frameSequence,
+                patterns = settings.patterns,
             ).hashCode()
         } ?: 0
     }
@@ -288,6 +311,10 @@ fun LamiStatusSprite(
     val loopCountState = remember(resolvedStatus) { mutableStateOf(0) }
     // 設定変更時は Effect 開始時にクールダウン状態もリセットする
     val lastInsertionLoopState = remember(resolvedStatus) { mutableStateOf<Int?>(null) }
+    // 挿入イベントの確定値を保持する
+    var lastInsertionPatternIndex by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
+    var lastInsertionResolvedIntervalMs by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
+    var lastInsertionFrames by remember(resolvedStatus, insertionKey) { mutableStateOf<List<Int>?>(null) }
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
@@ -330,6 +357,9 @@ fun LamiStatusSprite(
     LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionKey) {
         loopCountState.value = 0
         lastInsertionLoopState.value = null
+        lastInsertionPatternIndex = null
+        lastInsertionResolvedIntervalMs = null
+        lastInsertionFrames = null
         currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
         if (!animationsEnabled || animSpec.frames.isEmpty()) {
             return@LaunchedEffect
@@ -337,15 +367,13 @@ fun LamiStatusSprite(
 
         val random = Random(System.currentTimeMillis())
 
-        suspend fun playInsertionFrames(settings: InsertionAnimationSettings) {
-            if (settings.frameSequence.isEmpty()) {
-                return
-            }
+        suspend fun playInsertionFrames(frameSequence: List<Int>, intervalMs: Int) {
+            if (frameSequence.isEmpty()) return
             // 設定の intervalMs を固定間隔として使用する
-            val intervalMs = settings.intervalMs.coerceAtLeast(0).toLong()
-            for (frame in settings.frameSequence) {
+            val resolvedIntervalMs = intervalMs.coerceAtLeast(0).toLong()
+            for (frame in frameSequence) {
                 currentFrameIndex = frame.coerceIn(0, maxFrameIndex)
-                delay(intervalMs)
+                delay(resolvedIntervalMs)
             }
         }
 
@@ -355,19 +383,40 @@ fun LamiStatusSprite(
             val lastInsertionLoop = lastInsertionLoopState.value
             val settings = insertionSettingsLatest
             // 設定に基づく挿入判定はループ単位で行う（挿入の可否は shouldAttemptInsertion のみで決定）
-            // exclusive の意味その1：READY再生中は shouldAttemptInsertion 側で抑止される
             val shouldInsert = settings?.shouldAttemptInsertion(
                 loopCount = loopCount,
                 lastInsertionLoop = lastInsertionLoop,
-                isReadyPlaying = resolvedStatus == LamiSpriteStatus.ReadyBlink,
                 random = random,
             ) == true
-            if (shouldInsert) {
+            if (shouldInsert && settings?.patterns?.isNotEmpty() == true) {
                 val activeSettings = requireNotNull(settings)
-                playInsertionFrames(settings = activeSettings)
+                // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
+                val (patternIndex, pattern) = selectWeightedInsertionPattern(activeSettings.patterns, random)
+                    ?: continue
+                val resolvedIntervalMs = pattern.intervalMs ?: activeSettings.intervalMs
+                lastInsertionPatternIndex = patternIndex
+                lastInsertionResolvedIntervalMs = resolvedIntervalMs
+                lastInsertionFrames = pattern.frameSequence.toList()
+                if (BuildConfig.DEBUG) {
+                    // 実効 interval の決定根拠をログで確認できるようにする
+                    Log.d(
+                        "LamiStatusSprite",
+                        "insertion pick: status=$resolvedStatus loopCount=$loopCount " +
+                            "patternIndex=$patternIndex " +
+                            "frames=${pattern.frameSequence} " +
+                            "patternInterval=${pattern.intervalMs} " +
+                            "defaultInterval=${activeSettings.intervalMs} " +
+                            "resolvedInterval=$resolvedIntervalMs " +
+                            "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
+                    )
+                }
+                playInsertionFrames(
+                    frameSequence = pattern.frameSequence,
+                    intervalMs = resolvedIntervalMs,
+                )
                 lastInsertionLoopState.value = loopCount
                 if (activeSettings.exclusive) {
-                    // exclusive の意味その2：挿入が発生したループでは通常フレームを描画せず次へ進む
+                    // exclusive：挿入が発生したループでは Base を再生せず次へ進む
                     if (!animSpec.loop) {
                         break
                     }
@@ -473,7 +522,7 @@ fun LamiStatusSprite(
         val derived = status.value
         if (derived.isOfflineStatus() && previousAnimationStatus == LamiAnimationStatus.OfflineEnter) {
             LamiAnimationStatus.OfflineLoop
-        } else if (derived == LamiAnimationStatus.ReadyBlink && previousAnimationStatus.isOfflineStatus()) {
+        } else if (derived == LamiAnimationStatus.Ready && previousAnimationStatus.isOfflineStatus()) {
             LamiAnimationStatus.OfflineExit
         } else {
             derived
@@ -601,7 +650,7 @@ fun mapToLamiSpriteStatus(
                 else -> LamiSpriteStatus.TalkLong
             }
         LamiStatus.CONNECTING -> LamiSpriteStatus.Thinking
-        LamiStatus.READY -> LamiSpriteStatus.ReadyBlink
+        LamiStatus.READY -> LamiSpriteStatus.Ready
         LamiStatus.DEGRADED -> LamiSpriteStatus.Idle
         LamiStatus.NO_MODELS, LamiStatus.ERROR -> LamiSpriteStatus.ErrorHeavy
         LamiStatus.OFFLINE -> if (lastError.isNullOrBlank()) {
@@ -625,7 +674,7 @@ private fun LamiAnimationStatus.toSpriteStatus(): LamiSpriteStatus {
         LamiAnimationStatus.OfflineEnter -> LamiSpriteStatus.OfflineEnter
         LamiAnimationStatus.OfflineLoop -> LamiSpriteStatus.OfflineLoop
         LamiAnimationStatus.OfflineExit -> LamiSpriteStatus.OfflineExit
-        LamiAnimationStatus.ReadyBlink -> LamiSpriteStatus.ReadyBlink
+        LamiAnimationStatus.Ready -> LamiSpriteStatus.Ready
     }
 }
 
@@ -646,7 +695,7 @@ private fun LamiStatus.toAnimationStatus(
         LamiStatus.READY -> if (previousStatus.isOfflineStatus()) {
             LamiAnimationStatus.OfflineExit
         } else {
-            LamiAnimationStatus.ReadyBlink
+            LamiAnimationStatus.Ready
         }
         LamiStatus.DEGRADED -> LamiAnimationStatus.Thinking
         LamiStatus.NO_MODELS -> if (previousStatus.isOfflineStatus()) {
