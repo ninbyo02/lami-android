@@ -2547,7 +2547,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
-                showTopSnackbarSuccess("編集中の設定をコピーしました")
+                showTopSnackbarSuccess("編集中の設定JSONをコピーしました")
             }.onFailure { throwable ->
                 showTopSnackbarError("コピーに失敗しました: ${throwable.message}")
             }
@@ -2822,18 +2822,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 contentDescription = "プレビュー更新"
                             )
                         }
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> copyEditingSettings(devPreviewSettings)
-                                    SpriteTab.ADJUST -> copySpriteSheetConfig()
-                                }
+                        if (selectedTab == SpriteTab.ADJUST) {
+                            IconButton(
+                                onClick = { copySpriteSheetConfig() }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentCopy,
+                                    contentDescription = "コピー"
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "コピー"
-                            )
                         }
                         if (selectedTab == SpriteTab.ANIM) {
                             IconButton(
@@ -3946,11 +3943,32 @@ private fun ReadyAnimationTab(
                 }
             }
             item {
-                DevMenuSectionHost(
-                    devUnlocked = devUnlocked,
-                    layoutState = layoutState,
-                    previewUiState = readyPreviewUiState
-                )
+                Column(
+                    // [非dp] 横: DEVメニュー領域 の fillMaxWidth(制約)に関係
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DevMenuSectionHost(
+                        devUnlocked = devUnlocked,
+                        layoutState = layoutState,
+                        previewUiState = readyPreviewUiState
+                    )
+                    if (BuildConfig.DEBUG && devUnlocked) {
+                        // 通常UIと重複するため、編集中の設定JSONコピーはDEV専用へ移動
+                        FilledTonalButton(
+                            onClick = { copyEditingSettings(devPreviewSettings) },
+                            modifier = Modifier
+                                // [非dp] 横: DEVメニュー の fillMaxWidth(制約)に関係
+                                .fillMaxWidth()
+                                // [dp] 縦: DEVメニュー の見た目高さ(最小サイズ)に関係
+                                .height(controlButtonHeight),
+                            contentPadding = controlButtonPadding,
+                            shape = actionButtonShape
+                        ) {
+                            Text("編集中の設定JSONをコピー（DEV）")
+                        }
+                    }
+                }
             }
         }
     }
