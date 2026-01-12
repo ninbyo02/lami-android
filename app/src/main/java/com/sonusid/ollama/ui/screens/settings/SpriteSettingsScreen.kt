@@ -1340,36 +1340,21 @@ fun SpriteSettingsScreen(navController: NavController) {
         val target = AnimationType.IDLE
         val pattern1 = config.insertion.patterns.getOrNull(0)
         val pattern2 = config.insertion.patterns.getOrNull(1)
-        val defaults = extraAnimationDefaults[target]
-        extraAnimationStates[target] = AnimationInputState(
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
             frameInput = config.baseFrames.toFrameInputText(),
             intervalInput = config.baseIntervalMs.toString(),
-            framesError = null,
-            intervalError = null,
             insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern1WeightInput = pattern1?.weight?.toString() ?: "1",
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
             insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
             insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern2WeightInput = pattern2?.weight?.toString() ?: "0",
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
             insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
-            insertionIntervalInput = defaults?.insertion?.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
             insertionEnabled = config.insertion.enabled,
             insertionExclusive = config.insertion.exclusive,
-            insertionPattern1FramesError = null,
-            insertionPattern1WeightError = null,
-            insertionPattern1IntervalError = null,
-            insertionPattern2FramesError = null,
-            insertionPattern2WeightError = null,
-            insertionPattern2IntervalError = null,
-            insertionIntervalError = null,
-            insertionEveryNError = null,
-            insertionProbabilityError = null,
-            insertionCooldownError = null,
-            appliedBase = ReadyAnimationSettings(config.baseFrames, config.baseIntervalMs),
-            appliedInsertion = defaults?.insertion ?: InsertionAnimationSettings.DEFAULT,
         )
         didApplyIdlePerState = true
         if (BuildConfig.DEBUG) {
@@ -1398,36 +1383,21 @@ fun SpriteSettingsScreen(navController: NavController) {
         val target = AnimationType.THINKING
         val pattern1 = config.insertion.patterns.getOrNull(0)
         val pattern2 = config.insertion.patterns.getOrNull(1)
-        val defaults = extraAnimationDefaults[target]
-        extraAnimationStates[target] = AnimationInputState(
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
             frameInput = config.baseFrames.toFrameInputText(),
             intervalInput = config.baseIntervalMs.toString(),
-            framesError = null,
-            intervalError = null,
             insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern1WeightInput = pattern1?.weight?.toString() ?: "1",
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
             insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
             insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern2WeightInput = pattern2?.weight?.toString() ?: "0",
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
             insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
-            insertionIntervalInput = defaults?.insertion?.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
             insertionEnabled = config.insertion.enabled,
             insertionExclusive = config.insertion.exclusive,
-            insertionPattern1FramesError = null,
-            insertionPattern1WeightError = null,
-            insertionPattern1IntervalError = null,
-            insertionPattern2FramesError = null,
-            insertionPattern2WeightError = null,
-            insertionPattern2IntervalError = null,
-            insertionIntervalError = null,
-            insertionEveryNError = null,
-            insertionProbabilityError = null,
-            insertionCooldownError = null,
-            appliedBase = ReadyAnimationSettings(config.baseFrames, config.baseIntervalMs),
-            appliedInsertion = defaults?.insertion ?: InsertionAnimationSettings.DEFAULT,
         )
         didApplyThinkingPerState = true
         if (BuildConfig.DEBUG) {
@@ -1458,38 +1428,24 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
             return@LaunchedEffect
         }
+        val target = AnimationType.OFFLINE_LOOP
         val pattern1 = config.insertion.patterns.getOrNull(0)
         val pattern2 = config.insertion.patterns.getOrNull(1)
-        val defaults = extraAnimationDefaults[selectedAnimation]
-        extraAnimationStates[selectedAnimation] = AnimationInputState(
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
             frameInput = config.baseFrames.toFrameInputText(),
             intervalInput = config.baseIntervalMs.toString(),
-            framesError = null,
-            intervalError = null,
             insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern1WeightInput = pattern1?.weight?.toString() ?: "1",
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
             insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
             insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern2WeightInput = pattern2?.weight?.toString() ?: "0",
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
             insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
-            insertionIntervalInput = defaults?.insertion?.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
             insertionEnabled = config.insertion.enabled,
             insertionExclusive = config.insertion.exclusive,
-            insertionPattern1FramesError = null,
-            insertionPattern1WeightError = null,
-            insertionPattern1IntervalError = null,
-            insertionPattern2FramesError = null,
-            insertionPattern2WeightError = null,
-            insertionPattern2IntervalError = null,
-            insertionIntervalError = null,
-            insertionEveryNError = null,
-            insertionProbabilityError = null,
-            insertionCooldownError = null,
-            appliedBase = ReadyAnimationSettings(config.baseFrames, config.baseIntervalMs),
-            appliedInsertion = defaults?.insertion ?: InsertionAnimationSettings.DEFAULT,
         )
         didApplyOfflinePerState = true
         if (BuildConfig.DEBUG) {
@@ -1519,38 +1475,24 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
             return@LaunchedEffect
         }
+        val target = selectedAnimation
         val pattern1 = config.insertion.patterns.getOrNull(0)
         val pattern2 = config.insertion.patterns.getOrNull(1)
-        val defaults = extraAnimationDefaults[selectedAnimation]
-        extraAnimationStates[selectedAnimation] = AnimationInputState(
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
             frameInput = config.baseFrames.toFrameInputText(),
             intervalInput = config.baseIntervalMs.toString(),
-            framesError = null,
-            intervalError = null,
             insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern1WeightInput = pattern1?.weight?.toString() ?: "1",
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
             insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
             insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
-            insertionPattern2WeightInput = pattern2?.weight?.toString() ?: "0",
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
             insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
-            insertionIntervalInput = defaults?.insertion?.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
             insertionEnabled = config.insertion.enabled,
             insertionExclusive = config.insertion.exclusive,
-            insertionPattern1FramesError = null,
-            insertionPattern1WeightError = null,
-            insertionPattern1IntervalError = null,
-            insertionPattern2FramesError = null,
-            insertionPattern2WeightError = null,
-            insertionPattern2IntervalError = null,
-            insertionIntervalError = null,
-            insertionEveryNError = null,
-            insertionProbabilityError = null,
-            insertionCooldownError = null,
-            appliedBase = ReadyAnimationSettings(config.baseFrames, config.baseIntervalMs),
-            appliedInsertion = defaults?.insertion ?: InsertionAnimationSettings.DEFAULT,
         )
         didApplyErrorPerState = true
         if (BuildConfig.DEBUG) {
