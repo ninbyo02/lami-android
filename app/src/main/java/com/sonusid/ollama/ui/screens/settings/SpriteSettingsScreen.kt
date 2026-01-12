@@ -3077,6 +3077,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             coroutineScope.launch {
                                                 // 段階移行：IDLEは新DataStoreへ保存のみ先行（復元は次PR/PR7）
                                                 // 段階移行：READY/SPEAKING は保存のみ先行
+                                                // 段階移行：THINKINGは新DataStoreへ保存のみ先行（復元は次PR/PR9）
                                                 // 旧キー（sprite_last_selected_animation）も互換のため継続保存
                                                 when (updated) {
                                                     AnimationType.IDLE -> settingsPreferences.setSelectedKey(
@@ -3101,6 +3102,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                     AnimationType.TALKING -> settingsPreferences.setSelectedKey(
                                                         SpriteState.SPEAKING,
                                                         "TalkDefault",
+                                                    )
+
+                                                    AnimationType.THINKING -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.THINKING,
+                                                        "Thinking",
                                                     )
 
                                                     else -> Unit
