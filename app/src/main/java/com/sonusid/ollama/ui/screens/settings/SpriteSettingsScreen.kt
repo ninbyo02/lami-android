@@ -3043,9 +3043,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         if (selectedAnimation != updated) {
                                             selectedAnimation = updated
                                             coroutineScope.launch {
-                                                // SPEAKING state の選択保存（段階移行のため保存のみ先行）
+                                                // 段階移行：READYは新DataStoreへ保存のみ先行（復元は次PR）
                                                 // 旧キー（sprite_last_selected_animation）も互換のため継続保存
+                                                // SPEAKING state の選択保存（段階移行のため保存のみ先行）
                                                 when (updated) {
+                                                    AnimationType.READY -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.READY,
+                                                        "Ready",
+                                                    )
+
                                                     AnimationType.TALK_SHORT,
                                                     AnimationType.TALK_LONG,
                                                     AnimationType.TALK_CALM ->
