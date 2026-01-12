@@ -12,7 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
@@ -39,6 +39,7 @@ import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
@@ -77,27 +78,36 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
-            val lastRoute by settingsPreferences.lastRoute.collectAsState(initial = null)
-            var startDestination by remember { mutableStateOf(Routes.SETTINGS) }
-            var startResolved by remember { mutableStateOf(false) }
+            var initialRoute by rememberSaveable { mutableStateOf<String?>(null) }
             // Initialise navigation
             val navController = rememberNavController()
-            LaunchedEffect(lastRoute) {
-                // 復元の順序を固定し、戻る履歴と再起動時の復元に使うstartDestinationを確定する
-                startDestination = when (lastRoute) {
-                    Routes.SPRITE_SETTINGS -> Routes.SPRITE_SETTINGS
-                    Routes.SETTINGS -> Routes.SETTINGS
-                    else -> Routes.SETTINGS
-                }
-                startResolved = true
+            LaunchedEffect(Unit) {
+                // 起動時1回だけ復元して初期ルートを固定し、NavHost再生成防止を徹底する
+                val restored = settingsPreferences.lastRoute.first()
+                val allowed = setOf(
+                    Routes.HOME,
+                    Routes.CHATS,
+                    Routes.SETTINGS,
+                    Routes.ABOUT,
+                    SettingsRoute.SpriteSettings.route
+                )
+                initialRoute = restored?.takeIf { it in allowed } ?: Routes.CHATS
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-                        if (startResolved) {
+                    Column(
+                        modifier = Modifier
+                            // 全体：ScaffoldのinnerPaddingを適用しコンテンツ被りを防止
+                            .padding(innerPadding)
+                            .fillMaxSize()
+                    ) {
+                        if (initialRoute == null) {
+                            // 起動時1回だけ復元が終わるまでNavHostを描かない（NavHost再生成防止）
+                            Box(modifier = Modifier.fillMaxSize())
+                        } else {
                             NavHost(
                                 navController = navController,
-                                startDestination = startDestination
+                                startDestination = initialRoute!!
                             ) {
                                 composable(Routes.HOME) {
                                     Home(navController, viewModel)
@@ -122,9 +132,6 @@ class MainActivity : ComponentActivity() {
                                     SpriteSettingsScreen(navController)
                                 }
                             }
-                        } else {
-                            // 再起動時の復元が確定するまでNavHostを描かず、起動時のチラつきを防ぐ
-                            Box(modifier = Modifier.fillMaxSize())
                         }
                     }
                 }
