@@ -110,6 +110,16 @@ data class InsertionAnimationSettings(
     }
 }
 
+// state別選択キー保存用の最小enum（既存定義が無い前提）
+enum class SpriteState {
+    READY,
+    IDLE,
+    SPEAKING,
+    THINKING,
+    ERROR,
+    OFFLINE,
+}
+
 class SettingsPreferences(private val context: Context) {
 
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
@@ -139,6 +149,13 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
     // 最後に選択したアニメ種別（internalKey保存: 表示名差分の影響を回避）
     private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
+    // state別に最後に選択したアニメキーを保存する（段階移行用）
+    private val selectedKeyReadyKey = stringPreferencesKey("sprite_selected_key_ready")
+    private val selectedKeyIdleKey = stringPreferencesKey("sprite_selected_key_idle")
+    private val selectedKeySpeakingKey = stringPreferencesKey("sprite_selected_key_speaking")
+    private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
+    private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
+    private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
     // 最後に選択したタブ（SpriteTab名を保存して復元する）
     private val lastSelectedSpriteTabKey = stringPreferencesKey("sprite_last_selected_tab")
     // 画像調整で最後に選択したコマ番号（1始まり）
@@ -187,6 +204,11 @@ class SettingsPreferences(private val context: Context) {
 
     val lastSelectedAnimation: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastSelectedAnimationKey]
+    }
+
+    // state別の選択キー取得（DataStore未保存時は null を返す）
+    fun selectedKeyFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[selectedKeyPreferencesKey(state)]
     }
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -382,6 +404,14 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    // state別の選択キーを保存する（段階移行用）
+    suspend fun setSelectedKey(state: SpriteState, key: String) {
+        if (key.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[selectedKeyPreferencesKey(state)] = key
+        }
+    }
+
     suspend fun saveLastSelectedSpriteTab(tabKey: String) {
         if (tabKey.isBlank()) return
         context.dataStore.edit { preferences ->
@@ -472,6 +502,41 @@ class SettingsPreferences(private val context: Context) {
             preferences[talkingInsertionProbabilityKey] = settings.probabilityPercent
             preferences[talkingInsertionCooldownLoopsKey] = settings.cooldownLoops
             preferences[talkingInsertionExclusiveKey] = settings.exclusive
+        }
+    }
+
+    // stateごとのデフォルトキーはDataStoreに書かず、解決関数で返す
+    fun defaultKeyForState(state: SpriteState): String =
+        when (state) {
+            SpriteState.READY -> "Ready"
+            SpriteState.IDLE -> "Idle"
+            SpriteState.SPEAKING -> "TalkDefault"
+            SpriteState.THINKING -> "Thinking"
+            SpriteState.ERROR -> "ErrorLight"
+            SpriteState.OFFLINE -> "OfflineLoop"
+        }
+
+    // 旧キー（sprite_last_selected_animation）からの読み取りフォールバック
+    fun resolveKeyForStateWithLegacyFallback(
+        state: SpriteState,
+        selectedKey: String?,
+        legacyKey: String?
+    ): String {
+        if (selectedKey != null) return selectedKey
+        val candidate = legacyKey ?: return defaultKeyForState(state)
+        return when (state) {
+            SpriteState.READY -> if (candidate == "Ready") candidate else defaultKeyForState(state)
+            SpriteState.IDLE -> if (candidate == "Idle") candidate else defaultKeyForState(state)
+            SpriteState.SPEAKING -> {
+                if (candidate in setOf("TalkShort", "TalkLong", "TalkCalm", "TalkDefault", "Speaking")) {
+                    candidate
+                } else {
+                    defaultKeyForState(state)
+                }
+            }
+            SpriteState.THINKING -> if (candidate == "Thinking") candidate else defaultKeyForState(state)
+            SpriteState.ERROR -> if (candidate == "ErrorLight") candidate else defaultKeyForState(state)
+            SpriteState.OFFLINE -> if (candidate == "OfflineLoop") candidate else defaultKeyForState(state)
         }
     }
 
@@ -806,6 +871,16 @@ class SettingsPreferences(private val context: Context) {
         patterns.mapIndexed { index, pattern ->
             "index=$index frames=${pattern.frameSequence} weight=${pattern.weight} interval=${pattern.intervalMs}"
         }.joinToString(separator = ", ")
+
+    // state別キーのマッピングはここで一元化する
+    private fun selectedKeyPreferencesKey(state: SpriteState) = when (state) {
+        SpriteState.READY -> selectedKeyReadyKey
+        SpriteState.IDLE -> selectedKeyIdleKey
+        SpriteState.SPEAKING -> selectedKeySpeakingKey
+        SpriteState.THINKING -> selectedKeyThinkingKey
+        SpriteState.ERROR -> selectedKeyErrorKey
+        SpriteState.OFFLINE -> selectedKeyOfflineKey
+    }
 
     private companion object {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
