@@ -181,6 +181,11 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
             OFFLINE_LOOP,
             OFFLINE_EXIT,
         )
+
+        fun fromInternalKeyOrNull(key: String?): AnimationType? {
+            if (key.isNullOrBlank()) return null
+            return options.firstOrNull { it.internalKey == key }
+        }
     }
 
     val supportsPersistence: Boolean
@@ -837,6 +842,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
+    val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
@@ -948,6 +954,15 @@ fun SpriteSettingsScreen(navController: NavController) {
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
+
+    LaunchedEffect(lastSelectedAnimationKey) {
+        val restoredKey = lastSelectedAnimationKey
+        val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
+        if (restoredType != null && restoredType != selectedAnimation) {
+            // internalKey から復元する（表示名差分の影響回避）
+            selectedAnimation = restoredType
+        }
+    }
 
     LaunchedEffect(spriteSheetConfig) {
         val validConfig = spriteSheetConfig
@@ -2901,7 +2916,14 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val selectionState = AnimationSelectionState(
                                     selectedAnimation = selectedAnimation,
                                     animationOptions = animationOptions,
-                                    onSelectedAnimationChange = { selectedAnimation = it }
+                                    onSelectedAnimationChange = { updated ->
+                                        if (selectedAnimation != updated) {
+                                            selectedAnimation = updated
+                                            coroutineScope.launch {
+                                                settingsPreferences.saveLastSelectedAnimation(updated.internalKey)
+                                            }
+                                        }
+                                    }
                                 )
                                 val baseState = BaseAnimationUiState(
                                     frameInput = selectedState.frameInput,
