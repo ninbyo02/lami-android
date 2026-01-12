@@ -719,6 +719,7 @@ private const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
 private const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
 private const val JSON_EXCLUSIVE_KEY = "exclusive"
 private const val READY_LEGACY_LABEL = "ReadyBlink"
+private const val UNSET_SPRITE_TAB = "__UNSET__"
 
 private fun clampPosition(
     position: BoxPosition,
@@ -849,7 +850,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
     val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
-    val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab.collectAsState(initial = null)
+    val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
+        .collectAsState(initial = UNSET_SPRITE_TAB)
     val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
@@ -983,6 +985,9 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     LaunchedEffect(lastSelectedSpriteTabKey) {
         val restoredKey = lastSelectedSpriteTabKey
+        if (restoredKey == UNSET_SPRITE_TAB) {
+            return@LaunchedEffect
+        }
         val restoredTab = restoredKey?.let {
             runCatching { SpriteTab.valueOf(it) }.getOrNull()
         }
