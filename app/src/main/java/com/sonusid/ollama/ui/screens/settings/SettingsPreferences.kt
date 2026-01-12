@@ -163,6 +163,13 @@ class SettingsPreferences(private val context: Context) {
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
+    // PR17: 1 state = 1 JSON への移行準備（読み取りのみ）
+    private val spriteAnimationJsonReadyKey = stringPreferencesKey("sprite_animation_json_ready")
+    private val spriteAnimationJsonSpeakingKey = stringPreferencesKey("sprite_animation_json_speaking")
+    private val spriteAnimationJsonIdleKey = stringPreferencesKey("sprite_animation_json_idle")
+    private val spriteAnimationJsonThinkingKey = stringPreferencesKey("sprite_animation_json_thinking")
+    private val spriteAnimationJsonOfflineKey = stringPreferencesKey("sprite_animation_json_offline")
+    private val spriteAnimationJsonErrorKey = stringPreferencesKey("sprite_animation_json_error")
     // DataStoreの実体確認用ログ(デバッグ専用)
     private fun dumpDataStoreDebug(caller: String) {
         if (!BuildConfig.DEBUG) return
@@ -198,6 +205,18 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationsJsonKey]
+    }
+
+    // PR17: 1 state = 1 JSON への移行準備（読み取りのみ）
+    fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[spriteAnimationJsonPreferencesKey(state)]
+    }
+
+    // PR17: 優先順位は state別JSON → 旧全アニメJSON（sprite_animations_json）
+    fun resolvedSpriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
+        val perState = preferences[spriteAnimationJsonPreferencesKey(state)]
+        val legacy = preferences[spriteAnimationsJsonKey]
+        perState?.takeIf { it.isNotBlank() } ?: legacy?.takeIf { it.isNotBlank() }
     }
 
     // state別の選択キー取得（DataStore未保存時は null を返す）
@@ -843,6 +862,15 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.THINKING -> selectedKeyThinkingKey
         SpriteState.ERROR -> selectedKeyErrorKey
         SpriteState.OFFLINE -> selectedKeyOfflineKey
+    }
+
+    private fun spriteAnimationJsonPreferencesKey(state: SpriteState) = when (state) {
+        SpriteState.READY -> spriteAnimationJsonReadyKey
+        SpriteState.IDLE -> spriteAnimationJsonIdleKey
+        SpriteState.SPEAKING -> spriteAnimationJsonSpeakingKey
+        SpriteState.THINKING -> spriteAnimationJsonThinkingKey
+        SpriteState.ERROR -> spriteAnimationJsonErrorKey
+        SpriteState.OFFLINE -> spriteAnimationJsonOfflineKey
     }
 
     private companion object {
