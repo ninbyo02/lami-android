@@ -147,8 +147,6 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
     private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
-    // 最後に選択したアニメ種別（internalKey保存: 表示名差分の影響を回避）
-    private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
     // state別に最後に選択したアニメキーを保存する（段階移行用）
     private val selectedKeyReadyKey = stringPreferencesKey("sprite_selected_key_ready")
     private val selectedKeyIdleKey = stringPreferencesKey("sprite_selected_key_idle")
@@ -200,10 +198,6 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationsJsonKey]
-    }
-
-    val lastSelectedAnimation: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[lastSelectedAnimationKey]
     }
 
     // state別の選択キー取得（DataStore未保存時は null を返す）
@@ -397,13 +391,6 @@ class SettingsPreferences(private val context: Context) {
         dumpDataStoreDebug("after saveSpriteAnimationsJson")
     }
 
-    suspend fun saveLastSelectedAnimation(key: String) {
-        if (key.isBlank()) return
-        context.dataStore.edit { preferences ->
-            preferences[lastSelectedAnimationKey] = key
-        }
-    }
-
     // state別の選択キーを保存する（段階移行用）
     suspend fun setSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
@@ -515,30 +502,6 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.ERROR -> "ErrorLight"
             SpriteState.OFFLINE -> "OfflineLoop"
         }
-
-    // 旧キー（sprite_last_selected_animation）からの読み取りフォールバック
-    fun resolveKeyForStateWithLegacyFallback(
-        state: SpriteState,
-        selectedKey: String?,
-        legacyKey: String?
-    ): String {
-        if (selectedKey != null) return selectedKey
-        val candidate = legacyKey ?: return defaultKeyForState(state)
-        return when (state) {
-            SpriteState.READY -> if (candidate == "Ready") candidate else defaultKeyForState(state)
-            SpriteState.IDLE -> if (candidate == "Idle") candidate else defaultKeyForState(state)
-            SpriteState.SPEAKING -> {
-                if (candidate in setOf("TalkShort", "TalkLong", "TalkCalm", "TalkDefault", "Speaking")) {
-                    candidate
-                } else {
-                    defaultKeyForState(state)
-                }
-            }
-            SpriteState.THINKING -> if (candidate == "Thinking") candidate else defaultKeyForState(state)
-            SpriteState.ERROR -> if (candidate == "ErrorLight") candidate else defaultKeyForState(state)
-            SpriteState.OFFLINE -> if (candidate == "OfflineLoop") candidate else defaultKeyForState(state)
-        }
-    }
 
     fun buildAllAnimationsJsonFromLegacy(
         readyBase: ReadyAnimationSettings,

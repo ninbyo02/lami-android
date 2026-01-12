@@ -3093,7 +3093,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 // 段階移行：ERRORは新DataStoreへ保存のみ先行（復元は次PR/PR13）
                                                 // OFFLINE_ENTER/LOOP/EXIT は state として OFFLINE に正規化し "OfflineLoop" を保存
                                                 // ERROR_LIGHT/HEAVY は state=ERROR に正規化し "ErrorLight"/"ErrorHeavy" を保存
-                                                // 旧キー（sprite_last_selected_animation）も互換のため継続保存
+                                                // 旧キー（sprite_last_selected_animation）は段階廃止済み（PR14で書き込み停止、PR15で読み取り停止）
                                                 when (updated) {
                                                     AnimationType.IDLE -> settingsPreferences.setSelectedKey(
                                                         SpriteState.IDLE,
@@ -3144,7 +3144,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
                                                     else -> Unit
                                                 }
-                                                // 段階廃止：旧キー sprite_last_selected_animation への書き込みは停止（復元互換の読み取りはPR15まで維持）
+                                                // 旧キー sprite_last_selected_animation は段階廃止済み（読み書き停止）
                                             }
                                         }
                                     }
