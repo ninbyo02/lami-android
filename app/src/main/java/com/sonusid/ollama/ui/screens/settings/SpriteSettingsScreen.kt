@@ -861,6 +861,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
     val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
+    // 段階移行：SPEAKING（Talk系）は新DataStoreの選択キーを優先して復元する
+    val selectedSpeakingKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.SPEAKING)
+        .collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
         .collectAsState(initial = UNSET_SPRITE_TAB)
     val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
@@ -992,9 +996,31 @@ fun SpriteSettingsScreen(navController: NavController) {
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
 
+    LaunchedEffect(selectedSpeakingKey) {
+        val restoredType = when (selectedSpeakingKey) {
+            "TalkShort" -> AnimationType.TALK_SHORT
+            "TalkLong" -> AnimationType.TALK_LONG
+            "TalkCalm" -> AnimationType.TALK_CALM
+            "TalkDefault" -> AnimationType.TALKING
+            else -> null
+        }
+        if (restoredType != null && restoredType != selectedAnimation) {
+            // SPEAKINGの復元は新DataStoreを優先して適用する
+            selectedAnimation = restoredType
+        }
+    }
+
     LaunchedEffect(lastSelectedAnimationKey) {
         val restoredKey = lastSelectedAnimationKey
         val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
+        val isSpeakingType = restoredType == AnimationType.TALK_SHORT ||
+            restoredType == AnimationType.TALK_LONG ||
+            restoredType == AnimationType.TALK_CALM ||
+            restoredType == AnimationType.TALKING
+        if (isSpeakingType && selectedSpeakingKey != null) {
+            // 段階移行：SPEAKINGは新DataStoreがある場合は旧キー復元をスキップする
+            return@LaunchedEffect
+        }
         if (restoredType != null && restoredType != selectedAnimation) {
             // internalKey から復元する（表示名差分の影響回避）
             selectedAnimation = restoredType
