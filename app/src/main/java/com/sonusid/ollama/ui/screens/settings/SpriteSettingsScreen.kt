@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -74,6 +75,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,6 +87,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
@@ -94,7 +97,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -130,9 +132,11 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
@@ -802,10 +806,17 @@ private fun defaultBoxPositions(): List<BoxPosition> =
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
-    val imageBitmap: ImageBitmap =
-        ImageBitmap.imageResource(LocalContext.current.resources, R.drawable.lami_sprite_3x3_288)
-
     val context = LocalContext.current
+    val imageBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = context) {
+        // 画像デコードは重いため、遷移直後の白ブランクを避ける目的で非同期ロードする
+        value = withContext(Dispatchers.IO) {
+            BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
+        }?.asImageBitmap()
+    }
+    val imageWidth = imageBitmap?.width ?: 0
+    val imageHeight = imageBitmap?.height ?: 0
+    val safeImageWidth = imageWidth.coerceAtLeast(1)
+    val safeImageHeight = imageHeight.coerceAtLeast(1)
     val defaultSpriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
@@ -898,6 +909,11 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var talkingIntervalInput by rememberSaveable { mutableStateOf("700") }
+    LaunchedEffect(imageBitmap, containerSize) {
+        if (imageBitmap != null && containerSize.width > 0) {
+            displayScale = containerSize.width / imageBitmap.width.toFloat()
+        }
+    }
     var appliedTalkingFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
     var appliedTalkingIntervalMs by rememberSaveable { mutableStateOf(700) }
     var talkingFramesError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1622,11 +1638,11 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     fun clampAllPositions(newBoxSizePx: Int): List<BoxPosition> =
         boxPositions.map { position ->
-            clampPosition(position, newBoxSizePx, imageBitmap.width, imageBitmap.height)
+            clampPosition(position, newBoxSizePx, safeImageWidth, safeImageHeight)
         }
 
     fun updateBoxSize(delta: Int) {
-        val maxSize = minOf(imageBitmap.width, imageBitmap.height).coerceAtLeast(1)
+        val maxSize = minOf(safeImageWidth, safeImageHeight).coerceAtLeast(1)
         val desiredSize = (boxSizePx + delta).coerceIn(1, maxSize)
         if (desiredSize != boxSizePx) {
             boxSizePx = desiredSize
@@ -1643,8 +1659,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 y = current.y + deltaY
             ),
             boxSizePx = boxSizePx,
-            sheetWidth = imageBitmap.width,
-            sheetHeight = imageBitmap.height
+            sheetWidth = safeImageWidth,
+            sheetHeight = safeImageHeight
         )
         if (updated != current) {
             boxPositions = boxPositions.toMutableList().also { positions ->
@@ -3317,7 +3333,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                             SpriteTab.ANIM -> animationTabContent()
 
                             SpriteTab.ADJUST -> {
-                                val previewHeaderText = "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                val previewHeaderText = if (imageBitmap != null) {
+                                    "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                } else {
+                                    "画像読み込み中"
+                                }
                                 val coordinateText =
                                     selectedPosition?.let { position ->
                                         "座標: ${position.x},${position.y},${boxSizePx},${boxSizePx}"
@@ -3345,12 +3365,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .align(Alignment.TopCenter),
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
-                                            if (imageBitmap.width != 0) {
+                                            if (imageBitmap != null && imageBitmap.width != 0) {
                                                 displayScale = newContainerSize.width / imageBitmap.width.toFloat()
                                             }
                                         },
                                         overlayContent = {
-                                            if (selectedPosition != null && containerSize.width > 0 && containerSize.height > 0) {
+                                            if (imageBitmap != null &&
+                                                selectedPosition != null &&
+                                                containerSize.width > 0 &&
+                                                containerSize.height > 0
+                                            ) {
                                                 Canvas(modifier = Modifier.fillMaxSize()) {
                                                     val scaleX = this.size.width / imageBitmap.width
                                                     val scaleY = this.size.height / imageBitmap.height
@@ -3500,7 +3524,7 @@ private data class InsertionAnimationUiState(
 
 @Composable
 private fun ReadyAnimationTab(
-    imageBitmap: ImageBitmap,
+    imageBitmap: ImageBitmap?,
     spriteSheetConfig: SpriteSheetConfig,
     selectionState: AnimationSelectionState,
     baseState: BaseAnimationUiState,
@@ -4121,7 +4145,7 @@ private fun rememberReadyAnimationState(
 
 @Composable
 private fun ReadyAnimationCharacter(
-    imageBitmap: ImageBitmap,
+    imageBitmap: ImageBitmap?,
     frameRegion: SpriteFrameRegion?,
     spriteSizeDp: Dp,
     charYOffsetDp: Int,
@@ -4143,16 +4167,21 @@ private fun ReadyAnimationCharacter(
             val squareSize = IntSize(side, side)
             val offset = IntOffset((dstW - side) / 2, (dstH - side) / 2)
 
-            drawFrameRegion(
-                sheet = imageBitmap,
-                region = frameRegion,
-                dstSize = squareSize,
-                dstOffset = offset,
-                colorFilter = spriteColorFilter,
-                placeholder = { placeholderOffset, placeholderSize ->
-                    drawFramePlaceholder(offset = placeholderOffset, size = placeholderSize)
-                }
-            )
+            if (imageBitmap == null) {
+                // 画像未ロード時でも白抜けにしないため、プレースホルダーを描画する
+                drawFramePlaceholder(offset = offset, size = squareSize)
+            } else {
+                drawFrameRegion(
+                    sheet = imageBitmap,
+                    region = frameRegion,
+                    dstSize = squareSize,
+                    dstOffset = offset,
+                    colorFilter = spriteColorFilter,
+                    placeholder = { placeholderOffset, placeholderSize ->
+                        drawFramePlaceholder(offset = placeholderOffset, size = placeholderSize)
+                    }
+                )
+            }
         }
     }
 }
@@ -4279,7 +4308,7 @@ private fun ReadyAnimationInfo(
 
 @Composable
 private fun ReadyAnimationPreviewPane(
-    imageBitmap: ImageBitmap,
+    imageBitmap: ImageBitmap?,
     spriteSheetConfig: SpriteSheetConfig,
     baseSummary: AnimationSummary,
     insertionSummary: AnimationSummary,
@@ -4436,7 +4465,7 @@ private fun ReadyAnimationPreviewPane(
 
 @Composable
 private fun SpritePreviewBlock(
-    imageBitmap: ImageBitmap,
+    imageBitmap: ImageBitmap?,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
@@ -4466,17 +4495,31 @@ private fun SpritePreviewBlock(
             contentAlignment = Alignment.TopCenter
         ) {
             val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
-            Image(
-                bitmap = imageBitmap,
-                contentDescription = "Sprite Preview",
-                modifier = Modifier
-                    // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
-                    .fillMaxSize()
-                    .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
-                contentScale = ContentScale.Fit,
-                colorFilter = spriteColorFilter
-            )
-            overlayContent()
+            if (imageBitmap == null) {
+                // 画像読み込み中でも画面骨組みを維持するため、軽量プレースホルダーを表示する
+                Box(
+                    modifier = Modifier
+                        // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
+                        .fillMaxSize()
+                        .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) }
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "Loading...", style = MaterialTheme.typography.labelMedium)
+                }
+            } else {
+                Image(
+                    bitmap = imageBitmap,
+                    contentDescription = "Sprite Preview",
+                    modifier = Modifier
+                        // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
+                        .fillMaxSize()
+                        .onSizeChanged { newSize -> onContainerSizeChanged?.invoke(newSize) },
+                    contentScale = ContentScale.Fit,
+                    colorFilter = spriteColorFilter
+                )
+                overlayContent()
+            }
         }
     }
 }
