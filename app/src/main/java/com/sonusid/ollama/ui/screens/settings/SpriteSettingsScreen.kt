@@ -873,6 +873,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     val selectedIdleKey by settingsPreferences
         .selectedKeyFlow(SpriteState.IDLE)
         .collectAsState(initial = null)
+    // 段階移行：THINKINGは新DataStoreの選択キーを優先して復元する
+    val selectedThinkingKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.THINKING)
+        .collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
         .collectAsState(initial = UNSET_SPRITE_TAB)
     val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
@@ -1032,6 +1036,13 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    LaunchedEffect(selectedThinkingKey) {
+        if (selectedThinkingKey == "Thinking" && selectedAnimation != AnimationType.THINKING) {
+            // THINKING復元（新DataStore優先）
+            selectedAnimation = AnimationType.THINKING
+        }
+    }
+
     LaunchedEffect(lastSelectedAnimationKey) {
         val restoredKey = lastSelectedAnimationKey
         val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
@@ -1041,6 +1052,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             restoredType == AnimationType.TALKING
         val isReadyType = restoredType == AnimationType.READY
         val isIdleType = restoredType == AnimationType.IDLE
+        val isThinkingType = restoredType == AnimationType.THINKING
         if (isSpeakingType && selectedSpeakingKey != null) {
             // 段階移行：SPEAKINGは新DataStoreがある場合は旧キー復元をスキップする
             return@LaunchedEffect
@@ -1051,6 +1063,10 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
         if (isIdleType && selectedIdleKey != null) {
             // 段階移行：IDLEは新DataStoreがある場合は旧キー復元をスキップする
+            return@LaunchedEffect
+        }
+        if (isThinkingType && selectedThinkingKey != null) {
+            // 段階移行：THINKINGは新DataStoreがある場合は旧キー復元をスキップする
             return@LaunchedEffect
         }
         if (restoredType != null && restoredType != selectedAnimation) {
