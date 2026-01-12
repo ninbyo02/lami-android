@@ -3189,7 +3189,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
                                                     else -> Unit
                                                 }
-                                                settingsPreferences.saveLastSelectedAnimation(updated.internalKey)
+                                                // 段階廃止：旧キー sprite_last_selected_animation への書き込みは停止（復元互換の読み取りはPR15まで維持）
                                             }
                                         }
                                     }
