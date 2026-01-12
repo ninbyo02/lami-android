@@ -9,6 +9,6 @@
         <!-- 差し込み体感を抑えるためアニメーション時間を最小化 -->
         <item name="android:windowSplashScreenAnimationDuration">0</item>
         <!-- Splash終了後は既存テーマへ戻す -->
-        <item name="android:postSplashScreenTheme">@style/Theme.Ollama</item>
+        <item name="postSplashScreenTheme">@style/Theme.Ollama</item>
     </style>
 </resources>
