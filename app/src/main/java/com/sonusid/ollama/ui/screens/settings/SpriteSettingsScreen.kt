@@ -3017,6 +3017,25 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         if (selectedAnimation != updated) {
                                             selectedAnimation = updated
                                             coroutineScope.launch {
+                                                // SPEAKING state の選択保存（段階移行のため保存のみ先行）
+                                                // 旧キー（sprite_last_selected_animation）も互換のため継続保存
+                                                when (updated) {
+                                                    AnimationType.TALK_SHORT,
+                                                    AnimationType.TALK_LONG,
+                                                    AnimationType.TALK_CALM ->
+                                                        settingsPreferences.setSelectedKey(
+                                                            SpriteState.SPEAKING,
+                                                            updated.internalKey,
+                                                        )
+
+                                                    // TalkDefault は enum に無いため TALKING を TalkDefault として保存
+                                                    AnimationType.TALKING -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.SPEAKING,
+                                                        "TalkDefault",
+                                                    )
+
+                                                    else -> Unit
+                                                }
                                                 settingsPreferences.saveLastSelectedAnimation(updated.internalKey)
                                             }
                                         }
