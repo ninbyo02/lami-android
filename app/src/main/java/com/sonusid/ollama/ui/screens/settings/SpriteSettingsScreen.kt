@@ -246,16 +246,8 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
         ),
     ),
     AnimationType.THINKING to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(4, 4, 4, 7, 4, 4, 4), intervalMs = 250),
-        insertion = InsertionAnimationSettings(
-            enabled = true,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(4, 4, 5, 4))),
-            intervalMs = 250,
-            everyNLoops = 4,
-            probabilityPercent = 100,
-            cooldownLoops = 0,
-            exclusive = false,
-        ),
+        base = ReadyAnimationSettings.THINKING_DEFAULT,
+        insertion = InsertionAnimationSettings.THINKING_DEFAULT,
     ),
     AnimationType.TALK_SHORT to AnimationDefaults(
         base = ReadyAnimationSettings(frameSequence = listOf(0, 6, 2, 6, 0), intervalMs = 130),
