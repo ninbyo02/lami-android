@@ -126,6 +126,16 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         settingsPreferences.saveLastRoute(Routes.SETTINGS)
     }
 
+    fun onBackRequested() {
+        val popped = navgationController.popBackStack()
+        if (!popped) {
+            navgationController.navigate(Routes.CHATS) {
+                launchSingleTop = true
+                popUpTo(Routes.CHATS) { inclusive = true }
+            }
+        }
+    }
+
     fun getNormalizedInputs(): List<ServerInput> {
         return serverInputs.map { input ->
             input.copy(url = normalizeUrlInput(input.url))
@@ -180,7 +190,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = { navgationController.popBackStack() }) {
+                    IconButton(onClick = { onBackRequested() }) {
                         Icon(
                             painterResource(R.drawable.back),
                             "exit"
