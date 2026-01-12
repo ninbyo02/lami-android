@@ -850,6 +850,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
     val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab.collectAsState(initial = null)
+    val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
@@ -880,6 +881,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
     var didRestoreTab by remember {
         // 保存/復元の順序を保証するため、復元試行の完了フラグを保持する
+        mutableStateOf(false)
+    }
+    var didRestoreAdjustSelection by remember {
+        // 画像調整の保存/復元順序を保証するため、復元試行の完了フラグを保持する
         mutableStateOf(false)
     }
     val devUnlocked = true
@@ -989,6 +994,15 @@ fun SpriteSettingsScreen(navController: NavController) {
         didRestoreTab = true
     }
 
+    LaunchedEffect(lastSelectedBoxNumberKey) {
+        val restoredNumber = lastSelectedBoxNumberKey
+        if (restoredNumber != null) {
+            selectedNumber = restoredNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+        }
+        // 復元の試行が完了したので保存を解禁（再起動保持の上書き事故を防ぐ）
+        didRestoreAdjustSelection = true
+    }
+
     LaunchedEffect(selectedTab) {
         if (!didRestoreTab) {
             // 復元完了前の保存を避け、再起動保持の復元順序を守る
@@ -996,6 +1010,14 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
         // タブ切替のたびに保存して、戻る/再起動後に復元できるようにする
         settingsPreferences.saveLastSelectedSpriteTab(selectedTab.name)
+    }
+
+    LaunchedEffect(selectedNumber) {
+        if (!didRestoreAdjustSelection) {
+            // 復元完了前の保存を避け、再起動保持の復元順序を守る
+            return@LaunchedEffect
+        }
+        settingsPreferences.saveLastSelectedBoxNumber(selectedNumber)
     }
 
     LaunchedEffect(spriteSheetConfig) {

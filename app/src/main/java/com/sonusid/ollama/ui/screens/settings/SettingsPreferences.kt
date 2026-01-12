@@ -141,6 +141,8 @@ class SettingsPreferences(private val context: Context) {
     private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
     // 最後に選択したタブ（SpriteTab名を保存して復元する）
     private val lastSelectedSpriteTabKey = stringPreferencesKey("sprite_last_selected_tab")
+    // 画像調整で最後に選択したコマ番号（1始まり）
+    private val lastSelectedBoxNumberKey = intPreferencesKey("sprite_last_selected_box_number")
     // 再起動時の復元用に最後の画面Routeを保持する
     private val lastRouteKey = stringPreferencesKey("last_route")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
@@ -189,6 +191,10 @@ class SettingsPreferences(private val context: Context) {
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastSelectedSpriteTabKey]
+    }
+
+    val lastSelectedBoxNumber: Flow<Int?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedBoxNumberKey]
     }
 
     val lastRoute: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -380,6 +386,13 @@ class SettingsPreferences(private val context: Context) {
         if (tabKey.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[lastSelectedSpriteTabKey] = tabKey
+        }
+    }
+
+    suspend fun saveLastSelectedBoxNumber(value: Int) {
+        if (value <= 0) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedBoxNumberKey] = value
         }
     }
 
