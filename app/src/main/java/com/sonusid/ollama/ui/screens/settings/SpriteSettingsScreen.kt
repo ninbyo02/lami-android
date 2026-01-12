@@ -1040,6 +1040,112 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
     var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
 
+    fun resolveExtraAnimationInput(target: AnimationType): AnimationInputState {
+        val existing = extraAnimationStates[target]
+        if (existing != null) {
+            return existing
+        }
+        val defaults = requireNotNull(extraAnimationDefaults[target]) { "対象外のアニメ種別です: $target" }
+        val initialState = defaults.toInputState()
+        extraAnimationStates[target] = initialState
+        return initialState
+    }
+
+    fun updateExtraState(target: AnimationType, transform: (AnimationInputState) -> AnimationInputState) {
+        val current = resolveExtraAnimationInput(target)
+        extraAnimationStates[target] = transform(current)
+    }
+
+    fun resolveInputState(target: AnimationType): AnimationInputState {
+        return when (target) {
+            AnimationType.READY -> AnimationInputState(
+                frameInput = readyFrameInput,
+                intervalInput = readyIntervalInput,
+                framesError = readyFramesError,
+                intervalError = readyIntervalError,
+                insertionPattern1FramesInput = readyInsertionPattern1FramesInput,
+                insertionPattern1WeightInput = readyInsertionPattern1WeightInput,
+                insertionPattern1IntervalInput = readyInsertionPattern1IntervalInput,
+                insertionPattern2FramesInput = readyInsertionPattern2FramesInput,
+                insertionPattern2WeightInput = readyInsertionPattern2WeightInput,
+                insertionPattern2IntervalInput = readyInsertionPattern2IntervalInput,
+                insertionIntervalInput = readyInsertionIntervalInput,
+                insertionEveryNInput = readyInsertionEveryNInput,
+                insertionProbabilityInput = readyInsertionProbabilityInput,
+                insertionCooldownInput = readyInsertionCooldownInput,
+                insertionEnabled = readyInsertionEnabled,
+                insertionExclusive = readyInsertionExclusive,
+                insertionPattern1FramesError = readyInsertionPattern1FramesError,
+                insertionPattern1WeightError = readyInsertionPattern1WeightError,
+                insertionPattern1IntervalError = readyInsertionPattern1IntervalError,
+                insertionPattern2FramesError = readyInsertionPattern2FramesError,
+                insertionPattern2WeightError = readyInsertionPattern2WeightError,
+                insertionPattern2IntervalError = readyInsertionPattern2IntervalError,
+                insertionIntervalError = readyInsertionIntervalError,
+                insertionEveryNError = readyInsertionEveryNError,
+                insertionProbabilityError = readyInsertionProbabilityError,
+                insertionCooldownError = readyInsertionCooldownError,
+                appliedBase = ReadyAnimationSettings(
+                    appliedReadyFrames,
+                    intervalMs = appliedReadyIntervalMs,
+                ),
+                appliedInsertion = InsertionAnimationSettings(
+                    enabled = appliedReadyInsertionEnabled,
+                    patterns = appliedReadyInsertionPatterns,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                ),
+            )
+
+            AnimationType.TALKING -> AnimationInputState(
+                frameInput = talkingFrameInput,
+                intervalInput = talkingIntervalInput,
+                framesError = talkingFramesError,
+                intervalError = talkingIntervalError,
+                insertionPattern1FramesInput = talkingInsertionPattern1FramesInput,
+                insertionPattern1WeightInput = talkingInsertionPattern1WeightInput,
+                insertionPattern1IntervalInput = talkingInsertionPattern1IntervalInput,
+                insertionPattern2FramesInput = talkingInsertionPattern2FramesInput,
+                insertionPattern2WeightInput = talkingInsertionPattern2WeightInput,
+                insertionPattern2IntervalInput = talkingInsertionPattern2IntervalInput,
+                insertionIntervalInput = talkingInsertionIntervalInput,
+                insertionEveryNInput = talkingInsertionEveryNInput,
+                insertionProbabilityInput = talkingInsertionProbabilityInput,
+                insertionCooldownInput = talkingInsertionCooldownInput,
+                insertionEnabled = talkingInsertionEnabled,
+                insertionExclusive = talkingInsertionExclusive,
+                insertionPattern1FramesError = talkingInsertionPattern1FramesError,
+                insertionPattern1WeightError = talkingInsertionPattern1WeightError,
+                insertionPattern1IntervalError = talkingInsertionPattern1IntervalError,
+                insertionPattern2FramesError = talkingInsertionPattern2FramesError,
+                insertionPattern2WeightError = talkingInsertionPattern2WeightError,
+                insertionPattern2IntervalError = talkingInsertionPattern2IntervalError,
+                insertionIntervalError = talkingInsertionIntervalError,
+                insertionEveryNError = talkingInsertionEveryNError,
+                insertionProbabilityError = talkingInsertionProbabilityError,
+                insertionCooldownError = talkingInsertionCooldownError,
+                appliedBase = ReadyAnimationSettings(
+                    appliedTalkingFrames,
+                    intervalMs = appliedTalkingIntervalMs,
+                ),
+                appliedInsertion = InsertionAnimationSettings(
+                    enabled = appliedTalkingInsertionEnabled,
+                    patterns = appliedTalkingInsertionPatterns,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                ),
+            )
+
+            else -> resolveExtraAnimationInput(target)
+        }
+    }
+
     LaunchedEffect(selectedSpeakingKey) {
         val restoredType = when (selectedSpeakingKey) {
             "TalkShort" -> AnimationType.TALK_SHORT
@@ -1720,112 +1826,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             return ValidationResult(null, "0以上で入力してください")
         }
         return ValidationResult(rawValue, null)
-    }
-
-    fun resolveExtraAnimationInput(target: AnimationType): AnimationInputState {
-        val existing = extraAnimationStates[target]
-        if (existing != null) {
-            return existing
-        }
-        val defaults = requireNotNull(extraAnimationDefaults[target]) { "対象外のアニメ種別です: $target" }
-        val initialState = defaults.toInputState()
-        extraAnimationStates[target] = initialState
-        return initialState
-    }
-
-    fun updateExtraState(target: AnimationType, transform: (AnimationInputState) -> AnimationInputState) {
-        val current = resolveExtraAnimationInput(target)
-        extraAnimationStates[target] = transform(current)
-    }
-
-    fun resolveInputState(target: AnimationType): AnimationInputState {
-        return when (target) {
-            AnimationType.READY -> AnimationInputState(
-                frameInput = readyFrameInput,
-                intervalInput = readyIntervalInput,
-                framesError = readyFramesError,
-                intervalError = readyIntervalError,
-                insertionPattern1FramesInput = readyInsertionPattern1FramesInput,
-                insertionPattern1WeightInput = readyInsertionPattern1WeightInput,
-                insertionPattern1IntervalInput = readyInsertionPattern1IntervalInput,
-                insertionPattern2FramesInput = readyInsertionPattern2FramesInput,
-                insertionPattern2WeightInput = readyInsertionPattern2WeightInput,
-                insertionPattern2IntervalInput = readyInsertionPattern2IntervalInput,
-                insertionIntervalInput = readyInsertionIntervalInput,
-                insertionEveryNInput = readyInsertionEveryNInput,
-                insertionProbabilityInput = readyInsertionProbabilityInput,
-                insertionCooldownInput = readyInsertionCooldownInput,
-                insertionEnabled = readyInsertionEnabled,
-                insertionExclusive = readyInsertionExclusive,
-                insertionPattern1FramesError = readyInsertionPattern1FramesError,
-                insertionPattern1WeightError = readyInsertionPattern1WeightError,
-                insertionPattern1IntervalError = readyInsertionPattern1IntervalError,
-                insertionPattern2FramesError = readyInsertionPattern2FramesError,
-                insertionPattern2WeightError = readyInsertionPattern2WeightError,
-                insertionPattern2IntervalError = readyInsertionPattern2IntervalError,
-                insertionIntervalError = readyInsertionIntervalError,
-                insertionEveryNError = readyInsertionEveryNError,
-                insertionProbabilityError = readyInsertionProbabilityError,
-                insertionCooldownError = readyInsertionCooldownError,
-                appliedBase = ReadyAnimationSettings(
-                    appliedReadyFrames,
-                    intervalMs = appliedReadyIntervalMs,
-                ),
-                appliedInsertion = InsertionAnimationSettings(
-                    enabled = appliedReadyInsertionEnabled,
-                    patterns = appliedReadyInsertionPatterns,
-                    intervalMs = appliedReadyInsertionIntervalMs,
-                    everyNLoops = appliedReadyInsertionEveryNLoops,
-                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
-                    cooldownLoops = appliedReadyInsertionCooldownLoops,
-                    exclusive = appliedReadyInsertionExclusive,
-                ),
-            )
-
-            AnimationType.TALKING -> AnimationInputState(
-                frameInput = talkingFrameInput,
-                intervalInput = talkingIntervalInput,
-                framesError = talkingFramesError,
-                intervalError = talkingIntervalError,
-                insertionPattern1FramesInput = talkingInsertionPattern1FramesInput,
-                insertionPattern1WeightInput = talkingInsertionPattern1WeightInput,
-                insertionPattern1IntervalInput = talkingInsertionPattern1IntervalInput,
-                insertionPattern2FramesInput = talkingInsertionPattern2FramesInput,
-                insertionPattern2WeightInput = talkingInsertionPattern2WeightInput,
-                insertionPattern2IntervalInput = talkingInsertionPattern2IntervalInput,
-                insertionIntervalInput = talkingInsertionIntervalInput,
-                insertionEveryNInput = talkingInsertionEveryNInput,
-                insertionProbabilityInput = talkingInsertionProbabilityInput,
-                insertionCooldownInput = talkingInsertionCooldownInput,
-                insertionEnabled = talkingInsertionEnabled,
-                insertionExclusive = talkingInsertionExclusive,
-                insertionPattern1FramesError = talkingInsertionPattern1FramesError,
-                insertionPattern1WeightError = talkingInsertionPattern1WeightError,
-                insertionPattern1IntervalError = talkingInsertionPattern1IntervalError,
-                insertionPattern2FramesError = talkingInsertionPattern2FramesError,
-                insertionPattern2WeightError = talkingInsertionPattern2WeightError,
-                insertionPattern2IntervalError = talkingInsertionPattern2IntervalError,
-                insertionIntervalError = talkingInsertionIntervalError,
-                insertionEveryNError = talkingInsertionEveryNError,
-                insertionProbabilityError = talkingInsertionProbabilityError,
-                insertionCooldownError = talkingInsertionCooldownError,
-                appliedBase = ReadyAnimationSettings(
-                    appliedTalkingFrames,
-                    intervalMs = appliedTalkingIntervalMs,
-                ),
-                appliedInsertion = InsertionAnimationSettings(
-                    enabled = appliedTalkingInsertionEnabled,
-                    patterns = appliedTalkingInsertionPatterns,
-                    intervalMs = appliedTalkingInsertionIntervalMs,
-                    everyNLoops = appliedTalkingInsertionEveryNLoops,
-                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
-                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
-                    exclusive = appliedTalkingInsertionExclusive,
-                ),
-            )
-
-            else -> resolveExtraAnimationInput(target)
-        }
     }
 
     fun isInsertionEnabled(target: AnimationType): Boolean {
