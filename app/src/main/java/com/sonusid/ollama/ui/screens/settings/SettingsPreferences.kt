@@ -410,6 +410,13 @@ class SettingsPreferences(private val context: Context) {
         dumpDataStoreDebug("after saveSpriteAnimationsJson")
     }
 
+    // PR18: 1 state = 1 JSON への移行（保存の併記）
+    suspend fun saveSpriteAnimationJson(state: SpriteState, json: String) {
+        context.dataStore.edit { preferences ->
+            preferences[spriteAnimationJsonPreferencesKey(state)] = json
+        }
+    }
+
     // state別の選択キーを保存する（段階移行用）
     suspend fun setSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
