@@ -2247,10 +2247,11 @@ fun SpriteSettingsScreen(navController: NavController) {
         coroutineScope.launch {
             var rawJsonLength: Int? = null
             var normalizedJsonLength: Int? = null
+            val spriteAnimationsJsonSnapshot = spriteAnimationsJson
             val storedJsonLength = when {
-                spriteAnimationsJson == null -> "null"
-                spriteAnimationsJson.isBlank() -> "blank"
-                else -> spriteAnimationsJson.length.toString()
+                spriteAnimationsJsonSnapshot == null -> "null"
+                spriteAnimationsJsonSnapshot.isBlank() -> "blank"
+                else -> spriteAnimationsJsonSnapshot.length.toString()
             }
             runCatching {
                 val rawJson = buildAllAnimationsJsonForStorage()
