@@ -113,6 +113,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.boxesWithInternalIndex
@@ -2244,14 +2245,41 @@ fun SpriteSettingsScreen(navController: NavController) {
     // 保存処理は全アニメJSONに統一しつつ、必要ならlegacy保存も併用する。
     fun persistAllAnimationsJson(onLegacySave: suspend () -> Unit = {}) {
         coroutineScope.launch {
+            var rawJsonLength: Int? = null
+            var normalizedJsonLength: Int? = null
+            val storedJsonLength = when {
+                spriteAnimationsJson == null -> "null"
+                spriteAnimationsJson.isBlank() -> "blank"
+                else -> spriteAnimationsJson.length.toString()
+            }
             runCatching {
                 val rawJson = buildAllAnimationsJsonForStorage()
+                rawJsonLength = rawJson.length
                 val normalizedJson = settingsPreferences.parseAndValidateAllAnimationsJson(rawJson).getOrThrow()
+                normalizedJsonLength = normalizedJson.length
                 settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
                 onLegacySave()
             }.onSuccess {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "persistAllAnimationsJson success: type=${selectedAnimation.name} " +
+                            "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
+                            "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
+                            "storedLen=$storedJsonLength"
+                    )
+                }
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "persistAllAnimationsJson failure: type=${selectedAnimation.name} " +
+                            "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
+                            "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
+                            "storedLen=$storedJsonLength error=${throwable.message}"
+                    )
+                }
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
             }
         }

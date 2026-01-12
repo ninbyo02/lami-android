@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
+import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
 private val Context.dataStore by preferencesDataStore(
@@ -138,6 +139,28 @@ class SettingsPreferences(private val context: Context) {
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
+    // DataStoreの実体確認用ログ(デバッグ専用)
+    private fun dumpDataStoreDebug(caller: String) {
+        if (!BuildConfig.DEBUG) return
+        val filesDirPath = context.filesDir.absolutePath
+        val dataDirPath = context.applicationInfo.dataDir
+        val filesDirCandidate = File(filesDirPath, "datastore/$SETTINGS_DATA_STORE_NAME.preferences_pb")
+        val dataDirCandidate = File(dataDirPath, "datastore/$SETTINGS_DATA_STORE_NAME.preferences_pb")
+        Log.d(
+            "LamiSprite",
+            "DataStore debug($caller): filesDir=$filesDirPath dataDir=$dataDirPath"
+        )
+        Log.d(
+            "LamiSprite",
+            "DataStore debug($caller): filesCandidate=${filesDirCandidate.absolutePath} " +
+                "exists=${filesDirCandidate.exists()} size=${filesDirCandidate.length()}"
+        )
+        Log.d(
+            "LamiSprite",
+            "DataStore debug($caller): dataDirCandidate=${dataDirCandidate.absolutePath} " +
+                "exists=${dataDirCandidate.exists()} size=${dataDirCandidate.length()}"
+        )
+    }
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
@@ -320,9 +343,11 @@ class SettingsPreferences(private val context: Context) {
     }
 
     suspend fun saveSpriteAnimationsJson(json: String) {
+        dumpDataStoreDebug("before saveSpriteAnimationsJson")
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationsJsonKey] = json
         }
+        dumpDataStoreDebug("after saveSpriteAnimationsJson")
     }
 
     suspend fun resetSpriteSheetConfig() {
