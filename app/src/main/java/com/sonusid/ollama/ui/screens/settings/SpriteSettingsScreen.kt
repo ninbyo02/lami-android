@@ -2866,7 +2866,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
-                        val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
+                        if (!didRestoreTab) {
+                            Box(
+                                modifier = Modifier
+                                    // [dp] 縦: 復元待ちプレースホルダの最小高さ(余白)に関係
+                                    .height(1.dp)
+                                    .fillMaxWidth()
+                            )
+                        } else {
+                            val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
                         val displayedTabIndex = displayedTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
 
                         TabRow(
@@ -3390,6 +3398,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }
