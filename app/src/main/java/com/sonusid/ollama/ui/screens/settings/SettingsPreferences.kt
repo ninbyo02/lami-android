@@ -66,13 +66,14 @@ data class InsertionAnimationSettings(
         val READY_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
-                InsertionPattern(frameSequence = listOf(5), weight = 3, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 70),
+                // Ready insertion のデフォルトを仕様に合わせて更新
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 80),
             ),
             intervalMs = 120,
             everyNLoops = 5,
-            probabilityPercent = 80,
-            cooldownLoops = 3,
+            probabilityPercent = 58,
+            cooldownLoops = 4,
             exclusive = false,
         )
         val TALKING_DEFAULT = InsertionAnimationSettings(
