@@ -843,6 +843,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
     val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
+    val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab.collectAsState(initial = null)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
@@ -963,6 +964,22 @@ fun SpriteSettingsScreen(navController: NavController) {
             // internalKey から復元する（表示名差分の影響回避）
             selectedAnimation = restoredType
         }
+    }
+
+    LaunchedEffect(lastSelectedSpriteTabKey) {
+        val restoredKey = lastSelectedSpriteTabKey
+        val restoredTab = restoredKey?.let {
+            runCatching { SpriteTab.valueOf(it) }.getOrNull()
+        }
+        if (restoredTab != null && restoredTab != selectedTab) {
+            // DataStore から復元したタブを適用する
+            selectedTab = restoredTab
+        }
+    }
+
+    LaunchedEffect(selectedTab) {
+        // タブ切替のたびに保存して、戻る/再起動後に復元できるようにする
+        settingsPreferences.saveLastSelectedSpriteTab(selectedTab.name)
     }
 
     LaunchedEffect(spriteSheetConfig) {
