@@ -110,6 +110,28 @@ data class InsertionAnimationSettings(
     }
 }
 
+data class PerStateAnimationConfig(
+    val animationKey: String,
+    val baseFrames: List<Int>,
+    val baseIntervalMs: Int,
+    val insertion: InsertionConfig,
+)
+
+data class InsertionConfig(
+    val enabled: Boolean,
+    val patterns: List<InsertionPatternConfig>,
+    val everyNLoops: Int,
+    val probabilityPercent: Int,
+    val cooldownLoops: Int,
+    val exclusive: Boolean,
+)
+
+data class InsertionPatternConfig(
+    val frames: List<Int>,
+    val weight: Int,
+    val intervalMs: Int,
+)
+
 // state別選択キー保存用の最小enum（既存定義が無い前提）
 enum class SpriteState {
     READY,
@@ -161,9 +183,10 @@ class SettingsPreferences(private val context: Context) {
     // 再起動時の復元用に最後の画面Routeを保持する
     private val lastRouteKey = stringPreferencesKey("last_route")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
-    // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
+    // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
     // PR17: 1 state = 1 JSON への移行準備（読み取りのみ）
+    // JSON形式（state別最小）: { "animationKey": "...", "base": {...}, "insertion": {...} }
     private val spriteAnimationJsonReadyKey = stringPreferencesKey("sprite_animation_json_ready")
     private val spriteAnimationJsonSpeakingKey = stringPreferencesKey("sprite_animation_json_speaking")
     private val spriteAnimationJsonIdleKey = stringPreferencesKey("sprite_animation_json_idle")
@@ -595,6 +618,52 @@ class SettingsPreferences(private val context: Context) {
             .toString()
     }
 
+    // PR20: state別最小JSON（1アニメ=1JSON）の読み取り/反映のためのパーサ
+    // PR20ではREADY/SPEAKINGのみ適用
+    fun parseAndValidatePerStateAnimationJson(
+        json: String,
+        state: SpriteState,
+    ): Result<PerStateAnimationConfig> = runCatching {
+        val root = JSONObject(json)
+        val animationKey = root.optString(JSON_ANIMATION_KEY, "").trim()
+        if (animationKey.isBlank()) {
+            error("animationKey is missing: state=${state.name}")
+        }
+        val baseObject = root.optJSONObject(JSON_BASE_KEY) ?: error("base is missing: state=${state.name}")
+        val baseFramesArray = baseObject.optJSONArray(JSON_FRAMES_KEY)
+            ?: error("base.frames is missing: state=${state.name}")
+        if (!baseObject.has(JSON_INTERVAL_MS_KEY)) {
+            error("base.intervalMs is missing: state=${state.name}")
+        }
+        val baseFrames = parsePerStateFrames(baseFramesArray)
+        val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
+        val insertionObject = root.optJSONObject(JSON_INSERTION_KEY)
+            ?: error("insertion is missing: state=${state.name}")
+        if (!insertionObject.has(JSON_ENABLED_KEY)) {
+            error("insertion.enabled is missing: state=${state.name}")
+        }
+        val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
+        val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
+        val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
+        val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
+            .coerceIn(0, 100)
+        val cooldownLoops = insertionObject.optInt(JSON_COOLDOWN_LOOPS_KEY, 0).coerceAtLeast(0)
+        val exclusive = insertionObject.optBoolean(JSON_EXCLUSIVE_KEY, false)
+        PerStateAnimationConfig(
+            animationKey = animationKey,
+            baseFrames = baseFrames,
+            baseIntervalMs = baseIntervalMs,
+            insertion = InsertionConfig(
+                enabled = enabled,
+                patterns = patterns,
+                everyNLoops = everyNLoops,
+                probabilityPercent = probabilityPercent,
+                cooldownLoops = cooldownLoops,
+                exclusive = exclusive,
+            ),
+        )
+    }
+
     fun legacyToAllAnimationsJsonOrNull(
         currentAllAnimationsJson: String?,
         readyBase: ReadyAnimationSettings,
@@ -797,6 +866,53 @@ class SettingsPreferences(private val context: Context) {
         return frames.ifEmpty { defaultSequence }
     }
 
+    private fun parsePerStateFrames(array: JSONArray): List<Int> {
+        if (array.length() == 0) error("frames is empty")
+        return buildList {
+            for (index in 0 until array.length()) {
+                val value = array.getInt(index)
+                if (value !in 0 until defaultSpriteSheetConfig.frameCount) {
+                    error("frames out of range: $value")
+                }
+                add(value)
+            }
+        }
+    }
+
+    private fun parsePerStatePatterns(array: JSONArray?): List<InsertionPatternConfig> {
+        if (array == null) return emptyList()
+        val limit = minOf(array.length(), 2)
+        return buildList {
+            for (index in 0 until limit) {
+                val patternObject = array.optJSONObject(index) ?: error("pattern is missing")
+                val framesArray = patternObject.optJSONArray(JSON_FRAMES_KEY)
+                    ?: error("pattern.frames is missing")
+                if (!patternObject.has(JSON_PATTERN_INTERVAL_MS_KEY)) {
+                    error("pattern.intervalMs is missing")
+                }
+                val frames = buildList {
+                    if (framesArray.length() == 0) error("pattern.frames is empty")
+                    for (frameIndex in 0 until framesArray.length()) {
+                        val value = framesArray.getInt(frameIndex)
+                        if (value !in 0 until defaultSpriteSheetConfig.frameCount) {
+                            error("pattern.frames out of range: $value")
+                        }
+                        add(value)
+                    }
+                }
+                val weight = patternObject.optInt(JSON_WEIGHT_KEY, 1).coerceAtLeast(0)
+                val intervalMs = patternObject.getInt(JSON_PATTERN_INTERVAL_MS_KEY)
+                add(
+                    InsertionPatternConfig(
+                        frames = frames,
+                        weight = weight,
+                        intervalMs = intervalMs,
+                    )
+                )
+            }
+        }
+    }
+
     private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
         JSONObject()
             .put(JSON_FRAMES_KEY, frameSequence.toJsonArray())
@@ -888,6 +1004,7 @@ class SettingsPreferences(private val context: Context) {
         const val ALL_ANIMATIONS_READY_LEGACY_KEY = "ReadyBlink"
         const val JSON_VERSION_KEY = "version"
         const val JSON_ANIMATIONS_KEY = "animations"
+        const val JSON_ANIMATION_KEY = "animationKey"
         const val JSON_BASE_KEY = "base"
         const val JSON_INSERTION_KEY = "insertion"
         const val JSON_ENABLED_KEY = "enabled"
