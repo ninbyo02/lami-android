@@ -910,8 +910,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
     var talkingIntervalInput by rememberSaveable { mutableStateOf("700") }
     LaunchedEffect(imageBitmap, containerSize) {
-        if (imageBitmap != null && containerSize.width > 0) {
-            displayScale = containerSize.width / imageBitmap.width.toFloat()
+        // delegated property のため smart cast 不可→ローカル束縛
+        val bmp = imageBitmap
+        if (bmp != null && containerSize.width > 0) {
+            displayScale = containerSize.width / bmp.width.toFloat()
         }
     }
     var appliedTalkingFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
@@ -3333,8 +3335,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                             SpriteTab.ANIM -> animationTabContent()
 
                             SpriteTab.ADJUST -> {
-                                val previewHeaderText = if (imageBitmap != null) {
-                                    "${imageBitmap.width}×${imageBitmap.height} / ${"%.2f".format(displayScale)}x"
+                                // delegated property のため smart cast 不可→ローカル束縛
+                                val bmp = imageBitmap
+                                val previewHeaderText = if (bmp != null) {
+                                    "${bmp.width}×${bmp.height} / ${"%.2f".format(displayScale)}x"
                                 } else {
                                     "画像読み込み中"
                                 }
@@ -3355,7 +3359,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     contentAlignment = Alignment.TopCenter
                                 ) {
                                     SpritePreviewBlock(
-                                        imageBitmap = imageBitmap,
+                                        imageBitmap = bmp,
                                         modifier = Modifier
                                             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
@@ -3365,22 +3369,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .align(Alignment.TopCenter),
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
-                                            if (imageBitmap != null && imageBitmap.width != 0) {
-                                                displayScale = newContainerSize.width / imageBitmap.width.toFloat()
+                                            if (bmp != null && bmp.width != 0) {
+                                                displayScale = newContainerSize.width / bmp.width.toFloat()
                                             }
                                         },
                                         overlayContent = {
-                                            if (imageBitmap != null &&
+                                            if (bmp != null &&
                                                 selectedPosition != null &&
                                                 containerSize.width > 0 &&
                                                 containerSize.height > 0
                                             ) {
                                                 Canvas(modifier = Modifier.fillMaxSize()) {
-                                                    val scaleX = this.size.width / imageBitmap.width
-                                                    val scaleY = this.size.height / imageBitmap.height
+                                                    val scaleX = this.size.width / bmp.width
+                                                    val scaleY = this.size.height / bmp.height
                                                     val scale = min(scaleX, scaleY)
-                                                    val destinationWidth = imageBitmap.width * scale
-                                                    val destinationHeight = imageBitmap.height * scale
+                                                    val destinationWidth = bmp.width * scale
+                                                    val destinationHeight = bmp.height * scale
                                                     val offsetX = (this.size.width - destinationWidth) / 2f
                                                     val offsetY = (this.size.height - destinationHeight) / 2f
                                                     drawRect(
