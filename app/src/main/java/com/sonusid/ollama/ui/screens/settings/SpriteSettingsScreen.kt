@@ -694,6 +694,9 @@ private const val DEFAULT_BOX_SIZE_PX = 88
 internal const val INFO_X_OFFSET_MIN = -500
 internal const val INFO_X_OFFSET_MAX = 500
 private const val ALL_ANIMATIONS_JSON_VERSION = 1
+private const val ALL_ANIMATIONS_READY_KEY = "Ready"
+private const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
+private const val ALL_ANIMATIONS_THINKING_KEY = "Thinking"
 private const val JSON_VERSION_KEY = "version"
 private const val JSON_ANIMATIONS_KEY = "animations"
 private const val JSON_BASE_KEY = "base"
@@ -2097,6 +2100,74 @@ fun SpriteSettingsScreen(navController: NavController) {
         return AnimationDefaults(base = baseSettings, insertion = insertionSettings)
     }
 
+    fun resolveAppliedDefaults(target: AnimationType): AnimationDefaults {
+        return when (target) {
+            AnimationType.READY -> AnimationDefaults(
+                base = ReadyAnimationSettings(
+                    frameSequence = appliedReadyFrames,
+                    intervalMs = appliedReadyIntervalMs,
+                ),
+                insertion = InsertionAnimationSettings(
+                    enabled = appliedReadyInsertionEnabled,
+                    patterns = appliedReadyInsertionPatterns,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                ),
+            )
+
+            AnimationType.TALKING -> AnimationDefaults(
+                base = ReadyAnimationSettings(
+                    frameSequence = appliedTalkingFrames,
+                    intervalMs = appliedTalkingIntervalMs,
+                ),
+                insertion = InsertionAnimationSettings(
+                    enabled = appliedTalkingInsertionEnabled,
+                    patterns = appliedTalkingInsertionPatterns,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                ),
+            )
+
+            else -> {
+                val state = resolveExtraState(target)
+                AnimationDefaults(
+                    base = state.appliedBase,
+                    insertion = state.appliedInsertion,
+                )
+            }
+        }
+    }
+
+    // 保存用: 全アニメ設定をDataStore向けJSONに変換する。
+    fun buildAllAnimationsJsonForStorage(): String {
+        val animationsObject = JSONObject()
+        AnimationType.options.forEach { type ->
+            val defaults = resolveAppliedDefaults(type)
+            val key = when (type) {
+                AnimationType.READY -> ALL_ANIMATIONS_READY_KEY
+                AnimationType.TALKING -> ALL_ANIMATIONS_TALKING_KEY
+                AnimationType.THINKING -> ALL_ANIMATIONS_THINKING_KEY
+                else -> type.internalKey
+            }
+            animationsObject.put(
+                key,
+                JSONObject()
+                    .put(JSON_BASE_KEY, defaults.base.toJsonObject())
+                    .put(JSON_INSERTION_KEY, defaults.insertion.toJsonObject())
+            )
+        }
+        return JSONObject()
+            .put(JSON_VERSION_KEY, ALL_ANIMATIONS_JSON_VERSION)
+            .put(JSON_ANIMATIONS_KEY, animationsObject)
+            .toString()
+    }
+
     // メモ: 全アニメJSONは animationType/internalKey と混同しないよう、表示名(Ready等)をキーに統一する。
     fun exportAllAnimationsToJson(): String {
         val animationsObject = JSONObject()
@@ -2168,6 +2239,22 @@ fun SpriteSettingsScreen(navController: NavController) {
             value.isNotBlank()
         } ?: return@remember legacyDefaults
         importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
+    }
+
+    // 保存処理は全アニメJSONに統一しつつ、必要ならlegacy保存も併用する。
+    fun persistAllAnimationsJson(onLegacySave: suspend () -> Unit = {}) {
+        coroutineScope.launch {
+            runCatching {
+                val rawJson = buildAllAnimationsJsonForStorage()
+                val normalizedJson = settingsPreferences.parseAndValidateAllAnimationsJson(rawJson).getOrThrow()
+                settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
+                onLegacySave()
+            }.onSuccess {
+                showTopSnackbarSuccess("保存しました")
+            }.onFailure { throwable ->
+                showTopSnackbarError("保存に失敗しました: ${throwable.message}")
+            }
+        }
     }
 
     fun saveSpriteSheetConfig() {
@@ -2460,11 +2547,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
                 appliedReadyInsertionExclusive = insertion.exclusive
-                coroutineScope.launch {
-                    settingsPreferences.saveReadyAnimationSettings(validatedBase)
-                    settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
-                    showTopSnackbarSuccess("Readyアニメを保存しました")
-                }
+                persistAllAnimationsJson(
+                    onLegacySave = {
+                        settingsPreferences.saveReadyAnimationSettings(validatedBase)
+                        settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
+                    }
+                )
             }
 
             AnimationType.TALKING -> {
@@ -2486,11 +2574,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
                 appliedTalkingInsertionExclusive = insertion.exclusive
-                coroutineScope.launch {
-                    settingsPreferences.saveTalkingAnimationSettings(validatedBase)
-                    settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                    showTopSnackbarSuccess("Speakingアニメを保存しました")
-                }
+                persistAllAnimationsJson(
+                    onLegacySave = {
+                        settingsPreferences.saveTalkingAnimationSettings(validatedBase)
+                        settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
+                    }
+                )
             }
 
             else -> {
@@ -2502,7 +2591,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         appliedInsertion = insertion,
                     )
                 }
-                showTopSnackbarSuccess("保存先が未対応のため、プレビューのみ更新しました")
+                persistAllAnimationsJson()
             }
         }
     }
