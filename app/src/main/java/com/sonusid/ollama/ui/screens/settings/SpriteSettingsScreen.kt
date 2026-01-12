@@ -2627,7 +2627,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    // 保存用: 全アニメ設定をDataStore向けJSONに変換する。
+    // 旧保存用: 全アニメ設定をDataStore向けJSONに変換する（migration専用・PR24で削除可能）
     fun buildAllAnimationsJsonForStorage(): String {
         val animationsObject = JSONObject()
         AnimationType.options.forEach { type ->
@@ -2724,7 +2724,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
     }
 
-    // 保存処理は全アニメJSONに統一しつつ、必要ならlegacy保存も併用する。
+    // 旧: 全アニメJSON保存（読み取り専用の移行用途）。保存には使わない（PR24で削除可能）
     fun persistAllAnimationsJson(onLegacySave: suspend () -> Unit = {}) {
         coroutineScope.launch {
             var rawJsonLength: Int? = null
@@ -2869,6 +2869,124 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "stage=$saveStage perState=${perStateSaved?.name ?: "null"} " +
                             "perStateKey=${perStateKey ?: "null"} " +
                             "storedLen=$storedJsonLength error=${throwable.message}"
+                    )
+                }
+                showTopSnackbarError("保存に失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
+    // state別JSONが正の保存形式。全体JSONは復元/移行専用のため保存では書かない（PR24で削除可能）
+    fun persistPerStateAnimationJson(
+        validatedBase: ReadyAnimationSettings,
+        validatedInsertion: InsertionAnimationSettings?,
+    ) {
+        coroutineScope.launch {
+            var perStateSaved: SpriteState? = null
+            var perStateKey: String? = null
+            runCatching {
+                val targetState = when (selectedAnimation) {
+                    AnimationType.READY -> SpriteState.READY
+                    AnimationType.TALKING,
+                    AnimationType.TALK_SHORT,
+                    AnimationType.TALK_LONG,
+                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                    AnimationType.IDLE -> SpriteState.IDLE
+                    AnimationType.THINKING -> SpriteState.THINKING
+                    AnimationType.OFFLINE_ENTER,
+                    AnimationType.OFFLINE_LOOP,
+                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                    AnimationType.ERROR_LIGHT,
+                    AnimationType.ERROR_HEAVY -> SpriteState.ERROR
+                }
+                val animationKeyForState = when (targetState) {
+                    SpriteState.READY -> "Ready"
+                    SpriteState.SPEAKING -> "TalkDefault"
+                    SpriteState.IDLE -> "Idle"
+                    SpriteState.THINKING -> "Thinking"
+                    SpriteState.OFFLINE -> "OfflineLoop"
+                    SpriteState.ERROR -> "ErrorLight"
+                }
+                val hasMissingPatternInterval = validatedInsertion
+                    ?.patterns
+                    ?.take(2)
+                    ?.any { pattern -> pattern.intervalMs == null }
+                    ?: false
+                if (hasMissingPatternInterval) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(
+                            "LamiSprite",
+                            "persistPerStateAnimationJson skip: missing intervalMs " +
+                                "state=${targetState.name} key=$animationKeyForState"
+                        )
+                    }
+                    return@runCatching
+                }
+                perStateSaved = targetState
+                perStateKey = animationKeyForState
+                val baseJson = JSONObject().apply {
+                    // base: 検証済みのframes/intervalを最小構成で保存
+                    put("frames", JSONArray(validatedBase.frames()))
+                    put("intervalMs", validatedBase.intervalMs)
+                }
+                val insertionJson = JSONObject().apply {
+                    // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
+                    put("enabled", validatedInsertion?.enabled ?: false)
+                    put(
+                        "patterns",
+                        JSONArray().apply {
+                            validatedInsertion
+                                ?.patterns
+                                ?.take(2)
+                                ?.forEach { pattern ->
+                                    put(
+                                        JSONObject().apply {
+                                            put("frames", JSONArray(pattern.frames()))
+                                            put("weight", pattern.weight)
+                                            put("intervalMs", pattern.intervalMs)
+                                        }
+                                    )
+                                }
+                        }
+                    )
+                    put("everyNLoops", validatedInsertion?.everyNLoops ?: 0)
+                    put("probabilityPercent", validatedInsertion?.probabilityPercent ?: 0)
+                    put("cooldownLoops", validatedInsertion?.cooldownLoops ?: 0)
+                    put("exclusive", validatedInsertion?.exclusive ?: false)
+                }
+                val perStateJson = JSONObject().apply {
+                    // 1アニメ=1JSONの最小スキーマを保存する
+                    put("animationKey", animationKeyForState)
+                    put("base", baseJson)
+                    put("insertion", insertionJson)
+                }
+                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state saved: state=${targetState.name} key=$animationKeyForState " +
+                            "size=${perStateJson.toString().length}"
+                    )
+                }
+            }.onSuccess {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "persistPerStateAnimationJson success: type=${selectedAnimation.name} " +
+                            "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
+                            "perState=${perStateSaved?.name ?: "null"} " +
+                            "perStateKey=${perStateKey ?: "null"}"
+                    )
+                }
+                showTopSnackbarSuccess("保存しました")
+            }.onFailure { throwable ->
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "persistPerStateAnimationJson failure: type=${selectedAnimation.name} " +
+                            "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
+                            "perState=${perStateSaved?.name ?: "null"} " +
+                            "perStateKey=${perStateKey ?: "null"} error=${throwable.message}"
                     )
                 }
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
@@ -3166,12 +3284,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
                 appliedReadyInsertionExclusive = insertion.exclusive
-                persistAllAnimationsJson(
-                    onLegacySave = {
-                        settingsPreferences.saveReadyAnimationSettings(validatedBase)
-                        settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
-                    }
-                )
+                persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
 
             AnimationType.TALKING -> {
@@ -3193,12 +3306,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
                 appliedTalkingInsertionExclusive = insertion.exclusive
-                persistAllAnimationsJson(
-                    onLegacySave = {
-                        settingsPreferences.saveTalkingAnimationSettings(validatedBase)
-                        settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                    }
-                )
+                persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
 
             else -> {
@@ -3210,7 +3318,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         appliedInsertion = insertion,
                     )
                 }
-                persistAllAnimationsJson()
+                persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
         }
     }

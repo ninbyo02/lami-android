@@ -182,10 +182,11 @@ class SettingsPreferences(private val context: Context) {
     private val lastSelectedBoxNumberKey = intPreferencesKey("sprite_last_selected_box_number")
     // 再起動時の復元用に最後の画面Routeを保持する
     private val lastRouteKey = stringPreferencesKey("last_route")
-    // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
+    // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
+    // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
-    // PR17: 1 state = 1 JSON への移行準備（読み取りのみ）
+    // PR17: state別JSONが正（読み取り/保存の本命）
     // JSON形式（state別最小）: { "animationKey": "...", "base": {...}, "insertion": {...} }
     private val spriteAnimationJsonReadyKey = stringPreferencesKey("sprite_animation_json_ready")
     private val spriteAnimationJsonSpeakingKey = stringPreferencesKey("sprite_animation_json_speaking")
@@ -230,12 +231,15 @@ class SettingsPreferences(private val context: Context) {
         preferences[spriteAnimationsJsonKey]
     }
 
-    // PR17: 1 state = 1 JSON への移行準備（読み取りのみ）
+    // state別JSONが正（読み取り/保存の本命）
     fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationJsonPreferencesKey(state)]
     }
 
-    // PR17: 優先順位は state別JSON → 旧全アニメJSON（sprite_animations_json）
+    // 復元優先順位:
+    // 1) state別JSON（sprite_animation_json_*）
+    // 2) 旧全体JSON（sprite_animations_json）
+    // 3) それ以前のlegacy（legacyToAllAnimationsJsonOrNull が担当）
     fun resolvedSpriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
         val perState = preferences[spriteAnimationJsonPreferencesKey(state)]
         val legacy = preferences[spriteAnimationsJsonKey]
@@ -425,6 +429,7 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    // 旧全体JSONは migration / legacy fallback 専用（新規保存では使用しない・PR24で完全削除可能）
     suspend fun saveSpriteAnimationsJson(json: String) {
         dumpDataStoreDebug("before saveSpriteAnimationsJson")
         context.dataStore.edit { preferences ->
@@ -433,7 +438,7 @@ class SettingsPreferences(private val context: Context) {
         dumpDataStoreDebug("after saveSpriteAnimationsJson")
     }
 
-    // PR18: 1 state = 1 JSON への移行（保存の併記）
+    // state別JSONが正（保存の本命）
     suspend fun saveSpriteAnimationJson(state: SpriteState, json: String) {
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationJsonPreferencesKey(state)] = json
