@@ -869,6 +869,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     val selectedReadyKey by settingsPreferences
         .selectedKeyFlow(SpriteState.READY)
         .collectAsState(initial = null)
+    // 段階移行：IDLEは新DataStoreの選択キーを優先して復元する
+    val selectedIdleKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.IDLE)
+        .collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
         .collectAsState(initial = UNSET_SPRITE_TAB)
     val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
@@ -1021,6 +1025,13 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    LaunchedEffect(selectedIdleKey) {
+        if (selectedIdleKey == "Idle" && selectedAnimation != AnimationType.IDLE) {
+            // IDLE復元（新DataStore優先）
+            selectedAnimation = AnimationType.IDLE
+        }
+    }
+
     LaunchedEffect(lastSelectedAnimationKey) {
         val restoredKey = lastSelectedAnimationKey
         val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
@@ -1029,12 +1040,17 @@ fun SpriteSettingsScreen(navController: NavController) {
             restoredType == AnimationType.TALK_CALM ||
             restoredType == AnimationType.TALKING
         val isReadyType = restoredType == AnimationType.READY
+        val isIdleType = restoredType == AnimationType.IDLE
         if (isSpeakingType && selectedSpeakingKey != null) {
             // 段階移行：SPEAKINGは新DataStoreがある場合は旧キー復元をスキップする
             return@LaunchedEffect
         }
         if (isReadyType && selectedReadyKey != null) {
             // 段階移行：READYは新DataStoreがある場合は旧キー復元をスキップする
+            return@LaunchedEffect
+        }
+        if (isIdleType && selectedIdleKey != null) {
+            // 段階移行：IDLEは新DataStoreがある場合は旧キー復元をスキップする
             return@LaunchedEffect
         }
         if (restoredType != null && restoredType != selectedAnimation) {
