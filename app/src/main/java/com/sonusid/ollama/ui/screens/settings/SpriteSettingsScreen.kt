@@ -1571,6 +1571,16 @@ fun SpriteSettingsScreen(navController: NavController) {
         return !(baseSynced && insertionSynced)
     }
 
+    fun navigateBackWithFallback() {
+        val popped = navController.popBackStack()
+        if (!popped) {
+            // startDestination時に戻り先が無いので、Settingsへフォールバック遷移する
+            navController.navigate(Routes.SETTINGS) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     fun onBackRequested() {
         if (showDiscardDialog) {
             showDiscardDialog = false
@@ -1579,7 +1589,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (hasUnsavedChanges()) {
             showDiscardDialog = true
         } else {
-            navController.popBackStack()
+            navigateBackWithFallback()
         }
     }
 
@@ -2683,7 +2693,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 TextButton(
                     onClick = {
                         showDiscardDialog = false
-                        navController.popBackStack()
+                        navigateBackWithFallback()
                     }
                 ) {
                     Text(text = "破棄して戻る")
