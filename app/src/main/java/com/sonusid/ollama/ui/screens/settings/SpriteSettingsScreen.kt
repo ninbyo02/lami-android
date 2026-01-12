@@ -2420,6 +2420,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         coroutineScope.launch {
             var rawJsonLength: Int? = null
             var normalizedJsonLength: Int? = null
+            var saveStage = "all"
+            var perStateSaved: SpriteState? = null
+            var perStateKey: String? = null
             val spriteAnimationsJsonSnapshot = spriteAnimationsJson
             val storedJsonLength = when {
                 spriteAnimationsJsonSnapshot == null -> "null"
@@ -2433,6 +2436,36 @@ fun SpriteSettingsScreen(navController: NavController) {
                 normalizedJsonLength = normalizedJson.length
                 settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
                 onLegacySave()
+                // PR18: 保存の併記のみで、UI/読み取り優先順位は変更しない
+                // PR18: 旧の全体JSONに加えて、選択中stateのJSONも併記保存（移行期）
+                // state別JSONは現段階では全体JSONから該当部分を切り出して保存（スキーマ刷新はPR19）
+                val targetState = when (selectedAnimation) {
+                    AnimationType.READY -> SpriteState.READY
+                    AnimationType.TALKING,
+                    AnimationType.TALK_SHORT,
+                    AnimationType.TALK_LONG,
+                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                    AnimationType.IDLE -> SpriteState.IDLE
+                    AnimationType.THINKING -> SpriteState.THINKING
+                    AnimationType.OFFLINE_ENTER,
+                    AnimationType.OFFLINE_LOOP,
+                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                    AnimationType.ERROR_LIGHT,
+                    AnimationType.ERROR_HEAVY -> SpriteState.ERROR
+                }
+                val stateJsonKey = when (selectedAnimation) {
+                    AnimationType.READY -> ALL_ANIMATIONS_READY_KEY
+                    AnimationType.TALKING -> ALL_ANIMATIONS_TALKING_KEY
+                    AnimationType.THINKING -> ALL_ANIMATIONS_THINKING_KEY
+                    else -> selectedAnimation.internalKey
+                }
+                saveStage = "per-state"
+                perStateSaved = targetState
+                perStateKey = stateJsonKey
+                val perStateJson = JSONObject(normalizedJson)
+                    .getJSONObject(JSON_ANIMATIONS_KEY)
+                    .getJSONObject(stateJsonKey)
+                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
             }.onSuccess {
                 if (BuildConfig.DEBUG) {
                     Log.d(
@@ -2440,6 +2473,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                         "persistAllAnimationsJson success: type=${selectedAnimation.name} " +
                             "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
                             "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
+                            "stage=$saveStage perState=${perStateSaved?.name ?: "null"} " +
+                            "perStateKey=${perStateKey ?: "null"} " +
                             "storedLen=$storedJsonLength"
                     )
                 }
@@ -2451,6 +2486,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                         "persistAllAnimationsJson failure: type=${selectedAnimation.name} " +
                             "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
                             "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
+                            "stage=$saveStage perState=${perStateSaved?.name ?: "null"} " +
+                            "perStateKey=${perStateKey ?: "null"} " +
                             "storedLen=$storedJsonLength error=${throwable.message}"
                     )
                 }
