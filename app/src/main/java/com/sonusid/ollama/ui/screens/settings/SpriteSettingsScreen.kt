@@ -2436,9 +2436,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 normalizedJsonLength = normalizedJson.length
                 settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
                 onLegacySave()
-                // PR18: 保存の併記のみで、UI/読み取り優先順位は変更しない
-                // PR18: 旧の全体JSONに加えて、選択中stateのJSONも併記保存（移行期）
-                // state別JSONは現段階では全体JSONから該当部分を切り出して保存（スキーマ刷新はPR19）
+                // PR19: 保存の併記のみで、UI/読み取り優先順位は変更しない
+                // PR19: 旧の全体JSONに加えて、選択中stateのJSONも併記保存（移行期）
+                // PR19: state別JSONはUIの検証済み入力から最小スキーマで組み立てて保存する
                 val targetState = when (selectedAnimation) {
                     AnimationType.READY -> SpriteState.READY
                     AnimationType.TALKING,
@@ -2453,19 +2453,90 @@ fun SpriteSettingsScreen(navController: NavController) {
                     AnimationType.ERROR_LIGHT,
                     AnimationType.ERROR_HEAVY -> SpriteState.ERROR
                 }
-                val stateJsonKey = when (selectedAnimation) {
-                    AnimationType.READY -> ALL_ANIMATIONS_READY_KEY
-                    AnimationType.TALKING -> ALL_ANIMATIONS_TALKING_KEY
-                    AnimationType.THINKING -> ALL_ANIMATIONS_THINKING_KEY
-                    else -> selectedAnimation.internalKey
+                val animationKeyForState = when (targetState) {
+                    SpriteState.READY -> "Ready"
+                    SpriteState.SPEAKING -> "TalkDefault"
+                    SpriteState.IDLE -> "Idle"
+                    SpriteState.THINKING -> "Thinking"
+                    SpriteState.OFFLINE -> "OfflineLoop"
+                    SpriteState.ERROR -> "ErrorLight"
+                }
+                val validatedBase = validateBaseInputs(selectedAnimation)
+                val validatedInsertion = if (isInsertionEnabled(selectedAnimation)) {
+                    validateInsertionInputs(selectedAnimation)
+                } else null
+                val hasMissingPatternInterval = validatedInsertion
+                    ?.patterns
+                    ?.take(2)
+                    ?.any { pattern -> pattern.intervalMs == null }
+                    ?: false
+                if (validatedBase == null || (isInsertionEnabled(selectedAnimation) && validatedInsertion == null)) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(
+                            "LamiSprite",
+                            "persistAllAnimationsJson skip per-state: validation failed " +
+                                "state=${targetState.name} key=$animationKeyForState"
+                        )
+                    }
+                    return@runCatching
+                }
+                if (hasMissingPatternInterval) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(
+                            "LamiSprite",
+                            "persistAllAnimationsJson skip per-state: missing intervalMs " +
+                                "state=${targetState.name} key=$animationKeyForState"
+                        )
+                    }
+                    return@runCatching
                 }
                 saveStage = "per-state"
                 perStateSaved = targetState
-                perStateKey = stateJsonKey
-                val perStateJson = JSONObject(normalizedJson)
-                    .getJSONObject(JSON_ANIMATIONS_KEY)
-                    .getJSONObject(stateJsonKey)
+                perStateKey = animationKeyForState
+                val baseJson = JSONObject().apply {
+                    // base: 検証済みのframes/intervalを最小構成で保存
+                    put("frames", JSONArray(validatedBase.frameSequence))
+                    put("intervalMs", validatedBase.intervalMs)
+                }
+                val insertionJson = JSONObject().apply {
+                    // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
+                    put("enabled", validatedInsertion?.enabled ?: false)
+                    put(
+                        "patterns",
+                        JSONArray().apply {
+                            validatedInsertion
+                                ?.patterns
+                                ?.take(2)
+                                ?.forEach { pattern ->
+                                    put(
+                                        JSONObject().apply {
+                                            put("frames", JSONArray(pattern.frameSequence))
+                                            put("weight", pattern.weight)
+                                            put("intervalMs", pattern.intervalMs)
+                                        }
+                                    )
+                                }
+                        }
+                    )
+                    put("everyNLoops", validatedInsertion?.everyNLoops ?: 0)
+                    put("probabilityPercent", validatedInsertion?.probabilityPercent ?: 0)
+                    put("cooldownLoops", validatedInsertion?.cooldownLoops ?: 0)
+                    put("exclusive", validatedInsertion?.exclusive ?: false)
+                }
+                val perStateJson = JSONObject().apply {
+                    // 1アニメ=1JSONの最小スキーマを保存する
+                    put("animationKey", animationKeyForState)
+                    put("base", baseJson)
+                    put("insertion", insertionJson)
+                }
                 settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state saved: state=${targetState.name} key=$animationKeyForState " +
+                            "size=${perStateJson.toString().length}"
+                    )
+                }
             }.onSuccess {
                 if (BuildConfig.DEBUG) {
                     Log.d(
