@@ -933,7 +933,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("4") }
     var readyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var readyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
-    var appliedReadyInsertionPatterns by rememberSaveable {
+    var appliedReadyInsertionPatterns by remember {
         mutableStateOf(
             listOf(
                 InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 110),
@@ -969,7 +969,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
     var talkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
-    var appliedTalkingInsertionPatterns by rememberSaveable {
+    var appliedTalkingInsertionPatterns by remember {
         mutableStateOf(listOf(InsertionPattern(frameSequence = listOf(3, 4, 5))))
     }
     var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(200) }
