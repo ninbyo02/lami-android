@@ -139,6 +139,12 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
     // 最後に選択したアニメ種別（internalKey保存: 表示名差分の影響を回避）
     private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
+    // 最後に選択したタブ（SpriteTab名を保存して復元する）
+    private val lastSelectedSpriteTabKey = stringPreferencesKey("sprite_last_selected_tab")
+    // 画像調整で最後に選択したコマ番号（1始まり）
+    private val lastSelectedBoxNumberKey = intPreferencesKey("sprite_last_selected_box_number")
+    // 再起動時の復元用に最後の画面Routeを保持する
+    private val lastRouteKey = stringPreferencesKey("last_route")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
@@ -181,6 +187,18 @@ class SettingsPreferences(private val context: Context) {
 
     val lastSelectedAnimation: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastSelectedAnimationKey]
+    }
+
+    val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedSpriteTabKey]
+    }
+
+    val lastSelectedBoxNumber: Flow<Int?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedBoxNumberKey]
+    }
+
+    val lastRoute: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastRouteKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -361,6 +379,27 @@ class SettingsPreferences(private val context: Context) {
         if (key.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[lastSelectedAnimationKey] = key
+        }
+    }
+
+    suspend fun saveLastSelectedSpriteTab(tabKey: String) {
+        if (tabKey.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedSpriteTabKey] = tabKey
+        }
+    }
+
+    suspend fun saveLastSelectedBoxNumber(value: Int) {
+        if (value <= 0) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedBoxNumberKey] = value
+        }
+    }
+
+    suspend fun saveLastRoute(route: String) {
+        if (route.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastRouteKey] = route
         }
     }
 

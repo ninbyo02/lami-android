@@ -120,6 +120,7 @@ import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.toInternalFrameIndex
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
@@ -718,6 +719,7 @@ private const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
 private const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
 private const val JSON_EXCLUSIVE_KEY = "exclusive"
 private const val READY_LEGACY_LABEL = "ReadyBlink"
+private const val UNSET_SPRITE_TAB = "__UNSET__"
 
 private fun clampPosition(
     position: BoxPosition,
@@ -814,6 +816,11 @@ fun SpriteSettingsScreen(navController: NavController) {
         SettingsPreferences(context.applicationContext)
     }
 
+    LaunchedEffect(Unit) {
+        // 戻る履歴/再起動時の復元のため、表示開始時に最後の画面を保存する
+        settingsPreferences.saveLastRoute(Routes.SPRITE_SETTINGS)
+    }
+
     fun showTopSnackbar(message: String, isError: Boolean) {
         coroutineScope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
@@ -843,6 +850,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
     val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
+    val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
+        .collectAsState(initial = UNSET_SPRITE_TAB)
+    val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
     val devFromJson = remember(spriteSheetConfigJson) {
         DevSettingsDefaults.fromJson(spriteSheetConfigJson)
     }
@@ -871,6 +881,14 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
+    var didRestoreTab by remember {
+        // 保存/復元の順序を保証するため、復元試行の完了フラグを保持する
+        mutableStateOf(false)
+    }
+    var didRestoreAdjustSelection by remember {
+        // 画像調整の保存/復元順序を保証するため、復元試行の完了フラグを保持する
+        mutableStateOf(false)
+    }
     val devUnlocked = true
     var readyFrameInput by rememberSaveable { mutableStateOf("1,1,1,1") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("90") }
@@ -963,6 +981,48 @@ fun SpriteSettingsScreen(navController: NavController) {
             // internalKey から復元する（表示名差分の影響回避）
             selectedAnimation = restoredType
         }
+    }
+
+    LaunchedEffect(lastSelectedSpriteTabKey) {
+        val restoredKey = lastSelectedSpriteTabKey
+        if (restoredKey == UNSET_SPRITE_TAB) {
+            return@LaunchedEffect
+        }
+        val restoredTab = restoredKey?.let {
+            runCatching { SpriteTab.valueOf(it) }.getOrNull()
+        }
+        if (restoredTab != null && restoredTab != selectedTab) {
+            // DataStore から復元したタブを適用する
+            selectedTab = restoredTab
+        }
+        // 復元の試行が完了したので保存を解禁（再起動保持の上書き事故を防ぐ）
+        didRestoreTab = true
+    }
+
+    LaunchedEffect(lastSelectedBoxNumberKey) {
+        val restoredNumber = lastSelectedBoxNumberKey
+        if (restoredNumber != null) {
+            selectedNumber = restoredNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+        }
+        // 復元の試行が完了したので保存を解禁（再起動保持の上書き事故を防ぐ）
+        didRestoreAdjustSelection = true
+    }
+
+    LaunchedEffect(selectedTab) {
+        if (!didRestoreTab) {
+            // 復元完了前の保存を避け、再起動保持の復元順序を守る
+            return@LaunchedEffect
+        }
+        // タブ切替のたびに保存して、戻る/再起動後に復元できるようにする
+        settingsPreferences.saveLastSelectedSpriteTab(selectedTab.name)
+    }
+
+    LaunchedEffect(selectedNumber) {
+        if (!didRestoreAdjustSelection) {
+            // 復元完了前の保存を避け、再起動保持の復元順序を守る
+            return@LaunchedEffect
+        }
+        settingsPreferences.saveLastSelectedBoxNumber(selectedNumber)
     }
 
     LaunchedEffect(spriteSheetConfig) {
@@ -1538,6 +1598,16 @@ fun SpriteSettingsScreen(navController: NavController) {
         return !(baseSynced && insertionSynced)
     }
 
+    fun navigateBackWithFallback() {
+        val popped = navController.popBackStack()
+        if (!popped) {
+            // startDestination時に戻り先が無いので、Settingsへフォールバック遷移する
+            navController.navigate(Routes.SETTINGS) {
+                launchSingleTop = true
+            }
+        }
+    }
+
     fun onBackRequested() {
         if (showDiscardDialog) {
             showDiscardDialog = false
@@ -1546,7 +1616,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (hasUnsavedChanges()) {
             showDiscardDialog = true
         } else {
-            navController.popBackStack()
+            navigateBackWithFallback()
         }
     }
 
@@ -2650,7 +2720,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 TextButton(
                     onClick = {
                         showDiscardDialog = false
-                        navController.popBackStack()
+                        navigateBackWithFallback()
                     }
                 ) {
                     Text(text = "破棄して戻る")
@@ -2801,7 +2871,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
-                        val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
+                        if (!didRestoreTab) {
+                            Box(
+                                modifier = Modifier
+                                    // [dp] 縦: 復元待ちプレースホルダの最小高さ(余白)に関係
+                                    .height(1.dp)
+                                    .fillMaxWidth()
+                            )
+                        } else {
+                            val displayedTabs = listOf(SpriteTab.ANIM, SpriteTab.ADJUST)
                         val displayedTabIndex = displayedTabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
 
                         TabRow(
@@ -3325,6 +3403,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                 }

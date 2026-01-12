@@ -62,6 +62,8 @@ Thinking のデフォルトアニメーションは初期設定・破損時・�
 3. 「ステータス」タブのギャラリーで同じ表情を選び、`LamiStatusSprite` の表示位置が一致していることを再度確認します。
 4. 必要に応じて「リセット」で元の 3x3 配置に戻し、再度 1〜3 を繰り返します。
 
+「画像調整」タブで最後に選択したコマ番号は DataStore に保存され、画面遷移や再起動後も復元されます。
+
 ## Installation
 
 1. **Download** the latest APK from [GitHub Releases](#)。
