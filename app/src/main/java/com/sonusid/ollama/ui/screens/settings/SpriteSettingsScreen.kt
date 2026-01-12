@@ -877,6 +877,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     val selectedThinkingKey by settingsPreferences
         .selectedKeyFlow(SpriteState.THINKING)
         .collectAsState(initial = null)
+    // 段階移行：OFFLINEは新DataStoreの選択キーを優先して復元する
+    val selectedOfflineKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.OFFLINE)
+        .collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
         .collectAsState(initial = UNSET_SPRITE_TAB)
     val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
@@ -1043,6 +1047,13 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    LaunchedEffect(selectedOfflineKey) {
+        if (selectedOfflineKey == "OfflineLoop" && selectedAnimation != AnimationType.OFFLINE_LOOP) {
+            // OFFLINE復元（新DataStore優先）。復元は OFFLINE_LOOP に正規化する
+            selectedAnimation = AnimationType.OFFLINE_LOOP
+        }
+    }
+
     LaunchedEffect(lastSelectedAnimationKey) {
         val restoredKey = lastSelectedAnimationKey
         val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
@@ -1053,6 +1064,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         val isReadyType = restoredType == AnimationType.READY
         val isIdleType = restoredType == AnimationType.IDLE
         val isThinkingType = restoredType == AnimationType.THINKING
+        val isOfflineType = restoredType == AnimationType.OFFLINE_ENTER ||
+            restoredType == AnimationType.OFFLINE_LOOP ||
+            restoredType == AnimationType.OFFLINE_EXIT
         if (isSpeakingType && selectedSpeakingKey != null) {
             // 段階移行：SPEAKINGは新DataStoreがある場合は旧キー復元をスキップする
             return@LaunchedEffect
@@ -1067,6 +1081,10 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
         if (isThinkingType && selectedThinkingKey != null) {
             // 段階移行：THINKINGは新DataStoreがある場合は旧キー復元をスキップする
+            return@LaunchedEffect
+        }
+        if (isOfflineType && selectedOfflineKey != null) {
+            // 段階移行：OFFLINEは新DataStoreがある場合は旧キー復元をスキップする
             return@LaunchedEffect
         }
         if (restoredType != null && restoredType != selectedAnimation) {
