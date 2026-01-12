@@ -860,7 +860,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
-    val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
+    // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
     // 段階移行：SPEAKING（Talk系）は新DataStoreの選択キーを優先して復元する
     val selectedSpeakingKey by settingsPreferences
         .selectedKeyFlow(SpriteState.SPEAKING)
@@ -1066,51 +1066,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
         if (restoredType != null && restoredType != selectedAnimation) {
             // ERROR復元（新DataStore優先）。ErrorLight/ErrorHeavy を AnimationType にマッピング
-            selectedAnimation = restoredType
-        }
-    }
-
-    LaunchedEffect(lastSelectedAnimationKey) {
-        val restoredKey = lastSelectedAnimationKey
-        val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
-        val isSpeakingType = restoredType == AnimationType.TALK_SHORT ||
-            restoredType == AnimationType.TALK_LONG ||
-            restoredType == AnimationType.TALK_CALM ||
-            restoredType == AnimationType.TALKING
-        val isReadyType = restoredType == AnimationType.READY
-        val isIdleType = restoredType == AnimationType.IDLE
-        val isThinkingType = restoredType == AnimationType.THINKING
-        val isOfflineType = restoredType == AnimationType.OFFLINE_ENTER ||
-            restoredType == AnimationType.OFFLINE_LOOP ||
-            restoredType == AnimationType.OFFLINE_EXIT
-        val isErrorType = restoredType == AnimationType.ERROR_LIGHT ||
-            restoredType == AnimationType.ERROR_HEAVY
-        if (isSpeakingType && selectedSpeakingKey != null) {
-            // 段階移行：SPEAKINGは新DataStoreがある場合は旧キー復元をスキップする
-            return@LaunchedEffect
-        }
-        if (isReadyType && selectedReadyKey != null) {
-            // 段階移行：READYは新DataStoreがある場合は旧キー復元をスキップする
-            return@LaunchedEffect
-        }
-        if (isIdleType && selectedIdleKey != null) {
-            // 段階移行：IDLEは新DataStoreがある場合は旧キー復元をスキップする
-            return@LaunchedEffect
-        }
-        if (isThinkingType && selectedThinkingKey != null) {
-            // 段階移行：THINKINGは新DataStoreがある場合は旧キー復元をスキップする
-            return@LaunchedEffect
-        }
-        if (isOfflineType && selectedOfflineKey != null) {
-            // 段階移行：OFFLINEは新DataStoreがある場合は旧キー復元をスキップする
-            return@LaunchedEffect
-        }
-        if (isErrorType && selectedErrorKey != null) {
-            // 段階移行：ERRORは新DataStoreがある場合は旧キー復元をスキップする
-            return@LaunchedEffect
-        }
-        if (restoredType != null && restoredType != selectedAnimation) {
-            // internalKey から復元する（表示名差分の影響回避）
             selectedAnimation = restoredType
         }
     }
