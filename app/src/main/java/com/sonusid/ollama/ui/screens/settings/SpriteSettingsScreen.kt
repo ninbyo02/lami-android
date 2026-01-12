@@ -866,6 +866,18 @@ fun SpriteSettingsScreen(navController: NavController) {
     val speakingPerStateJson by settingsPreferences
         .spriteAnimationJsonFlow(SpriteState.SPEAKING)
         .collectAsState(initial = null)
+    val idlePerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.IDLE)
+        .collectAsState(initial = null)
+    val thinkingPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.THINKING)
+        .collectAsState(initial = null)
+    val offlinePerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.OFFLINE)
+        .collectAsState(initial = null)
+    val errorPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.ERROR)
+        .collectAsState(initial = null)
     // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
     // 段階移行：SPEAKING（Talk系）は新DataStoreの選択キーを優先して復元する
     val selectedSpeakingKey by settingsPreferences
@@ -1023,6 +1035,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyIdlePerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyThinkingPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(selectedSpeakingKey) {
         val restoredType = when (selectedSpeakingKey) {
@@ -1301,6 +1317,184 @@ fun SpriteSettingsScreen(navController: NavController) {
             Log.d(
                 "LamiSprite",
                 "PR20 apply per-state SPEAKING success size=${rawJson.length}"
+            )
+        }
+    }
+
+    // PR21: IDLE/THINKING/OFFLINE/ERROR でも state別最小JSON を優先適用
+    LaunchedEffect(idlePerStateJson, selectedAnimation) {
+        if (didApplyIdlePerState) return@LaunchedEffect
+        val rawJson = idlePerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (selectedAnimation != AnimationType.IDLE) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.IDLE)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state IDLE failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val patternInputs = config.insertion.patterns.toInsertionPatternInputs()
+        updateExtraState(AnimationType.IDLE) { state ->
+            state.copy(
+                frameInput = config.baseFrames.toFrameInputText(),
+                intervalInput = config.baseIntervalMs.toString(),
+                insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+                insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+                insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+                insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+                insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+                insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+                insertionEveryNInput = config.insertion.everyNLoops.toString(),
+                insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+                insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+                insertionEnabled = config.insertion.enabled,
+                insertionExclusive = config.insertion.exclusive,
+            )
+        }
+        didApplyIdlePerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state IDLE success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(thinkingPerStateJson, selectedAnimation) {
+        if (didApplyThinkingPerState) return@LaunchedEffect
+        val rawJson = thinkingPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (selectedAnimation != AnimationType.THINKING) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.THINKING)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state THINKING failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val patternInputs = config.insertion.patterns.toInsertionPatternInputs()
+        updateExtraState(AnimationType.THINKING) { state ->
+            state.copy(
+                frameInput = config.baseFrames.toFrameInputText(),
+                intervalInput = config.baseIntervalMs.toString(),
+                insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+                insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+                insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+                insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+                insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+                insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+                insertionEveryNInput = config.insertion.everyNLoops.toString(),
+                insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+                insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+                insertionEnabled = config.insertion.enabled,
+                insertionExclusive = config.insertion.exclusive,
+            )
+        }
+        didApplyThinkingPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state THINKING success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(offlinePerStateJson, selectedAnimation) {
+        if (didApplyOfflinePerState) return@LaunchedEffect
+        val rawJson = offlinePerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val isOfflineType = selectedAnimation in setOf(
+            AnimationType.OFFLINE_ENTER,
+            AnimationType.OFFLINE_LOOP,
+            AnimationType.OFFLINE_EXIT,
+        )
+        if (!isOfflineType) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.OFFLINE)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state OFFLINE failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val patternInputs = config.insertion.patterns.toInsertionPatternInputs()
+        updateExtraState(selectedAnimation) { state ->
+            state.copy(
+                frameInput = config.baseFrames.toFrameInputText(),
+                intervalInput = config.baseIntervalMs.toString(),
+                insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+                insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+                insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+                insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+                insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+                insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+                insertionEveryNInput = config.insertion.everyNLoops.toString(),
+                insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+                insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+                insertionEnabled = config.insertion.enabled,
+                insertionExclusive = config.insertion.exclusive,
+            )
+        }
+        didApplyOfflinePerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state OFFLINE success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(errorPerStateJson, selectedAnimation) {
+        if (didApplyErrorPerState) return@LaunchedEffect
+        val rawJson = errorPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val isErrorType = selectedAnimation in setOf(
+            AnimationType.ERROR_LIGHT,
+            AnimationType.ERROR_HEAVY,
+        )
+        if (!isErrorType) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.ERROR)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state ERROR failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val patternInputs = config.insertion.patterns.toInsertionPatternInputs()
+        updateExtraState(selectedAnimation) { state ->
+            state.copy(
+                frameInput = config.baseFrames.toFrameInputText(),
+                intervalInput = config.baseIntervalMs.toString(),
+                insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+                insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+                insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+                insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+                insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+                insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+                insertionEveryNInput = config.insertion.everyNLoops.toString(),
+                insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+                insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+                insertionEnabled = config.insertion.enabled,
+                insertionExclusive = config.insertion.exclusive,
+            )
+        }
+        didApplyErrorPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state ERROR success size=${rawJson.length}"
             )
         }
     }
