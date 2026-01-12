@@ -3094,6 +3094,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 // 段階移行：IDLEは新DataStoreへ保存のみ先行（復元は次PR/PR7）
                                                 // 段階移行：READY/SPEAKING は保存のみ先行
                                                 // 段階移行：THINKINGは新DataStoreへ保存のみ先行（復元は次PR/PR9）
+                                                // 段階移行：OFFLINEは新DataStoreへ保存のみ先行（復元は次PR/PR11）
+                                                // OFFLINE_ENTER/LOOP/EXIT は state として OFFLINE に正規化し "OfflineLoop" を保存
                                                 // 旧キー（sprite_last_selected_animation）も互換のため継続保存
                                                 when (updated) {
                                                     AnimationType.IDLE -> settingsPreferences.setSelectedKey(
@@ -3124,6 +3126,14 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                         SpriteState.THINKING,
                                                         "Thinking",
                                                     )
+
+                                                    AnimationType.OFFLINE_ENTER,
+                                                    AnimationType.OFFLINE_LOOP,
+                                                    AnimationType.OFFLINE_EXIT ->
+                                                        settingsPreferences.setSelectedKey(
+                                                            SpriteState.OFFLINE,
+                                                            "OfflineLoop",
+                                                        )
 
                                                     else -> Unit
                                                 }
