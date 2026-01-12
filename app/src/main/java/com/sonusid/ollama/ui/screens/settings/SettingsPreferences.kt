@@ -136,6 +136,8 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
     private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
+    // 最後に選択したアニメ種別（internalKey保存: 表示名差分の影響を回避）
+    private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
@@ -174,6 +176,10 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationsJsonKey]
+    }
+
+    val lastSelectedAnimation: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedAnimationKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -348,6 +354,13 @@ class SettingsPreferences(private val context: Context) {
             preferences[spriteAnimationsJsonKey] = json
         }
         dumpDataStoreDebug("after saveSpriteAnimationsJson")
+    }
+
+    suspend fun saveLastSelectedAnimation(key: String) {
+        if (key.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedAnimationKey] = key
+        }
     }
 
     suspend fun resetSpriteSheetConfig() {
