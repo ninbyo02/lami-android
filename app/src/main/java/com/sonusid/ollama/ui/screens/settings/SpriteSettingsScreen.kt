@@ -872,6 +872,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
+    var didRestoreTab by remember {
+        // 保存/復元の順序を保証するため、復元試行の完了フラグを保持する
+        mutableStateOf(false)
+    }
     val devUnlocked = true
     var readyFrameInput by rememberSaveable { mutableStateOf("1,1,1,1") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("90") }
@@ -975,9 +979,15 @@ fun SpriteSettingsScreen(navController: NavController) {
             // DataStore から復元したタブを適用する
             selectedTab = restoredTab
         }
+        // 復元の試行が完了したので保存を解禁（再起動保持の上書き事故を防ぐ）
+        didRestoreTab = true
     }
 
     LaunchedEffect(selectedTab) {
+        if (!didRestoreTab) {
+            // 復元完了前の保存を避け、再起動保持の復元順序を守る
+            return@LaunchedEffect
+        }
         // タブ切替のたびに保存して、戻る/再起動後に復元できるようにする
         settingsPreferences.saveLastSelectedSpriteTab(selectedTab.name)
     }
