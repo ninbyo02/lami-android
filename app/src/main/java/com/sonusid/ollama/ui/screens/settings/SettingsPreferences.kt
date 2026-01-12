@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
+import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
 private val Context.dataStore by preferencesDataStore(
@@ -135,9 +136,33 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
     private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
+    // 最後に選択したアニメ種別（internalKey保存: 表示名差分の影響を回避）
+    private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
+    // DataStoreの実体確認用ログ(デバッグ専用)
+    private fun dumpDataStoreDebug(caller: String) {
+        if (!BuildConfig.DEBUG) return
+        val filesDirPath = context.filesDir.absolutePath
+        val dataDirPath = context.applicationInfo.dataDir
+        val filesDirCandidate = File(filesDirPath, "datastore/$SETTINGS_DATA_STORE_NAME.preferences_pb")
+        val dataDirCandidate = File(dataDirPath, "datastore/$SETTINGS_DATA_STORE_NAME.preferences_pb")
+        Log.d(
+            "LamiSprite",
+            "DataStore debug($caller): filesDir=$filesDirPath dataDir=$dataDirPath"
+        )
+        Log.d(
+            "LamiSprite",
+            "DataStore debug($caller): filesCandidate=${filesDirCandidate.absolutePath} " +
+                "exists=${filesDirCandidate.exists()} size=${filesDirCandidate.length()}"
+        )
+        Log.d(
+            "LamiSprite",
+            "DataStore debug($caller): dataDirCandidate=${dataDirCandidate.absolutePath} " +
+                "exists=${dataDirCandidate.exists()} size=${dataDirCandidate.length()}"
+        )
+    }
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
@@ -151,6 +176,10 @@ class SettingsPreferences(private val context: Context) {
 
     val spriteAnimationsJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[spriteAnimationsJsonKey]
+    }
+
+    val lastSelectedAnimation: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedAnimationKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -320,8 +349,17 @@ class SettingsPreferences(private val context: Context) {
     }
 
     suspend fun saveSpriteAnimationsJson(json: String) {
+        dumpDataStoreDebug("before saveSpriteAnimationsJson")
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationsJsonKey] = json
+        }
+        dumpDataStoreDebug("after saveSpriteAnimationsJson")
+    }
+
+    suspend fun saveLastSelectedAnimation(key: String) {
+        if (key.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedAnimationKey] = key
         }
     }
 
