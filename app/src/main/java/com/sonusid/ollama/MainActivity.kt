@@ -3,13 +3,17 @@ package com.sonusid.ollama
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavType
@@ -73,38 +77,54 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+            val lastRoute by settingsPreferences.lastRoute.collectAsState(initial = null)
+            var startDestination by remember { mutableStateOf(Routes.SETTINGS) }
+            var startResolved by remember { mutableStateOf(false) }
             // Initialise navigation
             val navController = rememberNavController()
+            LaunchedEffect(lastRoute) {
+                // 復元の順序を固定し、戻る履歴と再起動時の復元に使うstartDestinationを確定する
+                startDestination = when (lastRoute) {
+                    Routes.SPRITE_SETTINGS -> Routes.SPRITE_SETTINGS
+                    Routes.SETTINGS -> Routes.SETTINGS
+                    else -> Routes.SETTINGS
+                }
+                startResolved = true
+            }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = Routes.CHATS
-                        ) {
-                            composable(Routes.HOME) {
-                                Home(navController, viewModel)
+                        if (startResolved) {
+                            NavHost(
+                                navController = navController,
+                                startDestination = startDestination
+                            ) {
+                                composable(Routes.HOME) {
+                                    Home(navController, viewModel)
+                                }
+                                composable(Routes.CHATS) {
+                                    Chats(navController, viewModel)
+                                }
+                                composable(
+                                    route = Routes.CHAT_WITH_ID,
+                                    arguments = listOf(navArgument(Routes.CHAT_ID_ARG) { type = NavType.IntType })
+                                ) { backStackEntry ->
+                                    val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG)?.takeIf { it != 0 }
+                                    Home(navController, viewModel, chatId)
+                                }
+                                composable(Routes.SETTINGS) {
+                                    Settings(navController)
+                                }
+                                composable(Routes.ABOUT) {
+                                    About(navController)
+                                }
+                                composable(SettingsRoute.SpriteSettings.route) {
+                                    SpriteSettingsScreen(navController)
+                                }
                             }
-                            composable(Routes.CHATS) {
-                                Chats(navController, viewModel)
-                            }
-                            composable(
-                                route = Routes.CHAT_WITH_ID,
-                                arguments = listOf(navArgument(Routes.CHAT_ID_ARG) { type = NavType.IntType })
-                            ) { backStackEntry ->
-                                val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG)?.takeIf { it != 0 }
-                                Home(navController, viewModel, chatId)
-                            }
-                            composable(Routes.SETTINGS) {
-                                Settings(navController)
-                            }
-                            composable(Routes.ABOUT) {
-                                About(navController)
-                            }
-                            composable(SettingsRoute.SpriteSettings.route) {
-                                SpriteSettingsScreen(navController)
-                            }
-
+                        } else {
+                            // 再起動時の復元が確定するまでNavHostを描かず、起動時のチラつきを防ぐ
+                            Box(modifier = Modifier.fillMaxSize())
                         }
                     }
                 }

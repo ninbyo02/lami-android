@@ -120,6 +120,7 @@ import com.sonusid.ollama.data.boxesWithInternalIndex
 import com.sonusid.ollama.data.isUninitialized
 import com.sonusid.ollama.data.toInternalFrameIndex
 import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
@@ -812,6 +813,11 @@ fun SpriteSettingsScreen(navController: NavController) {
     val errorSnackbarDurationMs = 1800L
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
+    }
+
+    LaunchedEffect(Unit) {
+        // 戻る履歴/再起動時の復元のため、表示開始時に最後の画面を保存する
+        settingsPreferences.saveLastRoute(Routes.SPRITE_SETTINGS)
     }
 
     fun showTopSnackbar(message: String, isError: Boolean) {

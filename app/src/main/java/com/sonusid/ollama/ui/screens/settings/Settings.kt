@@ -121,6 +121,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
+    LaunchedEffect(Unit) {
+        // 戻る履歴/再起動時の復元のため、表示開始時に最後の画面を保存する
+        settingsPreferences.saveLastRoute(Routes.SETTINGS)
+    }
+
     fun getNormalizedInputs(): List<ServerInput> {
         return serverInputs.map { input ->
             input.copy(url = normalizeUrlInput(input.url))

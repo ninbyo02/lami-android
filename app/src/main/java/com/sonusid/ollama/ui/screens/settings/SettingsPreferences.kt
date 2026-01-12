@@ -141,6 +141,8 @@ class SettingsPreferences(private val context: Context) {
     private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
     // 最後に選択したタブ（SpriteTab名を保存して復元する）
     private val lastSelectedSpriteTabKey = stringPreferencesKey("sprite_last_selected_tab")
+    // 再起動時の復元用に最後の画面Routeを保持する
+    private val lastRouteKey = stringPreferencesKey("last_route")
     // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
     // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
@@ -187,6 +189,10 @@ class SettingsPreferences(private val context: Context) {
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastSelectedSpriteTabKey]
+    }
+
+    val lastRoute: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastRouteKey]
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -374,6 +380,13 @@ class SettingsPreferences(private val context: Context) {
         if (tabKey.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[lastSelectedSpriteTabKey] = tabKey
+        }
+    }
+
+    suspend fun saveLastRoute(route: String) {
+        if (route.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastRouteKey] = route
         }
     }
 
