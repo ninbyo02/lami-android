@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Ollama" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Splash背景は既存windowBackgroundと合わせて白固定 -->
+        <item name="android:windowSplashScreenBackground">@android:color/white</item>
+        <!-- API31+のアニメーションアイコンを透明化（端末差異のフォールバック） -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_transparent</item>
+        <!-- 差し込み体感を抑えるためアニメーション時間を最小化 -->
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>
