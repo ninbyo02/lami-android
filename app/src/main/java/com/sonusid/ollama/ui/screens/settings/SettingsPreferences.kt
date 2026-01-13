@@ -501,6 +501,38 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    // 旧全体JSONをstate別JSONへ安全に移行する（初回のみ・冪等）
+    suspend fun migrateLegacyAllAnimationsJsonToPerStateIfNeeded(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        val legacyJson = preferences[spriteAnimationsJsonKey]?.takeIf { it.isNotBlank() }
+            ?: return@runCatching false
+        val hasPerState = SpriteState.values().any { state ->
+            preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank().not()
+        }
+        if (hasPerState) return@runCatching false
+
+        val normalizedJson = parseAndValidateAllAnimationsJson(legacyJson).getOrThrow()
+        val perStateJsons = buildMap<SpriteState, String> {
+            SpriteState.values().forEach { state ->
+                val extracted = extractPerStateJsonFromAllAnimationsJson(normalizedJson, state)
+                if (extracted != null) {
+                    val validated = parseAndValidatePerStateAnimationJson(extracted, state)
+                    if (validated.isSuccess) {
+                        put(state, extracted)
+                    }
+                }
+            }
+        }
+        if (perStateJsons.isEmpty()) return@runCatching false
+
+        context.dataStore.edit { updated ->
+            perStateJsons.forEach { (state, json) ->
+                updated[spriteAnimationJsonPreferencesKey(state)] = json
+            }
+        }
+        true
+    }
+
     // state別の選択キーを保存する（段階移行用）
     suspend fun setSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
@@ -756,8 +788,28 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.IDLE -> listOf("Idle")
             SpriteState.THINKING -> listOf(ALL_ANIMATIONS_THINKING_KEY)
             SpriteState.OFFLINE -> listOf("OfflineLoop")
-            SpriteState.ERROR -> listOf("ErrorLight")
+            SpriteState.ERROR -> listOf("ErrorLight", "ErrorHeavy")
         }
+
+    private fun extractPerStateJsonFromAllAnimationsJson(allJson: String, state: SpriteState): String? {
+        val root = JSONObject(allJson)
+        val animationsObject = root.optJSONObject(JSON_ANIMATIONS_KEY) ?: return null
+        val matchedKey = legacyAnimationKeysForState(state).firstOrNull { key ->
+            animationsObject.has(key)
+        } ?: return null
+        val animationObject = animationsObject.optJSONObject(matchedKey) ?: return null
+        val (baseDefaults, insertionDefaults) = defaultsForState(state)
+        val baseSettings = parseReadySettings(animationObject.optJSONObject(JSON_BASE_KEY), baseDefaults)
+        val insertionSettings = parseInsertionSettings(
+            animationObject.optJSONObject(JSON_INSERTION_KEY),
+            insertionDefaults,
+        )
+        return buildPerStateAnimationJsonOrNull(
+            animationKey = matchedKey,
+            baseSettings = baseSettings,
+            insertionSettings = insertionSettings,
+        )
+    }
 
     private fun findLegacyAnimationObjectForState(
         state: SpriteState,
