@@ -825,8 +825,22 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
-        // 旧キー→state別キーの段階移行はフラグで1回だけ実行する
-        settingsPreferences.migrateLegacyAllAnimationsToPerStateIfNeeded()
+        // 旧全体JSON→state別JSONの段階移行は初回のみ実行する
+        settingsPreferences.migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
+            .onSuccess { migrated ->
+                val message = if (migrated) {
+                    "migration legacy sprite_animations_json -> per-state: OK"
+                } else {
+                    "migration legacy sprite_animations_json -> per-state: SKIP"
+                }
+                Log.d("LamiSprite", message)
+            }
+            .onFailure { throwable ->
+                Log.d(
+                    "LamiSprite",
+                    "migration legacy sprite_animations_json -> per-state: FAIL reason=${throwable.message}"
+                )
+            }
     }
 
     LaunchedEffect(Unit) {
