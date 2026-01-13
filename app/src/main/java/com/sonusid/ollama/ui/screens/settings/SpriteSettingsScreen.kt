@@ -895,29 +895,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         .spriteAnimationJsonFlow(SpriteState.ERROR)
         .collectAsState(initial = null)
     // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
-    // 段階移行：SPEAKING（Talk系）は新DataStoreの選択キーを優先して復元する
-    val selectedSpeakingKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.SPEAKING)
-        .collectAsState(initial = null)
-    // 段階移行：READYは新DataStoreの選択キーを優先して復元する
-    val selectedReadyKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.READY)
-        .collectAsState(initial = null)
-    // 段階移行：IDLEは新DataStoreの選択キーを優先して復元する
-    val selectedIdleKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.IDLE)
-        .collectAsState(initial = null)
-    // 段階移行：THINKINGは新DataStoreの選択キーを優先して復元する
-    val selectedThinkingKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.THINKING)
-        .collectAsState(initial = null)
-    // 段階移行：OFFLINEは新DataStoreの選択キーを優先して復元する
-    val selectedOfflineKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.OFFLINE)
-        .collectAsState(initial = null)
-    // 段階移行：ERRORは新DataStoreの選択キーを優先して復元する
-    val selectedErrorKey by settingsPreferences
-        .selectedKeyFlow(SpriteState.ERROR)
+    val lastSelectedAnimationTypeKey by settingsPreferences.lastSelectedAnimationType
         .collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
         .collectAsState(initial = UNSET_SPRITE_TAB)
@@ -1055,6 +1033,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyThinkingPerState by rememberSaveable { mutableStateOf(false) }
     var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
     var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
+    var didRestoreSelectedAnimation by remember {
+        // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
+        mutableStateOf(false)
+    }
 
     fun resolveExtraAnimationInput(target: AnimationType): AnimationInputState {
         val existing = extraAnimationStates[target]
@@ -1162,58 +1144,17 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    LaunchedEffect(selectedSpeakingKey) {
-        val restoredType = when (selectedSpeakingKey) {
-            "TalkShort" -> AnimationType.TALK_SHORT
-            "TalkLong" -> AnimationType.TALK_LONG
-            "TalkCalm" -> AnimationType.TALK_CALM
-            "TalkDefault" -> AnimationType.TALKING
-            else -> null
+    LaunchedEffect(lastSelectedAnimationTypeKey) {
+        if (didRestoreSelectedAnimation) {
+            return@LaunchedEffect
         }
-        if (restoredType != null && restoredType != selectedAnimation) {
-            // SPEAKINGの復元は新DataStoreを優先して適用する
+        val restoredType = AnimationType.fromInternalKeyOrNull(lastSelectedAnimationTypeKey)
+            ?: AnimationType.READY
+        if (restoredType != selectedAnimation) {
+            // 最後に選択したアニメ種別を1回だけ復元する
             selectedAnimation = restoredType
         }
-    }
-
-    LaunchedEffect(selectedReadyKey) {
-        if (selectedReadyKey == "Ready" && selectedAnimation != AnimationType.READY) {
-            // READY復元（新DataStore優先）
-            selectedAnimation = AnimationType.READY
-        }
-    }
-
-    LaunchedEffect(selectedIdleKey) {
-        if (selectedIdleKey == "Idle" && selectedAnimation != AnimationType.IDLE) {
-            // IDLE復元（新DataStore優先）
-            selectedAnimation = AnimationType.IDLE
-        }
-    }
-
-    LaunchedEffect(selectedThinkingKey) {
-        if (selectedThinkingKey == "Thinking" && selectedAnimation != AnimationType.THINKING) {
-            // THINKING復元（新DataStore優先）
-            selectedAnimation = AnimationType.THINKING
-        }
-    }
-
-    LaunchedEffect(selectedOfflineKey) {
-        if (selectedOfflineKey == "OfflineLoop" && selectedAnimation != AnimationType.OFFLINE_LOOP) {
-            // OFFLINE復元（新DataStore優先）。復元は OFFLINE_LOOP に正規化する
-            selectedAnimation = AnimationType.OFFLINE_LOOP
-        }
-    }
-
-    LaunchedEffect(selectedErrorKey) {
-        val restoredType = when (selectedErrorKey) {
-            "ErrorLight" -> AnimationType.ERROR_LIGHT
-            "ErrorHeavy" -> AnimationType.ERROR_HEAVY
-            else -> null
-        }
-        if (restoredType != null && restoredType != selectedAnimation) {
-            // ERROR復元（新DataStore優先）。ErrorLight/ErrorHeavy を AnimationType にマッピング
-            selectedAnimation = restoredType
-        }
+        didRestoreSelectedAnimation = true
     }
 
     LaunchedEffect(lastSelectedSpriteTabKey) {
@@ -3453,6 +3394,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         if (selectedAnimation != updated) {
                                             selectedAnimation = updated
                                             coroutineScope.launch {
+                                                settingsPreferences.setLastSelectedAnimationType(updated.internalKey)
                                                 // 段階移行：IDLEは新DataStoreへ保存のみ先行（復元は次PR/PR7）
                                                 // 段階移行：READY/SPEAKING は保存のみ先行
                                                 // 段階移行：THINKINGは新DataStoreへ保存のみ先行（復元は次PR/PR9）
