@@ -825,6 +825,11 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
+        // 旧キー→state別キーの段階移行はフラグで1回だけ実行する
+        settingsPreferences.migrateLegacyAllAnimationsToPerStateIfNeeded()
+    }
+
+    LaunchedEffect(Unit) {
         // 戻る履歴/再起動時の復元のため、表示開始時に最後の画面を保存する
         settingsPreferences.saveLastRoute(Routes.SPRITE_SETTINGS)
     }
