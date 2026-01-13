@@ -179,6 +179,8 @@ class SettingsPreferences(private val context: Context) {
     private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
     private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
     private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
+    // 最後に選択したアニメ種別（AnimationType.internalKey）を保存して復元する
+    private val lastSelectedAnimationTypeKey = stringPreferencesKey("sprite_last_selected_animation_type")
     // 最後に選択したタブ（SpriteTab名を保存して復元する）
     private val lastSelectedSpriteTabKey = stringPreferencesKey("sprite_last_selected_tab")
     // 画像調整で最後に選択したコマ番号（1始まり）
@@ -256,6 +258,10 @@ class SettingsPreferences(private val context: Context) {
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastSelectedSpriteTabKey]
+    }
+
+    val lastSelectedAnimationType: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedAnimationTypeKey]
     }
 
     val lastSelectedBoxNumber: Flow<Int?> = context.dataStore.data.map { preferences ->
@@ -545,6 +551,13 @@ class SettingsPreferences(private val context: Context) {
         if (tabKey.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[lastSelectedSpriteTabKey] = tabKey
+        }
+    }
+
+    suspend fun setLastSelectedAnimationType(value: String) {
+        if (value.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedAnimationTypeKey] = value
         }
     }
 
