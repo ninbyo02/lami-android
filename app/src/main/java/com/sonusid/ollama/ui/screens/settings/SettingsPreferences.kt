@@ -237,8 +237,8 @@ class SettingsPreferences(private val context: Context) {
     }
 
     // 復元優先順位:
-    // 1) state別JSON（sprite_animation_json_*）
-    // 2) 旧全体JSON（sprite_animations_json）
+    // 1) state別JSON（sprite_animation_json_*）※正（Single Source of Truth）
+    // 2) 旧全体JSON（sprite_animations_json）※読み取り専用 fallback
     // 3) それ以前のlegacy（legacyToAllAnimationsJsonOrNull が担当）
     fun resolvedSpriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
         val perState = preferences[spriteAnimationJsonPreferencesKey(state)]
@@ -429,8 +429,9 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
-    // 旧全体JSONは migration / legacy fallback 専用（新規保存では使用しない・PR24で完全削除可能）
-    suspend fun saveSpriteAnimationsJson(json: String) {
+    // 旧全体JSONは migration / legacy fallback 専用（通常フローからは呼ばない）
+    @Suppress("unused")
+    internal suspend fun saveSpriteAnimationsJson(json: String) {
         dumpDataStoreDebug("before saveSpriteAnimationsJson")
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationsJsonKey] = json
