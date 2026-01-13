@@ -1026,7 +1026,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
-    var isDirty by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
@@ -1034,27 +1033,14 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyThinkingPerState by rememberSaveable { mutableStateOf(false) }
     var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
     var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyReadyBaseSettings by remember { mutableStateOf(false) }
+    var didApplyTalkingBaseSettings by remember { mutableStateOf(false) }
+    var didApplyReadyInsertionSettings by remember { mutableStateOf(false) }
+    var didApplyTalkingInsertionSettings by remember { mutableStateOf(false) }
+    var didApplySpriteSheetSettings by remember { mutableStateOf(false) }
     var didRestoreSelectedAnimation by remember {
         // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
         mutableStateOf(false)
-    }
-
-    fun updateDirtyState(next: Boolean, reason: String) {
-        if (isDirty == next) return
-        isDirty = next
-        if (BuildConfig.DEBUG) {
-            Log.d("SpriteSettings", "dirty=$next reason=$reason")
-        }
-    }
-
-    fun markDirty(reason: String) {
-        if (didRestoreTab && didRestoreAdjustSelection && didRestoreSelectedAnimation) {
-            updateDirtyState(true, reason)
-        }
-    }
-
-    fun clearDirty(reason: String) {
-        updateDirtyState(false, reason)
     }
 
     fun resolveExtraAnimationInput(target: AnimationType): AnimationInputState {
@@ -1163,8 +1149,59 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun resolveValidSpriteSheetConfig(config: SpriteSheetConfig): SpriteSheetConfig {
+        return config
+            .takeIf { it.isUninitialized().not() && it.validate() == null }
+            ?.copy(boxes = config.boxesWithInternalIndex())
+            ?: defaultSpriteSheetConfig
+    }
+
+    val normalizedSpriteSheetConfig = remember(spriteSheetConfig) {
+        resolveValidSpriteSheetConfig(spriteSheetConfig)
+    }
+    val normalizedBoxPositions = remember(normalizedSpriteSheetConfig) {
+        normalizedSpriteSheetConfig.boxes
+            .sortedBy { it.frameIndex }
+            .map { position -> BoxPosition(position.x, position.y) }
+    }
+    val didFinishInitialLoad by remember {
+        // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける
+        derivedStateOf {
+            didRestoreTab &&
+                didRestoreAdjustSelection &&
+                didRestoreSelectedAnimation &&
+                didApplyReadyBaseSettings &&
+                didApplyTalkingBaseSettings &&
+                didApplyReadyInsertionSettings &&
+                didApplyTalkingInsertionSettings &&
+                didApplySpriteSheetSettings
+        }
+    }
+    val hasUnsavedChanges by remember {
+        // 入力→正規化→適用済みとの差分だけを dirty と判定する
+        derivedStateOf {
+            if (!didFinishInitialLoad) return@derivedStateOf false
+            val animationTargets = buildList {
+                add(AnimationType.READY)
+                add(AnimationType.TALKING)
+                addAll(extraAnimationStates.keys)
+            }.distinct()
+            val animationDirty = animationTargets.any { target ->
+                !isBaseInputSynced(target) || !isInsertionInputSynced(target)
+            }
+            val adjustDirty = boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
+                boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
+                boxPositions != normalizedBoxPositions
+            animationDirty || adjustDirty
+        }
+    }
+
     LaunchedEffect(lastSelectedAnimationTypeKey) {
         if (didRestoreSelectedAnimation) {
+            return@LaunchedEffect
+        }
+        // DataStore の初回 null を「復元完了」と扱わない
+        if (lastSelectedAnimationTypeKey == null) {
             return@LaunchedEffect
         }
         val restoredType = AnimationType.fromInternalKeyOrNull(lastSelectedAnimationTypeKey)
@@ -1218,18 +1255,14 @@ fun SpriteSettingsScreen(navController: NavController) {
         settingsPreferences.saveLastSelectedBoxNumber(selectedNumber)
     }
 
-    LaunchedEffect(spriteSheetConfig) {
-        val validConfig = spriteSheetConfig
-            .takeIf { it.isUninitialized().not() && it.validate() == null }
-            ?.copy(boxes = spriteSheetConfig.boxesWithInternalIndex())
-            ?: defaultSpriteSheetConfig
-
-        val resolvedBoxes = validConfig.boxes
-        boxSizePx = validConfig.frameWidth.coerceAtLeast(1)
+    LaunchedEffect(normalizedSpriteSheetConfig) {
+        val resolvedBoxes = normalizedSpriteSheetConfig.boxes
+        boxSizePx = normalizedSpriteSheetConfig.frameWidth.coerceAtLeast(1)
         boxPositions = resolvedBoxes
             .sortedBy { it.frameIndex }
             .map { position -> BoxPosition(position.x, position.y) }
         selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+        didApplySpriteSheetSettings = true
     }
 
     LaunchedEffect(readyAnimationSettings) {
@@ -1240,6 +1273,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .map { value -> value + 1 }
             .joinToString(separator = ",")
         readyIntervalInput = readyAnimationSettings.intervalMs.toString()
+        didApplyReadyBaseSettings = true
     }
 
     LaunchedEffect(talkingAnimationSettings) {
@@ -1250,6 +1284,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .map { value -> value + 1 }
             .joinToString(separator = ",")
         talkingIntervalInput = talkingAnimationSettings.intervalMs.toString()
+        didApplyTalkingBaseSettings = true
     }
 
     LaunchedEffect(readyInsertionAnimationSettings) {
@@ -1274,6 +1309,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         readyInsertionCooldownInput = readyInsertionAnimationSettings.cooldownLoops.toString()
         readyInsertionEnabled = readyInsertionAnimationSettings.enabled
         readyInsertionExclusive = readyInsertionAnimationSettings.exclusive
+        didApplyReadyInsertionSettings = true
     }
 
     LaunchedEffect(talkingInsertionAnimationSettings) {
@@ -1298,6 +1334,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         talkingInsertionCooldownInput = talkingInsertionAnimationSettings.cooldownLoops.toString()
         talkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         talkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
+        didApplyTalkingInsertionSettings = true
     }
 
     LaunchedEffect(readyPerStateJson) {
@@ -1963,10 +2000,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         return patternsMatch && intervalMatches && everyNMatches && probabilityMatches && cooldownMatches
     }
 
-    fun hasUnsavedChanges(): Boolean {
-        return isDirty
-    }
-
     fun navigateBackWithFallback() {
         val popped = navController.popBackStack()
         if (!popped) {
@@ -1982,7 +2015,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             showDiscardDialog = false
             return
         }
-        if (hasUnsavedChanges()) {
+        if (hasUnsavedChanges) {
             showDiscardDialog = true
         } else {
             navigateBackWithFallback()
@@ -2000,7 +2033,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (desiredSize != boxSizePx) {
             boxSizePx = desiredSize
             boxPositions = clampAllPositions(desiredSize)
-            markDirty("adjust_size")
         }
     }
 
@@ -2020,7 +2052,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             boxPositions = boxPositions.toMutableList().also { positions ->
                 positions[selectedIndex] = updated
             }
-            markDirty("adjust_position")
         }
     }
 
@@ -2770,7 +2801,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     )
                 }
             }.onSuccess {
-                clearDirty("animation_save")
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
@@ -2806,7 +2836,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
-                clearDirty("adjust_save")
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
@@ -3054,7 +3083,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
         }
         showTopSnackbarSuccess("プレビューに適用しました")
-        clearDirty("animation_apply")
     }
 
     val onAnimationSave: () -> Unit = onAnimationSave@{
@@ -3500,7 +3528,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("base_frame_input")
                                     },
                                     intervalInput = selectedState.intervalInput,
                                     onIntervalInputChange = { updated ->
@@ -3522,7 +3549,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("base_interval_input")
                                     },
                                     framesError = selectedState.framesError,
                                     intervalError = selectedState.intervalError,
@@ -3549,7 +3575,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_pattern1_frames")
                                     },
                                     pattern1WeightInput = selectedState.insertionPattern1WeightInput,
                                     onPattern1WeightInputChange = { updated ->
@@ -3571,7 +3596,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_pattern1_weight")
                                     },
                                     pattern1IntervalInput = selectedState.insertionPattern1IntervalInput,
                                     onPattern1IntervalInputChange = { updated ->
@@ -3593,7 +3617,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_pattern1_interval")
                                     },
                                     pattern2FramesInput = selectedState.insertionPattern2FramesInput,
                                     onPattern2FramesInputChange = { updated ->
@@ -3615,7 +3638,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_pattern2_frames")
                                     },
                                     pattern2WeightInput = selectedState.insertionPattern2WeightInput,
                                     onPattern2WeightInputChange = { updated ->
@@ -3637,7 +3659,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_pattern2_weight")
                                     },
                                     pattern2IntervalInput = selectedState.insertionPattern2IntervalInput,
                                     onPattern2IntervalInputChange = { updated ->
@@ -3659,7 +3680,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_pattern2_interval")
                                     },
                                     intervalInput = selectedState.insertionIntervalInput,
                                     onIntervalInputChange = { updated ->
@@ -3681,7 +3701,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_interval")
                                     },
                                     everyNInput = selectedState.insertionEveryNInput,
                                     onEveryNInputChange = { updated ->
@@ -3703,7 +3722,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_every_n")
                                     },
                                     probabilityInput = selectedState.insertionProbabilityInput,
                                     onProbabilityInputChange = { updated ->
@@ -3725,7 +3743,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_probability")
                                     },
                                     cooldownInput = selectedState.insertionCooldownInput,
                                     onCooldownInputChange = { updated ->
@@ -3747,7 +3764,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 )
                                             }
                                         }
-                                        markDirty("insertion_cooldown")
                                     },
                                     enabled = selectedState.insertionEnabled,
                                     onEnabledChange = { checked ->
@@ -3758,7 +3774,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 state.copy(insertionEnabled = checked)
                                             }
                                         }
-                                        markDirty("insertion_enabled")
                                     },
                                     exclusive = selectedState.insertionExclusive,
                                     onExclusiveChange = { checked ->
@@ -3769,7 +3784,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 state.copy(insertionExclusive = checked)
                                             }
                                         }
-                                        markDirty("insertion_exclusive")
                                     },
                                     pattern1FramesError = selectedState.insertionPattern1FramesError,
                                     pattern1WeightError = selectedState.insertionPattern1WeightError,
