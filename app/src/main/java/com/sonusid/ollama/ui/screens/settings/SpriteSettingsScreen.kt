@@ -705,9 +705,6 @@ private const val DEFAULT_BOX_SIZE_PX = 88
 internal const val INFO_X_OFFSET_MIN = -500
 internal const val INFO_X_OFFSET_MAX = 500
 private const val ALL_ANIMATIONS_JSON_VERSION = 1
-private const val ALL_ANIMATIONS_READY_KEY = "Ready"
-private const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
-private const val ALL_ANIMATIONS_THINKING_KEY = "Thinking"
 private const val JSON_VERSION_KEY = "version"
 private const val JSON_ANIMATIONS_KEY = "animations"
 private const val JSON_BASE_KEY = "base"
@@ -2627,30 +2624,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    // 旧保存用: 全アニメ設定をDataStore向けJSONに変換する（migration専用・PR24で削除可能）
-    fun buildAllAnimationsJsonForStorage(): String {
-        val animationsObject = JSONObject()
-        AnimationType.options.forEach { type ->
-            val defaults = resolveAppliedDefaults(type)
-            val key = when (type) {
-                AnimationType.READY -> ALL_ANIMATIONS_READY_KEY
-                AnimationType.TALKING -> ALL_ANIMATIONS_TALKING_KEY
-                AnimationType.THINKING -> ALL_ANIMATIONS_THINKING_KEY
-                else -> type.internalKey
-            }
-            animationsObject.put(
-                key,
-                JSONObject()
-                    .put(JSON_BASE_KEY, defaults.base.toJsonObject())
-                    .put(JSON_INSERTION_KEY, defaults.insertion.toJsonObject())
-            )
-        }
-        return JSONObject()
-            .put(JSON_VERSION_KEY, ALL_ANIMATIONS_JSON_VERSION)
-            .put(JSON_ANIMATIONS_KEY, animationsObject)
-            .toString()
-    }
-
     // メモ: 全アニメJSONは animationType/internalKey と混同しないよう、表示名(Ready等)をキーに統一する。
     fun exportAllAnimationsToJson(): String {
         val animationsObject = JSONObject()
@@ -2724,159 +2697,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
     }
 
-    // 旧: 全アニメJSON保存（読み取り専用の移行用途）。保存には使わない（PR24で削除可能）
-    fun persistAllAnimationsJson(onLegacySave: suspend () -> Unit = {}) {
-        coroutineScope.launch {
-            var rawJsonLength: Int? = null
-            var normalizedJsonLength: Int? = null
-            var saveStage = "all"
-            var perStateSaved: SpriteState? = null
-            var perStateKey: String? = null
-            val spriteAnimationsJsonSnapshot = spriteAnimationsJson
-            val storedJsonLength = when {
-                spriteAnimationsJsonSnapshot == null -> "null"
-                spriteAnimationsJsonSnapshot.isBlank() -> "blank"
-                else -> spriteAnimationsJsonSnapshot.length.toString()
-            }
-            runCatching {
-                val rawJson = buildAllAnimationsJsonForStorage()
-                rawJsonLength = rawJson.length
-                val normalizedJson = settingsPreferences.parseAndValidateAllAnimationsJson(rawJson).getOrThrow()
-                normalizedJsonLength = normalizedJson.length
-                settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
-                onLegacySave()
-                // PR19: 保存の併記のみで、UI/読み取り優先順位は変更しない
-                // PR19: 旧の全体JSONに加えて、選択中stateのJSONも併記保存（移行期）
-                // PR19: state別JSONはUIの検証済み入力から最小スキーマで組み立てて保存する
-                val targetState = when (selectedAnimation) {
-                    AnimationType.READY -> SpriteState.READY
-                    AnimationType.TALKING,
-                    AnimationType.TALK_SHORT,
-                    AnimationType.TALK_LONG,
-                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
-                    AnimationType.IDLE -> SpriteState.IDLE
-                    AnimationType.THINKING -> SpriteState.THINKING
-                    AnimationType.OFFLINE_ENTER,
-                    AnimationType.OFFLINE_LOOP,
-                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
-                    AnimationType.ERROR_LIGHT,
-                    AnimationType.ERROR_HEAVY -> SpriteState.ERROR
-                }
-                val animationKeyForState = when (targetState) {
-                    SpriteState.READY -> "Ready"
-                    SpriteState.SPEAKING -> "TalkDefault"
-                    SpriteState.IDLE -> "Idle"
-                    SpriteState.THINKING -> "Thinking"
-                    SpriteState.OFFLINE -> "OfflineLoop"
-                    SpriteState.ERROR -> "ErrorLight"
-                }
-                val validatedBase = validateBaseInputs(selectedAnimation)
-                val validatedInsertion = if (isInsertionEnabled(selectedAnimation)) {
-                    validateInsertionInputs(selectedAnimation)
-                } else null
-                val hasMissingPatternInterval = validatedInsertion
-                    ?.patterns
-                    ?.take(2)
-                    ?.any { pattern -> pattern.intervalMs == null }
-                    ?: false
-                if (validatedBase == null || (isInsertionEnabled(selectedAnimation) && validatedInsertion == null)) {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(
-                            "LamiSprite",
-                            "persistAllAnimationsJson skip per-state: validation failed " +
-                                "state=${targetState.name} key=$animationKeyForState"
-                        )
-                    }
-                    return@runCatching
-                }
-                if (hasMissingPatternInterval) {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(
-                            "LamiSprite",
-                            "persistAllAnimationsJson skip per-state: missing intervalMs " +
-                                "state=${targetState.name} key=$animationKeyForState"
-                        )
-                    }
-                    return@runCatching
-                }
-                saveStage = "per-state"
-                perStateSaved = targetState
-                perStateKey = animationKeyForState
-                val baseJson = JSONObject().apply {
-                    // base: 検証済みのframes/intervalを最小構成で保存
-                    put("frames", JSONArray(validatedBase.frames()))
-                    put("intervalMs", validatedBase.intervalMs)
-                }
-                val insertionJson = JSONObject().apply {
-                    // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
-                    put("enabled", validatedInsertion?.enabled ?: false)
-                    put(
-                        "patterns",
-                        JSONArray().apply {
-                            validatedInsertion
-                                ?.patterns
-                                ?.take(2)
-                                ?.forEach { pattern ->
-                                    put(
-                                        JSONObject().apply {
-                                            put("frames", JSONArray(pattern.frames()))
-                                            put("weight", pattern.weight)
-                                            put("intervalMs", pattern.intervalMs)
-                                        }
-                                    )
-                                }
-                        }
-                    )
-                    put("everyNLoops", validatedInsertion?.everyNLoops ?: 0)
-                    put("probabilityPercent", validatedInsertion?.probabilityPercent ?: 0)
-                    put("cooldownLoops", validatedInsertion?.cooldownLoops ?: 0)
-                    put("exclusive", validatedInsertion?.exclusive ?: false)
-                }
-                val perStateJson = JSONObject().apply {
-                    // 1アニメ=1JSONの最小スキーマを保存する
-                    put("animationKey", animationKeyForState)
-                    put("base", baseJson)
-                    put("insertion", insertionJson)
-                }
-                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
-                if (BuildConfig.DEBUG) {
-                    Log.d(
-                        "LamiSprite",
-                        "per-state saved: state=${targetState.name} key=$animationKeyForState " +
-                            "size=${perStateJson.toString().length}"
-                    )
-                }
-            }.onSuccess {
-                if (BuildConfig.DEBUG) {
-                    Log.d(
-                        "LamiSprite",
-                        "persistAllAnimationsJson success: type=${selectedAnimation.name} " +
-                            "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
-                            "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
-                            "stage=$saveStage perState=${perStateSaved?.name ?: "null"} " +
-                            "perStateKey=${perStateKey ?: "null"} " +
-                            "storedLen=$storedJsonLength"
-                    )
-                }
-                showTopSnackbarSuccess("保存しました")
-            }.onFailure { throwable ->
-                if (BuildConfig.DEBUG) {
-                    Log.d(
-                        "LamiSprite",
-                        "persistAllAnimationsJson failure: type=${selectedAnimation.name} " +
-                            "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
-                            "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
-                            "stage=$saveStage perState=${perStateSaved?.name ?: "null"} " +
-                            "perStateKey=${perStateKey ?: "null"} " +
-                            "storedLen=$storedJsonLength error=${throwable.message}"
-                    )
-                }
-                showTopSnackbarError("保存に失敗しました: ${throwable.message}")
-            }
-        }
-    }
-
-    // state別JSONが正の保存形式。全体JSONは復元/移行専用のため保存では書かない（PR24で削除可能）
+    // state別JSONが正（Single Source of Truth）。
+    // sprite_animations_json は読み取りフォールバック専用で保存しない。
+    // 一定期間の移行完了や最低対応バージョン引き上げ後に削除可能。
     fun persistPerStateAnimationJson(
         validatedBase: ReadyAnimationSettings,
         validatedInsertion: InsertionAnimationSettings?,
