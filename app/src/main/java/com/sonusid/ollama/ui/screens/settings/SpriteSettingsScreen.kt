@@ -70,6 +70,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -1166,7 +1167,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
     val didFinishInitialLoad by remember {
         // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける
-        derivedStateOf {
+        derivedStateOf<Boolean> {
             didRestoreTab &&
                 didRestoreAdjustSelection &&
                 didRestoreSelectedAnimation &&
@@ -1179,7 +1180,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
     val hasUnsavedChanges by remember {
         // 入力→正規化→適用済みとの差分だけを dirty と判定する
-        derivedStateOf {
+        derivedStateOf<Boolean> {
             if (!didFinishInitialLoad) return@derivedStateOf false
             val animationTargets = buildList {
                 add(AnimationType.READY)
