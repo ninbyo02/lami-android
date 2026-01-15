@@ -1165,38 +1165,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             .sortedBy { it.frameIndex }
             .map { position -> BoxPosition(position.x, position.y) }
     }
-    val didFinishInitialLoad by remember {
-        // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける
-        derivedStateOf<Boolean> {
-            didRestoreTab &&
-                didRestoreAdjustSelection &&
-                didRestoreSelectedAnimation &&
-                didApplyReadyBaseSettings &&
-                didApplyTalkingBaseSettings &&
-                didApplyReadyInsertionSettings &&
-                didApplyTalkingInsertionSettings &&
-                didApplySpriteSheetSettings
-        }
-    }
-    val hasUnsavedChanges by remember {
-        // 入力→正規化→適用済みとの差分だけを dirty と判定する
-        derivedStateOf<Boolean> {
-            if (!didFinishInitialLoad) return@derivedStateOf false
-            val animationTargets = buildList {
-                add(AnimationType.READY)
-                add(AnimationType.TALKING)
-                addAll(extraAnimationStates.keys)
-            }.distinct()
-            val animationDirty = animationTargets.any { target ->
-                !isBaseInputSynced(target) || !isInsertionInputSynced(target)
-            }
-            val adjustDirty = boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
-                boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
-                boxPositions != normalizedBoxPositions
-            animationDirty || adjustDirty
-        }
-    }
-
     LaunchedEffect(lastSelectedAnimationTypeKey) {
         if (didRestoreSelectedAnimation) {
             return@LaunchedEffect
@@ -2001,6 +1969,38 @@ fun SpriteSettingsScreen(navController: NavController) {
         return patternsMatch && intervalMatches && everyNMatches && probabilityMatches && cooldownMatches
     }
 
+    val didFinishInitialLoad by remember {
+        // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける
+        derivedStateOf<Boolean> {
+            didRestoreTab &&
+                didRestoreAdjustSelection &&
+                didRestoreSelectedAnimation &&
+                didApplyReadyBaseSettings &&
+                didApplyTalkingBaseSettings &&
+                didApplyReadyInsertionSettings &&
+                didApplyTalkingInsertionSettings &&
+                didApplySpriteSheetSettings
+        }
+    }
+    val hasUnsavedChangesState by remember {
+        // 入力→正規化→適用済みとの差分だけを dirty と判定する
+        derivedStateOf<Boolean> {
+            if (!didFinishInitialLoad) return@derivedStateOf false
+            val animationTargets = buildList {
+                add(AnimationType.READY)
+                add(AnimationType.TALKING)
+                addAll(extraAnimationStates.keys)
+            }.distinct()
+            val animationDirty = animationTargets.any { target ->
+                !isBaseInputSynced(target) || !isInsertionInputSynced(target)
+            }
+            val adjustDirty = boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
+                boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
+                boxPositions != normalizedBoxPositions
+            animationDirty || adjustDirty
+        }
+    }
+
     fun navigateBackWithFallback() {
         val popped = navController.popBackStack()
         if (!popped) {
@@ -2016,7 +2016,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             showDiscardDialog = false
             return
         }
-        if (hasUnsavedChanges) {
+        if (hasUnsavedChangesState) {
             showDiscardDialog = true
         } else {
             navigateBackWithFallback()
