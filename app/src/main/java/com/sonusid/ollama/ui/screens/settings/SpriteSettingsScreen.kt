@@ -1970,7 +1970,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     val didFinishInitialLoad by remember {
-        // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける
+        // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける（per-state は後追い適用）
         derivedStateOf<Boolean> {
             didRestoreTab &&
                 didRestoreAdjustSelection &&
@@ -1979,13 +1979,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 didApplyTalkingBaseSettings &&
                 didApplyReadyInsertionSettings &&
                 didApplyTalkingInsertionSettings &&
-                didApplySpriteSheetSettings &&
-                ((readyPerStateJson.isNullOrBlank()) || didApplyReadyPerState) &&
-                ((speakingPerStateJson.isNullOrBlank()) || didApplySpeakingPerState) &&
-                ((idlePerStateJson.isNullOrBlank()) || didApplyIdlePerState) &&
-                ((thinkingPerStateJson.isNullOrBlank()) || didApplyThinkingPerState) &&
-                ((offlinePerStateJson.isNullOrBlank()) || didApplyOfflinePerState) &&
-                ((errorPerStateJson.isNullOrBlank()) || didApplyErrorPerState)
+                didApplySpriteSheetSettings
         }
     }
     val hasUnsavedChangesState by remember {
