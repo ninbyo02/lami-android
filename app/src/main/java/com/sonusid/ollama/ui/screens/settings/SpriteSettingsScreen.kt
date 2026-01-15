@@ -1979,7 +1979,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                 didApplyTalkingBaseSettings &&
                 didApplyReadyInsertionSettings &&
                 didApplyTalkingInsertionSettings &&
-                didApplySpriteSheetSettings
+                didApplySpriteSheetSettings &&
+                ((readyPerStateJson.isNullOrBlank()) || didApplyReadyPerState) &&
+                ((speakingPerStateJson.isNullOrBlank()) || didApplySpeakingPerState) &&
+                ((idlePerStateJson.isNullOrBlank()) || didApplyIdlePerState) &&
+                ((thinkingPerStateJson.isNullOrBlank()) || didApplyThinkingPerState) &&
+                ((offlinePerStateJson.isNullOrBlank()) || didApplyOfflinePerState) &&
+                ((errorPerStateJson.isNullOrBlank()) || didApplyErrorPerState)
         }
     }
     val hasUnsavedChangesState by remember {
