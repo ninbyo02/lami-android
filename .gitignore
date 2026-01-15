@@ -35,3 +35,10 @@ key.properties
 # update.sh backups
 /update.sh.bak.*
 /update.sh.bak_*
+
+# local dumps/logs (DO NOT COMMIT)
+datastore_dump_*/
+*.log
+last_anim_key_dump*.txt
+anim_restore_*.log
+anim_save_*.log

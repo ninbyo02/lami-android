@@ -70,6 +70,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -245,10 +246,10 @@ private data class AnimationInputState(
 // 暫定: statusAnimationMap に近い値をここで簡易マッピングする。
 private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapOf(
     AnimationType.IDLE to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(0, 8, 0, 5, 0), intervalMs = 490),
+        base = ReadyAnimationSettings(listOf(0, 8, 0, 5, 0), intervalMs = 490),
         insertion = InsertionAnimationSettings(
             enabled = true,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(0, 0, 8, 0))),
+            patterns = listOf(InsertionPattern(listOf(0, 0, 8, 0))),
             intervalMs = 490,
             everyNLoops = 8,
             probabilityPercent = 100,
@@ -261,18 +262,18 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
         insertion = InsertionAnimationSettings.THINKING_DEFAULT,
     ),
     AnimationType.TALK_SHORT to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(0, 6, 2, 6, 0), intervalMs = 130),
+        base = ReadyAnimationSettings(listOf(0, 6, 2, 6, 0), intervalMs = 130),
         insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(0, 6, 2, 6, 0))),
+            patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
             intervalMs = 130,
         ),
     ),
     AnimationType.TALK_LONG to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(0, 4, 6, 4, 4, 6, 4, 0), intervalMs = 190),
+        base = ReadyAnimationSettings(listOf(0, 4, 6, 4, 4, 6, 4, 0), intervalMs = 190),
         insertion = InsertionAnimationSettings(
             enabled = true,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(1))),
+            patterns = listOf(InsertionPattern(listOf(1))),
             intervalMs = 190,
             everyNLoops = 2,
             probabilityPercent = 100,
@@ -281,26 +282,26 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
         ),
     ),
     AnimationType.TALK_CALM to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(7, 4, 7, 8, 7), intervalMs = 280),
+        base = ReadyAnimationSettings(listOf(7, 4, 7, 8, 7), intervalMs = 280),
         insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(7, 4, 7, 8, 7))),
+            patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
             intervalMs = 280,
         ),
     ),
     AnimationType.ERROR_LIGHT to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(5, 7, 5), intervalMs = 390),
+        base = ReadyAnimationSettings(listOf(5, 7, 5), intervalMs = 390),
         insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(5, 7, 5))),
+            patterns = listOf(InsertionPattern(listOf(5, 7, 5))),
             intervalMs = 390,
         ),
     ),
     AnimationType.ERROR_HEAVY to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(5, 5, 5, 7, 5), intervalMs = 400),
+        base = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400),
         insertion = InsertionAnimationSettings(
             enabled = true,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(2))),
+            patterns = listOf(InsertionPattern(listOf(2))),
             intervalMs = 400,
             everyNLoops = 6,
             probabilityPercent = 100,
@@ -309,26 +310,26 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
         ),
     ),
     AnimationType.OFFLINE_ENTER to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(0, 8, 8), intervalMs = 1_250),
+        base = ReadyAnimationSettings(listOf(0, 8, 8), intervalMs = 1_250),
         insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(0, 8, 8))),
+            patterns = listOf(InsertionPattern(listOf(0, 8, 8))),
             intervalMs = 1_250,
         ),
     ),
     AnimationType.OFFLINE_LOOP to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(8, 8), intervalMs = 1_250),
+        base = ReadyAnimationSettings(listOf(8, 8), intervalMs = 1_250),
         insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(8, 8))),
+            patterns = listOf(InsertionPattern(listOf(8, 8))),
             intervalMs = 1_250,
         ),
     ),
     AnimationType.OFFLINE_EXIT to AnimationDefaults(
-        base = ReadyAnimationSettings(frameSequence = listOf(8, 0), intervalMs = 1_250),
+        base = ReadyAnimationSettings(listOf(8, 0), intervalMs = 1_250),
         insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
             enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(8, 0))),
+            patterns = listOf(InsertionPattern(listOf(8, 0))),
             intervalMs = 1_250,
         ),
     ),
@@ -350,10 +351,10 @@ private fun List<InsertionPattern>.toInsertionPatternInputs(): InsertionPatternI
     val pattern1 = getOrNull(0)
     val pattern2 = getOrNull(1)
     return InsertionPatternInputs(
-        pattern1FramesInput = pattern1?.frameSequence?.toFrameInputText().orEmpty(),
+        pattern1FramesInput = pattern1?.frames()?.toFrameInputText().orEmpty(),
         pattern1WeightInput = (pattern1?.weight ?: 1).toString(),
         pattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
-        pattern2FramesInput = pattern2?.frameSequence?.toFrameInputText().orEmpty(),
+        pattern2FramesInput = pattern2?.frames()?.toFrameInputText().orEmpty(),
         pattern2WeightInput = (pattern2?.weight ?: 0).toString(),
         pattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
     )
@@ -362,7 +363,7 @@ private fun List<InsertionPattern>.toInsertionPatternInputs(): InsertionPatternI
 private fun AnimationDefaults.toInputState(): AnimationInputState =
     insertion.patterns.toInsertionPatternInputs().let { inputs ->
         AnimationInputState(
-            frameInput = base.frameSequence.toFrameInputText(),
+            frameInput = base.frames().toFrameInputText(),
             intervalInput = base.intervalMs.toString(),
             framesError = null,
             intervalError = null,
@@ -665,7 +666,7 @@ private fun buildEffectiveInsertionIntervalText(
     // 実効周期は候補パターンの interval とデフォルト値の組み合わせで表示する
     val defaultInterval = defaultIntervalMs.coerceAtLeast(0)
     val candidates = patterns.filter { pattern ->
-        pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
+        pattern.weight > 0 && pattern.frames().isNotEmpty()
     }
     if (candidates.isEmpty()) {
         return "${defaultInterval}ms"
@@ -687,7 +688,7 @@ private fun selectWeightedInsertionPattern(
     random: Random,
 ): Pair<Int, InsertionPattern>? {
     val candidates = patterns.withIndex().filter { (_, pattern) ->
-        pattern.weight > 0 && pattern.frameSequence.isNotEmpty()
+        pattern.weight > 0 && pattern.frames().isNotEmpty()
     }
     if (candidates.isEmpty()) return null
     val totalWeight = candidates.sumOf { (_, pattern) -> pattern.weight }
@@ -705,9 +706,6 @@ private const val DEFAULT_BOX_SIZE_PX = 88
 internal const val INFO_X_OFFSET_MIN = -500
 internal const val INFO_X_OFFSET_MAX = 500
 private const val ALL_ANIMATIONS_JSON_VERSION = 1
-private const val ALL_ANIMATIONS_READY_KEY = "Ready"
-private const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
-private const val ALL_ANIMATIONS_THINKING_KEY = "Thinking"
 private const val JSON_VERSION_KEY = "version"
 private const val JSON_ANIMATIONS_KEY = "animations"
 private const val JSON_BASE_KEY = "base"
@@ -828,6 +826,25 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(Unit) {
+        // 旧全体JSON→state別JSONの段階移行は初回のみ実行する
+        settingsPreferences.migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
+            .onSuccess { migrated ->
+                val message = if (migrated) {
+                    "migration legacy sprite_animations_json -> per-state: OK"
+                } else {
+                    "migration legacy sprite_animations_json -> per-state: SKIP"
+                }
+                Log.d("LamiSprite", message)
+            }
+            .onFailure { throwable ->
+                Log.d(
+                    "LamiSprite",
+                    "migration legacy sprite_animations_json -> per-state: FAIL reason=${throwable.message}"
+                )
+            }
+    }
+
+    LaunchedEffect(Unit) {
         // 戻る履歴/再起動時の復元のため、表示開始時に最後の画面を保存する
         settingsPreferences.saveLastRoute(Routes.SPRITE_SETTINGS)
     }
@@ -860,7 +877,27 @@ fun SpriteSettingsScreen(navController: NavController) {
     val spriteSheetConfigJson by settingsPreferences.spriteSheetConfigJson.collectAsState(initial = null)
     val spriteSheetConfig by settingsPreferences.spriteSheetConfig.collectAsState(initial = defaultSpriteSheetConfig)
     val spriteAnimationsJson by settingsPreferences.spriteAnimationsJson.collectAsState(initial = null)
-    val lastSelectedAnimationKey by settingsPreferences.lastSelectedAnimation.collectAsState(initial = null)
+    val readyPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.READY)
+        .collectAsState(initial = null)
+    val speakingPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.SPEAKING)
+        .collectAsState(initial = null)
+    val idlePerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.IDLE)
+        .collectAsState(initial = null)
+    val thinkingPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.THINKING)
+        .collectAsState(initial = null)
+    val offlinePerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.OFFLINE)
+        .collectAsState(initial = null)
+    val errorPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.ERROR)
+        .collectAsState(initial = null)
+    // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
+    val lastSelectedAnimationTypeKey by settingsPreferences.lastSelectedAnimationType
+        .collectAsState(initial = null)
     val lastSelectedSpriteTabKey by settingsPreferences.lastSelectedSpriteTab
         .collectAsState(initial = UNSET_SPRITE_TAB)
     val lastSelectedBoxNumberKey by settingsPreferences.lastSelectedBoxNumber.collectAsState(initial = null)
@@ -936,8 +973,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var appliedReadyInsertionPatterns by remember {
         mutableStateOf(
             listOf(
-                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 80),
+                InsertionPattern(listOf(5, 0), weight = 3, intervalMs = 110),
+                InsertionPattern(listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 80),
             )
         )
     }
@@ -970,7 +1007,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var appliedTalkingInsertionPatterns by remember {
-        mutableStateOf(listOf(InsertionPattern(frameSequence = listOf(3, 4, 5))))
+        mutableStateOf(listOf(InsertionPattern(listOf(3, 4, 5))))
     }
     var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(200) }
     var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(1) }
@@ -991,14 +1028,158 @@ fun SpriteSettingsScreen(navController: NavController) {
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
+    var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyIdlePerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyThinkingPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyReadyBaseSettings by remember { mutableStateOf(false) }
+    var didApplyTalkingBaseSettings by remember { mutableStateOf(false) }
+    var didApplyReadyInsertionSettings by remember { mutableStateOf(false) }
+    var didApplyTalkingInsertionSettings by remember { mutableStateOf(false) }
+    var didApplySpriteSheetSettings by remember { mutableStateOf(false) }
+    var didRestoreSelectedAnimation by remember {
+        // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
+        mutableStateOf(false)
+    }
 
-    LaunchedEffect(lastSelectedAnimationKey) {
-        val restoredKey = lastSelectedAnimationKey
-        val restoredType = AnimationType.fromInternalKeyOrNull(restoredKey)
-        if (restoredType != null && restoredType != selectedAnimation) {
-            // internalKey から復元する（表示名差分の影響回避）
+    fun resolveExtraAnimationInput(target: AnimationType): AnimationInputState {
+        val existing = extraAnimationStates[target]
+        if (existing != null) {
+            return existing
+        }
+        val defaults = requireNotNull(extraAnimationDefaults[target]) { "対象外のアニメ種別です: $target" }
+        val initialState = defaults.toInputState()
+        extraAnimationStates[target] = initialState
+        return initialState
+    }
+
+    fun updateExtraState(target: AnimationType, transform: (AnimationInputState) -> AnimationInputState) {
+        val current = resolveExtraAnimationInput(target)
+        extraAnimationStates[target] = transform(current)
+    }
+
+    fun resolveInputState(target: AnimationType): AnimationInputState {
+        return when (target) {
+            AnimationType.READY -> AnimationInputState(
+                frameInput = readyFrameInput,
+                intervalInput = readyIntervalInput,
+                framesError = readyFramesError,
+                intervalError = readyIntervalError,
+                insertionPattern1FramesInput = readyInsertionPattern1FramesInput,
+                insertionPattern1WeightInput = readyInsertionPattern1WeightInput,
+                insertionPattern1IntervalInput = readyInsertionPattern1IntervalInput,
+                insertionPattern2FramesInput = readyInsertionPattern2FramesInput,
+                insertionPattern2WeightInput = readyInsertionPattern2WeightInput,
+                insertionPattern2IntervalInput = readyInsertionPattern2IntervalInput,
+                insertionIntervalInput = readyInsertionIntervalInput,
+                insertionEveryNInput = readyInsertionEveryNInput,
+                insertionProbabilityInput = readyInsertionProbabilityInput,
+                insertionCooldownInput = readyInsertionCooldownInput,
+                insertionEnabled = readyInsertionEnabled,
+                insertionExclusive = readyInsertionExclusive,
+                insertionPattern1FramesError = readyInsertionPattern1FramesError,
+                insertionPattern1WeightError = readyInsertionPattern1WeightError,
+                insertionPattern1IntervalError = readyInsertionPattern1IntervalError,
+                insertionPattern2FramesError = readyInsertionPattern2FramesError,
+                insertionPattern2WeightError = readyInsertionPattern2WeightError,
+                insertionPattern2IntervalError = readyInsertionPattern2IntervalError,
+                insertionIntervalError = readyInsertionIntervalError,
+                insertionEveryNError = readyInsertionEveryNError,
+                insertionProbabilityError = readyInsertionProbabilityError,
+                insertionCooldownError = readyInsertionCooldownError,
+                appliedBase = ReadyAnimationSettings(
+                    appliedReadyFrames,
+                    intervalMs = appliedReadyIntervalMs,
+                ),
+                appliedInsertion = InsertionAnimationSettings(
+                    enabled = appliedReadyInsertionEnabled,
+                    patterns = appliedReadyInsertionPatterns,
+                    intervalMs = appliedReadyInsertionIntervalMs,
+                    everyNLoops = appliedReadyInsertionEveryNLoops,
+                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                    cooldownLoops = appliedReadyInsertionCooldownLoops,
+                    exclusive = appliedReadyInsertionExclusive,
+                ),
+            )
+
+            AnimationType.TALKING -> AnimationInputState(
+                frameInput = talkingFrameInput,
+                intervalInput = talkingIntervalInput,
+                framesError = talkingFramesError,
+                intervalError = talkingIntervalError,
+                insertionPattern1FramesInput = talkingInsertionPattern1FramesInput,
+                insertionPattern1WeightInput = talkingInsertionPattern1WeightInput,
+                insertionPattern1IntervalInput = talkingInsertionPattern1IntervalInput,
+                insertionPattern2FramesInput = talkingInsertionPattern2FramesInput,
+                insertionPattern2WeightInput = talkingInsertionPattern2WeightInput,
+                insertionPattern2IntervalInput = talkingInsertionPattern2IntervalInput,
+                insertionIntervalInput = talkingInsertionIntervalInput,
+                insertionEveryNInput = talkingInsertionEveryNInput,
+                insertionProbabilityInput = talkingInsertionProbabilityInput,
+                insertionCooldownInput = talkingInsertionCooldownInput,
+                insertionEnabled = talkingInsertionEnabled,
+                insertionExclusive = talkingInsertionExclusive,
+                insertionPattern1FramesError = talkingInsertionPattern1FramesError,
+                insertionPattern1WeightError = talkingInsertionPattern1WeightError,
+                insertionPattern1IntervalError = talkingInsertionPattern1IntervalError,
+                insertionPattern2FramesError = talkingInsertionPattern2FramesError,
+                insertionPattern2WeightError = talkingInsertionPattern2WeightError,
+                insertionPattern2IntervalError = talkingInsertionPattern2IntervalError,
+                insertionIntervalError = talkingInsertionIntervalError,
+                insertionEveryNError = talkingInsertionEveryNError,
+                insertionProbabilityError = talkingInsertionProbabilityError,
+                insertionCooldownError = talkingInsertionCooldownError,
+                appliedBase = ReadyAnimationSettings(
+                    appliedTalkingFrames,
+                    intervalMs = appliedTalkingIntervalMs,
+                ),
+                appliedInsertion = InsertionAnimationSettings(
+                    enabled = appliedTalkingInsertionEnabled,
+                    patterns = appliedTalkingInsertionPatterns,
+                    intervalMs = appliedTalkingInsertionIntervalMs,
+                    everyNLoops = appliedTalkingInsertionEveryNLoops,
+                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                    exclusive = appliedTalkingInsertionExclusive,
+                ),
+            )
+
+            else -> resolveExtraAnimationInput(target)
+        }
+    }
+
+    fun resolveValidSpriteSheetConfig(config: SpriteSheetConfig): SpriteSheetConfig {
+        return config
+            .takeIf { it.isUninitialized().not() && it.validate() == null }
+            ?.copy(boxes = config.boxesWithInternalIndex())
+            ?: defaultSpriteSheetConfig
+    }
+
+    val normalizedSpriteSheetConfig = remember(spriteSheetConfig) {
+        resolveValidSpriteSheetConfig(spriteSheetConfig)
+    }
+    val normalizedBoxPositions = remember(normalizedSpriteSheetConfig) {
+        normalizedSpriteSheetConfig.boxes
+            .sortedBy { it.frameIndex }
+            .map { position -> BoxPosition(position.x, position.y) }
+    }
+    LaunchedEffect(lastSelectedAnimationTypeKey) {
+        if (didRestoreSelectedAnimation) {
+            return@LaunchedEffect
+        }
+        // DataStore の初回 null を「復元完了」と扱わない
+        if (lastSelectedAnimationTypeKey == null) {
+            return@LaunchedEffect
+        }
+        val restoredType = AnimationType.fromInternalKeyOrNull(lastSelectedAnimationTypeKey)
+            ?: AnimationType.READY
+        if (restoredType != selectedAnimation) {
+            // 最後に選択したアニメ種別を1回だけ復元する
             selectedAnimation = restoredType
         }
+        didRestoreSelectedAnimation = true
     }
 
     LaunchedEffect(lastSelectedSpriteTabKey) {
@@ -1043,38 +1224,36 @@ fun SpriteSettingsScreen(navController: NavController) {
         settingsPreferences.saveLastSelectedBoxNumber(selectedNumber)
     }
 
-    LaunchedEffect(spriteSheetConfig) {
-        val validConfig = spriteSheetConfig
-            .takeIf { it.isUninitialized().not() && it.validate() == null }
-            ?.copy(boxes = spriteSheetConfig.boxesWithInternalIndex())
-            ?: defaultSpriteSheetConfig
-
-        val resolvedBoxes = validConfig.boxes
-        boxSizePx = validConfig.frameWidth.coerceAtLeast(1)
+    LaunchedEffect(normalizedSpriteSheetConfig) {
+        val resolvedBoxes = normalizedSpriteSheetConfig.boxes
+        boxSizePx = normalizedSpriteSheetConfig.frameWidth.coerceAtLeast(1)
         boxPositions = resolvedBoxes
             .sortedBy { it.frameIndex }
             .map { position -> BoxPosition(position.x, position.y) }
         selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+        didApplySpriteSheetSettings = true
     }
 
     LaunchedEffect(readyAnimationSettings) {
-        val normalizedFrames = readyAnimationSettings.frameSequence.ifEmpty { listOf(0) }
+        val normalizedFrames = readyAnimationSettings.frames().ifEmpty { listOf(0) }
         appliedReadyFrames = normalizedFrames
         appliedReadyIntervalMs = readyAnimationSettings.intervalMs
         readyFrameInput = normalizedFrames
             .map { value -> value + 1 }
             .joinToString(separator = ",")
         readyIntervalInput = readyAnimationSettings.intervalMs.toString()
+        didApplyReadyBaseSettings = true
     }
 
     LaunchedEffect(talkingAnimationSettings) {
-        val normalizedFrames = talkingAnimationSettings.frameSequence.ifEmpty { listOf(0) }
+        val normalizedFrames = talkingAnimationSettings.frames().ifEmpty { listOf(0) }
         appliedTalkingFrames = normalizedFrames
         appliedTalkingIntervalMs = talkingAnimationSettings.intervalMs
         talkingFrameInput = normalizedFrames
             .map { value -> value + 1 }
             .joinToString(separator = ",")
         talkingIntervalInput = talkingAnimationSettings.intervalMs.toString()
+        didApplyTalkingBaseSettings = true
     }
 
     LaunchedEffect(readyInsertionAnimationSettings) {
@@ -1099,6 +1278,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         readyInsertionCooldownInput = readyInsertionAnimationSettings.cooldownLoops.toString()
         readyInsertionEnabled = readyInsertionAnimationSettings.enabled
         readyInsertionExclusive = readyInsertionAnimationSettings.exclusive
+        didApplyReadyInsertionSettings = true
     }
 
     LaunchedEffect(talkingInsertionAnimationSettings) {
@@ -1123,6 +1303,292 @@ fun SpriteSettingsScreen(navController: NavController) {
         talkingInsertionCooldownInput = talkingInsertionAnimationSettings.cooldownLoops.toString()
         talkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         talkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
+        didApplyTalkingInsertionSettings = true
+    }
+
+    LaunchedEffect(readyPerStateJson) {
+        if (didApplyReadyPerState) return@LaunchedEffect
+        val rawJson = readyPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.READY)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR20 apply per-state READY failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        readyFrameInput = config.baseFrames
+            .map { value -> value + 1 }
+            .joinToString(separator = ",")
+        readyIntervalInput = config.baseIntervalMs.toString()
+        readyInsertionEnabled = config.insertion.enabled
+        readyInsertionEveryNInput = config.insertion.everyNLoops.toString()
+        readyInsertionProbabilityInput = config.insertion.probabilityPercent.toString()
+        readyInsertionCooldownInput = config.insertion.cooldownLoops.toString()
+        readyInsertionExclusive = config.insertion.exclusive
+        val pattern1 = config.insertion.patterns.getOrNull(0)
+        if (pattern1 != null) {
+            readyInsertionPattern1FramesInput = pattern1.frames
+                .map { value -> value + 1 }
+                .joinToString(separator = ",")
+            readyInsertionPattern1WeightInput = pattern1.weight.toString()
+            readyInsertionPattern1IntervalInput = pattern1.intervalMs.toString()
+        }
+        val pattern2 = config.insertion.patterns.getOrNull(1)
+        if (pattern2 != null) {
+            readyInsertionPattern2FramesInput = pattern2.frames
+                .map { value -> value + 1 }
+                .joinToString(separator = ",")
+            readyInsertionPattern2WeightInput = pattern2.weight.toString()
+            readyInsertionPattern2IntervalInput = pattern2.intervalMs.toString()
+        }
+        didApplyReadyPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR20 apply per-state READY success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(speakingPerStateJson, selectedAnimation) {
+        if (didApplySpeakingPerState) return@LaunchedEffect
+        val rawJson = speakingPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val isSpeakingType = selectedAnimation in setOf(
+            AnimationType.TALKING,
+            AnimationType.TALK_SHORT,
+            AnimationType.TALK_LONG,
+            AnimationType.TALK_CALM,
+        )
+        if (!isSpeakingType) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.SPEAKING)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR20 apply per-state SPEAKING failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        talkingFrameInput = config.baseFrames
+            .map { value -> value + 1 }
+            .joinToString(separator = ",")
+        talkingIntervalInput = config.baseIntervalMs.toString()
+        talkingInsertionEnabled = config.insertion.enabled
+        talkingInsertionEveryNInput = config.insertion.everyNLoops.toString()
+        talkingInsertionProbabilityInput = config.insertion.probabilityPercent.toString()
+        talkingInsertionCooldownInput = config.insertion.cooldownLoops.toString()
+        talkingInsertionExclusive = config.insertion.exclusive
+        val pattern1 = config.insertion.patterns.getOrNull(0)
+        if (pattern1 != null) {
+            talkingInsertionPattern1FramesInput = pattern1.frames
+                .map { value -> value + 1 }
+                .joinToString(separator = ",")
+            talkingInsertionPattern1WeightInput = pattern1.weight.toString()
+            talkingInsertionPattern1IntervalInput = pattern1.intervalMs.toString()
+        }
+        val pattern2 = config.insertion.patterns.getOrNull(1)
+        if (pattern2 != null) {
+            talkingInsertionPattern2FramesInput = pattern2.frames
+                .map { value -> value + 1 }
+                .joinToString(separator = ",")
+            talkingInsertionPattern2WeightInput = pattern2.weight.toString()
+            talkingInsertionPattern2IntervalInput = pattern2.intervalMs.toString()
+        }
+        didApplySpeakingPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR20 apply per-state SPEAKING success size=${rawJson.length}"
+            )
+        }
+    }
+
+    // PR21: IDLE/THINKING/OFFLINE/ERROR でも state別最小JSON を優先適用
+    LaunchedEffect(idlePerStateJson, selectedAnimation) {
+        if (didApplyIdlePerState) return@LaunchedEffect
+        val rawJson = idlePerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (selectedAnimation != AnimationType.IDLE) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.IDLE)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state IDLE failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = AnimationType.IDLE
+        val pattern1 = config.insertion.patterns.getOrNull(0)
+        val pattern2 = config.insertion.patterns.getOrNull(1)
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
+            insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
+            insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
+            insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+        )
+        didApplyIdlePerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state IDLE success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(thinkingPerStateJson, selectedAnimation) {
+        if (didApplyThinkingPerState) return@LaunchedEffect
+        val rawJson = thinkingPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (selectedAnimation != AnimationType.THINKING) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.THINKING)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state THINKING failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = AnimationType.THINKING
+        val pattern1 = config.insertion.patterns.getOrNull(0)
+        val pattern2 = config.insertion.patterns.getOrNull(1)
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
+            insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
+            insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
+            insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+        )
+        didApplyThinkingPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state THINKING success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(offlinePerStateJson, selectedAnimation) {
+        if (didApplyOfflinePerState) return@LaunchedEffect
+        val rawJson = offlinePerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val isOfflineType = selectedAnimation in setOf(
+            AnimationType.OFFLINE_ENTER,
+            AnimationType.OFFLINE_LOOP,
+            AnimationType.OFFLINE_EXIT,
+        )
+        if (!isOfflineType) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.OFFLINE)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state OFFLINE failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = AnimationType.OFFLINE_LOOP
+        val pattern1 = config.insertion.patterns.getOrNull(0)
+        val pattern2 = config.insertion.patterns.getOrNull(1)
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
+            insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
+            insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
+            insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+        )
+        didApplyOfflinePerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state OFFLINE success size=${rawJson.length}"
+            )
+        }
+    }
+
+    LaunchedEffect(errorPerStateJson, selectedAnimation) {
+        if (didApplyErrorPerState) return@LaunchedEffect
+        val rawJson = errorPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val isErrorType = selectedAnimation in setOf(
+            AnimationType.ERROR_LIGHT,
+            AnimationType.ERROR_HEAVY,
+        )
+        if (!isErrorType) return@LaunchedEffect
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.ERROR)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR21 apply per-state ERROR failed: ${result.exceptionOrNull()?.message}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = selectedAnimation
+        val pattern1 = config.insertion.patterns.getOrNull(0)
+        val pattern2 = config.insertion.patterns.getOrNull(1)
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = pattern1?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern1WeightInput = (pattern1?.weight ?: 1).toString(),
+            insertionPattern1IntervalInput = pattern1?.intervalMs?.toString().orEmpty(),
+            insertionPattern2FramesInput = pattern2?.frames?.toFrameInputText().orEmpty(),
+            insertionPattern2WeightInput = (pattern2?.weight ?: 0).toString(),
+            insertionPattern2IntervalInput = pattern2?.intervalMs?.toString().orEmpty(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+        )
+        didApplyErrorPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR21 apply per-state ERROR success size=${rawJson.length}"
+            )
+        }
     }
 
     val selectedIndex = selectedNumber - 1
@@ -1233,7 +1699,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             if (framesResult.value != null && weightResult.value != null && intervalResult.error == null) {
                 patterns.add(
                     InsertionPattern(
-                        frameSequence = framesResult.value,
+                        framesResult.value,
                         weight = weightResult.value,
                         intervalMs = intervalResult.value,
                     )
@@ -1266,7 +1732,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             if (framesResult.value != null && weightResult.value != null && intervalResult.error == null) {
                 patterns.add(
                     InsertionPattern(
-                        frameSequence = framesResult.value,
+                        framesResult.value,
                         weight = weightResult.value,
                         intervalMs = intervalResult.value,
                     )
@@ -1344,117 +1810,11 @@ fun SpriteSettingsScreen(navController: NavController) {
         return ValidationResult(rawValue, null)
     }
 
-    fun resolveExtraState(target: AnimationType): AnimationInputState {
-        val existing = extraAnimationStates[target]
-        if (existing != null) {
-            return existing
-        }
-        val defaults = requireNotNull(extraAnimationDefaults[target]) { "対象外のアニメ種別です: $target" }
-        val initialState = defaults.toInputState()
-        extraAnimationStates[target] = initialState
-        return initialState
-    }
-
-    fun updateExtraState(target: AnimationType, transform: (AnimationInputState) -> AnimationInputState) {
-        val current = resolveExtraState(target)
-        extraAnimationStates[target] = transform(current)
-    }
-
-    fun resolveInputState(target: AnimationType): AnimationInputState {
-        return when (target) {
-            AnimationType.READY -> AnimationInputState(
-                frameInput = readyFrameInput,
-                intervalInput = readyIntervalInput,
-                framesError = readyFramesError,
-                intervalError = readyIntervalError,
-                insertionPattern1FramesInput = readyInsertionPattern1FramesInput,
-                insertionPattern1WeightInput = readyInsertionPattern1WeightInput,
-                insertionPattern1IntervalInput = readyInsertionPattern1IntervalInput,
-                insertionPattern2FramesInput = readyInsertionPattern2FramesInput,
-                insertionPattern2WeightInput = readyInsertionPattern2WeightInput,
-                insertionPattern2IntervalInput = readyInsertionPattern2IntervalInput,
-                insertionIntervalInput = readyInsertionIntervalInput,
-                insertionEveryNInput = readyInsertionEveryNInput,
-                insertionProbabilityInput = readyInsertionProbabilityInput,
-                insertionCooldownInput = readyInsertionCooldownInput,
-                insertionEnabled = readyInsertionEnabled,
-                insertionExclusive = readyInsertionExclusive,
-                insertionPattern1FramesError = readyInsertionPattern1FramesError,
-                insertionPattern1WeightError = readyInsertionPattern1WeightError,
-                insertionPattern1IntervalError = readyInsertionPattern1IntervalError,
-                insertionPattern2FramesError = readyInsertionPattern2FramesError,
-                insertionPattern2WeightError = readyInsertionPattern2WeightError,
-                insertionPattern2IntervalError = readyInsertionPattern2IntervalError,
-                insertionIntervalError = readyInsertionIntervalError,
-                insertionEveryNError = readyInsertionEveryNError,
-                insertionProbabilityError = readyInsertionProbabilityError,
-                insertionCooldownError = readyInsertionCooldownError,
-                appliedBase = ReadyAnimationSettings(
-                    frameSequence = appliedReadyFrames,
-                    intervalMs = appliedReadyIntervalMs,
-                ),
-                appliedInsertion = InsertionAnimationSettings(
-                    enabled = appliedReadyInsertionEnabled,
-                    patterns = appliedReadyInsertionPatterns,
-                    intervalMs = appliedReadyInsertionIntervalMs,
-                    everyNLoops = appliedReadyInsertionEveryNLoops,
-                    probabilityPercent = appliedReadyInsertionProbabilityPercent,
-                    cooldownLoops = appliedReadyInsertionCooldownLoops,
-                    exclusive = appliedReadyInsertionExclusive,
-                ),
-            )
-
-            AnimationType.TALKING -> AnimationInputState(
-                frameInput = talkingFrameInput,
-                intervalInput = talkingIntervalInput,
-                framesError = talkingFramesError,
-                intervalError = talkingIntervalError,
-                insertionPattern1FramesInput = talkingInsertionPattern1FramesInput,
-                insertionPattern1WeightInput = talkingInsertionPattern1WeightInput,
-                insertionPattern1IntervalInput = talkingInsertionPattern1IntervalInput,
-                insertionPattern2FramesInput = talkingInsertionPattern2FramesInput,
-                insertionPattern2WeightInput = talkingInsertionPattern2WeightInput,
-                insertionPattern2IntervalInput = talkingInsertionPattern2IntervalInput,
-                insertionIntervalInput = talkingInsertionIntervalInput,
-                insertionEveryNInput = talkingInsertionEveryNInput,
-                insertionProbabilityInput = talkingInsertionProbabilityInput,
-                insertionCooldownInput = talkingInsertionCooldownInput,
-                insertionEnabled = talkingInsertionEnabled,
-                insertionExclusive = talkingInsertionExclusive,
-                insertionPattern1FramesError = talkingInsertionPattern1FramesError,
-                insertionPattern1WeightError = talkingInsertionPattern1WeightError,
-                insertionPattern1IntervalError = talkingInsertionPattern1IntervalError,
-                insertionPattern2FramesError = talkingInsertionPattern2FramesError,
-                insertionPattern2WeightError = talkingInsertionPattern2WeightError,
-                insertionPattern2IntervalError = talkingInsertionPattern2IntervalError,
-                insertionIntervalError = talkingInsertionIntervalError,
-                insertionEveryNError = talkingInsertionEveryNError,
-                insertionProbabilityError = talkingInsertionProbabilityError,
-                insertionCooldownError = talkingInsertionCooldownError,
-                appliedBase = ReadyAnimationSettings(
-                    frameSequence = appliedTalkingFrames,
-                    intervalMs = appliedTalkingIntervalMs,
-                ),
-                appliedInsertion = InsertionAnimationSettings(
-                    enabled = appliedTalkingInsertionEnabled,
-                    patterns = appliedTalkingInsertionPatterns,
-                    intervalMs = appliedTalkingInsertionIntervalMs,
-                    everyNLoops = appliedTalkingInsertionEveryNLoops,
-                    probabilityPercent = appliedTalkingInsertionProbabilityPercent,
-                    cooldownLoops = appliedTalkingInsertionCooldownLoops,
-                    exclusive = appliedTalkingInsertionExclusive,
-                ),
-            )
-
-            else -> resolveExtraState(target)
-        }
-    }
-
     fun isInsertionEnabled(target: AnimationType): Boolean {
         return when (target) {
             AnimationType.READY -> readyInsertionEnabled
             AnimationType.TALKING -> talkingInsertionEnabled
-            else -> resolveExtraState(target).insertionEnabled
+            else -> resolveExtraAnimationInput(target).insertionEnabled
         }
     }
 
@@ -1463,7 +1823,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             AnimationType.READY -> readyFrameInput to readyIntervalInput
             AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
             else -> {
-                val state = resolveExtraState(target)
+                val state = resolveExtraAnimationInput(target)
                 state.frameInput to state.intervalInput
             }
         }
@@ -1471,8 +1831,8 @@ fun SpriteSettingsScreen(navController: NavController) {
             AnimationType.READY -> appliedReadyFrames to appliedReadyIntervalMs
             AnimationType.TALKING -> appliedTalkingFrames to appliedTalkingIntervalMs
             else -> {
-                val state = resolveExtraState(target)
-                state.appliedBase.frameSequence to state.appliedBase.intervalMs
+                val state = resolveExtraAnimationInput(target)
+                state.appliedBase.frames() to state.appliedBase.intervalMs
             }
         }
         val framesResult = parseFrameSequenceInput(
@@ -1533,7 +1893,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
 
             else -> {
-                val state = resolveExtraState(target)
+                val state = resolveExtraAnimationInput(target)
                 inputEnabled = state.insertionEnabled
                 inputExclusive = state.insertionExclusive
                 patternsResult = parseInsertionPatternsInput(
@@ -1593,7 +1953,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 exclusive = appliedTalkingInsertionExclusive
             )
 
-            else -> resolveExtraState(target).appliedInsertion
+            else -> resolveExtraAnimationInput(target).appliedInsertion
         }
 
         if (parsedInsertion.enabled != appliedState.enabled || parsedInsertion.exclusive != appliedState.exclusive) {
@@ -1609,11 +1969,42 @@ fun SpriteSettingsScreen(navController: NavController) {
         return patternsMatch && intervalMatches && everyNMatches && probabilityMatches && cooldownMatches
     }
 
-    fun hasUnsavedChanges(): Boolean {
-        val baseSynced = isBaseInputSynced(AnimationType.READY) && isBaseInputSynced(AnimationType.TALKING)
-        val insertionSynced =
-            isInsertionInputSynced(AnimationType.READY) && isInsertionInputSynced(AnimationType.TALKING)
-        return !(baseSynced && insertionSynced)
+    val didFinishInitialLoad by remember {
+        // 初回復元が完了するまで dirty 判定を止め、誤検知を避ける
+        derivedStateOf<Boolean> {
+            didRestoreTab &&
+                didRestoreAdjustSelection &&
+                didRestoreSelectedAnimation &&
+                didApplyReadyBaseSettings &&
+                didApplyTalkingBaseSettings &&
+                didApplyReadyInsertionSettings &&
+                didApplyTalkingInsertionSettings &&
+                didApplySpriteSheetSettings &&
+                ((readyPerStateJson.isNullOrBlank()) || didApplyReadyPerState) &&
+                ((speakingPerStateJson.isNullOrBlank()) || didApplySpeakingPerState) &&
+                ((idlePerStateJson.isNullOrBlank()) || didApplyIdlePerState) &&
+                ((thinkingPerStateJson.isNullOrBlank()) || didApplyThinkingPerState) &&
+                ((offlinePerStateJson.isNullOrBlank()) || didApplyOfflinePerState) &&
+                ((errorPerStateJson.isNullOrBlank()) || didApplyErrorPerState)
+        }
+    }
+    val hasUnsavedChangesState by remember {
+        // 入力→正規化→適用済みとの差分だけを dirty と判定する
+        derivedStateOf<Boolean> {
+            if (!didFinishInitialLoad) return@derivedStateOf false
+            val animationTargets = buildList {
+                add(AnimationType.READY)
+                add(AnimationType.TALKING)
+                addAll(extraAnimationStates.keys)
+            }.distinct()
+            val animationDirty = animationTargets.any { target ->
+                !isBaseInputSynced(target) || !isInsertionInputSynced(target)
+            }
+            val adjustDirty = boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
+                boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
+                boxPositions != normalizedBoxPositions
+            animationDirty || adjustDirty
+        }
     }
 
     fun navigateBackWithFallback() {
@@ -1631,7 +2022,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             showDiscardDialog = false
             return
         }
-        if (hasUnsavedChanges()) {
+        if (hasUnsavedChangesState) {
             showDiscardDialog = true
         } else {
             navigateBackWithFallback()
@@ -1695,7 +2086,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             AnimationType.READY -> readyFrameInput to readyIntervalInput
             AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
             else -> {
-                val state = resolveExtraState(target)
+                val state = resolveExtraAnimationInput(target)
                 state.frameInput to state.intervalInput
             }
         }
@@ -1731,7 +2122,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val interval = intervalResult.value
         if (frames != null && interval != null) {
             return ReadyAnimationSettings(
-                frameSequence = frames,
+                frames,
                 intervalMs = interval,
             )
         }
@@ -1780,7 +2171,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
 
             else -> {
-                val state = resolveExtraState(target)
+                val state = resolveExtraAnimationInput(target)
                 pattern1FramesInput = state.insertionPattern1FramesInput
                 pattern1WeightInput = state.insertionPattern1WeightInput
                 pattern1IntervalInput = state.insertionPattern1IntervalInput
@@ -1876,7 +2267,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     fun resolveDefaultAnimations(): Map<AnimationType, AnimationDefaults> {
         val readyDefaults = AnimationDefaults(
             base = ReadyAnimationSettings(
-                frameSequence = appliedReadyFrames,
+                appliedReadyFrames,
                 intervalMs = appliedReadyIntervalMs,
             ),
             insertion = InsertionAnimationSettings(
@@ -1891,7 +2282,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         )
         val talkingDefaults = AnimationDefaults(
             base = ReadyAnimationSettings(
-                frameSequence = appliedTalkingFrames,
+                appliedTalkingFrames,
                 intervalMs = appliedTalkingIntervalMs,
             ),
             insertion = InsertionAnimationSettings(
@@ -1989,7 +2380,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 if (frames.isNotEmpty()) {
                     patterns.add(
                         InsertionPattern(
-                            frameSequence = frames,
+                            frames,
                             weight = weight,
                             intervalMs = intervalMs,
                         )
@@ -2000,7 +2391,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
         val legacyFramesResult = parseFramesFromJson(
             array = json.optJSONArray(JSON_FRAMES_KEY),
-            fallback = fallback.firstOrNull()?.frameSequence.orEmpty(),
+            fallback = fallback.firstOrNull()?.frames().orEmpty(),
             frameCount = spriteSheetConfig.frameCount,
         )
         if (legacyFramesResult.error != null) return ValidationResult(null, legacyFramesResult.error)
@@ -2008,7 +2399,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val legacyPatterns = if (legacyFrames.isEmpty()) {
             emptyList()
         } else {
-            listOf(InsertionPattern(frameSequence = legacyFrames, weight = 1))
+            listOf(InsertionPattern(legacyFrames, weight = 1))
         }
         return ValidationResult(legacyPatterns, null)
     }
@@ -2020,7 +2411,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (json == null) return ValidationResult(fallback, null)
         val framesResult = parseFramesFromJson(
             array = json.optJSONArray(JSON_FRAMES_KEY),
-            fallback = fallback.frameSequence,
+            fallback = fallback.frames(),
             frameCount = spriteSheetConfig.frameCount,
         )
         val intervalMs = json.optInt(JSON_INTERVAL_MS_KEY, fallback.intervalMs)
@@ -2033,7 +2424,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (framesResult.error != null) return ValidationResult(null, framesResult.error)
         return ValidationResult(
             ReadyAnimationSettings(
-                frameSequence = framesResult.value ?: fallback.frameSequence,
+                framesResult.value ?: fallback.frames(),
                 intervalMs = intervalMs,
             ),
             null
@@ -2135,7 +2526,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
 
             else -> {
-                val state = resolveExtraState(target)
+                val state = resolveExtraAnimationInput(target)
                 baseFramesInput = state.frameInput
                 baseIntervalInput = state.intervalInput
                 insertionPattern1FramesInput = state.insertionPattern1FramesInput
@@ -2159,7 +2550,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val baseIntervalResult = parseIntervalMsInput(baseIntervalInput)
         val baseSettings = if (baseFramesResult.value != null && baseIntervalResult.value != null) {
             ReadyAnimationSettings(
-                frameSequence = baseFramesResult.value!!,
+                baseFramesResult.value!!,
                 intervalMs = baseIntervalResult.value!!,
             )
         } else {
@@ -2209,7 +2600,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         return when (target) {
             AnimationType.READY -> AnimationDefaults(
                 base = ReadyAnimationSettings(
-                    frameSequence = appliedReadyFrames,
+                    appliedReadyFrames,
                     intervalMs = appliedReadyIntervalMs,
                 ),
                 insertion = InsertionAnimationSettings(
@@ -2225,7 +2616,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
             AnimationType.TALKING -> AnimationDefaults(
                 base = ReadyAnimationSettings(
-                    frameSequence = appliedTalkingFrames,
+                    appliedTalkingFrames,
                     intervalMs = appliedTalkingIntervalMs,
                 ),
                 insertion = InsertionAnimationSettings(
@@ -2240,37 +2631,13 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
 
             else -> {
-                val state = resolveExtraState(target)
+                val state = resolveExtraAnimationInput(target)
                 AnimationDefaults(
                     base = state.appliedBase,
                     insertion = state.appliedInsertion,
                 )
             }
         }
-    }
-
-    // 保存用: 全アニメ設定をDataStore向けJSONに変換する。
-    fun buildAllAnimationsJsonForStorage(): String {
-        val animationsObject = JSONObject()
-        AnimationType.options.forEach { type ->
-            val defaults = resolveAppliedDefaults(type)
-            val key = when (type) {
-                AnimationType.READY -> ALL_ANIMATIONS_READY_KEY
-                AnimationType.TALKING -> ALL_ANIMATIONS_TALKING_KEY
-                AnimationType.THINKING -> ALL_ANIMATIONS_THINKING_KEY
-                else -> type.internalKey
-            }
-            animationsObject.put(
-                key,
-                JSONObject()
-                    .put(JSON_BASE_KEY, defaults.base.toJsonObject())
-                    .put(JSON_INSERTION_KEY, defaults.insertion.toJsonObject())
-            )
-        }
-        return JSONObject()
-            .put(JSON_VERSION_KEY, ALL_ANIMATIONS_JSON_VERSION)
-            .put(JSON_ANIMATIONS_KEY, animationsObject)
-            .toString()
     }
 
     // メモ: 全アニメJSONは animationType/internalKey と混同しないよう、表示名(Ready等)をキーに統一する。
@@ -2346,32 +2713,108 @@ fun SpriteSettingsScreen(navController: NavController) {
         importAllAnimationsFromJson(json, legacyDefaults).value?.animations ?: legacyDefaults
     }
 
-    // 保存処理は全アニメJSONに統一しつつ、必要ならlegacy保存も併用する。
-    fun persistAllAnimationsJson(onLegacySave: suspend () -> Unit = {}) {
+    // state別JSONが正（Single Source of Truth）。
+    // sprite_animations_json は読み取りフォールバック専用で保存しない。
+    // 一定期間の移行完了や最低対応バージョン引き上げ後に削除可能。
+    fun persistPerStateAnimationJson(
+        validatedBase: ReadyAnimationSettings,
+        validatedInsertion: InsertionAnimationSettings?,
+    ) {
         coroutineScope.launch {
-            var rawJsonLength: Int? = null
-            var normalizedJsonLength: Int? = null
-            val spriteAnimationsJsonSnapshot = spriteAnimationsJson
-            val storedJsonLength = when {
-                spriteAnimationsJsonSnapshot == null -> "null"
-                spriteAnimationsJsonSnapshot.isBlank() -> "blank"
-                else -> spriteAnimationsJsonSnapshot.length.toString()
-            }
+            var perStateSaved: SpriteState? = null
+            var perStateKey: String? = null
             runCatching {
-                val rawJson = buildAllAnimationsJsonForStorage()
-                rawJsonLength = rawJson.length
-                val normalizedJson = settingsPreferences.parseAndValidateAllAnimationsJson(rawJson).getOrThrow()
-                normalizedJsonLength = normalizedJson.length
-                settingsPreferences.saveSpriteAnimationsJson(normalizedJson)
-                onLegacySave()
+                val targetState = when (selectedAnimation) {
+                    AnimationType.READY -> SpriteState.READY
+                    AnimationType.TALKING,
+                    AnimationType.TALK_SHORT,
+                    AnimationType.TALK_LONG,
+                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                    AnimationType.IDLE -> SpriteState.IDLE
+                    AnimationType.THINKING -> SpriteState.THINKING
+                    AnimationType.OFFLINE_ENTER,
+                    AnimationType.OFFLINE_LOOP,
+                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                    AnimationType.ERROR_LIGHT,
+                    AnimationType.ERROR_HEAVY -> SpriteState.ERROR
+                }
+                val animationKeyForState = when (targetState) {
+                    SpriteState.READY -> "Ready"
+                    SpriteState.SPEAKING -> "TalkDefault"
+                    SpriteState.IDLE -> "Idle"
+                    SpriteState.THINKING -> "Thinking"
+                    SpriteState.OFFLINE -> "OfflineLoop"
+                    SpriteState.ERROR -> "ErrorLight"
+                }
+                val hasMissingPatternInterval = validatedInsertion
+                    ?.patterns
+                    ?.take(2)
+                    ?.any { pattern -> pattern.intervalMs == null }
+                    ?: false
+                if (hasMissingPatternInterval) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(
+                            "LamiSprite",
+                            "persistPerStateAnimationJson skip: missing intervalMs " +
+                                "state=${targetState.name} key=$animationKeyForState"
+                        )
+                    }
+                    return@runCatching
+                }
+                perStateSaved = targetState
+                perStateKey = animationKeyForState
+                val baseJson = JSONObject().apply {
+                    // base: 検証済みのframes/intervalを最小構成で保存
+                    put("frames", JSONArray(validatedBase.frames()))
+                    put("intervalMs", validatedBase.intervalMs)
+                }
+                val insertionJson = JSONObject().apply {
+                    // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
+                    put("enabled", validatedInsertion?.enabled ?: false)
+                    put(
+                        "patterns",
+                        JSONArray().apply {
+                            validatedInsertion
+                                ?.patterns
+                                ?.take(2)
+                                ?.forEach { pattern ->
+                                    put(
+                                        JSONObject().apply {
+                                            put("frames", JSONArray(pattern.frames()))
+                                            put("weight", pattern.weight)
+                                            put("intervalMs", pattern.intervalMs)
+                                        }
+                                    )
+                                }
+                        }
+                    )
+                    put("everyNLoops", validatedInsertion?.everyNLoops ?: 0)
+                    put("probabilityPercent", validatedInsertion?.probabilityPercent ?: 0)
+                    put("cooldownLoops", validatedInsertion?.cooldownLoops ?: 0)
+                    put("exclusive", validatedInsertion?.exclusive ?: false)
+                }
+                val perStateJson = JSONObject().apply {
+                    // 1アニメ=1JSONの最小スキーマを保存する
+                    put("animationKey", animationKeyForState)
+                    put("base", baseJson)
+                    put("insertion", insertionJson)
+                }
+                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state saved: state=${targetState.name} key=$animationKeyForState " +
+                            "size=${perStateJson.toString().length}"
+                    )
+                }
             }.onSuccess {
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
-                        "persistAllAnimationsJson success: type=${selectedAnimation.name} " +
+                        "persistPerStateAnimationJson success: type=${selectedAnimation.name} " +
                             "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
-                            "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
-                            "storedLen=$storedJsonLength"
+                            "perState=${perStateSaved?.name ?: "null"} " +
+                            "perStateKey=${perStateKey ?: "null"}"
                     )
                 }
                 showTopSnackbarSuccess("保存しました")
@@ -2379,10 +2822,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
-                        "persistAllAnimationsJson failure: type=${selectedAnimation.name} " +
+                        "persistPerStateAnimationJson failure: type=${selectedAnimation.name} " +
                             "key=${selectedAnimation.internalKey} label=${selectedAnimation.displayLabel} " +
-                            "rawLen=${rawJsonLength ?: "null"} normalizedLen=${normalizedJsonLength ?: "null"} " +
-                            "storedLen=$storedJsonLength error=${throwable.message}"
+                            "perState=${perStateSaved?.name ?: "null"} " +
+                            "perStateKey=${perStateKey ?: "null"} error=${throwable.message}"
                     )
                 }
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
@@ -2434,11 +2877,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                     throw IllegalArgumentException(error)
                 }
                 val readyBase = ReadyAnimationSettings(
-                    frameSequence = appliedReadyFrames,
+                    appliedReadyFrames,
                     intervalMs = appliedReadyIntervalMs
                 )
                 val talkingBase = ReadyAnimationSettings(
-                    frameSequence = appliedTalkingFrames,
+                    appliedTalkingFrames,
                     intervalMs = appliedTalkingIntervalMs
                 )
                 val readyInsertion = InsertionAnimationSettings(
@@ -2499,22 +2942,22 @@ fun SpriteSettingsScreen(navController: NavController) {
                 val readyBase = when (selectedAnimation) {
                     AnimationType.READY -> validatedBase
                     AnimationType.TALKING -> ReadyAnimationSettings(
-                        frameSequence = appliedReadyFrames,
+                        appliedReadyFrames,
                         intervalMs = appliedReadyIntervalMs
                     )
                     else -> ReadyAnimationSettings(
-                        frameSequence = appliedReadyFrames,
+                        appliedReadyFrames,
                         intervalMs = appliedReadyIntervalMs
                     )
                 }
                 val talkingBase = when (selectedAnimation) {
                     AnimationType.READY -> ReadyAnimationSettings(
-                        frameSequence = appliedTalkingFrames,
+                        appliedTalkingFrames,
                         intervalMs = appliedTalkingIntervalMs
                     )
                     AnimationType.TALKING -> validatedBase
                     else -> ReadyAnimationSettings(
-                        frameSequence = appliedTalkingFrames,
+                        appliedTalkingFrames,
                         intervalMs = appliedTalkingIntervalMs
                     )
                 }
@@ -2594,7 +3037,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         } else null
         when (selectedAnimation) {
             AnimationType.READY -> {
-                appliedReadyFrames = validatedBase.frameSequence
+                appliedReadyFrames = validatedBase.frames()
                 appliedReadyIntervalMs = validatedBase.intervalMs
                 val insertion = validatedInsertion ?: InsertionAnimationSettings(
                     enabled = false,
@@ -2615,7 +3058,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
 
             AnimationType.TALKING -> {
-                appliedTalkingFrames = validatedBase.frameSequence
+                appliedTalkingFrames = validatedBase.frames()
                 appliedTalkingIntervalMs = validatedBase.intervalMs
                 val insertion = validatedInsertion ?: InsertionAnimationSettings(
                     enabled = false,
@@ -2636,7 +3079,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
 
             else -> {
-                val current = resolveExtraState(selectedAnimation)
+                val current = resolveExtraAnimationInput(selectedAnimation)
                 val insertion = validatedInsertion ?: current.appliedInsertion.copy(enabled = false)
                 updateExtraState(selectedAnimation) { state ->
                     state.copy(
@@ -2662,7 +3105,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         } else null
         when (selectedAnimation) {
             AnimationType.READY -> {
-                appliedReadyFrames = validatedBase.frameSequence
+                appliedReadyFrames = validatedBase.frames()
                 appliedReadyIntervalMs = validatedBase.intervalMs
                 val insertion = validatedInsertion ?: InsertionAnimationSettings(
                     enabled = false,
@@ -2680,16 +3123,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
                 appliedReadyInsertionExclusive = insertion.exclusive
-                persistAllAnimationsJson(
-                    onLegacySave = {
-                        settingsPreferences.saveReadyAnimationSettings(validatedBase)
-                        settingsPreferences.saveReadyInsertionAnimationSettings(insertion)
-                    }
-                )
+                persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
 
             AnimationType.TALKING -> {
-                appliedTalkingFrames = validatedBase.frameSequence
+                appliedTalkingFrames = validatedBase.frames()
                 appliedTalkingIntervalMs = validatedBase.intervalMs
                 val insertion = validatedInsertion ?: InsertionAnimationSettings(
                     enabled = false,
@@ -2707,16 +3145,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
                 appliedTalkingInsertionExclusive = insertion.exclusive
-                persistAllAnimationsJson(
-                    onLegacySave = {
-                        settingsPreferences.saveTalkingAnimationSettings(validatedBase)
-                        settingsPreferences.saveTalkingInsertionAnimationSettings(insertion)
-                    }
-                )
+                persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
 
             else -> {
-                val current = resolveExtraState(selectedAnimation)
+                val current = resolveExtraAnimationInput(selectedAnimation)
                 val insertion = validatedInsertion ?: current.appliedInsertion.copy(enabled = false)
                 updateExtraState(selectedAnimation) { state ->
                     state.copy(
@@ -2724,7 +3157,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         appliedInsertion = insertion,
                     )
                 }
-                persistAllAnimationsJson()
+                persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
         }
     }
@@ -2970,12 +3403,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val selectedState = resolveInputState(selectedAnimation)
                                 val selectedBaseSummary = remember(
                                     selectedAnimation,
-                                    selectedState.appliedBase.frameSequence,
+                                    selectedState.appliedBase.frames(),
                                     selectedState.appliedBase.intervalMs,
                                 ) {
                                     AnimationSummary(
                                         label = selectedAnimation.displayLabel,
-                                        frames = selectedState.appliedBase.frameSequence,
+                                        frames = selectedState.appliedBase.frames(),
                                         intervalMs = selectedState.appliedBase.intervalMs,
                                     )
                                 }
@@ -3017,7 +3450,66 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         if (selectedAnimation != updated) {
                                             selectedAnimation = updated
                                             coroutineScope.launch {
-                                                settingsPreferences.saveLastSelectedAnimation(updated.internalKey)
+                                                settingsPreferences.setLastSelectedAnimationType(updated.internalKey)
+                                                // 段階移行：IDLEは新DataStoreへ保存のみ先行（復元は次PR/PR7）
+                                                // 段階移行：READY/SPEAKING は保存のみ先行
+                                                // 段階移行：THINKINGは新DataStoreへ保存のみ先行（復元は次PR/PR9）
+                                                // 段階移行：OFFLINEは新DataStoreへ保存のみ先行（復元は次PR/PR11）
+                                                // 段階移行：ERRORは新DataStoreへ保存のみ先行（復元は次PR/PR13）
+                                                // OFFLINE_ENTER/LOOP/EXIT は state として OFFLINE に正規化し "OfflineLoop" を保存
+                                                // ERROR_LIGHT/HEAVY は state=ERROR に正規化し "ErrorLight"/"ErrorHeavy" を保存
+                                                // 旧キー（sprite_last_selected_animation）は段階廃止済み（PR14で書き込み停止、PR15で読み取り停止）
+                                                when (updated) {
+                                                    AnimationType.IDLE -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.IDLE,
+                                                        "Idle",
+                                                    )
+
+                                                    AnimationType.READY -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.READY,
+                                                        "Ready",
+                                                    )
+
+                                                    AnimationType.TALK_SHORT,
+                                                    AnimationType.TALK_LONG,
+                                                    AnimationType.TALK_CALM ->
+                                                        settingsPreferences.setSelectedKey(
+                                                            SpriteState.SPEAKING,
+                                                            updated.internalKey,
+                                                        )
+
+                                                    // TalkDefault は enum に無いため TALKING を TalkDefault として保存
+                                                    AnimationType.TALKING -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.SPEAKING,
+                                                        "TalkDefault",
+                                                    )
+
+                                                    AnimationType.THINKING -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.THINKING,
+                                                        "Thinking",
+                                                    )
+
+                                                    AnimationType.OFFLINE_ENTER,
+                                                    AnimationType.OFFLINE_LOOP,
+                                                    AnimationType.OFFLINE_EXIT ->
+                                                        settingsPreferences.setSelectedKey(
+                                                            SpriteState.OFFLINE,
+                                                            "OfflineLoop",
+                                                        )
+
+                                                    AnimationType.ERROR_LIGHT -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.ERROR,
+                                                        "ErrorLight",
+                                                    )
+
+                                                    AnimationType.ERROR_HEAVY -> settingsPreferences.setSelectedKey(
+                                                        SpriteState.ERROR,
+                                                        "ErrorHeavy",
+                                                    )
+
+                                                    else -> Unit
+                                                }
+                                                // 旧キー sprite_last_selected_animation は段階廃止済み（読み書き停止）
                                             }
                                         }
                                     }
@@ -4109,12 +4601,12 @@ private fun rememberReadyAnimationState(
                 if (selection != null) {
                     val (patternIndex, pattern) = selection
                     val resolvedIntervalMs = (pattern.intervalMs ?: insertionDefaultIntervalMs).coerceAtLeast(0)
-                    val insertionSteps = pattern.frameSequence.map { frame ->
+                    val insertionSteps = pattern.frames().map { frame ->
                         PreviewStep(frameIndex = frame, intervalMs = resolvedIntervalMs, isInsertion = true)
                     }
                     lastInsertionPatternIndex = patternIndex
                     lastInsertionResolvedIntervalMs = resolvedIntervalMs
-                    lastInsertionFrames = pattern.frameSequence.toList()
+                    lastInsertionFrames = pattern.frames().toList()
                     lastInsertionLoop = loopCount
                     if (insertionSettings?.exclusive == true) {
                         insertionSteps
@@ -4746,7 +5238,7 @@ private fun buildSettingsJson(
 
 private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
     JSONObject()
-        .put("frames", frameSequence.toJsonArray())
+        .put("frames", frames().toJsonArray())
         .put("intervalMs", intervalMs)
 
 private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
@@ -4763,7 +5255,7 @@ private fun List<InsertionPattern>.toPatternsJsonArray(): JSONArray =
     JSONArray().apply {
         forEach { pattern ->
             val patternObject = JSONObject()
-                .put("frames", pattern.frameSequence.toJsonArray())
+                .put("frames", pattern.frames().toJsonArray())
                 .put(JSON_WEIGHT_KEY, pattern.weight)
             pattern.intervalMs?.let { intervalMs ->
                 patternObject.put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)

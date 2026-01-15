@@ -11,6 +11,7 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.normalize
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -110,6 +111,38 @@ data class InsertionAnimationSettings(
     }
 }
 
+data class PerStateAnimationConfig(
+    val animationKey: String,
+    val baseFrames: List<Int>,
+    val baseIntervalMs: Int,
+    val insertion: InsertionConfig,
+)
+
+data class InsertionConfig(
+    val enabled: Boolean,
+    val patterns: List<InsertionPatternConfig>,
+    val everyNLoops: Int,
+    val probabilityPercent: Int,
+    val cooldownLoops: Int,
+    val exclusive: Boolean,
+)
+
+data class InsertionPatternConfig(
+    val frames: List<Int>,
+    val weight: Int,
+    val intervalMs: Int,
+)
+
+// state別選択キー保存用の最小enum（既存定義が無い前提）
+enum class SpriteState {
+    READY,
+    IDLE,
+    SPEAKING,
+    THINKING,
+    ERROR,
+    OFFLINE,
+}
+
 class SettingsPreferences(private val context: Context) {
 
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
@@ -137,17 +170,35 @@ class SettingsPreferences(private val context: Context) {
     private val talkingInsertionProbabilityKey = intPreferencesKey("talking_insertion_probability_percent")
     private val talkingInsertionCooldownLoopsKey = intPreferencesKey("talking_insertion_cooldown_loops")
     private val talkingInsertionExclusiveKey = booleanPreferencesKey("talking_insertion_exclusive")
-    // 最後に選択したアニメ種別（internalKey保存: 表示名差分の影響を回避）
-    private val lastSelectedAnimationKey = stringPreferencesKey("sprite_last_selected_animation")
+    // 段階移行の再実行を避けるため、完了フラグで1回だけ実行する
+    private val spriteAnimationsMigratedV1Key = booleanPreferencesKey("sprite_animations_migrated_v1")
+    // state別に最後に選択したアニメキーを保存する（段階移行用）
+    private val selectedKeyReadyKey = stringPreferencesKey("sprite_selected_key_ready")
+    private val selectedKeyIdleKey = stringPreferencesKey("sprite_selected_key_idle")
+    private val selectedKeySpeakingKey = stringPreferencesKey("sprite_selected_key_speaking")
+    private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
+    private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
+    private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
+    // 最後に選択したアニメ種別（AnimationType.internalKey）を保存して復元する
+    private val lastSelectedAnimationTypeKey = stringPreferencesKey("sprite_last_selected_animation_type")
     // 最後に選択したタブ（SpriteTab名を保存して復元する）
     private val lastSelectedSpriteTabKey = stringPreferencesKey("sprite_last_selected_tab")
     // 画像調整で最後に選択したコマ番号（1始まり）
     private val lastSelectedBoxNumberKey = intPreferencesKey("sprite_last_selected_box_number")
     // 再起動時の復元用に最後の画面Routeを保持する
     private val lastRouteKey = stringPreferencesKey("last_route")
-    // 全アニメーション設定の一括保存用キー（段階2でUIをこの形式へ切替予定）
-    // JSON形式: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
+    // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
+    // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
+    // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
     private val spriteAnimationsJsonKey = stringPreferencesKey("sprite_animations_json")
+    // PR17: state別JSONが正（読み取り/保存の本命）
+    // JSON形式（state別最小）: { "animationKey": "...", "base": {...}, "insertion": {...} }
+    private val spriteAnimationJsonReadyKey = stringPreferencesKey("sprite_animation_json_ready")
+    private val spriteAnimationJsonSpeakingKey = stringPreferencesKey("sprite_animation_json_speaking")
+    private val spriteAnimationJsonIdleKey = stringPreferencesKey("sprite_animation_json_idle")
+    private val spriteAnimationJsonThinkingKey = stringPreferencesKey("sprite_animation_json_thinking")
+    private val spriteAnimationJsonOfflineKey = stringPreferencesKey("sprite_animation_json_offline")
+    private val spriteAnimationJsonErrorKey = stringPreferencesKey("sprite_animation_json_error")
     // DataStoreの実体確認用ログ(デバッグ専用)
     private fun dumpDataStoreDebug(caller: String) {
         if (!BuildConfig.DEBUG) return
@@ -185,12 +236,32 @@ class SettingsPreferences(private val context: Context) {
         preferences[spriteAnimationsJsonKey]
     }
 
-    val lastSelectedAnimation: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[lastSelectedAnimationKey]
+    // state別JSONが正（読み取り/保存の本命）
+    fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[spriteAnimationJsonPreferencesKey(state)]
+    }
+
+    // 復元優先順位:
+    // 1) state別JSON（sprite_animation_json_*）※正（Single Source of Truth）
+    // 2) 旧全体JSON（sprite_animations_json）※読み取り専用 fallback
+    // 3) それ以前のlegacy（legacyToAllAnimationsJsonOrNull が担当）
+    fun resolvedSpriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
+        val perState = preferences[spriteAnimationJsonPreferencesKey(state)]
+        val legacy = preferences[spriteAnimationsJsonKey]
+        perState?.takeIf { it.isNotBlank() } ?: legacy?.takeIf { it.isNotBlank() }
+    }
+
+    // state別の選択キー取得（DataStore未保存時は null を返す）
+    fun selectedKeyFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[selectedKeyPreferencesKey(state)]
     }
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastSelectedSpriteTabKey]
+    }
+
+    val lastSelectedAnimationType: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[lastSelectedAnimationTypeKey]
     }
 
     val lastSelectedBoxNumber: Flow<Int?> = context.dataStore.data.map { preferences ->
@@ -367,7 +438,9 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
-    suspend fun saveSpriteAnimationsJson(json: String) {
+    // 旧全体JSONは migration / legacy fallback 専用（通常フローからは呼ばない）
+    @Suppress("unused")
+    internal suspend fun saveSpriteAnimationsJson(json: String) {
         dumpDataStoreDebug("before saveSpriteAnimationsJson")
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationsJsonKey] = json
@@ -375,10 +448,102 @@ class SettingsPreferences(private val context: Context) {
         dumpDataStoreDebug("after saveSpriteAnimationsJson")
     }
 
-    suspend fun saveLastSelectedAnimation(key: String) {
+    // state別JSONが正（保存の本命）
+    suspend fun saveSpriteAnimationJson(state: SpriteState, json: String) {
+        context.dataStore.edit { preferences ->
+            preferences[spriteAnimationJsonPreferencesKey(state)] = json
+        }
+    }
+
+    // 旧キー→state別キーへの安全な段階移行（失敗時は何もしない）
+    suspend fun migrateLegacyAllAnimationsToPerStateIfNeeded() {
+        val preferences = context.dataStore.data.first()
+        if (preferences[spriteAnimationsMigratedV1Key] == true) return
+        val legacyJson = preferences[spriteAnimationsJsonKey]?.takeIf { it.isNotBlank() } ?: return
+        val missingStates = SpriteState.values().filter { state ->
+            val perStateJson = preferences[spriteAnimationJsonPreferencesKey(state)]
+            perStateJson.isNullOrBlank()
+        }
+        if (missingStates.isEmpty()) return
+        runCatching {
+            // 旧JSONは既存の正規化/検証ロジックを再利用して安全に移行する
+            val normalizedJson = parseAndValidateAllAnimationsJson(legacyJson).getOrThrow()
+            val animationsObject = JSONObject(normalizedJson).optJSONObject(JSON_ANIMATIONS_KEY)
+                ?: error("animations is missing")
+            val savedStates = mutableListOf<SpriteState>()
+            missingStates.forEach { state ->
+                val animationObject = findLegacyAnimationObjectForState(state, animationsObject) ?: return@forEach
+                val (baseDefaults, insertionDefaults) = defaultsForState(state)
+                val baseSettings = parseReadySettings(animationObject.optJSONObject(JSON_BASE_KEY), baseDefaults)
+                val insertionSettings = parseInsertionSettings(
+                    animationObject.optJSONObject(JSON_INSERTION_KEY),
+                    insertionDefaults
+                )
+                val perStateJson = buildPerStateAnimationJsonOrNull(
+                    animationKey = defaultKeyForState(state),
+                    baseSettings = baseSettings,
+                    insertionSettings = insertionSettings,
+                ) ?: return@forEach
+                saveSpriteAnimationJson(state, perStateJson)
+                savedStates.add(state)
+            }
+            context.dataStore.edit { updated ->
+                updated[spriteAnimationsMigratedV1Key] = true
+            }
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "sprite animations migrate v1 completed: saved=${savedStates.joinToString { it.name }}"
+                )
+            }
+        }.onFailure { throwable ->
+            // 失敗時はクラッシュさせず、既存の旧キーを温存して安全側に倒す
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "sprite animations migrate v1 skipped: ${throwable.message}"
+                )
+            }
+        }
+    }
+
+    // 旧全体JSONをstate別JSONへ安全に移行する（初回のみ・冪等）
+    suspend fun migrateLegacyAllAnimationsJsonToPerStateIfNeeded(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        val legacyJson = preferences[spriteAnimationsJsonKey]?.takeIf { it.isNotBlank() }
+            ?: return@runCatching false
+        val hasPerState = SpriteState.values().any { state ->
+            preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank().not()
+        }
+        if (hasPerState) return@runCatching false
+
+        val normalizedJson = parseAndValidateAllAnimationsJson(legacyJson).getOrThrow()
+        val perStateJsons = buildMap<SpriteState, String> {
+            SpriteState.values().forEach { state ->
+                val extracted = extractPerStateJsonFromAllAnimationsJson(normalizedJson, state)
+                if (extracted != null) {
+                    val validated = parseAndValidatePerStateAnimationJson(extracted, state)
+                    if (validated.isSuccess) {
+                        put(state, extracted)
+                    }
+                }
+            }
+        }
+        if (perStateJsons.isEmpty()) return@runCatching false
+
+        context.dataStore.edit { updated ->
+            perStateJsons.forEach { (state, json) ->
+                updated[spriteAnimationJsonPreferencesKey(state)] = json
+            }
+        }
+        true
+    }
+
+    // state別の選択キーを保存する（段階移行用）
+    suspend fun setSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
         context.dataStore.edit { preferences ->
-            preferences[lastSelectedAnimationKey] = key
+            preferences[selectedKeyPreferencesKey(state)] = key
         }
     }
 
@@ -386,6 +551,13 @@ class SettingsPreferences(private val context: Context) {
         if (tabKey.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[lastSelectedSpriteTabKey] = tabKey
+        }
+    }
+
+    suspend fun setLastSelectedAnimationType(value: String) {
+        if (value.isBlank()) return
+        context.dataStore.edit { preferences ->
+            preferences[lastSelectedAnimationTypeKey] = value
         }
     }
 
@@ -475,6 +647,17 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    // stateごとのデフォルトキーはDataStoreに書かず、解決関数で返す
+    fun defaultKeyForState(state: SpriteState): String =
+        when (state) {
+            SpriteState.READY -> "Ready"
+            SpriteState.IDLE -> "Idle"
+            SpriteState.SPEAKING -> "TalkDefault"
+            SpriteState.THINKING -> "Thinking"
+            SpriteState.ERROR -> "ErrorLight"
+            SpriteState.OFFLINE -> "OfflineLoop"
+        }
+
     fun buildAllAnimationsJsonFromLegacy(
         readyBase: ReadyAnimationSettings,
         readyInsertion: InsertionAnimationSettings,
@@ -541,6 +724,52 @@ class SettingsPreferences(private val context: Context) {
             .toString()
     }
 
+    // PR20: state別最小JSON（1アニメ=1JSON）の読み取り/反映のためのパーサ
+    // PR20ではREADY/SPEAKINGのみ適用
+    fun parseAndValidatePerStateAnimationJson(
+        json: String,
+        state: SpriteState,
+    ): Result<PerStateAnimationConfig> = runCatching {
+        val root = JSONObject(json)
+        val animationKey = root.optString(JSON_ANIMATION_KEY, "").trim()
+        if (animationKey.isBlank()) {
+            error("animationKey is missing: state=${state.name}")
+        }
+        val baseObject = root.optJSONObject(JSON_BASE_KEY) ?: error("base is missing: state=${state.name}")
+        val baseFramesArray = baseObject.optJSONArray(JSON_FRAMES_KEY)
+            ?: error("base.frames is missing: state=${state.name}")
+        if (!baseObject.has(JSON_INTERVAL_MS_KEY)) {
+            error("base.intervalMs is missing: state=${state.name}")
+        }
+        val baseFrames = parsePerStateFrames(baseFramesArray)
+        val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
+        val insertionObject = root.optJSONObject(JSON_INSERTION_KEY)
+            ?: error("insertion is missing: state=${state.name}")
+        if (!insertionObject.has(JSON_ENABLED_KEY)) {
+            error("insertion.enabled is missing: state=${state.name}")
+        }
+        val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
+        val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
+        val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
+        val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
+            .coerceIn(0, 100)
+        val cooldownLoops = insertionObject.optInt(JSON_COOLDOWN_LOOPS_KEY, 0).coerceAtLeast(0)
+        val exclusive = insertionObject.optBoolean(JSON_EXCLUSIVE_KEY, false)
+        PerStateAnimationConfig(
+            animationKey = animationKey,
+            baseFrames = baseFrames,
+            baseIntervalMs = baseIntervalMs,
+            insertion = InsertionConfig(
+                enabled = enabled,
+                patterns = patterns,
+                everyNLoops = everyNLoops,
+                probabilityPercent = probabilityPercent,
+                cooldownLoops = cooldownLoops,
+                exclusive = exclusive,
+            ),
+        )
+    }
+
     fun legacyToAllAnimationsJsonOrNull(
         currentAllAnimationsJson: String?,
         readyBase: ReadyAnimationSettings,
@@ -555,6 +784,97 @@ class SettingsPreferences(private val context: Context) {
             talkingBase = talkingBase,
             talkingInsertion = talkingInsertion,
         )
+    }
+
+    private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
+        when (state) {
+            SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
+            SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
+            SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
+            else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
+        }
+
+    private fun legacyAnimationKeysForState(state: SpriteState): List<String> =
+        when (state) {
+            SpriteState.READY -> listOf(ALL_ANIMATIONS_READY_KEY, ALL_ANIMATIONS_READY_LEGACY_KEY)
+            SpriteState.SPEAKING -> listOf(ALL_ANIMATIONS_TALKING_KEY, "Speaking")
+            SpriteState.IDLE -> listOf("Idle")
+            SpriteState.THINKING -> listOf(ALL_ANIMATIONS_THINKING_KEY)
+            SpriteState.OFFLINE -> listOf("OfflineLoop")
+            SpriteState.ERROR -> listOf("ErrorLight", "ErrorHeavy")
+        }
+
+    private fun extractPerStateJsonFromAllAnimationsJson(allJson: String, state: SpriteState): String? {
+        val root = JSONObject(allJson)
+        val animationsObject = root.optJSONObject(JSON_ANIMATIONS_KEY) ?: return null
+        val matchedKey = legacyAnimationKeysForState(state).firstOrNull { key ->
+            animationsObject.has(key)
+        } ?: return null
+        val animationObject = animationsObject.optJSONObject(matchedKey) ?: return null
+        val (baseDefaults, insertionDefaults) = defaultsForState(state)
+        val baseSettings = parseReadySettings(animationObject.optJSONObject(JSON_BASE_KEY), baseDefaults)
+        val insertionSettings = parseInsertionSettings(
+            animationObject.optJSONObject(JSON_INSERTION_KEY),
+            insertionDefaults,
+        )
+        return buildPerStateAnimationJsonOrNull(
+            animationKey = matchedKey,
+            baseSettings = baseSettings,
+            insertionSettings = insertionSettings,
+        )
+    }
+
+    private fun findLegacyAnimationObjectForState(
+        state: SpriteState,
+        animationsObject: JSONObject,
+    ): JSONObject? =
+        legacyAnimationKeysForState(state).firstNotNullOfOrNull { key ->
+            animationsObject.optJSONObject(key)
+        }
+
+    private fun buildPerStateAnimationJsonOrNull(
+        animationKey: String,
+        baseSettings: ReadyAnimationSettings,
+        insertionSettings: InsertionAnimationSettings,
+    ): String? {
+        val patterns = insertionSettings.patterns.take(2)
+        if (patterns.any { pattern -> pattern.intervalMs == null }) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "sprite animations migrate v1 skipped: pattern intervalMs missing key=$animationKey"
+                )
+            }
+            return null
+        }
+        val baseJson = JSONObject()
+            .put(JSON_FRAMES_KEY, baseSettings.frameSequence.toJsonArray())
+            .put(JSON_INTERVAL_MS_KEY, baseSettings.intervalMs)
+        val insertionJson = JSONObject()
+            .put(JSON_ENABLED_KEY, insertionSettings.enabled)
+            .put(
+                JSON_PATTERNS_KEY,
+                JSONArray().also { array ->
+                    patterns.forEach { pattern ->
+                        array.put(
+                            JSONObject()
+                                .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
+                                .put(JSON_WEIGHT_KEY, pattern.weight)
+                                .put(JSON_PATTERN_INTERVAL_MS_KEY, requireNotNull(pattern.intervalMs))
+                        )
+                    }
+                }
+            )
+            .put(JSON_INTERVAL_MS_KEY, insertionSettings.intervalMs)
+            .put(JSON_EVERY_N_LOOPS_KEY, insertionSettings.everyNLoops)
+            .put(JSON_PROBABILITY_PERCENT_KEY, insertionSettings.probabilityPercent)
+            .put(JSON_COOLDOWN_LOOPS_KEY, insertionSettings.cooldownLoops)
+            .put(JSON_EXCLUSIVE_KEY, insertionSettings.exclusive)
+        return JSONObject()
+            .put(JSON_ANIMATION_KEY, animationKey)
+            .put(JSON_BASE_KEY, baseJson)
+            .put(JSON_INSERTION_KEY, insertionJson)
+            .toString()
     }
 
     private fun parseReadySettings(
@@ -743,6 +1063,53 @@ class SettingsPreferences(private val context: Context) {
         return frames.ifEmpty { defaultSequence }
     }
 
+    private fun parsePerStateFrames(array: JSONArray): List<Int> {
+        if (array.length() == 0) error("frames is empty")
+        return buildList {
+            for (index in 0 until array.length()) {
+                val value = array.getInt(index)
+                if (value !in 0 until defaultSpriteSheetConfig.frameCount) {
+                    error("frames out of range: $value")
+                }
+                add(value)
+            }
+        }
+    }
+
+    private fun parsePerStatePatterns(array: JSONArray?): List<InsertionPatternConfig> {
+        if (array == null) return emptyList()
+        val limit = minOf(array.length(), 2)
+        return buildList {
+            for (index in 0 until limit) {
+                val patternObject = array.optJSONObject(index) ?: error("pattern is missing")
+                val framesArray = patternObject.optJSONArray(JSON_FRAMES_KEY)
+                    ?: error("pattern.frames is missing")
+                if (!patternObject.has(JSON_PATTERN_INTERVAL_MS_KEY)) {
+                    error("pattern.intervalMs is missing")
+                }
+                val frames = buildList {
+                    if (framesArray.length() == 0) error("pattern.frames is empty")
+                    for (frameIndex in 0 until framesArray.length()) {
+                        val value = framesArray.getInt(frameIndex)
+                        if (value !in 0 until defaultSpriteSheetConfig.frameCount) {
+                            error("pattern.frames out of range: $value")
+                        }
+                        add(value)
+                    }
+                }
+                val weight = patternObject.optInt(JSON_WEIGHT_KEY, 1).coerceAtLeast(0)
+                val intervalMs = patternObject.getInt(JSON_PATTERN_INTERVAL_MS_KEY)
+                add(
+                    InsertionPatternConfig(
+                        frames = frames,
+                        weight = weight,
+                        intervalMs = intervalMs,
+                    )
+                )
+            }
+        }
+    }
+
     private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
         JSONObject()
             .put(JSON_FRAMES_KEY, frameSequence.toJsonArray())
@@ -807,6 +1174,25 @@ class SettingsPreferences(private val context: Context) {
             "index=$index frames=${pattern.frameSequence} weight=${pattern.weight} interval=${pattern.intervalMs}"
         }.joinToString(separator = ", ")
 
+    // state別キーのマッピングはここで一元化する
+    private fun selectedKeyPreferencesKey(state: SpriteState) = when (state) {
+        SpriteState.READY -> selectedKeyReadyKey
+        SpriteState.IDLE -> selectedKeyIdleKey
+        SpriteState.SPEAKING -> selectedKeySpeakingKey
+        SpriteState.THINKING -> selectedKeyThinkingKey
+        SpriteState.ERROR -> selectedKeyErrorKey
+        SpriteState.OFFLINE -> selectedKeyOfflineKey
+    }
+
+    private fun spriteAnimationJsonPreferencesKey(state: SpriteState) = when (state) {
+        SpriteState.READY -> spriteAnimationJsonReadyKey
+        SpriteState.IDLE -> spriteAnimationJsonIdleKey
+        SpriteState.SPEAKING -> spriteAnimationJsonSpeakingKey
+        SpriteState.THINKING -> spriteAnimationJsonThinkingKey
+        SpriteState.ERROR -> spriteAnimationJsonErrorKey
+        SpriteState.OFFLINE -> spriteAnimationJsonOfflineKey
+    }
+
     private companion object {
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
@@ -815,6 +1201,7 @@ class SettingsPreferences(private val context: Context) {
         const val ALL_ANIMATIONS_READY_LEGACY_KEY = "ReadyBlink"
         const val JSON_VERSION_KEY = "version"
         const val JSON_ANIMATIONS_KEY = "animations"
+        const val JSON_ANIMATION_KEY = "animationKey"
         const val JSON_BASE_KEY = "base"
         const val JSON_INSERTION_KEY = "insertion"
         const val JSON_ENABLED_KEY = "enabled"
