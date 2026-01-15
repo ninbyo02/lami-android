@@ -98,6 +98,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -4238,7 +4239,8 @@ private fun ReadyAnimationTab(
                         onValueChange = baseState.onIntervalInputChange,
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .testTag("spriteBaseIntervalInput"),
                         label = { Text("周期 (ms)") },
                         singleLine = true,
                         isError = baseState.intervalError != null,
