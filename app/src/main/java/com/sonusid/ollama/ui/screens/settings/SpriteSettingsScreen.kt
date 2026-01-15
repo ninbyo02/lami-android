@@ -2245,9 +2245,16 @@ fun SpriteSettingsScreen(navController: NavController) {
         val cooldown = cooldownResult.value
 
         if (patterns != null && interval != null && everyN != null && probability != null && cooldown != null) {
+            val resolvedPatterns = patterns.map { pattern ->
+                if (pattern.intervalMs == null) {
+                    pattern.copy(intervalMs = interval)
+                } else {
+                    pattern
+                }
+            }
             return InsertionAnimationSettings(
                 enabled = true,
-                patterns = patterns,
+                patterns = resolvedPatterns,
                 intervalMs = interval,
                 everyNLoops = everyN,
                 probabilityPercent = probability,
@@ -2745,26 +2752,40 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
                 val insertionEnabled = validatedInsertion?.enabled == true
+                val insertionIntervalMs = validatedInsertion?.intervalMs ?: 0
                 val hasMissingPatternInterval = insertionEnabled &&
                     (validatedInsertion
                         ?.patterns
                         ?.take(2)
                         ?.any { pattern -> pattern.intervalMs == null }
                         ?: false)
-                if (hasMissingPatternInterval) {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(
-                            "LamiSprite",
-                            "persistPerStateAnimationJson skip: missing intervalMs " +
-                                "state=${targetState.name} key=$animationKeyForState"
-                        )
-                    }
-                    throw IllegalStateException(
-                        "missing intervalMs state=${targetState.name} key=$animationKeyForState"
+                if (hasMissingPatternInterval && BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "persistPerStateAnimationJson warn: missing intervalMs " +
+                            "state=${targetState.name} key=$animationKeyForState"
                     )
                 }
                 perStateSaved = targetState
                 perStateKey = animationKeyForState
+                if (BuildConfig.DEBUG) {
+                    val pattern0Interval = validatedInsertion
+                        ?.patterns
+                        ?.getOrNull(0)
+                        ?.intervalMs
+                        ?: insertionIntervalMs
+                    val pattern1Interval = validatedInsertion
+                        ?.patterns
+                        ?.getOrNull(1)
+                        ?.intervalMs
+                        ?: insertionIntervalMs
+                    Log.d(
+                        "LamiSprite",
+                        "persistPerStateAnimationJson input: state=${targetState.name} " +
+                            "key=$animationKeyForState insertionIntervalMs=$insertionIntervalMs " +
+                            "pattern0IntervalMs=$pattern0Interval pattern1IntervalMs=$pattern1Interval"
+                    )
+                }
                 val baseJson = JSONObject().apply {
                     // base: 検証済みのframes/intervalを最小構成で保存
                     put("frames", JSONArray(validatedBase.frames()))
@@ -2785,7 +2806,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             JSONObject().apply {
                                                 put("frames", JSONArray(pattern.frames()))
                                                 put("weight", pattern.weight)
-                                                put("intervalMs", pattern.intervalMs)
+                                                put("intervalMs", pattern.intervalMs ?: insertionIntervalMs)
                                             }
                                         )
                                     }
