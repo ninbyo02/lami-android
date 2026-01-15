@@ -2738,13 +2738,19 @@ fun SpriteSettingsScreen(navController: NavController) {
                     SpriteState.IDLE -> "Idle"
                     SpriteState.THINKING -> "Thinking"
                     SpriteState.OFFLINE -> "OfflineLoop"
-                    SpriteState.ERROR -> "ErrorLight"
+                    SpriteState.ERROR -> when (selectedAnimation) {
+                        AnimationType.ERROR_LIGHT -> "ErrorLight"
+                        AnimationType.ERROR_HEAVY -> "ErrorHeavy"
+                        else -> "ErrorLight"
+                    }
                 }
-                val hasMissingPatternInterval = validatedInsertion
-                    ?.patterns
-                    ?.take(2)
-                    ?.any { pattern -> pattern.intervalMs == null }
-                    ?: false
+                val insertionEnabled = validatedInsertion?.enabled == true
+                val hasMissingPatternInterval = insertionEnabled &&
+                    (validatedInsertion
+                        ?.patterns
+                        ?.take(2)
+                        ?.any { pattern -> pattern.intervalMs == null }
+                        ?: false)
                 if (hasMissingPatternInterval) {
                     if (BuildConfig.DEBUG) {
                         Log.d(
@@ -2753,7 +2759,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 "state=${targetState.name} key=$animationKeyForState"
                         )
                     }
-                    return@runCatching
+                    throw IllegalStateException(
+                        "missing intervalMs state=${targetState.name} key=$animationKeyForState"
+                    )
                 }
                 perStateSaved = targetState
                 perStateKey = animationKeyForState
@@ -2764,22 +2772,24 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 val insertionJson = JSONObject().apply {
                     // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
-                    put("enabled", validatedInsertion?.enabled ?: false)
+                    put("enabled", insertionEnabled)
                     put(
                         "patterns",
                         JSONArray().apply {
-                            validatedInsertion
-                                ?.patterns
-                                ?.take(2)
-                                ?.forEach { pattern ->
-                                    put(
-                                        JSONObject().apply {
-                                            put("frames", JSONArray(pattern.frames()))
-                                            put("weight", pattern.weight)
-                                            put("intervalMs", pattern.intervalMs)
-                                        }
-                                    )
-                                }
+                            if (insertionEnabled) {
+                                validatedInsertion
+                                    ?.patterns
+                                    ?.take(2)
+                                    ?.forEach { pattern ->
+                                        put(
+                                            JSONObject().apply {
+                                                put("frames", JSONArray(pattern.frames()))
+                                                put("weight", pattern.weight)
+                                                put("intervalMs", pattern.intervalMs)
+                                            }
+                                        )
+                                    }
+                            }
                         }
                     )
                     put("everyNLoops", validatedInsertion?.everyNLoops ?: 0)
