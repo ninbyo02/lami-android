@@ -1848,90 +1848,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     fun isInsertionInputSynced(target: AnimationType): Boolean {
-        val inputEnabled: Boolean
-        val inputExclusive: Boolean
-        val patternsResult: InsertionPatternsValidation
-        val intervalResult: ValidationResult<Int>
-        val everyNResult: ValidationResult<Int>
-        val probabilityResult: ValidationResult<Int>
-        val cooldownResult: ValidationResult<Int>
-        when (target) {
-            AnimationType.READY -> {
-                inputEnabled = readyInsertionEnabled
-                inputExclusive = readyInsertionExclusive
-                patternsResult = parseInsertionPatternsInput(
-                    pattern1FramesInput = readyInsertionPattern1FramesInput,
-                    pattern1WeightInput = readyInsertionPattern1WeightInput,
-                    pattern1IntervalInput = readyInsertionPattern1IntervalInput,
-                    pattern2FramesInput = readyInsertionPattern2FramesInput,
-                    pattern2WeightInput = readyInsertionPattern2WeightInput,
-                    pattern2IntervalInput = readyInsertionPattern2IntervalInput,
-                    frameCount = spriteSheetConfig.frameCount
-                )
-                intervalResult = parseIntervalMsInput(readyInsertionIntervalInput)
-                everyNResult = parseEveryNLoopsInput(readyInsertionEveryNInput)
-                probabilityResult = parseProbabilityPercentInput(readyInsertionProbabilityInput)
-                cooldownResult = parseCooldownLoopsInput(readyInsertionCooldownInput)
-            }
-
-            AnimationType.TALKING -> {
-                inputEnabled = talkingInsertionEnabled
-                inputExclusive = talkingInsertionExclusive
-                patternsResult = parseInsertionPatternsInput(
-                    pattern1FramesInput = talkingInsertionPattern1FramesInput,
-                    pattern1WeightInput = talkingInsertionPattern1WeightInput,
-                    pattern1IntervalInput = talkingInsertionPattern1IntervalInput,
-                    pattern2FramesInput = talkingInsertionPattern2FramesInput,
-                    pattern2WeightInput = talkingInsertionPattern2WeightInput,
-                    pattern2IntervalInput = talkingInsertionPattern2IntervalInput,
-                    frameCount = spriteSheetConfig.frameCount
-                )
-                intervalResult = parseIntervalMsInput(talkingInsertionIntervalInput)
-                everyNResult = parseEveryNLoopsInput(talkingInsertionEveryNInput)
-                probabilityResult = parseProbabilityPercentInput(talkingInsertionProbabilityInput)
-                cooldownResult = parseCooldownLoopsInput(talkingInsertionCooldownInput)
-            }
-
-            else -> {
-                val state = resolveExtraAnimationInput(target)
-                inputEnabled = state.insertionEnabled
-                inputExclusive = state.insertionExclusive
-                patternsResult = parseInsertionPatternsInput(
-                    pattern1FramesInput = state.insertionPattern1FramesInput,
-                    pattern1WeightInput = state.insertionPattern1WeightInput,
-                    pattern1IntervalInput = state.insertionPattern1IntervalInput,
-                    pattern2FramesInput = state.insertionPattern2FramesInput,
-                    pattern2WeightInput = state.insertionPattern2WeightInput,
-                    pattern2IntervalInput = state.insertionPattern2IntervalInput,
-                    frameCount = spriteSheetConfig.frameCount
-                )
-                intervalResult = parseIntervalMsInput(state.insertionIntervalInput)
-                everyNResult = parseEveryNLoopsInput(state.insertionEveryNInput)
-                probabilityResult = parseProbabilityPercentInput(state.insertionProbabilityInput)
-                cooldownResult = parseCooldownLoopsInput(state.insertionCooldownInput)
-            }
-        }
-        val inputState = listOf(
-            patternsResult.patterns,
-            intervalResult.value,
-            everyNResult.value,
-            probabilityResult.value,
-            cooldownResult.value
-        )
-        if (inputState.any { it == null }) {
-            return false
-        }
-
-        val parsedInsertion = InsertionAnimationSettings(
-            enabled = inputEnabled,
-            patterns = patternsResult.patterns!!,
-            intervalMs = intervalResult.value!!,
-            everyNLoops = everyNResult.value!!,
-            probabilityPercent = probabilityResult.value!!,
-            cooldownLoops = cooldownResult.value!!,
-            exclusive = inputExclusive
-        )
-
         val appliedState = when (target) {
             AnimationType.READY -> InsertionAnimationSettings(
                 enabled = appliedReadyInsertionEnabled,
@@ -1955,6 +1871,104 @@ fun SpriteSettingsScreen(navController: NavController) {
 
             else -> resolveExtraAnimationInput(target).appliedInsertion
         }
+
+        val inputEnabled: Boolean
+        val inputExclusive: Boolean
+        val pattern1FramesInput: String
+        val pattern1WeightInput: String
+        val pattern1IntervalInput: String
+        val pattern2FramesInput: String
+        val pattern2WeightInput: String
+        val pattern2IntervalInput: String
+        val insertionIntervalInput: String
+        val insertionEveryNInput: String
+        val insertionProbabilityInput: String
+        val insertionCooldownInput: String
+        when (target) {
+            AnimationType.READY -> {
+                inputEnabled = readyInsertionEnabled
+                inputExclusive = readyInsertionExclusive
+                pattern1FramesInput = readyInsertionPattern1FramesInput
+                pattern1WeightInput = readyInsertionPattern1WeightInput
+                pattern1IntervalInput = readyInsertionPattern1IntervalInput
+                pattern2FramesInput = readyInsertionPattern2FramesInput
+                pattern2WeightInput = readyInsertionPattern2WeightInput
+                pattern2IntervalInput = readyInsertionPattern2IntervalInput
+                insertionIntervalInput = readyInsertionIntervalInput
+                insertionEveryNInput = readyInsertionEveryNInput
+                insertionProbabilityInput = readyInsertionProbabilityInput
+                insertionCooldownInput = readyInsertionCooldownInput
+            }
+
+            AnimationType.TALKING -> {
+                inputEnabled = talkingInsertionEnabled
+                inputExclusive = talkingInsertionExclusive
+                pattern1FramesInput = talkingInsertionPattern1FramesInput
+                pattern1WeightInput = talkingInsertionPattern1WeightInput
+                pattern1IntervalInput = talkingInsertionPattern1IntervalInput
+                pattern2FramesInput = talkingInsertionPattern2FramesInput
+                pattern2WeightInput = talkingInsertionPattern2WeightInput
+                pattern2IntervalInput = talkingInsertionPattern2IntervalInput
+                insertionIntervalInput = talkingInsertionIntervalInput
+                insertionEveryNInput = talkingInsertionEveryNInput
+                insertionProbabilityInput = talkingInsertionProbabilityInput
+                insertionCooldownInput = talkingInsertionCooldownInput
+            }
+
+            else -> {
+                val state = resolveExtraAnimationInput(target)
+                inputEnabled = state.insertionEnabled
+                inputExclusive = state.insertionExclusive
+                pattern1FramesInput = state.insertionPattern1FramesInput
+                pattern1WeightInput = state.insertionPattern1WeightInput
+                pattern1IntervalInput = state.insertionPattern1IntervalInput
+                pattern2FramesInput = state.insertionPattern2FramesInput
+                pattern2WeightInput = state.insertionPattern2WeightInput
+                pattern2IntervalInput = state.insertionPattern2IntervalInput
+                insertionIntervalInput = state.insertionIntervalInput
+                insertionEveryNInput = state.insertionEveryNInput
+                insertionProbabilityInput = state.insertionProbabilityInput
+                insertionCooldownInput = state.insertionCooldownInput
+            }
+        }
+
+        if (!inputEnabled) {
+            return !appliedState.enabled
+        }
+
+        val patternsResult = parseInsertionPatternsInput(
+            pattern1FramesInput = pattern1FramesInput,
+            pattern1WeightInput = pattern1WeightInput,
+            pattern1IntervalInput = pattern1IntervalInput,
+            pattern2FramesInput = pattern2FramesInput,
+            pattern2WeightInput = pattern2WeightInput,
+            pattern2IntervalInput = pattern2IntervalInput,
+            frameCount = spriteSheetConfig.frameCount
+        )
+        val intervalResult = parseIntervalMsInput(insertionIntervalInput)
+        val everyNResult = parseEveryNLoopsInput(insertionEveryNInput)
+        val probabilityResult = parseProbabilityPercentInput(insertionProbabilityInput)
+        val cooldownResult = parseCooldownLoopsInput(insertionCooldownInput)
+        val inputState = listOf(
+            patternsResult.patterns,
+            intervalResult.value,
+            everyNResult.value,
+            probabilityResult.value,
+            cooldownResult.value
+        )
+        if (inputState.any { it == null }) {
+            return false
+        }
+
+        val parsedInsertion = InsertionAnimationSettings(
+            enabled = inputEnabled,
+            patterns = patternsResult.patterns!!,
+            intervalMs = intervalResult.value!!,
+            everyNLoops = everyNResult.value!!,
+            probabilityPercent = probabilityResult.value!!,
+            cooldownLoops = cooldownResult.value!!,
+            exclusive = inputExclusive
+        )
 
         if (parsedInsertion.enabled != appliedState.enabled || parsedInsertion.exclusive != appliedState.exclusive) {
             return false
