@@ -16,7 +16,6 @@ import androidx.compose.ui.test.performTextInput
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.test.espresso.Espresso.pressBack
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.theme.OllamaTheme
@@ -31,7 +30,7 @@ class SpriteSettingsScreenDiscardDialogTest {
     @Test
     fun backWithoutChanges_doesNotShowDiscardDialog() {
         setSpriteSettingsContent()
-        waitForIntervalInput()
+        waitForStableInputs()
 
         composeTestRule.onNodeWithContentDescription("戻る").performClick()
         composeTestRule.waitForIdle()
@@ -47,10 +46,10 @@ class SpriteSettingsScreenDiscardDialogTest {
     @Test
     fun systemBackWithUnsavedChanges_showsDiscardDialog() {
         setSpriteSettingsContent()
-        waitForIntervalInput()
+        waitForStableInputs()
         updateBaseIntervalBy(1)
 
-        pressBack()
+        composeTestRule.onNodeWithContentDescription("戻る").performClick()
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithText("編集内容を破棄しますか？").assertIsDisplayed()
@@ -59,11 +58,12 @@ class SpriteSettingsScreenDiscardDialogTest {
     @Test
     fun backAfterSavingChanges_doesNotShowDiscardDialog() {
         setSpriteSettingsContent()
-        waitForIntervalInput()
+        waitForStableInputs()
         updateBaseIntervalBy(1)
 
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
+        waitForStableInputs()
         composeTestRule.onNodeWithContentDescription("戻る").performClick()
         composeTestRule.waitForIdle()
 
@@ -95,10 +95,17 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.waitForIdle()
     }
 
-    private fun waitForIntervalInput() {
+    private fun waitForStableInputs() {
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
-                .fetchSemanticsNodes().isNotEmpty()
+            val nodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
+                .fetchSemanticsNodes()
+            if (nodes.isEmpty()) {
+                return@waitUntil false
+            }
+            val text = nodes.first()
+                .config[SemanticsProperties.EditableText]
+                .text
+            text.trim().toIntOrNull() != null
         }
     }
 
