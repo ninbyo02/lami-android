@@ -20,6 +20,7 @@ import androidx.test.espresso.Espresso.pressBack
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.theme.OllamaTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
@@ -35,7 +36,12 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithContentDescription("戻る").performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onAllNodesWithText("編集内容を破棄しますか？").assertCountEquals(0)
+        val count = composeTestRule
+            .onAllNodesWithText("編集内容を破棄しますか？")
+            .fetchSemanticsNodes()
+            .size
+
+        assertEquals(0, count)
     }
 
     @Test
@@ -61,7 +67,12 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithContentDescription("戻る").performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onAllNodesWithText("編集内容を破棄しますか？").assertCountEquals(0)
+        val count = composeTestRule
+            .onAllNodesWithText("編集内容を破棄しますか？")
+            .fetchSemanticsNodes()
+            .size
+
+        assertEquals(0, count)
     }
 
     private fun setSpriteSettingsContent() {
