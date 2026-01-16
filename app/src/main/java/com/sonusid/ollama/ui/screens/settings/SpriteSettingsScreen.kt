@@ -1848,6 +1848,19 @@ fun SpriteSettingsScreen(navController: NavController) {
         return framesMatch && intervalMatch
     }
 
+    private fun normalizeInsertionPatterns(
+        patterns: List<InsertionPattern>,
+        fallbackIntervalMs: Int
+    ): List<InsertionPattern> {
+        return patterns.map { pattern ->
+            if (pattern.intervalMs == null) {
+                pattern.copy(intervalMs = fallbackIntervalMs)
+            } else {
+                pattern
+            }
+        }
+    }
+
     fun isInsertionInputSynced(target: AnimationType): Boolean {
         val appliedState = when (target) {
             AnimationType.READY -> InsertionAnimationSettings(
@@ -1975,7 +1988,15 @@ fun SpriteSettingsScreen(navController: NavController) {
             return false
         }
 
-        val patternsMatch = parsedInsertion.patterns == appliedState.patterns
+        val parsedNormalized = normalizeInsertionPatterns(
+            patterns = parsedInsertion.patterns,
+            fallbackIntervalMs = parsedInsertion.intervalMs
+        )
+        val appliedNormalized = normalizeInsertionPatterns(
+            patterns = appliedState.patterns,
+            fallbackIntervalMs = appliedState.intervalMs
+        )
+        val patternsMatch = parsedNormalized == appliedNormalized
         val intervalMatches = parsedInsertion.intervalMs == appliedState.intervalMs
         val everyNMatches = parsedInsertion.everyNLoops == appliedState.everyNLoops
         val probabilityMatches = parsedInsertion.probabilityPercent == appliedState.probabilityPercent
