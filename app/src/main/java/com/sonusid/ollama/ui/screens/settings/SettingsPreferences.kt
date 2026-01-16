@@ -121,6 +121,7 @@ data class PerStateAnimationConfig(
 data class InsertionConfig(
     val enabled: Boolean,
     val patterns: List<InsertionPatternConfig>,
+    val intervalMs: Int,
     val everyNLoops: Int,
     val probabilityPercent: Int,
     val cooldownLoops: Int,
@@ -750,6 +751,10 @@ class SettingsPreferences(private val context: Context) {
         }
         val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
         val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
+        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            error("insertion.intervalMs is missing: state=${state.name}")
+        }
+        val intervalMs = insertionObject.getInt(JSON_INTERVAL_MS_KEY)
         val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
         val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
             .coerceIn(0, 100)
@@ -762,6 +767,7 @@ class SettingsPreferences(private val context: Context) {
             insertion = InsertionConfig(
                 enabled = enabled,
                 patterns = patterns,
+                intervalMs = intervalMs,
                 everyNLoops = everyNLoops,
                 probabilityPercent = probabilityPercent,
                 cooldownLoops = cooldownLoops,
