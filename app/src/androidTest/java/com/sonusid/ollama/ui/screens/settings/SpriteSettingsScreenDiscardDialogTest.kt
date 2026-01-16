@@ -3,10 +3,10 @@ package com.sonusid.ollama.ui.screens.settings
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.test.espresso.Espresso.pressBack
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.theme.OllamaTheme
@@ -32,17 +33,19 @@ class SpriteSettingsScreenDiscardDialogTest {
         waitForIntervalInput()
 
         composeTestRule.onNodeWithContentDescription("戻る").performClick()
+        composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("編集内容を破棄しますか？").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("編集内容を破棄しますか？").assertCountEquals(0)
     }
 
     @Test
-    fun backWithUnsavedChanges_showsDiscardDialog() {
+    fun systemBackWithUnsavedChanges_showsDiscardDialog() {
         setSpriteSettingsContent()
         waitForIntervalInput()
         updateBaseIntervalBy(1)
 
-        composeTestRule.onNodeWithContentDescription("戻る").performClick()
+        pressBack()
+        composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithText("編集内容を破棄しますか？").assertIsDisplayed()
     }
@@ -56,8 +59,9 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithContentDescription("戻る").performClick()
+        composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("編集内容を破棄しますか？").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("編集内容を破棄しますか？").assertCountEquals(0)
     }
 
     private fun setSpriteSettingsContent() {
