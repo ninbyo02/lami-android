@@ -1848,7 +1848,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         return framesMatch && intervalMatch
     }
 
-    private fun normalizeInsertionPatterns(
+    fun normalizeInsertionPatterns(
         patterns: List<InsertionPattern>,
         fallbackIntervalMs: Int
     ): List<InsertionPattern> {
