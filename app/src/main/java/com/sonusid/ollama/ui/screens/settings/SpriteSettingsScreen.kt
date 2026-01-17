@@ -3982,7 +3982,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 Box(
                                     modifier = Modifier
                                         // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
-                                        .fillMaxSize(),
+                                        .fillMaxSize()
+                                        // テストで調整タブの表示確認に使う最小限の testTag
+                                        .testTag("spriteAdjustPanel"),
                                     // [非dp] 縦: プレビュー/ステータス の上寄せ(配置)に関係
                                     contentAlignment = Alignment.TopCenter
                                 ) {
@@ -5267,7 +5269,7 @@ private fun SpriteSettingsControls(
                 ) {
                     FilledTonalButton(
                         onClick = onMoveXPositive,
-                        modifier = buttonModifier,
+                        modifier = buttonModifier.testTag("spriteAdjustMoveRight"),
                         colors = defaultControlButtonColors,
                         contentPadding = buttonContentPadding,
                         shape = buttonShape
@@ -5288,7 +5290,7 @@ private fun SpriteSettingsControls(
                 ) {
                     FilledTonalButton(
                         onClick = onSizeDecrease,
-                        modifier = buttonModifier,
+                        modifier = buttonModifier.testTag("spriteAdjustSizeDecrease"),
                         colors = defaultControlButtonColors,
                         contentPadding = buttonContentPadding,
                         shape = buttonShape
@@ -5302,7 +5304,7 @@ private fun SpriteSettingsControls(
                 ) {
                     FilledTonalButton(
                         onClick = onSizeIncrease,
-                        modifier = buttonModifier,
+                        modifier = buttonModifier.testTag("spriteAdjustSizeIncrease"),
                         colors = defaultControlButtonColors,
                         contentPadding = buttonContentPadding,
                         shape = buttonShape
