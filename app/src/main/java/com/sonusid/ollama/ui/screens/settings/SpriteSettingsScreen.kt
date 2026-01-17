@@ -1273,7 +1273,12 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(selectedTab) {
         if (selectedTab == SpriteTab.ADJUST && didSaveAnimRecently) {
             savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
-            clearDirtyFlags()
+            didApplyReadyBaseSettings = false
+            didApplyTalkingBaseSettings = false
+            didApplyReadyInsertionSettings = false
+            didApplyTalkingInsertionSettings = false
+            didApplySpriteSheetSettings = false
+            didApplyAdjustSettings = false
             didSaveAnimRecently = false
         }
         if (!didRestoreTab) {
@@ -1987,15 +1992,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 didApplyTalkingInsertionSettings ||
                 isSpriteSheetDirty
         }
-    }
-
-    fun clearDirtyFlags() {
-        didApplyReadyBaseSettings = false
-        didApplyTalkingBaseSettings = false
-        didApplyReadyInsertionSettings = false
-        didApplyTalkingInsertionSettings = false
-        didApplySpriteSheetSettings = false
-        didApplyAdjustSettings = false
     }
 
     val dirtyDebugText by remember {
@@ -2845,7 +2841,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                     )
                 }
                 savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
-                clearDirtyFlags()
+                didApplyReadyBaseSettings = false
+                didApplyTalkingBaseSettings = false
+                didApplyReadyInsertionSettings = false
+                didApplyTalkingInsertionSettings = false
+                didApplySpriteSheetSettings = false
+                didApplyAdjustSettings = false
                 didSaveAnimRecently = true
                 showDiscardDialog = false
                 showTopSnackbarSuccess("保存しました")
@@ -2875,7 +2876,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
                 savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
-                clearDirtyFlags()
+                didApplyReadyBaseSettings = false
+                didApplyTalkingBaseSettings = false
+                didApplyReadyInsertionSettings = false
+                didApplyTalkingInsertionSettings = false
+                didApplySpriteSheetSettings = false
+                didApplyAdjustSettings = false
                 showDiscardDialog = false
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
