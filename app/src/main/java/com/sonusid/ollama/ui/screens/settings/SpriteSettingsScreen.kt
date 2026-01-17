@@ -936,6 +936,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
+    var savedSpriteSheetConfig by rememberSaveable { mutableStateOf(spriteSheetConfig) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
@@ -1245,6 +1246,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .sortedBy { it.frameIndex }
                 .map { position -> BoxPosition(position.x, position.y) }
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+            savedSpriteSheetConfig = resolvedConfig
             didRestoreSpriteSheetSettings = true
             isRestoringAdjust = false
         } finally {
@@ -1896,14 +1898,18 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    val isAdjustDirty by remember {
+        derivedStateOf {
+            buildSpriteSheetConfig() != savedSpriteSheetConfig
+        }
+    }
     val hasUnsavedChanges by remember {
         derivedStateOf {
             didApplyReadyBaseSettings ||
                 didApplyTalkingBaseSettings ||
                 didApplyReadyInsertionSettings ||
                 didApplyTalkingInsertionSettings ||
-                didApplySpriteSheetSettings ||
-                didApplyAdjustSettings
+                isAdjustDirty
         }
     }
 
@@ -2784,14 +2790,15 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     fun saveSpriteSheetConfig() {
         coroutineScope.launch {
+            val config = buildSpriteSheetConfig()
             runCatching {
-                val config = buildSpriteSheetConfig()
                 val error = config.validate()
                 if (error != null) {
                     throw IllegalArgumentException(error)
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
+                savedSpriteSheetConfig = config
                 clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
