@@ -1997,6 +1997,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val dirtyDebugText by remember {
         derivedStateOf {
             "hasUnsavedChanges=$hasUnsavedChanges " +
+                "isSpriteSheetDirty=$isSpriteSheetDirty " +
                 "didApplyReadyBaseSettings=$didApplyReadyBaseSettings " +
                 "didApplyTalkingBaseSettings=$didApplyTalkingBaseSettings " +
                 "didApplyReadyInsertionSettings=$didApplyReadyInsertionSettings " +
@@ -2007,6 +2008,34 @@ fun SpriteSettingsScreen(navController: NavController) {
                 "isRestoringAdjust=$isRestoringAdjust " +
                 "selectedTab=${selectedTab.name}"
         }
+    }
+
+    data class AnimDirtyFlags(
+        val readyBase: Boolean,
+        val talkingBase: Boolean,
+        val readyInsertion: Boolean,
+        val talkingInsertion: Boolean,
+    )
+
+    fun captureAnimDirtyFlags(): AnimDirtyFlags = AnimDirtyFlags(
+        readyBase = didApplyReadyBaseSettings,
+        talkingBase = didApplyTalkingBaseSettings,
+        readyInsertion = didApplyReadyInsertionSettings,
+        talkingInsertion = didApplyTalkingInsertionSettings,
+    )
+
+    fun clearAnimDirtyFlags() {
+        didApplyReadyBaseSettings = false
+        didApplyTalkingBaseSettings = false
+        didApplyReadyInsertionSettings = false
+        didApplyTalkingInsertionSettings = false
+    }
+
+    fun restoreAnimDirtyFlags(flags: AnimDirtyFlags) {
+        didApplyReadyBaseSettings = flags.readyBase
+        didApplyTalkingBaseSettings = flags.talkingBase
+        didApplyReadyInsertionSettings = flags.readyInsertion
+        didApplyTalkingInsertionSettings = flags.talkingInsertion
     }
 
     fun navigateBackWithFallback() {
@@ -2718,6 +2747,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     fun persistPerStateAnimationJson(
         validatedBase: ReadyAnimationSettings,
         validatedInsertion: InsertionAnimationSettings?,
+        restoreDirtyFlagsOnFailure: (() -> Unit)? = null,
     ) {
         coroutineScope.launch {
             var perStateSaved: SpriteState? = null
@@ -2860,6 +2890,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "perStateKey=${perStateKey ?: "null"} error=${throwable.message}"
                     )
                 }
+                restoreDirtyFlagsOnFailure?.invoke()
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
             }
         }
@@ -3143,6 +3174,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 return@onAnimationSave
             }
         } else null
+        val dirtyFlagsSnapshot = captureAnimDirtyFlags()
+        clearAnimDirtyFlags()
         when (selectedAnimation) {
             AnimationType.READY -> {
                 appliedReadyFrames = validatedBase.frames()
@@ -3163,7 +3196,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
                 appliedReadyInsertionExclusive = insertion.exclusive
-                persistPerStateAnimationJson(validatedBase, validatedInsertion)
+                persistPerStateAnimationJson(
+                    validatedBase,
+                    validatedInsertion,
+                    restoreDirtyFlagsOnFailure = { restoreAnimDirtyFlags(dirtyFlagsSnapshot) }
+                )
             }
 
             AnimationType.TALKING -> {
@@ -3185,7 +3222,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
                 appliedTalkingInsertionExclusive = insertion.exclusive
-                persistPerStateAnimationJson(validatedBase, validatedInsertion)
+                persistPerStateAnimationJson(
+                    validatedBase,
+                    validatedInsertion,
+                    restoreDirtyFlagsOnFailure = { restoreAnimDirtyFlags(dirtyFlagsSnapshot) }
+                )
             }
 
             else -> {
@@ -3197,7 +3238,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                         appliedInsertion = insertion,
                     )
                 }
-                persistPerStateAnimationJson(validatedBase, validatedInsertion)
+                persistPerStateAnimationJson(
+                    validatedBase,
+                    validatedInsertion,
+                    restoreDirtyFlagsOnFailure = { restoreAnimDirtyFlags(dirtyFlagsSnapshot) }
+                )
             }
         }
     }
