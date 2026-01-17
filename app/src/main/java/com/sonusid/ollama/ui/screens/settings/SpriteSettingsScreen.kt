@@ -1044,11 +1044,40 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyThinkingPerState by rememberSaveable { mutableStateOf(false) }
     var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
     var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
-    var didApplyReadyBaseSettings by remember { mutableStateOf(false) }
-    var didApplyTalkingBaseSettings by remember { mutableStateOf(false) }
-    var didApplyReadyInsertionSettings by remember { mutableStateOf(false) }
-    var didApplyTalkingInsertionSettings by remember { mutableStateOf(false) }
-    var didApplySpriteSheetSettings by remember { mutableStateOf(false) }
+    var didRestoreReadyBaseSettings by remember { mutableStateOf(false) }
+    var didRestoreTalkingBaseSettings by remember { mutableStateOf(false) }
+    var didRestoreReadyInsertionSettings by remember { mutableStateOf(false) }
+    var didRestoreTalkingInsertionSettings by remember { mutableStateOf(false) }
+    var didRestoreSpriteSheetSettings by remember { mutableStateOf(false) }
+    val didApplyReadyBaseSettings by remember {
+        derivedStateOf {
+            didFinishInitialLoad && !isBaseInputSynced(AnimationType.READY)
+        }
+    }
+    val didApplyTalkingBaseSettings by remember {
+        derivedStateOf {
+            didFinishInitialLoad && !isBaseInputSynced(AnimationType.TALKING)
+        }
+    }
+    val didApplyReadyInsertionSettings by remember {
+        derivedStateOf {
+            didFinishInitialLoad && !isInsertionInputSynced(AnimationType.READY)
+        }
+    }
+    val didApplyTalkingInsertionSettings by remember {
+        derivedStateOf {
+            didFinishInitialLoad && !isInsertionInputSynced(AnimationType.TALKING)
+        }
+    }
+    val didApplySpriteSheetSettings by remember {
+        derivedStateOf {
+            didFinishInitialLoad && (
+                boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
+                    boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
+                    boxPositions != normalizedBoxPositions
+                )
+        }
+    }
     var didApplyAdjustSettings by rememberSaveable { mutableStateOf(false) }
     var didRestoreSelectedAnimation by remember {
         // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
@@ -1242,7 +1271,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .sortedBy { it.frameIndex }
             .map { position -> BoxPosition(position.x, position.y) }
         selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-        didApplySpriteSheetSettings = true
+        didRestoreSpriteSheetSettings = true
     }
 
     LaunchedEffect(readyAnimationSettings) {
@@ -1253,7 +1282,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .map { value -> value + 1 }
             .joinToString(separator = ",")
         readyIntervalInput = readyAnimationSettings.intervalMs.toString()
-        didApplyReadyBaseSettings = true
+        didRestoreReadyBaseSettings = true
     }
 
     LaunchedEffect(talkingAnimationSettings) {
@@ -1264,7 +1293,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .map { value -> value + 1 }
             .joinToString(separator = ",")
         talkingIntervalInput = talkingAnimationSettings.intervalMs.toString()
-        didApplyTalkingBaseSettings = true
+        didRestoreTalkingBaseSettings = true
     }
 
     LaunchedEffect(readyInsertionAnimationSettings) {
@@ -1289,7 +1318,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         readyInsertionCooldownInput = readyInsertionAnimationSettings.cooldownLoops.toString()
         readyInsertionEnabled = readyInsertionAnimationSettings.enabled
         readyInsertionExclusive = readyInsertionAnimationSettings.exclusive
-        didApplyReadyInsertionSettings = true
+        didRestoreReadyInsertionSettings = true
     }
 
     LaunchedEffect(talkingInsertionAnimationSettings) {
@@ -1314,7 +1343,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         talkingInsertionCooldownInput = talkingInsertionAnimationSettings.cooldownLoops.toString()
         talkingInsertionEnabled = talkingInsertionAnimationSettings.enabled
         talkingInsertionExclusive = talkingInsertionAnimationSettings.exclusive
-        didApplyTalkingInsertionSettings = true
+        didRestoreTalkingInsertionSettings = true
     }
 
     LaunchedEffect(readyPerStateJson) {
@@ -2081,29 +2110,21 @@ fun SpriteSettingsScreen(navController: NavController) {
             didRestoreTab &&
                 didRestoreAdjustSelection &&
                 didRestoreSelectedAnimation &&
-                didApplyReadyBaseSettings &&
-                didApplyTalkingBaseSettings &&
-                didApplyReadyInsertionSettings &&
-                didApplyTalkingInsertionSettings &&
-                didApplySpriteSheetSettings
+                didRestoreReadyBaseSettings &&
+                didRestoreTalkingBaseSettings &&
+                didRestoreReadyInsertionSettings &&
+                didRestoreTalkingInsertionSettings &&
+                didRestoreSpriteSheetSettings
         }
     }
-    val hasUnsavedChangesState by remember {
-        // 入力→正規化→適用済みとの差分だけを dirty と判定する
-        derivedStateOf<Boolean> {
-            if (!didFinishInitialLoad) return@derivedStateOf false
-            val animationTargets = buildList {
-                add(AnimationType.READY)
-                add(AnimationType.TALKING)
-                addAll(extraAnimationStates.keys)
-            }.distinct()
-            val animationDirty = animationTargets.any { target ->
-                !isBaseInputSynced(target) || !isInsertionInputSynced(target)
-            }
-            val adjustDirty = boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
-                boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
-                boxPositions != normalizedBoxPositions
-            animationDirty || adjustDirty || didApplyAdjustSettings
+    val hasUnsavedChanges by remember {
+        derivedStateOf {
+            didApplyReadyBaseSettings ||
+                didApplyTalkingBaseSettings ||
+                didApplyReadyInsertionSettings ||
+                didApplyTalkingInsertionSettings ||
+                didApplySpriteSheetSettings ||
+                didApplyAdjustSettings
         }
     }
 
@@ -2122,7 +2143,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             showDiscardDialog = false
             return
         }
-        if (hasUnsavedChangesState) {
+        if (hasUnsavedChanges) {
             showDiscardDialog = true
         } else {
             navigateBackWithFallback()
