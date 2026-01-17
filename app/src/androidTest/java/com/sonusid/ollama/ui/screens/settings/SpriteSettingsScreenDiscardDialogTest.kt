@@ -19,7 +19,8 @@ import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.theme.OllamaTheme
-import org.junit.Assert.assertEquals
+import androidx.test.espresso.Espresso
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -28,51 +29,83 @@ class SpriteSettingsScreenDiscardDialogTest {
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun backWithoutChanges_doesNotShowDiscardDialog() {
+    fun back_withoutDirty_doesNotShowDiscardDialog() {
         setSpriteSettingsContent()
-        waitForStableInputs()
+        waitForIntervalInput()
 
-        composeTestRule.onNodeWithContentDescription("戻る").performClick()
-        composeTestRule.waitForIdle()
-
-        val count = composeTestRule
-            .onAllNodesWithText("編集内容を破棄しますか？")
-            .fetchSemanticsNodes()
-            .size
-
-        assertEquals(0, count)
+        openDiscardDialogByTopBack()
+        assertDiscardDialogNotShown()
     }
 
     @Test
-    fun systemBackWithUnsavedChanges_showsDiscardDialog() {
+    fun back_dirty_baseInterval_unsaved_showsDiscardDialog() {
         setSpriteSettingsContent()
-        waitForStableInputs()
-        updateBaseIntervalBy(1)
+        waitForIntervalInput()
+        makeAnimDirtyByChangingInterval()
 
-        composeTestRule.onNodeWithContentDescription("戻る").performClick()
-        composeTestRule.waitForIdle()
-
-        composeTestRule.onNodeWithText("編集内容を破棄しますか？").assertIsDisplayed()
+        openDiscardDialogByTopBack()
+        assertDiscardDialogShown()
     }
 
     @Test
-    fun backAfterSavingChanges_doesNotShowDiscardDialog() {
+    fun back_dirty_baseInterval_saved_doesNotShowDiscardDialog() {
         setSpriteSettingsContent()
-        waitForStableInputs()
-        updateBaseIntervalBy(1)
+        waitForIntervalInput()
+        makeAnimDirtyByChangingInterval()
 
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
-        waitForStableInputs()
-        composeTestRule.onNodeWithContentDescription("戻る").performClick()
+        waitForIntervalInput()
+
+        openDiscardDialogByTopBack()
+        assertDiscardDialogNotShown()
+    }
+
+    @Test
+    fun back_dirty_baseInterval_switchToAdjust_unsaved_showsDiscardDialog() {
+        setSpriteSettingsContent()
+        waitForIntervalInput()
+        makeAnimDirtyByChangingInterval()
+
+        navigateToAdjustTab()
+
+        openDiscardDialogByTopBack()
+        assertDiscardDialogShown()
+    }
+
+    @Test
+    fun back_dirty_baseInterval_switchToAdjust_saved_doesNotShowDiscardDialog() {
+        setSpriteSettingsContent()
+        waitForIntervalInput()
+        makeAnimDirtyByChangingInterval()
+
+        composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
+        navigateToAdjustTab()
 
-        val count = composeTestRule
-            .onAllNodesWithText("編集内容を破棄しますか？")
-            .fetchSemanticsNodes()
-            .size
+        openDiscardDialogByTopBack()
+        assertDiscardDialogNotShown()
+        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
+    }
 
-        assertEquals(0, count)
+    @Test
+    fun pressBack_imeFocused_withoutDirty_doesNotShowDiscardDialog() {
+        setSpriteSettingsContent()
+        waitForIntervalInput()
+
+        focusIntervalInput()
+        openDiscardDialogBySystemBack()
+        assertDiscardDialogNotShown()
+    }
+
+    @Test
+    fun pressBack_imeFocused_dirty_baseInterval_showsDiscardDialog() {
+        setSpriteSettingsContent()
+        waitForIntervalInput()
+        makeAnimDirtyByChangingInterval()
+
+        openDiscardDialogBySystemBack()
+        assertDiscardDialogShown()
     }
 
     private fun setSpriteSettingsContent() {
@@ -95,14 +128,18 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.waitForIdle()
     }
 
-    private fun waitForStableInputs() {
+    private fun waitForIntervalInput() {
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            val nodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
-                .fetchSemanticsNodes()
-            if (nodes.isEmpty()) {
+            val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE).fetchSemanticsNodes()
+            if (nodes.isNotEmpty()) {
                 return@waitUntil false
             }
-            val text = nodes.first()
+            val intervalNodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
+                .fetchSemanticsNodes()
+            if (intervalNodes.isEmpty()) {
+                return@waitUntil false
+            }
+            val text = intervalNodes.first()
                 .config[SemanticsProperties.EditableText]
                 .text
             text.trim().toIntOrNull() != null
@@ -120,5 +157,42 @@ class SpriteSettingsScreenDiscardDialogTest {
         intervalNode.performTextClearance()
         intervalNode.performTextInput(nextValue)
         composeTestRule.waitForIdle()
+    }
+
+    private fun assertDiscardDialogShown() {
+        composeTestRule.onNodeWithText(DISCARD_TITLE).assertIsDisplayed()
+    }
+
+    private fun assertDiscardDialogNotShown() {
+        val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE).fetchSemanticsNodes()
+        assertTrue("Discard dialog should not be shown", nodes.isEmpty())
+    }
+
+    private fun openDiscardDialogByTopBack() {
+        composeTestRule.onNodeWithContentDescription("戻る").performClick()
+        composeTestRule.waitForIdle()
+    }
+
+    private fun openDiscardDialogBySystemBack() {
+        Espresso.pressBack()
+        composeTestRule.waitForIdle()
+    }
+
+    private fun focusIntervalInput() {
+        composeTestRule.onNodeWithTag("spriteBaseIntervalInput").performClick()
+        composeTestRule.waitForIdle()
+    }
+
+    private fun makeAnimDirtyByChangingInterval(delta: Int = 1) {
+        updateBaseIntervalBy(delta)
+    }
+
+    private fun navigateToAdjustTab() {
+        composeTestRule.onNodeWithTag("spriteTabAdjust").performClick()
+        composeTestRule.waitForIdle()
+    }
+
+    private companion object {
+        private const val DISCARD_TITLE = "編集内容を破棄しますか？"
     }
 }

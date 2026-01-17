@@ -3485,6 +3485,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                             displayedTabs.forEach { tab ->
                                 when (tab) {
                                     SpriteTab.ANIM -> Tab(
+                                        modifier = Modifier
+                                            // テストでタブ選択するための最小限の testTag
+                                            .testTag("spriteTabAnim"),
                                         selected = selectedTab == SpriteTab.ANIM,
                                         onClick = {
                                             selectedTab = SpriteTab.ANIM
@@ -3501,6 +3504,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
 
                                     SpriteTab.ADJUST -> Tab(
+                                        modifier = Modifier
+                                            // テストでタブ選択するための最小限の testTag
+                                            .testTag("spriteTabAdjust"),
                                         selected = selectedTab == SpriteTab.ADJUST,
                                         onClick = {
                                             selectedTab = SpriteTab.ADJUST
