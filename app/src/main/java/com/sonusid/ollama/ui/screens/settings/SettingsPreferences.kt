@@ -543,7 +543,7 @@ class SettingsPreferences(private val context: Context) {
         true
     }
 
-    suspend fun ensurePerStateAnimationJsonInitializedIfMissing(): Result<Boolean> = runCatching {
+    suspend fun ensurePerStateAnimationJsonsInitialized(): Result<Boolean> = runCatching {
         val preferences = context.dataStore.data.first()
         val missingStates = SpriteState.values().filter { state ->
             preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
@@ -552,13 +552,15 @@ class SettingsPreferences(private val context: Context) {
         var saved = false
         missingStates.forEach { state ->
             val (baseDefaults, insertionDefaults) = defaultsForState(state)
-            val perStateJson = JSONObject()
-                .put(JSON_ANIMATION_KEY, defaultKeyForState(state))
-                .put(JSON_BASE_KEY, baseDefaults.toJsonObject())
-                .put(JSON_INSERTION_KEY, insertionDefaults.toJsonObject())
-                .toString()
-            saveSpriteAnimationJson(state, perStateJson)
-            saved = true
+            val perStateJson = buildPerStateAnimationJsonOrNull(
+                animationKey = defaultKeyForState(state),
+                baseSettings = baseDefaults,
+                insertionSettings = insertionDefaults,
+            )
+            if (perStateJson != null) {
+                saveSpriteAnimationJson(state, perStateJson)
+                saved = true
+            }
         }
         saved
     }
