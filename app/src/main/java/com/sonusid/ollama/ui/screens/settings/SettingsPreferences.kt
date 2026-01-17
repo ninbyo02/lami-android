@@ -543,6 +543,26 @@ class SettingsPreferences(private val context: Context) {
         true
     }
 
+    suspend fun ensurePerStateAnimationJsonInitializedIfMissing(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        val missingStates = SpriteState.values().filter { state ->
+            preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
+        }
+        if (missingStates.isEmpty()) return@runCatching false
+        var saved = false
+        missingStates.forEach { state ->
+            val (baseDefaults, insertionDefaults) = defaultsForState(state)
+            val perStateJson = JSONObject()
+                .put(JSON_ANIMATION_KEY, defaultKeyForState(state))
+                .put(JSON_BASE_KEY, baseDefaults.toJsonObject())
+                .put(JSON_INSERTION_KEY, insertionDefaults.toJsonObject())
+                .toString()
+            saveSpriteAnimationJson(state, perStateJson)
+            saved = true
+        }
+        saved
+    }
+
     // state別の選択キーを保存する（段階移行用）
     suspend fun setSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
