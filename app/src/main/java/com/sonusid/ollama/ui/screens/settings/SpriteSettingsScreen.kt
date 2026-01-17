@@ -1898,6 +1898,25 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun buildSpriteSheetConfig(): SpriteSheetConfig {
+        return SpriteSheetConfig(
+            rows = defaultSpriteSheetConfig.rows,
+            cols = defaultSpriteSheetConfig.cols,
+            frameWidth = boxSizePx,
+            frameHeight = boxSizePx,
+            boxes = boxPositions.mapIndexed { index, position ->
+                SpriteSheetBoxPosition(
+                    frameIndex = index,
+                    x = position.x,
+                    y = position.y,
+                    width = boxSizePx,
+                    height = boxSizePx
+                )
+            },
+            insertionEnabled = defaultSpriteSheetConfig.insertionEnabled,
+        )
+    }
+
     val isAdjustDirty by remember {
         derivedStateOf {
             buildSpriteSheetConfig() != savedSpriteSheetConfig
@@ -1983,25 +2002,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 didApplySpriteSheetSettings = true
             }
         }
-    }
-
-    fun buildSpriteSheetConfig(): SpriteSheetConfig {
-        return SpriteSheetConfig(
-            rows = defaultSpriteSheetConfig.rows,
-            cols = defaultSpriteSheetConfig.cols,
-            frameWidth = boxSizePx,
-            frameHeight = boxSizePx,
-            boxes = boxPositions.mapIndexed { index, position ->
-                SpriteSheetBoxPosition(
-                    frameIndex = index,
-                    x = position.x,
-                    y = position.y,
-                    width = boxSizePx,
-                    height = boxSizePx
-                )
-            },
-            insertionEnabled = defaultSpriteSheetConfig.insertionEnabled,
-        )
     }
 
     fun validateBaseInputs(target: AnimationType): ReadyAnimationSettings? {
