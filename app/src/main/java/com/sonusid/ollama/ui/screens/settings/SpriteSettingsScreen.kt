@@ -1115,6 +1115,15 @@ fun SpriteSettingsScreen(navController: NavController) {
         mutableStateOf(false)
     }
 
+    @Suppress("UNUSED_PARAMETER")
+    fun syncAdjustSnapshotsToCurrent(reason: String) {
+        // ADJUST 初期化時は保存済みスナップショットを現在値に同期して dirty を再生成しない
+        savedSpriteSheetSnapshot = SpriteSheetSnapshot(
+            boxSizePx = boxSizePx,
+            boxPositions = boxPositions,
+        )
+    }
+
     fun resolveExtraAnimationInput(target: AnimationType): AnimationInputState {
         val existing = extraAnimationStates[target]
         if (existing != null) {
@@ -1308,7 +1317,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .sortedBy { it.frameIndex }
                 .map { position -> BoxPosition(position.x, position.y) }
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-            savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
+            syncAdjustSnapshotsToCurrent("spriteSheetConfig")
             didRestoreSpriteSheetSettings = true
             didApplySpriteSheetSettings = false
             didApplyAdjustSettings = false
