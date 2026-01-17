@@ -6,7 +6,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -258,14 +257,15 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     private fun waitForDiscardDialogNotShown(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            try {
-                composeTestRule.onNodeWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true)
-                    .assertDoesNotExist()
-                true
-            } catch (_: AssertionError) {
-                false
-            }
+            composeTestRule.onAllNodesWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isEmpty()
         }
+        val nodes = composeTestRule.onAllNodesWithTag(
+            DISCARD_DIALOG_TAG,
+            useUnmergedTree = true
+        ).fetchSemanticsNodes()
+        assertTrue("Discard dialog should not be shown", nodes.isEmpty())
     }
 
     private fun waitForAdjustReady(timeoutMillis: Long = 15_000) {
