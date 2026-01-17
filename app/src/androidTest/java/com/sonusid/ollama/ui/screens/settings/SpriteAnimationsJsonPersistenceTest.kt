@@ -18,20 +18,20 @@ class SpriteAnimationsJsonPersistenceTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
 
-        val states = listOf(
-            SettingsPreferences.SpriteState.READY,
-            SettingsPreferences.SpriteState.IDLE,
-            SettingsPreferences.SpriteState.SPEAKING,
-            SettingsPreferences.SpriteState.THINKING,
-            SettingsPreferences.SpriteState.ERROR,
-            SettingsPreferences.SpriteState.OFFLINE,
+        val states: List<SpriteState> = listOf(
+            SpriteState.READY,
+            SpriteState.IDLE,
+            SpriteState.SPEAKING,
+            SpriteState.THINKING,
+            SpriteState.ERROR,
+            SpriteState.OFFLINE,
         )
 
-        val missing = mutableListOf<SettingsPreferences.SpriteState>()
-        val invalid = mutableListOf<SettingsPreferences.SpriteState>()
+        val missing = mutableListOf<SpriteState>()
+        val invalid = mutableListOf<SpriteState>()
 
-        states.forEach { state ->
-            val json = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(state).first() }
+        states.forEach { state: SpriteState ->
+            val json: String? = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(state).first() }
             if (json.isNullOrBlank()) {
                 missing.add(state)
             } else if (!json.contains("\"animationKey\"")) {
@@ -55,7 +55,7 @@ class SpriteAnimationsJsonPersistenceTest {
         val prefs = SettingsPreferences(context)
 
         // legacy は読み取り専用 fallback のため、null でもOK（初期化はしない）
-        val json = withTimeout(5_000) { prefs.spriteAnimationsJson.first() }
+        val json: String? = withTimeout(5_000) { prefs.spriteAnimationsJson.first() }
         if (!json.isNullOrBlank()) {
             assertTrue("legacy json に version が含まれていない", json.contains("\"version\""))
             assertTrue("legacy json に animations が含まれていない", json.contains("\"animations\""))
