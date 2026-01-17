@@ -149,11 +149,6 @@ import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
-private data class AdjustSnapshot(
-    val boxSizePx: Int,
-    val boxPositions: List<BoxPosition>,
-)
-
 private fun Modifier.debugBounds(tag: String): Modifier =
     this.onGloballyPositioned { c ->
         val r = c.boundsInWindow()
@@ -1062,8 +1057,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyTalkingInsertionSettings by rememberSaveable { mutableStateOf(false) }
     var didApplySpriteSheetSettings by rememberSaveable { mutableStateOf(false) }
     var didApplyAdjustSettings by rememberSaveable { mutableStateOf(false) }
-    var lastSavedAdjustSnapshot by remember {
-        mutableStateOf(AdjustSnapshot(boxSizePx, boxPositions.toList()))
+    var savedSpriteSheetSnapshot by rememberSaveable {
+        mutableStateOf(defaultSpriteSheetConfig)
     }
     var didRestoreSelectedAnimation by remember {
         // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
@@ -1253,7 +1248,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .sortedBy { it.frameIndex }
                 .map { position -> BoxPosition(position.x, position.y) }
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-            lastSavedAdjustSnapshot = AdjustSnapshot(boxSizePx, boxPositions.toList())
+            savedSpriteSheetSnapshot = buildSpriteSheetConfig()
             didRestoreSpriteSheetSettings = true
             didApplySpriteSheetSettings = false
             didApplyAdjustSettings = false
@@ -1926,14 +1921,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         )
     }
 
-    val currentAdjustSnapshot by remember {
-        derivedStateOf { AdjustSnapshot(boxSizePx, boxPositions.toList()) }
-    }
-    val isAdjustDirty by remember {
-        derivedStateOf { currentAdjustSnapshot != lastSavedAdjustSnapshot }
-    }
-    val isAdjustDirtyByUser by remember {
-        derivedStateOf { didApplyAdjustSettings && isAdjustDirty }
+    val isSpriteSheetDirty by remember {
+        derivedStateOf { buildSpriteSheetConfig() != savedSpriteSheetSnapshot }
     }
     val hasUnsavedChanges by remember {
         derivedStateOf {
@@ -1941,7 +1930,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 didApplyTalkingBaseSettings ||
                 didApplyReadyInsertionSettings ||
                 didApplyTalkingInsertionSettings ||
-                isAdjustDirtyByUser
+                isSpriteSheetDirty
         }
     }
 
@@ -2799,6 +2788,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "perStateKey=${perStateKey ?: "null"}"
                     )
                 }
+                savedSpriteSheetSnapshot = buildSpriteSheetConfig()
                 clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
@@ -2826,7 +2816,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
-                lastSavedAdjustSnapshot = currentAdjustSnapshot
+                savedSpriteSheetSnapshot = config
                 clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
