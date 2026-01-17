@@ -3116,6 +3116,7 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     if (showDiscardDialog) {
         AlertDialog(
+            modifier = Modifier.testTag("spriteDiscardDialog"),
             onDismissRequest = { showDiscardDialog = false },
             confirmButton = {
                 TextButton(

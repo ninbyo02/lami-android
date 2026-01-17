@@ -108,12 +108,7 @@ class SpriteSettingsScreenDiscardDialogTest {
         openDiscardDialogBySystemBack()
         // 保存済みのため Back 後に破棄ダイアログは出ない。
         // 戻り先画面の差異に依存せず、ダイアログ非表示が安定したことを成功条件とする。
-        composeTestRule.waitUntil(timeoutMillis = 15_000) {
-            composeTestRule
-                .onAllNodesWithText("編集内容を破棄しますか", useUnmergedTree = true)
-                .fetchSemanticsNodes()
-                .isEmpty()
-        }
+        waitForDiscardDialogNotShown()
     }
 
     @Test
@@ -196,7 +191,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     private fun assertDiscardDialogNotShown() {
         waitForDiscardDialogNotShown()
-        val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+        val nodes = composeTestRule.onAllNodesWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true)
             .fetchSemanticsNodes()
         assertTrue("Discard dialog should not be shown", nodes.isEmpty())
     }
@@ -257,15 +252,15 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     private fun waitForDiscardDialogShown(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+            composeTestRule.onAllNodesWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeTestRule.onNodeWithText(DISCARD_TITLE, useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true).assertIsDisplayed()
     }
 
     private fun waitForDiscardDialogNotShown(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+            composeTestRule.onAllNodesWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true)
                 .fetchSemanticsNodes().isEmpty()
         }
     }
@@ -289,6 +284,6 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private companion object {
-        private const val DISCARD_TITLE = "編集内容を破棄しますか？"
+        private const val DISCARD_DIALOG_TAG = "spriteDiscardDialog"
     }
 }
