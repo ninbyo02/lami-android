@@ -30,6 +30,7 @@ import com.sonusid.ollama.ui.theme.OllamaTheme
 import androidx.test.espresso.Espresso
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -105,14 +106,10 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.waitForIdle()
         switchToAdjustTab()
 
-        openDiscardDialogByTopBack()
+        openDiscardDialogBySystemBack()
+        waitForSettingsScreen()
         // 保存済みのため Back 後に破棄ダイアログは出ない。
         // 戻り先画面の差異に依存せず、ダイアログ非表示が安定したことを成功条件とする。
-        composeTestRule.waitUntil {
-            composeTestRule
-                .onAllNodesWithText("編集内容を破棄しますか？")
-                .fetchSemanticsNodes().isEmpty()
-        }
         composeTestRule
             .onNodeWithText("編集内容を破棄しますか？")
             .assertDoesNotExist()
@@ -281,16 +278,23 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForSettingsScreen(timeoutMillis: Long = 15_000) {
-        // 保存後にタブを切り替えたケースでは戻り先が一時的に異なるため、
-        // Settings のマーカー表示 or SpriteSettings のタブ消失のどちらかで復帰完了とみなす。
+        // 保存後の遷移が安定するまで Settings 表示 or 破棄ダイアログの表示を待つ。
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
             val settingsShown = composeTestRule.onAllNodesWithTag("settingsScreenMarker")
                 .fetchSemanticsNodes().isNotEmpty()
-            val spriteTabShown = composeTestRule.onAllNodesWithTag("spriteTabAnim")
+            val discardShown = composeTestRule
+                .onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
-            settingsShown || !spriteTabShown
+            settingsShown || discardShown
         }
-        val settingsNodes = composeTestRule.onAllNodesWithTag("settingsScreenMarker")
+        val discardNodes = composeTestRule
+            .onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+            .fetchSemanticsNodes()
+        if (discardNodes.isNotEmpty()) {
+            fail("保存後に破棄ダイアログが表示されました")
+        }
+        val settingsNodes = composeTestRule
+            .onAllNodesWithTag("settingsScreenMarker")
             .fetchSemanticsNodes()
         if (settingsNodes.isNotEmpty()) {
             composeTestRule.onNodeWithTag("settingsScreenMarker").assertIsDisplayed()
