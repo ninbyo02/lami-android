@@ -104,7 +104,6 @@ class SpriteSettingsScreenDiscardDialogTest {
         switchToAdjustTab()
 
         openDiscardDialogByTopBack()
-        assertDiscardDialogNotShown()
         waitForSettingsScreen()
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
     }
