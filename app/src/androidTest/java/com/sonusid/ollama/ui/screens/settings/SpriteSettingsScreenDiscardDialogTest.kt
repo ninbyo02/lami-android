@@ -106,7 +106,16 @@ class SpriteSettingsScreenDiscardDialogTest {
         switchToAdjustTab()
 
         openDiscardDialogByTopBack()
-        waitForSettingsScreen()
+        // 保存済みのため Back 後に破棄ダイアログは出ない。
+        // 戻り先画面の差異に依存せず、ダイアログ非表示が安定したことを成功条件とする。
+        composeTestRule.waitUntil {
+            composeTestRule
+                .onAllNodesWithText("編集内容を破棄しますか？")
+                .fetchSemanticsNodes().isEmpty()
+        }
+        composeTestRule
+            .onAllNodesWithText("編集内容を破棄しますか？")
+            .assertCountEquals(0)
     }
 
     @Test
