@@ -129,21 +129,14 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForIntervalInput() {
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
-            val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE).fetchSemanticsNodes()
-            if (nodes.isNotEmpty()) {
-                return@waitUntil false
-            }
-            val intervalNodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
-                .fetchSemanticsNodes()
-            if (intervalNodes.isEmpty()) {
-                return@waitUntil false
-            }
-            val text = intervalNodes.first()
-                .config[SemanticsProperties.EditableText]
-                .text
-            text.trim().toIntOrNull() != null
-        }
+        composeTestRule.waitForIdle()
+        val intervalNodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
+            .fetchSemanticsNodes()
+        assertTrue("Interval input should be shown", intervalNodes.isNotEmpty())
+        val text = intervalNodes.first()
+            .config[SemanticsProperties.EditableText]
+            .text
+        assertTrue("Interval input should be numeric", text.trim().toIntOrNull() != null)
     }
 
     private fun updateBaseIntervalBy(delta: Int) {
@@ -160,10 +153,12 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun assertDiscardDialogShown() {
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText(DISCARD_TITLE).assertIsDisplayed()
     }
 
     private fun assertDiscardDialogNotShown() {
+        composeTestRule.waitForIdle()
         val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE).fetchSemanticsNodes()
         assertTrue("Discard dialog should not be shown", nodes.isEmpty())
     }
