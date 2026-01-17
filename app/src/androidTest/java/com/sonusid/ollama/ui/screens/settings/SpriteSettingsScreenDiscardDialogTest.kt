@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -56,14 +57,11 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     @Test
-    fun back_dirty_baseInterval_unsaved_showsDiscardDialog() {
+    fun back_dirty_adjust_boxSize_unsaved_showsDiscardDialog() {
         setSpriteSettingsContent()
-        waitForIntervalInput()
-        makeAnimDirtyByChangingInterval()
-        composeTestRule.waitForIdle()
+        makeAdjustDirtyByChangingBoxSize()
 
         openDiscardDialogByTopBack()
-        composeTestRule.waitForIdle()
         assertDiscardDialogShown()
     }
 
@@ -82,7 +80,7 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     @Test
-    fun back_dirty_baseInterval_switchToAdjust_unsaved_showsDiscardDialog() {
+    fun back_dirty_baseInterval_switchToAdjust_unsaved_doesNotShowDiscardDialog() {
         setSpriteSettingsContent()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
@@ -92,8 +90,7 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.waitForIdle()
 
         openDiscardDialogByTopBack()
-        composeTestRule.waitForIdle()
-        assertDiscardDialogShown()
+        assertDiscardDialogNotShown()
     }
 
     @Test
@@ -122,14 +119,11 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     @Test
-    fun pressBack_imeFocused_dirty_baseInterval_showsDiscardDialog() {
+    fun pressBack_dirty_adjust_boxSize_showsDiscardDialog() {
         setSpriteSettingsContent()
-        waitForIntervalInput()
-        makeAnimDirtyByChangingInterval()
-        composeTestRule.waitForIdle()
+        makeAdjustDirtyByChangingBoxSize()
 
         openDiscardDialogBySystemBack()
-        composeTestRule.waitForIdle()
         assertDiscardDialogShown()
     }
 
@@ -187,7 +181,7 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun assertDiscardDialogShown() {
-        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule.onAllNodesWithText(DISCARD_TITLE)
                 .fetchSemanticsNodes().isNotEmpty()
         }
@@ -195,7 +189,6 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun assertDiscardDialogNotShown() {
-        composeTestRule.waitForIdle()
         val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE).fetchSemanticsNodes()
         assertTrue("Discard dialog should not be shown", nodes.isEmpty())
     }
@@ -222,6 +215,15 @@ class SpriteSettingsScreenDiscardDialogTest {
     private fun navigateToAdjustTab() {
         composeTestRule.onNodeWithTag("spriteTabAdjust").performClick()
         composeTestRule.waitForIdle()
+    }
+
+    private fun makeAdjustDirtyByChangingBoxSize() {
+        navigateToAdjustTab()
+        // ラベルが安定している "+" ボタンを使って boxSize を変更し dirty を確実化する
+        repeat(2) {
+            composeTestRule.onAllNodesWithText("+").onFirst().performClick()
+            composeTestRule.waitForIdle()
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
