@@ -997,8 +997,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(180) }
     var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
-    var talkingFrameInput by rememberSaveable { mutableStateOf("1,2,3,2") }
-    var talkingIntervalInput by rememberSaveable { mutableStateOf("700") }
+    var talkingFrameInput by rememberSaveable { mutableStateOf("1,7,1,7") }
+    var talkingIntervalInput by rememberSaveable { mutableStateOf("140") }
     LaunchedEffect(imageBitmap, containerSize) {
         // delegated property のため smart cast 不可→ローカル束縛
         val bmp = imageBitmap
@@ -1006,8 +1006,8 @@ fun SpriteSettingsScreen(navController: NavController) {
             displayScale = containerSize.width / bmp.width.toFloat()
         }
     }
-    var appliedTalkingFrames by rememberSaveable { mutableStateOf(listOf(0, 1, 2, 1)) }
-    var appliedTalkingIntervalMs by rememberSaveable { mutableStateOf(700) }
+    var appliedTalkingFrames by rememberSaveable { mutableStateOf(listOf(0, 6, 0, 6)) }
+    var appliedTalkingIntervalMs by rememberSaveable { mutableStateOf(140) }
     var talkingFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     // Ready insertion のUI初期値を新デフォルトに合わせる
@@ -1047,26 +1047,31 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyInsertionEveryNError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
-    var talkingInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("4,5,6") }
-    var talkingInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("1") }
-    var talkingInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("") }
-    var talkingInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("") }
-    var talkingInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("0") }
-    var talkingInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("") }
-    var talkingInsertionIntervalInput by rememberSaveable { mutableStateOf("200") }
-    var talkingInsertionEveryNInput by rememberSaveable { mutableStateOf("1") }
+    var talkingInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("6,1") }
+    var talkingInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("2") }
+    var talkingInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("110") }
+    var talkingInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("6,1,6") }
+    var talkingInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("1") }
+    var talkingInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("110") }
+    var talkingInsertionIntervalInput by rememberSaveable { mutableStateOf("110") }
+    var talkingInsertionEveryNInput by rememberSaveable { mutableStateOf("4") }
     var talkingInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
-    var talkingInsertionCooldownInput by rememberSaveable { mutableStateOf("0") }
-    var talkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
+    var talkingInsertionCooldownInput by rememberSaveable { mutableStateOf("2") }
+    var talkingInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var talkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var appliedTalkingInsertionPatterns by remember {
-        mutableStateOf(listOf(InsertionPattern(listOf(3, 4, 5))))
+        mutableStateOf(
+            listOf(
+                InsertionPattern(listOf(5, 0), weight = 2, intervalMs = 110),
+                InsertionPattern(listOf(5, 0, 5), weight = 1, intervalMs = 110),
+            )
+        )
     }
-    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(200) }
-    var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(1) }
+    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(110) }
+    var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(4) }
     var appliedTalkingInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
-    var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(0) }
-    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(false) }
+    var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(2) }
+    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var appliedTalkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionPattern1FramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionPattern1WeightError by rememberSaveable { mutableStateOf<String?>(null) }
