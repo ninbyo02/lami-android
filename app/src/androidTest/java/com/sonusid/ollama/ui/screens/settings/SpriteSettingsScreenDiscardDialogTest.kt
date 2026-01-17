@@ -60,8 +60,10 @@ class SpriteSettingsScreenDiscardDialogTest {
         setSpriteSettingsContent()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
+        composeTestRule.waitForIdle()
 
         openDiscardDialogByTopBack()
+        composeTestRule.waitForIdle()
         assertDiscardDialogShown()
     }
 
@@ -84,10 +86,13 @@ class SpriteSettingsScreenDiscardDialogTest {
         setSpriteSettingsContent()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
+        composeTestRule.waitForIdle()
 
         navigateToAdjustTab()
+        composeTestRule.waitForIdle()
 
         openDiscardDialogByTopBack()
+        composeTestRule.waitForIdle()
         assertDiscardDialogShown()
     }
 
@@ -121,8 +126,10 @@ class SpriteSettingsScreenDiscardDialogTest {
         setSpriteSettingsContent()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
+        composeTestRule.waitForIdle()
 
         openDiscardDialogBySystemBack()
+        composeTestRule.waitForIdle()
         assertDiscardDialogShown()
     }
 
@@ -180,7 +187,10 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun assertDiscardDialogShown() {
-        composeTestRule.waitForIdle()
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithText(DISCARD_TITLE)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText(DISCARD_TITLE).assertIsDisplayed()
     }
 
