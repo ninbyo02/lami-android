@@ -1254,6 +1254,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
             lastSavedAdjustSnapshot = AdjustSnapshot(boxSizePx, boxPositions.toList())
             didRestoreSpriteSheetSettings = true
+            didApplySpriteSheetSettings = false
             isRestoringAdjust = false
         } finally {
             isAutoSyncing = false
@@ -1929,13 +1930,16 @@ fun SpriteSettingsScreen(navController: NavController) {
     val isAdjustDirty by remember {
         derivedStateOf { currentAdjustSnapshot != lastSavedAdjustSnapshot }
     }
+    val isAdjustDirtyByUser by remember {
+        derivedStateOf { didApplySpriteSheetSettings && isAdjustDirty }
+    }
     val hasUnsavedChanges by remember {
         derivedStateOf {
             didApplyReadyBaseSettings ||
                 didApplyTalkingBaseSettings ||
                 didApplyReadyInsertionSettings ||
                 didApplyTalkingInsertionSettings ||
-                isAdjustDirty
+                isAdjustDirtyByUser
         }
     }
 
