@@ -6,7 +6,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,39 +14,51 @@ import org.junit.runner.RunWith
 class SpriteAnimationsJsonPersistenceTest {
 
     @Test
-    fun legacy_spriteAnimationsJson_is_present_or_reported() = runBlocking {
+    fun perState_spriteAnimationJson_is_initialized_for_all_states() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
 
-        // legacy が無いのか・遅いだけなのか切り分けるため、まずは nullable をそのまま読む
-        val json = withTimeout(5_000) { prefs.spriteAnimationsJson.first() }
-
-        // legacy が null なら明示的に落とす（= Copy が legacy 参照なら不具合確定の材料）
-        assertNotNull("spriteAnimationsJson is null (legacy all-animations json missing)", json)
-        json!!
-
-        val expectedInternalKeys = listOf(
-            "ErrorHeavy",
-            "ErrorLight",
-            "Idle",
-            "OfflineEnter",
-            "OfflineExit",
-            "OfflineLoop",
-            "Ready",
-            "Talking",
-            "TalkCalm",
-            "TalkLong",
-            "TalkShort",
-            "Thinking",
+        val states = listOf(
+            SettingsPreferences.SpriteState.READY,
+            SettingsPreferences.SpriteState.IDLE,
+            SettingsPreferences.SpriteState.SPEAKING,
+            SettingsPreferences.SpriteState.THINKING,
+            SettingsPreferences.SpriteState.ERROR,
+            SettingsPreferences.SpriteState.OFFLINE,
         )
 
-        val missing = expectedInternalKeys.filterNot { key ->
-            json.contains("\"animationType\":\"$key\"")
+        val missing = mutableListOf<SettingsPreferences.SpriteState>()
+        val invalid = mutableListOf<SettingsPreferences.SpriteState>()
+
+        states.forEach { state ->
+            val json = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(state).first() }
+            if (json.isNullOrBlank()) {
+                missing.add(state)
+            } else if (!json.contains("\"animationKey\"")) {
+                invalid.add(state)
+            }
         }
 
         assertTrue(
-            "sprite_animations_json に欠損: $missing\n--- json(head) ---\n${json.take(800)}",
-            missing.isEmpty()
+            "state別のspriteAnimationJsonが未初期化: $missing",
+            missing.isEmpty(),
         )
+        assertTrue(
+            "state別のspriteAnimationJsonが不正( animationKey 不在 ): $invalid",
+            invalid.isEmpty(),
+        )
+    }
+
+    @Test
+    fun legacy_spriteAnimationsJson_may_be_null_in_fresh_install() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+
+        // legacy は読み取り専用 fallback のため、null でもOK（初期化はしない）
+        val json = withTimeout(5_000) { prefs.spriteAnimationsJson.first() }
+        if (!json.isNullOrBlank()) {
+            assertTrue("legacy json に version が含まれていない", json.contains("\"version\""))
+            assertTrue("legacy json に animations が含まれていない", json.contains("\"animations\""))
+        }
     }
 }
