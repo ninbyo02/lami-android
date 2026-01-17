@@ -4,7 +4,6 @@ import androidx.activity.ComponentActivity
 import android.content.Context
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -217,7 +216,7 @@ class SpriteSettingsScreenDiscardDialogTest {
     private fun switchToAdjustTab() {
         composeTestRule.onNodeWithTag("spriteTabAdjust").performClick()
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithTag("spriteAdjustPanel", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithTag("spriteAdjustPanel", useUnmergedTree = true).assertIsDisplayed()
     }
 
     private fun makeAdjustDirty() {
@@ -257,7 +256,7 @@ class SpriteSettingsScreenDiscardDialogTest {
                     .fetchSemanticsNodes().isNotEmpty()
             }
         } catch (error: Throwable) {
-            composeTestRule.onRoot(useUnmergedTree = true).printToLog("SpriteTest")
+            println("SpriteTest")
             throw error
         }
         composeTestRule.onNodeWithText(DISCARD_TITLE, useUnmergedTree = true).assertIsDisplayed()
