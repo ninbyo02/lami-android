@@ -948,6 +948,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         mutableStateOf(false)
     }
     var isRestoringAdjust by remember { mutableStateOf(false) }
+    var isAutoSyncing by remember { mutableStateOf(false) }
     val devUnlocked = true
     var readyFrameInput by rememberSaveable { mutableStateOf("1,1,1,1") }
     var readyIntervalInput by rememberSaveable { mutableStateOf("90") }
@@ -1234,16 +1235,21 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(spriteSheetConfig) {
-        val resolvedConfig = resolveValidSpriteSheetConfig(spriteSheetConfig)
-        val resolvedBoxes = resolvedConfig.boxes
-        isRestoringAdjust = true
-        boxSizePx = resolvedConfig.frameWidth.coerceAtLeast(1)
-        boxPositions = resolvedBoxes
-            .sortedBy { it.frameIndex }
-            .map { position -> BoxPosition(position.x, position.y) }
-        selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-        didRestoreSpriteSheetSettings = true
-        isRestoringAdjust = false
+        isAutoSyncing = true
+        try {
+            val resolvedConfig = resolveValidSpriteSheetConfig(spriteSheetConfig)
+            val resolvedBoxes = resolvedConfig.boxes
+            isRestoringAdjust = true
+            boxSizePx = resolvedConfig.frameWidth.coerceAtLeast(1)
+            boxPositions = resolvedBoxes
+                .sortedBy { it.frameIndex }
+                .map { position -> BoxPosition(position.x, position.y) }
+            selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
+            didRestoreSpriteSheetSettings = true
+            isRestoringAdjust = false
+        } finally {
+            isAutoSyncing = false
+        }
     }
 
     LaunchedEffect(readyAnimationSettings) {
@@ -1943,7 +1949,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (desiredSize != boxSizePx) {
             boxSizePx = desiredSize
             boxPositions = clampAllPositions(desiredSize)
-            if (!isRestoringAdjust) {
+            if (!isRestoringAdjust && !isAutoSyncing) {
                 didApplyAdjustSettings = true
                 didApplySpriteSheetSettings = true
             }
@@ -1966,7 +1972,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             boxPositions = boxPositions.toMutableList().also { positions ->
                 positions[selectedIndex] = updated
             }
-            if (!isRestoringAdjust) {
+            if (!isRestoringAdjust && !isAutoSyncing) {
                 didApplyAdjustSettings = true
                 didApplySpriteSheetSettings = true
             }
