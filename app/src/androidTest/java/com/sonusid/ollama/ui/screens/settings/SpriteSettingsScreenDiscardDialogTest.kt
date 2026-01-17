@@ -114,8 +114,8 @@ class SpriteSettingsScreenDiscardDialogTest {
                 .fetchSemanticsNodes().isEmpty()
         }
         composeTestRule
-            .onAllNodesWithText("編集内容を破棄しますか？")
-            .assertCountEquals(0)
+            .onNodeWithText("編集内容を破棄しますか？")
+            .assertDoesNotExist()
     }
 
     @Test
