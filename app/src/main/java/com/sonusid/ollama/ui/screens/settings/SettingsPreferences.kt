@@ -33,8 +33,8 @@ data class ReadyAnimationSettings(
             intervalMs = 180,
         )
         val TALKING_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(0, 1, 2, 1),
-            intervalMs = 700,
+            frameSequence = listOf(0, 6, 0, 6),
+            intervalMs = 140,
         )
         // Thinking のデフォルト: base の intervalMs=180ms/frames は指定JSONに合わせる
         val THINKING_DEFAULT = ReadyAnimationSettings(
@@ -78,12 +78,15 @@ data class InsertionAnimationSettings(
             exclusive = false,
         )
         val TALKING_DEFAULT = InsertionAnimationSettings(
-            enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(3, 4, 5))),
-            intervalMs = 200,
-            everyNLoops = 1,
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 110),
+            ),
+            intervalMs = 110,
+            everyNLoops = 4,
             probabilityPercent = 50,
-            cooldownLoops = 0,
+            cooldownLoops = 2,
             exclusive = false,
         )
         // Thinking のデフォルト: pattern intervalMs/intervalMs は指定JSONに合わせる
