@@ -893,6 +893,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                     "migration legacy sprite_animations_json -> per-state: FAIL reason=${throwable.message}"
                 )
             }
+        settingsPreferences.ensurePerStateAnimationJsonInitializedIfMissing()
+            .onFailure { throwable ->
+                Log.d(
+                    "LamiSprite",
+                    "ensure per-state sprite_animation_json init: FAIL reason=${throwable.message}"
+                )
+            }
     }
 
     LaunchedEffect(Unit) {
