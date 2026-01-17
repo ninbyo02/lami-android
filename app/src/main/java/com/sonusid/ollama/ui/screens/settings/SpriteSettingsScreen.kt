@@ -1297,10 +1297,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .sortedBy { it.frameIndex }
                 .map { position -> BoxPosition(position.x, position.y) }
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-            savedSpriteSheetSnapshot = SpriteSheetSnapshot(
-                boxSizePx = boxSizePx,
-                boxPositions = boxPositions,
-            )
+            savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
             didRestoreSpriteSheetSettings = true
             didApplySpriteSheetSettings = false
             didApplyAdjustSettings = false
@@ -2021,14 +2018,15 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     fun onBackRequested() {
-        if (showDiscardDialog) {
+        if (!hasUnsavedChanges) {
             showDiscardDialog = false
+            navigateBackWithFallback()
             return
         }
-        if (hasUnsavedChanges) {
-            showDiscardDialog = true
+        if (showDiscardDialog) {
+            showDiscardDialog = false
         } else {
-            navigateBackWithFallback()
+            showDiscardDialog = true
         }
     }
 
