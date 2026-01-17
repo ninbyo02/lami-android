@@ -1049,6 +1049,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyReadyInsertionSettings by remember { mutableStateOf(false) }
     var didApplyTalkingInsertionSettings by remember { mutableStateOf(false) }
     var didApplySpriteSheetSettings by remember { mutableStateOf(false) }
+    var didApplyAdjustSettings by rememberSaveable { mutableStateOf(false) }
     var didRestoreSelectedAnimation by remember {
         // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
         mutableStateOf(false)
@@ -2102,7 +2103,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             val adjustDirty = boxSizePx != normalizedSpriteSheetConfig.frameWidth ||
                 boxSizePx != normalizedSpriteSheetConfig.frameHeight ||
                 boxPositions != normalizedBoxPositions
-            animationDirty || adjustDirty
+            animationDirty || adjustDirty || didApplyAdjustSettings
         }
     }
 
@@ -2139,6 +2140,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (desiredSize != boxSizePx) {
             boxSizePx = desiredSize
             boxPositions = clampAllPositions(desiredSize)
+            didApplyAdjustSettings = true
         }
     }
 
@@ -2158,6 +2160,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             boxPositions = boxPositions.toMutableList().also { positions ->
                 positions[selectedIndex] = updated
             }
+            didApplyAdjustSettings = true
         }
     }
 
@@ -2973,6 +2976,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
+                didApplyAdjustSettings = false
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
