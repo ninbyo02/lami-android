@@ -888,17 +888,27 @@ fun SpriteSettingsScreen(navController: NavController) {
                 Log.d("LamiSprite", message)
             }
             .onFailure { throwable ->
-                Log.d(
-                    "LamiSprite",
-                    "migration legacy sprite_animations_json -> per-state: FAIL reason=${throwable.message}"
-                )
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "migration legacy sprite_animations_json -> per-state: FAIL reason=${throwable.message}",
+                        throwable
+                    )
+                } else {
+                    Log.w("LamiSprite", "migration legacy sprite_animations_json -> per-state: FAIL")
+                }
             }
-        settingsPreferences.ensurePerStateAnimationJsonInitializedIfMissing()
+        settingsPreferences.ensurePerStateAnimationJsonsInitialized()
             .onFailure { throwable ->
-                Log.d(
-                    "LamiSprite",
-                    "ensure per-state sprite_animation_json init: FAIL reason=${throwable.message}"
-                )
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "ensure per-state sprite_animation_json init: FAIL reason=${throwable.message}",
+                        throwable
+                    )
+                } else {
+                    Log.w("LamiSprite", "ensure per-state sprite_animation_json init: FAIL")
+                }
             }
     }
 
