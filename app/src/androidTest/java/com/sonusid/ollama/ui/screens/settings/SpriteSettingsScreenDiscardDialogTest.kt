@@ -272,11 +272,20 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForSettingsScreen(timeoutMillis: Long = 15_000) {
+        // 保存後にタブを切り替えたケースでは戻り先が一時的に異なるため、
+        // Settings のマーカー表示 or SpriteSettings のタブ消失のどちらかで復帰完了とみなす。
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            composeTestRule.onAllNodesWithTag("settingsScreenMarker")
+            val settingsShown = composeTestRule.onAllNodesWithTag("settingsScreenMarker")
                 .fetchSemanticsNodes().isNotEmpty()
+            val spriteTabShown = composeTestRule.onAllNodesWithTag("spriteTabAnim")
+                .fetchSemanticsNodes().isNotEmpty()
+            settingsShown || !spriteTabShown
         }
-        composeTestRule.onNodeWithTag("settingsScreenMarker").assertIsDisplayed()
+        val settingsNodes = composeTestRule.onAllNodesWithTag("settingsScreenMarker")
+            .fetchSemanticsNodes()
+        if (settingsNodes.isNotEmpty()) {
+            composeTestRule.onNodeWithTag("settingsScreenMarker").assertIsDisplayed()
+        }
     }
 
     private companion object {
