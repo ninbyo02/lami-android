@@ -2932,14 +2932,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun copyAppliedSettings(devSettings: DevPreviewSettings) {
+    fun copyAppliedSettings() {
         coroutineScope.launch {
             runCatching {
-                val config = buildSpriteSheetConfig()
-                val error = config.validate()
-                if (error != null) {
-                    throw IllegalArgumentException(error)
-                }
                 val readyBase = ReadyAnimationSettings(
                     appliedReadyFrames,
                     intervalMs = appliedReadyIntervalMs
@@ -2967,14 +2962,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                     exclusive = appliedTalkingInsertionExclusive,
                 )
 
-                val jsonString = buildSettingsJson(
+                val jsonString = buildSettingsJsonAnimationOnly(
                     animationType = selectedAnimation,
-                    spriteSheetConfig = config,
                     readyBase = readyBase,
                     talkingBase = talkingBase,
                     readyInsertion = readyInsertion,
                     talkingInsertion = talkingInsertion,
-                    devSettings = devSettings,
                 )
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
@@ -2985,7 +2978,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    fun copyEditingSettings(devSettings: DevPreviewSettings) {
+    fun copyEditingSettings() {
         coroutineScope.launch {
             val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
                 showTopSnackbarError("入力が不正です")
@@ -2998,11 +2991,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
             } else null
             runCatching {
-                val config = buildSpriteSheetConfig()
-                val error = config.validate()
-                if (error != null) {
-                    throw IllegalArgumentException(error)
-                }
                 val readyBase = when (selectedAnimation) {
                     AnimationType.READY -> validatedBase
                     AnimationType.TALKING -> ReadyAnimationSettings(
@@ -3067,14 +3055,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                         exclusive = appliedTalkingInsertionExclusive,
                     )
                 }
-                val jsonString = buildSettingsJson(
+                val jsonString = buildSettingsJsonAnimationOnly(
                     animationType = selectedAnimation,
-                    spriteSheetConfig = config,
                     readyBase = readyBase,
                     talkingBase = talkingBase,
                     readyInsertion = readyInsertion,
                     talkingInsertion = talkingInsertion,
-                    devSettings = devSettings,
                 )
                 clipboardManager.setText(AnnotatedString(jsonString))
             }.onSuccess {
@@ -3315,7 +3301,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         IconButton(
                             onClick = {
                                 when (selectedTab) {
-                                    SpriteTab.ANIM -> copyEditingSettings(devPreviewSettings)
+                                    SpriteTab.ANIM -> copyEditingSettings()
                                     SpriteTab.ADJUST -> copySpriteSheetConfig()
                                 }
                             }
@@ -5335,7 +5321,24 @@ private fun SpriteSettingsControls(
 }
 
 // UI調整: 下部操作ボタンをピル形状に戻し、矢印を真紫で視認性を向上。
-private fun buildSettingsJson(
+private fun buildSettingsJsonAnimationOnly(
+    animationType: AnimationType,
+    readyBase: ReadyAnimationSettings,
+    talkingBase: ReadyAnimationSettings,
+    readyInsertion: InsertionAnimationSettings,
+    talkingInsertion: InsertionAnimationSettings,
+): String {
+    val root = buildAnimationSettingsJsonRoot(
+        animationType = animationType,
+        readyBase = readyBase,
+        talkingBase = talkingBase,
+        readyInsertion = readyInsertion,
+        talkingInsertion = talkingInsertion,
+    )
+    return root.toString(2)
+}
+
+private fun buildSettingsJsonFull(
     animationType: AnimationType,
     spriteSheetConfig: SpriteSheetConfig,
     readyBase: ReadyAnimationSettings,
@@ -5344,6 +5347,25 @@ private fun buildSettingsJson(
     talkingInsertion: InsertionAnimationSettings,
     devSettings: DevPreviewSettings,
 ): String {
+    val root = buildAnimationSettingsJsonRoot(
+        animationType = animationType,
+        readyBase = readyBase,
+        talkingBase = talkingBase,
+        readyInsertion = readyInsertion,
+        talkingInsertion = talkingInsertion,
+    )
+    root.put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
+    root.put("dev", devSettings.toJsonObject())
+    return root.toString(2)
+}
+
+private fun buildAnimationSettingsJsonRoot(
+    animationType: AnimationType,
+    readyBase: ReadyAnimationSettings,
+    talkingBase: ReadyAnimationSettings,
+    readyInsertion: InsertionAnimationSettings,
+    talkingInsertion: InsertionAnimationSettings,
+): JSONObject {
     val root = JSONObject()
     // JSON互換のため、保存キーは従来の内部名を維持する
     root.put("animationType", animationType.internalKey)
@@ -5359,9 +5381,7 @@ private fun buildSettingsJson(
             .put("base", talkingBase.toJsonObject())
             .put("insertion", talkingInsertion.toJsonObject())
     )
-    root.put("spriteSheetConfig", spriteSheetConfig.toJsonObject())
-    root.put("dev", devSettings.toJsonObject())
-    return root.toString(2)
+    return root
 }
 
 private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
