@@ -104,11 +104,15 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
         switchToAdjustTab()
+        val debugAfterSwitch = fetchSpriteDirtyDebugText()
+        val debugBeforeBack = fetchSpriteDirtyDebugText()
 
         openDiscardDialogBySystemBack()
         // 保存済みのため Back 後に破棄ダイアログは出ない。
         // 戻り先画面の差異に依存せず、ダイアログ非表示が安定したことを成功条件とする。
-        waitForDiscardDialogNotShown()
+        waitForDiscardDialogNotShown(
+            debugMessage = "dirty debug after switch: $debugAfterSwitch / before back: $debugBeforeBack"
+        )
     }
 
     @Test
@@ -255,7 +259,10 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true).assertIsDisplayed()
     }
 
-    private fun waitForDiscardDialogNotShown(timeoutMillis: Long = 15_000) {
+    private fun waitForDiscardDialogNotShown(
+        timeoutMillis: Long = 15_000,
+        debugMessage: String? = null,
+    ) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
             composeTestRule.onAllNodesWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true)
                 .fetchSemanticsNodes()
@@ -265,7 +272,8 @@ class SpriteSettingsScreenDiscardDialogTest {
             DISCARD_DIALOG_TAG,
             useUnmergedTree = true
         ).fetchSemanticsNodes()
-        assertTrue("Discard dialog should not be shown", nodes.isEmpty())
+        val debugSuffix = debugMessage?.let { " ($it)" }.orEmpty()
+        assertTrue("Discard dialog should not be shown$debugSuffix", nodes.isEmpty())
     }
 
     private fun waitForAdjustReady(timeoutMillis: Long = 15_000) {
@@ -284,6 +292,14 @@ class SpriteSettingsScreenDiscardDialogTest {
             ).fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithTag("settingsScreenRoot", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    private fun fetchSpriteDirtyDebugText(): String {
+        return composeTestRule.onNodeWithTag("spriteDirtyDebug", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.Text]
+            .first()
+            .text
     }
 
     private companion object {

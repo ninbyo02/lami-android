@@ -1061,6 +1061,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyReadyInsertionSettings by rememberSaveable { mutableStateOf(false) }
     var didApplyTalkingInsertionSettings by rememberSaveable { mutableStateOf(false) }
     var didApplySpriteSheetSettings by rememberSaveable { mutableStateOf(false) }
+    var didApplyAdjustSettings by rememberSaveable { mutableStateOf(false) }
     var lastSavedAdjustSnapshot by remember {
         mutableStateOf(AdjustSnapshot(boxSizePx, boxPositions.toList()))
     }
@@ -1255,6 +1256,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             lastSavedAdjustSnapshot = AdjustSnapshot(boxSizePx, boxPositions.toList())
             didRestoreSpriteSheetSettings = true
             didApplySpriteSheetSettings = false
+            didApplyAdjustSettings = false
             isRestoringAdjust = false
         } finally {
             isAutoSyncing = false
@@ -1931,7 +1933,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         derivedStateOf { currentAdjustSnapshot != lastSavedAdjustSnapshot }
     }
     val isAdjustDirtyByUser by remember {
-        derivedStateOf { didApplySpriteSheetSettings && isAdjustDirty }
+        derivedStateOf { didApplyAdjustSettings && isAdjustDirty }
     }
     val hasUnsavedChanges by remember {
         derivedStateOf {
@@ -1949,6 +1951,22 @@ fun SpriteSettingsScreen(navController: NavController) {
         didApplyReadyInsertionSettings = false
         didApplyTalkingInsertionSettings = false
         didApplySpriteSheetSettings = false
+        didApplyAdjustSettings = false
+    }
+
+    val dirtyDebugText by remember {
+        derivedStateOf {
+            "hasUnsavedChanges=$hasUnsavedChanges " +
+                "didApplyReadyBaseSettings=$didApplyReadyBaseSettings " +
+                "didApplyTalkingBaseSettings=$didApplyTalkingBaseSettings " +
+                "didApplyReadyInsertionSettings=$didApplyReadyInsertionSettings " +
+                "didApplyTalkingInsertionSettings=$didApplyTalkingInsertionSettings " +
+                "didApplySpriteSheetSettings=$didApplySpriteSheetSettings " +
+                "didApplyAdjustSettings=$didApplyAdjustSettings " +
+                "isAutoSyncing=$isAutoSyncing " +
+                "isRestoringAdjust=$isRestoringAdjust " +
+                "selectedTab=${selectedTab.name}"
+        }
     }
 
     fun navigateBackWithFallback() {
@@ -1986,6 +2004,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             boxPositions = clampAllPositions(desiredSize)
             if (!isRestoringAdjust && !isAutoSyncing) {
                 didApplySpriteSheetSettings = true
+                didApplyAdjustSettings = true
             }
         }
     }
@@ -2008,6 +2027,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
             if (!isRestoringAdjust && !isAutoSyncing) {
                 didApplySpriteSheetSettings = true
+                didApplyAdjustSettings = true
             }
         }
     }
@@ -3359,6 +3379,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
                                 }
                             }
+                        }
+                        if (BuildConfig.DEBUG) {
+                            Text(
+                                text = dirtyDebugText,
+                                modifier = Modifier.testTag("spriteDirtyDebug"),
+                                style = MaterialTheme.typography.labelSmall,
+                            )
                         }
                         val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
                         // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
