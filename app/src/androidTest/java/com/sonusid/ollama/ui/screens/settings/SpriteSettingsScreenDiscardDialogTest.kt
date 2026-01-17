@@ -30,7 +30,6 @@ import com.sonusid.ollama.ui.theme.OllamaTheme
 import androidx.test.espresso.Espresso
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -148,7 +147,7 @@ class SpriteSettingsScreenDiscardDialogTest {
                         SpriteSettingsScreen(navController)
                     }
                     composable(Routes.SETTINGS) {
-                        Text("Settings", modifier = Modifier.testTag("settingsScreenMarker"))
+                        Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
                     }
                 }
             }
@@ -278,27 +277,13 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForSettingsScreen(timeoutMillis: Long = 15_000) {
-        // 保存後の遷移が安定するまで Settings 表示 or 破棄ダイアログの表示を待つ。
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            val settingsShown = composeTestRule.onAllNodesWithTag("settingsScreenMarker")
-                .fetchSemanticsNodes().isNotEmpty()
-            val discardShown = composeTestRule
-                .onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
-            settingsShown || discardShown
+            composeTestRule.onAllNodesWithTag(
+                "settingsScreenRoot",
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()
         }
-        val discardNodes = composeTestRule
-            .onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
-            .fetchSemanticsNodes()
-        if (discardNodes.isNotEmpty()) {
-            fail("保存後に破棄ダイアログが表示されました")
-        }
-        val settingsNodes = composeTestRule
-            .onAllNodesWithTag("settingsScreenMarker")
-            .fetchSemanticsNodes()
-        if (settingsNodes.isNotEmpty()) {
-            composeTestRule.onNodeWithTag("settingsScreenMarker").assertIsDisplayed()
-        }
+        composeTestRule.onNodeWithTag("settingsScreenRoot", useUnmergedTree = true).assertIsDisplayed()
     }
 
     private companion object {
