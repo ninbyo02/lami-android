@@ -103,11 +103,14 @@ class SpriteSettingsScreenDiscardDialogTest {
 
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
+        waitForHasUnsavedChanges(false, debugLabel = "after save")
         switchToAdjustTab()
+        waitForHasUnsavedChanges(false, debugLabel = "after switch")
         val debugAfterSwitch = fetchSpriteDirtyDebugText()
         val debugBeforeBack = fetchSpriteDirtyDebugText()
 
         openDiscardDialogBySystemBack()
+        waitForHasUnsavedChanges(false, debugLabel = "before back")
         // 保存済みのため Back 後に破棄ダイアログは出ない。
         // 戻り先画面の差異に依存せず、ダイアログ非表示が安定したことを成功条件とする。
         waitForDiscardDialogNotShown(
@@ -300,6 +303,22 @@ class SpriteSettingsScreenDiscardDialogTest {
             .config[SemanticsProperties.Text]
             .first()
             .text
+    }
+
+    private fun waitForHasUnsavedChanges(
+        expected: Boolean,
+        timeoutMillis: Long = 15_000,
+        debugLabel: String,
+    ) {
+        val expectedText = "hasUnsavedChanges=$expected"
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            fetchSpriteDirtyDebugText().contains(expectedText)
+        }
+        val latest = fetchSpriteDirtyDebugText()
+        assertTrue(
+            "Dirty debug should contain $expectedText ($debugLabel). actual=$latest",
+            latest.contains(expectedText)
+        )
     }
 
     private companion object {
