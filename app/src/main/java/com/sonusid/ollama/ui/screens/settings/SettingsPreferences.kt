@@ -13,6 +13,7 @@ import com.sonusid.ollama.data.normalize
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
@@ -241,9 +242,14 @@ class SettingsPreferences(private val context: Context) {
     }
 
     // state別JSONが正（読み取り/保存の本命）
-    fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[spriteAnimationJsonPreferencesKey(state)]
-    }
+    fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data
+        .onStart {
+            migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
+            ensurePerStateAnimationJsonsInitialized()
+        }
+        .map { preferences ->
+            preferences[spriteAnimationJsonPreferencesKey(state)]
+        }
 
     // 復元優先順位:
     // 1) state別JSON（sprite_animation_json_*）※正（Single Source of Truth）
