@@ -82,17 +82,15 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     @Test
-    fun back_dirty_baseInterval_switchToAdjust_unsaved_doesNotShowDiscardDialog() {
+    fun back_dirty_baseInterval_switchToAdjust_unsaved_showsDiscardDialog() {
         setSpriteSettingsContent()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
-        composeTestRule.waitForIdle()
 
         switchToAdjustTab()
-        composeTestRule.waitForIdle()
 
         openDiscardDialogByTopBack()
-        assertDiscardDialogNotShown()
+        assertDiscardDialogShown()
     }
 
     @Test
@@ -107,6 +105,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
         openDiscardDialogByTopBack()
         assertDiscardDialogNotShown()
+        waitForSettingsScreen()
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
     }
 
@@ -189,6 +188,7 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun assertDiscardDialogNotShown() {
+        waitForDiscardDialogNotShown()
         val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
             .fetchSemanticsNodes()
         assertTrue("Discard dialog should not be shown", nodes.isEmpty())
@@ -215,8 +215,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     private fun switchToAdjustTab() {
         composeTestRule.onNodeWithTag("spriteTabAdjust").performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithTag("spriteAdjustPanel", useUnmergedTree = true).assertIsDisplayed()
+        waitForAdjustReady()
     }
 
     private fun makeAdjustDirty() {
@@ -250,16 +249,33 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForDiscardDialogShown(timeoutMillis: Long = 7_000) {
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
-        } catch (error: Throwable) {
-            println("SpriteTest")
-            throw error
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithText(DISCARD_TITLE, useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    private fun waitForDiscardDialogNotShown(timeoutMillis: Long = 7_000) {
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    private fun waitForAdjustReady(timeoutMillis: Long = 7_000) {
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            composeTestRule.onAllNodesWithTag("spriteAdjustPanel", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithTag("spriteAdjustPanel", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    private fun waitForSettingsScreen(timeoutMillis: Long = 7_000) {
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            composeTestRule.onAllNodesWithText("Settings")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     private companion object {
