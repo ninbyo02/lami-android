@@ -149,6 +149,11 @@ import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
+private data class AdjustSnapshot(
+    val boxSizePx: Int,
+    val boxPositions: List<BoxPosition>,
+)
+
 private fun Modifier.debugBounds(tag: String): Modifier =
     this.onGloballyPositioned { c ->
         val r = c.boundsInWindow()
@@ -936,7 +941,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
-    var savedSpriteSheetConfig by rememberSaveable { mutableStateOf(spriteSheetConfig) }
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var displayScale by remember { mutableStateOf(1f) }
     var selectedTab by rememberSaveable { mutableStateOf(SpriteTab.ANIM) }
@@ -1057,7 +1061,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyReadyInsertionSettings by rememberSaveable { mutableStateOf(false) }
     var didApplyTalkingInsertionSettings by rememberSaveable { mutableStateOf(false) }
     var didApplySpriteSheetSettings by rememberSaveable { mutableStateOf(false) }
-    var didApplyAdjustSettings by rememberSaveable { mutableStateOf(false) }
+    var lastSavedAdjustSnapshot by remember {
+        mutableStateOf(AdjustSnapshot(boxSizePx, boxPositions.toList()))
+    }
     var didRestoreSelectedAnimation by remember {
         // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
         mutableStateOf(false)
@@ -1246,7 +1252,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .sortedBy { it.frameIndex }
                 .map { position -> BoxPosition(position.x, position.y) }
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-            savedSpriteSheetConfig = resolvedConfig
+            lastSavedAdjustSnapshot = AdjustSnapshot(boxSizePx, boxPositions.toList())
             didRestoreSpriteSheetSettings = true
             isRestoringAdjust = false
         } finally {
@@ -1917,10 +1923,11 @@ fun SpriteSettingsScreen(navController: NavController) {
         )
     }
 
+    val currentAdjustSnapshot by remember {
+        derivedStateOf { AdjustSnapshot(boxSizePx, boxPositions.toList()) }
+    }
     val isAdjustDirty by remember {
-        derivedStateOf {
-            buildSpriteSheetConfig() != savedSpriteSheetConfig
-        }
+        derivedStateOf { currentAdjustSnapshot != lastSavedAdjustSnapshot }
     }
     val hasUnsavedChanges by remember {
         derivedStateOf {
@@ -1938,7 +1945,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         didApplyReadyInsertionSettings = false
         didApplyTalkingInsertionSettings = false
         didApplySpriteSheetSettings = false
-        didApplyAdjustSettings = false
     }
 
     fun navigateBackWithFallback() {
@@ -1975,7 +1981,6 @@ fun SpriteSettingsScreen(navController: NavController) {
             boxSizePx = desiredSize
             boxPositions = clampAllPositions(desiredSize)
             if (!isRestoringAdjust && !isAutoSyncing) {
-                didApplyAdjustSettings = true
                 didApplySpriteSheetSettings = true
             }
         }
@@ -1998,7 +2003,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 positions[selectedIndex] = updated
             }
             if (!isRestoringAdjust && !isAutoSyncing) {
-                didApplyAdjustSettings = true
                 didApplySpriteSheetSettings = true
             }
         }
@@ -2798,7 +2802,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
-                savedSpriteSheetConfig = config
+                lastSavedAdjustSnapshot = currentAdjustSnapshot
                 clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
