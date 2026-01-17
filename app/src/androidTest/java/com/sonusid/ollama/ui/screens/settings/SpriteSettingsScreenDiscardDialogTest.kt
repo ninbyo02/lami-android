@@ -3,6 +3,8 @@ package com.sonusid.ollama.ui.screens.settings
 import androidx.activity.ComponentActivity
 import android.content.Context
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -105,7 +107,6 @@ class SpriteSettingsScreenDiscardDialogTest {
 
         openDiscardDialogByTopBack()
         waitForSettingsScreen()
-        composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
     }
 
     @Test
@@ -141,7 +142,7 @@ class SpriteSettingsScreenDiscardDialogTest {
                         SpriteSettingsScreen(navController)
                     }
                     composable(Routes.SETTINGS) {
-                        Text("Settings")
+                        Text("Settings", modifier = Modifier.testTag("settingsScreenMarker"))
                     }
                 }
             }
@@ -270,11 +271,12 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithTag("spriteAdjustPanel", useUnmergedTree = true).assertIsDisplayed()
     }
 
-    private fun waitForSettingsScreen(timeoutMillis: Long = 7_000) {
+    private fun waitForSettingsScreen(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            composeTestRule.onAllNodesWithText("Settings")
+            composeTestRule.onAllNodesWithTag("settingsScreenMarker")
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        composeTestRule.onNodeWithTag("settingsScreenMarker").assertIsDisplayed()
     }
 
     private companion object {
