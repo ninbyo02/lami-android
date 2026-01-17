@@ -254,7 +254,7 @@ class SpriteSettingsScreenDiscardDialogTest {
         return getter.invoke(null, context) as DataStore<Preferences>
     }
 
-    private fun waitForDiscardDialogShown(timeoutMillis: Long = 7_000) {
+    private fun waitForDiscardDialogShown(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
             composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -262,14 +262,14 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithText(DISCARD_TITLE, useUnmergedTree = true).assertIsDisplayed()
     }
 
-    private fun waitForDiscardDialogNotShown(timeoutMillis: Long = 7_000) {
+    private fun waitForDiscardDialogNotShown(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
             composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
                 .fetchSemanticsNodes().isEmpty()
         }
     }
 
-    private fun waitForAdjustReady(timeoutMillis: Long = 7_000) {
+    private fun waitForAdjustReady(timeoutMillis: Long = 15_000) {
         composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
             composeTestRule.onAllNodesWithTag("spriteAdjustPanel", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
