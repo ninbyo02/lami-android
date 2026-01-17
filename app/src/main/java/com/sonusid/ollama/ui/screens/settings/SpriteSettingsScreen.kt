@@ -2003,22 +2003,6 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    val dirtyDebugText by remember {
-        derivedStateOf {
-            "hasUnsavedChanges=$hasUnsavedChanges " +
-                "isSpriteSheetDirty=$isSpriteSheetDirty " +
-                "didApplyReadyBaseSettings=$didApplyReadyBaseSettings " +
-                "didApplyTalkingBaseSettings=$didApplyTalkingBaseSettings " +
-                "didApplyReadyInsertionSettings=$didApplyReadyInsertionSettings " +
-                "didApplyTalkingInsertionSettings=$didApplyTalkingInsertionSettings " +
-                "didApplySpriteSheetSettings=$didApplySpriteSheetSettings " +
-                "didApplyAdjustSettings=$didApplyAdjustSettings " +
-                "isAutoSyncing=$isAutoSyncing " +
-                "isRestoringAdjust=$isRestoringAdjust " +
-                "selectedTab=${selectedTab.name}"
-        }
-    }
-
     data class AnimDirtyFlags(
         val readyBase: Boolean,
         val talkingBase: Boolean,
@@ -3488,13 +3472,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     )
                                 }
                             }
-                        }
-                        if (BuildConfig.DEBUG) {
-                            Text(
-                                text = dirtyDebugText,
-                                modifier = Modifier.testTag("spriteDirtyDebug"),
-                                style = MaterialTheme.typography.labelSmall,
-                            )
                         }
                         val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
                         // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
