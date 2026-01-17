@@ -149,6 +149,11 @@ import kotlin.math.roundToInt
 
 data class BoxPosition(val x: Int, val y: Int)
 
+data class SpriteSheetSnapshot(
+    val boxSizePx: Int,
+    val boxPositions: List<BoxPosition>,
+)
+
 private fun Modifier.debugBounds(tag: String): Modifier =
     this.onGloballyPositioned { c ->
         val r = c.boundsInWindow()
@@ -756,6 +761,42 @@ private fun boxPositionsSaver() = androidx.compose.runtime.saveable.listSaver<Li
     }
 )
 
+private fun spriteSheetSnapshotSaver() = androidx.compose.runtime.saveable.listSaver<SpriteSheetSnapshot, Int>(
+    save = { snapshot ->
+        buildList {
+            add(snapshot.boxSizePx)
+            add(snapshot.boxPositions.size)
+            snapshot.boxPositions.forEach { position ->
+                add(position.x)
+                add(position.y)
+            }
+        }
+    },
+    restore = { values ->
+        if (values.size < 2) {
+            SpriteSheetSnapshot(
+                boxSizePx = DEFAULT_BOX_SIZE_PX,
+                boxPositions = defaultBoxPositions(),
+            )
+        } else {
+            val restoredBoxSize = values[0]
+            val restoredCount = values[1].coerceAtLeast(0)
+            val restoredPositions = mutableListOf<BoxPosition>()
+            var cursor = 2
+            repeat(restoredCount) {
+                val x = values.getOrNull(cursor) ?: 0
+                val y = values.getOrNull(cursor + 1) ?: 0
+                restoredPositions.add(BoxPosition(x, y))
+                cursor += 2
+            }
+            SpriteSheetSnapshot(
+                boxSizePx = restoredBoxSize,
+                boxPositions = restoredPositions,
+            )
+        }
+    }
+)
+
 private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSaver<DevPreviewSettings, Int>(
     save = { settings ->
         listOf(
@@ -1057,8 +1098,16 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didApplyTalkingInsertionSettings by rememberSaveable { mutableStateOf(false) }
     var didApplySpriteSheetSettings by rememberSaveable { mutableStateOf(false) }
     var didApplyAdjustSettings by rememberSaveable { mutableStateOf(false) }
-    var savedSpriteSheetSnapshot by rememberSaveable {
-        mutableStateOf(defaultSpriteSheetConfig)
+    val currentSpriteSheetSnapshot by remember {
+        derivedStateOf {
+            SpriteSheetSnapshot(
+                boxSizePx = boxSizePx,
+                boxPositions = boxPositions,
+            )
+        }
+    }
+    var savedSpriteSheetSnapshot by rememberSaveable(stateSaver = spriteSheetSnapshotSaver()) {
+        mutableStateOf(currentSpriteSheetSnapshot)
     }
     var didRestoreSelectedAnimation by remember {
         // 再起動復元の二重適用を防ぐため、復元完了フラグを保持する
@@ -1248,7 +1297,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .sortedBy { it.frameIndex }
                 .map { position -> BoxPosition(position.x, position.y) }
             selectedNumber = selectedNumber.coerceIn(1, boxPositions.size.coerceAtLeast(1))
-            savedSpriteSheetSnapshot = buildSpriteSheetConfig()
+            savedSpriteSheetSnapshot = SpriteSheetSnapshot(
+                boxSizePx = boxSizePx,
+                boxPositions = boxPositions,
+            )
             didRestoreSpriteSheetSettings = true
             didApplySpriteSheetSettings = false
             didApplyAdjustSettings = false
@@ -1922,7 +1974,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     val isSpriteSheetDirty by remember {
-        derivedStateOf { buildSpriteSheetConfig() != savedSpriteSheetSnapshot }
+        derivedStateOf { currentSpriteSheetSnapshot != savedSpriteSheetSnapshot }
     }
     val hasUnsavedChanges by remember {
         derivedStateOf {
@@ -2788,7 +2840,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "perStateKey=${perStateKey ?: "null"}"
                     )
                 }
-                savedSpriteSheetSnapshot = buildSpriteSheetConfig()
+                savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
                 clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
@@ -2816,7 +2868,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
-                savedSpriteSheetSnapshot = config
+                savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
                 clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
