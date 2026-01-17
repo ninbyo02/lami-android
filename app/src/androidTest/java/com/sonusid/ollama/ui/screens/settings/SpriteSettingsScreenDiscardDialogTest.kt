@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import android.content.Context
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
@@ -60,7 +62,7 @@ class SpriteSettingsScreenDiscardDialogTest {
         setSpriteSettingsContent()
         waitForIntervalInput()
         switchToAdjustTab()
-        makeAdjustDirtyByMove()
+        makeAdjustDirty()
 
         openDiscardDialogByTopBack()
         assertDiscardDialogShown()
@@ -124,7 +126,7 @@ class SpriteSettingsScreenDiscardDialogTest {
         setSpriteSettingsContent()
         waitForIntervalInput()
         switchToAdjustTab()
-        makeAdjustDirtyByMove()
+        makeAdjustDirty()
 
         openDiscardDialogBySystemBack()
         assertDiscardDialogShown()
@@ -188,7 +190,8 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun assertDiscardDialogNotShown() {
-        val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE).fetchSemanticsNodes()
+        val nodes = composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+            .fetchSemanticsNodes()
         assertTrue("Discard dialog should not be shown", nodes.isEmpty())
     }
 
@@ -212,12 +215,28 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun switchToAdjustTab() {
-        composeTestRule.onNodeWithText("調整").performClick()
+        composeTestRule.onNodeWithTag("spriteTabAdjust").performClick()
         composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("spriteAdjustPanel", useUnmergedTree = true).assertExists()
     }
 
-    private fun makeAdjustDirtyByMove() {
-        composeTestRule.onNodeWithText("X+").performClick()
+    private fun makeAdjustDirty() {
+        val tagPriority = listOf(
+            "spriteAdjustSizeIncrease",
+            "spriteAdjustSizeDecrease",
+            "spriteAdjustMoveRight"
+        )
+        var clicked = false
+        for (tag in tagPriority) {
+            val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+            if (nodes.isNotEmpty()) {
+                composeTestRule.onNodeWithTag(tag, useUnmergedTree = true).performClick()
+                clicked = true
+                break
+            }
+        }
+        assertTrue("Adjust dirty trigger should be available", clicked)
         composeTestRule.waitForIdle()
     }
 
@@ -232,11 +251,16 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForDiscardDialogShown(timeoutMillis: Long = 7_000) {
-        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            composeTestRule.onAllNodesWithText(DISCARD_TITLE)
-                .fetchSemanticsNodes().isNotEmpty()
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                composeTestRule.onAllNodesWithText(DISCARD_TITLE, useUnmergedTree = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (error: Throwable) {
+            composeTestRule.onRoot(useUnmergedTree = true).printToLog("SpriteTest")
+            throw error
         }
-        composeTestRule.onNodeWithText(DISCARD_TITLE).assertIsDisplayed()
+        composeTestRule.onNodeWithText(DISCARD_TITLE, useUnmergedTree = true).assertIsDisplayed()
     }
 
     private companion object {
