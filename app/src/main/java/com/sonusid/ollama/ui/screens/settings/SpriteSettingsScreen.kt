@@ -1898,6 +1898,15 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun clearDirtyFlags() {
+        didApplyReadyBaseSettings = false
+        didApplyTalkingBaseSettings = false
+        didApplyReadyInsertionSettings = false
+        didApplyTalkingInsertionSettings = false
+        didApplySpriteSheetSettings = false
+        didApplyAdjustSettings = false
+    }
+
     fun navigateBackWithFallback() {
         val popped = navController.popBackStack()
         if (!popped) {
@@ -2743,6 +2752,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "perStateKey=${perStateKey ?: "null"}"
                     )
                 }
+                clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
                 if (BuildConfig.DEBUG) {
@@ -2769,8 +2779,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 settingsPreferences.saveSpriteSheetConfig(config)
             }.onSuccess {
-                didApplyAdjustSettings = false
-                didApplySpriteSheetSettings = false
+                clearDirtyFlags()
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
@@ -3051,8 +3060,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedReadyInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedReadyInsertionCooldownLoops = insertion.cooldownLoops
                 appliedReadyInsertionExclusive = insertion.exclusive
-                didApplyReadyBaseSettings = false
-                didApplyReadyInsertionSettings = false
                 persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
 
@@ -3075,8 +3082,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 appliedTalkingInsertionProbabilityPercent = insertion.probabilityPercent
                 appliedTalkingInsertionCooldownLoops = insertion.cooldownLoops
                 appliedTalkingInsertionExclusive = insertion.exclusive
-                didApplyTalkingBaseSettings = false
-                didApplyTalkingInsertionSettings = false
                 persistPerStateAnimationJson(validatedBase, validatedInsertion)
             }
 
