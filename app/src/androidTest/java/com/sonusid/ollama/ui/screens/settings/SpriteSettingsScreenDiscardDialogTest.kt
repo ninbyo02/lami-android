@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.ComponentActivity
+import android.content.Context
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
@@ -13,20 +14,37 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.test.core.app.ApplicationProvider
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import androidx.test.espresso.Espresso
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
 class SpriteSettingsScreenDiscardDialogTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Before
+    fun clearPreferences() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dataStore = accessSettingsDataStore(context)
+        runBlocking {
+            dataStore.edit { preferences ->
+                preferences.clear()
+            }
+        }
+    }
 
     @Test
     fun back_withoutDirty_doesNotShowDiscardDialog() {
@@ -129,7 +147,11 @@ class SpriteSettingsScreenDiscardDialogTest {
     }
 
     private fun waitForIntervalInput() {
-        composeTestRule.waitForIdle()
+        ensureAnimTabSelected()
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         val intervalNodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
             .fetchSemanticsNodes()
         assertTrue("Interval input should be shown", intervalNodes.isNotEmpty())
@@ -137,6 +159,11 @@ class SpriteSettingsScreenDiscardDialogTest {
             .config[SemanticsProperties.EditableText]
             .text
         assertTrue("Interval input should be numeric", text.trim().toIntOrNull() != null)
+    }
+
+    private fun ensureAnimTabSelected() {
+        composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
+        composeTestRule.waitForIdle()
     }
 
     private fun updateBaseIntervalBy(delta: Int) {
@@ -185,6 +212,16 @@ class SpriteSettingsScreenDiscardDialogTest {
     private fun navigateToAdjustTab() {
         composeTestRule.onNodeWithTag("spriteTabAdjust").performClick()
         composeTestRule.waitForIdle()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
+        val settingsClass = Class.forName(
+            "com.sonusid.ollama.ui.screens.settings.SettingsPreferencesKt"
+        )
+        val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
+        getter.isAccessible = true
+        return getter.invoke(null, context) as DataStore<Preferences>
     }
 
     private companion object {
