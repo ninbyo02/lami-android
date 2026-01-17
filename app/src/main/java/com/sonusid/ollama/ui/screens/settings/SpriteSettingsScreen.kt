@@ -1080,6 +1080,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var talkingInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAnimation by rememberSaveable { mutableStateOf(AnimationType.READY) }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    var didSaveAnimRecently by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
@@ -1270,6 +1271,11 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(selectedTab) {
+        if (selectedTab == SpriteTab.ADJUST && didSaveAnimRecently) {
+            savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
+            clearDirtyFlags()
+            didSaveAnimRecently = false
+        }
         if (!didRestoreTab) {
             // 復元完了前の保存を避け、再起動保持の復元順序を守る
             return@LaunchedEffect
@@ -2840,6 +2846,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
                 clearDirtyFlags()
+                didSaveAnimRecently = true
+                showDiscardDialog = false
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
                 if (BuildConfig.DEBUG) {
@@ -2868,6 +2876,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             }.onSuccess {
                 savedSpriteSheetSnapshot = currentSpriteSheetSnapshot
                 clearDirtyFlags()
+                showDiscardDialog = false
                 showTopSnackbarSuccess("保存しました")
             }.onFailure { throwable ->
                 showTopSnackbarError("保存に失敗しました: ${throwable.message}")
