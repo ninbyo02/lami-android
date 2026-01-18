@@ -1111,6 +1111,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
     var lastAppliedReadyPerStateJson by remember { mutableStateOf<String?>(null) }
+    val hasReadyPerStateJson = readyPerStateJson?.isNotBlank() == true ||
+        lastAppliedReadyPerStateJson?.isNotBlank() == true
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
     var didApplyIdlePerState by remember { mutableStateOf(false) }
     var didApplyThinkingPerState by remember { mutableStateOf(false) }
@@ -1356,7 +1358,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(readyAnimationSettings) {
-        if (readyPerStateJson?.isNotBlank() == true || didApplyReadyPerState || didApplyReadyBaseSettings) {
+        if (hasReadyPerStateJson || didApplyReadyPerState || didApplyReadyBaseSettings) {
             return@LaunchedEffect
         }
         val normalizedFrames = readyAnimationSettings.frames().ifEmpty { listOf(0) }
@@ -2851,6 +2853,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         coroutineScope.launch {
             var perStateSaved: SpriteState? = null
             var perStateKey: String? = null
+            var readyPerStateJsonSnapshot: String? = null
             runCatching {
                 val targetState = when (selectedAnimation) {
                     AnimationType.READY -> SpriteState.READY
@@ -2978,6 +2981,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                     put(JSON_INSERTION_KEY, insertionJson)
                 }
                 val perStateJsonString = perStateJson.toString()
+                if (targetState == SpriteState.READY) {
+                    readyPerStateJsonSnapshot = perStateJsonString
+                }
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
@@ -2998,6 +3004,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                     )
                 }
             }.onSuccess {
+                readyPerStateJsonSnapshot?.let { json ->
+                    didApplyReadyPerState = true
+                    lastAppliedReadyPerStateJson = json
+                }
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
