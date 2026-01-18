@@ -1355,6 +1355,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(readyAnimationSettings) {
+        if (readyPerStateJson?.isNotBlank() == true || didApplyReadyPerState || didApplyReadyBaseSettings) {
+            return@LaunchedEffect
+        }
         val normalizedFrames = readyAnimationSettings.frames().ifEmpty { listOf(0) }
         appliedReadyFrames = normalizedFrames
         appliedReadyIntervalMs = readyAnimationSettings.intervalMs
@@ -1366,6 +1369,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(talkingAnimationSettings) {
+        if (speakingPerStateJson?.isNotBlank() == true || didApplySpeakingPerState || didApplyTalkingBaseSettings) {
+            return@LaunchedEffect
+        }
         val normalizedFrames = talkingAnimationSettings.frames().ifEmpty { listOf(0) }
         appliedTalkingFrames = normalizedFrames
         appliedTalkingIntervalMs = talkingAnimationSettings.intervalMs
@@ -2183,6 +2189,14 @@ fun SpriteSettingsScreen(navController: NavController) {
             allowDuplicates = true
         )
         val intervalResult = parseIntervalMsInput(intervalInput)
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "validateBaseInputs: type=${target.name} frameInput=$frameInput " +
+                    "intervalInput=$intervalInput frames=${framesResult.value} " +
+                    "intervalMs=${intervalResult.value}"
+            )
+        }
 
         when (target) {
             AnimationType.READY -> {
@@ -2285,6 +2299,24 @@ fun SpriteSettingsScreen(navController: NavController) {
         val everyNResult = parseEveryNLoopsInput(everyNInput)
         val probabilityResult = parseProbabilityPercentInput(probabilityInput)
         val cooldownResult = parseCooldownLoopsInput(cooldownInput)
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "validateInsertionInputs: type=${target.name} exclusive=$exclusive " +
+                    "pattern1Frames=$pattern1FramesInput pattern1Weight=$pattern1WeightInput " +
+                    "pattern1Interval=$pattern1IntervalInput pattern2Frames=$pattern2FramesInput " +
+                    "pattern2Weight=$pattern2WeightInput pattern2Interval=$pattern2IntervalInput " +
+                    "intervalInput=$intervalInput everyN=$everyNInput " +
+                    "probability=$probabilityInput cooldown=$cooldownInput"
+            )
+            Log.d(
+                "LamiSprite",
+                "validateInsertionInputs result: type=${target.name} " +
+                    "patterns=${patternsResult.patterns?.take(2)} " +
+                    "intervalMs=${intervalResult.value} everyN=${everyNResult.value} " +
+                    "probability=${probabilityResult.value} cooldown=${cooldownResult.value}"
+            )
+        }
 
         when (target) {
             AnimationType.READY -> {
@@ -2885,7 +2917,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                         "LamiSprite",
                         "persistPerStateAnimationJson detail: type=${selectedAnimation.name} " +
                             "internalKey=${selectedAnimation.internalKey} " +
-                            "baseFrames=${validatedBase.frames()} baseIntervalMs=${validatedBase.intervalMs} " +
+                            "baseFrames=${validatedBase.frames()} baseFramesSize=${validatedBase.frames().size} " +
+                            "baseIntervalMs=${validatedBase.intervalMs} " +
                             "insertionEnabled=${validatedInsertion?.enabled ?: false} " +
                             "insertionIntervalMs=${validatedInsertion?.intervalMs ?: 0} " +
                             "pattern0Frames=${pattern0?.frames()} " +
@@ -3324,6 +3357,40 @@ fun SpriteSettingsScreen(navController: NavController) {
                 return@onAnimationSave
             }
         } else null
+        if (BuildConfig.DEBUG) {
+            val (frameInput, intervalInput) = when (selectedAnimation) {
+                AnimationType.READY -> readyFrameInput to readyIntervalInput
+                AnimationType.TALKING -> talkingFrameInput to talkingIntervalInput
+                else -> {
+                    val state = resolveExtraAnimationInput(selectedAnimation)
+                    state.frameInput to state.intervalInput
+                }
+            }
+            val targetState = when (selectedAnimation) {
+                AnimationType.READY -> SpriteState.READY
+                AnimationType.TALKING,
+                AnimationType.TALK_SHORT,
+                AnimationType.TALK_LONG,
+                AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                AnimationType.IDLE -> SpriteState.IDLE
+                AnimationType.THINKING -> SpriteState.THINKING
+                AnimationType.OFFLINE_ENTER,
+                AnimationType.OFFLINE_LOOP,
+                AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                AnimationType.ERROR_LIGHT,
+                AnimationType.ERROR_HEAVY -> SpriteState.ERROR
+            }
+            val pattern0 = validatedInsertion?.patterns?.getOrNull(0)
+            val pattern1 = validatedInsertion?.patterns?.getOrNull(1)
+            Log.d(
+                "LamiSprite",
+                "onAnimationSave: state=${targetState.name} type=${selectedAnimation.name} " +
+                    "frameInput=$frameInput intervalInput=$intervalInput " +
+                    "baseFrames=${validatedBase.frames()} baseIntervalMs=${validatedBase.intervalMs} " +
+                    "insertionEnabled=${validatedInsertion?.enabled ?: false} " +
+                    "pattern0=${pattern0?.frames()} pattern1=${pattern1?.frames()}"
+            )
+        }
         val dirtyFlagsSnapshot = captureAnimDirtyFlags()
         clearAnimDirtyFlags()
         when (selectedAnimation) {
