@@ -256,6 +256,7 @@ class SettingsPreferences(private val context: Context) {
         .onStart {
             migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
             ensurePerStateAnimationJsonsInitialized()
+            repairOfflineErrorPerStateJsonIfNeeded()
         }
         .map { preferences ->
             preferences[spriteAnimationJsonPreferencesKey(state)]
@@ -581,6 +582,29 @@ class SettingsPreferences(private val context: Context) {
         saved
     }
 
+    suspend fun repairOfflineErrorPerStateJsonIfNeeded(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        val targetStates = listOf(SpriteState.OFFLINE, SpriteState.ERROR)
+        var repaired = false
+        targetStates.forEach { state ->
+            val currentJson = preferences[spriteAnimationJsonPreferencesKey(state)]
+                ?.takeIf { it.isNotBlank() }
+                ?: return@forEach
+            val config = parseAndValidatePerStateAnimationJson(currentJson, state).getOrNull()
+                ?: return@forEach
+            if (!shouldRepairLegacyPerStateConfig(state, config)) return@forEach
+            val (baseDefaults, insertionDefaults) = defaultsForState(state)
+            val perStateJson = buildPerStateAnimationJsonOrNull(
+                animationKey = defaultKeyForState(state),
+                baseSettings = baseDefaults,
+                insertionSettings = insertionDefaults,
+            ) ?: return@forEach
+            saveSpriteAnimationJson(state, perStateJson)
+            repaired = true
+        }
+        repaired
+    }
+
     // state別の選択キーを保存する（段階移行用）
     suspend fun setSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
@@ -833,13 +857,63 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
+    private val offlineBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(8, 8),
+        intervalMs = 1_250,
+    )
+    private val offlineInsertionDefaults = disabledInsertionDefaults(offlineBaseDefaults.intervalMs)
+    private val errorBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(5, 7, 5),
+        intervalMs = 390,
+    )
+    private val errorInsertionDefaults = disabledInsertionDefaults(errorBaseDefaults.intervalMs)
+
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
+            SpriteState.OFFLINE -> offlineBaseDefaults to offlineInsertionDefaults
+            SpriteState.ERROR -> errorBaseDefaults to errorInsertionDefaults
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
+
+    private fun disabledInsertionDefaults(intervalMs: Int): InsertionAnimationSettings =
+        InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = intervalMs,
+            everyNLoops = 1,
+            probabilityPercent = 0,
+            cooldownLoops = 0,
+            exclusive = false,
+        )
+
+    private fun shouldRepairLegacyPerStateConfig(
+        state: SpriteState,
+        config: PerStateAnimationConfig,
+    ): Boolean {
+        if (config.animationKey != defaultKeyForState(state)) return false
+        if (config.baseFrames != ReadyAnimationSettings.DEFAULT.frameSequence) return false
+        if (config.baseIntervalMs != ReadyAnimationSettings.DEFAULT.intervalMs) return false
+        val insertion = config.insertion
+        val defaultInsertion = InsertionAnimationSettings.DEFAULT
+        if (insertion.enabled != defaultInsertion.enabled) return false
+        if (insertion.intervalMs != defaultInsertion.intervalMs) return false
+        if (insertion.everyNLoops != defaultInsertion.everyNLoops) return false
+        if (insertion.probabilityPercent != defaultInsertion.probabilityPercent) return false
+        if (insertion.cooldownLoops != defaultInsertion.cooldownLoops) return false
+        if (insertion.exclusive != defaultInsertion.exclusive) return false
+        val defaultPatterns = defaultInsertion.patterns.take(2).mapNotNull { pattern ->
+            val intervalMs = pattern.intervalMs ?: return@mapNotNull null
+            InsertionPatternConfig(
+                frames = pattern.frameSequence,
+                weight = pattern.weight,
+                intervalMs = intervalMs,
+            )
+        }
+        return insertion.patterns == defaultPatterns
+    }
 
     private fun legacyAnimationKeysForState(state: SpriteState): List<String> =
         when (state) {
