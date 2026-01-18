@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -225,6 +226,15 @@ class SettingsPreferences(private val context: Context) {
             "DataStore debug($caller): dataDirCandidate=${dataDirCandidate.absolutePath} " +
                 "exists=${dataDirCandidate.exists()} size=${dataDirCandidate.length()}"
         )
+    }
+
+    @VisibleForTesting
+    internal suspend fun debugPreferenceKeysForTest(limit: Int = 20): List<String> {
+        val preferences = context.dataStore.data.first()
+        return preferences.asMap().keys
+            .map { it.name }
+            .sorted()
+            .take(limit)
     }
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
