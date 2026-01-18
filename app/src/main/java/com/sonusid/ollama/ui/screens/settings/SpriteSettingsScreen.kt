@@ -3018,12 +3018,51 @@ fun SpriteSettingsScreen(navController: NavController) {
                     AnimationType.ERROR_LIGHT,
                     AnimationType.ERROR_HEAVY -> SpriteState.ERROR
                 }
-                settingsPreferences.spriteAnimationJsonFlow(targetState).first()
-            }.onSuccess { json ->
-                if (json.isNullOrBlank()) {
-                    copyEditingSettings()
+                val jsonFromDataStore = settingsPreferences.spriteAnimationJsonFlow(targetState).first()
+                val shouldFallback = jsonFromDataStore.isNullOrBlank()
+                val jsonToCopy = if (shouldFallback) {
+                    val readyBase = ReadyAnimationSettings(
+                        appliedReadyFrames,
+                        intervalMs = appliedReadyIntervalMs
+                    )
+                    val talkingBase = ReadyAnimationSettings(
+                        appliedTalkingFrames,
+                        intervalMs = appliedTalkingIntervalMs
+                    )
+                    val readyInsertion = InsertionAnimationSettings(
+                        enabled = appliedReadyInsertionEnabled,
+                        patterns = appliedReadyInsertionPatterns,
+                        intervalMs = appliedReadyInsertionIntervalMs,
+                        everyNLoops = appliedReadyInsertionEveryNLoops,
+                        probabilityPercent = appliedReadyInsertionProbabilityPercent,
+                        cooldownLoops = appliedReadyInsertionCooldownLoops,
+                        exclusive = appliedReadyInsertionExclusive,
+                    )
+                    val talkingInsertion = InsertionAnimationSettings(
+                        enabled = appliedTalkingInsertionEnabled,
+                        patterns = appliedTalkingInsertionPatterns,
+                        intervalMs = appliedTalkingInsertionIntervalMs,
+                        everyNLoops = appliedTalkingInsertionEveryNLoops,
+                        probabilityPercent = appliedTalkingInsertionProbabilityPercent,
+                        cooldownLoops = appliedTalkingInsertionCooldownLoops,
+                        exclusive = appliedTalkingInsertionExclusive,
+                    )
+                    buildSettingsJsonAnimationOnly(
+                        animationType = selectedAnimation,
+                        readyBase = readyBase,
+                        talkingBase = talkingBase,
+                        readyInsertion = readyInsertion,
+                        talkingInsertion = talkingInsertion,
+                    )
                 } else {
-                    clipboardManager.setText(AnnotatedString(json))
+                    jsonFromDataStore
+                }
+                Pair(jsonToCopy, shouldFallback)
+            }.onSuccess { (jsonToCopy, shouldFallback) ->
+                clipboardManager.setText(AnnotatedString(jsonToCopy))
+                if (shouldFallback) {
+                    showTopSnackbarSuccess("DataStore未初期化のため現在の設定から生成してコピーしました")
+                } else {
                     showTopSnackbarSuccess("設定JSONをコピーしました")
                 }
             }.onFailure { throwable ->
