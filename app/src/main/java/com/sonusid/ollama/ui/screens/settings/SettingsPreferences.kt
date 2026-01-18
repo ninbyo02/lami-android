@@ -685,12 +685,17 @@ class SettingsPreferences(private val context: Context) {
         repaired
     }
 
-    // state別の選択キーを保存する（段階移行用）
-    suspend fun setSelectedKey(state: SpriteState, key: String) {
+    // state別の選択キーを保存する
+    suspend fun saveSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[selectedKeyPreferencesKey(state)] = key
         }
+    }
+
+    // state別の選択キーを保存する（段階移行用）
+    suspend fun setSelectedKey(state: SpriteState, key: String) {
+        saveSelectedKey(state, key)
     }
 
     suspend fun saveLastSelectedSpriteTab(tabKey: String) {
