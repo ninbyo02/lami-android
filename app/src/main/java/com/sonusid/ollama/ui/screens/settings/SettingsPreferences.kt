@@ -615,14 +615,39 @@ class SettingsPreferences(private val context: Context) {
     private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
         val offlineJson = preferences[spriteAnimationJsonPreferencesKey(SpriteState.OFFLINE)]
             ?.takeIf { it.isNotBlank() } ?: return false
-        val parsed = parseAndValidatePerStateAnimationJson(offlineJson, SpriteState.OFFLINE).getOrNull()
-            ?: return false
-        if (parsed.baseIntervalMs >= OFFLINE_BASE_INTERVAL_MIN_MS) return false
-        val corrected = updatePerStateBaseIntervalMs(
-            json = offlineJson,
-            intervalMs = ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs,
-        ) ?: return false
-        saveSpriteAnimationJson(SpriteState.OFFLINE, corrected)
+        val root = runCatching { JSONObject(offlineJson) }.getOrNull() ?: return false
+        var changed = false
+        val insertionDefaults = InsertionAnimationSettings.OFFLINE_DEFAULT
+        val insertionObject = root.optJSONObject(JSON_INSERTION_KEY) ?: JSONObject().also { created ->
+            created.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            created.put(JSON_PATTERNS_KEY, JSONArray())
+            created.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            root.put(JSON_INSERTION_KEY, created)
+            changed = true
+        }
+        if (!insertionObject.has(JSON_ENABLED_KEY)) {
+            insertionObject.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            changed = true
+        }
+        if (!insertionObject.has(JSON_PATTERNS_KEY)) {
+            insertionObject.put(JSON_PATTERNS_KEY, JSONArray())
+            changed = true
+        }
+        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            insertionObject.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            changed = true
+        }
+        val baseObject = root.optJSONObject(JSON_BASE_KEY)
+        if (baseObject?.has(JSON_INTERVAL_MS_KEY) == true) {
+            val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
+            if (baseIntervalMs < OFFLINE_BASE_INTERVAL_MIN_MS) {
+                baseObject.put(JSON_INTERVAL_MS_KEY, ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs)
+                root.put(JSON_BASE_KEY, baseObject)
+                changed = true
+            }
+        }
+        if (!changed) return false
+        saveSpriteAnimationJson(SpriteState.OFFLINE, root.toString())
         return true
     }
 
