@@ -31,6 +31,7 @@ class SpriteAnimationsPerStateJsonSpecTest {
         val offlineJson = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.OFFLINE).first() }
         if (offlineJson.isNullOrBlank()) {
             fail("offline json が未初期化")
+            return@runBlocking
         }
         val offlineResult = prefs.parseAndValidatePerStateAnimationJson(offlineJson, SpriteState.OFFLINE)
         assertTrue("offline json の解析に失敗: ${offlineResult.exceptionOrNull()?.message}", offlineResult.isSuccess)
@@ -43,6 +44,7 @@ class SpriteAnimationsPerStateJsonSpecTest {
         val errorJson = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.ERROR).first() }
         if (errorJson.isNullOrBlank()) {
             fail("error json が未初期化")
+            return@runBlocking
         }
         val errorResult = prefs.parseAndValidatePerStateAnimationJson(errorJson, SpriteState.ERROR)
         assertTrue("error json の解析に失敗: ${errorResult.exceptionOrNull()?.message}", errorResult.isSuccess)
