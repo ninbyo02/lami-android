@@ -727,6 +727,7 @@ internal const val INFO_X_OFFSET_MAX = 500
 private const val ALL_ANIMATIONS_JSON_VERSION = 1
 private const val JSON_VERSION_KEY = "version"
 private const val JSON_ANIMATIONS_KEY = "animations"
+private const val JSON_ANIMATION_KEY = "animationKey"
 private const val JSON_BASE_KEY = "base"
 private const val JSON_INSERTION_KEY = "insertion"
 private const val JSON_ENABLED_KEY = "enabled"
@@ -2878,7 +2879,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
                 val insertionEnabled = validatedInsertion?.enabled == true
-                val insertionIntervalMs = validatedInsertion?.intervalMs ?: 0
+                val defaultInsertionIntervalMs = when (targetState) {
+                    SpriteState.READY -> InsertionAnimationSettings.READY_DEFAULT.intervalMs
+                    SpriteState.SPEAKING -> InsertionAnimationSettings.TALKING_DEFAULT.intervalMs
+                    SpriteState.THINKING -> InsertionAnimationSettings.THINKING_DEFAULT.intervalMs
+                    SpriteState.OFFLINE -> InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs
+                    SpriteState.ERROR -> InsertionAnimationSettings.ERROR_DEFAULT.intervalMs
+                    else -> InsertionAnimationSettings.DEFAULT.intervalMs
+                }
+                val insertionIntervalMs = validatedInsertion?.intervalMs ?: defaultInsertionIntervalMs
                 val hasMissingPatternInterval = insertionEnabled &&
                     (validatedInsertion
                         ?.patterns
@@ -2931,14 +2940,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 val baseJson = JSONObject().apply {
                     // base: 検証済みのframes/intervalを最小構成で保存
-                    put("frames", JSONArray(validatedBase.frames()))
-                    put("intervalMs", validatedBase.intervalMs)
+                    put(JSON_FRAMES_KEY, JSONArray(validatedBase.frames()))
+                    put(JSON_INTERVAL_MS_KEY, validatedBase.intervalMs)
                 }
                 val insertionJson = JSONObject().apply {
                     // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
-                    put("enabled", insertionEnabled)
+                    put(JSON_ENABLED_KEY, insertionEnabled)
+                    put(JSON_INTERVAL_MS_KEY, insertionIntervalMs)
                     put(
-                        "patterns",
+                        JSON_PATTERNS_KEY,
                         JSONArray().apply {
                             if (insertionEnabled) {
                                 validatedInsertion
@@ -2947,25 +2957,25 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     ?.forEach { pattern ->
                                         put(
                                             JSONObject().apply {
-                                                put("frames", JSONArray(pattern.frames()))
-                                                put("weight", pattern.weight)
-                                                put("intervalMs", pattern.intervalMs ?: insertionIntervalMs)
+                                                put(JSON_FRAMES_KEY, JSONArray(pattern.frames()))
+                                                put(JSON_WEIGHT_KEY, pattern.weight)
+                                                put(JSON_PATTERN_INTERVAL_MS_KEY, pattern.intervalMs ?: insertionIntervalMs)
                                             }
                                         )
                                     }
                             }
                         }
                     )
-                    put("everyNLoops", validatedInsertion?.everyNLoops ?: 0)
-                    put("probabilityPercent", validatedInsertion?.probabilityPercent ?: 0)
-                    put("cooldownLoops", validatedInsertion?.cooldownLoops ?: 0)
-                    put("exclusive", validatedInsertion?.exclusive ?: false)
+                    put(JSON_EVERY_N_LOOPS_KEY, validatedInsertion?.everyNLoops ?: 0)
+                    put(JSON_PROBABILITY_PERCENT_KEY, validatedInsertion?.probabilityPercent ?: 0)
+                    put(JSON_COOLDOWN_LOOPS_KEY, validatedInsertion?.cooldownLoops ?: 0)
+                    put(JSON_EXCLUSIVE_KEY, validatedInsertion?.exclusive ?: false)
                 }
                 val perStateJson = JSONObject().apply {
                     // 1アニメ=1JSONの最小スキーマを保存する
-                    put("animationKey", animationKeyForState)
-                    put("base", baseJson)
-                    put("insertion", insertionJson)
+                    put(JSON_ANIMATION_KEY, animationKeyForState)
+                    put(JSON_BASE_KEY, baseJson)
+                    put(JSON_INSERTION_KEY, insertionJson)
                 }
                 val perStateJsonString = perStateJson.toString()
                 if (BuildConfig.DEBUG) {
