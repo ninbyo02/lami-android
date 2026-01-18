@@ -136,6 +136,7 @@ import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -3000,6 +3001,37 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    fun copyPerStateJsonFromDataStoreOrFallback() {
+        coroutineScope.launch {
+            runCatching {
+                val targetState = when (selectedAnimation) {
+                    AnimationType.READY -> SpriteState.READY
+                    AnimationType.TALKING,
+                    AnimationType.TALK_SHORT,
+                    AnimationType.TALK_LONG,
+                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                    AnimationType.IDLE -> SpriteState.IDLE
+                    AnimationType.THINKING -> SpriteState.THINKING
+                    AnimationType.OFFLINE_ENTER,
+                    AnimationType.OFFLINE_LOOP,
+                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                    AnimationType.ERROR_LIGHT,
+                    AnimationType.ERROR_HEAVY -> SpriteState.ERROR
+                }
+                settingsPreferences.spriteAnimationJsonFlow(targetState).first()
+            }.onSuccess { json ->
+                if (json.isNullOrBlank()) {
+                    copyEditingSettings()
+                } else {
+                    clipboardManager.setText(AnnotatedString(json))
+                    showTopSnackbarSuccess("設定JSONをコピーしました")
+                }
+            }.onFailure { throwable ->
+                showTopSnackbarError("コピーに失敗しました: ${throwable.message}")
+            }
+        }
+    }
+
     fun copyEditingSettings() {
         coroutineScope.launch {
             val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -3323,7 +3355,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                         IconButton(
                             onClick = {
                                 when (selectedTab) {
-                                    SpriteTab.ANIM -> copyEditingSettings()
+                                    SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
                                     SpriteTab.ADJUST -> copySpriteSheetConfig()
                                 }
                             }
