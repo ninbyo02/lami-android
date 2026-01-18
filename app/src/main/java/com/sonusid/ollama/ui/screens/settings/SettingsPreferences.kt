@@ -908,6 +908,7 @@ class SettingsPreferences(private val context: Context) {
         state: SpriteState,
     ): Result<PerStateAnimationConfig> = runCatching {
         val root = JSONObject(json)
+        val (_, insertionDefaults) = defaultsForState(state)
         val animationKey = root.optString(JSON_ANIMATION_KEY, "").trim()
         if (animationKey.isBlank()) {
             error("animationKey is missing: state=${state.name}")
@@ -927,10 +928,11 @@ class SettingsPreferences(private val context: Context) {
         }
         val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
         val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
-        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
-            error("insertion.intervalMs is missing: state=${state.name}")
+        val intervalMs = if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            insertionObject.getInt(JSON_INTERVAL_MS_KEY)
+        } else {
+            insertionDefaults.intervalMs
         }
-        val intervalMs = insertionObject.getInt(JSON_INTERVAL_MS_KEY)
         val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
         val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
             .coerceIn(0, 100)
