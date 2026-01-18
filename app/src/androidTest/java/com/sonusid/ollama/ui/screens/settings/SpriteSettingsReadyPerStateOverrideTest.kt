@@ -65,13 +65,12 @@ class SpriteSettingsReadyPerStateOverrideTest {
 
         setSpriteSettingsContent()
         ensureAnimTabSelected()
-        waitForIntervalInput()
+        waitForIntervalInput(expected = "90")
         assertIntervalInputText(expected = "90")
 
         composeTestRule.activityRule.scenario.recreate()
-        setSpriteSettingsContent()
         ensureAnimTabSelected()
-        waitForIntervalInput()
+        waitForIntervalInput(expected = "90")
         assertIntervalInputText(expected = "90")
     }
 
@@ -103,17 +102,26 @@ class SpriteSettingsReadyPerStateOverrideTest {
         assertEquals("READY interval input should match per-state JSON", expected, text.trim())
     }
 
-    private fun waitForIntervalInput() {
+    private fun waitForIntervalInput(expected: String) {
         composeTestRule.waitUntil(timeoutMillis = 10_000) {
-            composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
-                .fetchSemanticsNodes().isNotEmpty()
+            val nodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
+                .fetchSemanticsNodes()
+            if (nodes.isEmpty()) {
+                return@waitUntil false
+            }
+            val text = nodes.first().config[SemanticsProperties.EditableText].text.trim()
+            text == expected
         }
         composeTestRule.onNodeWithTag("spriteBaseIntervalInput").assertIsDisplayed()
     }
 
     private fun ensureAnimTabSelected() {
-        composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
-        composeTestRule.waitForIdle()
+        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim").fetchSemanticsNode()
+        val isSelected = tabNode.config.getOrNull(SemanticsProperties.Selected) == true
+        if (!isSelected) {
+            composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
+            composeTestRule.waitForIdle()
+        }
     }
 
     private fun runBlockingIo(block: suspend () -> Unit) {
