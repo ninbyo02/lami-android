@@ -117,7 +117,8 @@ class SpriteSettingsReadyPerStateOverrideTest {
 
     private fun ensureAnimTabSelected() {
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim").fetchSemanticsNode()
-        val isSelected = tabNode.config.getOrNull(SemanticsProperties.Selected) == true
+        val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
+            tabNode.config[SemanticsProperties.Selected] == true
         if (!isSelected) {
             composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
             composeTestRule.waitForIdle()
