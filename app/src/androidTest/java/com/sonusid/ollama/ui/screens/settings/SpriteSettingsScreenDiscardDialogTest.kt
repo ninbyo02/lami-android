@@ -283,7 +283,7 @@ class SpriteSettingsScreenDiscardDialogTest {
         composeTestRule.onNodeWithTag(DISCARD_DIALOG_TAG, useUnmergedTree = true).assertIsDisplayed()
     }
 
-        private fun waitForDiscardDialogNotShown(
+private fun waitForDiscardDialogNotShown(
         timeoutMillis: Long = 15_000,
         debugMessage: String? = null,
     ) {
