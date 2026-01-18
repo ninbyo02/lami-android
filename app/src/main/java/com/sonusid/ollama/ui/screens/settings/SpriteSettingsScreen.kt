@@ -1109,6 +1109,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     var didSaveAnimRecently by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
+    var lastAppliedReadyPerStateJson by remember { mutableStateOf<String?>(null) }
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
     var didApplyIdlePerState by remember { mutableStateOf(false) }
     var didApplyThinkingPerState by remember { mutableStateOf(false) }
@@ -1426,15 +1427,22 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(readyPerStateJson) {
-        if (didApplyReadyPerState) return@LaunchedEffect
         val rawJson = readyPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (didApplyReadyPerState && rawJson == lastAppliedReadyPerStateJson) return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state READY restore start: rawLength=${rawJson.length}"
+            )
+        }
         val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.READY)
         val config = result.getOrNull()
         if (config == null) {
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "PR20 apply per-state READY failed: ${result.exceptionOrNull()?.message}"
+                    "PR20 apply per-state READY failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
                 )
             }
             return@LaunchedEffect
@@ -1467,10 +1475,13 @@ fun SpriteSettingsScreen(navController: NavController) {
         readyInsertionPattern2WeightInput = readyPatternInputs.pattern2WeightInput
         readyInsertionPattern2IntervalInput = readyPatternInputs.pattern2IntervalInput
         didApplyReadyPerState = true
+        lastAppliedReadyPerStateJson = rawJson
         if (BuildConfig.DEBUG) {
             Log.d(
                 "LamiSprite",
-                "PR20 apply per-state READY success size=${rawJson.length}"
+                "PR20 apply per-state READY success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
         }
     }
@@ -1478,13 +1489,20 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(speakingPerStateJson) {
         if (didApplySpeakingPerState) return@LaunchedEffect
         val rawJson = speakingPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state SPEAKING restore start: rawLength=${rawJson.length}"
+            )
+        }
         val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.SPEAKING)
         val config = result.getOrNull()
         if (config == null) {
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "PR20 apply per-state SPEAKING failed: ${result.exceptionOrNull()?.message}"
+                    "PR20 apply per-state SPEAKING failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
                 )
             }
             return@LaunchedEffect
@@ -1520,7 +1538,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (BuildConfig.DEBUG) {
             Log.d(
                 "LamiSprite",
-                "PR20 apply per-state SPEAKING success size=${rawJson.length}"
+                "PR20 apply per-state SPEAKING success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
         }
     }
@@ -1529,13 +1549,20 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(idlePerStateJson) {
         if (didApplyIdlePerState) return@LaunchedEffect
         val rawJson = idlePerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state IDLE restore start: rawLength=${rawJson.length}"
+            )
+        }
         val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.IDLE)
         val config = result.getOrNull()
         if (config == null) {
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "PR21 apply per-state IDLE failed: ${result.exceptionOrNull()?.message}"
+                    "PR21 apply per-state IDLE failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
                 )
             }
             return@LaunchedEffect
@@ -1577,7 +1604,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (BuildConfig.DEBUG) {
             Log.d(
                 "LamiSprite",
-                "PR21 apply per-state IDLE success size=${rawJson.length}"
+                "PR21 apply per-state IDLE success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
         }
     }
@@ -1585,13 +1614,20 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(thinkingPerStateJson) {
         if (didApplyThinkingPerState) return@LaunchedEffect
         val rawJson = thinkingPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state THINKING restore start: rawLength=${rawJson.length}"
+            )
+        }
         val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.THINKING)
         val config = result.getOrNull()
         if (config == null) {
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "PR21 apply per-state THINKING failed: ${result.exceptionOrNull()?.message}"
+                    "PR21 apply per-state THINKING failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
                 )
             }
             return@LaunchedEffect
@@ -1633,7 +1669,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (BuildConfig.DEBUG) {
             Log.d(
                 "LamiSprite",
-                "PR21 apply per-state THINKING success size=${rawJson.length}"
+                "PR21 apply per-state THINKING success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
         }
     }
@@ -1641,13 +1679,20 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(offlinePerStateJson) {
         if (didApplyOfflinePerState) return@LaunchedEffect
         val rawJson = offlinePerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state OFFLINE restore start: rawLength=${rawJson.length}"
+            )
+        }
         val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.OFFLINE)
         val config = result.getOrNull()
         if (config == null) {
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "PR21 apply per-state OFFLINE failed: ${result.exceptionOrNull()?.message}"
+                    "PR21 apply per-state OFFLINE failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
                 )
             }
             return@LaunchedEffect
@@ -1695,7 +1740,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (BuildConfig.DEBUG) {
             Log.d(
                 "LamiSprite",
-                "PR21 apply per-state OFFLINE success size=${rawJson.length}"
+                "PR21 apply per-state OFFLINE success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
         }
     }
@@ -1703,13 +1750,20 @@ fun SpriteSettingsScreen(navController: NavController) {
     LaunchedEffect(errorPerStateJson) {
         if (didApplyErrorPerState) return@LaunchedEffect
         val rawJson = errorPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state ERROR restore start: rawLength=${rawJson.length}"
+            )
+        }
         val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.ERROR)
         val config = result.getOrNull()
         if (config == null) {
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "PR21 apply per-state ERROR failed: ${result.exceptionOrNull()?.message}"
+                    "PR21 apply per-state ERROR failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
                 )
             }
             return@LaunchedEffect
@@ -1756,7 +1810,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         if (BuildConfig.DEBUG) {
             Log.d(
                 "LamiSprite",
-                "PR21 apply per-state ERROR success size=${rawJson.length}"
+                "PR21 apply per-state ERROR success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
         }
     }
@@ -2807,6 +2863,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 perStateSaved = targetState
                 perStateKey = animationKeyForState
                 if (BuildConfig.DEBUG) {
+                    val pattern0 = validatedInsertion?.patterns?.getOrNull(0)
+                    val pattern1 = validatedInsertion?.patterns?.getOrNull(1)
                     val pattern0Interval = validatedInsertion
                         ?.patterns
                         ?.getOrNull(0)
@@ -2822,6 +2880,20 @@ fun SpriteSettingsScreen(navController: NavController) {
                         "persistPerStateAnimationJson input: state=${targetState.name} " +
                             "key=$animationKeyForState insertionIntervalMs=$insertionIntervalMs " +
                             "pattern0IntervalMs=$pattern0Interval pattern1IntervalMs=$pattern1Interval"
+                    )
+                    Log.d(
+                        "LamiSprite",
+                        "persistPerStateAnimationJson detail: type=${selectedAnimation.name} " +
+                            "internalKey=${selectedAnimation.internalKey} " +
+                            "baseFrames=${validatedBase.frames()} baseIntervalMs=${validatedBase.intervalMs} " +
+                            "insertionEnabled=${validatedInsertion?.enabled ?: false} " +
+                            "insertionIntervalMs=${validatedInsertion?.intervalMs ?: 0} " +
+                            "pattern0Frames=${pattern0?.frames()} " +
+                            "pattern0Weight=${pattern0?.weight} " +
+                            "pattern0IntervalMs=${pattern0?.intervalMs} " +
+                            "pattern1Frames=${pattern1?.frames()} " +
+                            "pattern1Weight=${pattern1?.weight} " +
+                            "pattern1IntervalMs=${pattern1?.intervalMs}"
                     )
                 }
                 val baseJson = JSONObject().apply {
@@ -2862,7 +2934,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                     put("base", baseJson)
                     put("insertion", insertionJson)
                 }
-                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
+                val perStateJsonString = perStateJson.toString()
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "persistPerStateAnimationJson payload: state=${targetState.name} " +
+                            "key=$animationKeyForState length=${perStateJsonString.length}"
+                    )
+                }
+                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJsonString)
                 val trimmedAnimationKey = animationKeyForState.trim()
                 if (trimmedAnimationKey.isNotEmpty()) {
                     settingsPreferences.saveSelectedKey(targetState, trimmedAnimationKey)
