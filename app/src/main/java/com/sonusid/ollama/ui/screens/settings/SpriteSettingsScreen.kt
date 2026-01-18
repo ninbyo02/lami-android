@@ -1110,10 +1110,10 @@ fun SpriteSettingsScreen(navController: NavController) {
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
-    var didApplyIdlePerState by rememberSaveable { mutableStateOf(false) }
-    var didApplyThinkingPerState by rememberSaveable { mutableStateOf(false) }
-    var didApplyOfflinePerState by rememberSaveable { mutableStateOf(false) }
-    var didApplyErrorPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyIdlePerState by remember { mutableStateOf(false) }
+    var didApplyThinkingPerState by remember { mutableStateOf(false) }
+    var didApplyOfflinePerState by remember { mutableStateOf(false) }
+    var didApplyErrorPerState by remember { mutableStateOf(false) }
     var didRestoreReadyBaseSettings by remember { mutableStateOf(false) }
     var didRestoreTalkingBaseSettings by remember { mutableStateOf(false) }
     var didRestoreReadyInsertionSettings by remember { mutableStateOf(false) }
