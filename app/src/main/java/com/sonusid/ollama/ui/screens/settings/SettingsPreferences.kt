@@ -502,8 +502,34 @@ class SettingsPreferences(private val context: Context) {
 
     // state別JSONが正（保存の本命）
     suspend fun saveSpriteAnimationJson(state: SpriteState, json: String) {
+        if (BuildConfig.DEBUG) {
+            val key = spriteAnimationJsonPreferencesKey(state)
+            val snippet = json.take(120)
+            val current = context.dataStore.data.first()[key]
+            Log.d(
+                "LamiSprite",
+                "saveSpriteAnimationJson start: state=${state.name} key=${key.name} " +
+                    "length=${json.length} head=${snippet}"
+            )
+            Log.d(
+                "LamiSprite",
+                "saveSpriteAnimationJson before: state=${state.name} " +
+                    "storedLength=${current?.length ?: 0} storedHead=${current?.take(120)}"
+            )
+            dumpDataStoreDebug("before saveSpriteAnimationJson:${state.name}")
+        }
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationJsonPreferencesKey(state)] = json
+        }
+        if (BuildConfig.DEBUG) {
+            val key = spriteAnimationJsonPreferencesKey(state)
+            val updated = context.dataStore.data.first()[key]
+            Log.d(
+                "LamiSprite",
+                "saveSpriteAnimationJson after: state=${state.name} " +
+                    "storedLength=${updated?.length ?: 0} storedHead=${updated?.take(120)}"
+            )
+            dumpDataStoreDebug("after saveSpriteAnimationJson:${state.name}")
         }
     }
 
