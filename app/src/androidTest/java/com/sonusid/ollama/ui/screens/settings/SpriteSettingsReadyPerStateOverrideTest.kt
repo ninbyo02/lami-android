@@ -27,7 +27,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -65,10 +64,14 @@ class SpriteSettingsReadyPerStateOverrideTest {
         }
 
         setSpriteSettingsContent()
+        ensureAnimTabSelected()
+        waitForIntervalInput()
         assertIntervalInputText(expected = "90")
 
         composeTestRule.activityRule.scenario.recreate()
         composeTestRule.waitForIdle()
+        ensureAnimTabSelected()
+        waitForIntervalInput()
         assertIntervalInputText(expected = "90")
     }
 
@@ -89,12 +92,9 @@ class SpriteSettingsReadyPerStateOverrideTest {
                 }
             }
         }
-        composeTestRule.waitForIdle()
     }
 
     private fun assertIntervalInputText(expected: String) {
-        ensureAnimTabSelected()
-        waitForIntervalInput()
         val text = composeTestRule.onNodeWithTag("spriteBaseIntervalInput")
             .fetchSemanticsNode()
             .config[SemanticsProperties.EditableText]
@@ -103,27 +103,11 @@ class SpriteSettingsReadyPerStateOverrideTest {
     }
 
     private fun waitForIntervalInput() {
-        waitUntilOrFail(timeoutMs = 10_000) {
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
             composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
                 .fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithTag("spriteBaseIntervalInput").assertIsDisplayed()
-    }
-
-    private fun waitUntilOrFail(timeoutMs: Long, condition: () -> Boolean) {
-        val maxFrames = (timeoutMs / 16L).toInt().coerceAtLeast(1)
-        repeat(maxFrames) {
-            composeTestRule.waitForIdle()
-            var conditionMet = false
-            composeTestRule.runOnIdle {
-                conditionMet = condition()
-            }
-            if (conditionMet) {
-                return
-            }
-            composeTestRule.mainClock.advanceTimeByFrame()
-        }
-        fail("条件を満たすまで待機しましたが、${timeoutMs}ms 以内に成立しませんでした。")
     }
 
     private fun ensureAnimTabSelected() {
