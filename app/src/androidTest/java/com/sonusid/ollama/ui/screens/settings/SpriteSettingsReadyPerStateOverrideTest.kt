@@ -69,7 +69,7 @@ class SpriteSettingsReadyPerStateOverrideTest {
         assertIntervalInputText(expected = "90")
 
         composeTestRule.activityRule.scenario.recreate()
-        composeTestRule.waitForIdle()
+        setSpriteSettingsContent()
         ensureAnimTabSelected()
         waitForIntervalInput()
         assertIntervalInputText(expected = "90")
@@ -92,6 +92,7 @@ class SpriteSettingsReadyPerStateOverrideTest {
                 }
             }
         }
+        composeTestRule.waitForIdle()
     }
 
     private fun assertIntervalInputText(expected: String) {
