@@ -13,6 +13,7 @@ import com.sonusid.ollama.data.normalize
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
@@ -30,11 +31,11 @@ data class ReadyAnimationSettings(
     companion object {
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
-            intervalMs = 90,
+            intervalMs = 180,
         )
         val TALKING_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(0, 1, 2, 1),
-            intervalMs = 700,
+            frameSequence = listOf(0, 6, 0, 6),
+            intervalMs = 140,
         )
         // Thinking のデフォルト: base の intervalMs=180ms/frames は指定JSONに合わせる
         val THINKING_DEFAULT = ReadyAnimationSettings(
@@ -69,21 +70,24 @@ data class InsertionAnimationSettings(
             patterns = listOf(
                 // Ready insertion のデフォルトを仕様に合わせて更新
                 InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 80),
+                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 110),
             ),
-            intervalMs = 120,
+            intervalMs = 110,
             everyNLoops = 5,
             probabilityPercent = 58,
-            cooldownLoops = 4,
+            cooldownLoops = 6,
             exclusive = false,
         )
         val TALKING_DEFAULT = InsertionAnimationSettings(
-            enabled = false,
-            patterns = listOf(InsertionPattern(frameSequence = listOf(3, 4, 5))),
-            intervalMs = 200,
-            everyNLoops = 1,
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 110),
+            ),
+            intervalMs = 110,
+            everyNLoops = 4,
             probabilityPercent = 50,
-            cooldownLoops = 0,
+            cooldownLoops = 2,
             exclusive = false,
         )
         // Thinking のデフォルト: pattern intervalMs/intervalMs は指定JSONに合わせる
@@ -238,9 +242,14 @@ class SettingsPreferences(private val context: Context) {
     }
 
     // state別JSONが正（読み取り/保存の本命）
-    fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[spriteAnimationJsonPreferencesKey(state)]
-    }
+    fun spriteAnimationJsonFlow(state: SpriteState): Flow<String?> = context.dataStore.data
+        .onStart {
+            migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
+            ensurePerStateAnimationJsonsInitialized()
+        }
+        .map { preferences ->
+            preferences[spriteAnimationJsonPreferencesKey(state)]
+        }
 
     // 復元優先順位:
     // 1) state別JSON（sprite_animation_json_*）※正（Single Source of Truth）
@@ -538,6 +547,28 @@ class SettingsPreferences(private val context: Context) {
             }
         }
         true
+    }
+
+    suspend fun ensurePerStateAnimationJsonsInitialized(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        val missingStates = SpriteState.values().filter { state ->
+            preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
+        }
+        if (missingStates.isEmpty()) return@runCatching false
+        var saved = false
+        missingStates.forEach { state ->
+            val (baseDefaults, insertionDefaults) = defaultsForState(state)
+            val perStateJson = buildPerStateAnimationJsonOrNull(
+                animationKey = defaultKeyForState(state),
+                baseSettings = baseDefaults,
+                insertionSettings = insertionDefaults,
+            )
+            if (perStateJson != null) {
+                saveSpriteAnimationJson(state, perStateJson)
+                saved = true
+            }
+        }
+        saved
     }
 
     // state別の選択キーを保存する（段階移行用）
