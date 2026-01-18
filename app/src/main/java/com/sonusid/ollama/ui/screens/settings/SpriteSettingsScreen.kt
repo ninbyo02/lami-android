@@ -2863,6 +2863,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                     put("insertion", insertionJson)
                 }
                 settingsPreferences.saveSpriteAnimationJson(targetState, perStateJson.toString())
+                val trimmedAnimationKey = animationKeyForState.trim()
+                if (trimmedAnimationKey.isNotEmpty()) {
+                    settingsPreferences.saveSelectedKey(targetState, trimmedAnimationKey)
+                }
                 if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
