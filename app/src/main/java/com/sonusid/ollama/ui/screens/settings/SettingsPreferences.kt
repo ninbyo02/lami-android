@@ -43,6 +43,16 @@ data class ReadyAnimationSettings(
             frameSequence = listOf(7, 7, 7, 6, 7, 7, 6, 7),
             intervalMs = 180,
         )
+        // OFFLINE のデフォルト: UI側の OfflineLoop に合わせる
+        val OFFLINE_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(8, 8),
+            intervalMs = 1_250,
+        )
+        // ERROR のデフォルト: UI側の ErrorLight に合わせる
+        val ERROR_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(5, 7, 5),
+            intervalMs = 390,
+        )
         val DEFAULT = READY_DEFAULT
 
         const val MIN_INTERVAL_MS: Int = 50
@@ -103,6 +113,26 @@ data class InsertionAnimationSettings(
             everyNLoops = 5,
             probabilityPercent = 65,
             cooldownLoops = 5,
+            exclusive = false,
+        )
+        // OFFLINE は挿入アニメ無効（パターン空）
+        val OFFLINE_DEFAULT = InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = 1_250,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
+            exclusive = false,
+        )
+        // ERROR は挿入アニメ無効（パターン空）
+        val ERROR_DEFAULT = InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = 390,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
             exclusive = false,
         )
         val DEFAULT = READY_DEFAULT
@@ -838,6 +868,8 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
+            SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
+            SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
 
