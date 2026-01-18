@@ -21,7 +21,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.theme.OllamaTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -38,7 +40,7 @@ class SpriteSettingsReadyPerStateOverrideTest {
     fun clearPreferences() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dataStore = accessSettingsDataStore(context)
-        runBlocking {
+        runBlockingIo {
             dataStore.edit { preferences ->
                 preferences.clear()
             }
@@ -49,7 +51,7 @@ class SpriteSettingsReadyPerStateOverrideTest {
     fun readyInterval_usesPerStateJson_afterRecreate() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
-        runBlocking {
+        runBlockingIo {
             prefs.saveReadyAnimationSettings(
                 ReadyAnimationSettings(
                     frameSequence = listOf(0, 0, 0, 0),
@@ -127,6 +129,14 @@ class SpriteSettingsReadyPerStateOverrideTest {
     private fun ensureAnimTabSelected() {
         composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
         composeTestRule.waitForIdle()
+    }
+
+    private fun runBlockingIo(block: suspend () -> Unit) {
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                block()
+            }
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
