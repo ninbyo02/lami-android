@@ -253,15 +253,18 @@ private data class AnimationInputState(
 // 暫定: statusAnimationMap に近い値をここで簡易マッピングする。
 private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapOf(
     AnimationType.IDLE to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(0, 8, 0, 5, 0), intervalMs = 490),
+        base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
         insertion = InsertionAnimationSettings(
             enabled = true,
-            patterns = listOf(InsertionPattern(listOf(0, 0, 8, 0))),
-            intervalMs = 490,
-            everyNLoops = 8,
-            probabilityPercent = 100,
-            cooldownLoops = 0,
-            exclusive = false,
+            patterns = listOf(
+                InsertionPattern(listOf(5, 5, 8, 8, 8, 5, 5), weight = 3, intervalMs = 180),
+                InsertionPattern(listOf(5, 5, 7, 7, 7, 5, 5), weight = 1, intervalMs = 180),
+            ),
+            intervalMs = 180,
+            everyNLoops = 6,
+            probabilityPercent = 60,
+            cooldownLoops = 5,
+            exclusive = true,
         ),
     ),
     AnimationType.THINKING to AnimationDefaults(
