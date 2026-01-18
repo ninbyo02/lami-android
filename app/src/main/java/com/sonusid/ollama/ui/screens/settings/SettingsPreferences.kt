@@ -21,6 +21,7 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+private const val OFFLINE_BASE_INTERVAL_MIN_MS = 500
 private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
@@ -594,7 +595,6 @@ class SettingsPreferences(private val context: Context) {
         val missingStates = SpriteState.values().filter { state ->
             preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
         }
-        if (missingStates.isEmpty()) return@runCatching false
         var saved = false
         missingStates.forEach { state ->
             val (baseDefaults, insertionDefaults) = defaultsForState(state)
@@ -608,7 +608,32 @@ class SettingsPreferences(private val context: Context) {
                 saved = true
             }
         }
-        saved
+        val corrected = correctOfflineBaseIntervalIfNeeded(preferences)
+        saved || corrected
+    }
+
+    private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
+        val offlineJson = preferences[spriteAnimationJsonPreferencesKey(SpriteState.OFFLINE)]
+            ?.takeIf { it.isNotBlank() } ?: return false
+        val parsed = parseAndValidatePerStateAnimationJson(offlineJson, SpriteState.OFFLINE).getOrNull()
+            ?: return false
+        if (parsed.baseIntervalMs >= OFFLINE_BASE_INTERVAL_MIN_MS) return false
+        val corrected = updatePerStateBaseIntervalMs(
+            json = offlineJson,
+            intervalMs = ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs,
+        ) ?: return false
+        saveSpriteAnimationJson(SpriteState.OFFLINE, corrected)
+        return true
+    }
+
+    private fun updatePerStateBaseIntervalMs(json: String, intervalMs: Int): String? {
+        return runCatching {
+            val root = JSONObject(json)
+            val baseObject = root.optJSONObject(JSON_BASE_KEY) ?: return@runCatching null
+            baseObject.put(JSON_INTERVAL_MS_KEY, intervalMs)
+            root.put(JSON_BASE_KEY, baseObject)
+            root.toString()
+        }.getOrNull()
     }
 
     // state別の選択キーを保存する（段階移行用）
