@@ -21,6 +21,7 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+private const val OFFLINE_BASE_INTERVAL_MIN_MS = 500
 private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
@@ -42,6 +43,16 @@ data class ReadyAnimationSettings(
         val THINKING_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(7, 7, 7, 6, 7, 7, 6, 7),
             intervalMs = 180,
+        )
+        // OFFLINE のデフォルト: UI側の OfflineLoop に合わせる
+        val OFFLINE_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(8, 8),
+            intervalMs = 1_250,
+        )
+        // ERROR のデフォルト: UI側の ErrorLight に合わせる
+        val ERROR_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(5, 7, 5),
+            intervalMs = 390,
         )
         val DEFAULT = READY_DEFAULT
 
@@ -103,6 +114,26 @@ data class InsertionAnimationSettings(
             everyNLoops = 5,
             probabilityPercent = 65,
             cooldownLoops = 5,
+            exclusive = false,
+        )
+        // OFFLINE は挿入アニメ無効（パターン空）
+        val OFFLINE_DEFAULT = InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = 1_250,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
+            exclusive = false,
+        )
+        // ERROR は挿入アニメ無効（パターン空）
+        val ERROR_DEFAULT = InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = 390,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
             exclusive = false,
         )
         val DEFAULT = READY_DEFAULT
@@ -565,7 +596,6 @@ class SettingsPreferences(private val context: Context) {
         val missingStates = SpriteState.values().filter { state ->
             preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
         }
-        if (missingStates.isEmpty()) return@runCatching false
         var saved = false
         missingStates.forEach { state ->
             val (baseDefaults, insertionDefaults) = defaultsForState(state)
@@ -579,7 +609,57 @@ class SettingsPreferences(private val context: Context) {
                 saved = true
             }
         }
-        saved
+        val corrected = correctOfflineBaseIntervalIfNeeded(preferences)
+        saved || corrected
+    }
+
+    private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
+        val offlineJson = preferences[spriteAnimationJsonPreferencesKey(SpriteState.OFFLINE)]
+            ?.takeIf { it.isNotBlank() } ?: return false
+        val root = runCatching { JSONObject(offlineJson) }.getOrNull() ?: return false
+        var changed = false
+        val insertionDefaults = InsertionAnimationSettings.OFFLINE_DEFAULT
+        val insertionObject = root.optJSONObject(JSON_INSERTION_KEY) ?: JSONObject().also { created ->
+            created.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            created.put(JSON_PATTERNS_KEY, JSONArray())
+            created.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            root.put(JSON_INSERTION_KEY, created)
+            changed = true
+        }
+        if (!insertionObject.has(JSON_ENABLED_KEY)) {
+            insertionObject.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            changed = true
+        }
+        if (!insertionObject.has(JSON_PATTERNS_KEY)) {
+            insertionObject.put(JSON_PATTERNS_KEY, JSONArray())
+            changed = true
+        }
+        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            insertionObject.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            changed = true
+        }
+        val baseObject = root.optJSONObject(JSON_BASE_KEY)
+        if (baseObject?.has(JSON_INTERVAL_MS_KEY) == true) {
+            val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
+            if (baseIntervalMs < OFFLINE_BASE_INTERVAL_MIN_MS) {
+                baseObject.put(JSON_INTERVAL_MS_KEY, ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs)
+                root.put(JSON_BASE_KEY, baseObject)
+                changed = true
+            }
+        }
+        if (!changed) return false
+        saveSpriteAnimationJson(SpriteState.OFFLINE, root.toString())
+        return true
+    }
+
+    private fun updatePerStateBaseIntervalMs(json: String, intervalMs: Int): String? {
+        return runCatching {
+            val root = JSONObject(json)
+            val baseObject = root.optJSONObject(JSON_BASE_KEY) ?: return@runCatching null
+            baseObject.put(JSON_INTERVAL_MS_KEY, intervalMs)
+            root.put(JSON_BASE_KEY, baseObject)
+            root.toString()
+        }.getOrNull()
     }
 
     suspend fun repairOfflineErrorPerStateJsonIfNeeded(): Result<Boolean> = runCatching {
@@ -873,8 +953,8 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
-            SpriteState.OFFLINE -> offlineBaseDefaults to offlineInsertionDefaults
-            SpriteState.ERROR -> errorBaseDefaults to errorInsertionDefaults
+            SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
+            SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
 
