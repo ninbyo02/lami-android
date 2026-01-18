@@ -266,7 +266,6 @@ class SpriteSettingsScreenDiscardDialogTest {
         assertTrue("Adjust dirty trigger should be available", clicked)
         composeTestRule.waitForIdle()
     }
-    ("UNCHECKED_CAST")
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
         val settingsClass = Class.forName(
             "com.sonusid.ollama.ui.screens.settings.SettingsPreferencesKt"
