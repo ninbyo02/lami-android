@@ -765,22 +765,50 @@ class SettingsPreferences(private val context: Context) {
         saveSpriteSheetConfig(defaultSpriteSheetConfig)
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveReadyAnimationSettings(settings: ReadyAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveReadyAnimationSettings")
+        }
         context.dataStore.edit { preferences ->
             preferences[readyFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
             preferences[readyIntervalMsKey] = settings.intervalMs
         }
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveTalkingAnimationSettings(settings: ReadyAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveTalkingAnimationSettings")
+        }
         context.dataStore.edit { preferences ->
             preferences[talkingFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
             preferences[talkingIntervalMsKey] = settings.intervalMs
         }
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveReadyInsertionAnimationSettings(settings: InsertionAnimationSettings) {
         if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveReadyInsertionAnimationSettings")
             settings.patterns.forEachIndexed { index, pattern ->
                 Log.d(
                     "LamiSprite",
@@ -806,8 +834,16 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveTalkingInsertionAnimationSettings(settings: InsertionAnimationSettings) {
         if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveTalkingInsertionAnimationSettings")
             settings.patterns.forEachIndexed { index, pattern ->
                 Log.d(
                     "LamiSprite",
