@@ -1,10 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,13 +11,9 @@ import androidx.compose.ui.test.performClick
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
-import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.MainActivity
 import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -34,7 +26,7 @@ import org.junit.Test
 
 class SpriteSettingsTalkLongPerStateRestoreTest {
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<MainActivity>()
 
     @Before
     fun clearPreferences() {
@@ -56,9 +48,10 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
                 SpriteState.TALK_LONG,
                 buildTalkLongPerStateJson(intervalMs = 234, frames = listOf(2, 1, 0))
             )
+            prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
 
-        setSpriteSettingsContent()
+        composeTestRule.activityRule.scenario.recreate()
         ensureAnimTabSelected()
         selectAnimationType("TalkLong")
         waitForIntervalInput(expected = "234")
@@ -73,26 +66,6 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         assertIntervalInputText(expected = "234")
         waitForFramesInput(expected = "3,2,1")
         assertFramesInputText(expected = "3,2,1")
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.setContent {
-            OllamaTheme {
-                val navController = rememberNavController()
-                NavHost(
-                    navController = navController,
-                    startDestination = SettingsRoute.SpriteSettings.route
-                ) {
-                    composable(SettingsRoute.SpriteSettings.route) {
-                        SpriteSettingsScreen(navController)
-                    }
-                    composable(Routes.SETTINGS) {
-                        Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
     }
 
     private fun selectAnimationType(label: String) {
