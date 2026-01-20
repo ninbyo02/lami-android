@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -34,7 +35,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-class SpriteSettingsTalkShortPerStateRestoreTest {
+class SpriteSettingsTalkCalmPerStateRestoreTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
@@ -50,31 +51,31 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     @Test
-    fun talkShortInterval_usesPerStateJson_afterRecreate() {
+    fun talkCalmInterval_usesPerStateJson_afterRecreate() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
         runBlockingIo {
             prefs.saveSpriteAnimationJson(
-                SpriteState.TALK_SHORT,
-                buildTalkShortPerStateJson(intervalMs = 123, frames = listOf(0, 1, 2))
+                SpriteState.TALK_CALM,
+                buildTalkCalmPerStateJson(intervalMs = 345, frames = listOf(3, 0, 2))
             )
         }
 
         setSpriteSettingsContent()
         ensureAnimTabSelected()
-        selectAnimationType("TalkShort")
-        waitForIntervalInput(expected = "123")
-        assertIntervalInputText(expected = "123")
-        waitForFramesInput(expected = "1,2,3")
-        assertFramesInputText(expected = "1,2,3")
+        selectAnimationType("TalkCalm")
+        waitForIntervalInput(expected = "345")
+        assertIntervalInputText(expected = "345")
+        waitForFramesInput(expected = "4,1,3")
+        assertFramesInputText(expected = "4,1,3")
 
         composeTestRule.activityRule.scenario.recreate()
         ensureAnimTabSelected()
-        selectAnimationType("TalkShort")
-        waitForIntervalInput(expected = "123")
-        assertIntervalInputText(expected = "123")
-        waitForFramesInput(expected = "1,2,3")
-        assertFramesInputText(expected = "1,2,3")
+        selectAnimationType("TalkCalm")
+        waitForIntervalInput(expected = "345")
+        assertIntervalInputText(expected = "345")
+        waitForFramesInput(expected = "4,1,3")
+        assertFramesInputText(expected = "4,1,3")
     }
 
     private fun setSpriteSettingsContent() {
@@ -118,7 +119,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             .fetchSemanticsNode()
             .config[SemanticsProperties.EditableText]
             .text
-        assertEquals("TALK_SHORT interval input should match per-state JSON", expected, text.trim())
+        assertEquals("TALK_CALM interval input should match per-state JSON", expected, text.trim())
     }
 
     private fun waitForIntervalInput(expected: String) {
@@ -139,7 +140,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             .fetchSemanticsNode()
             .config[SemanticsProperties.EditableText]
             .text
-        assertEquals("TALK_SHORT frames input should match per-state JSON", expected, text.trim())
+        assertEquals("TALK_CALM frames input should match per-state JSON", expected, text.trim())
     }
 
     private fun waitForFramesInput(expected: String) {
@@ -183,7 +184,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         return getter.invoke(null, context) as DataStore<Preferences>
     }
 
-    private fun buildTalkShortPerStateJson(intervalMs: Int, frames: List<Int>): String {
+    private fun buildTalkCalmPerStateJson(intervalMs: Int, frames: List<Int>): String {
         val baseObject = JSONObject()
             .put("frames", JSONArray(frames))
             .put("intervalMs", intervalMs)
@@ -196,7 +197,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             .put("cooldownLoops", 0)
             .put("exclusive", false)
         return JSONObject()
-            .put("animationKey", "TalkShort")
+            .put("animationKey", "TalkCalm")
             .put("base", baseObject)
             .put("insertion", insertionObject)
             .toString()

@@ -299,14 +299,7 @@ class SettingsPreferences(private val context: Context) {
             repairOfflineErrorPerStateJsonIfNeeded()
         }
         .map { preferences ->
-            val perState = preferences[spriteAnimationJsonPreferencesKey(state)]
-            if (!perState.isNullOrBlank()) return@map perState
-            when (state) {
-                SpriteState.TALK_SHORT,
-                SpriteState.TALK_LONG,
-                SpriteState.TALK_CALM -> preferences[spriteAnimationJsonSpeakingKey]
-                else -> perState
-            }
+            preferences[spriteAnimationJsonPreferencesKey(state)]
         }
 
     // 復元優先順位:
@@ -635,25 +628,13 @@ class SettingsPreferences(private val context: Context) {
 
     suspend fun ensurePerStateAnimationJsonsInitialized(): Result<Boolean> = runCatching {
         val preferences = context.dataStore.data.first()
-        val speakingJsonFallback = preferences[spriteAnimationJsonSpeakingKey]?.takeIf { it.isNotBlank() }
         val missingStates = SpriteState.values().filter { state ->
             preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
         }
         var saved = false
         missingStates.forEach { state ->
-            val fallbackJson = if (
-                state == SpriteState.TALK_SHORT ||
-                state == SpriteState.TALK_LONG ||
-                state == SpriteState.TALK_CALM
-            ) {
-                speakingJsonFallback?.let { json ->
-                    overridePerStateAnimationKey(json, defaultKeyForState(state))
-                }
-            } else {
-                null
-            }
             val (baseDefaults, insertionDefaults) = defaultsForState(state)
-            val perStateJson = fallbackJson ?: buildPerStateAnimationJsonOrNull(
+            val perStateJson = buildPerStateAnimationJsonOrNull(
                 animationKey = defaultKeyForState(state),
                 baseSettings = baseDefaults,
                 insertionSettings = insertionDefaults,

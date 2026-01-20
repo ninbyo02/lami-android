@@ -4771,7 +4771,8 @@ private fun ReadyAnimationTab(
                         onValueChange = baseState.onFrameInputChange,
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .testTag("spriteBaseFramesInput"),
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
                         isError = baseState.framesError != null,
