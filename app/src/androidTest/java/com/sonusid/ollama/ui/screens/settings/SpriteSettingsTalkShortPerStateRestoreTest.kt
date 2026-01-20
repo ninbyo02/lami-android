@@ -7,12 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -100,19 +96,31 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     private fun selectAnimationType(label: String) {
+        ensureAnimTabSelected()
         openAnimationDropdown()
         composeTestRule.onNodeWithText(label).performClick()
         composeTestRule.waitForIdle()
     }
 
     private fun openAnimationDropdown() {
-        val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
-        val currentLabel = candidates.firstOrNull { label ->
-            composeTestRule.onAllNodes(hasText(label).and(hasClickAction()))
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
                 .fetchSemanticsNodes()
                 .isNotEmpty()
+        }
+        val dropdownTag = listOf("spriteAnimationTypeDropdown", "spriteAnimationTypeInput")
+            .firstOrNull { tag ->
+                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            }
+        if (dropdownTag != null) {
+            composeTestRule.onNodeWithTag(dropdownTag).performClick()
+            return
+        }
+        val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
+        val currentLabel = candidates.firstOrNull { label ->
+            runCatching { composeTestRule.onNodeWithText(label).fetchSemanticsNode() }.isSuccess
         } ?: error("アニメ種別のドロップダウンが見つかりません")
-        composeTestRule.onNode(hasText(currentLabel).and(hasClickAction())).performClick()
+        composeTestRule.onNodeWithText(currentLabel).performClick()
     }
 
     private fun assertIntervalInputText(expected: String) {
