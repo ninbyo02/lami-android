@@ -1034,7 +1034,7 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkShortInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
+        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0), intervalMs = 130)),
         intervalMs = 130,
     )
     private val talkLongBaseDefaults = ReadyAnimationSettings(
@@ -1043,7 +1043,7 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkLongInsertionDefaults = InsertionAnimationSettings(
         enabled = true,
-        patterns = listOf(InsertionPattern(listOf(1))),
+        patterns = listOf(InsertionPattern(listOf(1), intervalMs = 190)),
         intervalMs = 190,
         everyNLoops = 2,
         probabilityPercent = 100,
@@ -1056,7 +1056,7 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkCalmInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
+        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
         intervalMs = 280,
     )
 
