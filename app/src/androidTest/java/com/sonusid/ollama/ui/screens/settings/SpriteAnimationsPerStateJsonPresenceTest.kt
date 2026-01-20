@@ -1,12 +1,14 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -15,13 +17,28 @@ class SpriteAnimationsPerStateJsonPresenceTest {
 
     @Test
     fun perState_json_exists_for_all_states() = runBlocking {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         val prefs = SettingsPreferences(context)
 
-        prefs.ensurePerStateAnimationJsonsInitialized().getOrThrow()
+        val migrateResult = prefs.migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
+        if (migrateResult.isFailure) {
+            fail("migrateLegacyAllAnimationsJsonToPerStateIfNeeded failed: " +
+                "${migrateResult.exceptionOrNull()?.message} " +
+                buildContextDebugInfo(context, prefs))
+        }
+        val ensureResult = prefs.ensurePerStateAnimationJsonsInitialized()
+        if (ensureResult.isFailure) {
+            fail("ensurePerStateAnimationJsonsInitialized failed: " +
+                "${ensureResult.exceptionOrNull()?.message} " +
+                buildContextDebugInfo(context, prefs))
+        }
+
         val states = listOf(
             SpriteState.READY,
             SpriteState.SPEAKING,
+            SpriteState.TALK_SHORT,
+            SpriteState.TALK_LONG,
+            SpriteState.TALK_CALM,
             SpriteState.IDLE,
             SpriteState.THINKING,
             SpriteState.OFFLINE,
@@ -35,6 +52,23 @@ class SpriteAnimationsPerStateJsonPresenceTest {
             else if (v.isBlank()) missing += "$s:blank"
         }
 
-        assertTrue("per-state json が欠損: $missing", missing.isEmpty())
+        if (missing.isNotEmpty()) {
+            val debugInfo = buildContextDebugInfo(context, prefs)
+            Log.d("SpriteTest", "per-state json missing: $missing $debugInfo")
+        }
+        assertTrue(
+            "per-state json が欠損: $missing ${buildContextDebugInfo(context, prefs)}",
+            missing.isEmpty()
+        )
+    }
+
+    private suspend fun buildContextDebugInfo(
+        context: Context,
+        prefs: SettingsPreferences,
+    ): String {
+        val keys = withTimeout(5_000) { prefs.debugPreferenceKeysForTest(limit = 20) }
+        return "context.packageName=${context.packageName} " +
+            "dataDir=${context.applicationInfo.dataDir} " +
+            "keys(sample)=$keys"
     }
 }

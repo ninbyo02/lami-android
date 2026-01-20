@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -20,6 +21,7 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
+private const val OFFLINE_BASE_INTERVAL_MIN_MS = 500
 private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
@@ -41,6 +43,16 @@ data class ReadyAnimationSettings(
         val THINKING_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(7, 7, 7, 6, 7, 7, 6, 7),
             intervalMs = 180,
+        )
+        // OFFLINE のデフォルト: UI側の OfflineLoop に合わせる
+        val OFFLINE_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(8, 8),
+            intervalMs = 1_250,
+        )
+        // ERROR のデフォルト: UI側の ErrorLight に合わせる
+        val ERROR_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(5, 7, 5),
+            intervalMs = 390,
         )
         val DEFAULT = READY_DEFAULT
 
@@ -104,6 +116,26 @@ data class InsertionAnimationSettings(
             cooldownLoops = 5,
             exclusive = false,
         )
+        // OFFLINE は挿入アニメ無効（パターン空）
+        val OFFLINE_DEFAULT = InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = 1_250,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
+            exclusive = false,
+        )
+        // ERROR は挿入アニメ無効（パターン空）
+        val ERROR_DEFAULT = InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = 390,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
+            exclusive = false,
+        )
         val DEFAULT = READY_DEFAULT
 
         const val MIN_INTERVAL_MS: Int = ReadyAnimationSettings.MIN_INTERVAL_MS
@@ -143,6 +175,9 @@ enum class SpriteState {
     READY,
     IDLE,
     SPEAKING,
+    TALK_SHORT,
+    TALK_LONG,
+    TALK_CALM,
     THINKING,
     ERROR,
     OFFLINE,
@@ -181,6 +216,9 @@ class SettingsPreferences(private val context: Context) {
     private val selectedKeyReadyKey = stringPreferencesKey("sprite_selected_key_ready")
     private val selectedKeyIdleKey = stringPreferencesKey("sprite_selected_key_idle")
     private val selectedKeySpeakingKey = stringPreferencesKey("sprite_selected_key_speaking")
+    private val selectedKeyTalkShortKey = stringPreferencesKey("sprite_selected_key_talk_short")
+    private val selectedKeyTalkLongKey = stringPreferencesKey("sprite_selected_key_talk_long")
+    private val selectedKeyTalkCalmKey = stringPreferencesKey("sprite_selected_key_talk_calm")
     private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
     private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
     private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
@@ -201,6 +239,9 @@ class SettingsPreferences(private val context: Context) {
     private val spriteAnimationJsonReadyKey = stringPreferencesKey("sprite_animation_json_ready")
     private val spriteAnimationJsonSpeakingKey = stringPreferencesKey("sprite_animation_json_speaking")
     private val spriteAnimationJsonIdleKey = stringPreferencesKey("sprite_animation_json_idle")
+    private val spriteAnimationJsonTalkShortKey = stringPreferencesKey("sprite_animation_json_talk_short")
+    private val spriteAnimationJsonTalkLongKey = stringPreferencesKey("sprite_animation_json_talk_long")
+    private val spriteAnimationJsonTalkCalmKey = stringPreferencesKey("sprite_animation_json_talk_calm")
     private val spriteAnimationJsonThinkingKey = stringPreferencesKey("sprite_animation_json_thinking")
     private val spriteAnimationJsonOfflineKey = stringPreferencesKey("sprite_animation_json_offline")
     private val spriteAnimationJsonErrorKey = stringPreferencesKey("sprite_animation_json_error")
@@ -227,6 +268,15 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
+    @VisibleForTesting
+    internal suspend fun debugPreferenceKeysForTest(limit: Int = 20): List<String> {
+        val preferences = context.dataStore.data.first()
+        return preferences.asMap().keys
+            .map { it.name }
+            .sorted()
+            .take(limit)
+    }
+
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
             useDynamicColor = preferences[dynamicColorKey] ?: false
@@ -246,6 +296,7 @@ class SettingsPreferences(private val context: Context) {
         .onStart {
             migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
             ensurePerStateAnimationJsonsInitialized()
+            repairOfflineErrorPerStateJsonIfNeeded()
         }
         .map { preferences ->
             preferences[spriteAnimationJsonPreferencesKey(state)]
@@ -460,8 +511,34 @@ class SettingsPreferences(private val context: Context) {
 
     // state別JSONが正（保存の本命）
     suspend fun saveSpriteAnimationJson(state: SpriteState, json: String) {
+        if (BuildConfig.DEBUG) {
+            val key = spriteAnimationJsonPreferencesKey(state)
+            val snippet = json.take(120)
+            val current = context.dataStore.data.first()[key]
+            Log.d(
+                "LamiSprite",
+                "saveSpriteAnimationJson start: state=${state.name} key=${key.name} " +
+                    "length=${json.length} head=${snippet}"
+            )
+            Log.d(
+                "LamiSprite",
+                "saveSpriteAnimationJson before: state=${state.name} " +
+                    "storedLength=${current?.length ?: 0} storedHead=${current?.take(120)}"
+            )
+            dumpDataStoreDebug("before saveSpriteAnimationJson:${state.name}")
+        }
         context.dataStore.edit { preferences ->
             preferences[spriteAnimationJsonPreferencesKey(state)] = json
+        }
+        if (BuildConfig.DEBUG) {
+            val key = spriteAnimationJsonPreferencesKey(state)
+            val updated = context.dataStore.data.first()[key]
+            Log.d(
+                "LamiSprite",
+                "saveSpriteAnimationJson after: state=${state.name} " +
+                    "storedLength=${updated?.length ?: 0} storedHead=${updated?.take(120)}"
+            )
+            dumpDataStoreDebug("after saveSpriteAnimationJson:${state.name}")
         }
     }
 
@@ -554,7 +631,6 @@ class SettingsPreferences(private val context: Context) {
         val missingStates = SpriteState.values().filter { state ->
             preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
         }
-        if (missingStates.isEmpty()) return@runCatching false
         var saved = false
         missingStates.forEach { state ->
             val (baseDefaults, insertionDefaults) = defaultsForState(state)
@@ -568,15 +644,93 @@ class SettingsPreferences(private val context: Context) {
                 saved = true
             }
         }
-        saved
+        val corrected = correctOfflineBaseIntervalIfNeeded(preferences)
+        saved || corrected
     }
 
-    // state別の選択キーを保存する（段階移行用）
-    suspend fun setSelectedKey(state: SpriteState, key: String) {
+    private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
+        val offlineJson = preferences[spriteAnimationJsonPreferencesKey(SpriteState.OFFLINE)]
+            ?.takeIf { it.isNotBlank() } ?: return false
+        val root = runCatching { JSONObject(offlineJson) }.getOrNull() ?: return false
+        var changed = false
+        val insertionDefaults = InsertionAnimationSettings.OFFLINE_DEFAULT
+        val insertionObject = root.optJSONObject(JSON_INSERTION_KEY) ?: JSONObject().also { created ->
+            created.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            created.put(JSON_PATTERNS_KEY, JSONArray())
+            created.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            root.put(JSON_INSERTION_KEY, created)
+            changed = true
+        }
+        if (!insertionObject.has(JSON_ENABLED_KEY)) {
+            insertionObject.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            changed = true
+        }
+        if (!insertionObject.has(JSON_PATTERNS_KEY)) {
+            insertionObject.put(JSON_PATTERNS_KEY, JSONArray())
+            changed = true
+        }
+        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            insertionObject.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            changed = true
+        }
+        val baseObject = root.optJSONObject(JSON_BASE_KEY)
+        if (baseObject?.has(JSON_INTERVAL_MS_KEY) == true) {
+            val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
+            if (baseIntervalMs < OFFLINE_BASE_INTERVAL_MIN_MS) {
+                baseObject.put(JSON_INTERVAL_MS_KEY, ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs)
+                root.put(JSON_BASE_KEY, baseObject)
+                changed = true
+            }
+        }
+        if (!changed) return false
+        saveSpriteAnimationJson(SpriteState.OFFLINE, root.toString())
+        return true
+    }
+
+    private fun updatePerStateBaseIntervalMs(json: String, intervalMs: Int): String? {
+        return runCatching {
+            val root = JSONObject(json)
+            val baseObject = root.optJSONObject(JSON_BASE_KEY) ?: return@runCatching null
+            baseObject.put(JSON_INTERVAL_MS_KEY, intervalMs)
+            root.put(JSON_BASE_KEY, baseObject)
+            root.toString()
+        }.getOrNull()
+    }
+
+    suspend fun repairOfflineErrorPerStateJsonIfNeeded(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        val targetStates = listOf(SpriteState.OFFLINE, SpriteState.ERROR)
+        var repaired = false
+        targetStates.forEach { state ->
+            val currentJson = preferences[spriteAnimationJsonPreferencesKey(state)]
+                ?.takeIf { it.isNotBlank() }
+                ?: return@forEach
+            val config = parseAndValidatePerStateAnimationJson(currentJson, state).getOrNull()
+                ?: return@forEach
+            if (!shouldRepairLegacyPerStateConfig(state, config)) return@forEach
+            val (baseDefaults, insertionDefaults) = defaultsForState(state)
+            val perStateJson = buildPerStateAnimationJsonOrNull(
+                animationKey = defaultKeyForState(state),
+                baseSettings = baseDefaults,
+                insertionSettings = insertionDefaults,
+            ) ?: return@forEach
+            saveSpriteAnimationJson(state, perStateJson)
+            repaired = true
+        }
+        repaired
+    }
+
+    // state別の選択キーを保存する
+    suspend fun saveSelectedKey(state: SpriteState, key: String) {
         if (key.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[selectedKeyPreferencesKey(state)] = key
         }
+    }
+
+    // state別の選択キーを保存する（段階移行用）
+    suspend fun setSelectedKey(state: SpriteState, key: String) {
+        saveSelectedKey(state, key)
     }
 
     suspend fun saveLastSelectedSpriteTab(tabKey: String) {
@@ -685,6 +839,9 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.READY -> "Ready"
             SpriteState.IDLE -> "Idle"
             SpriteState.SPEAKING -> "TalkDefault"
+            SpriteState.TALK_SHORT -> "TalkShort"
+            SpriteState.TALK_LONG -> "TalkLong"
+            SpriteState.TALK_CALM -> "TalkCalm"
             SpriteState.THINKING -> "Thinking"
             SpriteState.ERROR -> "ErrorLight"
             SpriteState.OFFLINE -> "OfflineLoop"
@@ -763,6 +920,7 @@ class SettingsPreferences(private val context: Context) {
         state: SpriteState,
     ): Result<PerStateAnimationConfig> = runCatching {
         val root = JSONObject(json)
+        val (_, insertionDefaults) = defaultsForState(state)
         val animationKey = root.optString(JSON_ANIMATION_KEY, "").trim()
         if (animationKey.isBlank()) {
             error("animationKey is missing: state=${state.name}")
@@ -782,10 +940,11 @@ class SettingsPreferences(private val context: Context) {
         }
         val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
         val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
-        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
-            error("insertion.intervalMs is missing: state=${state.name}")
+        val intervalMs = if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            insertionObject.getInt(JSON_INTERVAL_MS_KEY)
+        } else {
+            insertionDefaults.intervalMs
         }
-        val intervalMs = insertionObject.getInt(JSON_INTERVAL_MS_KEY)
         val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
         val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
             .coerceIn(0, 100)
@@ -823,18 +982,105 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
+    private val offlineBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(8, 8),
+        intervalMs = 1_250,
+    )
+    private val offlineInsertionDefaults = disabledInsertionDefaults(offlineBaseDefaults.intervalMs)
+    private val errorBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(5, 7, 5),
+        intervalMs = 390,
+    )
+    private val errorInsertionDefaults = disabledInsertionDefaults(errorBaseDefaults.intervalMs)
+    private val talkShortBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(0, 6, 2, 6, 0),
+        intervalMs = 130,
+    )
+    private val talkShortInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+        enabled = false,
+        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
+        intervalMs = 130,
+    )
+    private val talkLongBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(0, 4, 6, 4, 4, 6, 4, 0),
+        intervalMs = 190,
+    )
+    private val talkLongInsertionDefaults = InsertionAnimationSettings(
+        enabled = true,
+        patterns = listOf(InsertionPattern(listOf(1))),
+        intervalMs = 190,
+        everyNLoops = 2,
+        probabilityPercent = 100,
+        cooldownLoops = 0,
+        exclusive = true,
+    )
+    private val talkCalmBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(7, 4, 7, 8, 7),
+        intervalMs = 280,
+    )
+    private val talkCalmInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+        enabled = false,
+        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
+        intervalMs = 280,
+    )
+
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
+            SpriteState.TALK_SHORT -> talkShortBaseDefaults to talkShortInsertionDefaults
+            SpriteState.TALK_LONG -> talkLongBaseDefaults to talkLongInsertionDefaults
+            SpriteState.TALK_CALM -> talkCalmBaseDefaults to talkCalmInsertionDefaults
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
+            SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
+            SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
+
+    private fun disabledInsertionDefaults(intervalMs: Int): InsertionAnimationSettings =
+        InsertionAnimationSettings(
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = intervalMs,
+            everyNLoops = 1,
+            probabilityPercent = 0,
+            cooldownLoops = 0,
+            exclusive = false,
+        )
+
+    private fun shouldRepairLegacyPerStateConfig(
+        state: SpriteState,
+        config: PerStateAnimationConfig,
+    ): Boolean {
+        if (config.animationKey != defaultKeyForState(state)) return false
+        if (config.baseFrames != ReadyAnimationSettings.DEFAULT.frameSequence) return false
+        if (config.baseIntervalMs != ReadyAnimationSettings.DEFAULT.intervalMs) return false
+        val insertion = config.insertion
+        val defaultInsertion = InsertionAnimationSettings.DEFAULT
+        if (insertion.enabled != defaultInsertion.enabled) return false
+        if (insertion.intervalMs != defaultInsertion.intervalMs) return false
+        if (insertion.everyNLoops != defaultInsertion.everyNLoops) return false
+        if (insertion.probabilityPercent != defaultInsertion.probabilityPercent) return false
+        if (insertion.cooldownLoops != defaultInsertion.cooldownLoops) return false
+        if (insertion.exclusive != defaultInsertion.exclusive) return false
+        val defaultPatterns = defaultInsertion.patterns.take(2).mapNotNull { pattern ->
+            val intervalMs = pattern.intervalMs ?: return@mapNotNull null
+            InsertionPatternConfig(
+                frames = pattern.frameSequence,
+                weight = pattern.weight,
+                intervalMs = intervalMs,
+            )
+        }
+        return insertion.patterns == defaultPatterns
+    }
 
     private fun legacyAnimationKeysForState(state: SpriteState): List<String> =
         when (state) {
             SpriteState.READY -> listOf(ALL_ANIMATIONS_READY_KEY, ALL_ANIMATIONS_READY_LEGACY_KEY)
             SpriteState.SPEAKING -> listOf(ALL_ANIMATIONS_TALKING_KEY, "Speaking")
+            SpriteState.TALK_SHORT -> listOf("TalkShort")
+            SpriteState.TALK_LONG -> listOf("TalkLong")
+            SpriteState.TALK_CALM -> listOf("TalkCalm")
             SpriteState.IDLE -> listOf("Idle")
             SpriteState.THINKING -> listOf(ALL_ANIMATIONS_THINKING_KEY)
             SpriteState.OFFLINE -> listOf("OfflineLoop")
@@ -913,6 +1159,13 @@ class SettingsPreferences(private val context: Context) {
             .put(JSON_INSERTION_KEY, insertionJson)
             .toString()
     }
+
+    private fun overridePerStateAnimationKey(json: String, animationKey: String): String? =
+        runCatching {
+            val root = JSONObject(json)
+            root.put(JSON_ANIMATION_KEY, animationKey)
+            root.toString()
+        }.getOrNull()
 
     private fun parseReadySettings(
         json: JSONObject?,
@@ -1216,6 +1469,9 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.READY -> selectedKeyReadyKey
         SpriteState.IDLE -> selectedKeyIdleKey
         SpriteState.SPEAKING -> selectedKeySpeakingKey
+        SpriteState.TALK_SHORT -> selectedKeyTalkShortKey
+        SpriteState.TALK_LONG -> selectedKeyTalkLongKey
+        SpriteState.TALK_CALM -> selectedKeyTalkCalmKey
         SpriteState.THINKING -> selectedKeyThinkingKey
         SpriteState.ERROR -> selectedKeyErrorKey
         SpriteState.OFFLINE -> selectedKeyOfflineKey
@@ -1225,6 +1481,9 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.READY -> spriteAnimationJsonReadyKey
         SpriteState.IDLE -> spriteAnimationJsonIdleKey
         SpriteState.SPEAKING -> spriteAnimationJsonSpeakingKey
+        SpriteState.TALK_SHORT -> spriteAnimationJsonTalkShortKey
+        SpriteState.TALK_LONG -> spriteAnimationJsonTalkLongKey
+        SpriteState.TALK_CALM -> spriteAnimationJsonTalkCalmKey
         SpriteState.THINKING -> spriteAnimationJsonThinkingKey
         SpriteState.ERROR -> spriteAnimationJsonErrorKey
         SpriteState.OFFLINE -> spriteAnimationJsonOfflineKey
