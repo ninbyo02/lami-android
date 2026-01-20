@@ -956,6 +956,15 @@ fun SpriteSettingsScreen(navController: NavController) {
     val speakingPerStateJson by settingsPreferences
         .spriteAnimationJsonFlow(SpriteState.SPEAKING)
         .collectAsState(initial = null)
+    val talkShortPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.TALK_SHORT)
+        .collectAsState(initial = null)
+    val talkLongPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.TALK_LONG)
+        .collectAsState(initial = null)
+    val talkCalmPerStateJson by settingsPreferences
+        .spriteAnimationJsonFlow(SpriteState.TALK_CALM)
+        .collectAsState(initial = null)
     val idlePerStateJson by settingsPreferences
         .spriteAnimationJsonFlow(SpriteState.IDLE)
         .collectAsState(initial = null)
@@ -1114,6 +1123,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     val hasReadyPerStateJson = readyPerStateJson?.isNotBlank() == true ||
         lastAppliedReadyPerStateJson?.isNotBlank() == true
     var didApplySpeakingPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyTalkShortPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyTalkLongPerState by rememberSaveable { mutableStateOf(false) }
+    var didApplyTalkCalmPerState by rememberSaveable { mutableStateOf(false) }
     var didApplyIdlePerState by remember { mutableStateOf(false) }
     var didApplyThinkingPerState by remember { mutableStateOf(false) }
     var didApplyOfflinePerState by remember { mutableStateOf(false) }
@@ -1548,6 +1560,201 @@ fun SpriteSettingsScreen(navController: NavController) {
             Log.d(
                 "LamiSprite",
                 "PR20 apply per-state SPEAKING success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
+            )
+        }
+    }
+
+    LaunchedEffect(talkShortPerStateJson) {
+        if (didApplyTalkShortPerState) return@LaunchedEffect
+        val rawJson = talkShortPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state TALK_SHORT restore start: rawLength=${rawJson.length}"
+            )
+        }
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.TALK_SHORT)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR22 apply per-state TALK_SHORT failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = AnimationType.TALK_SHORT
+        val insertionPatterns = config.insertion.patterns.toInsertionPatterns()
+        val patternInputs = insertionPatterns.toInsertionPatternInputs()
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+            insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+            insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+            insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+            insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+            insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+            appliedBase = ReadyAnimationSettings(
+                frameSequence = config.baseFrames,
+                intervalMs = config.baseIntervalMs,
+            ),
+            appliedInsertion = InsertionAnimationSettings(
+                enabled = config.insertion.enabled,
+                patterns = insertionPatterns,
+                intervalMs = config.insertion.intervalMs,
+                everyNLoops = config.insertion.everyNLoops,
+                probabilityPercent = config.insertion.probabilityPercent,
+                cooldownLoops = config.insertion.cooldownLoops,
+                exclusive = config.insertion.exclusive,
+            ),
+        )
+        didApplyTalkShortPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR22 apply per-state TALK_SHORT success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
+            )
+        }
+    }
+
+    LaunchedEffect(talkLongPerStateJson) {
+        if (didApplyTalkLongPerState) return@LaunchedEffect
+        val rawJson = talkLongPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state TALK_LONG restore start: rawLength=${rawJson.length}"
+            )
+        }
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.TALK_LONG)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR22 apply per-state TALK_LONG failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = AnimationType.TALK_LONG
+        val insertionPatterns = config.insertion.patterns.toInsertionPatterns()
+        val patternInputs = insertionPatterns.toInsertionPatternInputs()
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+            insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+            insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+            insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+            insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+            insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+            appliedBase = ReadyAnimationSettings(
+                frameSequence = config.baseFrames,
+                intervalMs = config.baseIntervalMs,
+            ),
+            appliedInsertion = InsertionAnimationSettings(
+                enabled = config.insertion.enabled,
+                patterns = insertionPatterns,
+                intervalMs = config.insertion.intervalMs,
+                everyNLoops = config.insertion.everyNLoops,
+                probabilityPercent = config.insertion.probabilityPercent,
+                cooldownLoops = config.insertion.cooldownLoops,
+                exclusive = config.insertion.exclusive,
+            ),
+        )
+        didApplyTalkLongPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR22 apply per-state TALK_LONG success size=${rawJson.length} " +
+                    "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
+                    "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
+            )
+        }
+    }
+
+    LaunchedEffect(talkCalmPerStateJson) {
+        if (didApplyTalkCalmPerState) return@LaunchedEffect
+        val rawJson = talkCalmPerStateJson?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "per-state TALK_CALM restore start: rawLength=${rawJson.length}"
+            )
+        }
+        val result = settingsPreferences.parseAndValidatePerStateAnimationJson(rawJson, SpriteState.TALK_CALM)
+        val config = result.getOrNull()
+        if (config == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "PR22 apply per-state TALK_CALM failed: ${result.exceptionOrNull()?.message} " +
+                        "rawLength=${rawJson.length}"
+                )
+            }
+            return@LaunchedEffect
+        }
+        val target = AnimationType.TALK_CALM
+        val insertionPatterns = config.insertion.patterns.toInsertionPatterns()
+        val patternInputs = insertionPatterns.toInsertionPatternInputs()
+        val state = resolveInputState(target)
+        extraAnimationStates[target] = state.copy(
+            frameInput = config.baseFrames.toFrameInputText(),
+            intervalInput = config.baseIntervalMs.toString(),
+            insertionPattern1FramesInput = patternInputs.pattern1FramesInput,
+            insertionPattern1WeightInput = patternInputs.pattern1WeightInput,
+            insertionPattern1IntervalInput = patternInputs.pattern1IntervalInput,
+            insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
+            insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
+            insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
+            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionEveryNInput = config.insertion.everyNLoops.toString(),
+            insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
+            insertionCooldownInput = config.insertion.cooldownLoops.toString(),
+            insertionEnabled = config.insertion.enabled,
+            insertionExclusive = config.insertion.exclusive,
+            appliedBase = ReadyAnimationSettings(
+                frameSequence = config.baseFrames,
+                intervalMs = config.baseIntervalMs,
+            ),
+            appliedInsertion = InsertionAnimationSettings(
+                enabled = config.insertion.enabled,
+                patterns = insertionPatterns,
+                intervalMs = config.insertion.intervalMs,
+                everyNLoops = config.insertion.everyNLoops,
+                probabilityPercent = config.insertion.probabilityPercent,
+                cooldownLoops = config.insertion.cooldownLoops,
+                exclusive = config.insertion.exclusive,
+            ),
+        )
+        didApplyTalkCalmPerState = true
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiSprite",
+                "PR22 apply per-state TALK_CALM success size=${rawJson.length} " +
                     "frames=${config.baseFrames} intervalMs=${config.baseIntervalMs} " +
                     "insertionEnabled=${config.insertion.enabled} insertionIntervalMs=${config.insertion.intervalMs}"
             )
@@ -2857,10 +3064,10 @@ fun SpriteSettingsScreen(navController: NavController) {
             runCatching {
                 val targetState = when (selectedAnimation) {
                     AnimationType.READY -> SpriteState.READY
-                    AnimationType.TALKING,
-                    AnimationType.TALK_SHORT,
-                    AnimationType.TALK_LONG,
-                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                    AnimationType.TALKING -> SpriteState.SPEAKING
+                    AnimationType.TALK_SHORT -> SpriteState.TALK_SHORT
+                    AnimationType.TALK_LONG -> SpriteState.TALK_LONG
+                    AnimationType.TALK_CALM -> SpriteState.TALK_CALM
                     AnimationType.IDLE -> SpriteState.IDLE
                     AnimationType.THINKING -> SpriteState.THINKING
                     AnimationType.OFFLINE_ENTER,
@@ -2872,6 +3079,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 val animationKeyForState = when (targetState) {
                     SpriteState.READY -> "Ready"
                     SpriteState.SPEAKING -> "TalkDefault"
+                    SpriteState.TALK_SHORT -> "TalkShort"
+                    SpriteState.TALK_LONG -> "TalkLong"
+                    SpriteState.TALK_CALM -> "TalkCalm"
                     SpriteState.IDLE -> "Idle"
                     SpriteState.THINKING -> "Thinking"
                     SpriteState.OFFLINE -> "OfflineLoop"
@@ -2885,6 +3095,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                 val defaultInsertionIntervalMs = when (targetState) {
                     SpriteState.READY -> InsertionAnimationSettings.READY_DEFAULT.intervalMs
                     SpriteState.SPEAKING -> InsertionAnimationSettings.TALKING_DEFAULT.intervalMs
+                    SpriteState.TALK_SHORT,
+                    SpriteState.TALK_LONG,
+                    SpriteState.TALK_CALM,
+                    SpriteState.IDLE -> resolveInputState(selectedAnimation).appliedInsertion.intervalMs
                     SpriteState.THINKING -> InsertionAnimationSettings.THINKING_DEFAULT.intervalMs
                     SpriteState.OFFLINE -> InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs
                     SpriteState.ERROR -> InsertionAnimationSettings.ERROR_DEFAULT.intervalMs
@@ -3137,10 +3351,10 @@ fun SpriteSettingsScreen(navController: NavController) {
             runCatching {
                 val targetState = when (selectedAnimation) {
                     AnimationType.READY -> SpriteState.READY
-                    AnimationType.TALKING,
-                    AnimationType.TALK_SHORT,
-                    AnimationType.TALK_LONG,
-                    AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                    AnimationType.TALKING -> SpriteState.SPEAKING
+                    AnimationType.TALK_SHORT -> SpriteState.TALK_SHORT
+                    AnimationType.TALK_LONG -> SpriteState.TALK_LONG
+                    AnimationType.TALK_CALM -> SpriteState.TALK_CALM
                     AnimationType.IDLE -> SpriteState.IDLE
                     AnimationType.THINKING -> SpriteState.THINKING
                     AnimationType.OFFLINE_ENTER,
@@ -3388,10 +3602,10 @@ fun SpriteSettingsScreen(navController: NavController) {
             }
             val targetState = when (selectedAnimation) {
                 AnimationType.READY -> SpriteState.READY
-                AnimationType.TALKING,
-                AnimationType.TALK_SHORT,
-                AnimationType.TALK_LONG,
-                AnimationType.TALK_CALM -> SpriteState.SPEAKING
+                AnimationType.TALKING -> SpriteState.SPEAKING
+                AnimationType.TALK_SHORT -> SpriteState.TALK_SHORT
+                AnimationType.TALK_LONG -> SpriteState.TALK_LONG
+                AnimationType.TALK_CALM -> SpriteState.TALK_CALM
                 AnimationType.IDLE -> SpriteState.IDLE
                 AnimationType.THINKING -> SpriteState.THINKING
                 AnimationType.OFFLINE_ENTER,
@@ -3799,7 +4013,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                     AnimationType.TALK_LONG,
                                                     AnimationType.TALK_CALM ->
                                                         settingsPreferences.setSelectedKey(
-                                                            SpriteState.SPEAKING,
+                                                            when (updated) {
+                                                                AnimationType.TALK_SHORT -> SpriteState.TALK_SHORT
+                                                                AnimationType.TALK_LONG -> SpriteState.TALK_LONG
+                                                                else -> SpriteState.TALK_CALM
+                                                            },
                                                             updated.internalKey,
                                                         )
 

@@ -36,6 +36,9 @@ class SpriteAnimationsPerStateJsonPresenceTest {
         val states = listOf(
             SpriteState.READY,
             SpriteState.SPEAKING,
+            SpriteState.TALK_SHORT,
+            SpriteState.TALK_LONG,
+            SpriteState.TALK_CALM,
             SpriteState.IDLE,
             SpriteState.THINKING,
             SpriteState.OFFLINE,
