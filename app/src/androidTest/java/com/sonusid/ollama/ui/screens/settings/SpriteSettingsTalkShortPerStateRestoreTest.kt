@@ -2,9 +2,11 @@ package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
 import androidx.activity.compose.setContent
+import androidx.compose.ui.semantics.SemanticsConfiguration
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.isTestTagDefined
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -215,15 +217,33 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     private fun dumpSemanticsTags(): String {
-        val tags = composeTestRule.onAllNodes(isTestTagDefined(), useUnmergedTree = true)
+        val rootNodes: List<SemanticsNode> = composeTestRule
+            .onAllNodes(isRoot(), useUnmergedTree = true)
             .fetchSemanticsNodes()
-            .mapNotNull { node -> node.config.getOrNull(SemanticsProperties.TestTag) }
-            .distinct()
-            .sorted()
-        return if (tags.isEmpty()) {
+        val tags: MutableSet<String> = mutableSetOf()
+        rootNodes.forEach { node: SemanticsNode ->
+            collectTestTags(node, tags)
+        }
+        val sortedTags = tags.toList().sorted()
+        return if (sortedTags.isEmpty()) {
             "<none>"
         } else {
-            tags.joinToString()
+            sortedTags.joinToString()
+        }
+    }
+
+    private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
+        val config: SemanticsConfiguration = node.config
+        val tag: String? = if (config.contains(SemanticsProperties.TestTag)) {
+            config[SemanticsProperties.TestTag]
+        } else {
+            null
+        }
+        if (tag != null) {
+            tags.add(tag)
+        }
+        node.children.forEach { child: SemanticsNode ->
+            collectTestTags(child, tags)
         }
     }
 
