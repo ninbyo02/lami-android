@@ -1398,6 +1398,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(readyInsertionAnimationSettings) {
+        if (hasReadyPerStateJson || didApplyReadyPerState || didApplyReadyInsertionSettings) {
+            return@LaunchedEffect
+        }
         val normalizedPatterns = readyInsertionAnimationSettings.patterns
         val patternInputs = normalizedPatterns.toInsertionPatternInputs()
         appliedReadyInsertionPatterns = normalizedPatterns
@@ -1423,6 +1426,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     }
 
     LaunchedEffect(talkingInsertionAnimationSettings) {
+        if (speakingPerStateJson?.isNotBlank() == true || didApplySpeakingPerState || didApplyTalkingInsertionSettings) {
+            return@LaunchedEffect
+        }
         val normalizedPatterns = talkingInsertionAnimationSettings.patterns
         val patternInputs = normalizedPatterns.toInsertionPatternInputs()
         appliedTalkingInsertionPatterns = normalizedPatterns
@@ -3033,9 +3039,9 @@ fun SpriteSettingsScreen(navController: NavController) {
         return ValidationResult(AllAnimations(resolved), null)
     }
 
-    // 段階1: spriteAnimationsJson があれば優先しつつ、UI反映は段階2以降で実装予定。
+    // 段階1: legacy JSON は保持するが、UI復元・表示には使わない。
     @Suppress("UNUSED_VARIABLE")
-    val compositeAnimations = remember(
+    val unusedLegacyCompositeAnimations = remember(
         spriteAnimationsJson,
         readyAnimationSettings,
         talkingAnimationSettings,
