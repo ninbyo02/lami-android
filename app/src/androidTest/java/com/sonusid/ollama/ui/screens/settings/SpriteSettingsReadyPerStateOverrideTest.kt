@@ -1,10 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -14,13 +10,9 @@ import androidx.compose.ui.test.performClick
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
-import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.MainActivity
 import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -33,7 +25,7 @@ import org.junit.Test
 
 class SpriteSettingsReadyPerStateOverrideTest {
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<MainActivity>()
 
     @Before
     fun clearPreferences() {
@@ -61,9 +53,10 @@ class SpriteSettingsReadyPerStateOverrideTest {
                 SpriteState.READY,
                 buildReadyPerStateJson(intervalMs = 90)
             )
+            prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
 
-        setSpriteSettingsContent()
+        composeTestRule.activityRule.scenario.recreate()
         ensureAnimTabSelected()
         waitForIntervalInput(expected = "90")
         assertIntervalInputText(expected = "90")
@@ -72,26 +65,6 @@ class SpriteSettingsReadyPerStateOverrideTest {
         ensureAnimTabSelected()
         waitForIntervalInput(expected = "90")
         assertIntervalInputText(expected = "90")
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.setContent {
-            OllamaTheme {
-                val navController = rememberNavController()
-                NavHost(
-                    navController = navController,
-                    startDestination = SettingsRoute.SpriteSettings.route
-                ) {
-                    composable(SettingsRoute.SpriteSettings.route) {
-                        SpriteSettingsScreen(navController)
-                    }
-                    composable(Routes.SETTINGS) {
-                        Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
     }
 
     private fun assertIntervalInputText(expected: String) {
