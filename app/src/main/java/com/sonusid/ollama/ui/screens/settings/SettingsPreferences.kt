@@ -175,6 +175,9 @@ enum class SpriteState {
     READY,
     IDLE,
     SPEAKING,
+    TALK_SHORT,
+    TALK_LONG,
+    TALK_CALM,
     THINKING,
     ERROR,
     OFFLINE,
@@ -213,6 +216,9 @@ class SettingsPreferences(private val context: Context) {
     private val selectedKeyReadyKey = stringPreferencesKey("sprite_selected_key_ready")
     private val selectedKeyIdleKey = stringPreferencesKey("sprite_selected_key_idle")
     private val selectedKeySpeakingKey = stringPreferencesKey("sprite_selected_key_speaking")
+    private val selectedKeyTalkShortKey = stringPreferencesKey("sprite_selected_key_talk_short")
+    private val selectedKeyTalkLongKey = stringPreferencesKey("sprite_selected_key_talk_long")
+    private val selectedKeyTalkCalmKey = stringPreferencesKey("sprite_selected_key_talk_calm")
     private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
     private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
     private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
@@ -233,6 +239,9 @@ class SettingsPreferences(private val context: Context) {
     private val spriteAnimationJsonReadyKey = stringPreferencesKey("sprite_animation_json_ready")
     private val spriteAnimationJsonSpeakingKey = stringPreferencesKey("sprite_animation_json_speaking")
     private val spriteAnimationJsonIdleKey = stringPreferencesKey("sprite_animation_json_idle")
+    private val spriteAnimationJsonTalkShortKey = stringPreferencesKey("sprite_animation_json_talk_short")
+    private val spriteAnimationJsonTalkLongKey = stringPreferencesKey("sprite_animation_json_talk_long")
+    private val spriteAnimationJsonTalkCalmKey = stringPreferencesKey("sprite_animation_json_talk_calm")
     private val spriteAnimationJsonThinkingKey = stringPreferencesKey("sprite_animation_json_thinking")
     private val spriteAnimationJsonOfflineKey = stringPreferencesKey("sprite_animation_json_offline")
     private val spriteAnimationJsonErrorKey = stringPreferencesKey("sprite_animation_json_error")
@@ -290,7 +299,14 @@ class SettingsPreferences(private val context: Context) {
             repairOfflineErrorPerStateJsonIfNeeded()
         }
         .map { preferences ->
-            preferences[spriteAnimationJsonPreferencesKey(state)]
+            val perState = preferences[spriteAnimationJsonPreferencesKey(state)]
+            if (!perState.isNullOrBlank()) return@map perState
+            when (state) {
+                SpriteState.TALK_SHORT,
+                SpriteState.TALK_LONG,
+                SpriteState.TALK_CALM -> preferences[spriteAnimationJsonSpeakingKey]
+                else -> perState
+            }
         }
 
     // 復元優先順位:
@@ -619,13 +635,25 @@ class SettingsPreferences(private val context: Context) {
 
     suspend fun ensurePerStateAnimationJsonsInitialized(): Result<Boolean> = runCatching {
         val preferences = context.dataStore.data.first()
+        val speakingJsonFallback = preferences[spriteAnimationJsonSpeakingKey]?.takeIf { it.isNotBlank() }
         val missingStates = SpriteState.values().filter { state ->
             preferences[spriteAnimationJsonPreferencesKey(state)].isNullOrBlank()
         }
         var saved = false
         missingStates.forEach { state ->
+            val fallbackJson = if (
+                state == SpriteState.TALK_SHORT ||
+                state == SpriteState.TALK_LONG ||
+                state == SpriteState.TALK_CALM
+            ) {
+                speakingJsonFallback?.let { json ->
+                    overridePerStateAnimationKey(json, defaultKeyForState(state))
+                }
+            } else {
+                null
+            }
             val (baseDefaults, insertionDefaults) = defaultsForState(state)
-            val perStateJson = buildPerStateAnimationJsonOrNull(
+            val perStateJson = fallbackJson ?: buildPerStateAnimationJsonOrNull(
                 animationKey = defaultKeyForState(state),
                 baseSettings = baseDefaults,
                 insertionSettings = insertionDefaults,
@@ -830,6 +858,9 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.READY -> "Ready"
             SpriteState.IDLE -> "Idle"
             SpriteState.SPEAKING -> "TalkDefault"
+            SpriteState.TALK_SHORT -> "TalkShort"
+            SpriteState.TALK_LONG -> "TalkLong"
+            SpriteState.TALK_CALM -> "TalkCalm"
             SpriteState.THINKING -> "Thinking"
             SpriteState.ERROR -> "ErrorLight"
             SpriteState.OFFLINE -> "OfflineLoop"
@@ -980,11 +1011,45 @@ class SettingsPreferences(private val context: Context) {
         intervalMs = 390,
     )
     private val errorInsertionDefaults = disabledInsertionDefaults(errorBaseDefaults.intervalMs)
+    private val talkShortBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(0, 6, 2, 6, 0),
+        intervalMs = 130,
+    )
+    private val talkShortInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+        enabled = false,
+        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
+        intervalMs = 130,
+    )
+    private val talkLongBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(0, 4, 6, 4, 4, 6, 4, 0),
+        intervalMs = 190,
+    )
+    private val talkLongInsertionDefaults = InsertionAnimationSettings(
+        enabled = true,
+        patterns = listOf(InsertionPattern(listOf(1))),
+        intervalMs = 190,
+        everyNLoops = 2,
+        probabilityPercent = 100,
+        cooldownLoops = 0,
+        exclusive = true,
+    )
+    private val talkCalmBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(7, 4, 7, 8, 7),
+        intervalMs = 280,
+    )
+    private val talkCalmInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+        enabled = false,
+        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
+        intervalMs = 280,
+    )
 
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
+            SpriteState.TALK_SHORT -> talkShortBaseDefaults to talkShortInsertionDefaults
+            SpriteState.TALK_LONG -> talkLongBaseDefaults to talkLongInsertionDefaults
+            SpriteState.TALK_CALM -> talkCalmBaseDefaults to talkCalmInsertionDefaults
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
             SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
@@ -1032,6 +1097,9 @@ class SettingsPreferences(private val context: Context) {
         when (state) {
             SpriteState.READY -> listOf(ALL_ANIMATIONS_READY_KEY, ALL_ANIMATIONS_READY_LEGACY_KEY)
             SpriteState.SPEAKING -> listOf(ALL_ANIMATIONS_TALKING_KEY, "Speaking")
+            SpriteState.TALK_SHORT -> listOf("TalkShort")
+            SpriteState.TALK_LONG -> listOf("TalkLong")
+            SpriteState.TALK_CALM -> listOf("TalkCalm")
             SpriteState.IDLE -> listOf("Idle")
             SpriteState.THINKING -> listOf(ALL_ANIMATIONS_THINKING_KEY)
             SpriteState.OFFLINE -> listOf("OfflineLoop")
@@ -1110,6 +1178,13 @@ class SettingsPreferences(private val context: Context) {
             .put(JSON_INSERTION_KEY, insertionJson)
             .toString()
     }
+
+    private fun overridePerStateAnimationKey(json: String, animationKey: String): String? =
+        runCatching {
+            val root = JSONObject(json)
+            root.put(JSON_ANIMATION_KEY, animationKey)
+            root.toString()
+        }.getOrNull()
 
     private fun parseReadySettings(
         json: JSONObject?,
@@ -1413,6 +1488,9 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.READY -> selectedKeyReadyKey
         SpriteState.IDLE -> selectedKeyIdleKey
         SpriteState.SPEAKING -> selectedKeySpeakingKey
+        SpriteState.TALK_SHORT -> selectedKeyTalkShortKey
+        SpriteState.TALK_LONG -> selectedKeyTalkLongKey
+        SpriteState.TALK_CALM -> selectedKeyTalkCalmKey
         SpriteState.THINKING -> selectedKeyThinkingKey
         SpriteState.ERROR -> selectedKeyErrorKey
         SpriteState.OFFLINE -> selectedKeyOfflineKey
@@ -1422,6 +1500,9 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.READY -> spriteAnimationJsonReadyKey
         SpriteState.IDLE -> spriteAnimationJsonIdleKey
         SpriteState.SPEAKING -> spriteAnimationJsonSpeakingKey
+        SpriteState.TALK_SHORT -> spriteAnimationJsonTalkShortKey
+        SpriteState.TALK_LONG -> spriteAnimationJsonTalkLongKey
+        SpriteState.TALK_CALM -> spriteAnimationJsonTalkCalmKey
         SpriteState.THINKING -> spriteAnimationJsonThinkingKey
         SpriteState.ERROR -> spriteAnimationJsonErrorKey
         SpriteState.OFFLINE -> spriteAnimationJsonOfflineKey
