@@ -1023,9 +1023,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     var isAutoSyncing by remember { mutableStateOf(false) }
     val devUnlocked = true
     var readyFrameInput by rememberSaveable { mutableStateOf("1,1,1,1") }
-    var readyIntervalInput by rememberSaveable { mutableStateOf("180") }
+    var readyIntervalInput by rememberSaveable { mutableStateOf("220") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 0, 0, 0)) }
-    var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(180) }
+    var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(220) }
     var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingFrameInput by rememberSaveable { mutableStateOf("1,7,1,7") }
@@ -1044,30 +1044,30 @@ fun SpriteSettingsScreen(navController: NavController) {
     // Ready insertion のUI初期値を新デフォルトに合わせる
     var readyInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("5,0") }
     var readyInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("3") }
-    var readyInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("110") }
-    var readyInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("5,0,5,0,0") }
+    var readyInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("220") }
+    var readyInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("5,0,5,0") }
     var readyInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("1") }
-    var readyInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("110") }
-    var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("110") }
+    var readyInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("160") }
+    var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("220") }
     var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("5") }
-    var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("58") }
+    var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("40") }
     var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("6") }
     var readyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
-    var readyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
+    var readyInsertionExclusive by rememberSaveable { mutableStateOf(true) }
     var appliedReadyInsertionPatterns by remember {
         mutableStateOf(
             listOf(
-                InsertionPattern(listOf(5, 0), weight = 3, intervalMs = 110),
-                InsertionPattern(listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 110),
+                InsertionPattern(listOf(5, 0), weight = 3, intervalMs = 220),
+                InsertionPattern(listOf(5, 0, 5, 0), weight = 1, intervalMs = 160),
             )
         )
     }
-    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(110) }
+    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(220) }
     var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(5) }
-    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(58) }
+    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(40) }
     var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(6) }
     var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
-    var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(false) }
+    var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(true) }
     var readyInsertionPattern1FramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionPattern1WeightError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionPattern1IntervalError by rememberSaveable { mutableStateOf<String?>(null) }
