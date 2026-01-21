@@ -5,12 +5,16 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -74,7 +78,16 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun selectAnimationType(label: String) {
         ensureAnimTabSelected()
         openAnimationDropdown()
-        composeTestRule.onNodeWithText(label).performClick()
+        composeTestRule.waitUntil(timeoutMillis = 20_000) {
+            composeTestRule.onAllNodesWithText(label, useUnmergedTree = true)
+                .filter(hasClickAction())
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeTestRule.onAllNodesWithText(label, useUnmergedTree = true)
+            .filter(hasClickAction())
+            .onFirst()
+            .performTouchInput { click() }
         composeTestRule.waitForIdle()
     }
 
