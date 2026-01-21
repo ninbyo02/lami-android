@@ -1,7 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -157,20 +156,18 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun setSpriteSettingsContent() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
-            activity.setContent {
-                val navController = rememberNavController()
-                OllamaTheme(dynamicColor = false) {
-                    NavHost(
-                        navController = navController,
-                        startDestination = SettingsRoute.SpriteSettings.route
-                    ) {
-                        composable(SettingsRoute.SpriteSettings.route) {
-                            SpriteSettingsScreen(navController)
-                        }
-                        composable(Routes.SETTINGS) {
-                            Settings(navController)
-                        }
+        composeTestRule.setContent {
+            val navController = rememberNavController()
+            OllamaTheme(dynamicColor = false) {
+                NavHost(
+                    navController = navController,
+                    startDestination = SettingsRoute.SpriteSettings.route
+                ) {
+                    composable(SettingsRoute.SpriteSettings.route) {
+                        SpriteSettingsScreen(navController)
+                    }
+                    composable(Routes.SETTINGS) {
+                        Settings(navController)
                     }
                 }
             }
