@@ -16,17 +16,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import com.sonusid.ollama.MainActivity
-import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.screens.settings.Settings
-import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
-import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -151,28 +144,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun recreateToSpriteSettings() {
         composeTestRule.activityRule.scenario.recreate()
-        setSpriteSettingsContent()
-        waitForNodeWithTag("spriteTabAnim")
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.setContent {
-            val navController = rememberNavController()
-            OllamaTheme(dynamicColor = false) {
-                NavHost(
-                    navController = navController,
-                    startDestination = SettingsRoute.SpriteSettings.route
-                ) {
-                    composable(SettingsRoute.SpriteSettings.route) {
-                        SpriteSettingsScreen(navController)
-                    }
-                    composable(Routes.SETTINGS) {
-                        Settings(navController)
-                    }
-                }
-            }
-        }
         composeTestRule.waitForIdle()
+        waitForNodeWithTag("spriteTabAnim")
     }
 
     private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
