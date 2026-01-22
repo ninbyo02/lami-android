@@ -81,8 +81,10 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 3) {
         val matcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
         var lastError: Throwable? = null
+        var lastAnchorTag = "unknown"
         repeat(maxAttempts) { attempt ->
-            openAnimationDropdown()
+            val anchorTag = openAnimationDropdown()
+            lastAnchorTag = anchorTag
             waitForDropdownMenuOpen()
             composeTestRule.waitUntil(timeoutMillis = 60_000) {
                 nodeExists { composeTestRule.onNode(matcher, useUnmergedTree = true) }
@@ -96,13 +98,21 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             }
             composeTestRule.waitForIdle()
             if (clicked) {
-                waitForPopupClosed()
-                waitForNodeWithTag("spriteBaseIntervalInput")
-                return
+                val selectionConfirmed = runCatching {
+                    waitForPopupClosed()
+                    waitForSelectionSuccess(label, anchorTag)
+                    true
+                }.getOrElse { error ->
+                    lastError = error
+                    false
+                }
+                if (selectionConfirmed) {
+                    return
+                }
             }
+            composeTestRule.waitForIdle()
         }
-        val diagnostics = buildSelectionDiagnostics(label)
-        throw AssertionError("Popup 内のクリックに失敗しました。$diagnostics", lastError)
+        throw AssertionError("Popup 内のクリックに失敗しました。label=$label anchorTag=$lastAnchorTag", lastError)
     }
 
     private fun openAnimationDropdown(): String {
@@ -124,6 +134,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         }
         composeTestRule.onNodeWithText(currentLabel).performClick()
         composeTestRule.waitForIdle()
+        waitForDropdownMenuOpen()
         return "spriteAnimationTypeFallback"
     }
 
@@ -219,6 +230,21 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
                 !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
             }
+        }
+    }
+
+    private fun waitForSelectionSuccess(
+        label: String,
+        anchorTag: String,
+        timeoutMillis: Long = 60_000
+    ) {
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            val anchorSelected = if (anchorTag == "spriteAnimationTypeFallback") {
+                nodeExists { composeTestRule.onNodeWithText(label) }
+            } else {
+                nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
+            }
+            anchorSelected && !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
         }
     }
 
