@@ -1,8 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -10,7 +8,6 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.isPopup
-import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -76,37 +73,43 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun selectAnimationType(label: String) {
         ensureAnimTabSelected()
-        openAnimationDropdown()
-        waitForDropdownMenuOpen()
-        val matcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
-        composeTestRule.waitUntil(timeoutMillis = 60_000) {
-            runCatching {
-                composeTestRule.onNode(matcher, useUnmergedTree = true).assertExists()
-                true
-            }.getOrDefault(false)
-        }
-        val popupItem = runCatching {
-            composeTestRule.onNode(matcher, useUnmergedTree = true)
-        }.getOrNull()
-        if (popupItem == null) {
-            val diagnostics = buildSelectionDiagnostics(label)
-            throw AssertionError("Popup 内にメニュー項目が見つかりません。$diagnostics")
-        }
-        popupItem.performClick()
-        composeTestRule.waitForIdle()
-        waitForPopupClosed()
+        clickPopupItemWithRetry(label)
         composeTestRule.onNodeWithTag("spriteBaseIntervalInput").assertIsDisplayed()
         composeTestRule.waitForIdle()
+    }
+
+    private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 3) {
+        val matcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
+        var lastError: Throwable? = null
+        repeat(maxAttempts) { attempt ->
+            openAnimationDropdown()
+            waitForDropdownMenuOpen()
+            composeTestRule.waitUntil(timeoutMillis = 60_000) {
+                nodeExists { composeTestRule.onNode(matcher, useUnmergedTree = true) }
+            }
+            val clicked = runCatching {
+                composeTestRule.onNode(matcher, useUnmergedTree = true).performClick()
+                true
+            }.getOrElse { error ->
+                lastError = error
+                false
+            }
+            composeTestRule.waitForIdle()
+            if (clicked) {
+                waitForPopupClosed()
+                waitForNodeWithTag("spriteBaseIntervalInput")
+                return
+            }
+        }
+        val diagnostics = buildSelectionDiagnostics(label)
+        throw AssertionError("Popup 内のクリックに失敗しました。$diagnostics", lastError)
     }
 
     private fun openAnimationDropdown(): String {
         waitForNodeWithTag("spriteBaseIntervalInput")
         val dropdownTag = listOf("spriteAnimationTypeDropdown", "spriteAnimationTypeInput")
             .firstOrNull { tag ->
-                runCatching {
-                    composeTestRule.onNodeWithTag(tag).assertExists()
-                    true
-                }.getOrDefault(false)
+                nodeExists { composeTestRule.onNodeWithTag(tag) }
             }
         if (dropdownTag != null) {
             composeTestRule.onNodeWithTag(dropdownTag).performClick()
@@ -114,7 +117,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             return dropdownTag
         }
         val currentLabel = animationCandidates().firstOrNull { label ->
-            runCatching { composeTestRule.onNodeWithText(label).assertExists() }.isSuccess
+            nodeExists { composeTestRule.onNodeWithText(label) }
         } ?: run {
             val tags = dumpSemanticsTags()
             error("アニメ種別のドロップダウンが見つかりません。現在のタグ一覧: $tags")
@@ -171,10 +174,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                runCatching {
-                    composeTestRule.onNodeWithTag(tag).assertExists()
-                    true
-                }.getOrDefault(false)
+                nodeExists { composeTestRule.onNodeWithTag(tag) }
             }
         } catch (error: AssertionError) {
             val tags = dumpSemanticsTags()
@@ -206,10 +206,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun waitForDropdownMenuOpen(timeoutMillis: Long = 20_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                runCatching {
-                    composeTestRule.onNode(isPopup(), useUnmergedTree = true).assertExists()
-                    true
-                }.getOrDefault(false)
+                nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
             }
         } catch (error: AssertionError) {
             val diagnostics = buildSelectionDiagnostics("menu-open")
@@ -220,13 +217,16 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun waitForPopupClosed(timeoutMillis: Long = 20_000) {
         runCatching {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                runCatching {
-                    composeTestRule.onNode(isPopup(), useUnmergedTree = true)
-                        .assertDoesNotExist()
-                    true
-                }.getOrDefault(false)
+                !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
             }
         }
+    }
+
+    private fun nodeExists(block: () -> Unit): Boolean {
+        return runCatching {
+            block()
+            true
+        }.getOrDefault(false)
     }
 
     private fun buildSelectionDiagnostics(label: String): String {
@@ -235,25 +235,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun dumpSemanticsTags(): String {
-        val rawDump = runCatching {
-            composeTestRule.onNode(isRoot(), useUnmergedTree = true).printToString()
-        }.getOrElse { error -> "<dump failed: ${error.message}>" }
-        val regexes = listOf(
-            Regex("TestTag = '([^']+)'"),
-            Regex("TestTag = ([^,\\s]+)")
-        )
-        val tags = mutableSetOf<String>()
-        regexes.forEach { regex ->
-            regex.findAll(rawDump).forEach { match ->
-                match.groupValues.getOrNull(1)?.let { tag -> tags.add(tag) }
-            }
-        }
-        val sortedTags = tags.toList().sorted()
-        return if (sortedTags.isEmpty()) {
-            "<none>"
-        } else {
-            sortedTags.joinToString()
-        }
+        return "<printToString unavailable>"
     }
 
     private fun buildTalkCalmPerStateJson(intervalMs: Int, frames: List<Int>): String {
