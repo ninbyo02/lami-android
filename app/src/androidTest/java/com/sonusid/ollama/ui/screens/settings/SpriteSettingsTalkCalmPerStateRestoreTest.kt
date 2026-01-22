@@ -7,8 +7,12 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -117,22 +121,40 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun openAnimationDropdown(): String {
         waitForNodeWithTag("spriteBaseIntervalInput")
-        val dropdownTag = listOf("spriteAnimationTypeDropdown", "spriteAnimationTypeInput")
-            .firstOrNull { tag ->
-                nodeExists { composeTestRule.onNodeWithTag(tag) }
+        val tagCandidates = listOf(
+            "spriteAnimationTypeDropdown",
+            "spriteAnimationTypeInput",
+            "spriteAnimationType",
+            "spriteAnimationTypeField",
+            "spriteAnimationTypeExposedDropdown"
+        )
+        for (tag in tagCandidates) {
+            val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
+            val found = runCatching {
+                composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                    nodes.fetchSemanticsNodes().isNotEmpty()
+                }
+                true
+            }.getOrDefault(false)
+            if (found) {
+                nodes.onFirst().performClick()
+                composeTestRule.waitForIdle()
+                return tag
             }
-        if (dropdownTag != null) {
-            composeTestRule.onNodeWithTag(dropdownTag).performClick()
-            composeTestRule.waitForIdle()
-            return dropdownTag
         }
         val currentLabel = animationCandidates().firstOrNull { label ->
-            nodeExists { composeTestRule.onNodeWithText(label) }
+            composeTestRule.onAllNodesWithText(label, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
         } ?: run {
-            val tags = dumpSemanticsTags()
-            error("アニメ種別のドロップダウンが見つかりません。現在のタグ一覧: $tags")
+            val diagnostics = buildAnimationAnchorDiagnostics(tagCandidates)
+            throw AssertionError("アニメ種別のドロップダウンが見つかりません。$diagnostics")
         }
-        composeTestRule.onNodeWithText(currentLabel).performClick()
+        val fallbackNodes = composeTestRule.onAllNodesWithText(currentLabel, useUnmergedTree = true)
+        composeTestRule.waitUntil(timeoutMillis = 20_000) {
+            fallbackNodes.fetchSemanticsNodes().isNotEmpty()
+        }
+        fallbackNodes.onFirst().performClick()
         composeTestRule.waitForIdle()
         waitForDropdownMenuOpen()
         return "spriteAnimationTypeFallback"
@@ -258,6 +280,14 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun buildSelectionDiagnostics(label: String): String {
         val tags = dumpSemanticsTags()
         return "label=$label tags=$tags"
+    }
+
+    private fun buildAnimationAnchorDiagnostics(tagCandidates: List<String>): String {
+        val tags = dumpSemanticsTags()
+        val rootCount = composeTestRule.onAllNodes(isRoot(), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .size
+        return "tagCandidates=$tagCandidates rootCount=$rootCount tags=$tags"
     }
 
     private fun dumpSemanticsTags(): String {
