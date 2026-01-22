@@ -15,6 +15,7 @@ import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -100,16 +101,42 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             add(labelMatcher and !anchorMatcher)
             add(labelMatcher)
         }
-        val targetNode = candidateMatchers
-            .firstNotNullOfOrNull { matcher -> findDisplayedNode(matcher) }
-            ?: candidateMatchers
-                .firstNotNullOfOrNull { matcher -> findAnyNode(matcher) }
-        if (targetNode == null) {
+        var selectionSucceeded = false
+        for (matcher in candidateMatchers) {
+            val candidates = composeTestRule.onAllNodes(matcher, useUnmergedTree = true)
+            val count = candidates.fetchSemanticsNodes().size
+            if (count == 0) {
+                continue
+            }
+            for (index in 0 until count) {
+                val node = candidates.get(index)
+                node.performTouchInput { click() }
+                composeTestRule.waitForIdle()
+                val selected = runCatching {
+                    composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                        isLabelShownOnAnchor(anchorTag, label) || isLabelSolelyDisplayed(label)
+                    }
+                    true
+                }.getOrDefault(false)
+                if (selected) {
+                    selectionSucceeded = true
+                    break
+                }
+                if (composeTestRule.onAllNodes(isPopup(), useUnmergedTree = true)
+                        .fetchSemanticsNodes()
+                        .isEmpty()
+                ) {
+                    openAnimationDropdown()
+                }
+            }
+            if (selectionSucceeded) {
+                break
+            }
+        }
+        if (!selectionSucceeded) {
             val diagnostics = buildSelectionDiagnostics(label, anchorTag)
             throw AssertionError("メニュー項目が見つかりません。$diagnostics")
         }
-        targetNode.performTouchInput { click() }
-        composeTestRule.waitForIdle()
         waitForAnimationSelection(label, anchorTag)
         waitForPopupClosed()
         composeTestRule.waitForIdle()
@@ -255,10 +282,22 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun isLabelSolelyDisplayed(label: String): Boolean {
         val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
         val displayed = candidates.filter { candidate ->
-            composeTestRule.onAllNodesWithText(candidate, useUnmergedTree = true)
-                .filter(isDisplayed())
-                .fetchSemanticsNodes()
-                .isNotEmpty()
+            val nodes = composeTestRule.onAllNodesWithText(candidate, useUnmergedTree = true)
+            val count = nodes.fetchSemanticsNodes().size
+            if (count == 0) {
+                false
+            } else {
+                var isShown = false
+                for (index in 0 until count) {
+                    val node = nodes.get(index)
+                    val shown = runCatching { node.isDisplayed() }.getOrDefault(false)
+                    if (shown) {
+                        isShown = true
+                        break
+                    }
+                }
+                isShown
+            }
         }
         return label in displayed && displayed.size == 1
     }
@@ -279,16 +318,27 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         return texts
     }
 
-    private fun findDisplayedNode(matcher: SemanticsMatcher) =
-        composeTestRule.onAllNodes(matcher, useUnmergedTree = true)
-            .filter(isDisplayed())
-            .takeIf { it.fetchSemanticsNodes().isNotEmpty() }
-            ?.onFirst()
+    private fun findDisplayedNode(matcher: SemanticsMatcher): SemanticsNodeInteraction? {
+        val collection = composeTestRule.onAllNodes(matcher, useUnmergedTree = true)
+        val count = collection.fetchSemanticsNodes().size
+        for (index in 0 until count) {
+            val node = collection.get(index)
+            val shown = runCatching { node.isDisplayed() }.getOrDefault(false)
+            if (shown) {
+                return node
+            }
+        }
+        return null
+    }
 
-    private fun findAnyNode(matcher: SemanticsMatcher) =
-        composeTestRule.onAllNodes(matcher, useUnmergedTree = true)
-            .takeIf { it.fetchSemanticsNodes().isNotEmpty() }
-            ?.onFirst()
+    private fun findAnyNode(matcher: SemanticsMatcher): SemanticsNodeInteraction? {
+        val collection = composeTestRule.onAllNodes(matcher, useUnmergedTree = true)
+        val count = collection.fetchSemanticsNodes().size
+        if (count == 0) {
+            return null
+        }
+        return collection.get(0)
+    }
 
     private fun waitForPopupClosed(timeoutMillis: Long = 20_000) {
         runCatching {
@@ -321,10 +371,31 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
                 .fetchSemanticsNodes()
                 .joinToString { node -> node.config.toString() }
         }.getOrElse { error -> "<anchor dump failed: ${error.message}>" }
+        val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
+        val displayedCandidates = candidates.joinToString { candidate ->
+            val nodes = composeTestRule.onAllNodesWithText(candidate, useUnmergedTree = true)
+            val count = nodes.fetchSemanticsNodes().size
+            val shown = if (count == 0) {
+                false
+            } else {
+                var isShown = false
+                for (index in 0 until count) {
+                    val node = nodes.get(index)
+                    val displayed = runCatching { node.isDisplayed() }.getOrDefault(false)
+                    if (displayed) {
+                        isShown = true
+                        break
+                    }
+                }
+                isShown
+            }
+            "$candidate=$shown"
+        }
         val popupInfo = popupClickableCount?.toString() ?: "unavailable"
         return "label=$label anchorTag=$anchorTag " +
             "allTextCount=$allTextCount clickableCount=$clickableCount " +
-            "popupClickableCount=$popupInfo tags=$tags anchorNodeDump=$anchorDump"
+            "popupClickableCount=$popupInfo displayedCandidates=[$displayedCandidates] " +
+            "tags=$tags anchorNodeDump=$anchorDump"
     }
 
     private fun currentEditableText(tag: String): String {
