@@ -10,17 +10,20 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToLog
@@ -184,8 +187,8 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         }.getOrDefault(false)
         if (!anchorFound) {
             runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
-            val diagnostics = buildAnimationAnchorDiagnostics(listOf(anchorTag))
-            throw AssertionError("アニメ種別のドロップダウンが見つかりません。$diagnostics")
+            val diagnostics = buildPopupFailureDiagnostics()
+            throw AssertionError("アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag $diagnostics")
         }
         val tagCandidates = listOf(
             "spriteAnimTypeDropdownAnchor",
@@ -204,11 +207,7 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
             }.getOrDefault(false)
             if (found) {
                 val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
-                runCatching { target.performScrollTo() }
-                    .recoverCatching {
-                        composeTestRule.onNodeWithTag("spriteAnimList")
-                            .performScrollToNode(hasTestTag(tag))
-                    }
+                scrollToAnimationDropdownAnchor(tag)
                 target.performClick()
                 composeTestRule.waitForIdle()
                 return tag
@@ -226,11 +225,33 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
 
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
         waitForNodeWithTag("spriteAnimList")
-        runCatching {
-            composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).performScrollTo()
-        }.recoverCatching {
+        val scrollableNodes = runCatching {
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
+        }.getOrDefault(emptyList())
+        val scrollTarget = if (scrollableNodes.isNotEmpty()) {
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).onFirst()
+        } else {
             composeTestRule.onNodeWithTag("spriteAnimList")
-                .performScrollToNode(hasTestTag(anchorTag))
+        }
+        val scrolled = runCatching {
+            scrollTarget.performScrollToNode(hasTestTag(anchorTag))
+            true
+        }.getOrDefault(false)
+        if (scrolled) {
+            return
+        }
+        val startTime = System.currentTimeMillis()
+        val maxIndex = 30
+        val listNode = composeTestRule.onNodeWithTag("spriteAnimList")
+        for (index in 0..maxIndex) {
+            runCatching { listNode.performScrollToIndex(index) }
+            composeTestRule.waitForIdle()
+            if (hasNodeWithTag(anchorTag)) {
+                return
+            }
+            if (System.currentTimeMillis() - startTime > 60_000) {
+                return
+            }
         }
     }
 
