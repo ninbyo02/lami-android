@@ -10,9 +10,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isPopup
+import androidx.compose.ui.test.inRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
@@ -20,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToLog
 import androidx.datastore.core.DataStore
@@ -117,18 +120,26 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
                 "Popup クリック試行: attempt=${attempt + 1} popupNodes=$popupCount candidates=${candidateNodes.size} texts=$candidateTexts"
             )
             val clicked = runCatching {
-                if (candidateNodes.isEmpty()) {
-                    throw AssertionError("Popup 内の候補が見つかりません: label=$label")
-                }
-                val target = candidates.onFirst()
-                val clickSucceeded = runCatching {
-                    target.performClick()
+                val popupClicked = runCatching {
+                    composeTestRule.onNode(hasText(label) and hasClickAction(), useUnmergedTree = true)
+                        .inRoot(isPopup())
+                        .performClick()
                     true
                 }.getOrDefault(false)
-                if (!clickSucceeded) {
-                    target.performTouchInput {
-                        down(center)
-                        up()
+                if (!popupClicked) {
+                    if (candidateNodes.isEmpty()) {
+                        throw AssertionError("Popup 内の候補が見つかりません: label=$label")
+                    }
+                    val target = candidates.onFirst()
+                    val clickSucceeded = runCatching {
+                        target.performClick()
+                        true
+                    }.getOrDefault(false)
+                    if (!clickSucceeded) {
+                        target.performTouchInput {
+                            down(center)
+                            up()
+                        }
                     }
                 }
                 true
@@ -161,7 +172,9 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
 
     private fun openAnimationDropdown(): String {
         waitForNodeWithTag("spriteBaseIntervalInput")
+        scrollToAnimationDropdownAnchor("spriteAnimTypeDropdownAnchor")
         val tagCandidates = listOf(
+            "spriteAnimTypeDropdownAnchor",
             "spriteAnimationTypeDropdown",
             "spriteAnimationTypeInput",
             "spriteAnimationType",
@@ -196,6 +209,14 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performClick()
         composeTestRule.waitForIdle()
         return "spriteAnimationTypeFallback"
+    }
+
+    private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
+        waitForNodeWithTag("spriteAnimList")
+        runCatching {
+            composeTestRule.onNodeWithTag("spriteAnimList")
+                .performScrollToNode(hasTestTag(anchorTag))
+        }
     }
 
     private fun assertIntervalInputText(expected: String) {

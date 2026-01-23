@@ -4725,7 +4725,8 @@ private fun ReadyAnimationTab(
                 // [非dp] 縦: リスト の weight(制約)に関係
                 .fillMaxWidth()
                 // [非dp] 横: リスト の fillMaxWidth(制約)に関係
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .testTag("spriteAnimList"),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
             verticalArrangement = Arrangement.spacedBy(10.dp),
