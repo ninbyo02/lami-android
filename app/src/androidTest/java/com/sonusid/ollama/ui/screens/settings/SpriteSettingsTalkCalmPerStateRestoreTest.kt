@@ -154,53 +154,28 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun openAnimationDropdown(): String {
         waitForNodeWithTag("spriteBaseIntervalInput")
-        val tagCandidates = listOf(
-            "spriteAnimationTypeDropdown",
-            "spriteAnimationTypeInput",
-            "spriteAnimationType",
-            "spriteAnimationTypeField",
-            "spriteAnimationTypeExposedDropdown"
-        )
-        for (tag in tagCandidates) {
-            val found = runCatching {
-                composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                    hasNodeWithTag(tag)
-                }
-                true
-            }.getOrDefault(false)
-            if (found) {
-                val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
-                val fallbackNodes = composeTestRule.onAllNodesWithTag(tag)
-                val target = if (runCatching { nodes.fetchSemanticsNodes() }.getOrDefault(emptyList()).isNotEmpty()) {
-                    nodes.onFirst()
-                } else {
-                    fallbackNodes.onFirst()
-                }
-                target.performClick()
-                composeTestRule.waitForIdle()
-                return tag
+        val anchorTag = "spriteAnimTypeDropdownAnchor"
+        val found = runCatching {
+            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                hasNodeWithTag(anchorTag)
             }
-        }
-        val currentLabel = animationCandidates().firstOrNull { label ->
-            runCatching {
-                composeTestRule.onAllNodesWithText(label, useUnmergedTree = true).onFirst()
-                true
-            }.getOrDefault(false)
-        } ?: run {
-            val diagnostics = buildAnimationAnchorDiagnostics(tagCandidates)
+            true
+        }.getOrDefault(false)
+        if (!found) {
+            val diagnostics = buildAnimationAnchorDiagnostics(listOf(anchorTag))
             throw AssertionError("アニメ種別のドロップダウンが見つかりません。$diagnostics")
         }
-        val fallbackNodes = composeTestRule.onAllNodesWithText(currentLabel, useUnmergedTree = true)
-        composeTestRule.waitUntil(timeoutMillis = 20_000) {
-            runCatching {
-                fallbackNodes.onFirst()
-                true
-            }.getOrDefault(false)
+        val nodes = composeTestRule.onAllNodesWithTag(anchorTag, useUnmergedTree = true)
+        val fallbackNodes = composeTestRule.onAllNodesWithTag(anchorTag)
+        val target = if (runCatching { nodes.fetchSemanticsNodes() }.getOrDefault(emptyList()).isNotEmpty()) {
+            nodes.onFirst()
+        } else {
+            fallbackNodes.onFirst()
         }
-        fallbackNodes.onFirst().performClick()
+        target.performClick()
         composeTestRule.waitForIdle()
         waitForDropdownMenuOpen()
-        return "spriteAnimationTypeFallback"
+        return anchorTag
     }
 
     private fun assertIntervalInputText(expected: String) {
