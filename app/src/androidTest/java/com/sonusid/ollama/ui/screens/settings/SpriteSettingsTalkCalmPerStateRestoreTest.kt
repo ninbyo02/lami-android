@@ -165,6 +165,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun openAnimationDropdown(): String {
+        ensureAnimTabSelected()
         waitForNodeWithTag("spriteBaseIntervalInput")
         val anchorTag = "spriteAnimTypeDropdownAnchor"
         scrollToAnimationDropdownAnchor(anchorTag)
@@ -175,16 +176,16 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             true
         }.getOrDefault(false)
         if (!found) {
+            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
             val diagnostics = buildAnimationAnchorDiagnostics(listOf(anchorTag))
             throw AssertionError("アニメ種別のドロップダウンが見つかりません。$diagnostics")
         }
-        val nodes = composeTestRule.onAllNodesWithTag(anchorTag, useUnmergedTree = true)
-        val fallbackNodes = composeTestRule.onAllNodesWithTag(anchorTag)
-        val target = if (runCatching { nodes.fetchSemanticsNodes() }.getOrDefault(emptyList()).isNotEmpty()) {
-            nodes.onFirst()
-        } else {
-            fallbackNodes.onFirst()
-        }
+        val target = composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true)
+        runCatching { target.performScrollTo() }
+            .recoverCatching {
+                composeTestRule.onNodeWithTag("spriteAnimList")
+                    .performScrollToNode(hasTestTag(anchorTag))
+            }
         target.performClick()
         composeTestRule.waitForIdle()
         waitForDropdownMenuOpen()
@@ -194,6 +195,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
         waitForNodeWithTag("spriteAnimList")
         runCatching {
+            composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).performScrollTo()
+        }.recoverCatching {
             composeTestRule.onNodeWithTag("spriteAnimList")
                 .performScrollToNode(hasTestTag(anchorTag))
         }
@@ -209,12 +212,13 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun ensureAnimTabSelected() {
         waitForNodeWithTag("spriteTabAnim")
+        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
         val isSelected = runCatching {
-            composeTestRule.onNodeWithTag("spriteTabAnim").assertIsSelected()
+            tabNode.assertIsSelected()
             true
         }.getOrDefault(false)
         if (!isSelected) {
-            composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
+            tabNode.performClick()
             composeTestRule.waitForIdle()
         }
     }
@@ -366,14 +370,14 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         return listOfNotNull(text, editable, contentDescription)
     }
 
-    private fun countFallbackAnchorNodes(): Int {
+    private fun countAnchorNodes(): Int {
         val unmerged = runCatching {
-            composeTestRule.onAllNodesWithTag("spriteAnimationTypeFallback", useUnmergedTree = true)
+            composeTestRule.onAllNodesWithTag("spriteAnimTypeDropdownAnchor", useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .size
         }.getOrDefault(0)
         val merged = runCatching {
-            composeTestRule.onAllNodesWithTag("spriteAnimationTypeFallback").fetchSemanticsNodes().size
+            composeTestRule.onAllNodesWithTag("spriteAnimTypeDropdownAnchor").fetchSemanticsNodes().size
         }.getOrDefault(0)
         return unmerged + merged
     }
@@ -381,9 +385,15 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun buildPopupFailureDiagnostics(): String {
         val popupCount = popupNodeCount()
         val popupTexts = popupTexts()
-        val fallbackCount = countFallbackAnchorNodes()
+        val anchorCount = countAnchorNodes()
+        if (anchorCount == 0) {
+            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
+        }
+        if (popupCount == 0) {
+            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-missing") }
+        }
         runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-failure") }
-        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$fallbackCount"
+        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$anchorCount"
     }
 
     private fun buildTalkCalmPerStateJson(intervalMs: Int, frames: List<Int>): String {

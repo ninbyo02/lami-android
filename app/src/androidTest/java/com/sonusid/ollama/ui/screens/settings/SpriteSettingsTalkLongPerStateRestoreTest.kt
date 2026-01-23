@@ -172,8 +172,21 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     }
 
     private fun openAnimationDropdown(): String {
+        ensureAnimTabSelected()
         waitForNodeWithTag("spriteBaseIntervalInput")
-        scrollToAnimationDropdownAnchor("spriteAnimTypeDropdownAnchor")
+        val anchorTag = "spriteAnimTypeDropdownAnchor"
+        scrollToAnimationDropdownAnchor(anchorTag)
+        val anchorFound = runCatching {
+            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                hasNodeWithTag(anchorTag)
+            }
+            true
+        }.getOrDefault(false)
+        if (!anchorFound) {
+            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
+            val diagnostics = buildAnimationAnchorDiagnostics(listOf(anchorTag))
+            throw AssertionError("アニメ種別のドロップダウンが見つかりません。$diagnostics")
+        }
         val tagCandidates = listOf(
             "spriteAnimTypeDropdownAnchor",
             "spriteAnimationTypeDropdown",
@@ -190,13 +203,12 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
                 true
             }.getOrDefault(false)
             if (found) {
-                val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
-                val fallbackNodes = composeTestRule.onAllNodesWithTag(tag)
-                val target = if (runCatching { nodes.fetchSemanticsNodes() }.getOrDefault(emptyList()).isNotEmpty()) {
-                    nodes.onFirst()
-                } else {
-                    fallbackNodes.onFirst()
-                }
+                val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
+                runCatching { target.performScrollTo() }
+                    .recoverCatching {
+                        composeTestRule.onNodeWithTag("spriteAnimList")
+                            .performScrollToNode(hasTestTag(tag))
+                    }
                 target.performClick()
                 composeTestRule.waitForIdle()
                 return tag
@@ -215,6 +227,8 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
         waitForNodeWithTag("spriteAnimList")
         runCatching {
+            composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).performScrollTo()
+        }.recoverCatching {
             composeTestRule.onNodeWithTag("spriteAnimList")
                 .performScrollToNode(hasTestTag(anchorTag))
         }
@@ -240,11 +254,12 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
 
     private fun ensureAnimTabSelected() {
         waitForNodeWithTag("spriteTabAnim")
-        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim").fetchSemanticsNode()
+        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
+            .fetchSemanticsNode()
         val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
             tabNode.config[SemanticsProperties.Selected] == true
         if (!isSelected) {
-            composeTestRule.onNodeWithTag("spriteTabAnim").performClick()
+            composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true).performClick()
             composeTestRule.waitForIdle()
         }
     }
@@ -437,14 +452,14 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         return listOfNotNull(text, editable, contentDescription)
     }
 
-    private fun countFallbackAnchorNodes(): Int {
+    private fun countAnchorNodes(): Int {
         val unmerged = runCatching {
-            composeTestRule.onAllNodesWithTag("spriteAnimationTypeFallback", useUnmergedTree = true)
+            composeTestRule.onAllNodesWithTag("spriteAnimTypeDropdownAnchor", useUnmergedTree = true)
                 .fetchSemanticsNodes()
                 .size
         }.getOrDefault(0)
         val merged = runCatching {
-            composeTestRule.onAllNodesWithTag("spriteAnimationTypeFallback").fetchSemanticsNodes().size
+            composeTestRule.onAllNodesWithTag("spriteAnimTypeDropdownAnchor").fetchSemanticsNodes().size
         }.getOrDefault(0)
         return unmerged + merged
     }
@@ -452,9 +467,15 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     private fun buildPopupFailureDiagnostics(): String {
         val popupCount = popupNodeCount()
         val popupTexts = popupTexts()
-        val fallbackCount = countFallbackAnchorNodes()
+        val anchorCount = countAnchorNodes()
+        if (anchorCount == 0) {
+            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
+        }
+        if (popupCount == 0) {
+            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-missing") }
+        }
         runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-failure") }
-        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$fallbackCount"
+        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$anchorCount"
     }
 
     private fun buildTalkLongPerStateJson(intervalMs: Int, frames: List<Int>): String {
