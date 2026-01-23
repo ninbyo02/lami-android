@@ -6,9 +6,15 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -81,26 +87,84 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
 
     private fun selectAnimationType(label: String) {
         ensureAnimTabSelected()
-        openAnimationDropdown()
-        composeTestRule.onNodeWithText(label).performClick()
+        clickPopupItemWithRetry(label)
         composeTestRule.waitForIdle()
     }
 
-    private fun openAnimationDropdown() {
-        waitForNodeWithTag("spriteBaseIntervalInput")
-        val dropdownTag = listOf("spriteAnimationTypeDropdown", "spriteAnimationTypeInput")
-            .firstOrNull { tag ->
-                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 3) {
+        val matcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
+        var lastError: Throwable? = null
+        var lastAnchorTag = "unknown"
+        repeat(maxAttempts) {
+            val anchorTag = openAnimationDropdown()
+            lastAnchorTag = anchorTag
+            waitForDropdownMenuOpen()
+            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                nodeExists { composeTestRule.onNode(matcher, useUnmergedTree = true) }
             }
-        if (dropdownTag != null) {
-            composeTestRule.onNodeWithTag(dropdownTag).performClick()
-            return
+            val clicked = runCatching {
+                composeTestRule.onNode(matcher, useUnmergedTree = true).performClick()
+                true
+            }.getOrElse { error ->
+                lastError = error
+                false
+            }
+            composeTestRule.waitForIdle()
+            if (clicked) {
+                val selectionConfirmed = runCatching {
+                    waitForPopupClosed()
+                    waitForSelectionSuccess(label, anchorTag)
+                    true
+                }.getOrElse { error ->
+                    lastError = error
+                    false
+                }
+                if (selectionConfirmed) {
+                    return
+                }
+            }
+            composeTestRule.waitForIdle()
+        }
+        throw AssertionError("Popup 内のクリックに失敗しました。label=$label anchorTag=$lastAnchorTag", lastError)
+    }
+
+    private fun openAnimationDropdown(): String {
+        waitForNodeWithTag("spriteBaseIntervalInput")
+        val tagCandidates = listOf(
+            "spriteAnimationTypeDropdown",
+            "spriteAnimationTypeInput",
+            "spriteAnimationType",
+            "spriteAnimationTypeField",
+            "spriteAnimationTypeExposedDropdown"
+        )
+        for (tag in tagCandidates) {
+            val found = runCatching {
+                composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                    hasNodeWithTag(tag)
+                }
+                true
+            }.getOrDefault(false)
+            if (found) {
+                val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
+                val fallbackNodes = composeTestRule.onAllNodesWithTag(tag)
+                val target = if (runCatching { nodes.fetchSemanticsNodes() }.getOrDefault(emptyList()).isNotEmpty()) {
+                    nodes.onFirst()
+                } else {
+                    fallbackNodes.onFirst()
+                }
+                target.performClick()
+                composeTestRule.waitForIdle()
+                return tag
+            }
         }
         val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
         val currentLabel = candidates.firstOrNull { label ->
-            runCatching { composeTestRule.onNodeWithText(label).fetchSemanticsNode() }.isSuccess
+            runCatching { composeTestRule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode() }
+                .isSuccess
         } ?: error("アニメ種別のドロップダウンが見つかりません")
-        composeTestRule.onNodeWithText(currentLabel).performClick()
+        composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performClick()
+        composeTestRule.waitForIdle()
+        return "spriteAnimationTypeFallback"
     }
 
     private fun assertIntervalInputText(expected: String) {
@@ -181,7 +245,7 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+                hasNodeWithTag(tag)
             }
         } catch (error: AssertionError) {
             val tags = dumpSemanticsTags()
@@ -209,6 +273,39 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         assertEquals("入力値が一致しません: tag=$tag 現在値=$actual", expected, actual)
     }
 
+    private fun waitForDropdownMenuOpen(timeoutMillis: Long = 20_000) {
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
+            }
+        } catch (error: AssertionError) {
+            val tags = dumpSemanticsTags()
+            throw AssertionError("ドロップダウンが開いていません。tags=$tags", error)
+        }
+    }
+
+    private fun waitForPopupClosed(timeoutMillis: Long = 20_000) {
+        runCatching {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
+            }
+        }
+    }
+
+    private fun waitForSelectionSuccess(label: String, anchorTag: String, timeoutMillis: Long = 20_000) {
+        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+            val anchorSelected = if (anchorTag == "spriteAnimationTypeFallback") {
+                nodeExists { composeTestRule.onNodeWithText(label) }
+            } else {
+                nodeExists {
+                    composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true)
+                        .assertTextEquals(label)
+                } || nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
+            }
+            anchorSelected && !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
+        }
+    }
+
     private fun currentEditableText(tag: String): String {
         return composeTestRule.onNodeWithTag(tag)
             .fetchSemanticsNode()
@@ -230,6 +327,26 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         } else {
             sortedTags.joinToString()
         }
+    }
+
+    private fun nodeExists(block: () -> Unit): Boolean {
+        return runCatching {
+            block()
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun hasNodeWithTag(tag: String): Boolean {
+        val unmergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        if (unmergedCount > 0) {
+            return true
+        }
+        val mergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        return mergedCount > 0
     }
 
     private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
