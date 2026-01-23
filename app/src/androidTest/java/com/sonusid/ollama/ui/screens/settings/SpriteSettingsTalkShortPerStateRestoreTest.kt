@@ -18,6 +18,8 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.printToLog
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -92,18 +94,38 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 3) {
-        val matcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
         var lastError: Throwable? = null
         var lastAnchorTag = "unknown"
-        repeat(maxAttempts) {
+        repeat(maxAttempts) { attempt ->
             val anchorTag = openAnimationDropdown()
             lastAnchorTag = anchorTag
             waitForDropdownMenuOpen()
-            composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                nodeExists { composeTestRule.onNode(matcher, useUnmergedTree = true) }
+            val clickableMatcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
+            val clickableCandidates = composeTestRule.onAllNodes(clickableMatcher, useUnmergedTree = true)
+            val clickableNodes = runCatching { clickableCandidates.fetchSemanticsNodes() }.getOrDefault(emptyList())
+            val candidates = if (clickableNodes.isNotEmpty()) {
+                clickableCandidates
+            } else {
+                composeTestRule.onAllNodes(hasText(label) and hasAnyAncestor(isPopup()), useUnmergedTree = true)
             }
+            val candidateNodes = runCatching { candidates.fetchSemanticsNodes() }.getOrDefault(emptyList())
+            val candidateTexts = candidateNodes.flatMap { extractNodeTexts(it) }.distinct()
+            val popupCount = popupNodeCount()
+            println(
+                "Popup クリック試行: attempt=${attempt + 1} popupNodes=$popupCount candidates=${candidateNodes.size} texts=$candidateTexts"
+            )
             val clicked = runCatching {
-                composeTestRule.onNode(matcher, useUnmergedTree = true).performClick()
+                if (candidateNodes.isEmpty()) {
+                    throw AssertionError("Popup 内の候補が見つかりません: label=$label")
+                }
+                val target = candidates.onFirst()
+                val clickSucceeded = runCatching {
+                    target.performClick()
+                    true
+                }.getOrDefault(false)
+                if (!clickSucceeded) {
+                    target.performTouchInput { click() }
+                }
                 true
             }.getOrElse { error ->
                 lastError = error
@@ -125,7 +147,11 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             }
             composeTestRule.waitForIdle()
         }
-        throw AssertionError("Popup 内のクリックに失敗しました。label=$label anchorTag=$lastAnchorTag", lastError)
+        val diagnostics = buildPopupFailureDiagnostics()
+        throw AssertionError(
+            "Popup 内のクリックに失敗しました。label=$label anchorTag=$lastAnchorTag $diagnostics",
+            lastError
+        )
     }
 
     private fun openAnimationDropdown(): String {
@@ -276,7 +302,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     private fun waitForDropdownMenuOpen(timeoutMillis: Long = 20_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
+                popupNodeCount() > 0
             }
         } catch (error: AssertionError) {
             val tags = dumpSemanticsTags()
@@ -287,7 +313,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     private fun waitForPopupClosed(timeoutMillis: Long = 20_000) {
         runCatching {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
+                popupNodeCount() == 0
             }
         }
     }
@@ -362,6 +388,49 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         node.children.forEach { child: SemanticsNode ->
             collectTestTags(child, tags)
         }
+    }
+
+    private fun popupNodeCount(): Int {
+        return runCatching {
+            composeTestRule.onAllNodes(isPopup(), useUnmergedTree = true).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+    }
+
+    private fun popupTexts(): List<String> {
+        val nodes = runCatching {
+            composeTestRule.onAllNodes(hasAnyAncestor(isPopup()), useUnmergedTree = true).fetchSemanticsNodes()
+        }.getOrDefault(emptyList())
+        return nodes.flatMap { extractNodeTexts(it) }.distinct()
+    }
+
+    private fun extractNodeTexts(node: SemanticsNode): List<String> {
+        val texts = node.config.getOrNull(SemanticsProperties.Text)?.map { it.text }.orEmpty()
+        val editable = node.config.getOrNull(SemanticsProperties.EditableText)?.text
+        return if (editable != null) {
+            texts + editable
+        } else {
+            texts
+        }
+    }
+
+    private fun countFallbackAnchorNodes(): Int {
+        val unmerged = runCatching {
+            composeTestRule.onAllNodesWithTag("spriteAnimationTypeFallback", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .size
+        }.getOrDefault(0)
+        val merged = runCatching {
+            composeTestRule.onAllNodesWithTag("spriteAnimationTypeFallback").fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        return unmerged + merged
+    }
+
+    private fun buildPopupFailureDiagnostics(): String {
+        val popupCount = popupNodeCount()
+        val popupTexts = popupTexts()
+        val fallbackCount = countFallbackAnchorNodes()
+        runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-failure") }
+        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$fallbackCount"
     }
 
     private fun buildTalkShortPerStateJson(intervalMs: Int, frames: List<Int>): String {
