@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.settings
 import android.content.Context
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToLog
@@ -117,7 +119,10 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
                     true
                 }.getOrDefault(false)
                 if (!clickSucceeded) {
-                    target.performTouchInput { click() }
+                    target.performTouchInput {
+                        down(center)
+                        up()
+                    }
                 }
                 true
             }.getOrElse { error ->
@@ -359,13 +364,10 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun extractNodeTexts(node: SemanticsNode): List<String> {
-        val texts = node.config.getOrNull(SemanticsProperties.Text)?.map { it.text }.orEmpty()
+        val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }
         val editable = node.config.getOrNull(SemanticsProperties.EditableText)?.text
-        return if (editable != null) {
-            texts + editable
-        } else {
-            texts
-        }
+        val contentDescription = node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
+        return listOfNotNull(text, editable, contentDescription)
     }
 
     private fun countFallbackAnchorNodes(): Int {
