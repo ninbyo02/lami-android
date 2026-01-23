@@ -4,15 +4,12 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.fetchSemanticsNodes
-import androidx.compose.ui.test.get
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -135,29 +132,36 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
             val found = runCatching {
                 composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                    nodes.fetchSemanticsNodes().isNotEmpty()
+                    runCatching {
+                        nodes.onFirst()
+                        true
+                    }.getOrDefault(false)
                 }
                 true
             }.getOrDefault(false)
             if (found) {
-                nodes[0].performClick()
+                nodes.onFirst().performClick()
                 composeTestRule.waitForIdle()
                 return tag
             }
         }
         val currentLabel = animationCandidates().firstOrNull { label ->
-            composeTestRule.onAllNodesWithText(label, useUnmergedTree = true)
-                .fetchSemanticsNodes()
-                .isNotEmpty()
+            runCatching {
+                composeTestRule.onAllNodesWithText(label, useUnmergedTree = true).onFirst()
+                true
+            }.getOrDefault(false)
         } ?: run {
             val diagnostics = buildAnimationAnchorDiagnostics(tagCandidates)
             throw AssertionError("アニメ種別のドロップダウンが見つかりません。$diagnostics")
         }
         val fallbackNodes = composeTestRule.onAllNodesWithText(currentLabel, useUnmergedTree = true)
         composeTestRule.waitUntil(timeoutMillis = 20_000) {
-            fallbackNodes.fetchSemanticsNodes().isNotEmpty()
+            runCatching {
+                fallbackNodes.onFirst()
+                true
+            }.getOrDefault(false)
         }
-        fallbackNodes[0].performClick()
+        fallbackNodes.onFirst().performClick()
         composeTestRule.waitForIdle()
         waitForDropdownMenuOpen()
         return "spriteAnimationTypeFallback"
@@ -287,10 +291,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun buildAnimationAnchorDiagnostics(tagCandidates: List<String>): String {
         val tags = dumpSemanticsTags()
-        val rootCount = composeTestRule.onAllNodes(isRoot(), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-            .size
-        return "tagCandidates=$tagCandidates rootCount=$rootCount tags=$tags"
+        val hasRoot = nodeExists { composeTestRule.onNode(isRoot(), useUnmergedTree = true) }
+        return "tagCandidates=$tagCandidates hasRoot=$hasRoot tags=$tags"
     }
 
     private fun dumpSemanticsTags(): String {
