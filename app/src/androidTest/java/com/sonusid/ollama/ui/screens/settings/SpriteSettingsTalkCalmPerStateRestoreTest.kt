@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -170,23 +171,130 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         waitForNodeWithTag("spriteBaseIntervalInput")
         val anchorTag = "spriteAnimTypeDropdownAnchor"
         scrollToAnimationDropdownAnchor(anchorTag)
-        val found = runCatching {
+        val anchorFound = runCatching {
             composeTestRule.waitUntil(timeoutMillis = 20_000) {
                 hasNodeWithTag(anchorTag)
             }
             true
         }.getOrDefault(false)
-        if (!found) {
+        if (!anchorFound) {
             runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
             val diagnostics = buildPopupFailureDiagnostics()
             throw AssertionError("アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag $diagnostics")
         }
-        val target = composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true)
-        scrollToAnimationDropdownAnchor(anchorTag)
-        target.performClick()
+        val unmergedCollection = composeTestRule.onAllNodesWithTag(anchorTag, useUnmergedTree = true)
+        val unmergedNodes = runCatching { unmergedCollection.fetchSemanticsNodes() }.getOrDefault(emptyList())
+        val mergedCollection = composeTestRule.onAllNodesWithTag(anchorTag)
+        val mergedNodes = runCatching { mergedCollection.fetchSemanticsNodes() }.getOrDefault(emptyList())
+
+        data class AnchorCandidate(val fromMerged: Boolean, val index: Int, val node: SemanticsNode)
+
+        fun isClickable(node: SemanticsNode): Boolean {
+            val bounds = node.boundsInRoot
+            val sizeOk = bounds.width > 0f && bounds.height > 0f
+            val hasClick = node.config.contains(SemanticsActions.OnClick)
+            val enabled = !node.config.contains(SemanticsProperties.Disabled)
+            return sizeOk && hasClick && enabled
+        }
+
+        val anchorCandidates = buildList {
+            unmergedNodes.forEachIndexed { index, node ->
+                if (isClickable(node)) {
+                    add(AnchorCandidate(fromMerged = false, index = index, node = node))
+                }
+            }
+            mergedNodes.forEachIndexed { index, node ->
+                if (isClickable(node)) {
+                    add(AnchorCandidate(fromMerged = true, index = index, node = node))
+                }
+            }
+        }.sortedByDescending { candidate ->
+            candidate.node.boundsInRoot.width * candidate.node.boundsInRoot.height
+        }
+
+        for (candidate in anchorCandidates) {
+            val interaction = if (candidate.fromMerged) {
+                mergedCollection[candidate.index]
+            } else {
+                unmergedCollection[candidate.index]
+            }
+            scrollToAnimationDropdownAnchor(anchorTag)
+            val clicked = runCatching {
+                interaction.assertIsDisplayed()
+                interaction.performClick()
+                true
+            }.getOrDefault(false)
+            if (!clicked) {
+                continue
+            }
+            val opened = runCatching {
+                composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                    popupNodeCount() > 0
+                }
+                true
+            }.getOrDefault(false)
+            if (opened) {
+                composeTestRule.waitForIdle()
+                return anchorTag
+            }
+        }
+
+        val tagCandidates = listOf(
+            "spriteAnimTypeDropdownAnchor",
+            "spriteAnimationTypeDropdown",
+            "spriteAnimationTypeInput",
+            "spriteAnimationType",
+            "spriteAnimationTypeField",
+            "spriteAnimationTypeExposedDropdown"
+        )
+        for (tag in tagCandidates) {
+            val found = runCatching {
+                composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                    hasNodeWithTag(tag)
+                }
+                true
+            }.getOrDefault(false)
+            if (found) {
+                val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
+                scrollToAnimationDropdownAnchor(tag)
+                val clicked = runCatching {
+                    target.performClick()
+                    true
+                }.getOrDefault(false)
+                if (!clicked) {
+                    continue
+                }
+                val opened = runCatching {
+                    composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                        popupNodeCount() > 0
+                    }
+                    true
+                }.getOrDefault(false)
+                if (opened) {
+                    composeTestRule.waitForIdle()
+                    return tag
+                }
+            }
+        }
+        val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
+        val currentLabel = candidates.firstOrNull { label ->
+            runCatching { composeTestRule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode() }
+                .isSuccess
+        } ?: run {
+            val diagnostics = buildPopupFailureDiagnostics()
+            throw AssertionError(
+                "アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag " +
+                    "clickableCandidates=${anchorCandidates.size} $diagnostics"
+            )
+        }
+        composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performClick()
         composeTestRule.waitForIdle()
-        waitForDropdownMenuOpen()
-        return anchorTag
+        runCatching {
+            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                popupNodeCount() > 0
+            }
+        }
+        return "spriteAnimationTypeFallback"
     }
 
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {

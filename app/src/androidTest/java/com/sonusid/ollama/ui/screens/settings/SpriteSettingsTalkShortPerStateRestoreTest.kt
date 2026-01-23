@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
@@ -189,6 +190,63 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             val diagnostics = buildPopupFailureDiagnostics()
             throw AssertionError("アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag $diagnostics")
         }
+        val unmergedCollection = composeTestRule.onAllNodesWithTag(anchorTag, useUnmergedTree = true)
+        val unmergedNodes = runCatching { unmergedCollection.fetchSemanticsNodes() }.getOrDefault(emptyList())
+        val mergedCollection = composeTestRule.onAllNodesWithTag(anchorTag)
+        val mergedNodes = runCatching { mergedCollection.fetchSemanticsNodes() }.getOrDefault(emptyList())
+
+        data class AnchorCandidate(val fromMerged: Boolean, val index: Int, val node: SemanticsNode)
+
+        fun isClickable(node: SemanticsNode): Boolean {
+            val bounds = node.boundsInRoot
+            val sizeOk = bounds.width > 0f && bounds.height > 0f
+            val hasClick = node.config.contains(SemanticsActions.OnClick)
+            val enabled = !node.config.contains(SemanticsProperties.Disabled)
+            return sizeOk && hasClick && enabled
+        }
+
+        val anchorCandidates = buildList {
+            unmergedNodes.forEachIndexed { index, node ->
+                if (isClickable(node)) {
+                    add(AnchorCandidate(fromMerged = false, index = index, node = node))
+                }
+            }
+            mergedNodes.forEachIndexed { index, node ->
+                if (isClickable(node)) {
+                    add(AnchorCandidate(fromMerged = true, index = index, node = node))
+                }
+            }
+        }.sortedByDescending { candidate ->
+            candidate.node.boundsInRoot.width * candidate.node.boundsInRoot.height
+        }
+
+        for (candidate in anchorCandidates) {
+            val interaction = if (candidate.fromMerged) {
+                mergedCollection[candidate.index]
+            } else {
+                unmergedCollection[candidate.index]
+            }
+            scrollToAnimationDropdownAnchor(anchorTag)
+            val clicked = runCatching {
+                interaction.assertIsDisplayed()
+                interaction.performClick()
+                true
+            }.getOrDefault(false)
+            if (!clicked) {
+                continue
+            }
+            val opened = runCatching {
+                composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                    popupNodeCount() > 0
+                }
+                true
+            }.getOrDefault(false)
+            if (opened) {
+                composeTestRule.waitForIdle()
+                return anchorTag
+            }
+        }
+
         val tagCandidates = listOf(
             "spriteAnimTypeDropdownAnchor",
             "spriteAnimationTypeDropdown",
@@ -207,18 +265,43 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             if (found) {
                 val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
                 scrollToAnimationDropdownAnchor(tag)
-                target.performClick()
-                composeTestRule.waitForIdle()
-                return tag
+                val clicked = runCatching {
+                    target.performClick()
+                    true
+                }.getOrDefault(false)
+                if (!clicked) {
+                    continue
+                }
+                val opened = runCatching {
+                    composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                        popupNodeCount() > 0
+                    }
+                    true
+                }.getOrDefault(false)
+                if (opened) {
+                    composeTestRule.waitForIdle()
+                    return tag
+                }
             }
         }
         val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
         val currentLabel = candidates.firstOrNull { label ->
             runCatching { composeTestRule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode() }
                 .isSuccess
-        } ?: error("アニメ種別のドロップダウンが見つかりません")
+        } ?: run {
+            val diagnostics = buildPopupFailureDiagnostics()
+            throw AssertionError(
+                "アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag " +
+                    "clickableCandidates=${anchorCandidates.size} $diagnostics"
+            )
+        }
         composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performClick()
         composeTestRule.waitForIdle()
+        runCatching {
+            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                popupNodeCount() > 0
+            }
+        }
         return "spriteAnimationTypeFallback"
     }
 
