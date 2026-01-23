@@ -5050,6 +5050,8 @@ private fun AnimationDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor()
+                // テストでドロップダウンを開くための最小限の testTag
+                .testTag("spriteAnimTypeDropdownAnchor")
                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
         )
