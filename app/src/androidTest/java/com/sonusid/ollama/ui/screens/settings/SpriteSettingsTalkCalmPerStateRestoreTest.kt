@@ -13,7 +13,6 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.inRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -114,8 +113,10 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             )
             val clicked = runCatching {
                 val popupClicked = runCatching {
-                    composeTestRule.onNode(hasText(label) and hasClickAction(), useUnmergedTree = true)
-                        .inRoot(isPopup())
+                    composeTestRule.onNode(
+                        hasText(label) and hasClickAction() and hasAnyAncestor(isPopup()),
+                        useUnmergedTree = true
+                    )
                         .performClick()
                     true
                 }.getOrDefault(false)
