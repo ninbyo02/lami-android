@@ -129,18 +129,21 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             "spriteAnimationTypeExposedDropdown"
         )
         for (tag in tagCandidates) {
-            val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
             val found = runCatching {
                 composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                    runCatching {
-                        nodes.onFirst()
-                        true
-                    }.getOrDefault(false)
+                    hasNodeWithTag(tag)
                 }
                 true
             }.getOrDefault(false)
             if (found) {
-                nodes.onFirst().performClick()
+                val nodes = composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true)
+                val fallbackNodes = composeTestRule.onAllNodesWithTag(tag)
+                val target = if (runCatching { nodes.fetchSemanticsNodes() }.getOrDefault(emptyList()).isNotEmpty()) {
+                    nodes.onFirst()
+                } else {
+                    fallbackNodes.onFirst()
+                }
+                target.performClick()
                 composeTestRule.waitForIdle()
                 return tag
             }
@@ -271,7 +274,9 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             val anchorSelected = if (anchorTag == "spriteAnimationTypeFallback") {
                 nodeExists { composeTestRule.onNodeWithText(label) }
             } else {
-                nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
+                nodeExists {
+                    composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).assertTextEquals(label)
+                } || nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
             }
             anchorSelected && !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
         }
@@ -282,6 +287,19 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             block()
             true
         }.getOrDefault(false)
+    }
+
+    private fun hasNodeWithTag(tag: String): Boolean {
+        val unmergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        if (unmergedCount > 0) {
+            return true
+        }
+        val mergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        return mergedCount > 0
     }
 
     private fun buildSelectionDiagnostics(label: String): String {
