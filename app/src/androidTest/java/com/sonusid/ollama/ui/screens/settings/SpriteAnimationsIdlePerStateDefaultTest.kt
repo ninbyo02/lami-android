@@ -49,8 +49,8 @@ class SpriteAnimationsIdlePerStateDefaultTest {
         val idle = result.getOrThrow()
 
         assertEquals("Idle", idle.animationKey)
-        assertEquals(listOf(0, 0, 0, 0), idle.baseFrames)
-        assertEquals(230, idle.baseIntervalMs)
+        assertEquals(listOf(8, 8, 8, 8), idle.baseFrames)
+        assertEquals(150, idle.baseIntervalMs)
         assertTrue("idle insertion.enabled が false になっている", idle.insertion.enabled)
         assertEquals(125, idle.insertion.intervalMs)
         assertEquals(4, idle.insertion.everyNLoops)
@@ -59,8 +59,8 @@ class SpriteAnimationsIdlePerStateDefaultTest {
         assertTrue("idle insertion.exclusive が false になっている", idle.insertion.exclusive)
         assertEquals(
             listOf(
-                InsertionPatternConfig(frames = listOf(5, 0), weight = 3, intervalMs = 120),
-                InsertionPatternConfig(frames = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 140),
+                InsertionPatternConfig(frames = listOf(5, 8, 5), weight = 3, intervalMs = 120),
+                InsertionPatternConfig(frames = listOf(4, 8, 5), weight = 1, intervalMs = 120),
             ),
             idle.insertion.patterns,
         )
