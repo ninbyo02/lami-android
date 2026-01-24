@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -40,6 +41,7 @@ import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
@@ -75,6 +77,10 @@ class MainActivity : ComponentActivity() {
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
 
         val settingsPreferences = SettingsPreferences(applicationContext)
+        lifecycleScope.launch {
+            // アプリ初回起動時に per-state JSON を必ず初期化する
+            settingsPreferences.ensurePerStateAnimationJsonsInitialized()
+        }
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
