@@ -11,21 +11,16 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.printToLog
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -47,6 +42,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
     private var lastAnchorCandidateDiagnostics: String = ""
+    private var lastCandidateTexts: List<String> = emptyList()
 
     @Before
     fun clearPreferences() {
@@ -98,31 +94,35 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 2) {
         var lastError: Throwable? = null
         var lastAnchorTag = "unknown"
+        lastCandidateTexts = emptyList()
         repeat(maxAttempts) { attempt ->
             val anchorTag = openAnimationDropdown()
             lastAnchorTag = anchorTag
             composeTestRule.waitForIdle()
-            val popupCount = popupNodeCount()
+            val anchorNode = findAnchorNode(anchorTag)
+            val anchorTextsBefore = anchorNode?.let { extractNodeTexts(it) }.orEmpty()
             println(
-                "Dropdown クリック試行: attempt=${attempt + 1} popupNodes=$popupCount label=$label anchorTag=$anchorTag"
+                "Dropdown クリック試行: attempt=${attempt + 1} label=$label anchorTag=$anchorTag " +
+                    "anchorTextsBefore=$anchorTextsBefore"
             )
-            val clicked = runCatching {
-                val popupClicked = runCatching {
-                    composeTestRule.onNode(
-                        hasText(label) and hasAnyAncestor(isPopup()),
-                        useUnmergedTree = true
-                    ).performClick()
+            val candidates = collectOptionCandidates(label, anchorNode)
+            lastCandidateTexts = candidates.allTexts.take(6)
+            println(
+                "候補ノード数: before=${candidates.totalCount} after=${candidates.filteredCount} " +
+                    "candidateTextsSample=${lastCandidateTexts}"
+            )
+            val clicked = candidates.sortedCandidates.firstOrNull { candidate ->
+                runCatching {
+                    candidate.interaction.performClick()
                     true
                 }.getOrDefault(false)
-                if (!popupClicked) {
-                    composeTestRule.onNodeWithText(label, useUnmergedTree = true).performClick()
-                }
-                true
-            }.getOrElse { error ->
-                lastError = error
-                false
+            } != null
+            if (!clicked) {
+                lastError = AssertionError("候補クリックに失敗しました: label=$label anchorTag=$anchorTag")
             }
             composeTestRule.waitForIdle()
+            val anchorTextsAfter = anchorTexts(anchorTag)
+            println("anchorTextsAfterClick=$anchorTextsAfter")
             if (clicked) {
                 val selectionConfirmed = runCatching {
                     waitForSelectionSuccess(label, anchorTag)
@@ -138,7 +138,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         }
         val diagnostics = buildPopupFailureDiagnostics()
         throw AssertionError(
-            "Popup 内のクリックに失敗しました。label=$label anchorTag=$lastAnchorTag $diagnostics",
+            "候補のクリックに失敗しました。label=$label anchorTag=$lastAnchorTag " +
+                "candidateTextsSample=$lastCandidateTexts $diagnostics",
             lastError
         )
     }
@@ -149,7 +150,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         val anchorTag = "spriteAnimTypeDropdownAnchor"
         scrollToAnimationDropdownAnchor(anchorTag)
         try {
-            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
                 hasNodeWithTag(anchorTag)
             }
             composeTestRule.waitForIdle()
@@ -257,7 +258,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             scrollToAnimationDropdownAnchor(anchorTag)
             val clicked = runCatching {
                 interaction.assertIsDisplayed()
-                interaction.performTouchInput { click() }
+                interaction.performClick()
                 true
             }.getOrDefault(false)
             if (!clicked) {
@@ -276,14 +277,20 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             "spriteAnimationTypeExposedDropdown"
         )
         for (tag in tagCandidates) {
-            composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                hasNodeWithTag(tag)
+            val found = runCatching {
+                composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                    hasNodeWithTag(tag)
+                }
+                true
+            }.getOrDefault(false)
+            if (!found) {
+                continue
             }
             composeTestRule.waitForIdle()
             val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
             scrollToAnimationDropdownAnchor(tag)
             val clicked = runCatching {
-                target.performTouchInput { click() }
+                target.performClick()
                 true
             }.getOrDefault(false)
             if (!clicked) {
@@ -303,7 +310,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
                         "clickableCandidates=${anchorCandidates.size} $diagnostics"
             )
         }
-        composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performTouchInput { click() }
+        composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performClick()
         composeTestRule.waitForIdle()
         return "spriteAnimationTypeFallback"
     }
@@ -334,7 +341,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             if (hasNodeWithTag(anchorTag)) {
                 return
             }
-            if (System.currentTimeMillis() - startTime > 60_000) {
+            if (System.currentTimeMillis() - startTime > 10_000) {
                 return
             }
         }
@@ -417,16 +424,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         composeTestRule.onNodeWithTag(tag).assertTextEquals(expected)
     }
 
-    private fun waitForDropdownMenuOpen() {
-        val popupCount = popupNodeCount()
-        println("Dropdown open 確認(参考): popupNodes=$popupCount")
-    }
-
-    private fun waitForPopupClosed() {
-        val popupCount = popupNodeCount()
-        println("Popup close 確認(参考): popupNodes=$popupCount")
-    }
-
     private fun waitForSelectionSuccess(
         label: String,
         anchorTag: String,
@@ -434,13 +431,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     ): Boolean {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                if (anchorTag == "spriteAnimationTypeFallback") {
-                    nodeExists { composeTestRule.onNodeWithText(label) }
-                } else {
-                    nodeExists {
-                        composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).assertTextEquals(label)
-                    } || nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
-                }
+                val anchorTexts = anchorTexts(anchorTag)
+                anchorTexts.contains(label)
             }
         } catch (error: AssertionError) {
             throw AssertionError("選択が反映されません: label=$label anchorTag=$anchorTag", error)
@@ -477,19 +469,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         return "<printToString unavailable>"
     }
 
-    private fun popupNodeCount(): Int {
-        return runCatching {
-            composeTestRule.onAllNodes(isPopup(), useUnmergedTree = true).fetchSemanticsNodes().size
-        }.getOrDefault(0)
-    }
-
-    private fun popupTexts(): List<String> {
-        val nodes = runCatching {
-            composeTestRule.onAllNodes(hasAnyAncestor(isPopup()), useUnmergedTree = true).fetchSemanticsNodes()
-        }.getOrDefault(emptyList())
-        return nodes.flatMap { extractNodeTexts(it) }.distinct()
-    }
-
     private fun extractNodeTexts(node: SemanticsNode): List<String> {
         val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }
         val editable = node.config.getOrNull(SemanticsProperties.EditableText)?.text
@@ -510,17 +489,12 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun buildPopupFailureDiagnostics(): String {
-        val popupCount = popupNodeCount()
-        val popupTexts = popupTexts()
         val anchorCount = countAnchorNodes()
         if (anchorCount == 0) {
             runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
         }
-        if (popupCount == 0) {
-            runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-missing") }
-        }
         runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-failure") }
-        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$anchorCount $lastAnchorCandidateDiagnostics"
+        return "anchorTagCount=$anchorCount candidateTextsSample=$lastCandidateTexts $lastAnchorCandidateDiagnostics"
     }
 
     private fun buildTalkCalmPerStateJson(intervalMs: Int, frames: List<Int>): String {
@@ -546,4 +520,87 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         // ドロップダウン候補の一致判定に使うため固定順で保持する
         return listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
     }
+
+    private data class OptionCandidates(
+        val totalCount: Int,
+        val filteredCount: Int,
+        val sortedCandidates: List<OptionCandidate>,
+        val allTexts: List<String>,
+    )
+
+    private data class OptionCandidate(
+        val interaction: androidx.compose.ui.test.SemanticsNodeInteraction,
+        val node: SemanticsNode,
+        val isDisplayed: Boolean,
+        val area: Float,
+    )
+
+    private fun collectOptionCandidates(label: String, anchorNode: SemanticsNode?): OptionCandidates {
+        val matcher = hasText(label) and hasClickAction()
+        val collection = composeTestRule.onAllNodes(matcher, useUnmergedTree = true)
+        val nodes = runCatching { collection.fetchSemanticsNodes() }.getOrDefault(emptyList())
+        val anchorBounds = anchorNode?.boundsInRoot
+        val candidates = nodes.mapIndexed { index, node ->
+            val interaction = collection[index]
+            val isDisplayed = runCatching {
+                interaction.assertIsDisplayed()
+                true
+            }.getOrDefault(false)
+            val bounds = node.boundsInRoot
+            OptionCandidate(
+                interaction = interaction,
+                node = node,
+                isDisplayed = isDisplayed,
+                area = bounds.width * bounds.height,
+            )
+        }
+        val filtered = candidates.filter { candidate ->
+            val bounds = candidate.node.boundsInRoot
+            val isSameAsAnchor = anchorBounds?.let { almostSameBounds(it, bounds) } ?: false
+            !isSameAsAnchor
+        }
+        val sorted = filtered.sortedWith(
+            compareByDescending<OptionCandidate> { it.isDisplayed }
+                .thenByDescending { it.area }
+        )
+        val texts = candidates.flatMap { extractNodeTexts(it.node) }.distinct()
+        return OptionCandidates(
+            totalCount = candidates.size,
+            filteredCount = filtered.size,
+            sortedCandidates = sorted,
+            allTexts = texts,
+        )
+    }
+
+    private fun findAnchorNode(anchorTag: String): SemanticsNode? {
+        val unmergedNodes = runCatching {
+            composeTestRule.onAllNodesWithTag(anchorTag, useUnmergedTree = true).fetchSemanticsNodes()
+        }.getOrDefault(emptyList())
+        if (unmergedNodes.isNotEmpty()) {
+            return unmergedNodes.first()
+        }
+        val mergedNodes = runCatching {
+            composeTestRule.onAllNodesWithTag(anchorTag).fetchSemanticsNodes()
+        }.getOrDefault(emptyList())
+        return mergedNodes.firstOrNull()
+    }
+
+    private fun anchorTexts(anchorTag: String): List<String> {
+        val anchorNode = findAnchorNode(anchorTag)
+        return anchorNode?.let { extractNodeTexts(it) }.orEmpty()
+    }
+
+    private fun almostSameBounds(
+        anchorBounds: androidx.compose.ui.geometry.Rect,
+        candidateBounds: androidx.compose.ui.geometry.Rect,
+        tolerance: Float = 1f,
+    ): Boolean {
+        val dx = kotlin.math.abs(anchorBounds.left - candidateBounds.left)
+        val dy = kotlin.math.abs(anchorBounds.top - candidateBounds.top)
+        val dw = kotlin.math.abs(anchorBounds.width - candidateBounds.width)
+        val dh = kotlin.math.abs(anchorBounds.height - candidateBounds.height)
+        return dx < tolerance && dy < tolerance && dw < tolerance && dh < tolerance
+    }
+
+    // 実機確認用: ./gradlew :app:connectedDebugAndroidTest --no-build-cache
 }
