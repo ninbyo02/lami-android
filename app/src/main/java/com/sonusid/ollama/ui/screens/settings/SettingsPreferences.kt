@@ -123,12 +123,12 @@ data class InsertionAnimationSettings(
         val THINKING_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
-                InsertionPattern(frameSequence = listOf(5, 7), weight = 2, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 80),
+                InsertionPattern(frameSequence = listOf(5, 7), weight = 2, intervalMs = 130),
+                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 140),
             ),
-            intervalMs = 200,
-            everyNLoops = 5,
-            probabilityPercent = 65,
+            intervalMs = 180,
+            everyNLoops = 4,
+            probabilityPercent = 55,
             cooldownLoops = 5,
             exclusive = false,
         )
