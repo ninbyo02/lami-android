@@ -5,7 +5,6 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -88,7 +87,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
         }.getOrDefault(emptyList())
         val scrollTarget = if (scrollableNodes.isNotEmpty()) {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).onFirst()
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes().first()
         } else {
             composeTestRule.onNodeWithTag("spriteAnimList")
         }
