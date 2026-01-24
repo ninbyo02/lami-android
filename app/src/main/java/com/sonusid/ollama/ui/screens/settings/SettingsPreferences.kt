@@ -1157,15 +1157,7 @@ class SettingsPreferences(private val context: Context) {
         insertionSettings: InsertionAnimationSettings,
     ): String? {
         val patterns = insertionSettings.patterns.take(2)
-        if (patterns.any { pattern -> pattern.intervalMs == null }) {
-            if (BuildConfig.DEBUG) {
-                Log.d(
-                    "LamiSprite",
-                    "sprite animations migrate v1 skipped: pattern intervalMs missing key=$animationKey"
-                )
-            }
-            return null
-        }
+        val insertionIntervalMs = insertionSettings.intervalMs
         val baseJson = JSONObject()
             .put(JSON_FRAMES_KEY, baseSettings.frameSequence.toJsonArray())
             .put(JSON_INTERVAL_MS_KEY, baseSettings.intervalMs)
@@ -1176,10 +1168,15 @@ class SettingsPreferences(private val context: Context) {
                 JSONArray().also { array ->
                     patterns.forEach { pattern ->
                         array.put(
-                            JSONObject()
-                                .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
-                                .put(JSON_WEIGHT_KEY, pattern.weight)
-                                .put(JSON_PATTERN_INTERVAL_MS_KEY, requireNotNull(pattern.intervalMs))
+                            JSONObject().apply {
+                                put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
+                                put(JSON_WEIGHT_KEY, pattern.weight)
+                                pattern.intervalMs
+                                    ?.takeIf { it != insertionIntervalMs }
+                                    ?.let { intervalMs ->
+                                        put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
+                                    }
+                            }
                         )
                     }
                 }
