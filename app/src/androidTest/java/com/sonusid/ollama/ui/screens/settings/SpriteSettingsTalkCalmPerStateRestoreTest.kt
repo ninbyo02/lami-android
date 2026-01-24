@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
@@ -242,9 +243,11 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
                     add(toCandidate(fromMerged = false, index = index, node = node))
                 }
             }
-            mergedNodes.forEachIndexed { index, node ->
-                if (isClickable(node)) {
-                    add(toCandidate(fromMerged = true, index = index, node = node))
+            if (isEmpty()) {
+                mergedNodes.forEachIndexed { index, node ->
+                    if (isClickable(node)) {
+                        add(toCandidate(fromMerged = true, index = index, node = node))
+                    }
                 }
             }
         }.sortedWith(
@@ -281,7 +284,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             scrollToAnimationDropdownAnchor(anchorTag)
             val clicked = runCatching {
                 interaction.assertIsDisplayed()
-                interaction.performClick()
+                interaction.performTouchInput { click() }
                 true
             }.getOrDefault(false)
             if (!clicked) {
@@ -318,7 +321,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
                 val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
                 scrollToAnimationDropdownAnchor(tag)
                 val clicked = runCatching {
-                    target.performClick()
+                    target.performTouchInput { click() }
                     true
                 }.getOrDefault(false)
                 if (!clicked) {
@@ -343,11 +346,11 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         } ?: run {
             val diagnostics = buildPopupFailureDiagnostics()
             throw AssertionError(
-                "アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag " +
-                    "clickableCandidates=${anchorCandidates.size} $diagnostics"
+                    "アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag " +
+                        "clickableCandidates=${anchorCandidates.size} $diagnostics"
             )
         }
-        composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performTouchInput { click() }
         composeTestRule.waitForIdle()
         runCatching {
             composeTestRule.waitUntil(timeoutMillis = 20_000) {
