@@ -83,16 +83,9 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
         waitForNodeWithTag("spriteAnimList")
-        val scrollableNodes = runCatching {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
-        }.getOrDefault(emptyList())
-        val scrollTarget = if (scrollableNodes.isNotEmpty()) {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes().first()
-        } else {
-            composeTestRule.onNodeWithTag("spriteAnimList")
-        }
         val scrolled = runCatching {
-            scrollTarget.performScrollToNode(hasTestTag(anchorTag))
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(anchorTag))
             true
         }.getOrDefault(false)
         if (scrolled) {

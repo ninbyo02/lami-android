@@ -171,17 +171,9 @@ class SpriteSettingsInsertionOptionalIntervalTest {
 
     private fun scrollToTestTag(tag: String) {
         waitForNodeWithTag("spriteAnimList")
-        val scrollableNodes = runCatching {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
-        }.getOrDefault(emptyList())
-        val scrollTarget = if (scrollableNodes.isNotEmpty()) {
-            val scrollTargets = composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)
-            scrollTargets[0]
-        } else {
-            composeTestRule.onNodeWithTag("spriteAnimList")
-        }
         runCatching {
-            scrollTarget.performScrollToNode(hasTestTag(tag))
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(tag))
         }
     }
 
