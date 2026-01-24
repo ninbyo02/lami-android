@@ -116,6 +116,11 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             println(
                 "Popup クリック試行: attempt=${attempt + 1} popupNodes=$popupCount candidates=${candidateNodes.size} texts=$candidateTexts"
             )
+            if (popupCount == 0) {
+                composeTestRule.onNode(hasText(label), useUnmergedTree = true).performClick()
+                composeTestRule.waitForIdle()
+                return
+            }
             val clicked = runCatching {
                 val popupClicked = runCatching {
                     composeTestRule.onNode(
