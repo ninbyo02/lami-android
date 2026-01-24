@@ -93,14 +93,14 @@ data class InsertionAnimationSettings(
         val TALKING_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
-                InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 125),
             ),
-            intervalMs = 110,
+            intervalMs = 120,
             everyNLoops = 4,
-            probabilityPercent = 50,
-            cooldownLoops = 2,
-            exclusive = false,
+            probabilityPercent = 45,
+            cooldownLoops = 3,
+            exclusive = true,
         )
         // Thinking のデフォルト: pattern intervalMs/intervalMs は指定JSONに合わせる
         // everyNLoops/probabilityPercent/cooldownLoops は連発抑制のための挿入判定パラメータ
