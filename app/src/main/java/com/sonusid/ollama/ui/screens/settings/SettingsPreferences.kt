@@ -31,6 +31,10 @@ data class ReadyAnimationSettings(
     val intervalMs: Int,
 ) {
     companion object {
+        val IDLE_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(0, 0, 0, 0),
+            intervalMs = 230,
+        )
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
             intervalMs = 230,
@@ -77,6 +81,18 @@ data class InsertionAnimationSettings(
     val exclusive: Boolean,
 ) {
     companion object {
+        val IDLE_DEFAULT = InsertionAnimationSettings(
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 140),
+            ),
+            intervalMs = 125,
+            everyNLoops = 4,
+            probabilityPercent = 50,
+            cooldownLoops = 4,
+            exclusive = true,
+        )
         val READY_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
@@ -1063,6 +1079,7 @@ class SettingsPreferences(private val context: Context) {
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
+            SpriteState.IDLE -> ReadyAnimationSettings.IDLE_DEFAULT to InsertionAnimationSettings.IDLE_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
             SpriteState.TALK_SHORT -> talkShortBaseDefaults to talkShortInsertionDefaults
             SpriteState.TALK_LONG -> talkLongBaseDefaults to talkLongInsertionDefaults
