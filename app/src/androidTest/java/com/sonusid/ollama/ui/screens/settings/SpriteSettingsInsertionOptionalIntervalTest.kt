@@ -6,8 +6,8 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertCountGreaterThan
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
@@ -177,7 +177,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         }.getOrDefault(emptyList())
         val scrollTarget = if (scrollableNodes.isNotEmpty()) {
             val scrollTargets = composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)
-            scrollTargets.assertCountGreaterThan(0)
+            scrollTargets[0].assertExists()
             scrollTargets[0]
         } else {
             composeTestRule.onNodeWithTag("spriteAnimList")
