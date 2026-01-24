@@ -12,7 +12,6 @@ import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -48,9 +47,9 @@ class SpriteAnimationsTalkLongDefaultsTest {
         assertEquals("TalkLong", root.getString("animationKey"))
 
         val base = root.getJSONObject("base")
-        assertEquals(190, base.getInt("intervalMs"))
+        assertEquals(125, base.getInt("intervalMs"))
         assertEquals(
-            listOf(0, 4, 6, 4, 4, 6, 4, 0),
+            listOf(0, 6, 1, 0, 6),
             base.getJSONArray("frames").toIntList(),
         )
 
@@ -58,7 +57,7 @@ class SpriteAnimationsTalkLongDefaultsTest {
         assertTrue(insertion.getBoolean("enabled"))
         assertEquals(125, insertion.getInt("intervalMs"))
         assertEquals(3, insertion.getInt("everyNLoops"))
-        assertEquals(75, insertion.getInt("probabilityPercent"))
+        assertEquals(70, insertion.getInt("probabilityPercent"))
         assertEquals(4, insertion.getInt("cooldownLoops"))
         assertTrue(insertion.getBoolean("exclusive"))
 
@@ -68,12 +67,12 @@ class SpriteAnimationsTalkLongDefaultsTest {
         val firstPattern = patterns.getJSONObject(0)
         assertEquals(listOf(1, 5), firstPattern.getJSONArray("frames").toIntList())
         assertEquals(3, firstPattern.getInt("weight"))
-        assertFalse("pattern1.intervalMs は省略される想定です", firstPattern.has("intervalMs"))
+        assertEquals(120, firstPattern.getInt("intervalMs"))
 
         val secondPattern = patterns.getJSONObject(1)
         assertEquals(listOf(2, 5), secondPattern.getJSONArray("frames").toIntList())
         assertEquals(1, secondPattern.getInt("weight"))
-        assertFalse("pattern2.intervalMs は省略される想定です", secondPattern.has("intervalMs"))
+        assertEquals(130, secondPattern.getInt("intervalMs"))
     }
 
     @Suppress("UNCHECKED_CAST")
