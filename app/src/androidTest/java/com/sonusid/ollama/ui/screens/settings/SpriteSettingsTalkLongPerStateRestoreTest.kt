@@ -108,9 +108,10 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         repeat(maxAttempts) { attempt ->
             val anchorTag = openAnimationDropdown()
             lastAnchorTag = anchorTag
+            composeTestRule.waitForIdle()
             if (popupNodeCount() == 0) {
                 // popup を使わない UI のため fallback を成功ルートとして扱う
-                composeTestRule.onNode(hasText(label), useUnmergedTree = true).performClick()
+                composeTestRule.onNodeWithText(label, useUnmergedTree = true).performClick()
                 composeTestRule.waitForIdle()
                 return
             }
