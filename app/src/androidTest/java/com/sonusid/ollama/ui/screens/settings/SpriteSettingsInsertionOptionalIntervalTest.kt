@@ -5,13 +5,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertCountGreaterThan
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -91,7 +91,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("数値を入力してください").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("数値を入力してください").assertCountEquals(0)
         waitForText("保存しました")
         composeTestRule.onNodeWithText("保存しました").assertIsDisplayed()
     }
@@ -176,7 +176,9 @@ class SpriteSettingsInsertionOptionalIntervalTest {
             composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
         }.getOrDefault(emptyList())
         val scrollTarget = if (scrollableNodes.isNotEmpty()) {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).onFirst()
+            val scrollTargets = composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)
+            scrollTargets.assertCountGreaterThan(0)
+            scrollTargets[0]
         } else {
             composeTestRule.onNodeWithTag("spriteAnimList")
         }
