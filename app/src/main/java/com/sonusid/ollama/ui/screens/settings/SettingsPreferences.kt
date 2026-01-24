@@ -33,7 +33,7 @@ data class ReadyAnimationSettings(
     companion object {
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
-            intervalMs = 180,
+            intervalMs = 230,
         )
         val TALKING_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 6, 0, 6),
@@ -81,14 +81,14 @@ data class InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
                 // Ready insertion のデフォルトを仕様に合わせて更新
-                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 140),
             ),
-            intervalMs = 110,
-            everyNLoops = 5,
-            probabilityPercent = 58,
-            cooldownLoops = 6,
-            exclusive = false,
+            intervalMs = 125,
+            everyNLoops = 4,
+            probabilityPercent = 50,
+            cooldownLoops = 4,
+            exclusive = true,
         )
         val TALKING_DEFAULT = InsertionAnimationSettings(
             enabled = true,
