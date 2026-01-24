@@ -3198,7 +3198,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             JSONObject().apply {
                                                 put(JSON_FRAMES_KEY, JSONArray(pattern.frames()))
                                                 put(JSON_WEIGHT_KEY, pattern.weight)
-                                                put(JSON_PATTERN_INTERVAL_MS_KEY, pattern.intervalMs ?: insertionIntervalMs)
+                                                pattern.intervalMs
+                                                    ?.takeIf { it != insertionIntervalMs }
+                                                    ?.let { intervalMs ->
+                                                        put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
+                                                    }
                                             }
                                         )
                                     }
