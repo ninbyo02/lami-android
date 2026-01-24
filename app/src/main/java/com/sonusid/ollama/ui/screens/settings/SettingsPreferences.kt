@@ -32,8 +32,8 @@ data class ReadyAnimationSettings(
 ) {
     companion object {
         val IDLE_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(0, 0, 0, 0),
-            intervalMs = 230,
+            frameSequence = listOf(8, 8, 8, 8),
+            intervalMs = 150,
         )
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
@@ -84,8 +84,8 @@ data class InsertionAnimationSettings(
         val IDLE_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
-                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 120),
-                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 140),
+                InsertionPattern(frameSequence = listOf(5, 8, 5), weight = 3, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(4, 8, 5), weight = 1, intervalMs = 120),
             ),
             intervalMs = 125,
             everyNLoops = 4,
