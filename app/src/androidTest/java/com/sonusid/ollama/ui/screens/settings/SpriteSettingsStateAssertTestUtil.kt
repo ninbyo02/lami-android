@@ -125,5 +125,5 @@ private fun parsePerStateAnimationSnapshot(json: String?): PerStateAnimationSnap
                 frames = frames,
             )
         }
-    }.getOrNull()
+    }.getOrElse { null }
 }

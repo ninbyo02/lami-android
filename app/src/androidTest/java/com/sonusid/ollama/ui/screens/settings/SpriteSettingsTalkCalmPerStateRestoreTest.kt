@@ -119,7 +119,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
         val isSelected = runCatching { tabNode.fetchSemanticsNode() }
             .map { node ->
-                node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Selected) == true
+                node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Selected) &&
+                    node.config[androidx.compose.ui.semantics.SemanticsProperties.Selected] == true
             }
             .getOrDefault(false)
         if (!isSelected) {
