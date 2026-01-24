@@ -4771,7 +4771,8 @@ private fun ReadyAnimationTab(
                         selectedItem = selectedAnimation,
                         onSelectedItemChange = selectionState.onSelectedAnimationChange,
                         // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        anchorTestTag = "spriteAnimTypeDropdownAnchor",
                     )
                     OutlinedTextField(
                         value = baseState.frameInput,
@@ -5036,6 +5037,7 @@ private fun AnimationDropdown(
     selectedItem: AnimationType,
     onSelectedItemChange: (AnimationType) -> Unit,
     modifier: Modifier = Modifier,
+    anchorTestTag: String? = null,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     ExposedDropdownMenuBox(
@@ -5051,8 +5053,14 @@ private fun AnimationDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor()
-                // テストでドロップダウンを開くための最小限の testTag
-                .testTag("spriteAnimTypeDropdownAnchor")
+                .then(
+                    if (anchorTestTag != null) {
+                        // テストでドロップダウンを開くための最小限の testTag
+                        Modifier.testTag(anchorTestTag)
+                    } else {
+                        Modifier
+                    }
+                )
                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
         )
