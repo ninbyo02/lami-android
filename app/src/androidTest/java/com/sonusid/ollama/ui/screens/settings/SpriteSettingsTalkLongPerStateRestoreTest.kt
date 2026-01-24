@@ -109,13 +109,18 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
             val anchorTag = openAnimationDropdown()
             lastAnchorTag = anchorTag
             composeTestRule.waitForIdle()
-            if (popupNodeCount() == 0) {
-                // popup を使わない UI のため fallback を成功ルートとして扱う
-                composeTestRule.onNodeWithText(label, useUnmergedTree = true).performClick()
-                composeTestRule.waitForIdle()
-                return
-            }
             waitForDropdownMenuOpen()
+            val popupCount = popupNodeCount()
+            if (popupCount == 0) {
+                lastError = AssertionError(
+                    "Dropdown menu not opened (popupNodeCount=0) label=$label anchorTag=$anchorTag"
+                )
+                println(
+                    "Popup 未検出: attempt=${attempt + 1} label=$label anchorTag=$anchorTag"
+                )
+                composeTestRule.waitForIdle()
+                return@repeat
+            }
             val clickableMatcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
             val clickableCandidates = composeTestRule.onAllNodes(clickableMatcher, useUnmergedTree = true)
             val clickableNodes = runCatching { clickableCandidates.fetchSemanticsNodes() }.getOrDefault(emptyList())
@@ -126,15 +131,9 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
             }
             val candidateNodes = runCatching { candidates.fetchSemanticsNodes() }.getOrDefault(emptyList())
             val candidateTexts = candidateNodes.flatMap { extractNodeTexts(it) }.distinct()
-            val popupCount = popupNodeCount()
             println(
                 "Popup クリック試行: attempt=${attempt + 1} popupNodes=$popupCount candidates=${candidateNodes.size} texts=$candidateTexts"
             )
-            if (popupCount == 0) {
-                composeTestRule.onNode(hasText(label), useUnmergedTree = true).performClick()
-                composeTestRule.waitForIdle()
-                return
-            }
             val clicked = runCatching {
                 val popupClicked = runCatching {
                     composeTestRule.onNode(
