@@ -4976,6 +4976,9 @@ private fun ReadyAnimationTab(
                                     }
                                 )
                             },
+                            placeholder = {
+                                Text("（現在: ${insertionState.defaultIntervalMs}ms）")
+                            },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             isError = !hasOptionalDefaultInterval && insertionState.intervalError != null,
