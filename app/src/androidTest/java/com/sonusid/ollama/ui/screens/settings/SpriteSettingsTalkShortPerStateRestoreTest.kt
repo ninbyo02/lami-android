@@ -659,4 +659,9 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             .put("insertion", insertionObject)
             .toString()
     }
+
+    private fun animationCandidates(): List<String> {
+        // ドロップダウン候補の一致判定に使うため固定順で保持する
+        return listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
+    }
 }
