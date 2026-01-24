@@ -174,16 +174,15 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         waitForNodeWithTag("spriteBaseIntervalInput")
         val anchorTag = "spriteAnimTypeDropdownAnchor"
         scrollToAnimationDropdownAnchor(anchorTag)
-        val anchorFound = runCatching {
+        try {
             composeTestRule.waitUntil(timeoutMillis = 20_000) {
                 hasNodeWithTag(anchorTag)
             }
-            true
-        }.getOrDefault(false)
-        if (!anchorFound) {
+            composeTestRule.waitForIdle()
+        } catch (error: AssertionError) {
             runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("anchor-missing") }
             val diagnostics = buildPopupFailureDiagnostics()
-            throw AssertionError("アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag $diagnostics")
+            throw AssertionError("アニメ種別のドロップダウンが見つかりません。anchorTag=$anchorTag $diagnostics", error)
         }
         val unmergedCollection = composeTestRule.onAllNodesWithTag(anchorTag, useUnmergedTree = true)
         val unmergedNodes = runCatching { unmergedCollection.fetchSemanticsNodes() }.getOrDefault(emptyList())
@@ -290,16 +289,11 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             if (!clicked) {
                 continue
             }
-            val opened = runCatching {
-                composeTestRule.waitUntil(timeoutMillis = 30_000) {
-                    popupNodeCount() > 0
-                }
-                true
-            }.getOrDefault(false)
-            if (opened) {
-                composeTestRule.waitForIdle()
-                return anchorTag
+            composeTestRule.waitUntil(timeoutMillis = 30_000) {
+                popupNodeCount() > 0
             }
+            composeTestRule.waitForIdle()
+            return anchorTag
         }
 
         val tagCandidates = listOf(
@@ -311,33 +305,24 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             "spriteAnimationTypeExposedDropdown"
         )
         for (tag in tagCandidates) {
-            val found = runCatching {
-                composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                    hasNodeWithTag(tag)
-                }
+            composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                hasNodeWithTag(tag)
+            }
+            composeTestRule.waitForIdle()
+            val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
+            scrollToAnimationDropdownAnchor(tag)
+            val clicked = runCatching {
+                target.performTouchInput { click() }
                 true
             }.getOrDefault(false)
-            if (found) {
-                val target = composeTestRule.onNodeWithTag(tag, useUnmergedTree = true)
-                scrollToAnimationDropdownAnchor(tag)
-                val clicked = runCatching {
-                    target.performTouchInput { click() }
-                    true
-                }.getOrDefault(false)
-                if (!clicked) {
-                    continue
-                }
-                val opened = runCatching {
-                    composeTestRule.waitUntil(timeoutMillis = 30_000) {
-                        popupNodeCount() > 0
-                    }
-                    true
-                }.getOrDefault(false)
-                if (opened) {
-                    composeTestRule.waitForIdle()
-                    return tag
-                }
+            if (!clicked) {
+                continue
             }
+            composeTestRule.waitUntil(timeoutMillis = 30_000) {
+                popupNodeCount() > 0
+            }
+            composeTestRule.waitForIdle()
+            return tag
         }
         val candidates = listOf("Ready", "Speaking", "TalkShort", "TalkLong", "TalkCalm")
         val currentLabel = candidates.firstOrNull { label ->
@@ -352,11 +337,10 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         }
         composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performTouchInput { click() }
         composeTestRule.waitForIdle()
-        runCatching {
-            composeTestRule.waitUntil(timeoutMillis = 20_000) {
-                popupNodeCount() > 0
-            }
+        composeTestRule.waitUntil(timeoutMillis = 20_000) {
+            popupNodeCount() > 0
         }
+        composeTestRule.waitForIdle()
         return "spriteAnimationTypeFallback"
     }
 
