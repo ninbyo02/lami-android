@@ -43,15 +43,6 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
-    private val dropdownUtil by lazy {
-        SpriteSettingsDropdownTestUtil(
-            composeTestRule = composeTestRule,
-            ensureAnimTabSelected = { ensureAnimTabSelected() },
-            waitForNodeWithTag = { tag, timeout -> waitForNodeWithTag(tag, timeout) },
-            scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
-        )
-    }
-
     @Before
     fun clearPreferences() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -93,7 +84,12 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     private fun selectAnimationType(label: String) {
-        dropdownUtil.selectAnimationTypeByAnchor(label)
+        composeTestRule.selectAnimationTypeByAnchor(
+            label = label,
+            ensureAnimTabSelected = { ensureAnimTabSelected() },
+            waitForNodeWithTag = { tag, timeout -> waitForNodeWithTag(tag, timeout) },
+            scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
+        )
         composeTestRule.waitForIdle()
     }
 
