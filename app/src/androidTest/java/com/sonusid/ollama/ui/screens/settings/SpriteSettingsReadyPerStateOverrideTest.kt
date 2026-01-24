@@ -1,12 +1,12 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.activity.ComponentActivity
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.activity.compose.setContent
+import androidx.compose.ui.semantics.SemanticsConfiguration
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -14,16 +14,19 @@ import androidx.compose.ui.test.performClick
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
+import com.sonusid.ollama.MainActivity
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
+import com.sonusid.ollama.ui.screens.settings.Settings
+import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -33,7 +36,7 @@ import org.junit.Test
 
 class SpriteSettingsReadyPerStateOverrideTest {
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val composeTestRule = createAndroidComposeRule<MainActivity>()
 
     @Before
     fun clearPreferences() {
@@ -61,61 +64,31 @@ class SpriteSettingsReadyPerStateOverrideTest {
                 SpriteState.READY,
                 buildReadyPerStateJson(intervalMs = 90)
             )
+            prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
 
-        setSpriteSettingsContent()
+        recreateToSpriteSettings()
         ensureAnimTabSelected()
-        waitForIntervalInput(expected = "90")
+        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "90")
         assertIntervalInputText(expected = "90")
 
-        composeTestRule.activityRule.scenario.recreate()
+        recreateToSpriteSettings()
         ensureAnimTabSelected()
-        waitForIntervalInput(expected = "90")
+        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "90")
         assertIntervalInputText(expected = "90")
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.setContent {
-            OllamaTheme {
-                val navController = rememberNavController()
-                NavHost(
-                    navController = navController,
-                    startDestination = SettingsRoute.SpriteSettings.route
-                ) {
-                    composable(SettingsRoute.SpriteSettings.route) {
-                        SpriteSettingsScreen(navController)
-                    }
-                    composable(Routes.SETTINGS) {
-                        Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
     }
 
     private fun assertIntervalInputText(expected: String) {
-        val text = composeTestRule.onNodeWithTag("spriteBaseIntervalInput")
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.EditableText]
-            .text
-        assertEquals("READY interval input should match per-state JSON", expected, text.trim())
-    }
-
-    private fun waitForIntervalInput(expected: String) {
-        composeTestRule.waitUntil(timeoutMillis = 10_000) {
-            val nodes = composeTestRule.onAllNodesWithTag("spriteBaseIntervalInput")
-                .fetchSemanticsNodes()
-            if (nodes.isEmpty()) {
-                return@waitUntil false
-            }
-            val text = nodes.first().config[SemanticsProperties.EditableText].text.trim()
-            text == expected
-        }
-        composeTestRule.onNodeWithTag("spriteBaseIntervalInput").assertIsDisplayed()
+        val text = currentEditableText("spriteBaseIntervalInput").trim()
+        assertEquals(
+            "READY interval input should match per-state JSON。現在値=$text",
+            expected,
+            text
+        )
     }
 
     private fun ensureAnimTabSelected() {
+        waitForNodeWithTag("spriteTabAnim")
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim").fetchSemanticsNode()
         val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
             tabNode.config[SemanticsProperties.Selected] == true
@@ -141,6 +114,103 @@ class SpriteSettingsReadyPerStateOverrideTest {
         val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
         getter.isAccessible = true
         return getter.invoke(null, context) as DataStore<Preferences>
+    }
+
+    private fun recreateToSpriteSettings() {
+        composeTestRule.activityRule.scenario.recreate()
+        setSpriteSettingsContent()
+        waitForNodeWithTag("spriteTabAnim")
+    }
+
+    private fun setSpriteSettingsContent() {
+        composeTestRule.activityRule.scenario.onActivity { activity ->
+            activity.setContent {
+                val navController = rememberNavController()
+                OllamaTheme(dynamicColor = false) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = SettingsRoute.SpriteSettings.route
+                    ) {
+                        composable(SettingsRoute.SpriteSettings.route) {
+                            SpriteSettingsScreen(navController)
+                        }
+                        composable(Routes.SETTINGS) {
+                            Settings(navController)
+                        }
+                    }
+                }
+            }
+        }
+        composeTestRule.waitForIdle()
+    }
+
+    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (error: AssertionError) {
+            val tags = dumpSemanticsTags()
+            throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
+        }
+    }
+
+    private fun waitForEditableText(tag: String, expected: String, timeoutMillis: Long = 20_000) {
+        waitForNodeWithTag(tag, timeoutMillis)
+        composeTestRule.waitForIdle()
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                currentEditableText(tag).trim() == expected
+            }
+        } catch (error: AssertionError) {
+            val actual = currentEditableText(tag).trim()
+            val tags = dumpSemanticsTags()
+            throw AssertionError(
+                "入力値が一致しません: tag=$tag expected=$expected actual=$actual。現在のタグ一覧: $tags",
+                error
+            )
+        }
+        composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+        val actual = currentEditableText(tag).trim()
+        assertEquals("入力値が一致しません: tag=$tag 現在値=$actual", expected, actual)
+    }
+
+    private fun currentEditableText(tag: String): String {
+        return composeTestRule.onNodeWithTag(tag)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.EditableText]
+            .text
+    }
+
+    private fun dumpSemanticsTags(): String {
+        val rootNodes: List<SemanticsNode> = composeTestRule
+            .onAllNodes(isRoot(), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+        val tags: MutableSet<String> = mutableSetOf()
+        rootNodes.forEach { node: SemanticsNode ->
+            collectTestTags(node, tags)
+        }
+        val sortedTags = tags.toList().sorted()
+        return if (sortedTags.isEmpty()) {
+            "<none>"
+        } else {
+            sortedTags.joinToString()
+        }
+    }
+
+    private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
+        val config: SemanticsConfiguration = node.config
+        val tag: String? = if (config.contains(SemanticsProperties.TestTag)) {
+            config[SemanticsProperties.TestTag]
+        } else {
+            null
+        }
+        if (tag != null) {
+            tags.add(tag)
+        }
+        node.children.forEach { child: SemanticsNode ->
+            collectTestTags(child, tags)
+        }
     }
 
     private fun buildReadyPerStateJson(intervalMs: Int): String {

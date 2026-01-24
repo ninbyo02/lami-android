@@ -765,22 +765,50 @@ class SettingsPreferences(private val context: Context) {
         saveSpriteSheetConfig(defaultSpriteSheetConfig)
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveReadyAnimationSettings(settings: ReadyAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveReadyAnimationSettings")
+        }
         context.dataStore.edit { preferences ->
             preferences[readyFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
             preferences[readyIntervalMsKey] = settings.intervalMs
         }
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveTalkingAnimationSettings(settings: ReadyAnimationSettings) {
+        if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveTalkingAnimationSettings")
+        }
         context.dataStore.edit { preferences ->
             preferences[talkingFrameSequenceKey] = settings.frameSequence.joinToString(separator = ",")
             preferences[talkingIntervalMsKey] = settings.intervalMs
         }
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveReadyInsertionAnimationSettings(settings: InsertionAnimationSettings) {
         if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveReadyInsertionAnimationSettings")
             settings.patterns.forEachIndexed { index, pattern ->
                 Log.d(
                     "LamiSprite",
@@ -806,8 +834,16 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    /**
+     * 互換性維持のために残している個別キー保存API。
+     * 永続化の正は per-state JSON（saveSpriteAnimationJson）なので新規コードからは呼ばないこと。
+     */
+    @Deprecated(
+        "Use per-state JSON via saveSpriteAnimationJson(state, json). Per-key storage is legacy and will be removed in a later step."
+    )
     suspend fun saveTalkingInsertionAnimationSettings(settings: InsertionAnimationSettings) {
         if (BuildConfig.DEBUG) {
+            Log.w("LamiSprite", "legacy per-key write: saveTalkingInsertionAnimationSettings")
             settings.patterns.forEachIndexed { index, pattern ->
                 Log.d(
                     "LamiSprite",
@@ -998,7 +1034,7 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkShortInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
+        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0), intervalMs = 130)),
         intervalMs = 130,
     )
     private val talkLongBaseDefaults = ReadyAnimationSettings(
@@ -1007,7 +1043,7 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkLongInsertionDefaults = InsertionAnimationSettings(
         enabled = true,
-        patterns = listOf(InsertionPattern(listOf(1))),
+        patterns = listOf(InsertionPattern(listOf(1), intervalMs = 190)),
         intervalMs = 190,
         everyNLoops = 2,
         probabilityPercent = 100,
@@ -1020,7 +1056,7 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkCalmInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
+        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
         intervalMs = 280,
     )
 
