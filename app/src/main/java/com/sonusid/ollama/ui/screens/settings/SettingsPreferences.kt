@@ -1063,11 +1063,14 @@ class SettingsPreferences(private val context: Context) {
     )
     private val talkLongInsertionDefaults = InsertionAnimationSettings(
         enabled = true,
-        patterns = listOf(InsertionPattern(listOf(1), intervalMs = 190)),
-        intervalMs = 190,
-        everyNLoops = 2,
-        probabilityPercent = 100,
-        cooldownLoops = 0,
+        patterns = listOf(
+            InsertionPattern(frameSequence = listOf(1, 5), weight = 3),
+            InsertionPattern(frameSequence = listOf(2, 5), weight = 1),
+        ),
+        intervalMs = 125,
+        everyNLoops = 3,
+        probabilityPercent = 75,
+        cooldownLoops = 4,
         exclusive = true,
     )
     private val talkCalmBaseDefaults = ReadyAnimationSettings(
