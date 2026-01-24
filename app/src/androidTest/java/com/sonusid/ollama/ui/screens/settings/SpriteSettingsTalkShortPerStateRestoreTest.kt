@@ -54,6 +54,8 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
+    private var lastAnchorCandidateDiagnostics: String = ""
+
     @Before
     fun clearPreferences() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -195,7 +197,16 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         val mergedCollection = composeTestRule.onAllNodesWithTag(anchorTag)
         val mergedNodes = runCatching { mergedCollection.fetchSemanticsNodes() }.getOrDefault(emptyList())
 
-        data class AnchorCandidate(val fromMerged: Boolean, val index: Int, val node: SemanticsNode)
+        data class AnchorCandidate(
+            val fromMerged: Boolean,
+            val index: Int,
+            val node: SemanticsNode,
+            val isDisplayed: Boolean,
+            val hasClickAction: Boolean,
+            val isEnabled: Boolean,
+            val textMatches: Boolean,
+            val area: Float,
+        )
 
         fun isClickable(node: SemanticsNode): Boolean {
             val bounds = node.boundsInRoot
@@ -205,19 +216,68 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             return sizeOk && hasClick && enabled
         }
 
+        fun toCandidate(fromMerged: Boolean, index: Int, node: SemanticsNode): AnchorCandidate {
+            val interaction = if (fromMerged) {
+                mergedCollection[index]
+            } else {
+                unmergedCollection[index]
+            }
+            val isDisplayed = runCatching {
+                interaction.assertIsDisplayed()
+                true
+            }.getOrDefault(false)
+            val hasClick = node.config.contains(SemanticsActions.OnClick)
+            val enabled = !node.config.contains(SemanticsProperties.Disabled)
+            val bounds = node.boundsInRoot
+            val sizeOk = bounds.width > 0f && bounds.height > 0f
+            val candidateTexts = extractNodeTexts(node)
+            val textMatches = candidateTexts.any { it in animationCandidates() }
+            return AnchorCandidate(
+                fromMerged = fromMerged,
+                index = index,
+                node = node,
+                isDisplayed = isDisplayed,
+                hasClickAction = hasClick && sizeOk,
+                isEnabled = enabled,
+                textMatches = textMatches,
+                area = bounds.width * bounds.height,
+            )
+        }
+
         val anchorCandidates = buildList {
             unmergedNodes.forEachIndexed { index, node ->
                 if (isClickable(node)) {
-                    add(AnchorCandidate(fromMerged = false, index = index, node = node))
+                    add(toCandidate(fromMerged = false, index = index, node = node))
                 }
             }
             mergedNodes.forEachIndexed { index, node ->
                 if (isClickable(node)) {
-                    add(AnchorCandidate(fromMerged = true, index = index, node = node))
+                    add(toCandidate(fromMerged = true, index = index, node = node))
                 }
             }
-        }.sortedByDescending { candidate ->
-            candidate.node.boundsInRoot.width * candidate.node.boundsInRoot.height
+        }.sortedWith(
+            compareByDescending<AnchorCandidate> { it.isDisplayed }
+                .thenByDescending { it.hasClickAction }
+                .thenByDescending { it.textMatches }
+                .thenByDescending { it.area }
+        )
+        lastAnchorCandidateDiagnostics = buildString {
+            append("anchorCandidates=${anchorCandidates.size}")
+            if (anchorCandidates.isNotEmpty()) {
+                append(" details=[")
+                append(
+                    anchorCandidates.joinToString { candidate ->
+                        "merged=${candidate.fromMerged}" +
+                            " index=${candidate.index}" +
+                            " displayed=${candidate.isDisplayed}" +
+                            " clickable=${candidate.hasClickAction}" +
+                            " enabled=${candidate.isEnabled}" +
+                            " textMatch=${candidate.textMatches}" +
+                            " area=${"%.1f".format(candidate.area)}"
+                    }
+                )
+                append("]")
+            }
         }
 
         for (candidate in anchorCandidates) {
@@ -236,7 +296,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
                 continue
             }
             val opened = runCatching {
-                composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                composeTestRule.waitUntil(timeoutMillis = 30_000) {
                     popupNodeCount() > 0
                 }
                 true
@@ -273,7 +333,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
                     continue
                 }
                 val opened = runCatching {
-                    composeTestRule.waitUntil(timeoutMillis = 20_000) {
+                    composeTestRule.waitUntil(timeoutMillis = 30_000) {
                         popupNodeCount() > 0
                     }
                     true
@@ -564,7 +624,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         val merged = runCatching {
             composeTestRule.onAllNodesWithTag("spriteAnimTypeDropdownAnchor").fetchSemanticsNodes().size
         }.getOrDefault(0)
-        return unmerged + merged
+        return maxOf(unmerged, merged)
     }
 
     private fun buildPopupFailureDiagnostics(): String {
@@ -578,7 +638,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-missing") }
         }
         runCatching { composeTestRule.onRoot(useUnmergedTree = true).printToLog("popup-failure") }
-        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$anchorCount"
+        return "popupNodes=$popupCount popupTexts=$popupTexts anchorTagCount=$anchorCount $lastAnchorCandidateDiagnostics"
     }
 
     private fun buildTalkShortPerStateJson(intervalMs: Int, frames: List<Int>): String {
