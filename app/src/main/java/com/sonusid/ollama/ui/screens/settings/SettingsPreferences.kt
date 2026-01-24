@@ -1045,13 +1045,17 @@ class SettingsPreferences(private val context: Context) {
     )
     private val errorInsertionDefaults = disabledInsertionDefaults(errorBaseDefaults.intervalMs)
     private val talkShortBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(0, 6, 2, 6, 0),
-        intervalMs = 130,
+        frameSequence = listOf(0, 6, 2, 6, 0, 0),
+        intervalMs = 125,
     )
-    private val talkShortInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+    private val talkShortInsertionDefaults = InsertionAnimationSettings(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0), intervalMs = 130)),
+        patterns = emptyList(),
         intervalMs = 130,
+        everyNLoops = 0,
+        probabilityPercent = 0,
+        cooldownLoops = 0,
+        exclusive = false,
     )
     private val talkLongBaseDefaults = ReadyAnimationSettings(
         frameSequence = listOf(0, 4, 6, 4, 4, 6, 4, 0),
@@ -1075,6 +1079,11 @@ class SettingsPreferences(private val context: Context) {
         patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
         intervalMs = 280,
     )
+
+    fun defaultAnimationSettingsForState(
+        state: SpriteState
+    ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
+        defaultsForState(state)
 
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
