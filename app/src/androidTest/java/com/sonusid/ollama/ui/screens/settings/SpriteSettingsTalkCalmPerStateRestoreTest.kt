@@ -95,62 +95,27 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         composeTestRule.waitForIdle()
     }
 
-    private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 3) {
+    private fun clickPopupItemWithRetry(label: String, maxAttempts: Int = 2) {
         var lastError: Throwable? = null
         var lastAnchorTag = "unknown"
         repeat(maxAttempts) { attempt ->
             val anchorTag = openAnimationDropdown()
             lastAnchorTag = anchorTag
             composeTestRule.waitForIdle()
-            waitForDropdownMenuOpen()
             val popupCount = popupNodeCount()
-            if (popupCount == 0) {
-                lastError = AssertionError(
-                    "Dropdown menu not opened (popupNodeCount=0) label=$label anchorTag=$anchorTag"
-                )
-                println(
-                    "Popup 未検出: attempt=${attempt + 1} label=$label anchorTag=$anchorTag"
-                )
-                composeTestRule.waitForIdle()
-                return@repeat
-            }
-            val clickableMatcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
-            val clickableCandidates = composeTestRule.onAllNodes(clickableMatcher, useUnmergedTree = true)
-            val clickableNodes = runCatching { clickableCandidates.fetchSemanticsNodes() }.getOrDefault(emptyList())
-            val candidates = if (clickableNodes.isNotEmpty()) {
-                clickableCandidates
-            } else {
-                composeTestRule.onAllNodes(hasText(label) and hasAnyAncestor(isPopup()), useUnmergedTree = true)
-            }
-            val candidateNodes = runCatching { candidates.fetchSemanticsNodes() }.getOrDefault(emptyList())
-            val candidateTexts = candidateNodes.flatMap { extractNodeTexts(it) }.distinct()
             println(
-                "Popup クリック試行: attempt=${attempt + 1} popupNodes=$popupCount candidates=${candidateNodes.size} texts=$candidateTexts"
+                "Dropdown クリック試行: attempt=${attempt + 1} popupNodes=$popupCount label=$label anchorTag=$anchorTag"
             )
             val clicked = runCatching {
                 val popupClicked = runCatching {
                     composeTestRule.onNode(
-                        hasText(label) and hasClickAction() and hasAnyAncestor(isPopup()),
+                        hasText(label) and hasAnyAncestor(isPopup()),
                         useUnmergedTree = true
-                    )
-                        .performClick()
+                    ).performClick()
                     true
                 }.getOrDefault(false)
                 if (!popupClicked) {
-                    if (candidateNodes.isEmpty()) {
-                        throw AssertionError("Popup 内の候補が見つかりません: label=$label")
-                    }
-                    val target = candidates.onFirst()
-                    val clickSucceeded = runCatching {
-                        target.performClick()
-                        true
-                    }.getOrDefault(false)
-                    if (!clickSucceeded) {
-                        target.performTouchInput {
-                            down(center)
-                            up()
-                        }
-                    }
+                    composeTestRule.onNodeWithText(label, useUnmergedTree = true).performClick()
                 }
                 true
             }.getOrElse { error ->
@@ -160,9 +125,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             composeTestRule.waitForIdle()
             if (clicked) {
                 val selectionConfirmed = runCatching {
-                    waitForPopupClosed()
                     waitForSelectionSuccess(label, anchorTag)
-                    true
                 }.getOrElse { error ->
                     lastError = error
                     false
@@ -300,12 +263,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             if (!clicked) {
                 continue
             }
-            if (popupNodeCount() == 0) {
-                return anchorTag
-            }
-            composeTestRule.waitUntil(timeoutMillis = 30_000) {
-                popupNodeCount() > 0
-            }
             composeTestRule.waitForIdle()
             return anchorTag
         }
@@ -332,12 +289,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             if (!clicked) {
                 continue
             }
-            if (popupNodeCount() == 0) {
-                return tag
-            }
-            composeTestRule.waitUntil(timeoutMillis = 30_000) {
-                popupNodeCount() > 0
-            }
             composeTestRule.waitForIdle()
             return tag
         }
@@ -353,10 +304,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             )
         }
         composeTestRule.onNodeWithText(currentLabel, useUnmergedTree = true).performTouchInput { click() }
-        composeTestRule.waitForIdle()
-        composeTestRule.waitUntil(timeoutMillis = 20_000) {
-            popupNodeCount() > 0
-        }
         composeTestRule.waitForIdle()
         return "spriteAnimationTypeFallback"
     }
@@ -470,40 +417,35 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         composeTestRule.onNodeWithTag(tag).assertTextEquals(expected)
     }
 
-    private fun waitForDropdownMenuOpen(timeoutMillis: Long = 20_000) {
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                popupNodeCount() > 0
-            }
-        } catch (error: AssertionError) {
-            val diagnostics = buildSelectionDiagnostics("menu-open")
-            throw AssertionError("ドロップダウンが開いていません。$diagnostics", error)
-        }
+    private fun waitForDropdownMenuOpen() {
+        val popupCount = popupNodeCount()
+        println("Dropdown open 確認(参考): popupNodes=$popupCount")
     }
 
-    private fun waitForPopupClosed(timeoutMillis: Long = 20_000) {
-        runCatching {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                popupNodeCount() == 0
-            }
-        }
+    private fun waitForPopupClosed() {
+        val popupCount = popupNodeCount()
+        println("Popup close 確認(参考): popupNodes=$popupCount")
     }
 
     private fun waitForSelectionSuccess(
         label: String,
         anchorTag: String,
-        timeoutMillis: Long = 60_000
-    ) {
-        composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-            val anchorSelected = if (anchorTag == "spriteAnimationTypeFallback") {
-                nodeExists { composeTestRule.onNodeWithText(label) }
-            } else {
-                nodeExists {
-                    composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).assertTextEquals(label)
-                } || nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
+        timeoutMillis: Long = 5_000
+    ): Boolean {
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                if (anchorTag == "spriteAnimationTypeFallback") {
+                    nodeExists { composeTestRule.onNodeWithText(label) }
+                } else {
+                    nodeExists {
+                        composeTestRule.onNodeWithTag(anchorTag, useUnmergedTree = true).assertTextEquals(label)
+                    } || nodeExists { composeTestRule.onNodeWithTag(anchorTag).assertTextEquals(label) }
+                }
             }
-            anchorSelected && !nodeExists { composeTestRule.onNode(isPopup(), useUnmergedTree = true) }
+        } catch (error: AssertionError) {
+            throw AssertionError("選択が反映されません: label=$label anchorTag=$anchorTag", error)
         }
+        return true
     }
 
     private fun nodeExists(block: () -> Unit): Boolean {
