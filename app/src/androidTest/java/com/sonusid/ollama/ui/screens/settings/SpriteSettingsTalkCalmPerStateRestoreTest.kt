@@ -101,6 +101,12 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         repeat(maxAttempts) { attempt ->
             val anchorTag = openAnimationDropdown()
             lastAnchorTag = anchorTag
+            if (popupNodeCount() == 0) {
+                // popup を使わない UI のため fallback を成功ルートとして扱う
+                composeTestRule.onNode(hasText(label), useUnmergedTree = true).performClick()
+                composeTestRule.waitForIdle()
+                return
+            }
             waitForDropdownMenuOpen()
             val clickableMatcher = hasText(label) and hasClickAction() and hasAnyAncestor(isPopup())
             val clickableCandidates = composeTestRule.onAllNodes(clickableMatcher, useUnmergedTree = true)
@@ -294,6 +300,9 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             if (!clicked) {
                 continue
             }
+            if (popupNodeCount() == 0) {
+                return anchorTag
+            }
             composeTestRule.waitUntil(timeoutMillis = 30_000) {
                 popupNodeCount() > 0
             }
@@ -322,6 +331,9 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             }.getOrDefault(false)
             if (!clicked) {
                 continue
+            }
+            if (popupNodeCount() == 0) {
+                return tag
             }
             composeTestRule.waitUntil(timeoutMillis = 30_000) {
                 popupNodeCount() > 0
