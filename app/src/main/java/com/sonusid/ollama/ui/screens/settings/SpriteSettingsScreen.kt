@@ -2511,7 +2511,13 @@ fun SpriteSettingsScreen(navController: NavController) {
             pattern2IntervalInput = pattern2IntervalInput,
             frameCount = spriteSheetConfig.frameCount
         )
-        val intervalResult = parseIntervalMsInput(intervalInput)
+        val shouldRequireInterval = patternsResult.patterns?.isEmpty() == true
+        val shouldValidateInterval = shouldRequireInterval || intervalInput.isNotBlank()
+        val intervalResult = if (shouldValidateInterval) {
+            parseIntervalMsInput(intervalInput)
+        } else {
+            ValidationResult(null, null)
+        }
         val everyNResult = parseEveryNLoopsInput(everyNInput)
         val probabilityResult = parseProbabilityPercentInput(probabilityInput)
         val cooldownResult = parseCooldownLoopsInput(cooldownInput)
@@ -2580,7 +2586,17 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
 
         val patterns = patternsResult.patterns
-        val interval = intervalResult.value
+        val fallbackInterval = when (target) {
+            AnimationType.READY -> appliedReadyInsertionIntervalMs
+            AnimationType.TALKING -> appliedTalkingInsertionIntervalMs
+            else -> resolveExtraAnimationInput(target).appliedInsertion.intervalMs
+        }
+        val interval = when {
+            intervalResult.error != null -> null
+            intervalResult.value != null -> intervalResult.value
+            !shouldRequireInterval -> fallbackInterval
+            else -> null
+        }
         val everyN = everyNResult.value
         val probability = probabilityResult.value
         val cooldown = cooldownResult.value
@@ -4939,18 +4955,39 @@ private fun ReadyAnimationTab(
                                 }
                             )
                         }
+                        val hasOptionalDefaultInterval = insertionState.enabled && insertionState.patterns.isNotEmpty()
                         OutlinedTextField(
                             value = insertionState.intervalInput,
                             onValueChange = insertionState.onIntervalInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
-                            label = { Text("デフォルト周期（ms）") },
+                                .fillMaxWidth()
+                                .testTag("spriteInsertionIntervalInput"),
+                            label = {
+                                Text(
+                                    if (hasOptionalDefaultInterval) {
+                                        "デフォルト周期（ms）（任意）"
+                                    } else {
+                                        "デフォルト周期（ms）"
+                                    }
+                                )
+                            },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isError = insertionState.intervalError != null,
-                            supportingText = insertionState.intervalError?.let { errorText ->
-                                { Text(errorText, color = Color.Red) }
+                            isError = !hasOptionalDefaultInterval && insertionState.intervalError != null,
+                            supportingText = if (hasOptionalDefaultInterval) {
+                                {
+                                    Column {
+                                        Text("未入力の場合はパターンの周期を使用します")
+                                        insertionState.intervalError?.let { errorText ->
+                                            Text(errorText, color = Color.Red)
+                                        }
+                                    }
+                                }
+                            } else {
+                                insertionState.intervalError?.let { errorText ->
+                                    { Text(errorText, color = Color.Red) }
+                                }
                             }
                         )
                         OutlinedTextField(
