@@ -5,7 +5,6 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
@@ -84,16 +83,9 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
 
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
         waitForNodeWithTag("spriteAnimList")
-        val scrollableNodes = runCatching {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).fetchSemanticsNodes()
-        }.getOrDefault(emptyList())
-        val scrollTarget = if (scrollableNodes.isNotEmpty()) {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true).onFirst()
-        } else {
-            composeTestRule.onNodeWithTag("spriteAnimList")
-        }
         val scrolled = runCatching {
-            scrollTarget.performScrollToNode(hasTestTag(anchorTag))
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(anchorTag))
             true
         }.getOrDefault(false)
         if (scrolled) {

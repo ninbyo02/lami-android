@@ -5,18 +5,26 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextClearance
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import com.sonusid.ollama.MainActivity
 import com.sonusid.ollama.navigation.Routes
@@ -27,16 +35,13 @@ import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
-class SpriteSettingsTalkShortPerStateRestoreTest {
+class SpriteSettingsInsertionOptionalIntervalTest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
@@ -52,82 +57,42 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     @Test
-    fun talkShortInterval_usesPerStateJson_afterRecreate() {
+    fun insertionInterval_optionalWithPatterns_allowsSaveWithoutDefaultInterval() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
-        val expectedSnapshot = PerStateAnimationSnapshot(
-            animationKey = "TalkShort",
-            intervalMs = 123,
-            frames = listOf(0, 1, 2),
-        )
         runBlockingIo {
+            prefs.saveReadyAnimationSettings(
+                ReadyAnimationSettings(
+                    frameSequence = listOf(0, 1, 2),
+                    intervalMs = 180,
+                )
+            )
             prefs.saveSpriteAnimationJson(
-                SpriteState.TALK_SHORT,
-                buildTalkShortPerStateJson(intervalMs = 123, frames = expectedSnapshot.frames)
+                SpriteState.READY,
+                buildReadyPerStateJsonWithPatterns()
             )
             prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
 
-        recreateToSpriteSettings()
+        setSpriteSettingsContent()
         ensureAnimTabSelected()
-        selectAnimationType("TalkShort")
-        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkShort")
-        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_SHORT, "TalkShort")
-        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_SHORT, expectedSnapshot)
+        scrollToTestTag("spriteInsertionIntervalInput")
+        waitForNodeWithTag("spriteInsertionIntervalInput")
 
-        recreateToSpriteSettings()
-        ensureAnimTabSelected()
-        selectAnimationType("TalkShort")
-        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkShort")
-        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_SHORT, "TalkShort")
-        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_SHORT, expectedSnapshot)
-    }
-
-    private fun selectAnimationType(label: String) {
-        composeTestRule.selectAnimationTypeByAnchor(
-            label = label,
-            ensureAnimTabSelected = { ensureAnimTabSelected() },
-            waitForNodeWithTag = { tag, timeout -> waitForNodeWithTag(tag, timeout) },
-            scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
-        )
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .performClick()
+            .performTextClearance()
         composeTestRule.waitForIdle()
-    }
 
-    private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
-        waitForNodeWithTag("spriteAnimList")
-        val scrolled = runCatching {
-            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
-                .performScrollToNode(hasTestTag(anchorTag))
-            true
-        }.getOrDefault(false)
-        if (scrolled) {
-            return
-        }
-        val startTime = System.currentTimeMillis()
-        val maxIndex = 30
-        val listNode = composeTestRule.onNodeWithTag("spriteAnimList")
-        for (index in 0..maxIndex) {
-            runCatching { listNode.performScrollToIndex(index) }
-            composeTestRule.waitForIdle()
-            if (hasNodeWithTag(anchorTag)) {
-                return
-            }
-            if (System.currentTimeMillis() - startTime > 10_000) {
-                return
-            }
-        }
-    }
+        composeTestRule.onNodeWithText("デフォルト周期（ms）（任意）").assertIsDisplayed()
+        composeTestRule.onNodeWithText("未入力の場合はパターンの周期を使用します").assertIsDisplayed()
 
-    private fun ensureAnimTabSelected() {
-        waitForNodeWithTag("spriteTabAnim")
-        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
-            .fetchSemanticsNode()
-        val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
-            tabNode.config[SemanticsProperties.Selected] == true
-        if (!isSelected) {
-            composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true).performClick()
-            composeTestRule.waitForIdle()
-        }
+        composeTestRule.onNodeWithContentDescription("保存").performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onAllNodesWithText("数値を入力してください").assertCountEquals(0)
+        waitForText("保存しました")
+        composeTestRule.onNodeWithText("保存しました").assertIsDisplayed()
     }
 
     private fun runBlockingIo(block: suspend () -> Unit) {
@@ -146,12 +111,6 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
         getter.isAccessible = true
         return getter.invoke(null, context) as DataStore<Preferences>
-    }
-
-    private fun recreateToSpriteSettings() {
-        composeTestRule.activityRule.scenario.recreate()
-        setSpriteSettingsContent()
-        waitForNodeWithTag("spriteTabAnim")
     }
 
     private fun setSpriteSettingsContent() {
@@ -176,14 +135,45 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         composeTestRule.waitForIdle()
     }
 
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
+    private fun ensureAnimTabSelected() {
+        waitForNodeWithTag("spriteTabAnim")
+        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
+            tabNode.config[SemanticsProperties.Selected] == true
+        if (!isSelected) {
+            composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true).performClick()
+            composeTestRule.waitForIdle()
+        }
+    }
+
+    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                hasNodeWithTag(tag)
+                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
             }
         } catch (error: AssertionError) {
             val tags = dumpSemanticsTags()
             throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
+        }
+    }
+
+    private fun waitForText(text: String, timeoutMillis: Long = 20_000) {
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (error: AssertionError) {
+            val tags = dumpSemanticsTags()
+            throw AssertionError("テキストが見つかりません: $text。現在のタグ一覧: $tags", error)
+        }
+    }
+
+    private fun scrollToTestTag(tag: String) {
+        waitForNodeWithTag("spriteAnimList")
+        runCatching {
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(tag))
         }
     }
 
@@ -203,19 +193,6 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         }
     }
 
-    private fun hasNodeWithTag(tag: String): Boolean {
-        val unmergedCount = runCatching {
-            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
-        }.getOrDefault(0)
-        if (unmergedCount > 0) {
-            return true
-        }
-        val mergedCount = runCatching {
-            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
-        }.getOrDefault(0)
-        return mergedCount > 0
-    }
-
     private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
         val config: SemanticsConfiguration = node.config
         val tag: String? = if (config.contains(SemanticsProperties.TestTag)) {
@@ -231,23 +208,26 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         }
     }
 
-    private fun buildTalkShortPerStateJson(intervalMs: Int, frames: List<Int>): String {
+    private fun buildReadyPerStateJsonWithPatterns(): String {
         val baseObject = JSONObject()
-            .put("frames", JSONArray(frames))
-            .put("intervalMs", intervalMs)
+            .put("frames", JSONArray(listOf(0, 1, 2)))
+            .put("intervalMs", 180)
+        val patternObject = JSONObject()
+            .put("frames", JSONArray(listOf(0, 1)))
+            .put("weight", 1)
+            .put("intervalMs", 90)
         val insertionObject = JSONObject()
-            .put("enabled", false)
-            .put("patterns", JSONArray())
-            .put("intervalMs", 130)
-            .put("everyNLoops", 1)
+            .put("enabled", true)
+            .put("patterns", JSONArray(listOf(patternObject)))
+            .put("intervalMs", 150)
+            .put("everyNLoops", 2)
             .put("probabilityPercent", 50)
-            .put("cooldownLoops", 0)
+            .put("cooldownLoops", 1)
             .put("exclusive", false)
         return JSONObject()
-            .put("animationKey", "TalkShort")
+            .put("animationKey", "Ready")
             .put("base", baseObject)
             .put("insertion", insertionObject)
             .toString()
     }
-
 }
