@@ -96,7 +96,7 @@ data class InsertionAnimationSettings(
                 InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 120),
                 InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 125),
             ),
-            intervalMs = 120,
+            intervalMs = 130,
             everyNLoops = 4,
             probabilityPercent = 45,
             cooldownLoops = 3,
