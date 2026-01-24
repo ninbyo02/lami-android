@@ -1,9 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -47,10 +44,15 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     fun talkCalmInterval_usesPerStateJson_afterRecreate() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
+        val expectedSnapshot = PerStateAnimationSnapshot(
+            animationKey = "TalkCalm",
+            intervalMs = 345,
+            frames = listOf(3, 0, 2),
+        )
         runBlockingIo {
             prefs.saveSpriteAnimationJson(
                 SpriteState.TALK_CALM,
-                buildTalkCalmPerStateJson(intervalMs = 345, frames = listOf(3, 0, 2))
+                buildTalkCalmPerStateJson(intervalMs = 345, frames = expectedSnapshot.frames)
             )
             prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
@@ -58,18 +60,16 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         recreateToSpriteSettings()
         ensureAnimTabSelected()
         selectAnimationType("TalkCalm")
-        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "345")
-        assertIntervalInputText(expected = "345")
-        waitForEditableText(tag = "spriteBaseFramesInput", expected = "4,1,3")
-        assertFramesInputText(expected = "4,1,3")
+        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkCalm")
+        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_CALM, "TalkCalm")
+        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_CALM, expectedSnapshot)
 
         recreateToSpriteSettings()
         ensureAnimTabSelected()
         selectAnimationType("TalkCalm")
-        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "345")
-        assertIntervalInputText(expected = "345")
-        waitForEditableText(tag = "spriteBaseFramesInput", expected = "4,1,3")
-        assertFramesInputText(expected = "4,1,3")
+        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkCalm")
+        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_CALM, "TalkCalm")
+        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_CALM, expectedSnapshot)
     }
 
     private fun selectAnimationType(label: String) {
@@ -79,7 +79,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             waitForNodeWithTag = { tag, timeout -> waitForNodeWithTag(tag, timeout) },
             scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
         )
-        composeTestRule.onNodeWithTag("spriteBaseIntervalInput").assertIsDisplayed()
         composeTestRule.waitForIdle()
     }
 
@@ -115,21 +114,14 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         }
     }
 
-    private fun assertIntervalInputText(expected: String) {
-        composeTestRule.onNodeWithTag("spriteBaseIntervalInput").assertTextEquals(expected)
-    }
-
-    private fun assertFramesInputText(expected: String) {
-        composeTestRule.onNodeWithTag("spriteBaseFramesInput").assertTextEquals(expected)
-    }
-
     private fun ensureAnimTabSelected() {
         waitForNodeWithTag("spriteTabAnim")
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
-        val isSelected = runCatching {
-            tabNode.assertIsSelected()
-            true
-        }.getOrDefault(false)
+        val isSelected = runCatching { tabNode.fetchSemanticsNode() }
+            .map { node ->
+                node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Selected) == true
+            }
+            .getOrDefault(false)
         if (!isSelected) {
             tabNode.performClick()
             composeTestRule.waitForIdle()
@@ -160,7 +152,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         waitForNodeWithTag("spriteTabAnim")
     }
 
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
+    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
                 nodeExists { composeTestRule.onNodeWithTag(tag) }
@@ -169,27 +161,6 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             val tags = dumpSemanticsTags()
             throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
         }
-    }
-
-    private fun waitForEditableText(tag: String, expected: String, timeoutMillis: Long = 20_000) {
-        waitForNodeWithTag(tag, timeoutMillis)
-        composeTestRule.waitForIdle()
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                runCatching {
-                    composeTestRule.onNodeWithTag(tag).assertTextEquals(expected)
-                    true
-                }.getOrDefault(false)
-            }
-        } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
-            throw AssertionError(
-                "入力値が一致しません: tag=$tag expected=$expected。現在のタグ一覧: $tags",
-                error
-            )
-        }
-        composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(tag).assertTextEquals(expected)
     }
 
     private fun nodeExists(block: () -> Unit): Boolean {

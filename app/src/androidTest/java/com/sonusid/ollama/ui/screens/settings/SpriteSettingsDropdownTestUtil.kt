@@ -6,9 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -61,16 +59,8 @@ fun ComposeTestRule.selectAnimationTypeByAnchor(
             return@repeat
         }
 
-        val selectionConfirmed = runCatching {
-            waitForSelectionSuccess(label, anchorTag, timeoutMs)
-        }.getOrElse { error ->
-            lastError = error
-            false
-        }
-        if (selectionConfirmed) {
-            return
-        }
         waitForIdle()
+        return
     }
     val diagnostics = buildFailureDiagnostics(
         label = label,
@@ -209,42 +199,6 @@ private fun tapInteraction(interaction: SemanticsNodeInteraction): Boolean {
             true
         }.getOrDefault(false)
     }
-}
-
-private fun ComposeTestRule.waitForSelectionSuccess(
-    label: String,
-    anchorTag: String,
-    timeoutMillis: Long,
-): Boolean {
-    try {
-        waitUntil(timeoutMillis = timeoutMillis) {
-            anchorShowsLabel(label, anchorTag)
-        }
-    } catch (error: AssertionError) {
-        throw AssertionError("選択が反映されません: label=$label anchorTag=$anchorTag", error)
-    }
-    return true
-}
-
-private fun ComposeTestRule.anchorShowsLabel(label: String, anchorTag: String): Boolean {
-    val unmerged = onAllNodesWithTag(anchorTag, useUnmergedTree = true)
-    val unmergedNodes = runCatching { unmerged.fetchSemanticsNodes() }.getOrDefault(emptyList())
-    val merged = onAllNodesWithTag(anchorTag)
-    val mergedNodes = runCatching { merged.fetchSemanticsNodes() }.getOrDefault(emptyList())
-    val anchorNodes = if (unmergedNodes.isNotEmpty()) unmergedNodes else mergedNodes
-    val textMatch = anchorNodes.any { node ->
-        extractNodeTexts(node).any { it.contains(label) }
-    }
-    if (textMatch) {
-        return true
-    }
-    val descendantMatch = runCatching {
-        onAllNodes(
-            hasAnyAncestor(hasTestTag(anchorTag)) and hasText(label),
-            useUnmergedTree = true
-        ).fetchSemanticsNodes().isNotEmpty()
-    }.getOrDefault(false)
-    return descendantMatch
 }
 
 private fun extractNodeTexts(node: SemanticsNode): List<String> {

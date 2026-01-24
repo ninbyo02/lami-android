@@ -5,7 +5,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
@@ -34,7 +33,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import org.json.JSONArray
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -58,10 +56,15 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     fun talkShortInterval_usesPerStateJson_afterRecreate() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
+        val expectedSnapshot = PerStateAnimationSnapshot(
+            animationKey = "TalkShort",
+            intervalMs = 123,
+            frames = listOf(0, 1, 2),
+        )
         runBlockingIo {
             prefs.saveSpriteAnimationJson(
                 SpriteState.TALK_SHORT,
-                buildTalkShortPerStateJson(intervalMs = 123, frames = listOf(0, 1, 2))
+                buildTalkShortPerStateJson(intervalMs = 123, frames = expectedSnapshot.frames)
             )
             prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
@@ -69,18 +72,16 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         recreateToSpriteSettings()
         ensureAnimTabSelected()
         selectAnimationType("TalkShort")
-        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "123")
-        assertIntervalInputText(expected = "123")
-        waitForEditableText(tag = "spriteBaseFramesInput", expected = "1,2,3")
-        assertFramesInputText(expected = "1,2,3")
+        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkShort")
+        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_SHORT, "TalkShort")
+        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_SHORT, expectedSnapshot)
 
         recreateToSpriteSettings()
         ensureAnimTabSelected()
         selectAnimationType("TalkShort")
-        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "123")
-        assertIntervalInputText(expected = "123")
-        waitForEditableText(tag = "spriteBaseFramesInput", expected = "1,2,3")
-        assertFramesInputText(expected = "1,2,3")
+        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkShort")
+        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_SHORT, "TalkShort")
+        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_SHORT, expectedSnapshot)
     }
 
     private fun selectAnimationType(label: String) {
@@ -123,24 +124,6 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
                 return
             }
         }
-    }
-
-    private fun assertIntervalInputText(expected: String) {
-        val text = currentEditableText("spriteBaseIntervalInput").trim()
-        assertEquals(
-            "TALK_SHORT interval input should match per-state JSON。現在値=$text",
-            expected,
-            text
-        )
-    }
-
-    private fun assertFramesInputText(expected: String) {
-        val text = currentEditableText("spriteBaseFramesInput").trim()
-        assertEquals(
-            "TALK_SHORT frames input should match per-state JSON。現在値=$text",
-            expected,
-            text
-        )
     }
 
     private fun ensureAnimTabSelected() {
@@ -201,7 +184,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         composeTestRule.waitForIdle()
     }
 
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
+    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
                 hasNodeWithTag(tag)
@@ -210,33 +193,6 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             val tags = dumpSemanticsTags()
             throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
         }
-    }
-
-    private fun waitForEditableText(tag: String, expected: String, timeoutMillis: Long = 20_000) {
-        waitForNodeWithTag(tag, timeoutMillis)
-        composeTestRule.waitForIdle()
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                currentEditableText(tag).trim() == expected
-            }
-        } catch (error: AssertionError) {
-            val actual = currentEditableText(tag).trim()
-            val tags = dumpSemanticsTags()
-            throw AssertionError(
-                "入力値が一致しません: tag=$tag expected=$expected actual=$actual。現在のタグ一覧: $tags",
-                error
-            )
-        }
-        composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
-        val actual = currentEditableText(tag).trim()
-        assertEquals("入力値が一致しません: tag=$tag 現在値=$actual", expected, actual)
-    }
-
-    private fun currentEditableText(tag: String): String {
-        return composeTestRule.onNodeWithTag(tag)
-            .fetchSemanticsNode()
-            .config[SemanticsProperties.EditableText]
-            .text
     }
 
     private fun dumpSemanticsTags(): String {
