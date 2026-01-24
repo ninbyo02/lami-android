@@ -1074,13 +1074,17 @@ class SettingsPreferences(private val context: Context) {
         exclusive = true,
     )
     private val talkCalmBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(7, 4, 7, 8, 7),
-        intervalMs = 280,
+        frameSequence = listOf(0, 1, 5, 1, 0, 1, 0),
+        intervalMs = 240,
     )
-    private val talkCalmInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+    private val talkCalmInsertionDefaults = InsertionAnimationSettings(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
+        patterns = emptyList(),
         intervalMs = 280,
+        everyNLoops = 0,
+        probabilityPercent = 0,
+        cooldownLoops = 0,
+        exclusive = false,
     )
 
     fun defaultAnimationSettingsForState(

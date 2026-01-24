@@ -258,6 +258,8 @@ private fun buildExtraAnimationDefaults(
         settingsPreferences.defaultAnimationSettingsForState(SpriteState.TALK_SHORT)
     val (talkLongBaseDefaults, talkLongInsertionDefaults) =
         settingsPreferences.defaultAnimationSettingsForState(SpriteState.TALK_LONG)
+    val (talkCalmBaseDefaults, talkCalmInsertionDefaults) =
+        settingsPreferences.defaultAnimationSettingsForState(SpriteState.TALK_CALM)
     return mapOf(
         AnimationType.IDLE to AnimationDefaults(
             base = ReadyAnimationSettings.IDLE_DEFAULT,
@@ -276,12 +278,8 @@ private fun buildExtraAnimationDefaults(
             insertion = talkLongInsertionDefaults,
         ),
         AnimationType.TALK_CALM to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(7, 4, 7, 8, 7), intervalMs = 280),
-            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-                enabled = false,
-                patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
-                intervalMs = 280,
-            ),
+            base = talkCalmBaseDefaults,
+            insertion = talkCalmInsertionDefaults,
         ),
         AnimationType.ERROR_LIGHT to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(5, 7, 5), intervalMs = 390),
