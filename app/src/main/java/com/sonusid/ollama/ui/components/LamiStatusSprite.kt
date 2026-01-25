@@ -145,7 +145,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorLight to AnimationSpec(
-        frames = listOf(5, 7, 5),
+        frames = listOf(4, 6, 7, 6, 4),
         frameDuration = FrameDurationSpec(minMs = 360L, maxMs = 420L, jitterFraction = 0f),
         insertions = emptyList(),
     ),
