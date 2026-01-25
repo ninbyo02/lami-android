@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
+import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
 import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
@@ -145,7 +146,7 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorLight to AnimationSpec(
-        frames = listOf(4, 6, 7, 6, 4),
+        frames = SpriteAnimationDefaults.ERROR_LIGHT_FRAMES,
         frameDuration = FrameDurationSpec(minMs = 360L, maxMs = 420L, jitterFraction = 0f),
         insertions = emptyList(),
     ),
