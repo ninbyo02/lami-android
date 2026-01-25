@@ -94,6 +94,48 @@ class SpriteAnimationsPerStateJsonSpecTest {
     }
 
     @Test
+    fun ensurePerStateAnimationJsonsInitialized_sets_error_json_to_default() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+
+        val ensureResult = prefs.ensurePerStateAnimationJsonsInitialized()
+        if (ensureResult.isFailure) {
+            fail("ensurePerStateAnimationJsonsInitialized failed: ${ensureResult.exceptionOrNull()?.message}")
+        }
+
+        val errorJson = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.ERROR).first() }
+        if (errorJson.isNullOrBlank()) {
+            fail("error json が未初期化")
+            return@runBlocking
+        }
+        val errorResult = prefs.parseAndValidatePerStateAnimationJson(errorJson, SpriteState.ERROR)
+        assertTrue("error json の解析に失敗: ${errorResult.exceptionOrNull()?.message}", errorResult.isSuccess)
+        val error = errorResult.getOrThrow()
+        assertEquals("error animationKey が不正: ${error.animationKey}", "ErrorLight", error.animationKey)
+        assertEquals("error baseFrames が不正: ${error.baseFrames}", listOf(4, 6, 7, 6, 4), error.baseFrames)
+        assertEquals("error baseIntervalMs が不正: ${error.baseIntervalMs}", 360, error.baseIntervalMs)
+        assertTrue("error insertion.enabled が true になっていない", error.insertion.enabled)
+        assertEquals("error insertion.intervalMs が不正: ${error.insertion.intervalMs}", 360, error.insertion.intervalMs)
+        assertEquals("error insertion.everyNLoops が不正: ${error.insertion.everyNLoops}", 3, error.insertion.everyNLoops)
+        assertEquals(
+            "error insertion.probabilityPercent が不正: ${error.insertion.probabilityPercent}",
+            65,
+            error.insertion.probabilityPercent
+        )
+        assertEquals(
+            "error insertion.cooldownLoops が不正: ${error.insertion.cooldownLoops}",
+            4,
+            error.insertion.cooldownLoops
+        )
+        assertTrue("error insertion.exclusive が true", !error.insertion.exclusive)
+        assertEquals("error insertion.patterns の件数が不正: ${error.insertion.patterns}", 1, error.insertion.patterns.size)
+        val pattern = error.insertion.patterns.first()
+        assertEquals("error insertion.pattern.frames が不正: ${pattern.frames}", listOf(2, 4), pattern.frames)
+        assertEquals("error insertion.pattern.weight が不正: ${pattern.weight}", 1, pattern.weight)
+        assertEquals("error insertion.pattern.intervalMs が不正: ${pattern.intervalMs}", 480, pattern.intervalMs)
+    }
+
+    @Test
     fun perState_error_json_uses_selected_key_when_initialized() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)

@@ -3120,7 +3120,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                     SpriteState.IDLE -> resolveInputState(selectedAnimation).appliedInsertion.intervalMs
                     SpriteState.THINKING -> InsertionAnimationSettings.THINKING_DEFAULT.intervalMs
                     SpriteState.OFFLINE -> InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs
-                    SpriteState.ERROR -> InsertionAnimationSettings.ERROR_DEFAULT.intervalMs
+                    SpriteState.ERROR -> settingsPreferences
+                        .defaultAnimationSettingsForState(SpriteState.ERROR)
+                        .second
+                        .intervalMs
                     else -> InsertionAnimationSettings.DEFAULT.intervalMs
                 }
                 val insertionIntervalMs = validatedInsertion?.intervalMs ?: defaultInsertionIntervalMs
