@@ -1139,11 +1139,6 @@ class SettingsPreferences(private val context: Context) {
         exclusive = true,
     )
 
-    fun defaultAnimationSettingsForState(
-        state: SpriteState
-    ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
-        defaultsForState(state)
-
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
