@@ -94,11 +94,59 @@ class SpriteAnimationsPerStateJsonSpecTest {
     }
 
     @Test
+    fun perState_error_json_uses_selected_key_when_initialized() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+
+        prefs.saveSelectedKey(SpriteState.ERROR, "ErrorHeavy")
+
+        val migrateResult = prefs.migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
+        if (migrateResult.isFailure) {
+            fail("migrateLegacyAllAnimationsJsonToPerStateIfNeeded failed: ${migrateResult.exceptionOrNull()?.message}")
+        }
+        val ensureResult = prefs.ensurePerStateAnimationJsonsInitialized()
+        if (ensureResult.isFailure) {
+            fail("ensurePerStateAnimationJsonsInitialized failed: ${ensureResult.exceptionOrNull()?.message}")
+        }
+
+        val errorJson = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.ERROR).first() }
+        if (errorJson.isNullOrBlank()) {
+            fail("error json が未初期化")
+            return@runBlocking
+        }
+        val errorResult = prefs.parseAndValidatePerStateAnimationJson(errorJson, SpriteState.ERROR)
+        assertTrue("error json の解析に失敗: ${errorResult.exceptionOrNull()?.message}", errorResult.isSuccess)
+        val error = errorResult.getOrThrow()
+        assertEquals("error animationKey が不正: ${error.animationKey}", "ErrorHeavy", error.animationKey)
+        assertEquals("error baseFrames が不正: ${error.baseFrames}", listOf(5, 5, 5, 7, 5), error.baseFrames)
+        assertEquals("error baseIntervalMs が不正: ${error.baseIntervalMs}", 400, error.baseIntervalMs)
+        assertTrue("error insertion.enabled が true になっていない", error.insertion.enabled)
+        assertEquals("error insertion.intervalMs が不正: ${error.insertion.intervalMs}", 400, error.insertion.intervalMs)
+        assertEquals("error insertion.everyNLoops が不正: ${error.insertion.everyNLoops}", 6, error.insertion.everyNLoops)
+        assertEquals(
+            "error insertion.probabilityPercent が不正: ${error.insertion.probabilityPercent}",
+            100,
+            error.insertion.probabilityPercent
+        )
+        assertEquals(
+            "error insertion.cooldownLoops が不正: ${error.insertion.cooldownLoops}",
+            0,
+            error.insertion.cooldownLoops
+        )
+        assertTrue("error insertion.exclusive が false", error.insertion.exclusive)
+        assertEquals("error insertion.patterns の件数が不正: ${error.insertion.patterns}", 1, error.insertion.patterns.size)
+        val pattern = error.insertion.patterns.first()
+        assertEquals("error insertion.pattern.frames が不正: ${pattern.frames}", listOf(2), pattern.frames)
+        assertEquals("error insertion.pattern.weight が不正: ${pattern.weight}", 1, pattern.weight)
+        assertEquals("error insertion.pattern.intervalMs が不正: ${pattern.intervalMs}", 400, pattern.intervalMs)
+    }
+
+    @Test
     fun error_default_settings_are_resolved_by_key() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
 
-        val (lightBase, lightInsertion) = prefs.defaultAnimationSettingsForErrorKey("ErrorLight")
+        val (lightBase, lightInsertion) = prefs.defaultErrorAnimationSettingsForKey("ErrorLight")
         assertEquals("ErrorLight baseFrames が不正: ${lightBase.frameSequence}", listOf(4, 6, 7, 6, 4), lightBase.frameSequence)
         assertEquals("ErrorLight baseIntervalMs が不正: ${lightBase.intervalMs}", 360, lightBase.intervalMs)
         assertTrue("ErrorLight insertion.enabled が true になっていない", lightInsertion.enabled)
@@ -125,7 +173,7 @@ class SpriteAnimationsPerStateJsonSpecTest {
         assertEquals("ErrorLight insertion.pattern.weight が不正: ${lightPattern.weight}", 1, lightPattern.weight)
         assertEquals("ErrorLight insertion.pattern.intervalMs が不正: ${lightPattern.intervalMs}", 480, lightPattern.intervalMs)
 
-        val (heavyBase, heavyInsertion) = prefs.defaultAnimationSettingsForErrorKey("ErrorHeavy")
+        val (heavyBase, heavyInsertion) = prefs.defaultErrorAnimationSettingsForKey("ErrorHeavy")
         assertEquals("ErrorHeavy baseFrames が不正: ${heavyBase.frameSequence}", listOf(5, 5, 5, 7, 5), heavyBase.frameSequence)
         assertEquals("ErrorHeavy baseIntervalMs が不正: ${heavyBase.intervalMs}", 400, heavyBase.intervalMs)
         assertTrue("ErrorHeavy insertion.enabled が true になっていない", heavyInsertion.enabled)
