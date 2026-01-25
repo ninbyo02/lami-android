@@ -635,9 +635,10 @@ class SettingsPreferences(private val context: Context) {
         }
         var saved = false
         missingStates.forEach { state ->
-            val (baseDefaults, insertionDefaults) = defaultsForState(state)
+            val defaultKey = defaultKeyForState(state)
+            val (baseDefaults, insertionDefaults) = defaultAnimationSettingsForStateAndKey(state, defaultKey)
             val perStateJson = buildPerStateAnimationJsonOrNull(
-                animationKey = defaultKeyForState(state),
+                animationKey = defaultKey,
                 baseSettings = baseDefaults,
                 insertionSettings = insertionDefaults,
             )
@@ -890,6 +891,23 @@ class SettingsPreferences(private val context: Context) {
         state: SpriteState,
     ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> = defaultsForState(state)
 
+    fun defaultAnimationSettingsForErrorKey(
+        selectedKey: String,
+    ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
+        when (selectedKey) {
+            "ErrorHeavy" -> errorHeavyBaseDefaults to errorHeavyInsertionDefaults
+            else -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
+        }
+
+    fun defaultAnimationSettingsForStateAndKey(
+        state: SpriteState,
+        selectedKey: String,
+    ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
+        when (state) {
+            SpriteState.ERROR -> defaultAnimationSettingsForErrorKey(selectedKey)
+            else -> defaultsForState(state)
+        }
+
     fun buildAllAnimationsJsonFromLegacy(
         readyBase: ReadyAnimationSettings,
         readyInsertion: InsertionAnimationSettings,
@@ -963,11 +981,11 @@ class SettingsPreferences(private val context: Context) {
         state: SpriteState,
     ): Result<PerStateAnimationConfig> = runCatching {
         val root = JSONObject(json)
-        val (_, insertionDefaults) = defaultsForState(state)
         val animationKey = root.optString(JSON_ANIMATION_KEY, "").trim()
         if (animationKey.isBlank()) {
             error("animationKey is missing: state=${state.name}")
         }
+        val (_, insertionDefaults) = defaultAnimationSettingsForStateAndKey(state, animationKey)
         val baseObject = root.optJSONObject(JSON_BASE_KEY) ?: error("base is missing: state=${state.name}")
         val baseFramesArray = baseObject.optJSONArray(JSON_FRAMES_KEY)
             ?: error("base.frames is missing: state=${state.name}")
@@ -1025,16 +1043,6 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
-    private val offlineBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(8, 8),
-        intervalMs = 1_250,
-    )
-    private val offlineInsertionDefaults = disabledInsertionDefaults(offlineBaseDefaults.intervalMs)
-    private val errorBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(5, 7, 5),
-        intervalMs = 390,
-    )
-    private val errorInsertionDefaults = disabledInsertionDefaults(errorBaseDefaults.intervalMs)
     private val talkShortBaseDefaults = ReadyAnimationSettings(
         frameSequence = listOf(0, 6, 2, 6, 0),
         intervalMs = 130,
@@ -1066,6 +1074,19 @@ class SettingsPreferences(private val context: Context) {
         patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
         intervalMs = 280,
     )
+    private val errorHeavyBaseDefaults = ReadyAnimationSettings(
+        frameSequence = listOf(5, 5, 5, 7, 5),
+        intervalMs = 400,
+    )
+    private val errorHeavyInsertionDefaults = InsertionAnimationSettings(
+        enabled = true,
+        patterns = listOf(InsertionPattern(listOf(2), intervalMs = 400)),
+        intervalMs = 400,
+        everyNLoops = 6,
+        probabilityPercent = 100,
+        cooldownLoops = 0,
+        exclusive = true,
+    )
 
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
@@ -1079,17 +1100,6 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
-
-    private fun disabledInsertionDefaults(intervalMs: Int): InsertionAnimationSettings =
-        InsertionAnimationSettings(
-            enabled = false,
-            patterns = emptyList(),
-            intervalMs = intervalMs,
-            everyNLoops = 1,
-            probabilityPercent = 0,
-            cooldownLoops = 0,
-            exclusive = false,
-        )
 
     private fun shouldRepairLegacyPerStateConfig(
         state: SpriteState,
@@ -1137,7 +1147,7 @@ class SettingsPreferences(private val context: Context) {
             animationsObject.has(key)
         } ?: return null
         val animationObject = animationsObject.optJSONObject(matchedKey) ?: return null
-        val (baseDefaults, insertionDefaults) = defaultsForState(state)
+        val (baseDefaults, insertionDefaults) = defaultAnimationSettingsForStateAndKey(state, matchedKey)
         val baseSettings = parseReadySettings(animationObject.optJSONObject(JSON_BASE_KEY), baseDefaults)
         val insertionSettings = parseInsertionSettings(
             animationObject.optJSONObject(JSON_INSERTION_KEY),

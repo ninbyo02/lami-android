@@ -254,8 +254,10 @@ private data class AnimationInputState(
 private fun buildExtraAnimationDefaults(
     settingsPreferences: SettingsPreferences,
 ): Map<AnimationType, AnimationDefaults> {
-    val (errorBaseDefaults, errorInsertionDefaults) =
-        settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
+    val (errorLightBaseDefaults, errorLightInsertionDefaults) =
+        settingsPreferences.defaultAnimationSettingsForErrorKey(AnimationType.ERROR_LIGHT.internalKey)
+    val (errorHeavyBaseDefaults, errorHeavyInsertionDefaults) =
+        settingsPreferences.defaultAnimationSettingsForErrorKey(AnimationType.ERROR_HEAVY.internalKey)
     return mapOf(
         AnimationType.IDLE to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
@@ -305,20 +307,12 @@ private fun buildExtraAnimationDefaults(
             ),
         ),
         AnimationType.ERROR_LIGHT to AnimationDefaults(
-            base = errorBaseDefaults,
-            insertion = errorInsertionDefaults,
+            base = errorLightBaseDefaults,
+            insertion = errorLightInsertionDefaults,
         ),
         AnimationType.ERROR_HEAVY to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400),
-            insertion = InsertionAnimationSettings(
-                enabled = true,
-                patterns = listOf(InsertionPattern(listOf(2))),
-                intervalMs = 400,
-                everyNLoops = 6,
-                probabilityPercent = 100,
-                cooldownLoops = 0,
-                exclusive = true,
-            ),
+            base = errorHeavyBaseDefaults,
+            insertion = errorHeavyInsertionDefaults,
         ),
         AnimationType.OFFLINE_ENTER to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(0, 8, 8), intervalMs = 1_250),
