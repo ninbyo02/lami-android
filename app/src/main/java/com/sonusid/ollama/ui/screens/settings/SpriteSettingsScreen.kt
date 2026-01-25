@@ -256,9 +256,27 @@ private fun buildExtraAnimationDefaults(
 ): Map<AnimationType, AnimationDefaults> {
     val (errorLightBaseDefaults, errorLightInsertionDefaults) =
         settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
-    val (errorHeavyBaseDefaults, errorHeavyInsertionDefaults) =
-        settingsPreferences.defaultErrorAnimationSettingsForKey("ErrorHeavy")
-    return mapOf(
+
+    val errorHeavyBaseDefaults = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400)
+
+    val errorHeavyInsertionDefaults = InsertionAnimationSettings(
+
+        enabled = true,
+
+        patterns = listOf(InsertionPattern(listOf(2))),
+
+        intervalMs = 400,
+
+        everyNLoops = 6,
+
+        probabilityPercent = 100,
+
+        cooldownLoops = 0,
+
+        exclusive = true,
+
+    )
+return mapOf(
         AnimationType.IDLE to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
             insertion = InsertionAnimationSettings(
