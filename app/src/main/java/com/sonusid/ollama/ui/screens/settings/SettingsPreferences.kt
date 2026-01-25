@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.normalize
+import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -51,8 +52,8 @@ data class ReadyAnimationSettings(
         )
         // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
         val ERROR_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(4, 6, 7, 6, 4),
-            intervalMs = 360,
+            frameSequence = SpriteAnimationDefaults.ERROR_LIGHT_FRAMES,
+            intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INTERVAL_MS,
         )
         val DEFAULT = READY_DEFAULT
 
@@ -128,14 +129,12 @@ data class InsertionAnimationSettings(
         )
         // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
         val ERROR_DEFAULT = InsertionAnimationSettings(
-            enabled = true,
-            patterns = listOf(
-                InsertionPattern(frameSequence = listOf(2, 4), weight = 1, intervalMs = 480),
-            ),
-            intervalMs = 360,
-            everyNLoops = 3,
-            probabilityPercent = 65,
-            cooldownLoops = 4,
+            enabled = false,
+            patterns = emptyList(),
+            intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INTERVAL_MS,
+            everyNLoops = MIN_EVERY_N_LOOPS,
+            probabilityPercent = MIN_PROBABILITY_PERCENT,
+            cooldownLoops = MIN_COOLDOWN_LOOPS,
             exclusive = false,
         )
         val DEFAULT = READY_DEFAULT

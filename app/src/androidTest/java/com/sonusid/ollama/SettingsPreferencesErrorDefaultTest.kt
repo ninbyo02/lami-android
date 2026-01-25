@@ -35,21 +35,17 @@ class SettingsPreferencesErrorDefaultTest {
 
         assertEquals("ErrorLight", config.animationKey)
         assertEquals(listOf(4, 6, 7, 6, 4), config.baseFrames)
-        assertEquals(360, config.baseIntervalMs)
+        assertEquals(390, config.baseIntervalMs)
 
         val insertion = config.insertion
-        assertTrue(insertion.enabled)
-        assertEquals(360, insertion.intervalMs)
-        assertEquals(3, insertion.everyNLoops)
-        assertEquals(65, insertion.probabilityPercent)
-        assertEquals(4, insertion.cooldownLoops)
+        assertTrue(!insertion.enabled)
+        assertEquals(390, insertion.intervalMs)
+        assertEquals(1, insertion.everyNLoops)
+        assertEquals(0, insertion.probabilityPercent)
+        assertEquals(0, insertion.cooldownLoops)
         assertEquals(false, insertion.exclusive)
 
-        assertEquals(1, insertion.patterns.size)
-        val pattern = insertion.patterns.first()
-        assertEquals(listOf(2, 4), pattern.frames)
-        assertEquals(1, pattern.weight)
-        assertEquals(480, pattern.intervalMs)
+        assertEquals(0, insertion.patterns.size)
     }
 
     @Test
@@ -62,17 +58,13 @@ class SettingsPreferencesErrorDefaultTest {
             settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
 
         assertEquals(listOf(4, 6, 7, 6, 4), baseDefaults.frameSequence)
-        assertEquals(360, baseDefaults.intervalMs)
-        assertTrue(insertionDefaults.enabled)
-        assertEquals(360, insertionDefaults.intervalMs)
-        assertEquals(3, insertionDefaults.everyNLoops)
-        assertEquals(65, insertionDefaults.probabilityPercent)
-        assertEquals(4, insertionDefaults.cooldownLoops)
+        assertEquals(390, baseDefaults.intervalMs)
+        assertTrue(!insertionDefaults.enabled)
+        assertEquals(390, insertionDefaults.intervalMs)
+        assertEquals(1, insertionDefaults.everyNLoops)
+        assertEquals(0, insertionDefaults.probabilityPercent)
+        assertEquals(0, insertionDefaults.cooldownLoops)
         assertEquals(false, insertionDefaults.exclusive)
-        assertEquals(1, insertionDefaults.patterns.size)
-        val pattern = insertionDefaults.patterns.first()
-        assertEquals(listOf(2, 4), pattern.frameSequence)
-        assertEquals(1, pattern.weight)
-        assertEquals(480, pattern.intervalMs)
+        assertEquals(0, insertionDefaults.patterns.size)
     }
 }
