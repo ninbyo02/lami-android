@@ -93,6 +93,62 @@ class SpriteAnimationsPerStateJsonSpecTest {
         assertEquals("error insertion.pattern.intervalMs が不正: ${pattern.intervalMs}", 480, pattern.intervalMs)
     }
 
+    @Test
+    fun error_default_settings_are_resolved_by_key() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+
+        val (lightBase, lightInsertion) = prefs.defaultAnimationSettingsForErrorKey("ErrorLight")
+        assertEquals("ErrorLight baseFrames が不正: ${lightBase.frameSequence}", listOf(4, 6, 7, 6, 4), lightBase.frameSequence)
+        assertEquals("ErrorLight baseIntervalMs が不正: ${lightBase.intervalMs}", 360, lightBase.intervalMs)
+        assertTrue("ErrorLight insertion.enabled が true になっていない", lightInsertion.enabled)
+        assertEquals("ErrorLight insertion.intervalMs が不正: ${lightInsertion.intervalMs}", 360, lightInsertion.intervalMs)
+        assertEquals("ErrorLight insertion.everyNLoops が不正: ${lightInsertion.everyNLoops}", 3, lightInsertion.everyNLoops)
+        assertEquals(
+            "ErrorLight insertion.probabilityPercent が不正: ${lightInsertion.probabilityPercent}",
+            65,
+            lightInsertion.probabilityPercent
+        )
+        assertEquals(
+            "ErrorLight insertion.cooldownLoops が不正: ${lightInsertion.cooldownLoops}",
+            4,
+            lightInsertion.cooldownLoops
+        )
+        assertTrue("ErrorLight insertion.exclusive が true", !lightInsertion.exclusive)
+        assertEquals("ErrorLight insertion.patterns の件数が不正: ${lightInsertion.patterns}", 1, lightInsertion.patterns.size)
+        val lightPattern = lightInsertion.patterns.first()
+        assertEquals(
+            "ErrorLight insertion.pattern.frames が不正: ${lightPattern.frameSequence}",
+            listOf(2, 4),
+            lightPattern.frameSequence
+        )
+        assertEquals("ErrorLight insertion.pattern.weight が不正: ${lightPattern.weight}", 1, lightPattern.weight)
+        assertEquals("ErrorLight insertion.pattern.intervalMs が不正: ${lightPattern.intervalMs}", 480, lightPattern.intervalMs)
+
+        val (heavyBase, heavyInsertion) = prefs.defaultAnimationSettingsForErrorKey("ErrorHeavy")
+        assertEquals("ErrorHeavy baseFrames が不正: ${heavyBase.frameSequence}", listOf(5, 5, 5, 7, 5), heavyBase.frameSequence)
+        assertEquals("ErrorHeavy baseIntervalMs が不正: ${heavyBase.intervalMs}", 400, heavyBase.intervalMs)
+        assertTrue("ErrorHeavy insertion.enabled が true になっていない", heavyInsertion.enabled)
+        assertEquals("ErrorHeavy insertion.intervalMs が不正: ${heavyInsertion.intervalMs}", 400, heavyInsertion.intervalMs)
+        assertEquals("ErrorHeavy insertion.everyNLoops が不正: ${heavyInsertion.everyNLoops}", 6, heavyInsertion.everyNLoops)
+        assertEquals(
+            "ErrorHeavy insertion.probabilityPercent が不正: ${heavyInsertion.probabilityPercent}",
+            100,
+            heavyInsertion.probabilityPercent
+        )
+        assertEquals(
+            "ErrorHeavy insertion.cooldownLoops が不正: ${heavyInsertion.cooldownLoops}",
+            0,
+            heavyInsertion.cooldownLoops
+        )
+        assertTrue("ErrorHeavy insertion.exclusive が false", heavyInsertion.exclusive)
+        assertEquals("ErrorHeavy insertion.patterns の件数が不正: ${heavyInsertion.patterns}", 1, heavyInsertion.patterns.size)
+        val heavyPattern = heavyInsertion.patterns.first()
+        assertEquals("ErrorHeavy insertion.pattern.frames が不正: ${heavyPattern.frameSequence}", listOf(2), heavyPattern.frameSequence)
+        assertEquals("ErrorHeavy insertion.pattern.weight が不正: ${heavyPattern.weight}", 1, heavyPattern.weight)
+        assertEquals("ErrorHeavy insertion.pattern.intervalMs が不正: ${heavyPattern.intervalMs}", 400, heavyPattern.intervalMs)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
         val settingsClass = Class.forName(
