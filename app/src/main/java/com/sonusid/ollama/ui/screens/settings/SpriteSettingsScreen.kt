@@ -252,54 +252,67 @@ private data class AnimationInputState(
 
 // 暫定: statusAnimationMap に近い値をここで簡易マッピングする。
 private fun buildExtraAnimationDefaults(
-    settingsPreferences: SettingsPreferences
+    settingsPreferences: SettingsPreferences,
 ): Map<AnimationType, AnimationDefaults> {
-    val (talkShortBaseDefaults, talkShortInsertionDefaults) =
-        settingsPreferences.defaultAnimationSettingsForState(SpriteState.TALK_SHORT)
-    val (talkLongBaseDefaults, talkLongInsertionDefaults) =
-        settingsPreferences.defaultAnimationSettingsForState(SpriteState.TALK_LONG)
-    val (talkCalmBaseDefaults, talkCalmInsertionDefaults) =
-        settingsPreferences.defaultAnimationSettingsForState(SpriteState.TALK_CALM)
+    val (errorLightBaseDefaults, errorLightInsertionDefaults) =
+        settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
+    val (errorHeavyBaseDefaults, errorHeavyInsertionDefaults) =
+        settingsPreferences.defaultErrorAnimationSettingsForKey("ErrorHeavy")
     return mapOf(
         AnimationType.IDLE to AnimationDefaults(
-            base = ReadyAnimationSettings.IDLE_DEFAULT,
-            insertion = InsertionAnimationSettings.IDLE_DEFAULT,
+            base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
+            insertion = InsertionAnimationSettings(
+                enabled = true,
+                patterns = listOf(
+                    InsertionPattern(listOf(5, 5, 8, 8, 8, 5, 5), weight = 3, intervalMs = 180),
+                    InsertionPattern(listOf(5, 5, 7, 7, 7, 5, 5), weight = 1, intervalMs = 180),
+                ),
+                intervalMs = 180,
+                everyNLoops = 6,
+                probabilityPercent = 60,
+                cooldownLoops = 5,
+                exclusive = true,
+            ),
         ),
         AnimationType.THINKING to AnimationDefaults(
             base = ReadyAnimationSettings.THINKING_DEFAULT,
             insertion = InsertionAnimationSettings.THINKING_DEFAULT,
         ),
         AnimationType.TALK_SHORT to AnimationDefaults(
-            base = talkShortBaseDefaults,
-            insertion = talkShortInsertionDefaults,
-        ),
-        AnimationType.TALK_LONG to AnimationDefaults(
-            base = talkLongBaseDefaults,
-            insertion = talkLongInsertionDefaults,
-        ),
-        AnimationType.TALK_CALM to AnimationDefaults(
-            base = talkCalmBaseDefaults,
-            insertion = talkCalmInsertionDefaults,
-        ),
-        AnimationType.ERROR_LIGHT to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(5, 7, 5), intervalMs = 390),
+            base = ReadyAnimationSettings(listOf(0, 6, 2, 6, 0), intervalMs = 130),
             insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
                 enabled = false,
-                patterns = listOf(InsertionPattern(listOf(5, 7, 5))),
-                intervalMs = 390,
+                patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
+                intervalMs = 130,
             ),
         ),
-        AnimationType.ERROR_HEAVY to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400),
+        AnimationType.TALK_LONG to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(0, 4, 6, 4, 4, 6, 4, 0), intervalMs = 190),
             insertion = InsertionAnimationSettings(
                 enabled = true,
-                patterns = listOf(InsertionPattern(listOf(2))),
-                intervalMs = 400,
-                everyNLoops = 6,
+                patterns = listOf(InsertionPattern(listOf(1))),
+                intervalMs = 190,
+                everyNLoops = 2,
                 probabilityPercent = 100,
                 cooldownLoops = 0,
                 exclusive = true,
             ),
+        ),
+        AnimationType.TALK_CALM to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(7, 4, 7, 8, 7), intervalMs = 280),
+            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+                enabled = false,
+                patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
+                intervalMs = 280,
+            ),
+        ),
+        AnimationType.ERROR_LIGHT to AnimationDefaults(
+            base = errorLightBaseDefaults,
+            insertion = errorLightInsertionDefaults,
+        ),
+        AnimationType.ERROR_HEAVY to AnimationDefaults(
+            base = errorHeavyBaseDefaults,
+            insertion = errorHeavyInsertionDefaults,
         ),
         AnimationType.OFFLINE_ENTER to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(0, 8, 8), intervalMs = 1_250),
@@ -863,6 +876,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
+    val extraAnimationDefaults = remember(settingsPreferences) {
+        buildExtraAnimationDefaults(settingsPreferences)
+    }
 
     LaunchedEffect(Unit) {
         // 旧全体JSON→state別JSONの段階移行は初回のみ実行する
@@ -1006,9 +1022,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     var isAutoSyncing by remember { mutableStateOf(false) }
     val devUnlocked = true
     var readyFrameInput by rememberSaveable { mutableStateOf("1,1,1,1") }
-    var readyIntervalInput by rememberSaveable { mutableStateOf("230") }
+    var readyIntervalInput by rememberSaveable { mutableStateOf("220") }
     var appliedReadyFrames by rememberSaveable { mutableStateOf(listOf(0, 0, 0, 0)) }
-    var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(230) }
+    var appliedReadyIntervalMs by rememberSaveable { mutableStateOf(220) }
     var readyFramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyIntervalError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingFrameInput by rememberSaveable { mutableStateOf("1,7,1,7") }
@@ -1027,28 +1043,28 @@ fun SpriteSettingsScreen(navController: NavController) {
     // Ready insertion のUI初期値を新デフォルトに合わせる
     var readyInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("5,0") }
     var readyInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("3") }
-    var readyInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("120") }
-    var readyInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("5,0,5,0,0") }
+    var readyInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("220") }
+    var readyInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("5,0,5,0") }
     var readyInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("1") }
-    var readyInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("140") }
-    var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("125") }
-    var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("4") }
-    var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
-    var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("4") }
+    var readyInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("160") }
+    var readyInsertionIntervalInput by rememberSaveable { mutableStateOf("220") }
+    var readyInsertionEveryNInput by rememberSaveable { mutableStateOf("5") }
+    var readyInsertionProbabilityInput by rememberSaveable { mutableStateOf("40") }
+    var readyInsertionCooldownInput by rememberSaveable { mutableStateOf("6") }
     var readyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var readyInsertionExclusive by rememberSaveable { mutableStateOf(true) }
     var appliedReadyInsertionPatterns by remember {
         mutableStateOf(
             listOf(
-                InsertionPattern(listOf(5, 0), weight = 3, intervalMs = 120),
-                InsertionPattern(listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 140),
+                InsertionPattern(listOf(5, 0), weight = 3, intervalMs = 220),
+                InsertionPattern(listOf(5, 0, 5, 0), weight = 1, intervalMs = 160),
             )
         )
     }
-    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(125) }
-    var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(4) }
-    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
-    var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(4) }
+    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(220) }
+    var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(5) }
+    var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(40) }
+    var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(6) }
     var appliedReadyInsertionEnabled by rememberSaveable { mutableStateOf(true) }
     var appliedReadyInsertionExclusive by rememberSaveable { mutableStateOf(true) }
     var readyInsertionPattern1FramesError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1061,55 +1077,32 @@ fun SpriteSettingsScreen(navController: NavController) {
     var readyInsertionEveryNError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionProbabilityError by rememberSaveable { mutableStateOf<String?>(null) }
     var readyInsertionCooldownError by rememberSaveable { mutableStateOf<String?>(null) }
-    // Talking insertion のUI初期値を新デフォルトに合わせる
-    val talkingInsertionDefault = InsertionAnimationSettings.TALKING_DEFAULT
-    val talkingInsertionPattern1Default = talkingInsertionDefault.patterns[0]
-    val talkingInsertionPattern2Default = talkingInsertionDefault.patterns[1]
-    var talkingInsertionPattern1FramesInput by rememberSaveable {
-        mutableStateOf(talkingInsertionPattern1Default.frameSequence.map { it + 1 }.joinToString(","))
-    }
-    var talkingInsertionPattern1WeightInput by rememberSaveable {
-        mutableStateOf(talkingInsertionPattern1Default.weight.toString())
-    }
-    var talkingInsertionPattern1IntervalInput by rememberSaveable {
-        mutableStateOf(talkingInsertionPattern1Default.intervalMs?.toString() ?: "")
-    }
-    var talkingInsertionPattern2FramesInput by rememberSaveable {
-        mutableStateOf(talkingInsertionPattern2Default.frameSequence.map { it + 1 }.joinToString(","))
-    }
-    var talkingInsertionPattern2WeightInput by rememberSaveable {
-        mutableStateOf(talkingInsertionPattern2Default.weight.toString())
-    }
-    var talkingInsertionPattern2IntervalInput by rememberSaveable {
-        mutableStateOf(talkingInsertionPattern2Default.intervalMs?.toString() ?: "")
-    }
-    var talkingInsertionIntervalInput by rememberSaveable {
-        mutableStateOf(talkingInsertionDefault.intervalMs.toString())
-    }
-    var talkingInsertionEveryNInput by rememberSaveable {
-        mutableStateOf(talkingInsertionDefault.everyNLoops.toString())
-    }
-    var talkingInsertionProbabilityInput by rememberSaveable {
-        mutableStateOf(talkingInsertionDefault.probabilityPercent.toString())
-    }
-    var talkingInsertionCooldownInput by rememberSaveable {
-        mutableStateOf(talkingInsertionDefault.cooldownLoops.toString())
-    }
-    var talkingInsertionEnabled by rememberSaveable { mutableStateOf(talkingInsertionDefault.enabled) }
-    var talkingInsertionExclusive by rememberSaveable { mutableStateOf(talkingInsertionDefault.exclusive) }
+    var talkingInsertionPattern1FramesInput by rememberSaveable { mutableStateOf("6,1") }
+    var talkingInsertionPattern1WeightInput by rememberSaveable { mutableStateOf("2") }
+    var talkingInsertionPattern1IntervalInput by rememberSaveable { mutableStateOf("110") }
+    var talkingInsertionPattern2FramesInput by rememberSaveable { mutableStateOf("6,1,6") }
+    var talkingInsertionPattern2WeightInput by rememberSaveable { mutableStateOf("1") }
+    var talkingInsertionPattern2IntervalInput by rememberSaveable { mutableStateOf("110") }
+    var talkingInsertionIntervalInput by rememberSaveable { mutableStateOf("110") }
+    var talkingInsertionEveryNInput by rememberSaveable { mutableStateOf("4") }
+    var talkingInsertionProbabilityInput by rememberSaveable { mutableStateOf("50") }
+    var talkingInsertionCooldownInput by rememberSaveable { mutableStateOf("2") }
+    var talkingInsertionEnabled by rememberSaveable { mutableStateOf(true) }
+    var talkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var appliedTalkingInsertionPatterns by remember {
-        mutableStateOf(talkingInsertionDefault.patterns)
+        mutableStateOf(
+            listOf(
+                InsertionPattern(listOf(5, 0), weight = 2, intervalMs = 110),
+                InsertionPattern(listOf(5, 0, 5), weight = 1, intervalMs = 110),
+            )
+        )
     }
-    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(talkingInsertionDefault.intervalMs) }
-    var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(talkingInsertionDefault.everyNLoops) }
-    var appliedTalkingInsertionProbabilityPercent by rememberSaveable {
-        mutableStateOf(talkingInsertionDefault.probabilityPercent)
-    }
-    var appliedTalkingInsertionCooldownLoops by rememberSaveable {
-        mutableStateOf(talkingInsertionDefault.cooldownLoops)
-    }
-    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(talkingInsertionDefault.enabled) }
-    var appliedTalkingInsertionExclusive by rememberSaveable { mutableStateOf(talkingInsertionDefault.exclusive) }
+    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(110) }
+    var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(4) }
+    var appliedTalkingInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
+    var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(2) }
+    var appliedTalkingInsertionEnabled by rememberSaveable { mutableStateOf(true) }
+    var appliedTalkingInsertionExclusive by rememberSaveable { mutableStateOf(false) }
     var talkingInsertionPattern1FramesError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionPattern1WeightError by rememberSaveable { mutableStateOf<String?>(null) }
     var talkingInsertionPattern1IntervalError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1124,9 +1117,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
     var didSaveAnimRecently by rememberSaveable { mutableStateOf(false) }
     val extraAnimationStates = remember { mutableStateMapOf<AnimationType, AnimationInputState>() }
-    val extraAnimationDefaults = remember(settingsPreferences) {
-        buildExtraAnimationDefaults(settingsPreferences)
-    }
     var didApplyReadyPerState by rememberSaveable { mutableStateOf(false) }
     var lastAppliedReadyPerStateJson by remember { mutableStateOf<String?>(null) }
     val hasReadyPerStateJson = readyPerStateJson?.isNotBlank() == true ||
@@ -3210,11 +3200,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             JSONObject().apply {
                                                 put(JSON_FRAMES_KEY, JSONArray(pattern.frames()))
                                                 put(JSON_WEIGHT_KEY, pattern.weight)
-                                                pattern.intervalMs
-                                                    ?.takeIf { it != insertionIntervalMs }
-                                                    ?.let { intervalMs ->
-                                                        put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
-                                                    }
+                                                put(JSON_PATTERN_INTERVAL_MS_KEY, pattern.intervalMs ?: insertionIntervalMs)
                                             }
                                         )
                                     }
@@ -4987,9 +4973,6 @@ private fun ReadyAnimationTab(
                                         "デフォルト周期（ms）"
                                     }
                                 )
-                            },
-                            placeholder = {
-                                Text("（現在: ${insertionState.defaultIntervalMs}ms）")
                             },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
