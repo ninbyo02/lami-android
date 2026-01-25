@@ -885,6 +885,11 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.OFFLINE -> "OfflineLoop"
         }
 
+    // UI から参照する state 別デフォルト設定の単一ソース
+    fun defaultAnimationSettingsForState(
+        state: SpriteState,
+    ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> = defaultsForState(state)
+
     fun buildAllAnimationsJsonFromLegacy(
         readyBase: ReadyAnimationSettings,
         readyInsertion: InsertionAnimationSettings,

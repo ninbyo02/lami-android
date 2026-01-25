@@ -251,95 +251,101 @@ private data class AnimationInputState(
 )
 
 // 暫定: statusAnimationMap に近い値をここで簡易マッピングする。
-private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapOf(
-    AnimationType.IDLE to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
-        insertion = InsertionAnimationSettings(
-            enabled = true,
-            patterns = listOf(
-                InsertionPattern(listOf(5, 5, 8, 8, 8, 5, 5), weight = 3, intervalMs = 180),
-                InsertionPattern(listOf(5, 5, 7, 7, 7, 5, 5), weight = 1, intervalMs = 180),
+private fun buildExtraAnimationDefaults(
+    settingsPreferences: SettingsPreferences,
+): Map<AnimationType, AnimationDefaults> {
+    val (errorBaseDefaults, errorInsertionDefaults) =
+        settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
+    return mapOf(
+        AnimationType.IDLE to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
+            insertion = InsertionAnimationSettings(
+                enabled = true,
+                patterns = listOf(
+                    InsertionPattern(listOf(5, 5, 8, 8, 8, 5, 5), weight = 3, intervalMs = 180),
+                    InsertionPattern(listOf(5, 5, 7, 7, 7, 5, 5), weight = 1, intervalMs = 180),
+                ),
+                intervalMs = 180,
+                everyNLoops = 6,
+                probabilityPercent = 60,
+                cooldownLoops = 5,
+                exclusive = true,
             ),
-            intervalMs = 180,
-            everyNLoops = 6,
-            probabilityPercent = 60,
-            cooldownLoops = 5,
-            exclusive = true,
         ),
-    ),
-    AnimationType.THINKING to AnimationDefaults(
-        base = ReadyAnimationSettings.THINKING_DEFAULT,
-        insertion = InsertionAnimationSettings.THINKING_DEFAULT,
-    ),
-    AnimationType.TALK_SHORT to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(0, 6, 2, 6, 0), intervalMs = 130),
-        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-            enabled = false,
-            patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
-            intervalMs = 130,
+        AnimationType.THINKING to AnimationDefaults(
+            base = ReadyAnimationSettings.THINKING_DEFAULT,
+            insertion = InsertionAnimationSettings.THINKING_DEFAULT,
         ),
-    ),
-    AnimationType.TALK_LONG to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(0, 4, 6, 4, 4, 6, 4, 0), intervalMs = 190),
-        insertion = InsertionAnimationSettings(
-            enabled = true,
-            patterns = listOf(InsertionPattern(listOf(1))),
-            intervalMs = 190,
-            everyNLoops = 2,
-            probabilityPercent = 100,
-            cooldownLoops = 0,
-            exclusive = true,
+        AnimationType.TALK_SHORT to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(0, 6, 2, 6, 0), intervalMs = 130),
+            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+                enabled = false,
+                patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0))),
+                intervalMs = 130,
+            ),
         ),
-    ),
-    AnimationType.TALK_CALM to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(7, 4, 7, 8, 7), intervalMs = 280),
-        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-            enabled = false,
-            patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
-            intervalMs = 280,
+        AnimationType.TALK_LONG to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(0, 4, 6, 4, 4, 6, 4, 0), intervalMs = 190),
+            insertion = InsertionAnimationSettings(
+                enabled = true,
+                patterns = listOf(InsertionPattern(listOf(1))),
+                intervalMs = 190,
+                everyNLoops = 2,
+                probabilityPercent = 100,
+                cooldownLoops = 0,
+                exclusive = true,
+            ),
         ),
-    ),
-    AnimationType.ERROR_LIGHT to AnimationDefaults(
-        base = ReadyAnimationSettings.ERROR_DEFAULT,
-        insertion = InsertionAnimationSettings.ERROR_DEFAULT,
-    ),
-    AnimationType.ERROR_HEAVY to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400),
-        insertion = InsertionAnimationSettings(
-            enabled = true,
-            patterns = listOf(InsertionPattern(listOf(2))),
-            intervalMs = 400,
-            everyNLoops = 6,
-            probabilityPercent = 100,
-            cooldownLoops = 0,
-            exclusive = true,
+        AnimationType.TALK_CALM to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(7, 4, 7, 8, 7), intervalMs = 280),
+            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+                enabled = false,
+                patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7))),
+                intervalMs = 280,
+            ),
         ),
-    ),
-    AnimationType.OFFLINE_ENTER to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(0, 8, 8), intervalMs = 1_250),
-        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-            enabled = false,
-            patterns = listOf(InsertionPattern(listOf(0, 8, 8))),
-            intervalMs = 1_250,
+        AnimationType.ERROR_LIGHT to AnimationDefaults(
+            base = errorBaseDefaults,
+            insertion = errorInsertionDefaults,
         ),
-    ),
-    AnimationType.OFFLINE_LOOP to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(8, 8), intervalMs = 1_250),
-        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-            enabled = false,
-            patterns = listOf(InsertionPattern(listOf(8, 8))),
-            intervalMs = 1_250,
+        AnimationType.ERROR_HEAVY to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400),
+            insertion = InsertionAnimationSettings(
+                enabled = true,
+                patterns = listOf(InsertionPattern(listOf(2))),
+                intervalMs = 400,
+                everyNLoops = 6,
+                probabilityPercent = 100,
+                cooldownLoops = 0,
+                exclusive = true,
+            ),
         ),
-    ),
-    AnimationType.OFFLINE_EXIT to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(8, 0), intervalMs = 1_250),
-        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-            enabled = false,
-            patterns = listOf(InsertionPattern(listOf(8, 0))),
-            intervalMs = 1_250,
+        AnimationType.OFFLINE_ENTER to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(0, 8, 8), intervalMs = 1_250),
+            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+                enabled = false,
+                patterns = listOf(InsertionPattern(listOf(0, 8, 8))),
+                intervalMs = 1_250,
+            ),
         ),
-    ),
-)
+        AnimationType.OFFLINE_LOOP to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(8, 8), intervalMs = 1_250),
+            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+                enabled = false,
+                patterns = listOf(InsertionPattern(listOf(8, 8))),
+                intervalMs = 1_250,
+            ),
+        ),
+        AnimationType.OFFLINE_EXIT to AnimationDefaults(
+            base = ReadyAnimationSettings(listOf(8, 0), intervalMs = 1_250),
+            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+                enabled = false,
+                patterns = listOf(InsertionPattern(listOf(8, 0))),
+                intervalMs = 1_250,
+            ),
+        ),
+    )
+}
 
 private fun List<Int>.toFrameInputText(): String =
     joinToString(separator = ",") { value -> (value + 1).toString() }
@@ -875,6 +881,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     val errorSnackbarDurationMs = 1800L
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
+    }
+    val extraAnimationDefaults = remember(settingsPreferences) {
+        buildExtraAnimationDefaults(settingsPreferences)
     }
 
     LaunchedEffect(Unit) {
