@@ -51,4 +51,28 @@ class SettingsPreferencesErrorDefaultTest {
         assertEquals(1, pattern.weight)
         assertEquals(480, pattern.intervalMs)
     }
+
+    @Test
+    fun defaultAnimationSettingsForState_returnsErrorLightDefaults() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val settingsPreferences = SettingsPreferences(context)
+
+        // ErrorLight のデフォルト参照が新設定に統一されていることを確認する
+        val (baseDefaults, insertionDefaults) =
+            settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
+
+        assertEquals(listOf(4, 6, 7, 6, 4), baseDefaults.frameSequence)
+        assertEquals(360, baseDefaults.intervalMs)
+        assertTrue(insertionDefaults.enabled)
+        assertEquals(360, insertionDefaults.intervalMs)
+        assertEquals(3, insertionDefaults.everyNLoops)
+        assertEquals(65, insertionDefaults.probabilityPercent)
+        assertEquals(4, insertionDefaults.cooldownLoops)
+        assertEquals(false, insertionDefaults.exclusive)
+        assertEquals(1, insertionDefaults.patterns.size)
+        val pattern = insertionDefaults.patterns.first()
+        assertEquals(listOf(2, 4), pattern.frameSequence)
+        assertEquals(1, pattern.weight)
+        assertEquals(480, pattern.intervalMs)
+    }
 }
