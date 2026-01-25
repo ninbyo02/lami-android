@@ -779,6 +779,14 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    @VisibleForTesting
+    suspend fun clearAllPreferencesForTest() {
+        // テスト用にDataStoreを初期化する
+        context.dataStore.edit { preferences ->
+            preferences.clear()
+        }
+    }
+
     suspend fun resetSpriteSheetConfig() {
         saveSpriteSheetConfig(defaultSpriteSheetConfig)
     }
