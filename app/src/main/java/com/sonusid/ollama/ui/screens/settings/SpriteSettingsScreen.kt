@@ -300,12 +300,8 @@ private val extraAnimationDefaults: Map<AnimationType, AnimationDefaults> = mapO
         ),
     ),
     AnimationType.ERROR_LIGHT to AnimationDefaults(
-        base = ReadyAnimationSettings(listOf(5, 7, 5), intervalMs = 390),
-        insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-            enabled = false,
-            patterns = listOf(InsertionPattern(listOf(5, 7, 5))),
-            intervalMs = 390,
-        ),
+        base = ReadyAnimationSettings.ERROR_DEFAULT,
+        insertion = InsertionAnimationSettings.ERROR_DEFAULT,
     ),
     AnimationType.ERROR_HEAVY to AnimationDefaults(
         base = ReadyAnimationSettings(listOf(5, 5, 5, 7, 5), intervalMs = 400),
