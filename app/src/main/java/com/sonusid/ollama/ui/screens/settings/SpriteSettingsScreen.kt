@@ -255,9 +255,9 @@ private fun buildExtraAnimationDefaults(
     settingsPreferences: SettingsPreferences,
 ): Map<AnimationType, AnimationDefaults> {
     val (errorLightBaseDefaults, errorLightInsertionDefaults) =
-        settingsPreferences.defaultAnimationSettingsForErrorKey(AnimationType.ERROR_LIGHT.internalKey)
+        settingsPreferences.defaultErrorAnimationSettingsForKey(AnimationType.ERROR_LIGHT.internalKey)
     val (errorHeavyBaseDefaults, errorHeavyInsertionDefaults) =
-        settingsPreferences.defaultAnimationSettingsForErrorKey(AnimationType.ERROR_HEAVY.internalKey)
+        settingsPreferences.defaultErrorAnimationSettingsForKey(AnimationType.ERROR_HEAVY.internalKey)
     return mapOf(
         AnimationType.IDLE to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),

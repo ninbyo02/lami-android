@@ -635,10 +635,17 @@ class SettingsPreferences(private val context: Context) {
         }
         var saved = false
         missingStates.forEach { state ->
-            val defaultKey = defaultKeyForState(state)
-            val (baseDefaults, insertionDefaults) = defaultAnimationSettingsForStateAndKey(state, defaultKey)
+            val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
+                val selectedKey = normalizeErrorKey(preferences[selectedKeyErrorKey])
+                val (base, insertion) = defaultErrorAnimationSettingsForKey(selectedKey)
+                Triple(selectedKey, base, insertion)
+            } else {
+                val defaultKey = defaultKeyForState(state)
+                val (base, insertion) = defaultAnimationSettingsForStateAndKey(state, defaultKey)
+                Triple(defaultKey, base, insertion)
+            }
             val perStateJson = buildPerStateAnimationJsonOrNull(
-                animationKey = defaultKey,
+                animationKey = animationKey,
                 baseSettings = baseDefaults,
                 insertionSettings = insertionDefaults,
             )
@@ -711,9 +718,17 @@ class SettingsPreferences(private val context: Context) {
             val config = parseAndValidatePerStateAnimationJson(currentJson, state).getOrNull()
                 ?: return@forEach
             if (!shouldRepairLegacyPerStateConfig(state, config)) return@forEach
-            val (baseDefaults, insertionDefaults) = defaultsForState(state)
+            val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
+                val selectedKey = normalizeErrorKey(preferences[selectedKeyErrorKey])
+                val (base, insertion) = defaultErrorAnimationSettingsForKey(selectedKey)
+                Triple(selectedKey, base, insertion)
+            } else {
+                val defaultKey = defaultKeyForState(state)
+                val (base, insertion) = defaultsForState(state)
+                Triple(defaultKey, base, insertion)
+            }
             val perStateJson = buildPerStateAnimationJsonOrNull(
-                animationKey = defaultKeyForState(state),
+                animationKey = animationKey,
                 baseSettings = baseDefaults,
                 insertionSettings = insertionDefaults,
             ) ?: return@forEach
@@ -891,12 +906,12 @@ class SettingsPreferences(private val context: Context) {
         state: SpriteState,
     ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> = defaultsForState(state)
 
-    fun defaultAnimationSettingsForErrorKey(
-        selectedKey: String,
+    fun defaultErrorAnimationSettingsForKey(
+        key: String?,
     ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
-        when (selectedKey) {
+        when (normalizeErrorKey(key)) {
             "ErrorHeavy" -> errorHeavyBaseDefaults to errorHeavyInsertionDefaults
-            else -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
+            else -> errorLightBaseDefaults to errorLightInsertionDefaults
         }
 
     fun defaultAnimationSettingsForStateAndKey(
@@ -904,7 +919,7 @@ class SettingsPreferences(private val context: Context) {
         selectedKey: String,
     ): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
-            SpriteState.ERROR -> defaultAnimationSettingsForErrorKey(selectedKey)
+            SpriteState.ERROR -> defaultErrorAnimationSettingsForKey(selectedKey)
             else -> defaultsForState(state)
         }
 
@@ -1074,6 +1089,8 @@ class SettingsPreferences(private val context: Context) {
         patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
         intervalMs = 280,
     )
+    private val errorLightBaseDefaults = ReadyAnimationSettings.ERROR_DEFAULT
+    private val errorLightInsertionDefaults = InsertionAnimationSettings.ERROR_DEFAULT
     private val errorHeavyBaseDefaults = ReadyAnimationSettings(
         frameSequence = listOf(5, 5, 5, 7, 5),
         intervalMs = 400,
@@ -1099,6 +1116,12 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
+        }
+
+    private fun normalizeErrorKey(key: String?): String =
+        when (key) {
+            "ErrorHeavy" -> "ErrorHeavy"
+            else -> "ErrorLight"
         }
 
     private fun shouldRepairLegacyPerStateConfig(
