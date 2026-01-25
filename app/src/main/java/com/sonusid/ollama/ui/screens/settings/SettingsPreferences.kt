@@ -49,10 +49,10 @@ data class ReadyAnimationSettings(
             frameSequence = listOf(8, 8),
             intervalMs = 1_250,
         )
-        // ERROR のデフォルト: UI側の ErrorLight に合わせる
+        // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
         val ERROR_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(5, 7, 5),
-            intervalMs = 390,
+            frameSequence = listOf(4, 6, 7, 6, 4),
+            intervalMs = 360,
         )
         val DEFAULT = READY_DEFAULT
 
@@ -126,14 +126,16 @@ data class InsertionAnimationSettings(
             cooldownLoops = MIN_COOLDOWN_LOOPS,
             exclusive = false,
         )
-        // ERROR は挿入アニメ無効（パターン空）
+        // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
         val ERROR_DEFAULT = InsertionAnimationSettings(
-            enabled = false,
-            patterns = emptyList(),
-            intervalMs = 390,
-            everyNLoops = MIN_EVERY_N_LOOPS,
-            probabilityPercent = MIN_PROBABILITY_PERCENT,
-            cooldownLoops = MIN_COOLDOWN_LOOPS,
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(2, 4), weight = 1, intervalMs = 480),
+            ),
+            intervalMs = 360,
+            everyNLoops = 3,
+            probabilityPercent = 65,
+            cooldownLoops = 4,
             exclusive = false,
         )
         val DEFAULT = READY_DEFAULT
