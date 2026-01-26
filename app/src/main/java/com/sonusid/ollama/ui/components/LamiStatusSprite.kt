@@ -147,7 +147,11 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     ),
     LamiSpriteStatus.ErrorLight to AnimationSpec(
         frames = SpriteAnimationDefaults.ERROR_LIGHT_FRAMES,
-        frameDuration = FrameDurationSpec(minMs = 360L, maxMs = 420L, jitterFraction = 0f),
+        frameDuration = FrameDurationSpec(
+            minMs = SpriteAnimationDefaults.ERROR_LIGHT_INTERVAL_MS.toLong(),
+            maxMs = SpriteAnimationDefaults.ERROR_LIGHT_INTERVAL_MS.toLong(),
+            jitterFraction = 0f,
+        ),
         insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorHeavy to AnimationSpec(
