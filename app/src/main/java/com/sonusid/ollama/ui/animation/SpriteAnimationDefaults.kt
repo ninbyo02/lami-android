@@ -1,6 +1,12 @@
 package com.sonusid.ollama.ui.animation
 
 object SpriteAnimationDefaults {
+    data class InsertionPatternDefaults(
+        val frames: List<Int>,
+        val weight: Int,
+        val intervalMs: Int,
+    )
+
     // UI 表記(1-9)は +1 だが、ここは内部フレーム(0-8)で保持する。
     val ERROR_LIGHT_FRAMES = listOf(4, 6, 7, 6, 4)
     const val ERROR_LIGHT_INTERVAL_MS = 390
@@ -13,4 +19,25 @@ object SpriteAnimationDefaults {
     const val ERROR_LIGHT_PROBABILITY_PERCENT = 60
     const val ERROR_LIGHT_COOLDOWN_LOOPS = 4
     const val ERROR_LIGHT_EXCLUSIVE = false
+
+    val ERROR_HEAVY_FRAMES = listOf(2, 3, 5, 2, 3, 2, 5, 2)
+    const val ERROR_HEAVY_BASE_INTERVAL_MS = 200
+    const val ERROR_HEAVY_INSERTION_ENABLED = true
+    const val ERROR_HEAVY_INSERTION_INTERVAL_MS = 360
+    val ERROR_HEAVY_INSERTION_PATTERNS = listOf(
+        InsertionPatternDefaults(
+            frames = listOf(7),
+            weight = 3,
+            intervalMs = 360,
+        ),
+        InsertionPatternDefaults(
+            frames = listOf(5),
+            weight = 1,
+            intervalMs = 200,
+        ),
+    )
+    const val ERROR_HEAVY_EVERY_N_LOOPS = 4
+    const val ERROR_HEAVY_PROBABILITY_PERCENT = 90
+    const val ERROR_HEAVY_COOLDOWN_LOOPS = 2
+    const val ERROR_HEAVY_EXCLUSIVE = true
 }
