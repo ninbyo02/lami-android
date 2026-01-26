@@ -688,7 +688,10 @@ class SettingsPreferences(private val context: Context) {
         val insertionObject = root.optJSONObject(JSON_INSERTION_KEY) ?: JSONObject().also { created ->
             created.put(JSON_ENABLED_KEY, insertionDefaults.enabled)
             created.put(JSON_PATTERNS_KEY, JSONArray())
-            created.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            // 無効時は intervalMs を保存しない（オフラインの最小JSON）
+            if (insertionDefaults.enabled) {
+                created.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+            }
             root.put(JSON_INSERTION_KEY, created)
             changed = true
         }
@@ -700,8 +703,14 @@ class SettingsPreferences(private val context: Context) {
             insertionObject.put(JSON_PATTERNS_KEY, JSONArray())
             changed = true
         }
-        if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
-            insertionObject.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+        val insertionEnabled = insertionObject.optBoolean(JSON_ENABLED_KEY, insertionDefaults.enabled)
+        if (insertionEnabled) {
+            if (!insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+                insertionObject.put(JSON_INTERVAL_MS_KEY, insertionDefaults.intervalMs)
+                changed = true
+            }
+        } else if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+            insertionObject.remove(JSON_INTERVAL_MS_KEY)
             changed = true
         }
         val baseObject = root.optJSONObject(JSON_BASE_KEY)
@@ -1251,9 +1260,9 @@ class SettingsPreferences(private val context: Context) {
         val baseJson = JSONObject()
             .put(JSON_FRAMES_KEY, baseSettings.frameSequence.toJsonArray())
             .put(JSON_INTERVAL_MS_KEY, baseSettings.intervalMs)
-        val insertionJson = JSONObject()
-            .put(JSON_ENABLED_KEY, insertionSettings.enabled)
-            .put(
+        val insertionJson = JSONObject().apply {
+            put(JSON_ENABLED_KEY, insertionSettings.enabled)
+            put(
                 JSON_PATTERNS_KEY,
                 JSONArray().also { array ->
                     patterns.forEach { pattern ->
@@ -1268,11 +1277,15 @@ class SettingsPreferences(private val context: Context) {
                     }
                 }
             )
-            .put(JSON_INTERVAL_MS_KEY, insertionSettings.intervalMs)
-            .put(JSON_EVERY_N_LOOPS_KEY, insertionSettings.everyNLoops)
-            .put(JSON_PROBABILITY_PERCENT_KEY, insertionSettings.probabilityPercent)
-            .put(JSON_COOLDOWN_LOOPS_KEY, insertionSettings.cooldownLoops)
-            .put(JSON_EXCLUSIVE_KEY, insertionSettings.exclusive)
+            // 無効時は intervalMs を保存しない（per-state JSONを最小化する）
+            if (insertionSettings.enabled) {
+                put(JSON_INTERVAL_MS_KEY, insertionSettings.intervalMs)
+            }
+            put(JSON_EVERY_N_LOOPS_KEY, insertionSettings.everyNLoops)
+            put(JSON_PROBABILITY_PERCENT_KEY, insertionSettings.probabilityPercent)
+            put(JSON_COOLDOWN_LOOPS_KEY, insertionSettings.cooldownLoops)
+            put(JSON_EXCLUSIVE_KEY, insertionSettings.exclusive)
+        }
         return JSONObject()
             .put(JSON_ANIMATION_KEY, animationKey)
             .put(JSON_BASE_KEY, baseJson)
@@ -1530,14 +1543,18 @@ class SettingsPreferences(private val context: Context) {
             .put(JSON_INTERVAL_MS_KEY, intervalMs)
 
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
-        JSONObject()
-            .put(JSON_ENABLED_KEY, enabled)
-            .put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray(intervalMs))
-            .put(JSON_INTERVAL_MS_KEY, intervalMs)
-            .put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
-            .put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
-            .put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
-            .put(JSON_EXCLUSIVE_KEY, exclusive)
+        JSONObject().apply {
+            put(JSON_ENABLED_KEY, enabled)
+            put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray(intervalMs))
+            // 無効時は intervalMs を保存しない（JSONを最小化する）
+            if (enabled) {
+                put(JSON_INTERVAL_MS_KEY, intervalMs)
+            }
+            put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
+            put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
+            put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
+            put(JSON_EXCLUSIVE_KEY, exclusive)
+        }
 
     private fun List<InsertionPattern>.toPatternsJsonArray(fallbackIntervalMs: Int): JSONArray =
         JSONArray().also { array ->
