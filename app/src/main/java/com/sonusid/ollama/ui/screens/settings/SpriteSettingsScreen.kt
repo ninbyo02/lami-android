@@ -175,9 +175,7 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
     TALK_CALM("TalkCalm", "TalkCalm"),
     ERROR_LIGHT("ErrorLight", "ErrorLight"),
     ERROR_HEAVY("ErrorHeavy", "ErrorHeavy"),
-    OFFLINE_ENTER("OfflineEnter", "OfflineEnter"),
-    OFFLINE_LOOP("OfflineLoop", "OfflineLoop"),
-    OFFLINE_EXIT("OfflineExit", "OfflineExit");
+    OFFLINE_LOOP("OfflineLoop", "OfflineLoop");
 
     companion object {
         val options = listOf(
@@ -190,9 +188,7 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
             TALK_CALM,
             ERROR_LIGHT,
             ERROR_HEAVY,
-            OFFLINE_ENTER,
             OFFLINE_LOOP,
-            OFFLINE_EXIT,
         )
 
         fun fromInternalKeyOrNull(key: String?): AnimationType? {
@@ -258,6 +254,8 @@ private fun buildExtraAnimationDefaults(
         settingsPreferences.defaultAnimationSettingsForState(SpriteState.ERROR)
     val (errorHeavyBaseDefaults, errorHeavyInsertionDefaults) =
         settingsPreferences.defaultErrorAnimationSettingsForKey("ErrorHeavy")
+    val (offlineBaseDefaults, offlineInsertionDefaults) =
+        settingsPreferences.defaultAnimationSettingsForState(SpriteState.OFFLINE)
     return mapOf(
         AnimationType.IDLE to AnimationDefaults(
             base = ReadyAnimationSettings(listOf(8, 8, 8, 8), intervalMs = 180),
@@ -314,29 +312,9 @@ private fun buildExtraAnimationDefaults(
             base = errorHeavyBaseDefaults,
             insertion = errorHeavyInsertionDefaults,
         ),
-        AnimationType.OFFLINE_ENTER to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(0, 8, 8), intervalMs = 1_250),
-            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-                enabled = false,
-                patterns = listOf(InsertionPattern(listOf(0, 8, 8))),
-                intervalMs = 1_250,
-            ),
-        ),
         AnimationType.OFFLINE_LOOP to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(8, 8), intervalMs = 1_250),
-            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-                enabled = false,
-                patterns = listOf(InsertionPattern(listOf(8, 8))),
-                intervalMs = 1_250,
-            ),
-        ),
-        AnimationType.OFFLINE_EXIT to AnimationDefaults(
-            base = ReadyAnimationSettings(listOf(8, 0), intervalMs = 1_250),
-            insertion = InsertionAnimationSettings.TALKING_DEFAULT.copy(
-                enabled = false,
-                patterns = listOf(InsertionPattern(listOf(8, 0))),
-                intervalMs = 1_250,
-            ),
+            base = offlineBaseDefaults,
+            insertion = offlineInsertionDefaults,
         ),
     )
 }
@@ -1921,9 +1899,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         val insertionPatterns = config.insertion.patterns.toInsertionPatterns()
         val patternInputs = insertionPatterns.toInsertionPatternInputs()
         val offlineTargets = listOf(
-            AnimationType.OFFLINE_ENTER,
             AnimationType.OFFLINE_LOOP,
-            AnimationType.OFFLINE_EXIT,
         )
         offlineTargets.forEach { target ->
             val state = resolveInputState(target)
@@ -3091,9 +3067,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     AnimationType.TALK_CALM -> SpriteState.TALK_CALM
                     AnimationType.IDLE -> SpriteState.IDLE
                     AnimationType.THINKING -> SpriteState.THINKING
-                    AnimationType.OFFLINE_ENTER,
-                    AnimationType.OFFLINE_LOOP,
-                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                    AnimationType.OFFLINE_LOOP -> SpriteState.OFFLINE
                     AnimationType.ERROR_LIGHT,
                     AnimationType.ERROR_HEAVY -> SpriteState.ERROR
                 }
@@ -3381,9 +3355,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     AnimationType.TALK_CALM -> SpriteState.TALK_CALM
                     AnimationType.IDLE -> SpriteState.IDLE
                     AnimationType.THINKING -> SpriteState.THINKING
-                    AnimationType.OFFLINE_ENTER,
-                    AnimationType.OFFLINE_LOOP,
-                    AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                    AnimationType.OFFLINE_LOOP -> SpriteState.OFFLINE
                     AnimationType.ERROR_LIGHT,
                     AnimationType.ERROR_HEAVY -> SpriteState.ERROR
                 }
@@ -3632,9 +3604,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 AnimationType.TALK_CALM -> SpriteState.TALK_CALM
                 AnimationType.IDLE -> SpriteState.IDLE
                 AnimationType.THINKING -> SpriteState.THINKING
-                AnimationType.OFFLINE_ENTER,
-                AnimationType.OFFLINE_LOOP,
-                AnimationType.OFFLINE_EXIT -> SpriteState.OFFLINE
+                AnimationType.OFFLINE_LOOP -> SpriteState.OFFLINE
                 AnimationType.ERROR_LIGHT,
                 AnimationType.ERROR_HEAVY -> SpriteState.ERROR
             }
@@ -4019,7 +3989,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             coroutineScope.launch {
                                                 settingsPreferences.setLastSelectedAnimationType(updated.internalKey)
                                                 // 段階移行：state別JSONの保存/復元をデフォルトに統一済み
-                                                // OFFLINE_ENTER/LOOP/EXIT は state として OFFLINE に正規化し "OfflineLoop" を保存
+                                                // OFFLINE は state=OFFLINE に正規化し "OfflineLoop" を保存
                                                 // ERROR_LIGHT/HEAVY は state=ERROR に正規化し "ErrorLight"/"ErrorHeavy" を保存
                                                 // 旧キー（sprite_last_selected_animation）は段階廃止済み（PR14で書き込み停止、PR15で読み取り停止）
                                                 when (updated) {
@@ -4056,9 +4026,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                         "Thinking",
                                                     )
 
-                                                    AnimationType.OFFLINE_ENTER,
-                                                    AnimationType.OFFLINE_LOOP,
-                                                    AnimationType.OFFLINE_EXIT ->
+                                                    AnimationType.OFFLINE_LOOP ->
                                                         settingsPreferences.setSelectedKey(
                                                             SpriteState.OFFLINE,
                                                             "OfflineLoop",

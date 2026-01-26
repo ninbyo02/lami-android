@@ -10,16 +10,12 @@ enum class LamiAnimationStatus {
     TalkCalm,
     ErrorLight,
     ErrorHeavy,
-    OfflineEnter,
     OfflineLoop,
-    OfflineExit,
     Ready,
 }
 
 private fun LamiAnimationStatus.isOffline(): Boolean {
-    return this == LamiAnimationStatus.OfflineEnter ||
-        this == LamiAnimationStatus.OfflineLoop ||
-        this == LamiAnimationStatus.OfflineExit
+    return this == LamiAnimationStatus.OfflineLoop
 }
 
 private fun decideErrorSeverity(lastError: String?, retryCount: Int): LamiAnimationStatus {
@@ -37,7 +33,7 @@ private fun decideErrorSeverity(lastError: String?, retryCount: Int): LamiAnimat
 
 /**
  * 新しいアニメーション状態 enum を返すマッパー。
- * OfflineEnter/Loop/Exit を previousStatus とモデル有無から判断し、
+ * Offline は OfflineLoop のみで扱い、
  * 話速 bucket やエラー強度もここで決定する。
  */
 fun mapToAnimationLamiStatus(
@@ -76,12 +72,7 @@ fun mapToAnimationLamiStatus(
     val shouldOffline = !hasModels || offlineFromError
 
     if (shouldOffline) {
-        return when {
-            previousStatus.isOffline() -> LamiAnimationStatus.OfflineLoop
-            else -> LamiAnimationStatus.OfflineEnter
-        }
-    } else if (previousStatus.isOffline()) {
-        return LamiAnimationStatus.OfflineExit
+        return LamiAnimationStatus.OfflineLoop
     }
 
     val hasError = !lastError.isNullOrBlank() || uiState is UiState.Error
@@ -129,9 +120,7 @@ fun mapToAnimationLamiStatus(
         LamiAnimationStatus.TalkCalm -> LamiStatus.TALKING
         LamiAnimationStatus.ErrorLight,
         LamiAnimationStatus.ErrorHeavy -> LamiStatus.ERROR
-        LamiAnimationStatus.OfflineEnter,
-        LamiAnimationStatus.OfflineLoop,
-        LamiAnimationStatus.OfflineExit -> LamiStatus.OFFLINE
+        LamiAnimationStatus.OfflineLoop -> LamiStatus.OFFLINE
         LamiAnimationStatus.Ready -> LamiStatus.READY
         LamiAnimationStatus.Idle -> if (selectedModel.isNullOrBlank()) {
             LamiStatus.NO_MODELS

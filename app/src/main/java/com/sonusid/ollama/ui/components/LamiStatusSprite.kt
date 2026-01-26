@@ -42,9 +42,7 @@ enum class LamiSpriteStatus {
     TalkCalm,
     ErrorLight,
     ErrorHeavy,
-    OfflineEnter,
     OfflineLoop,
-    OfflineExit,
     Ready,
 }
 
@@ -163,22 +161,10 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         ),
         insertions = emptyList(),
     ),
-    LamiSpriteStatus.OfflineEnter to AnimationSpec(
-        frames = listOf(0, 8, 8),
-        frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
-        loop = false,
-        insertions = emptyList(),
-    ),
     LamiSpriteStatus.OfflineLoop to AnimationSpec(
         frames = listOf(8, 8),
         frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
         loop = true,
-        insertions = emptyList(),
-    ),
-    LamiSpriteStatus.OfflineExit to AnimationSpec(
-        frames = listOf(8, 0),
-        frameDuration = FrameDurationSpec(minMs = 1_000L, maxMs = 1_500L),
-        loop = false,
         insertions = emptyList(),
     ),
     LamiSpriteStatus.Ready to AnimationSpec(
@@ -204,9 +190,7 @@ private fun selectInsertionSettingsForStatus(
         LamiSpriteStatus.TalkLong,
         LamiSpriteStatus.TalkCalm,
         -> talkingSettings
-        LamiSpriteStatus.OfflineEnter,
         LamiSpriteStatus.OfflineLoop,
-        LamiSpriteStatus.OfflineExit,
         -> null
     }
 
@@ -520,23 +504,7 @@ fun LamiStatusSprite(
     var previousAnimationStatus by remember {
         mutableStateOf(status.value)
     }
-    val animationStatus = remember(
-        status.value,
-        selectedModel,
-        lastError,
-        retryCount,
-        talkingTextLength,
-        previousAnimationStatus,
-    ) {
-        val derived = status.value
-        if (derived.isOfflineStatus() && previousAnimationStatus == LamiAnimationStatus.OfflineEnter) {
-            LamiAnimationStatus.OfflineLoop
-        } else if (derived == LamiAnimationStatus.Ready && previousAnimationStatus.isOfflineStatus()) {
-            LamiAnimationStatus.OfflineExit
-        } else {
-            derived
-        }
-    }
+    val animationStatus = status.value
     val spriteStatus = remember(
         animationStatus,
         selectedModel,
@@ -601,7 +569,6 @@ fun mapToLamiSpriteStatus(
         ?: lamiStatus?.toAnimationStatus(
             lastError = lastError,
             selectedModel = selectedModel,
-            previousStatus = previousAnimationStatus,
             talkingTextLength = talkingTextLength,
         )
 
@@ -680,9 +647,7 @@ private fun LamiAnimationStatus.toSpriteStatus(): LamiSpriteStatus {
         LamiAnimationStatus.TalkCalm -> LamiSpriteStatus.TalkCalm
         LamiAnimationStatus.ErrorLight -> LamiSpriteStatus.ErrorLight
         LamiAnimationStatus.ErrorHeavy -> LamiSpriteStatus.ErrorHeavy
-        LamiAnimationStatus.OfflineEnter -> LamiSpriteStatus.OfflineEnter
         LamiAnimationStatus.OfflineLoop -> LamiSpriteStatus.OfflineLoop
-        LamiAnimationStatus.OfflineExit -> LamiSpriteStatus.OfflineExit
         LamiAnimationStatus.Ready -> LamiSpriteStatus.Ready
     }
 }
@@ -690,7 +655,6 @@ private fun LamiAnimationStatus.toSpriteStatus(): LamiSpriteStatus {
 private fun LamiStatus.toAnimationStatus(
     lastError: String? = null,
     selectedModel: String? = null,
-    previousStatus: LamiAnimationStatus = LamiAnimationStatus.Idle,
     talkingTextLength: Int? = null,
 ): LamiAnimationStatus {
     val hasModels = !selectedModel.isNullOrBlank()
@@ -701,22 +665,10 @@ private fun LamiStatus.toAnimationStatus(
             else -> LamiAnimationStatus.TalkLong
         }
         LamiStatus.CONNECTING -> LamiAnimationStatus.Thinking
-        LamiStatus.READY -> if (previousStatus.isOfflineStatus()) {
-            LamiAnimationStatus.OfflineExit
-        } else {
-            LamiAnimationStatus.Ready
-        }
+        LamiStatus.READY -> LamiAnimationStatus.Ready
         LamiStatus.DEGRADED -> LamiAnimationStatus.Thinking
-        LamiStatus.NO_MODELS -> if (previousStatus.isOfflineStatus()) {
-            LamiAnimationStatus.OfflineLoop
-        } else {
-            LamiAnimationStatus.OfflineEnter
-        }
-        LamiStatus.OFFLINE -> if (previousStatus.isOfflineStatus()) {
-            LamiAnimationStatus.OfflineLoop
-        } else {
-            LamiAnimationStatus.OfflineEnter
-        }
+        LamiStatus.NO_MODELS -> LamiAnimationStatus.OfflineLoop
+        LamiStatus.OFFLINE -> LamiAnimationStatus.OfflineLoop
         LamiStatus.ERROR -> if (!lastError.isNullOrBlank()) {
             LamiAnimationStatus.ErrorHeavy
         } else if (!hasModels) {
@@ -728,7 +680,5 @@ private fun LamiStatus.toAnimationStatus(
 }
 
 private fun LamiAnimationStatus.isOfflineStatus(): Boolean {
-    return this == LamiAnimationStatus.OfflineEnter ||
-        this == LamiAnimationStatus.OfflineLoop ||
-        this == LamiAnimationStatus.OfflineExit
+    return this == LamiAnimationStatus.OfflineLoop
 }
