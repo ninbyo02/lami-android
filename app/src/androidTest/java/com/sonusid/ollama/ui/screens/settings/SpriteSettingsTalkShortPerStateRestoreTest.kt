@@ -32,9 +32,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import kotlinx.coroutines.flow.first
 
 class SpriteSettingsTalkShortPerStateRestoreTest {
     @get:Rule
@@ -81,6 +84,41 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkShort")
         composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_SHORT, "TalkShort")
         composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_SHORT, expectedSnapshot)
+    }
+
+    @Test
+    fun talkShortDefaults_usedWhenDataStoreMissing() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+
+        runBlockingIo {
+            prefs.ensurePerStateAnimationJsonsInitialized()
+        }
+
+        val perStateJson = runBlockingIo {
+            prefs.spriteAnimationJsonFlow(SpriteState.TALK_SHORT).first()
+        }
+        assertNotNull("TalkShort の per-state JSON が未生成です", perStateJson)
+        val root = JSONObject(perStateJson!!)
+        val baseObject = root.getJSONObject("base")
+        val baseFramesArray = baseObject.getJSONArray("frames")
+        val baseFrames = buildList {
+            for (index in 0 until baseFramesArray.length()) {
+                add(baseFramesArray.getInt(index))
+            }
+        }
+        assertEquals(listOf(0, 6, 2, 6, 0, 0), baseFrames)
+        assertEquals(125, baseObject.getInt("intervalMs"))
+
+        val insertionObject = root.getJSONObject("insertion")
+        val patternsArray = insertionObject.getJSONArray("patterns")
+        assertEquals(false, insertionObject.getBoolean("enabled"))
+        assertEquals(0, patternsArray.length())
+        assertEquals(130, insertionObject.getInt("intervalMs"))
+        assertEquals(0, insertionObject.getInt("everyNLoops"))
+        assertEquals(0, insertionObject.getInt("probabilityPercent"))
+        assertEquals(0, insertionObject.getInt("cooldownLoops"))
+        assertEquals(false, insertionObject.getBoolean("exclusive"))
     }
 
     private fun selectAnimationType(label: String) {
@@ -130,13 +168,12 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         }
     }
 
-    private fun runBlockingIo(block: suspend () -> Unit) {
+    private fun <T> runBlockingIo(block: suspend () -> T): T =
         runBlocking {
             withContext(Dispatchers.IO) {
                 block()
             }
         }
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {

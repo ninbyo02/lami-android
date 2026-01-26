@@ -32,9 +32,13 @@ data class ReadyAnimationSettings(
     val intervalMs: Int,
 ) {
     companion object {
+        val IDLE_DEFAULT = ReadyAnimationSettings(
+            frameSequence = listOf(8, 8, 8, 8),
+            intervalMs = 150,
+        )
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
-            intervalMs = 180,
+            intervalMs = 230,
         )
         val TALKING_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 6, 0, 6),
@@ -78,42 +82,54 @@ data class InsertionAnimationSettings(
     val exclusive: Boolean,
 ) {
     companion object {
+        val IDLE_DEFAULT = InsertionAnimationSettings(
+            enabled = true,
+            patterns = listOf(
+                InsertionPattern(frameSequence = listOf(5, 8, 5), weight = 3, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(4, 8, 5), weight = 1, intervalMs = 120),
+            ),
+            intervalMs = 125,
+            everyNLoops = 4,
+            probabilityPercent = 50,
+            cooldownLoops = 4,
+            exclusive = true,
+        )
         val READY_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
                 // Ready insertion のデフォルトを仕様に合わせて更新
-                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 3, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(5, 0, 5, 0, 0), weight = 1, intervalMs = 140),
             ),
-            intervalMs = 110,
-            everyNLoops = 5,
-            probabilityPercent = 58,
-            cooldownLoops = 6,
-            exclusive = false,
+            intervalMs = 125,
+            everyNLoops = 4,
+            probabilityPercent = 50,
+            cooldownLoops = 4,
+            exclusive = true,
         )
         val TALKING_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
-                InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 110),
+                InsertionPattern(frameSequence = listOf(5, 0), weight = 2, intervalMs = 120),
+                InsertionPattern(frameSequence = listOf(5, 0, 5), weight = 1, intervalMs = 125),
             ),
-            intervalMs = 110,
+            intervalMs = 130,
             everyNLoops = 4,
-            probabilityPercent = 50,
-            cooldownLoops = 2,
-            exclusive = false,
+            probabilityPercent = 45,
+            cooldownLoops = 3,
+            exclusive = true,
         )
         // Thinking のデフォルト: pattern intervalMs/intervalMs は指定JSONに合わせる
         // everyNLoops/probabilityPercent/cooldownLoops は連発抑制のための挿入判定パラメータ
         val THINKING_DEFAULT = InsertionAnimationSettings(
             enabled = true,
             patterns = listOf(
-                InsertionPattern(frameSequence = listOf(5, 7), weight = 2, intervalMs = 110),
-                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 80),
+                InsertionPattern(frameSequence = listOf(5, 7), weight = 2, intervalMs = 130),
+                InsertionPattern(frameSequence = listOf(4, 8, 4), weight = 1, intervalMs = 140),
             ),
-            intervalMs = 200,
-            everyNLoops = 5,
-            probabilityPercent = 65,
+            intervalMs = 180,
+            everyNLoops = 4,
+            probabilityPercent = 55,
             cooldownLoops = 5,
             exclusive = false,
         )
@@ -129,13 +145,19 @@ data class InsertionAnimationSettings(
         )
         // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
         val ERROR_DEFAULT = InsertionAnimationSettings(
-            enabled = false,
-            patterns = emptyList(),
-            intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INTERVAL_MS,
-            everyNLoops = MIN_EVERY_N_LOOPS,
-            probabilityPercent = MIN_PROBABILITY_PERCENT,
-            cooldownLoops = MIN_COOLDOWN_LOOPS,
-            exclusive = false,
+            enabled = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_ENABLED,
+            patterns = listOf(
+                InsertionPattern(
+                    frameSequence = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_PATTERN_FRAMES,
+                    weight = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_PATTERN_WEIGHT,
+                    intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_PATTERN_INTERVAL_MS,
+                ),
+            ),
+            intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_INTERVAL_MS,
+            everyNLoops = SpriteAnimationDefaults.ERROR_LIGHT_EVERY_N_LOOPS,
+            probabilityPercent = SpriteAnimationDefaults.ERROR_LIGHT_PROBABILITY_PERCENT,
+            cooldownLoops = SpriteAnimationDefaults.ERROR_LIGHT_COOLDOWN_LOOPS,
+            exclusive = SpriteAnimationDefaults.ERROR_LIGHT_EXCLUSIVE,
         )
         val DEFAULT = READY_DEFAULT
 
@@ -1022,12 +1044,15 @@ class SettingsPreferences(private val context: Context) {
             error("insertion.enabled is missing: state=${state.name}")
         }
         val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
-        val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
         val intervalMs = if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
             insertionObject.getInt(JSON_INTERVAL_MS_KEY)
         } else {
             insertionDefaults.intervalMs
         }
+        val patterns = parsePerStatePatterns(
+            insertionObject.optJSONArray(JSON_PATTERNS_KEY),
+            intervalMs,
+        )
         val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
         val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
             .coerceIn(0, 100)
@@ -1066,55 +1091,73 @@ class SettingsPreferences(private val context: Context) {
     }
 
     private val talkShortBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(0, 6, 2, 6, 0),
-        intervalMs = 130,
+        frameSequence = listOf(0, 6, 2, 6, 0, 0),
+        intervalMs = 125,
     )
-    private val talkShortInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+    private val talkShortInsertionDefaults = InsertionAnimationSettings(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(0, 6, 2, 6, 0), intervalMs = 130)),
+        patterns = emptyList(),
         intervalMs = 130,
+        everyNLoops = 0,
+        probabilityPercent = 0,
+        cooldownLoops = 0,
+        exclusive = false,
     )
     private val talkLongBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(0, 4, 6, 4, 4, 6, 4, 0),
-        intervalMs = 190,
+        frameSequence = listOf(0, 6, 1, 0, 6),
+        intervalMs = 125,
     )
     private val talkLongInsertionDefaults = InsertionAnimationSettings(
         enabled = true,
-        patterns = listOf(InsertionPattern(listOf(1), intervalMs = 190)),
-        intervalMs = 190,
-        everyNLoops = 2,
-        probabilityPercent = 100,
-        cooldownLoops = 0,
+        patterns = listOf(
+            InsertionPattern(frameSequence = listOf(1, 5), weight = 3, intervalMs = 120),
+            InsertionPattern(frameSequence = listOf(2, 5), weight = 1, intervalMs = 130),
+        ),
+        intervalMs = 125,
+        everyNLoops = 3,
+        probabilityPercent = 70,
+        cooldownLoops = 4,
         exclusive = true,
     )
     private val talkCalmBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(7, 4, 7, 8, 7),
-        intervalMs = 280,
+        frameSequence = listOf(0, 1, 5, 1, 0, 1, 0),
+        intervalMs = 240,
     )
-    private val talkCalmInsertionDefaults = InsertionAnimationSettings.TALKING_DEFAULT.copy(
+    private val talkCalmInsertionDefaults = InsertionAnimationSettings(
         enabled = false,
-        patterns = listOf(InsertionPattern(listOf(7, 4, 7, 8, 7), intervalMs = 280)),
+        patterns = emptyList(),
         intervalMs = 280,
+        everyNLoops = 0,
+        probabilityPercent = 0,
+        cooldownLoops = 0,
+        exclusive = false,
     )
     private val errorLightBaseDefaults = ReadyAnimationSettings.ERROR_DEFAULT
     private val errorLightInsertionDefaults = InsertionAnimationSettings.ERROR_DEFAULT
     private val errorHeavyBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(5, 5, 5, 7, 5),
-        intervalMs = 400,
+        frameSequence = SpriteAnimationDefaults.ERROR_HEAVY_FRAMES,
+        intervalMs = SpriteAnimationDefaults.ERROR_HEAVY_BASE_INTERVAL_MS,
     )
     private val errorHeavyInsertionDefaults = InsertionAnimationSettings(
-        enabled = true,
-        patterns = listOf(InsertionPattern(listOf(2), intervalMs = 400)),
-        intervalMs = 400,
-        everyNLoops = 6,
-        probabilityPercent = 100,
-        cooldownLoops = 0,
-        exclusive = true,
+        enabled = SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_ENABLED,
+        patterns = SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS.map { pattern ->
+            InsertionPattern(
+                frameSequence = pattern.frames,
+                weight = pattern.weight,
+                intervalMs = pattern.intervalMs,
+            )
+        },
+        intervalMs = SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_INTERVAL_MS,
+        everyNLoops = SpriteAnimationDefaults.ERROR_HEAVY_EVERY_N_LOOPS,
+        probabilityPercent = SpriteAnimationDefaults.ERROR_HEAVY_PROBABILITY_PERCENT,
+        cooldownLoops = SpriteAnimationDefaults.ERROR_HEAVY_COOLDOWN_LOOPS,
+        exclusive = SpriteAnimationDefaults.ERROR_HEAVY_EXCLUSIVE,
     )
 
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =
         when (state) {
             SpriteState.READY -> ReadyAnimationSettings.READY_DEFAULT to InsertionAnimationSettings.READY_DEFAULT
+            SpriteState.IDLE -> ReadyAnimationSettings.IDLE_DEFAULT to InsertionAnimationSettings.IDLE_DEFAULT
             SpriteState.SPEAKING -> ReadyAnimationSettings.TALKING_DEFAULT to InsertionAnimationSettings.TALKING_DEFAULT
             SpriteState.TALK_SHORT -> talkShortBaseDefaults to talkShortInsertionDefaults
             SpriteState.TALK_LONG -> talkLongBaseDefaults to talkLongInsertionDefaults
@@ -1204,15 +1247,7 @@ class SettingsPreferences(private val context: Context) {
         insertionSettings: InsertionAnimationSettings,
     ): String? {
         val patterns = insertionSettings.patterns.take(2)
-        if (patterns.any { pattern -> pattern.intervalMs == null }) {
-            if (BuildConfig.DEBUG) {
-                Log.d(
-                    "LamiSprite",
-                    "sprite animations migrate v1 skipped: pattern intervalMs missing key=$animationKey"
-                )
-            }
-            return null
-        }
+        val insertionIntervalMs = insertionSettings.intervalMs
         val baseJson = JSONObject()
             .put(JSON_FRAMES_KEY, baseSettings.frameSequence.toJsonArray())
             .put(JSON_INTERVAL_MS_KEY, baseSettings.intervalMs)
@@ -1222,11 +1257,13 @@ class SettingsPreferences(private val context: Context) {
                 JSON_PATTERNS_KEY,
                 JSONArray().also { array ->
                     patterns.forEach { pattern ->
+                        val intervalMs = pattern.intervalMs ?: insertionIntervalMs
                         array.put(
-                            JSONObject()
-                                .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
-                                .put(JSON_WEIGHT_KEY, pattern.weight)
-                                .put(JSON_PATTERN_INTERVAL_MS_KEY, requireNotNull(pattern.intervalMs))
+                            JSONObject().apply {
+                                put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
+                                put(JSON_WEIGHT_KEY, pattern.weight)
+                                put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
+                            }
                         )
                     }
                 }
@@ -1449,7 +1486,10 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
-    private fun parsePerStatePatterns(array: JSONArray?): List<InsertionPatternConfig> {
+    private fun parsePerStatePatterns(
+        array: JSONArray?,
+        fallbackIntervalMs: Int,
+    ): List<InsertionPatternConfig> {
         if (array == null) return emptyList()
         val limit = minOf(array.length(), 2)
         return buildList {
@@ -1457,9 +1497,6 @@ class SettingsPreferences(private val context: Context) {
                 val patternObject = array.optJSONObject(index) ?: error("pattern is missing")
                 val framesArray = patternObject.optJSONArray(JSON_FRAMES_KEY)
                     ?: error("pattern.frames is missing")
-                if (!patternObject.has(JSON_PATTERN_INTERVAL_MS_KEY)) {
-                    error("pattern.intervalMs is missing")
-                }
                 val frames = buildList {
                     if (framesArray.length() == 0) error("pattern.frames is empty")
                     for (frameIndex in 0 until framesArray.length()) {
@@ -1471,7 +1508,11 @@ class SettingsPreferences(private val context: Context) {
                     }
                 }
                 val weight = patternObject.optInt(JSON_WEIGHT_KEY, 1).coerceAtLeast(0)
-                val intervalMs = patternObject.getInt(JSON_PATTERN_INTERVAL_MS_KEY)
+                val intervalMs = if (patternObject.has(JSON_PATTERN_INTERVAL_MS_KEY)) {
+                    patternObject.getInt(JSON_PATTERN_INTERVAL_MS_KEY)
+                } else {
+                    fallbackIntervalMs
+                }
                 add(
                     InsertionPatternConfig(
                         frames = frames,
@@ -1491,22 +1532,21 @@ class SettingsPreferences(private val context: Context) {
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
         JSONObject()
             .put(JSON_ENABLED_KEY, enabled)
-            .put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray())
+            .put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray(intervalMs))
             .put(JSON_INTERVAL_MS_KEY, intervalMs)
             .put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
             .put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
             .put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
             .put(JSON_EXCLUSIVE_KEY, exclusive)
 
-    private fun List<InsertionPattern>.toPatternsJsonArray(): JSONArray =
+    private fun List<InsertionPattern>.toPatternsJsonArray(fallbackIntervalMs: Int): JSONArray =
         JSONArray().also { array ->
             forEach { pattern ->
+                val intervalMs = pattern.intervalMs ?: fallbackIntervalMs
                 val patternObject = JSONObject()
                     .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
                     .put(JSON_WEIGHT_KEY, pattern.weight)
-                pattern.intervalMs?.let { intervalMs ->
-                    patternObject.put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
-                }
+                    .put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
                 array.put(patternObject)
             }
         }
