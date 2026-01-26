@@ -1044,12 +1044,15 @@ class SettingsPreferences(private val context: Context) {
             error("insertion.enabled is missing: state=${state.name}")
         }
         val enabled = insertionObject.getBoolean(JSON_ENABLED_KEY)
-        val patterns = parsePerStatePatterns(insertionObject.optJSONArray(JSON_PATTERNS_KEY))
         val intervalMs = if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
             insertionObject.getInt(JSON_INTERVAL_MS_KEY)
         } else {
             insertionDefaults.intervalMs
         }
+        val patterns = parsePerStatePatterns(
+            insertionObject.optJSONArray(JSON_PATTERNS_KEY),
+            intervalMs,
+        )
         val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
         val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
             .coerceIn(0, 100)
@@ -1254,15 +1257,12 @@ class SettingsPreferences(private val context: Context) {
                 JSON_PATTERNS_KEY,
                 JSONArray().also { array ->
                     patterns.forEach { pattern ->
+                        val intervalMs = pattern.intervalMs ?: insertionIntervalMs
                         array.put(
                             JSONObject().apply {
                                 put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
                                 put(JSON_WEIGHT_KEY, pattern.weight)
-                                pattern.intervalMs
-                                    ?.takeIf { it != insertionIntervalMs }
-                                    ?.let { intervalMs ->
-                                        put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
-                                    }
+                                put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
                             }
                         )
                     }
@@ -1486,7 +1486,10 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
-    private fun parsePerStatePatterns(array: JSONArray?): List<InsertionPatternConfig> {
+    private fun parsePerStatePatterns(
+        array: JSONArray?,
+        fallbackIntervalMs: Int,
+    ): List<InsertionPatternConfig> {
         if (array == null) return emptyList()
         val limit = minOf(array.length(), 2)
         return buildList {
@@ -1494,9 +1497,6 @@ class SettingsPreferences(private val context: Context) {
                 val patternObject = array.optJSONObject(index) ?: error("pattern is missing")
                 val framesArray = patternObject.optJSONArray(JSON_FRAMES_KEY)
                     ?: error("pattern.frames is missing")
-                if (!patternObject.has(JSON_PATTERN_INTERVAL_MS_KEY)) {
-                    error("pattern.intervalMs is missing")
-                }
                 val frames = buildList {
                     if (framesArray.length() == 0) error("pattern.frames is empty")
                     for (frameIndex in 0 until framesArray.length()) {
@@ -1508,7 +1508,11 @@ class SettingsPreferences(private val context: Context) {
                     }
                 }
                 val weight = patternObject.optInt(JSON_WEIGHT_KEY, 1).coerceAtLeast(0)
-                val intervalMs = patternObject.getInt(JSON_PATTERN_INTERVAL_MS_KEY)
+                val intervalMs = if (patternObject.has(JSON_PATTERN_INTERVAL_MS_KEY)) {
+                    patternObject.getInt(JSON_PATTERN_INTERVAL_MS_KEY)
+                } else {
+                    fallbackIntervalMs
+                }
                 add(
                     InsertionPatternConfig(
                         frames = frames,
@@ -1528,22 +1532,21 @@ class SettingsPreferences(private val context: Context) {
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
         JSONObject()
             .put(JSON_ENABLED_KEY, enabled)
-            .put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray())
+            .put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray(intervalMs))
             .put(JSON_INTERVAL_MS_KEY, intervalMs)
             .put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
             .put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
             .put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
             .put(JSON_EXCLUSIVE_KEY, exclusive)
 
-    private fun List<InsertionPattern>.toPatternsJsonArray(): JSONArray =
+    private fun List<InsertionPattern>.toPatternsJsonArray(fallbackIntervalMs: Int): JSONArray =
         JSONArray().also { array ->
             forEach { pattern ->
+                val intervalMs = pattern.intervalMs ?: fallbackIntervalMs
                 val patternObject = JSONObject()
                     .put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
                     .put(JSON_WEIGHT_KEY, pattern.weight)
-                pattern.intervalMs?.let { intervalMs ->
-                    patternObject.put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
-                }
+                    .put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
                 array.put(patternObject)
             }
         }
