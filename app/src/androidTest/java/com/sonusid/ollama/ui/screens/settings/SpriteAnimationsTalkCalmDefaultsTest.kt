@@ -55,7 +55,7 @@ class SpriteAnimationsTalkCalmDefaultsTest {
 
         val insertion = root.getJSONObject("insertion")
         assertEquals(false, insertion.getBoolean("enabled"))
-        assertEquals(280, insertion.getInt("intervalMs"))
+        assertTrue("insertion.intervalMs は無効時に省略される", insertion.has("intervalMs").not())
         assertEquals(0, insertion.getInt("everyNLoops"))
         assertEquals(0, insertion.getInt("probabilityPercent"))
         assertEquals(0, insertion.getInt("cooldownLoops"))
