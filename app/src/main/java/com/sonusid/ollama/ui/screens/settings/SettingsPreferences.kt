@@ -1132,17 +1132,23 @@ class SettingsPreferences(private val context: Context) {
     private val errorLightBaseDefaults = ReadyAnimationSettings.ERROR_DEFAULT
     private val errorLightInsertionDefaults = InsertionAnimationSettings.ERROR_DEFAULT
     private val errorHeavyBaseDefaults = ReadyAnimationSettings(
-        frameSequence = listOf(5, 5, 5, 7, 5),
-        intervalMs = 400,
+        frameSequence = SpriteAnimationDefaults.ERROR_HEAVY_FRAMES,
+        intervalMs = SpriteAnimationDefaults.ERROR_HEAVY_BASE_INTERVAL_MS,
     )
     private val errorHeavyInsertionDefaults = InsertionAnimationSettings(
-        enabled = true,
-        patterns = listOf(InsertionPattern(listOf(2), intervalMs = 400)),
-        intervalMs = 400,
-        everyNLoops = 6,
-        probabilityPercent = 100,
-        cooldownLoops = 0,
-        exclusive = true,
+        enabled = SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_ENABLED,
+        patterns = SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS.map { pattern ->
+            InsertionPattern(
+                frameSequence = pattern.frames,
+                weight = pattern.weight,
+                intervalMs = pattern.intervalMs,
+            )
+        },
+        intervalMs = SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_INTERVAL_MS,
+        everyNLoops = SpriteAnimationDefaults.ERROR_HEAVY_EVERY_N_LOOPS,
+        probabilityPercent = SpriteAnimationDefaults.ERROR_HEAVY_PROBABILITY_PERCENT,
+        cooldownLoops = SpriteAnimationDefaults.ERROR_HEAVY_COOLDOWN_LOOPS,
+        exclusive = SpriteAnimationDefaults.ERROR_HEAVY_EXCLUSIVE,
     )
 
     private fun defaultsForState(state: SpriteState): Pair<ReadyAnimationSettings, InsertionAnimationSettings> =

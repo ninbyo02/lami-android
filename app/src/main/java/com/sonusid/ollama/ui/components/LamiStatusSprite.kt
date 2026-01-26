@@ -155,8 +155,12 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
         insertions = emptyList(),
     ),
     LamiSpriteStatus.ErrorHeavy to AnimationSpec(
-        frames = listOf(5, 5, 5, 7, 5),
-        frameDuration = FrameDurationSpec(minMs = 340L, maxMs = 460L, jitterFraction = 0.1f),
+        frames = SpriteAnimationDefaults.ERROR_HEAVY_FRAMES,
+        frameDuration = FrameDurationSpec(
+            minMs = SpriteAnimationDefaults.ERROR_HEAVY_BASE_INTERVAL_MS.toLong(),
+            maxMs = SpriteAnimationDefaults.ERROR_HEAVY_BASE_INTERVAL_MS.toLong(),
+            jitterFraction = 0f,
+        ),
         insertions = emptyList(),
     ),
     LamiSpriteStatus.OfflineEnter to AnimationSpec(
