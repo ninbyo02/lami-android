@@ -38,14 +38,18 @@ class SettingsPreferencesErrorDefaultTest {
         assertEquals(390, config.baseIntervalMs)
 
         val insertion = config.insertion
-        assertTrue(!insertion.enabled)
+        assertTrue(insertion.enabled)
         assertEquals(390, insertion.intervalMs)
-        assertEquals(1, insertion.everyNLoops)
-        assertEquals(0, insertion.probabilityPercent)
-        assertEquals(0, insertion.cooldownLoops)
+        assertEquals(3, insertion.everyNLoops)
+        assertEquals(60, insertion.probabilityPercent)
+        assertEquals(4, insertion.cooldownLoops)
         assertEquals(false, insertion.exclusive)
 
-        assertEquals(0, insertion.patterns.size)
+        assertEquals(1, insertion.patterns.size)
+        val pattern = insertion.patterns.first()
+        assertEquals(listOf(2, 4), pattern.frames)
+        assertEquals(1, pattern.weight)
+        assertEquals(390, pattern.intervalMs)
     }
 
     @Test
@@ -59,12 +63,16 @@ class SettingsPreferencesErrorDefaultTest {
 
         assertEquals(listOf(4, 6, 7, 6, 4), baseDefaults.frameSequence)
         assertEquals(390, baseDefaults.intervalMs)
-        assertTrue(!insertionDefaults.enabled)
+        assertTrue(insertionDefaults.enabled)
         assertEquals(390, insertionDefaults.intervalMs)
-        assertEquals(1, insertionDefaults.everyNLoops)
-        assertEquals(0, insertionDefaults.probabilityPercent)
-        assertEquals(0, insertionDefaults.cooldownLoops)
+        assertEquals(3, insertionDefaults.everyNLoops)
+        assertEquals(60, insertionDefaults.probabilityPercent)
+        assertEquals(4, insertionDefaults.cooldownLoops)
         assertEquals(false, insertionDefaults.exclusive)
-        assertEquals(0, insertionDefaults.patterns.size)
+        assertEquals(1, insertionDefaults.patterns.size)
+        val pattern = insertionDefaults.patterns.first()
+        assertEquals(listOf(2, 4), pattern.frameSequence)
+        assertEquals(1, pattern.weight)
+        assertEquals(390, pattern.intervalMs)
     }
 }

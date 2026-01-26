@@ -44,13 +44,18 @@ class SpriteAnimationsErrorLightDefaultsTest {
         assertEquals(390, base.getInt("intervalMs"))
         assertEquals(listOf(4, 6, 7, 6, 4), base.getJSONArray("frames").toIntList())
 
-        assertTrue(!insertion.getBoolean("enabled"))
+        assertTrue(insertion.getBoolean("enabled"))
         assertEquals(390, insertion.getInt("intervalMs"))
-        assertEquals(1, insertion.getInt("everyNLoops"))
-        assertEquals(0, insertion.getInt("probabilityPercent"))
-        assertEquals(0, insertion.getInt("cooldownLoops"))
+        assertEquals(3, insertion.getInt("everyNLoops"))
+        assertEquals(60, insertion.getInt("probabilityPercent"))
+        assertEquals(4, insertion.getInt("cooldownLoops"))
         assertEquals(false, insertion.getBoolean("exclusive"))
-        assertEquals(0, insertion.getJSONArray("patterns").length())
+        val patterns = insertion.getJSONArray("patterns")
+        assertEquals(1, patterns.length())
+        val pattern = patterns.getJSONObject(0)
+        assertEquals(listOf(2, 4), pattern.getJSONArray("frames").toIntList())
+        assertEquals(1, pattern.getInt("weight"))
+        assertEquals(390, pattern.getInt("intervalMs"))
     }
 
     private fun JSONArray.toIntList(): List<Int> = buildList {

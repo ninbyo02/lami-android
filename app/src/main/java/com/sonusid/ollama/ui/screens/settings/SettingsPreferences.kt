@@ -145,13 +145,19 @@ data class InsertionAnimationSettings(
         )
         // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
         val ERROR_DEFAULT = InsertionAnimationSettings(
-            enabled = false,
-            patterns = emptyList(),
-            intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INTERVAL_MS,
-            everyNLoops = MIN_EVERY_N_LOOPS,
-            probabilityPercent = MIN_PROBABILITY_PERCENT,
-            cooldownLoops = MIN_COOLDOWN_LOOPS,
-            exclusive = false,
+            enabled = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_ENABLED,
+            patterns = listOf(
+                InsertionPattern(
+                    frameSequence = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_PATTERN_FRAMES,
+                    weight = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_PATTERN_WEIGHT,
+                    intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_PATTERN_INTERVAL_MS,
+                ),
+            ),
+            intervalMs = SpriteAnimationDefaults.ERROR_LIGHT_INSERTION_INTERVAL_MS,
+            everyNLoops = SpriteAnimationDefaults.ERROR_LIGHT_EVERY_N_LOOPS,
+            probabilityPercent = SpriteAnimationDefaults.ERROR_LIGHT_PROBABILITY_PERCENT,
+            cooldownLoops = SpriteAnimationDefaults.ERROR_LIGHT_COOLDOWN_LOOPS,
+            exclusive = SpriteAnimationDefaults.ERROR_LIGHT_EXCLUSIVE,
         )
         val DEFAULT = READY_DEFAULT
 
