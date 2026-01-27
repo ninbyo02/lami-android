@@ -676,7 +676,8 @@ class SettingsPreferences(private val context: Context) {
             }
         }
         val corrected = correctOfflineBaseIntervalIfNeeded(preferences)
-        saved || corrected
+        val cleaned = correctPerStateInsertionJsonsIfNeeded(preferences)
+        saved || corrected || cleaned
     }
 
     private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
@@ -713,6 +714,13 @@ class SettingsPreferences(private val context: Context) {
             insertionObject.remove(JSON_INTERVAL_MS_KEY)
             changed = true
         }
+        if (!insertionEnabled) {
+            val patterns = insertionObject.optJSONArray(JSON_PATTERNS_KEY)
+            if (patterns == null || patterns.length() > 0) {
+                insertionObject.put(JSON_PATTERNS_KEY, JSONArray())
+                changed = true
+            }
+        }
         val baseObject = root.optJSONObject(JSON_BASE_KEY)
         if (baseObject?.has(JSON_INTERVAL_MS_KEY) == true) {
             val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
@@ -725,6 +733,41 @@ class SettingsPreferences(private val context: Context) {
         if (!changed) return false
         saveSpriteAnimationJson(SpriteState.OFFLINE, root.toString())
         return true
+    }
+
+    private suspend fun correctPerStateInsertionJsonsIfNeeded(
+        preferences: androidx.datastore.preferences.core.Preferences,
+    ): Boolean {
+        var corrected = false
+        SpriteState.values().forEach { state ->
+            val json = preferences[spriteAnimationJsonPreferencesKey(state)]
+                ?.takeIf { it.isNotBlank() }
+                ?: return@forEach
+            val root = runCatching { JSONObject(json) }.getOrNull() ?: return@forEach
+            val insertionObject = root.optJSONObject(JSON_INSERTION_KEY) ?: return@forEach
+            val animationKey = root.optString(JSON_ANIMATION_KEY, "").trim()
+            val resolvedKey = animationKey.ifBlank { defaultKeyForState(state) }
+            val insertionDefaults = insertionDefaultsForState(state, resolvedKey)
+            val enabled = insertionObject.optBoolean(JSON_ENABLED_KEY, insertionDefaults.enabled)
+            var changed = false
+            if (!enabled) {
+                if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
+                    insertionObject.remove(JSON_INTERVAL_MS_KEY)
+                    changed = true
+                }
+                val patterns = insertionObject.optJSONArray(JSON_PATTERNS_KEY)
+                if (patterns == null || patterns.length() > 0) {
+                    insertionObject.put(JSON_PATTERNS_KEY, JSONArray())
+                    changed = true
+                }
+            }
+            if (changed) {
+                root.put(JSON_INSERTION_KEY, insertionObject)
+                saveSpriteAnimationJson(state, root.toString())
+                corrected = true
+            }
+        }
+        return corrected
     }
 
     private fun updatePerStateBaseIntervalMs(json: String, intervalMs: Int): String? {
@@ -1183,6 +1226,18 @@ class SettingsPreferences(private val context: Context) {
             else -> "ErrorLight"
         }
 
+    private fun insertionDefaultsForState(
+        state: SpriteState,
+        animationKey: String?,
+    ): InsertionAnimationSettings =
+        if (state == SpriteState.ERROR) {
+            val normalizedKey = normalizeErrorKey(animationKey)
+            defaultErrorAnimationSettingsForKey(normalizedKey).second
+        } else {
+            val resolvedKey = animationKey?.takeIf { it.isNotBlank() } ?: defaultKeyForState(state)
+            defaultAnimationSettingsForStateAndKey(state, resolvedKey).second
+        }
+
     private fun shouldRepairLegacyPerStateConfig(
         state: SpriteState,
         config: PerStateAnimationConfig,
@@ -1255,36 +1310,45 @@ class SettingsPreferences(private val context: Context) {
         baseSettings: ReadyAnimationSettings,
         insertionSettings: InsertionAnimationSettings,
     ): String? {
-        val patterns = insertionSettings.patterns.take(2)
-        val insertionIntervalMs = insertionSettings.intervalMs
+        val normalizedInsertion = normalizeInsertionSettings(insertionSettings)
+        val patterns = if (normalizedInsertion.enabled) {
+            normalizedInsertion.patterns.take(2)
+        } else {
+            emptyList()
+        }
+        val insertionIntervalMs = normalizedInsertion.intervalMs
         val baseJson = JSONObject()
             .put(JSON_FRAMES_KEY, baseSettings.frameSequence.toJsonArray())
             .put(JSON_INTERVAL_MS_KEY, baseSettings.intervalMs)
         val insertionJson = JSONObject().apply {
-            put(JSON_ENABLED_KEY, insertionSettings.enabled)
+            put(JSON_ENABLED_KEY, normalizedInsertion.enabled)
             put(
                 JSON_PATTERNS_KEY,
-                JSONArray().also { array ->
-                    patterns.forEach { pattern ->
-                        val intervalMs = pattern.intervalMs ?: insertionIntervalMs
-                        array.put(
-                            JSONObject().apply {
-                                put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
-                                put(JSON_WEIGHT_KEY, pattern.weight)
-                                put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
-                            }
-                        )
+                if (normalizedInsertion.enabled) {
+                    JSONArray().also { array ->
+                        patterns.forEach { pattern ->
+                            val intervalMs = pattern.intervalMs ?: insertionIntervalMs
+                            array.put(
+                                JSONObject().apply {
+                                    put(JSON_FRAMES_KEY, pattern.frameSequence.toJsonArray())
+                                    put(JSON_WEIGHT_KEY, pattern.weight)
+                                    put(JSON_PATTERN_INTERVAL_MS_KEY, intervalMs)
+                                }
+                            )
+                        }
                     }
+                } else {
+                    JSONArray()
                 }
             )
             // 無効時は intervalMs を保存しない（per-state JSONを最小化する）
-            if (insertionSettings.enabled) {
-                put(JSON_INTERVAL_MS_KEY, insertionSettings.intervalMs)
+            if (normalizedInsertion.enabled) {
+                put(JSON_INTERVAL_MS_KEY, normalizedInsertion.intervalMs)
             }
-            put(JSON_EVERY_N_LOOPS_KEY, insertionSettings.everyNLoops)
-            put(JSON_PROBABILITY_PERCENT_KEY, insertionSettings.probabilityPercent)
-            put(JSON_COOLDOWN_LOOPS_KEY, insertionSettings.cooldownLoops)
-            put(JSON_EXCLUSIVE_KEY, insertionSettings.exclusive)
+            put(JSON_EVERY_N_LOOPS_KEY, normalizedInsertion.everyNLoops)
+            put(JSON_PROBABILITY_PERCENT_KEY, normalizedInsertion.probabilityPercent)
+            put(JSON_COOLDOWN_LOOPS_KEY, normalizedInsertion.cooldownLoops)
+            put(JSON_EXCLUSIVE_KEY, normalizedInsertion.exclusive)
         }
         return JSONObject()
             .put(JSON_ANIMATION_KEY, animationKey)
@@ -1365,7 +1429,11 @@ class SettingsPreferences(private val context: Context) {
     private fun normalizeInsertionSettings(settings: InsertionAnimationSettings): InsertionAnimationSettings =
         InsertionAnimationSettings(
             enabled = settings.enabled,
-            patterns = normalizeInsertionPatterns(settings.patterns),
+            patterns = if (settings.enabled) {
+                normalizeInsertionPatterns(settings.patterns)
+            } else {
+                emptyList()
+            },
             intervalMs = settings.intervalMs.coerceIn(
                 InsertionAnimationSettings.MIN_INTERVAL_MS,
                 InsertionAnimationSettings.MAX_INTERVAL_MS
@@ -1543,17 +1611,26 @@ class SettingsPreferences(private val context: Context) {
             .put(JSON_INTERVAL_MS_KEY, intervalMs)
 
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
-        JSONObject().apply {
-            put(JSON_ENABLED_KEY, enabled)
-            put(JSON_PATTERNS_KEY, patterns.toPatternsJsonArray(intervalMs))
+        normalizeInsertionSettings(this).let { normalized ->
+            JSONObject().apply {
+                put(JSON_ENABLED_KEY, normalized.enabled)
+                put(
+                    JSON_PATTERNS_KEY,
+                    if (normalized.enabled) {
+                        normalized.patterns.toPatternsJsonArray(normalized.intervalMs)
+                    } else {
+                        JSONArray()
+                    }
+                )
             // 無効時は intervalMs を保存しない（JSONを最小化する）
-            if (enabled) {
-                put(JSON_INTERVAL_MS_KEY, intervalMs)
+                if (normalized.enabled) {
+                    put(JSON_INTERVAL_MS_KEY, normalized.intervalMs)
+                }
+                put(JSON_EVERY_N_LOOPS_KEY, normalized.everyNLoops)
+                put(JSON_PROBABILITY_PERCENT_KEY, normalized.probabilityPercent)
+                put(JSON_COOLDOWN_LOOPS_KEY, normalized.cooldownLoops)
+                put(JSON_EXCLUSIVE_KEY, normalized.exclusive)
             }
-            put(JSON_EVERY_N_LOOPS_KEY, everyNLoops)
-            put(JSON_PROBABILITY_PERCENT_KEY, probabilityPercent)
-            put(JSON_COOLDOWN_LOOPS_KEY, cooldownLoops)
-            put(JSON_EXCLUSIVE_KEY, exclusive)
         }
 
     private fun List<InsertionPattern>.toPatternsJsonArray(fallbackIntervalMs: Int): JSONArray =
