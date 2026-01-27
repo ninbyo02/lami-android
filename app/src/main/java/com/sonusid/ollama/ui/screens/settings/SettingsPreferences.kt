@@ -1101,14 +1101,30 @@ class SettingsPreferences(private val context: Context) {
         } else {
             insertionDefaults.intervalMs
         }
-        val patterns = parsePerStatePatterns(
-            insertionObject.optJSONArray(JSON_PATTERNS_KEY),
-            intervalMs,
-        )
-        val everyNLoops = insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
-        val probabilityPercent = insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
-            .coerceIn(0, 100)
-        val cooldownLoops = insertionObject.optInt(JSON_COOLDOWN_LOOPS_KEY, 0).coerceAtLeast(0)
+        val patterns = if (enabled) {
+            parsePerStatePatterns(
+                insertionObject.optJSONArray(JSON_PATTERNS_KEY),
+                intervalMs,
+            )
+        } else {
+            emptyList()
+        }
+        val everyNLoops = if (enabled) {
+            insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
+        } else {
+            0
+        }
+        val probabilityPercent = if (enabled) {
+            insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
+                .coerceIn(0, 100)
+        } else {
+            0
+        }
+        val cooldownLoops = if (enabled) {
+            insertionObject.optInt(JSON_COOLDOWN_LOOPS_KEY, 0).coerceAtLeast(0)
+        } else {
+            0
+        }
         val exclusive = insertionObject.optBoolean(JSON_EXCLUSIVE_KEY, false)
         PerStateAnimationConfig(
             animationKey = animationKey,
@@ -1379,26 +1395,42 @@ class SettingsPreferences(private val context: Context) {
         json: JSONObject?,
         defaults: InsertionAnimationSettings = InsertionAnimationSettings.DEFAULT,
     ): InsertionAnimationSettings {
-        val patterns = parseInsertionPatterns(json, defaults.patterns)
+        val enabled = json?.optBoolean(JSON_ENABLED_KEY, defaults.enabled)
+            ?: defaults.enabled
+        val patterns = if (enabled) {
+            parseInsertionPatterns(json, defaults.patterns)
+        } else {
+            emptyList()
+        }
         val intervalMs = (json?.optInt(JSON_INTERVAL_MS_KEY, defaults.intervalMs)
             ?: defaults.intervalMs)
             .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
-        val everyNLoops = (json?.optInt(JSON_EVERY_N_LOOPS_KEY, defaults.everyNLoops)
-            ?: defaults.everyNLoops)
-            .coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
-        val probabilityPercent = (json?.optInt(
-            JSON_PROBABILITY_PERCENT_KEY,
-            defaults.probabilityPercent
-        ) ?: defaults.probabilityPercent)
-            .coerceIn(
-                InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
-                InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
-            )
-        val cooldownLoops = (json?.optInt(JSON_COOLDOWN_LOOPS_KEY, defaults.cooldownLoops)
-            ?: defaults.cooldownLoops)
-            .coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
-        val enabled = json?.optBoolean(JSON_ENABLED_KEY, defaults.enabled)
-            ?: defaults.enabled
+        val everyNLoops = if (enabled) {
+            (json?.optInt(JSON_EVERY_N_LOOPS_KEY, defaults.everyNLoops)
+                ?: defaults.everyNLoops)
+                .coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
+        } else {
+            0
+        }
+        val probabilityPercent = if (enabled) {
+            (json?.optInt(
+                JSON_PROBABILITY_PERCENT_KEY,
+                defaults.probabilityPercent
+            ) ?: defaults.probabilityPercent)
+                .coerceIn(
+                    InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
+                    InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
+                )
+        } else {
+            0
+        }
+        val cooldownLoops = if (enabled) {
+            (json?.optInt(JSON_COOLDOWN_LOOPS_KEY, defaults.cooldownLoops)
+                ?: defaults.cooldownLoops)
+                .coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
+        } else {
+            0
+        }
         val exclusive = json?.optBoolean(JSON_EXCLUSIVE_KEY, defaults.exclusive)
             ?: defaults.exclusive
         return InsertionAnimationSettings(
@@ -1438,12 +1470,24 @@ class SettingsPreferences(private val context: Context) {
                 InsertionAnimationSettings.MIN_INTERVAL_MS,
                 InsertionAnimationSettings.MAX_INTERVAL_MS
             ),
-            everyNLoops = settings.everyNLoops.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS),
-            probabilityPercent = settings.probabilityPercent.coerceIn(
-                InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
-                InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
-            ),
-            cooldownLoops = settings.cooldownLoops.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS),
+            everyNLoops = if (settings.enabled) {
+                settings.everyNLoops.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
+            } else {
+                0
+            },
+            probabilityPercent = if (settings.enabled) {
+                settings.probabilityPercent.coerceIn(
+                    InsertionAnimationSettings.MIN_PROBABILITY_PERCENT,
+                    InsertionAnimationSettings.MAX_PROBABILITY_PERCENT
+                )
+            } else {
+                0
+            },
+            cooldownLoops = if (settings.enabled) {
+                settings.cooldownLoops.coerceAtLeast(InsertionAnimationSettings.MIN_COOLDOWN_LOOPS)
+            } else {
+                0
+            },
             exclusive = settings.exclusive,
         )
 
