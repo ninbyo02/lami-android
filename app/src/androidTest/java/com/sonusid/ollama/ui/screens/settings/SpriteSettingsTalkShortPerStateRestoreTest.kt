@@ -34,6 +34,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -114,7 +115,7 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
         val patternsArray = insertionObject.getJSONArray("patterns")
         assertEquals(false, insertionObject.getBoolean("enabled"))
         assertEquals(0, patternsArray.length())
-        assertEquals(130, insertionObject.getInt("intervalMs"))
+        assertTrue("insertion.intervalMs は無効時に省略される", insertionObject.has("intervalMs").not())
         assertEquals(0, insertionObject.getInt("everyNLoops"))
         assertEquals(0, insertionObject.getInt("probabilityPercent"))
         assertEquals(0, insertionObject.getInt("cooldownLoops"))
