@@ -39,6 +39,7 @@ class SettingsPreferencesOfflineDefaultTest {
             .getOrThrow()
 
         assertEquals("OfflineLoop", config.animationKey)
+        assertEquals(listOf(8, 8, 5, 5), config.baseFrames)
     }
 
     @Test

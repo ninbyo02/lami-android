@@ -51,7 +51,7 @@ data class ReadyAnimationSettings(
         )
         // OFFLINE のデフォルト: UI側の OfflineLoop に合わせる
         val OFFLINE_DEFAULT = ReadyAnimationSettings(
-            frameSequence = listOf(8, 8),
+            frameSequence = listOf(8, 8, 5, 5),
             intervalMs = 1_250,
         )
         // ERROR のデフォルト: per-state JSON の ErrorLight に合わせる
