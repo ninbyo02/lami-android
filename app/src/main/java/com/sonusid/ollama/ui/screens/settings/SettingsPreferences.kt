@@ -1109,10 +1109,14 @@ class SettingsPreferences(private val context: Context) {
         } else {
             emptyList()
         }
+        val everyNLoopsRaw = insertionObject.optInt(
+            JSON_EVERY_N_LOOPS_KEY,
+            if (enabled) 1 else 0,
+        )
         val everyNLoops = if (enabled) {
-            insertionObject.optInt(JSON_EVERY_N_LOOPS_KEY, 1).coerceAtLeast(1)
+            everyNLoopsRaw.coerceAtLeast(1)
         } else {
-            0
+            everyNLoopsRaw.coerceAtLeast(0)
         }
         val probabilityPercent = if (enabled) {
             insertionObject.optInt(JSON_PROBABILITY_PERCENT_KEY, 50)
