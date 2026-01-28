@@ -69,6 +69,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -129,6 +130,8 @@ import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
+import com.sonusid.ollama.ui.components.LamiSpriteStatus
+import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
@@ -199,6 +202,34 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
 
     val supportsPersistence: Boolean
         get() = this == READY || this == TALKING
+}
+
+internal enum class ErrorCause {
+    UNKNOWN,
+    NETWORK,
+    INFERENCE,
+    TIMEOUT,
+}
+
+internal fun normalizeErrorKey(key: String?): String =
+    when (key) {
+        "ErrorHeavy" -> "ErrorHeavy"
+        else -> "ErrorLight"
+    }
+
+internal fun recommendedErrorKey(cause: ErrorCause?): String =
+    if (cause == null || cause == ErrorCause.UNKNOWN) {
+        "ErrorLight"
+    } else {
+        "ErrorHeavy"
+    }
+
+internal fun resolveErrorKey(storedSelectedKey: String?, cause: ErrorCause?): String {
+    val normalizedStored = storedSelectedKey
+        ?.takeIf { it.isNotBlank() }
+        ?.let { normalizeErrorKey(it) }
+    val resolved = normalizedStored ?: recommendedErrorKey(cause)
+    return resolved.ifBlank { "ErrorLight" }
 }
 
 private enum class SpriteTab {
@@ -957,6 +988,13 @@ fun SpriteSettingsScreen(navController: NavController) {
     val errorPerStateJson by settingsPreferences
         .spriteAnimationJsonFlow(SpriteState.ERROR)
         .collectAsState(initial = null)
+    val storedErrorSelectedKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.ERROR)
+        .collectAsState(initial = null)
+    val errorCause: MutableState<ErrorCause?> = rememberSaveable { mutableStateOf(null) }
+    val resolvedErrorKey = remember(storedErrorSelectedKey, errorCause.value) {
+        resolveErrorKey(storedErrorSelectedKey, errorCause.value)
+    }
     // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
     val lastSelectedAnimationTypeKey by settingsPreferences.lastSelectedAnimationType
         .collectAsState(initial = null)
@@ -4402,7 +4440,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     devUnlocked = devUnlocked,
                                     devSettings = devPreviewSettings,
                                     onDevSettingsChange = { updated -> devPreviewSettings = updated },
-                                    initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                                    initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                                    resolvedErrorKey = resolvedErrorKey,
                                 )
                         }
 
@@ -4616,6 +4655,7 @@ private fun ReadyAnimationTab(
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
+    resolvedErrorKey: String?,
 ) {
     val configuration = LocalConfiguration.current
     val selectedAnimation = selectionState.selectedAnimation
@@ -4707,7 +4747,9 @@ private fun ReadyAnimationTab(
                 insertionDefaults = insertionState.defaults,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                previewUiState = readyPreviewUiState
+                previewUiState = readyPreviewUiState,
+                selectedAnimation = selectedAnimation,
+                resolvedErrorKey = resolvedErrorKey,
             )
         }
         // [dp] 縦: プレビュー の間隔(間隔)に関係
@@ -5435,6 +5477,8 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     previewUiState: ReadyPreviewUiState,
+    selectedAnimation: AnimationType,
+    resolvedErrorKey: String?,
     devMenuContent: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
@@ -5541,6 +5585,20 @@ private fun ReadyAnimationPreviewPane(
                         )
                     },
                     info = {
+                        val showErrorPreview = selectedAnimation == AnimationType.ERROR_LIGHT ||
+                            selectedAnimation == AnimationType.ERROR_HEAVY
+                        if (showErrorPreview) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                LamiStatusSprite(
+                                    status = LamiSpriteStatus.ErrorLight,
+                                    sizeDp = 40.dp,
+                                    resolvedErrorKey = resolvedErrorKey,
+                                )
+                            }
+                        }
                         ReadyAnimationInfo(
                             state = previewState,
                             summary = baseSummary,
