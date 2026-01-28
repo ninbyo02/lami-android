@@ -69,6 +69,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -77,6 +78,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
+import com.sonusid.ollama.viewmodels.resolveErrorKey
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -129,6 +131,8 @@ import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
+import com.sonusid.ollama.ui.components.LamiSpriteStatus
+import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
@@ -704,6 +708,7 @@ private const val JSON_ANIMATIONS_KEY = "animations"
 private const val JSON_ANIMATION_KEY = "animationKey"
 private const val JSON_BASE_KEY = "base"
 private const val JSON_INSERTION_KEY = "insertion"
+private const val JSON_META_KEY = "meta"
 private const val JSON_ENABLED_KEY = "enabled"
 private const val JSON_PATTERNS_KEY = "patterns"
 private const val JSON_FRAMES_KEY = "frames"
@@ -714,6 +719,8 @@ private const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
 private const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
 private const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
 private const val JSON_EXCLUSIVE_KEY = "exclusive"
+private const val META_DEFAULT_VERSION_KEY = "defaultVersion"
+private const val META_USER_MODIFIED_KEY = "userModified"
 private const val READY_LEGACY_LABEL = "ReadyBlink"
 private const val UNSET_SPRITE_TAB = "__UNSET__"
 
@@ -954,6 +961,13 @@ fun SpriteSettingsScreen(navController: NavController) {
     val errorPerStateJson by settingsPreferences
         .spriteAnimationJsonFlow(SpriteState.ERROR)
         .collectAsState(initial = null)
+    val storedErrorSelectedKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.ERROR)
+        .collectAsState(initial = null)
+    val errorCause by settingsPreferences.errorCauseFlow.collectAsState(initial = ErrorCause.UNKNOWN)
+    val resolvedErrorKey = remember(storedErrorSelectedKey, errorCause) {
+        resolveErrorKey(storedErrorSelectedKey, errorCause)
+    }
     // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
     val lastSelectedAnimationTypeKey by settingsPreferences.lastSelectedAnimationType
         .collectAsState(initial = null)
@@ -3186,11 +3200,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                     put(JSON_COOLDOWN_LOOPS_KEY, validatedInsertion?.cooldownLoops ?: 0)
                     put(JSON_EXCLUSIVE_KEY, validatedInsertion?.exclusive ?: false)
                 }
+                val metaJson = JSONObject().apply {
+                    put(META_DEFAULT_VERSION_KEY, settingsPreferences.currentDefaultAnimationVersion())
+                    put(META_USER_MODIFIED_KEY, true)
+                }
                 val perStateJson = JSONObject().apply {
                     // 1アニメ=1JSONの最小スキーマを保存する
                     put(JSON_ANIMATION_KEY, animationKeyForState)
                     put(JSON_BASE_KEY, baseJson)
                     put(JSON_INSERTION_KEY, insertionJson)
+                    put(JSON_META_KEY, metaJson)
                 }
                 val perStateJsonString = perStateJson.toString()
                 if (targetState == SpriteState.READY) {
@@ -4394,7 +4413,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     devUnlocked = devUnlocked,
                                     devSettings = devPreviewSettings,
                                     onDevSettingsChange = { updated -> devPreviewSettings = updated },
-                                    initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp
+                                    initialHeaderLeftXOffsetDp = initialHeaderLeftXOffsetDp,
+                                    resolvedErrorKey = resolvedErrorKey,
                                 )
                         }
 
@@ -4608,6 +4628,7 @@ private fun ReadyAnimationTab(
     devSettings: DevPreviewSettings,
     onDevSettingsChange: (DevPreviewSettings) -> Unit,
     initialHeaderLeftXOffsetDp: Int?,
+    resolvedErrorKey: String?,
 ) {
     val configuration = LocalConfiguration.current
     val selectedAnimation = selectionState.selectedAnimation
@@ -4699,7 +4720,9 @@ private fun ReadyAnimationTab(
                 insertionDefaults = insertionState.defaults,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
-                previewUiState = readyPreviewUiState
+                previewUiState = readyPreviewUiState,
+                selectedAnimation = selectedAnimation,
+                resolvedErrorKey = resolvedErrorKey,
             )
         }
         // [dp] 縦: プレビュー の間隔(間隔)に関係
@@ -5427,6 +5450,8 @@ private fun ReadyAnimationPreviewPane(
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
     previewUiState: ReadyPreviewUiState,
+    selectedAnimation: AnimationType,
+    resolvedErrorKey: String?,
     devMenuContent: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
@@ -5533,6 +5558,20 @@ private fun ReadyAnimationPreviewPane(
                         )
                     },
                     info = {
+                        val showErrorPreview = selectedAnimation == AnimationType.ERROR_LIGHT ||
+                            selectedAnimation == AnimationType.ERROR_HEAVY
+                        if (showErrorPreview) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                LamiStatusSprite(
+                                    status = LamiSpriteStatus.ErrorLight,
+                                    sizeDp = 40.dp,
+                                    resolvedErrorKey = resolvedErrorKey,
+                                )
+                            }
+                        }
                         ReadyAnimationInfo(
                             state = previewState,
                             summary = baseSummary,

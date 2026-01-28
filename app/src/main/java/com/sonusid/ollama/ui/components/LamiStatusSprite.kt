@@ -22,15 +22,18 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
+import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
 import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.ui.screens.settings.SpriteState
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.bucket
 import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
+import com.sonusid.ollama.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -229,6 +232,7 @@ fun LamiStatusSprite(
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
+    resolvedErrorKey: String? = null,
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val spriteFrameRepository = rememberSpriteFrameRepository()
@@ -258,20 +262,41 @@ fun LamiStatusSprite(
             frameMaps.sizeMap
         }
     }
-    val resolvedStatus = remember(status, replacementEnabled, blinkEffectEnabled) {
+    val context = LocalContext.current
+    val settingsPreferences = remember(context) {
+        SettingsPreferences(context.applicationContext)
+    }
+    val storedErrorSelectedKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.ERROR)
+        .collectAsState(initial = null)
+    val errorCause by settingsPreferences.errorCauseFlow.collectAsState(initial = ErrorCause.UNKNOWN)
+    val resolvedErrorKeyFromStore = remember(storedErrorSelectedKey, errorCause) {
+        resolveErrorKey(storedErrorSelectedKey, errorCause)
+    }
+    val finalResolvedErrorKey = resolvedErrorKey ?: resolvedErrorKeyFromStore
+    val errorAdjustedStatus = remember(status, finalResolvedErrorKey) {
+        if (finalResolvedErrorKey.isNullOrBlank()) {
+            status
+        } else if (status == LamiSpriteStatus.ErrorLight || status == LamiSpriteStatus.ErrorHeavy) {
+            if (finalResolvedErrorKey == "ErrorHeavy") {
+                LamiSpriteStatus.ErrorHeavy
+            } else {
+                LamiSpriteStatus.ErrorLight
+            }
+        } else {
+            status
+        }
+    }
+    val resolvedStatus = remember(errorAdjustedStatus, replacementEnabled, blinkEffectEnabled) {
         when {
             !replacementEnabled -> LamiSpriteStatus.Idle
-            !blinkEffectEnabled && status == LamiSpriteStatus.Ready -> LamiSpriteStatus.Idle
-            else -> status
+            !blinkEffectEnabled && errorAdjustedStatus == LamiSpriteStatus.Ready -> LamiSpriteStatus.Idle
+            else -> errorAdjustedStatus
         }
     }
 
     val animSpec = remember(resolvedStatus) {
         statusAnimationMap[resolvedStatus] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
-    }
-    val context = LocalContext.current
-    val settingsPreferences = remember(context) {
-        SettingsPreferences(context.applicationContext)
     }
     val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
         initial = InsertionAnimationSettings.READY_DEFAULT,
@@ -460,6 +485,7 @@ fun LamiStatusSprite(
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
+    resolvedErrorKey: String? = null,
 ) {
     val spriteStatus = remember(status.value) {
         mapToLamiSpriteStatus(lamiStatus = status.value)
@@ -478,6 +504,7 @@ fun LamiStatusSprite(
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
+        resolvedErrorKey = resolvedErrorKey,
     )
 }
 
@@ -500,6 +527,7 @@ fun LamiStatusSprite(
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
+    resolvedErrorKey: String? = null,
 ) {
     var previousAnimationStatus by remember {
         mutableStateOf(status.value)
@@ -538,6 +566,7 @@ fun LamiStatusSprite(
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
+        resolvedErrorKey = resolvedErrorKey,
     )
 }
 

@@ -54,12 +54,6 @@ class SpriteSettingsReadyPerStateOverrideTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
         runBlockingIo {
-            prefs.saveReadyAnimationSettings(
-                ReadyAnimationSettings(
-                    frameSequence = listOf(0, 0, 0, 0),
-                    intervalMs = 180,
-                )
-            )
             prefs.saveSpriteAnimationJson(
                 SpriteState.READY,
                 buildReadyPerStateJson(intervalMs = 90)
@@ -220,7 +214,6 @@ class SpriteSettingsReadyPerStateOverrideTest {
         val insertionObject = JSONObject()
             .put("enabled", false)
             .put("patterns", JSONArray())
-            .put("intervalMs", 110)
             .put("everyNLoops", 1)
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 0)

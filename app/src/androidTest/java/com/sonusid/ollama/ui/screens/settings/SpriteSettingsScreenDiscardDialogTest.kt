@@ -33,6 +33,7 @@ import androidx.test.espresso.Espresso
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.first
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Ignore
@@ -86,6 +87,38 @@ class SpriteSettingsScreenDiscardDialogTest {
 
         openDiscardDialogByTopBack()
         assertDiscardDialogNotShown()
+    }
+
+    @Test
+    fun save_updates_perStateJson_meta_userModified() {
+        setSpriteSettingsContent()
+        waitForIntervalInput()
+        makeAnimDirtyByChangingInterval()
+
+        composeTestRule.onNodeWithContentDescription("保存").performClick()
+        composeTestRule.waitForIdle()
+
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+        runBlocking {
+            withTimeout(10_000) {
+                while (true) {
+                    val json = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
+                    val userModified = json?.let { prefs.readMetaUserModifiedOrNull(it) }
+                    val defaultVersion = json?.let { prefs.readMetaDefaultVersionOrNull(it) }
+                    val currentDefaultVersion = prefs.currentDefaultAnimationVersion()
+                    if (userModified == true && defaultVersion == currentDefaultVersion) {
+                        assertEquals("meta.userModified は true になる", true, userModified)
+                        assertEquals(
+                            "meta.defaultVersion は currentDefaultVersion になる",
+                            currentDefaultVersion,
+                            defaultVersion
+                        )
+                        break
+                    }
+                }
+            }
+        }
     }
 
     @Test

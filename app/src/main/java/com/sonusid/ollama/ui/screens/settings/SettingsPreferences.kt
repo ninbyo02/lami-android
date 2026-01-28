@@ -27,6 +27,28 @@ private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
 
+enum class ErrorCause {
+    LIGHT,
+    HEAVY,
+    UNKNOWN;
+
+    companion object {
+        fun fromStorage(raw: String?): ErrorCause =
+            when (raw) {
+                HEAVY.name -> HEAVY
+                LIGHT.name -> LIGHT
+                else -> UNKNOWN
+            }
+    }
+}
+
+// エラー原因と手動選択の優先度を統一するため、同じ正規化関数を使う
+internal fun normalizeErrorKey(key: String?): String =
+    when (key) {
+        "ErrorHeavy" -> "ErrorHeavy"
+        else -> "ErrorLight"
+    }
+
 data class ReadyAnimationSettings(
     val frameSequence: List<Int>,
     val intervalMs: Int,
@@ -34,7 +56,7 @@ data class ReadyAnimationSettings(
     companion object {
         val IDLE_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(8, 8, 8, 8),
-            intervalMs = 150,
+            intervalMs = 160,
         )
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
@@ -244,6 +266,7 @@ class SettingsPreferences(private val context: Context) {
     private val selectedKeyTalkCalmKey = stringPreferencesKey("sprite_selected_key_talk_calm")
     private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
     private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
+    private val errorCauseKey = stringPreferencesKey("sprite_error_cause")
     private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
     // 最後に選択したアニメ種別（AnimationType.internalKey）を保存して復元する
     private val lastSelectedAnimationTypeKey = stringPreferencesKey("sprite_last_selected_animation_type")
@@ -319,6 +342,7 @@ class SettingsPreferences(private val context: Context) {
         .onStart {
             migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
             ensurePerStateAnimationJsonsInitialized()
+            upgradePerStateAnimationJsonsIfNeeded()
             repairOfflineErrorPerStateJsonIfNeeded()
         }
         .map { preferences ->
@@ -338,6 +362,10 @@ class SettingsPreferences(private val context: Context) {
     // state別の選択キー取得（DataStore未保存時は null を返す）
     fun selectedKeyFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[selectedKeyPreferencesKey(state)]
+    }
+
+    val errorCauseFlow: Flow<ErrorCause> = context.dataStore.data.map { preferences ->
+        ErrorCause.fromStorage(preferences[errorCauseKey])
     }
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -680,6 +708,84 @@ class SettingsPreferences(private val context: Context) {
         saved || corrected || cleaned
     }
 
+    suspend fun upgradePerStateAnimationJsonsIfNeeded(): Result<Boolean> = runCatching {
+        val preferences = context.dataStore.data.first()
+        var updated = false
+        SpriteState.values().forEach { state ->
+            val currentJson = preferences[spriteAnimationJsonPreferencesKey(state)]
+                ?.takeIf { it.isNotBlank() }
+                ?: return@forEach
+            val userModified = readMetaUserModifiedOrNull(currentJson)
+            val defaultVersion = readMetaDefaultVersionOrNull(currentJson)
+            if (userModified == null || defaultVersion == null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state upgrade skip: state=${state.name} reason=missingMeta"
+                    )
+                }
+                return@forEach
+            }
+            if (userModified == true) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state既定差替えをスキップ: state=${state.name} reason=userModified"
+                    )
+                }
+                return@forEach
+            }
+            val shouldUpgrade = defaultVersion < CURRENT_DEFAULT_VERSION
+            if (!shouldUpgrade) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state upgrade skip: state=${state.name} reason=upToDate version=$defaultVersion"
+                    )
+                }
+                return@forEach
+            }
+            val currentRoot = runCatching { JSONObject(currentJson) }.getOrNull()
+            if (currentRoot == null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state upgrade skip: state=${state.name} reason=parseFailed"
+                    )
+                }
+                return@forEach
+            }
+            val storedKey = currentRoot.optString(JSON_ANIMATION_KEY, "").trim()
+            val resolvedKey = if (state == SpriteState.ERROR) {
+                normalizeErrorKey(storedKey.ifBlank { defaultKeyForState(state) })
+            } else {
+                storedKey.ifBlank { defaultKeyForState(state) }
+            }
+            val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
+                val (base, insertion) = defaultErrorAnimationSettingsForKey(resolvedKey)
+                Triple(resolvedKey, base, insertion)
+            } else {
+                val (base, insertion) = defaultAnimationSettingsForStateAndKey(state, resolvedKey)
+                Triple(resolvedKey, base, insertion)
+            }
+            val perStateJson = buildPerStateAnimationJsonOrNull(
+                animationKey = animationKey,
+                baseSettings = baseDefaults,
+                insertionSettings = insertionDefaults,
+            ) ?: return@forEach
+            saveSpriteAnimationJson(state, perStateJson)
+            updated = true
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    "LamiSprite",
+                    "per-state既定差替えを実行: state=${state.name} " +
+                        "version=$defaultVersion -> $CURRENT_DEFAULT_VERSION"
+                )
+            }
+        }
+        updated
+    }
+
     private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
         val offlineJson = preferences[spriteAnimationJsonPreferencesKey(SpriteState.OFFLINE)]
             ?.takeIf { it.isNotBlank() } ?: return false
@@ -816,6 +922,17 @@ class SettingsPreferences(private val context: Context) {
         if (key.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[selectedKeyPreferencesKey(state)] = key
+        }
+    }
+
+    // エラー原因は UI と表示が読むだけにし、発火元が書き込む
+    suspend fun saveErrorCause(cause: ErrorCause?) {
+        context.dataStore.edit { preferences ->
+            if (cause == null) {
+                preferences.remove(errorCauseKey)
+            } else {
+                preferences[errorCauseKey] = cause.name
+            }
         }
     }
 
@@ -1146,6 +1263,20 @@ class SettingsPreferences(private val context: Context) {
         )
     }
 
+    fun readMetaUserModifiedOrNull(json: String): Boolean? = runCatching {
+        val root = JSONObject(json)
+        val meta = root.optJSONObject(JSON_META_KEY) ?: return@runCatching null
+        if (!meta.has(META_USER_MODIFIED_KEY)) return@runCatching null
+        meta.getBoolean(META_USER_MODIFIED_KEY)
+    }.getOrNull()
+
+    fun readMetaDefaultVersionOrNull(json: String): Int? = runCatching {
+        val root = JSONObject(json)
+        val meta = root.optJSONObject(JSON_META_KEY) ?: return@runCatching null
+        if (!meta.has(META_DEFAULT_VERSION_KEY)) return@runCatching null
+        meta.getInt(META_DEFAULT_VERSION_KEY)
+    }.getOrNull()
+
     fun legacyToAllAnimationsJsonOrNull(
         currentAllAnimationsJson: String?,
         readyBase: ReadyAnimationSettings,
@@ -1238,12 +1369,6 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
-        }
-
-    private fun normalizeErrorKey(key: String?): String =
-        when (key) {
-            "ErrorHeavy" -> "ErrorHeavy"
-            else -> "ErrorLight"
         }
 
     private fun insertionDefaultsForState(
@@ -1370,10 +1495,14 @@ class SettingsPreferences(private val context: Context) {
             put(JSON_COOLDOWN_LOOPS_KEY, normalizedInsertion.cooldownLoops)
             put(JSON_EXCLUSIVE_KEY, normalizedInsertion.exclusive)
         }
+        val metaJson = JSONObject()
+            .put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_VERSION)
+            .put(META_USER_MODIFIED_KEY, false)
         return JSONObject()
             .put(JSON_ANIMATION_KEY, animationKey)
             .put(JSON_BASE_KEY, baseJson)
             .put(JSON_INSERTION_KEY, insertionJson)
+            .put(JSON_META_KEY, metaJson)
             .toString()
     }
 
@@ -1729,6 +1858,8 @@ class SettingsPreferences(private val context: Context) {
             "index=$index frames=${pattern.frameSequence} weight=${pattern.weight} interval=${pattern.intervalMs}"
         }.joinToString(separator = ", ")
 
+    fun currentDefaultAnimationVersion(): Int = CURRENT_DEFAULT_VERSION
+
     // state別キーのマッピングはここで一元化する
     private fun selectedKeyPreferencesKey(state: SpriteState) = when (state) {
         SpriteState.READY -> selectedKeyReadyKey
@@ -1755,6 +1886,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     private companion object {
+        const val CURRENT_DEFAULT_VERSION = 3
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
         const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
@@ -1765,6 +1897,9 @@ class SettingsPreferences(private val context: Context) {
         const val JSON_ANIMATION_KEY = "animationKey"
         const val JSON_BASE_KEY = "base"
         const val JSON_INSERTION_KEY = "insertion"
+        const val JSON_META_KEY = "meta"
+        const val META_DEFAULT_VERSION_KEY = "defaultVersion"
+        const val META_USER_MODIFIED_KEY = "userModified"
         const val JSON_ENABLED_KEY = "enabled"
         const val JSON_PATTERNS_KEY = "patterns"
         const val JSON_FRAMES_KEY = "frames"
