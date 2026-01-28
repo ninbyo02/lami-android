@@ -69,6 +69,11 @@ class SpriteAnimationsPerStateMetaTest {
         val baseIntervalMs = JSONObject(after!!).getJSONObject("base").getInt("intervalMs")
         assertEquals("userModified=true のため base.intervalMs を維持する", 999, baseIntervalMs)
         assertEquals("meta.userModified は true を維持する", true, prefs.readMetaUserModifiedOrNull(after))
+        assertEquals(
+            "meta.defaultVersion は更新されない",
+            0,
+            prefs.readMetaDefaultVersionOrNull(after)
+        )
     }
 
     @Test
@@ -201,6 +206,24 @@ class SpriteAnimationsPerStateMetaTest {
             SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_ENABLED,
             insertionEnabled
         )
+    }
+
+    @Test
+    fun upgradePerStateAnimationJsonsIfNeeded_is_idempotent() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+        prefs.clearAllPreferencesForTest()
+
+        prefs.ensurePerStateAnimationJsonsInitialized().getOrThrow()
+        val before = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.TALK_SHORT).first() }
+        assertNotNull("TALK_SHORT の per-state JSON が生成されること", before)
+
+        prefs.upgradePerStateAnimationJsonsIfNeeded().getOrThrow()
+        val afterFirst = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.TALK_SHORT).first() }
+        prefs.upgradePerStateAnimationJsonsIfNeeded().getOrThrow()
+        val afterSecond = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.TALK_SHORT).first() }
+
+        assertEquals("upgrade を繰り返しても JSON が変化しないこと", afterFirst, afterSecond)
     }
 
     private suspend fun awaitDefaultVersion(
