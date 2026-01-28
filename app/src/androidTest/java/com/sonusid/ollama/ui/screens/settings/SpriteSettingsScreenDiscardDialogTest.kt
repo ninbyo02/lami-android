@@ -106,9 +106,14 @@ class SpriteSettingsScreenDiscardDialogTest {
                     val json = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
                     val userModified = json?.let { prefs.readMetaUserModifiedOrNull(it) }
                     val defaultVersion = json?.let { prefs.readMetaDefaultVersionOrNull(it) }
-                    if (userModified == true && defaultVersion == 1) {
+                    val currentDefaultVersion = prefs.currentDefaultAnimationVersion()
+                    if (userModified == true && defaultVersion == currentDefaultVersion) {
                         assertEquals("meta.userModified は true になる", true, userModified)
-                        assertEquals("meta.defaultVersion は 1 になる", 1, defaultVersion)
+                        assertEquals(
+                            "meta.defaultVersion は currentDefaultVersion になる",
+                            currentDefaultVersion,
+                            defaultVersion
+                        )
                         break
                     }
                 }

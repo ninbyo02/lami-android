@@ -319,8 +319,8 @@ class SettingsPreferences(private val context: Context) {
         .onStart {
             migrateLegacyAllAnimationsJsonToPerStateIfNeeded()
             ensurePerStateAnimationJsonsInitialized()
+            upgradePerStateAnimationJsonsIfNeeded()
             repairOfflineErrorPerStateJsonIfNeeded()
-            upgradePerStateDefaultsIfNeeded()
         }
         .map { preferences ->
             preferences[spriteAnimationJsonPreferencesKey(state)]
@@ -681,14 +681,24 @@ class SettingsPreferences(private val context: Context) {
         saved || corrected || cleaned
     }
 
-    suspend fun upgradePerStateDefaultsIfNeeded(): Result<Boolean> = runCatching {
+    suspend fun upgradePerStateAnimationJsonsIfNeeded(): Result<Boolean> = runCatching {
         val preferences = context.dataStore.data.first()
-        val pendingUpdates = mutableMapOf<SpriteState, String>()
+        var updated = false
         SpriteState.values().forEach { state ->
             val currentJson = preferences[spriteAnimationJsonPreferencesKey(state)]
                 ?.takeIf { it.isNotBlank() }
                 ?: return@forEach
             val userModified = readMetaUserModifiedOrNull(currentJson)
+            val defaultVersion = readMetaDefaultVersionOrNull(currentJson)
+            if (userModified == null || defaultVersion == null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state upgrade skip: state=${state.name} reason=missingMeta"
+                    )
+                }
+                return@forEach
+            }
             if (userModified == true) {
                 if (BuildConfig.DEBUG) {
                     Log.d(
@@ -698,41 +708,55 @@ class SettingsPreferences(private val context: Context) {
                 }
                 return@forEach
             }
-            val defaultVersion = readMetaDefaultVersionOrNull(currentJson)
-            val shouldUpgrade = defaultVersion == null || defaultVersion < CURRENT_DEFAULT_ANIMATION_VERSION
+            val shouldUpgrade = defaultVersion < CURRENT_DEFAULT_VERSION
             if (!shouldUpgrade) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state upgrade skip: state=${state.name} reason=upToDate version=$defaultVersion"
+                    )
+                }
                 return@forEach
             }
-            val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
-                val selectedKey = normalizeErrorKey(preferences[selectedKeyErrorKey])
-                val (base, insertion) = defaultErrorAnimationSettingsForKey(selectedKey)
-                Triple(selectedKey, base, insertion)
+            val currentRoot = runCatching { JSONObject(currentJson) }.getOrNull()
+            if (currentRoot == null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state upgrade skip: state=${state.name} reason=parseFailed"
+                    )
+                }
+                return@forEach
+            }
+            val storedKey = currentRoot.optString(JSON_ANIMATION_KEY, "").trim()
+            val resolvedKey = if (state == SpriteState.ERROR) {
+                normalizeErrorKey(storedKey.ifBlank { defaultKeyForState(state) })
             } else {
-                val defaultKey = defaultKeyForState(state)
-                val (base, insertion) = defaultAnimationSettingsForStateAndKey(state, defaultKey)
-                Triple(defaultKey, base, insertion)
+                storedKey.ifBlank { defaultKeyForState(state) }
+            }
+            val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
+                val (base, insertion) = defaultErrorAnimationSettingsForKey(resolvedKey)
+                Triple(resolvedKey, base, insertion)
+            } else {
+                val (base, insertion) = defaultAnimationSettingsForStateAndKey(state, resolvedKey)
+                Triple(resolvedKey, base, insertion)
             }
             val perStateJson = buildPerStateAnimationJsonOrNull(
                 animationKey = animationKey,
                 baseSettings = baseDefaults,
                 insertionSettings = insertionDefaults,
             ) ?: return@forEach
-            pendingUpdates[state] = perStateJson
+            saveSpriteAnimationJson(state, perStateJson)
+            updated = true
             if (BuildConfig.DEBUG) {
                 Log.d(
                     "LamiSprite",
-                    "per-state既定差替えを予約: state=${state.name} " +
-                        "version=${defaultVersion ?: "null"}"
+                    "per-state既定差替えを実行: state=${state.name} " +
+                        "version=$defaultVersion -> $CURRENT_DEFAULT_VERSION"
                 )
             }
         }
-        if (pendingUpdates.isEmpty()) return@runCatching false
-        context.dataStore.edit { updated ->
-            pendingUpdates.forEach { (state, json) ->
-                updated[spriteAnimationJsonPreferencesKey(state)] = json
-            }
-        }
-        true
+        updated
     }
 
     private suspend fun correctOfflineBaseIntervalIfNeeded(preferences: androidx.datastore.preferences.core.Preferences): Boolean {
@@ -1440,7 +1464,7 @@ class SettingsPreferences(private val context: Context) {
             put(JSON_EXCLUSIVE_KEY, normalizedInsertion.exclusive)
         }
         val metaJson = JSONObject()
-            .put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_ANIMATION_VERSION)
+            .put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_VERSION)
             .put(META_USER_MODIFIED_KEY, false)
         return JSONObject()
             .put(JSON_ANIMATION_KEY, animationKey)
@@ -1802,7 +1826,7 @@ class SettingsPreferences(private val context: Context) {
             "index=$index frames=${pattern.frameSequence} weight=${pattern.weight} interval=${pattern.intervalMs}"
         }.joinToString(separator = ", ")
 
-    fun currentDefaultAnimationVersion(): Int = CURRENT_DEFAULT_ANIMATION_VERSION
+    fun currentDefaultAnimationVersion(): Int = CURRENT_DEFAULT_VERSION
 
     // state別キーのマッピングはここで一元化する
     private fun selectedKeyPreferencesKey(state: SpriteState) = when (state) {
@@ -1830,7 +1854,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     private companion object {
-        const val CURRENT_DEFAULT_ANIMATION_VERSION = 1
+        const val CURRENT_DEFAULT_VERSION = 2
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
         const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
