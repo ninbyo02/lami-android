@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.settings
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.sonusid.ollama.ui.screens.settings.ReadyAnimationSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -50,7 +51,7 @@ class SpriteAnimationsIdlePerStateDefaultTest {
 
         assertEquals("Idle", idle.animationKey)
         assertEquals(listOf(8, 8, 8, 8), idle.baseFrames)
-        assertEquals(150, idle.baseIntervalMs)
+        assertEquals(ReadyAnimationSettings.IDLE_DEFAULT.intervalMs, idle.baseIntervalMs)
         assertTrue("idle insertion.enabled が false になっている", idle.insertion.enabled)
         assertEquals(125, idle.insertion.intervalMs)
         assertEquals(4, idle.insertion.everyNLoops)
