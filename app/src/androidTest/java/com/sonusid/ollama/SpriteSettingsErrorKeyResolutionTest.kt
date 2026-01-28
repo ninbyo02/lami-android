@@ -13,13 +13,13 @@ class SpriteSettingsErrorKeyResolutionTest {
     @Test
     fun resolveErrorKey_prioritizesStoredKeyOverRecommended() {
         assertEquals("ErrorHeavy", resolveErrorKey("ErrorHeavy", ErrorCause.UNKNOWN))
-        assertEquals("ErrorLight", resolveErrorKey("ErrorLight", ErrorCause.NETWORK))
-        assertEquals("ErrorLight", resolveErrorKey("Other", ErrorCause.NETWORK))
+        assertEquals("ErrorLight", resolveErrorKey("ErrorLight", ErrorCause.HEAVY))
+        assertEquals("ErrorLight", resolveErrorKey("Other", ErrorCause.HEAVY))
     }
 
     @Test
     fun resolveErrorKey_usesRecommendedWhenStoredKeyIsBlank() {
-        assertEquals("ErrorHeavy", resolveErrorKey("", ErrorCause.NETWORK))
+        assertEquals("ErrorHeavy", resolveErrorKey("", ErrorCause.HEAVY))
         assertEquals("ErrorLight", resolveErrorKey(null, ErrorCause.UNKNOWN))
         assertEquals("ErrorLight", resolveErrorKey(null, null))
     }

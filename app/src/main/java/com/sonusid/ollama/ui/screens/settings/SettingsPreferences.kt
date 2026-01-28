@@ -27,6 +27,44 @@ private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
 
+enum class ErrorCause {
+    LIGHT,
+    HEAVY,
+    UNKNOWN;
+
+    companion object {
+        fun fromStorage(raw: String?): ErrorCause =
+            when (raw) {
+                HEAVY.name -> HEAVY
+                LIGHT.name -> LIGHT
+                else -> UNKNOWN
+            }
+    }
+}
+
+// エラー原因と手動選択の優先度を統一するため、同じ正規化関数を使う
+internal fun normalizeErrorKey(key: String?): String =
+    when (key) {
+        "ErrorHeavy" -> "ErrorHeavy"
+        else -> "ErrorLight"
+    }
+
+// ErrorCause から推奨キーを決定する純関数
+internal fun recommendedErrorKey(cause: ErrorCause?): String =
+    when (cause) {
+        ErrorCause.HEAVY -> "ErrorHeavy"
+        else -> "ErrorLight"
+    }
+
+// 手動選択キーがあれば優先し、なければ ErrorCause で決める
+internal fun resolveErrorKey(storedSelectedKey: String?, cause: ErrorCause?): String {
+    val normalizedStored = storedSelectedKey
+        ?.takeIf { it.isNotBlank() }
+        ?.let { normalizeErrorKey(it) }
+    val resolved = normalizedStored ?: recommendedErrorKey(cause)
+    return resolved.ifBlank { "ErrorLight" }
+}
+
 data class ReadyAnimationSettings(
     val frameSequence: List<Int>,
     val intervalMs: Int,
@@ -244,6 +282,7 @@ class SettingsPreferences(private val context: Context) {
     private val selectedKeyTalkCalmKey = stringPreferencesKey("sprite_selected_key_talk_calm")
     private val selectedKeyThinkingKey = stringPreferencesKey("sprite_selected_key_thinking")
     private val selectedKeyErrorKey = stringPreferencesKey("sprite_selected_key_error")
+    private val errorCauseKey = stringPreferencesKey("sprite_error_cause")
     private val selectedKeyOfflineKey = stringPreferencesKey("sprite_selected_key_offline")
     // 最後に選択したアニメ種別（AnimationType.internalKey）を保存して復元する
     private val lastSelectedAnimationTypeKey = stringPreferencesKey("sprite_last_selected_animation_type")
@@ -339,6 +378,10 @@ class SettingsPreferences(private val context: Context) {
     // state別の選択キー取得（DataStore未保存時は null を返す）
     fun selectedKeyFlow(state: SpriteState): Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[selectedKeyPreferencesKey(state)]
+    }
+
+    val errorCauseFlow: Flow<ErrorCause> = context.dataStore.data.map { preferences ->
+        ErrorCause.fromStorage(preferences[errorCauseKey])
     }
 
     val lastSelectedSpriteTab: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -898,6 +941,17 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    // エラー原因は UI と表示が読むだけにし、発火元が書き込む
+    suspend fun saveErrorCause(cause: ErrorCause?) {
+        context.dataStore.edit { preferences ->
+            if (cause == null) {
+                preferences.remove(errorCauseKey)
+            } else {
+                preferences[errorCauseKey] = cause.name
+            }
+        }
+    }
+
     // state別の選択キーを保存する（段階移行用）
     suspend fun setSelectedKey(state: SpriteState, key: String) {
         saveSelectedKey(state, key)
@@ -1331,12 +1385,6 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
             else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
-        }
-
-    private fun normalizeErrorKey(key: String?): String =
-        when (key) {
-            "ErrorHeavy" -> "ErrorHeavy"
-            else -> "ErrorLight"
         }
 
     private fun insertionDefaultsForState(
