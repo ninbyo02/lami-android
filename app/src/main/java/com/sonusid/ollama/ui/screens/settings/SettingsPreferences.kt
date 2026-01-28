@@ -34,7 +34,7 @@ data class ReadyAnimationSettings(
     companion object {
         val IDLE_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(8, 8, 8, 8),
-            intervalMs = 150,
+            intervalMs = 160,
         )
         val READY_DEFAULT = ReadyAnimationSettings(
             frameSequence = listOf(0, 0, 0, 0),
@@ -1854,7 +1854,7 @@ class SettingsPreferences(private val context: Context) {
     }
 
     private companion object {
-        const val CURRENT_DEFAULT_VERSION = 2
+        const val CURRENT_DEFAULT_VERSION = 3
         const val ALL_ANIMATIONS_JSON_VERSION = 1
         const val ALL_ANIMATIONS_READY_KEY = "Ready"
         const val ALL_ANIMATIONS_TALKING_KEY = "Talking"
