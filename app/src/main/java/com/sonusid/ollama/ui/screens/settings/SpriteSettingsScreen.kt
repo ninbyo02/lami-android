@@ -704,6 +704,7 @@ private const val JSON_ANIMATIONS_KEY = "animations"
 private const val JSON_ANIMATION_KEY = "animationKey"
 private const val JSON_BASE_KEY = "base"
 private const val JSON_INSERTION_KEY = "insertion"
+private const val JSON_META_KEY = "meta"
 private const val JSON_ENABLED_KEY = "enabled"
 private const val JSON_PATTERNS_KEY = "patterns"
 private const val JSON_FRAMES_KEY = "frames"
@@ -714,6 +715,8 @@ private const val JSON_EVERY_N_LOOPS_KEY = "everyNLoops"
 private const val JSON_PROBABILITY_PERCENT_KEY = "probabilityPercent"
 private const val JSON_COOLDOWN_LOOPS_KEY = "cooldownLoops"
 private const val JSON_EXCLUSIVE_KEY = "exclusive"
+private const val META_DEFAULT_VERSION_KEY = "defaultVersion"
+private const val META_USER_MODIFIED_KEY = "userModified"
 private const val READY_LEGACY_LABEL = "ReadyBlink"
 private const val UNSET_SPRITE_TAB = "__UNSET__"
 
@@ -3186,11 +3189,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                     put(JSON_COOLDOWN_LOOPS_KEY, validatedInsertion?.cooldownLoops ?: 0)
                     put(JSON_EXCLUSIVE_KEY, validatedInsertion?.exclusive ?: false)
                 }
+                val metaJson = JSONObject().apply {
+                    put(META_DEFAULT_VERSION_KEY, settingsPreferences.currentDefaultAnimationVersion())
+                    put(META_USER_MODIFIED_KEY, true)
+                }
                 val perStateJson = JSONObject().apply {
                     // 1アニメ=1JSONの最小スキーマを保存する
                     put(JSON_ANIMATION_KEY, animationKeyForState)
                     put(JSON_BASE_KEY, baseJson)
                     put(JSON_INSERTION_KEY, insertionJson)
+                    put(JSON_META_KEY, metaJson)
                 }
                 val perStateJsonString = perStateJson.toString()
                 if (targetState == SpriteState.READY) {
