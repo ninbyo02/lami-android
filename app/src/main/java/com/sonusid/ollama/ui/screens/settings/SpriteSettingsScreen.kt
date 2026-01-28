@@ -131,8 +131,6 @@ import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
 import com.sonusid.ollama.ui.components.ReadyPreviewSlot
 import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
-import com.sonusid.ollama.ui.components.LamiSpriteStatus
-import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
@@ -5558,20 +5556,6 @@ private fun ReadyAnimationPreviewPane(
                         )
                     },
                     info = {
-                        val showErrorPreview = selectedAnimation == AnimationType.ERROR_LIGHT ||
-                            selectedAnimation == AnimationType.ERROR_HEAVY
-                        if (showErrorPreview) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                LamiStatusSprite(
-                                    status = LamiSpriteStatus.ErrorLight,
-                                    sizeDp = 40.dp,
-                                    resolvedErrorKey = resolvedErrorKey,
-                                )
-                            }
-                        }
                         ReadyAnimationInfo(
                             state = previewState,
                             summary = baseSummary,
