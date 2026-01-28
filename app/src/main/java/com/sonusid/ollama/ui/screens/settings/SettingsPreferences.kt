@@ -49,22 +49,6 @@ internal fun normalizeErrorKey(key: String?): String =
         else -> "ErrorLight"
     }
 
-// ErrorCause から推奨キーを決定する純関数
-internal fun recommendedErrorKey(cause: ErrorCause?): String =
-    when (cause) {
-        ErrorCause.HEAVY -> "ErrorHeavy"
-        else -> "ErrorLight"
-    }
-
-// 手動選択キーがあれば優先し、なければ ErrorCause で決める
-internal fun resolveErrorKey(storedSelectedKey: String?, cause: ErrorCause?): String {
-    val normalizedStored = storedSelectedKey
-        ?.takeIf { it.isNotBlank() }
-        ?.let { normalizeErrorKey(it) }
-    val resolved = normalizedStored ?: recommendedErrorKey(cause)
-    return resolved.ifBlank { "ErrorLight" }
-}
-
 data class ReadyAnimationSettings(
     val frameSequence: List<Int>,
     val intervalMs: Int,

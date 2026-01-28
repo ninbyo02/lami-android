@@ -27,13 +27,13 @@ import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
 import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.SpriteState
-import com.sonusid.ollama.ui.screens.settings.resolveErrorKey
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.bucket
 import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
+import com.sonusid.ollama.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
