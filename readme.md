@@ -49,6 +49,7 @@ TalkShort / TalkLong / TalkCalm はそれぞれ独立した state として Data
 段階1では、アニメーション設定を **DataStore の全アニメーションJSON** として一括保存できる土台を用意しています。UI での切替や編集は段階2で実施予定です。
 現在は state別JSON を正とし、旧全体JSONからの移行はアプリ起動時に1回だけ安全に実行します。
 state別JSONが1つでも保存済みの場合は旧全体JSONで上書きせず、旧キーは読み取りフォールバック専用として残します。
+meta.userModified=false の state は defaultVersion の更新時に最新デフォルトへ差し替え、ユーザーが編集した state は上書きしない運用です。
 
 ### 挿入アニメーション設定
 

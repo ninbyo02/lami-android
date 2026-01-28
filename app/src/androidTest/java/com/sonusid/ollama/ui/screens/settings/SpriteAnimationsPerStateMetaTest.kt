@@ -27,6 +27,7 @@ class SpriteAnimationsPerStateMetaTest {
 
         val result = prefs.ensurePerStateAnimationJsonsInitialized().getOrThrow()
         assertTrue("初期化が行われること", result)
+        assertEquals("defaultVersion の定数は 3 を想定", 3, prefs.currentDefaultAnimationVersion())
 
         val json = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.READY).first() }
         assertNotNull("READY の per-state JSON が生成されること", json)
@@ -38,6 +39,15 @@ class SpriteAnimationsPerStateMetaTest {
             "meta.defaultVersion は CURRENT_DEFAULT_VERSION の想定",
             prefs.currentDefaultAnimationVersion(),
             defaultVersion
+        )
+
+        val idleJson = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.IDLE).first() }
+        assertNotNull("IDLE の per-state JSON が生成されること", idleJson)
+        val idleBaseIntervalMs = JSONObject(idleJson!!).getJSONObject("base").getInt("intervalMs")
+        assertEquals(
+            "IDLE の base.intervalMs はデフォルト値を反映する",
+            ReadyAnimationSettings.IDLE_DEFAULT.intervalMs,
+            idleBaseIntervalMs
         )
     }
 
