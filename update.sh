@@ -91,6 +91,26 @@ ensure_git_repo() {
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Not a git repository."
 }
 
+resolve_adb_install_options() {
+  local install_options=""
+  if [[ -z "${LAMI_ADB_INSTALL_OPTIONS+x}" ]]; then
+    install_options="--no-streaming"
+  else
+    install_options="${LAMI_ADB_INSTALL_OPTIONS}"
+  fi
+  echo "$install_options"
+}
+
+run_install_debug() {
+  local install_options=""
+  install_options="$(resolve_adb_install_options)"
+  if [[ -n "$install_options" ]]; then
+    ./gradlew :app:installDebug "-Pandroid.injected.adb.installOptions=${install_options}"
+  else
+    ./gradlew :app:installDebug
+  fi
+}
+
 # ★追加: 実行時にHEADコミット情報を毎回表示
 print_head_commit() {
   # repo外なら何もしない（安全）
@@ -381,7 +401,7 @@ cmd_update() {
   do_clean_uninstall_if_requested "$clean"
 
   info "Device detected ($device_count). Running installDebug..."
-  ./gradlew :app:installDebug
+  run_install_debug
   ok "update completed."
 
   if [[ "$auto_wip_commit" -eq 1 ]]; then
@@ -580,7 +600,7 @@ cmd_test() {
     [[ "$device_count" -ge 1 ]] || die "No device detected for install test."
     do_clean_uninstall_if_requested "$clean"
     info "Running installDebug..."
-    ./gradlew :app:installDebug
+    run_install_debug
     ok "install ok"
   fi
 
@@ -650,7 +670,7 @@ cmd_here_install() {
 
   do_clean_uninstall_if_requested "$clean"
   info "Running installDebug..."
-  ./gradlew :app:installDebug
+  run_install_debug
   ok "install ok (current branch)"
 
   [[ "$auto_wip_commit" -eq 1 ]] && warn "NOTE: local WIP commit created. Undo: git reset --soft HEAD~1"
@@ -734,7 +754,7 @@ cmd_promote() {
     [[ "$device_count" -ge 1 ]] || die "No device detected for install."
     do_clean_uninstall_if_requested "$clean"
     info "Installing stable build from $base..."
-    ./gradlew :app:installDebug
+    run_install_debug
     ok "stable install ok: $base"
   fi
 
