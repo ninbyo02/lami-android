@@ -204,34 +204,6 @@ private enum class AnimationType(val internalKey: String, val displayLabel: Stri
         get() = this == READY || this == TALKING
 }
 
-internal enum class ErrorCause {
-    UNKNOWN,
-    NETWORK,
-    INFERENCE,
-    TIMEOUT,
-}
-
-internal fun normalizeErrorKey(key: String?): String =
-    when (key) {
-        "ErrorHeavy" -> "ErrorHeavy"
-        else -> "ErrorLight"
-    }
-
-internal fun recommendedErrorKey(cause: ErrorCause?): String =
-    if (cause == null || cause == ErrorCause.UNKNOWN) {
-        "ErrorLight"
-    } else {
-        "ErrorHeavy"
-    }
-
-internal fun resolveErrorKey(storedSelectedKey: String?, cause: ErrorCause?): String {
-    val normalizedStored = storedSelectedKey
-        ?.takeIf { it.isNotBlank() }
-        ?.let { normalizeErrorKey(it) }
-    val resolved = normalizedStored ?: recommendedErrorKey(cause)
-    return resolved.ifBlank { "ErrorLight" }
-}
-
 private enum class SpriteTab {
     ANIM,
     ADJUST,
@@ -991,9 +963,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     val storedErrorSelectedKey by settingsPreferences
         .selectedKeyFlow(SpriteState.ERROR)
         .collectAsState(initial = null)
-    val errorCause: MutableState<ErrorCause?> = rememberSaveable { mutableStateOf(null) }
-    val resolvedErrorKey = remember(storedErrorSelectedKey, errorCause.value) {
-        resolveErrorKey(storedErrorSelectedKey, errorCause.value)
+    val errorCause by settingsPreferences.errorCauseFlow.collectAsState(initial = ErrorCause.UNKNOWN)
+    val resolvedErrorKey = remember(storedErrorSelectedKey, errorCause) {
+        resolveErrorKey(storedErrorSelectedKey, errorCause)
     }
     // PR15: 旧キー sprite_last_selected_animation の読み取りは廃止（新DataStoreへ完全移行）
     val lastSelectedAnimationTypeKey by settingsPreferences.lastSelectedAnimationType

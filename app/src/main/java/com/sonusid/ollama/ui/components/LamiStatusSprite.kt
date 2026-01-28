@@ -22,9 +22,12 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
+import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
 import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.ui.screens.settings.SpriteState
+import com.sonusid.ollama.ui.screens.settings.resolveErrorKey
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
 import com.sonusid.ollama.viewmodels.LamiState
@@ -259,11 +262,23 @@ fun LamiStatusSprite(
             frameMaps.sizeMap
         }
     }
-    val errorAdjustedStatus = remember(status, resolvedErrorKey) {
-        if (resolvedErrorKey.isNullOrBlank()) {
+    val context = LocalContext.current
+    val settingsPreferences = remember(context) {
+        SettingsPreferences(context.applicationContext)
+    }
+    val storedErrorSelectedKey by settingsPreferences
+        .selectedKeyFlow(SpriteState.ERROR)
+        .collectAsState(initial = null)
+    val errorCause by settingsPreferences.errorCauseFlow.collectAsState(initial = ErrorCause.UNKNOWN)
+    val resolvedErrorKeyFromStore = remember(storedErrorSelectedKey, errorCause) {
+        resolveErrorKey(storedErrorSelectedKey, errorCause)
+    }
+    val finalResolvedErrorKey = resolvedErrorKey ?: resolvedErrorKeyFromStore
+    val errorAdjustedStatus = remember(status, finalResolvedErrorKey) {
+        if (finalResolvedErrorKey.isNullOrBlank()) {
             status
         } else if (status == LamiSpriteStatus.ErrorLight || status == LamiSpriteStatus.ErrorHeavy) {
-            if (resolvedErrorKey == "ErrorHeavy") {
+            if (finalResolvedErrorKey == "ErrorHeavy") {
                 LamiSpriteStatus.ErrorHeavy
             } else {
                 LamiSpriteStatus.ErrorLight
@@ -282,10 +297,6 @@ fun LamiStatusSprite(
 
     val animSpec = remember(resolvedStatus) {
         statusAnimationMap[resolvedStatus] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
-    }
-    val context = LocalContext.current
-    val settingsPreferences = remember(context) {
-        SettingsPreferences(context.applicationContext)
     }
     val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
         initial = InsertionAnimationSettings.READY_DEFAULT,
