@@ -61,12 +61,6 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
         runBlockingIo {
-            prefs.saveReadyAnimationSettings(
-                ReadyAnimationSettings(
-                    frameSequence = listOf(0, 1, 2),
-                    intervalMs = 180,
-                )
-            )
             prefs.saveSpriteAnimationJson(
                 SpriteState.READY,
                 buildReadyPerStateJsonWithPatterns()
