@@ -67,16 +67,17 @@ class MainActivity : ComponentActivity() {
             modelPreferenceRepository.getSelectedModel(resolvedBaseUrl)
         }
 
+        val settingsPreferences = SettingsPreferences(applicationContext)
         // Initialize ViewModel with Factory
         val factory = OllamaViewModelFactory(
             repository,
             modelPreferenceRepository,
+            settingsPreferences,
             initialSelectedModel,
             baseUrlRepository.activeBaseUrl
         )
         viewModel = ViewModelProvider(this, factory)[OllamaViewModel::class.java]
 
-        val settingsPreferences = SettingsPreferences(applicationContext)
         lifecycleScope.launch {
             // アプリ初回起動時に per-state JSON を必ず初期化する
             settingsPreferences.ensurePerStateAnimationJsonsInitialized()

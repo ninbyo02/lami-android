@@ -11,6 +11,8 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.ui.screens.settings.ErrorCause
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +33,7 @@ data class ModelInfo(val name: String)
 class OllamaViewModel(
     private val chatRepository: ChatRepository,
     private val modelPreferenceRepository: ModelPreferenceRepository,
+    private val settingsPreferences: SettingsPreferences,
     private val initialSelectedModel: String?,
     baseUrlFlow: StateFlow<String>,
     private val shouldAutoLoadModels: Boolean = true,
@@ -160,22 +163,21 @@ class OllamaViewModel(
                                     _uiState.value = UiState.Success(output)
                                 } ?: run {
                                     onResponseReceived(0)
-                                    _uiState.value = UiState.Error("Empty response")
+                                    updateErrorState("Empty response")
                                 }
 
                             } else {
                                 val error =
                                     response.errorBody()?.string().orEmpty()
                                 onResponseReceived(error.length)
-                                _uiState.value = UiState.Error(
-                                    error.ifEmpty { "Failed to generate response" })
+                                updateErrorState(error.ifEmpty { "Failed to generate response" })
                             }
                         }
 
                         override fun onFailure(call: Call<OllamaResponse>, t: Throwable) {
                             Log.e("OllamaError", "Request failed: ${t.message}")
                             onResponseReceived(t.message?.length ?: 0)
-                            _uiState.value = UiState.Error(t.message ?: "Unknown error")
+                            updateErrorState(t.message ?: "Unknown error")
                         }
                     })
             } else {
@@ -229,7 +231,7 @@ class OllamaViewModel(
                 Log.e("OllamaError", "Error loading models: ${e.message}")
                 _availableModels.value = emptyList()
                 val message = e.message ?: "Unknown error"
-                _uiState.value = UiState.Error("Failed to load models: $message")
+                updateErrorState("Failed to load models: $message")
                 clearSelectedModelForBaseUrl(baseUrl)
             } finally {
                 _isLoadingModels.value = false
@@ -269,6 +271,19 @@ class OllamaViewModel(
             else -> {
                 clearSelectedModelForBaseUrl(baseUrl)
             }
+        }
+    }
+
+    private fun updateErrorState(message: String) {
+        _uiState.value = UiState.Error(message)
+        persistErrorCause(message)
+    }
+
+    private fun persistErrorCause(message: String?) {
+        val cause = inferErrorCause(message)
+        val storedCause = cause?.takeUnless { it == ErrorCause.UNKNOWN }
+        viewModelScope.launch {
+            settingsPreferences.saveErrorCause(storedCause)
         }
     }
 
