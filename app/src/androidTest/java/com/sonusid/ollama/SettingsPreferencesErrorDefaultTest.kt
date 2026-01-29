@@ -69,7 +69,7 @@ class SettingsPreferencesErrorDefaultTest {
         assertEquals(listOf(4, 6, 7, 6, 4), baseDefaults.frameSequence)
         assertEquals(390, baseDefaults.intervalMs)
         assertTrue(insertionDefaults.enabled)
-        assertEquals(390, insertionDefaults.intervalMs)
+        assertEquals("intervalMs は省略可能", null, insertionDefaults.intervalMs)
         assertEquals(3, insertionDefaults.everyNLoops)
         assertEquals(60, insertionDefaults.probabilityPercent)
         assertEquals(4, insertionDefaults.cooldownLoops)

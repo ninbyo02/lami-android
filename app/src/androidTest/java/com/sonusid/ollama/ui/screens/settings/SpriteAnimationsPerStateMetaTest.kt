@@ -14,7 +14,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
 
 @RunWith(AndroidJUnit4::class)
 class SpriteAnimationsPerStateMetaTest {
@@ -27,7 +26,7 @@ class SpriteAnimationsPerStateMetaTest {
 
         val result = prefs.ensurePerStateAnimationJsonsInitialized().getOrThrow()
         assertTrue("初期化が行われること", result)
-        assertEquals("defaultVersion の定数は 3 を想定", 3, prefs.currentDefaultAnimationVersion())
+        assertEquals("defaultVersion の定数は 4 を想定", 4, prefs.currentDefaultAnimationVersion())
 
         val json = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.READY).first() }
         assertNotNull("READY の per-state JSON が生成されること", json)
@@ -189,11 +188,14 @@ class SpriteAnimationsPerStateMetaTest {
         val prefs = SettingsPreferences(context)
         prefs.clearAllPreferencesForTest()
 
+        val expectedFrames = listOf(9, 8, 7)
         val before = buildPerStateJsonWithMeta(
             animationKey = "ErrorHeavy",
             baseIntervalMs = 999,
             userModified = false,
             defaultVersion = 1,
+            baseFrames = expectedFrames,
+            insertionEnabled = false,
         )
         prefs.saveSpriteAnimationJson(SpriteState.ERROR, before)
 
@@ -205,15 +207,11 @@ class SpriteAnimationsPerStateMetaTest {
         val root = JSONObject(after)
         assertEquals("animationKey は ErrorHeavy を維持する", "ErrorHeavy", root.getString("animationKey"))
         val baseFrames = root.getJSONObject("base").getJSONArray("frames").toIntList()
-        assertEquals(
-            "ErrorHeavy の base frames を維持する",
-            SpriteAnimationDefaults.ERROR_HEAVY_FRAMES,
-            baseFrames
-        )
+        assertEquals("ErrorHeavy の base frames を維持する", expectedFrames, baseFrames)
         val insertionEnabled = root.getJSONObject("insertion").getBoolean("enabled")
         assertEquals(
             "ErrorHeavy の insertion enabled を維持する",
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_ENABLED,
+            false,
             insertionEnabled
         )
     }
@@ -278,12 +276,14 @@ class SpriteAnimationsPerStateMetaTest {
         userModified: Boolean,
         defaultVersion: Int,
         includeDisabledInsertionInterval: Boolean = false,
+        baseFrames: List<Int> = listOf(0, 0, 0),
+        insertionEnabled: Boolean = false,
     ): String {
         val baseObject = JSONObject()
-            .put("frames", JSONArray(listOf(0, 0, 0)))
+            .put("frames", JSONArray(baseFrames))
             .put("intervalMs", baseIntervalMs)
         val insertionObject = JSONObject().apply {
-            put("enabled", false)
+            put("enabled", insertionEnabled)
             put("patterns", JSONArray())
             if (includeDisabledInsertionInterval) {
                 put("intervalMs", 120)
