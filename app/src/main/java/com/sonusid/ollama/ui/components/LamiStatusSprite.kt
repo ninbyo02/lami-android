@@ -36,6 +36,8 @@ import com.sonusid.ollama.viewmodels.bucket
 import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
 import com.sonusid.ollama.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
+import org.json.JSONObject
 import kotlin.random.Random
 
 enum class LamiSpriteStatus {
@@ -178,6 +180,49 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     ),
 )
 
+private fun LamiSpriteStatus.toSpriteStateOrNull(): SpriteState? = when (this) {
+    LamiSpriteStatus.Ready -> SpriteState.READY
+    LamiSpriteStatus.Idle -> SpriteState.IDLE
+    LamiSpriteStatus.Thinking -> SpriteState.THINKING
+    LamiSpriteStatus.TalkShort -> SpriteState.SPEAKING
+    LamiSpriteStatus.TalkLong -> SpriteState.TALK_LONG
+    LamiSpriteStatus.TalkCalm -> SpriteState.TALK_CALM
+    LamiSpriteStatus.ErrorLight,
+    LamiSpriteStatus.ErrorHeavy,
+    -> SpriteState.ERROR
+    LamiSpriteStatus.OfflineLoop -> SpriteState.OFFLINE
+}
+
+private fun animSpecFromPerStateJsonOrFallback(
+    json: String?,
+    fallback: AnimationSpec,
+    maxFrameIndex: Int,
+): AnimationSpec {
+    if (json.isNullOrBlank()) return fallback
+    return runCatching {
+        val root = JSONObject(json)
+        val base = root.getJSONObject("base")
+        val framesJson = base.getJSONArray("frames")
+        val frames = buildList(framesJson.length()) {
+            for (index in 0 until framesJson.length()) {
+                add(framesJson.getInt(index))
+            }
+        }.ifEmpty { fallback.frames }
+        val intervalMs = base.getInt("intervalMs").coerceAtLeast(1)
+        val clampedFrames = frames.map { it.coerceIn(0, maxFrameIndex) }
+        AnimationSpec(
+            frames = clampedFrames,
+            frameDuration = FrameDurationSpec(
+                minMs = intervalMs.toLong(),
+                maxMs = intervalMs.toLong(),
+                jitterFraction = 0f,
+            ),
+            loop = true,
+            insertions = emptyList(),
+        )
+    }.getOrElse { fallback }
+}
+
 private fun selectInsertionSettingsForStatus(
     status: LamiSpriteStatus,
     readySettings: InsertionAnimationSettings,
@@ -295,9 +340,19 @@ fun LamiStatusSprite(
             else -> errorAdjustedStatus
         }
     }
-
-    val animSpec = remember(resolvedStatus) {
+    val spriteStateForAnim = remember(resolvedStatus) { resolvedStatus.toSpriteStateOrNull() }
+    val perStateAnimJson by remember(spriteStateForAnim) {
+        spriteStateForAnim?.let { settingsPreferences.resolvedSpriteAnimationJsonFlow(it) } ?: flowOf(null)
+    }.collectAsState(initial = null)
+    val fallbackAnimSpec = remember(resolvedStatus) {
         statusAnimationMap[resolvedStatus] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
+    }
+    val animSpec = remember(perStateAnimJson, fallbackAnimSpec, maxFrameIndex) {
+        animSpecFromPerStateJsonOrFallback(
+            json = perStateAnimJson,
+            fallback = fallbackAnimSpec,
+            maxFrameIndex = maxFrameIndex,
+        )
     }
     val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
         initial = InsertionAnimationSettings.READY_DEFAULT,
@@ -340,6 +395,17 @@ fun LamiStatusSprite(
     var lastInsertionFrames by remember(resolvedStatus, insertionKey) { mutableStateOf<List<Int>?>(null) }
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
+
+    LaunchedEffect(resolvedStatus, perStateAnimJson, animSpec) {
+        if (BuildConfig.DEBUG) {
+            Log.d(
+                "LamiStatusSprite",
+                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim " +
+                    "baseMs=${animSpec.frameDuration.minMs} frames=${animSpec.frames} " +
+                    "json=${perStateAnimJson?.take(80)}",
+            )
+        }
+    }
 
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
