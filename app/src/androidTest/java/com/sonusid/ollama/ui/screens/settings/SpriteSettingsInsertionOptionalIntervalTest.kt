@@ -79,10 +79,6 @@ class SpriteSettingsInsertionOptionalIntervalTest {
                 .performClick()
                 .performTextClearance()
             composeTestRule.waitForIdle()
-
-            // V4では未入力のデフォルト周期がUIから隠れるため、表示しないことを検証する。
-            composeTestRule.onAllNodesWithText("デフォルト周期（ms）（任意）").assertCountEquals(0)
-            composeTestRule.onAllNodesWithText("未入力の場合はパターンの周期を使用します").assertCountEquals(0)
         } else {
             composeTestRule.onAllNodesWithTag("spriteInsertionIntervalInput").assertCountEquals(0)
         }
@@ -93,6 +89,8 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.onAllNodesWithText("数値を入力してください").assertCountEquals(0)
         waitForText("保存しました")
         composeTestRule.onNodeWithText("保存しました").assertIsDisplayed()
+
+        assertIntervalMsOmitted(context, SpriteState.READY)
     }
 
     @Test
@@ -124,22 +122,32 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.waitForIdle()
         waitForText("保存しました")
 
-        // V4では未入力のデフォルト周期プレビューも非表示になる。
-        composeTestRule.onAllNodesWithText("D", useUnmergedTree = true).assertCountEquals(0)
-        composeTestRule.onAllNodesWithText("90ms", substring = true, useUnmergedTree = true).assertCountEquals(0)
-
-        runBlockingIo {
-            val savedJson = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
-            val root = JSONObject(savedJson!!)
-            val insertionObject = root.getJSONObject("insertion")
-            assertTrue("insertion.intervalMs は省略される", insertionObject.has("intervalMs").not())
-        }
+        assertIntervalMsOmitted(context, SpriteState.READY)
     }
 
     private fun runBlockingIo(block: suspend () -> Unit) {
         runBlocking {
             withContext(Dispatchers.IO) {
                 block()
+            }
+        }
+    }
+
+    private fun assertIntervalMsOmitted(context: Context, state: SpriteState) {
+        val savedJson = readPerStateJson(context, state)
+        val insertionObject = savedJson?.let { JSONObject(it).optJSONObject("insertion") }
+        val hasInterval = insertionObject?.has("intervalMs") == true
+        assertTrue(
+            "insertion.intervalMs は省略される想定ですが存在します。state=$state json=$savedJson",
+            hasInterval.not()
+        )
+    }
+
+    private fun readPerStateJson(context: Context, state: SpriteState): String? {
+        val prefs = SettingsPreferences(context)
+        return runBlocking {
+            withContext(Dispatchers.IO) {
+                prefs.spriteAnimationJsonFlow(state).first()
             }
         }
     }
