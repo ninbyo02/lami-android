@@ -284,10 +284,15 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 0)
             .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
         return JSONObject()
             .put("animationKey", "TalkShort")
             .put("base", baseObject)
             .put("insertion", insertionObject)
+            // V4の per-state JSON として meta を付与して上書きを防ぐ。
+            .put("meta", metaObject)
             .toString()
     }
 

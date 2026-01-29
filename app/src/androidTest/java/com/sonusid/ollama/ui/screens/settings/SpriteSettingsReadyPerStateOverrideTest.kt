@@ -6,11 +6,14 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -77,6 +80,8 @@ class SpriteSettingsReadyPerStateOverrideTest {
             assertEquals("READY interval はデフォルト使用のため省略されるべきです", true, omitted)
             return
         }
+        // 画面外で表示判定が落ちないように事前スクロールする。
+        scrollToTestTag("spriteBaseIntervalInput")
         waitForEditableText(tag = "spriteBaseIntervalInput", expected = expected)
         val text = currentEditableText("spriteBaseIntervalInput").trim()
         assertEquals("READY interval input should match per-state JSON。現在値=$text", expected, text)
@@ -200,6 +205,14 @@ class SpriteSettingsReadyPerStateOverrideTest {
         return mergedCount > 0
     }
 
+    private fun scrollToTestTag(tag: String) {
+        waitForNodeWithTag("spriteAnimList")
+        runCatching {
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(tag))
+        }
+    }
+
     private fun dumpSemanticsTags(): String {
         val rootNodes: List<SemanticsNode> = composeTestRule
             .onAllNodes(isRoot(), useUnmergedTree = true)
@@ -242,10 +255,15 @@ class SpriteSettingsReadyPerStateOverrideTest {
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 0)
             .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
         return JSONObject()
             .put("animationKey", "Ready")
             .put("base", baseObject)
             .put("insertion", insertionObject)
+            // V4前提の meta を付与して per-state 既定差替えを避ける。
+            .put("meta", metaObject)
             .toString()
     }
 }

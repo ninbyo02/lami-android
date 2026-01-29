@@ -195,10 +195,15 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 0)
             .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
         return JSONObject()
             .put("animationKey", "TalkCalm")
             .put("base", baseObject)
             .put("insertion", insertionObject)
+            // V4の meta を入れて per-state JSON の上書きを防止する。
+            .put("meta", metaObject)
             .toString()
     }
 

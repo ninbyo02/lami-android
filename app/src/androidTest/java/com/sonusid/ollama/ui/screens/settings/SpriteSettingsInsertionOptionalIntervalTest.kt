@@ -80,8 +80,9 @@ class SpriteSettingsInsertionOptionalIntervalTest {
                 .performTextClearance()
             composeTestRule.waitForIdle()
 
-            composeTestRule.onNodeWithText("デフォルト周期（ms）（任意）").assertIsDisplayed()
-            composeTestRule.onNodeWithText("未入力の場合はパターンの周期を使用します").assertIsDisplayed()
+            // V4では未入力のデフォルト周期がUIから隠れるため、表示しないことを検証する。
+            composeTestRule.onAllNodesWithText("デフォルト周期（ms）（任意）").assertCountEquals(0)
+            composeTestRule.onAllNodesWithText("未入力の場合はパターンの周期を使用します").assertCountEquals(0)
         } else {
             composeTestRule.onAllNodesWithTag("spriteInsertionIntervalInput").assertCountEquals(0)
         }
@@ -123,8 +124,9 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.waitForIdle()
         waitForText("保存しました")
 
+        // V4では未入力のデフォルト周期プレビューも非表示になる。
         composeTestRule.onAllNodesWithText("D", useUnmergedTree = true).assertCountEquals(0)
-        composeTestRule.onNodeWithText("90ms", substring = true, useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("90ms", substring = true, useUnmergedTree = true).assertCountEquals(0)
 
         runBlockingIo {
             val savedJson = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
@@ -276,10 +278,15 @@ class SpriteSettingsInsertionOptionalIntervalTest {
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 1)
             .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
         return JSONObject()
             .put("animationKey", "Ready")
             .put("base", baseObject)
             .put("insertion", insertionObject)
+            // V4前提で書き換えられないように meta を付与する。
+            .put("meta", metaObject)
             .toString()
     }
 }
