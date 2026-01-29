@@ -61,7 +61,7 @@ enum class LamiSpriteStatus {
     Ready,
 }
 
-private const val DEBUG_OVERLAY_ENABLED = BuildConfig.DEBUG
+private val DEBUG_OVERLAY_ENABLED: Boolean = BuildConfig.DEBUG
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
 // 0:95, 1:95, 2:95, 3:94, 4:94, 5:94, 6:90, 7:90, 8:90。
@@ -410,11 +410,12 @@ fun LamiStatusSprite(
 
     LaunchedEffect(resolvedStatus, perStateAnimJson, animSpec) {
         if (DEBUG_OVERLAY_ENABLED) {
+            val json = perStateAnimJson
             Log.d(
                 "LamiStatusSprite",
                 "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim " +
                     "baseMs=${animSpec.frameDuration.minMs} frames=${animSpec.frames} " +
-                    "json=${perStateAnimJson?.take(80)}",
+                    "json=${json?.take(80)}",
             )
         }
     }
@@ -429,9 +430,10 @@ fun LamiStatusSprite(
         if (!DEBUG_OVERLAY_ENABLED) {
             ""
         } else {
+            val json = perStateAnimJson
             val perStateJsonState = when {
-                perStateAnimJson == null -> "null"
-                perStateAnimJson.isBlank() -> "blank"
+                json == null -> "null"
+                json.isBlank() -> "blank"
                 else -> "present"
             }
             "usedOverload=$debugOverloadLabel\n" +
