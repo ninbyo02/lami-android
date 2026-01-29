@@ -53,6 +53,37 @@ meta.userModified=false の state は defaultVersion の更新時に最新デフ
 端末上で per-state JSON の meta を確認する場合は、例として次のワンライナーを使えます。
 `adb exec-out run-as <package> strings /data/data/<package>/datastore/ollama_settings.preferences_pb | awk '/sprite_animation_json_ready/{print}' | sed -n 's/.*\\({.*}\\).*/\\1/p'`
 
+### Sprite Animation Settings（per-state JSON v4）
+
+スプライトアニメーション設定は **per-state JSON v4** に移行済みです。v4 では「**意味を持たないデフォルト値は JSON に書かない**」方針を採用しており、UI 表示・JSON 保存・実行時挙動が一致するように設計しています。これは、値が存在すること自体に意味を持たせることで仕様の誤解を防ぎ、デフォルトの変化に強い設定形式にするためです。
+
+### insertion.intervalMs の仕様（重要）
+
+insertion.intervalMs は **任意項目（optional）** です。UI で未入力の場合は JSON に intervalMs を出力しません。JSON に intervalMs が存在しない場合は、各 insertion pattern が持つ intervalMs を使用します。**明示的に入力された場合のみ** intervalMs が JSON に保存され、未指定であることが意味を持つ設計です。
+
+```json
+"insertion": {
+  "enabled": true,
+  "patterns": [
+    { "frames": [5, 0], "weight": 3, "intervalMs": 110 }
+  ]
+}
+```
+
+この例では insertion.intervalMs が存在しないこと自体が「意味を持つ」状態であり、デフォルト値を暗黙に採用しているのではなく、**パターン側の intervalMs をそのまま使う**という仕様判断が明確になります。
+
+### プレビュー表示の仕様
+
+insertion.intervalMs が省略されている場合、プレビューにはデフォルト周期（例: 90ms 等）を表示しません。プレビューに表示される数値は **実際に JSON に存在する値のみ** とし、UI 表示と JSON の乖離を防ぐための設計です。
+
+### テストによる保証
+
+以下は Android Instrumented Test により保証されています。
+
+- insertion.intervalMs が未入力時に JSON に出力されないこと
+- プレビューにデフォルト周期が表示されないこと
+- Activity recreate 後も per-state JSON が正しく復元されること
+
 ### 挿入アニメーション設定
 
 挿入アニメーションは UI 設定の everyNLoops / probabilityPercent / cooldownLoops / exclusive に従って再生されます。everyNLoops と cooldownLoops は「ループ単位」で判定し、probabilityPercent=0 の場合は挿入が発生しません。exclusive は挿入位置をループ境界に固定し、挿入が起きたループでは Base フレームを再生しません。
