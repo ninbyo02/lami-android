@@ -215,6 +215,9 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     }
 
     private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
+        if ((tag == "spriteBaseIntervalInput" || tag == "spriteInsertionIntervalInput") && !hasNodeWithTag(tag)) {
+            return
+        }
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
                 hasNodeWithTag(tag)

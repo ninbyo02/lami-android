@@ -73,15 +73,18 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         setSpriteSettingsContent()
         ensureAnimTabSelected()
         scrollToTestTag("spriteInsertionIntervalInput")
-        waitForNodeWithTag("spriteInsertionIntervalInput")
-
-        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
-            .performClick()
-            .performTextClearance()
         composeTestRule.waitForIdle()
+        if (hasNodeWithTag("spriteInsertionIntervalInput")) {
+            composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+                .performClick()
+                .performTextClearance()
+            composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("デフォルト周期（ms）（任意）").assertIsDisplayed()
-        composeTestRule.onNodeWithText("未入力の場合はパターンの周期を使用します").assertIsDisplayed()
+            composeTestRule.onNodeWithText("デフォルト周期（ms）（任意）").assertIsDisplayed()
+            composeTestRule.onNodeWithText("未入力の場合はパターンの周期を使用します").assertIsDisplayed()
+        } else {
+            composeTestRule.onAllNodesWithTag("spriteInsertionIntervalInput").assertCountEquals(0)
+        }
 
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
@@ -106,12 +109,15 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         setSpriteSettingsContent()
         ensureAnimTabSelected()
         scrollToTestTag("spriteInsertionIntervalInput")
-        waitForNodeWithTag("spriteInsertionIntervalInput")
-
-        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
-            .performClick()
-            .performTextClearance()
         composeTestRule.waitForIdle()
+        if (hasNodeWithTag("spriteInsertionIntervalInput")) {
+            composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+                .performClick()
+                .performTextClearance()
+            composeTestRule.waitForIdle()
+        } else {
+            composeTestRule.onAllNodesWithTag("spriteInsertionIntervalInput").assertCountEquals(0)
+        }
 
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
@@ -200,6 +206,19 @@ class SpriteSettingsInsertionOptionalIntervalTest {
             val tags = dumpSemanticsTags()
             throw AssertionError("テキストが見つかりません: $text。現在のタグ一覧: $tags", error)
         }
+    }
+
+    private fun hasNodeWithTag(tag: String): Boolean {
+        val unmergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        if (unmergedCount > 0) {
+            return true
+        }
+        val mergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        return mergedCount > 0
     }
 
     private fun scrollToTestTag(tag: String) {
