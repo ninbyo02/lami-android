@@ -6,13 +6,13 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,49 +43,26 @@ class SpriteAnimationsErrorHeavyDefaultsTest {
         val insertion = root.getJSONObject("insertion")
 
         assertEquals("ErrorHeavy", root.getString("animationKey"))
-        assertEquals(SpriteAnimationDefaults.ERROR_HEAVY_BASE_INTERVAL_MS, base.getInt("intervalMs"))
-        assertEquals(SpriteAnimationDefaults.ERROR_HEAVY_FRAMES, base.getJSONArray("frames").toIntList())
+        val (baseDefaults, insertionDefaults) = prefs.defaultErrorAnimationSettingsForKey("ErrorHeavy")
+        assertEquals(baseDefaults.intervalMs, base.getInt("intervalMs"))
+        assertEquals(baseDefaults.frameSequence, base.getJSONArray("frames").toIntList())
 
         assertTrue(insertion.getBoolean("enabled"))
+        assertFalse("intervalMs は省略可能", insertion.has("intervalMs"))
+        assertEquals(insertionDefaults.everyNLoops, insertion.getInt("everyNLoops"))
         assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_INTERVAL_MS,
-            insertion.getInt("intervalMs"),
-        )
-        assertEquals(SpriteAnimationDefaults.ERROR_HEAVY_EVERY_N_LOOPS, insertion.getInt("everyNLoops"))
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_PROBABILITY_PERCENT,
+            insertionDefaults.probabilityPercent,
             insertion.getInt("probabilityPercent"),
         )
-        assertEquals(SpriteAnimationDefaults.ERROR_HEAVY_COOLDOWN_LOOPS, insertion.getInt("cooldownLoops"))
-        assertEquals(SpriteAnimationDefaults.ERROR_HEAVY_EXCLUSIVE, insertion.getBoolean("exclusive"))
+        assertEquals(insertionDefaults.cooldownLoops, insertion.getInt("cooldownLoops"))
+        assertEquals(insertionDefaults.exclusive, insertion.getBoolean("exclusive"))
         val patterns = insertion.getJSONArray("patterns")
-        assertEquals(SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS.size, patterns.length())
+        assertEquals(insertionDefaults.patterns.size, patterns.length())
         val primaryPattern = patterns.getJSONObject(0)
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS[0].frames,
-            primaryPattern.getJSONArray("frames").toIntList(),
-        )
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS[0].weight,
-            primaryPattern.getInt("weight"),
-        )
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS[0].intervalMs,
-            primaryPattern.getInt("intervalMs"),
-        )
-        val secondaryPattern = patterns.getJSONObject(1)
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS[1].frames,
-            secondaryPattern.getJSONArray("frames").toIntList(),
-        )
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS[1].weight,
-            secondaryPattern.getInt("weight"),
-        )
-        assertEquals(
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_PATTERNS[1].intervalMs,
-            secondaryPattern.getInt("intervalMs"),
-        )
+        val expectedPattern = insertionDefaults.patterns[0]
+        assertEquals(expectedPattern.frameSequence, primaryPattern.getJSONArray("frames").toIntList())
+        assertEquals(expectedPattern.weight, primaryPattern.getInt("weight"))
+        assertEquals(expectedPattern.intervalMs, primaryPattern.getInt("intervalMs"))
     }
 
     private fun JSONArray.toIntList(): List<Int> = buildList {

@@ -56,11 +56,11 @@ class SpriteAnimationsThinkingPerStateDefaultTest {
             ?: thinking.insertion.patterns.firstOrNull()?.intervalMs
             ?: InsertionAnimationSettings.THINKING_DEFAULT.intervalMs
             ?: 0
-        assertEquals(180, effectiveInsertionIntervalMs)
-        assertEquals(4, thinking.insertion.everyNLoops)
-        assertEquals(55, thinking.insertion.probabilityPercent)
+        assertEquals(130, effectiveInsertionIntervalMs)
+        assertEquals(5, thinking.insertion.everyNLoops)
+        assertEquals(50, thinking.insertion.probabilityPercent)
         assertEquals(5, thinking.insertion.cooldownLoops)
-        assertEquals(false, thinking.insertion.exclusive)
+        assertEquals(true, thinking.insertion.exclusive)
         assertEquals(
             listOf(
                 InsertionPatternConfig(frames = listOf(5, 7), weight = 2, intervalMs = 130),

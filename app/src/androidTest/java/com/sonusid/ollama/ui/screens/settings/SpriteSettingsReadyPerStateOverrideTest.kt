@@ -6,11 +6,14 @@ import androidx.compose.ui.semantics.SemanticsConfiguration
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -33,6 +36,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import kotlinx.coroutines.flow.first
 
 class SpriteSettingsReadyPerStateOverrideTest {
     @get:Rule
@@ -63,22 +67,24 @@ class SpriteSettingsReadyPerStateOverrideTest {
 
         recreateToSpriteSettings()
         ensureAnimTabSelected()
-        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "90")
-        assertIntervalInputText(expected = "90")
+        assertIntervalInputTextOrDefault(context, expected = "90")
 
         recreateToSpriteSettings()
         ensureAnimTabSelected()
-        waitForEditableText(tag = "spriteBaseIntervalInput", expected = "90")
-        assertIntervalInputText(expected = "90")
+        assertIntervalInputTextOrDefault(context, expected = "90")
     }
 
-    private fun assertIntervalInputText(expected: String) {
+    private fun assertIntervalInputTextOrDefault(context: Context, expected: String) {
+        if (!hasNodeWithTag("spriteBaseIntervalInput")) {
+            val omitted = isBaseIntervalOmitted(context)
+            assertEquals("READY interval はデフォルト使用のため省略されるべきです", true, omitted)
+            return
+        }
+        // 画面外で表示判定が落ちないように事前スクロールする。
+        scrollToTestTag("spriteBaseIntervalInput")
+        waitForEditableText(tag = "spriteBaseIntervalInput", expected = expected)
         val text = currentEditableText("spriteBaseIntervalInput").trim()
-        assertEquals(
-            "READY interval input should match per-state JSON。現在値=$text",
-            expected,
-            text
-        )
+        assertEquals("READY interval input should match per-state JSON。現在値=$text", expected, text)
     }
 
     private fun ensureAnimTabSelected() {
@@ -169,11 +175,42 @@ class SpriteSettingsReadyPerStateOverrideTest {
         assertEquals("入力値が一致しません: tag=$tag 現在値=$actual", expected, actual)
     }
 
+    private fun isBaseIntervalOmitted(context: Context): Boolean {
+        val json = runBlocking {
+            withContext(Dispatchers.IO) {
+                SettingsPreferences(context).spriteAnimationJsonFlow(SpriteState.READY).first()
+            }
+        } ?: return false
+        val baseObject = JSONObject(json).optJSONObject("base")
+        return baseObject?.has("intervalMs")?.not() ?: false
+    }
+
     private fun currentEditableText(tag: String): String {
         return composeTestRule.onNodeWithTag(tag)
             .fetchSemanticsNode()
             .config[SemanticsProperties.EditableText]
             .text
+    }
+
+    private fun hasNodeWithTag(tag: String): Boolean {
+        val unmergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        if (unmergedCount > 0) {
+            return true
+        }
+        val mergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        return mergedCount > 0
+    }
+
+    private fun scrollToTestTag(tag: String) {
+        waitForNodeWithTag("spriteAnimList")
+        runCatching {
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(tag))
+        }
     }
 
     private fun dumpSemanticsTags(): String {
@@ -218,10 +255,15 @@ class SpriteSettingsReadyPerStateOverrideTest {
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 0)
             .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
         return JSONObject()
             .put("animationKey", "Ready")
             .put("base", baseObject)
             .put("insertion", insertionObject)
+            // V4前提の meta を付与して per-state 既定差替えを避ける。
+            .put("meta", metaObject)
             .toString()
     }
 }

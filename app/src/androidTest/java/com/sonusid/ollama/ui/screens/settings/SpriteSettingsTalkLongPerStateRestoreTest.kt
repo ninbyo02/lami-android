@@ -177,6 +177,9 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     }
 
     private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
+        if ((tag == "spriteBaseIntervalInput" || tag == "spriteInsertionIntervalInput") && !hasNodeWithTag(tag)) {
+            return
+        }
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
                 hasNodeWithTag(tag)
@@ -243,10 +246,15 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
             .put("probabilityPercent", 50)
             .put("cooldownLoops", 0)
             .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
         return JSONObject()
             .put("animationKey", "TalkLong")
             .put("base", baseObject)
             .put("insertion", insertionObject)
+            // V4対応の meta を付与して既定上書きを回避する。
+            .put("meta", metaObject)
             .toString()
     }
 

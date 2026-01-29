@@ -14,7 +14,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import com.sonusid.ollama.ui.animation.SpriteAnimationDefaults
 
 @RunWith(AndroidJUnit4::class)
 class SpriteAnimationsPerStateMetaTest {
@@ -27,7 +26,7 @@ class SpriteAnimationsPerStateMetaTest {
 
         val result = prefs.ensurePerStateAnimationJsonsInitialized().getOrThrow()
         assertTrue("初期化が行われること", result)
-        assertEquals("defaultVersion の定数は 3 を想定", 3, prefs.currentDefaultAnimationVersion())
+        assertEquals("defaultVersion の定数は 4 を想定", 4, prefs.currentDefaultAnimationVersion())
 
         val json = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.READY).first() }
         assertNotNull("READY の per-state JSON が生成されること", json)
@@ -87,7 +86,7 @@ class SpriteAnimationsPerStateMetaTest {
     }
 
     @Test
-    fun upgradePerStateAnimationJsonsIfNeeded_skips_when_meta_missing() = runBlocking {
+    fun upgradePerStateAnimationJsonsIfNeeded_migrates_when_meta_missing() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
         prefs.clearAllPreferencesForTest()
@@ -96,22 +95,30 @@ class SpriteAnimationsPerStateMetaTest {
             animationKey = "Ready",
             baseIntervalMs = 180,
         )
-        prefs.saveSpriteAnimationJson(SpriteState.READY, before)
+        prefs.saveRawSpriteAnimationJsonForTest(SpriteState.READY, before)
 
-        val after = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.READY).first() }
-        assertNotNull("meta なしでも JSON は保持される", after)
+        val after = awaitDefaultVersion(
+            prefs = prefs,
+            state = SpriteState.READY,
+            expectedVersion = prefs.currentDefaultAnimationVersion(),
+        )
+        assertNotNull("meta なしでも JSON は移行される", after)
         assertEquals(
-            "meta.defaultVersion は付与されない",
-            null,
-            prefs.readMetaDefaultVersionOrNull(after!!)
+            "meta.defaultVersion は CURRENT_DEFAULT_VERSION を付与する",
+            prefs.currentDefaultAnimationVersion(),
+            prefs.readMetaDefaultVersionOrNull(after)
         )
         assertEquals(
-            "meta.userModified は null のまま",
-            null,
+            "meta.userModified は false 扱いになる",
+            false,
             prefs.readMetaUserModifiedOrNull(after)
         )
         val baseIntervalMs = JSONObject(after).getJSONObject("base").getInt("intervalMs")
-        assertEquals("meta なしのため base.intervalMs は維持する", 180, baseIntervalMs)
+        assertEquals(
+            "meta なしはデフォルトへ差し替える",
+            ReadyAnimationSettings.READY_DEFAULT.intervalMs,
+            baseIntervalMs
+        )
     }
 
     @Test
@@ -189,11 +196,14 @@ class SpriteAnimationsPerStateMetaTest {
         val prefs = SettingsPreferences(context)
         prefs.clearAllPreferencesForTest()
 
+        val expectedFrames = listOf(9, 8, 7)
         val before = buildPerStateJsonWithMeta(
             animationKey = "ErrorHeavy",
             baseIntervalMs = 999,
             userModified = false,
             defaultVersion = 1,
+            baseFrames = expectedFrames,
+            insertionEnabled = false,
         )
         prefs.saveSpriteAnimationJson(SpriteState.ERROR, before)
 
@@ -205,15 +215,11 @@ class SpriteAnimationsPerStateMetaTest {
         val root = JSONObject(after)
         assertEquals("animationKey は ErrorHeavy を維持する", "ErrorHeavy", root.getString("animationKey"))
         val baseFrames = root.getJSONObject("base").getJSONArray("frames").toIntList()
-        assertEquals(
-            "ErrorHeavy の base frames を維持する",
-            SpriteAnimationDefaults.ERROR_HEAVY_FRAMES,
-            baseFrames
-        )
+        assertEquals("ErrorHeavy の base frames を維持する", expectedFrames, baseFrames)
         val insertionEnabled = root.getJSONObject("insertion").getBoolean("enabled")
         assertEquals(
             "ErrorHeavy の insertion enabled を維持する",
-            SpriteAnimationDefaults.ERROR_HEAVY_INSERTION_ENABLED,
+            false,
             insertionEnabled
         )
     }
@@ -278,12 +284,14 @@ class SpriteAnimationsPerStateMetaTest {
         userModified: Boolean,
         defaultVersion: Int,
         includeDisabledInsertionInterval: Boolean = false,
+        baseFrames: List<Int> = listOf(0, 0, 0),
+        insertionEnabled: Boolean = false,
     ): String {
         val baseObject = JSONObject()
-            .put("frames", JSONArray(listOf(0, 0, 0)))
+            .put("frames", JSONArray(baseFrames))
             .put("intervalMs", baseIntervalMs)
         val insertionObject = JSONObject().apply {
-            put("enabled", false)
+            put("enabled", insertionEnabled)
             put("patterns", JSONArray())
             if (includeDisabledInsertionInterval) {
                 put("intervalMs", 120)
