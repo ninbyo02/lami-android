@@ -26,6 +26,7 @@ import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
 import com.sonusid.ollama.ui.screens.settings.InsertionPattern
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.ui.screens.settings.effectiveInsertionIntervalMs
 import com.sonusid.ollama.ui.screens.settings.SpriteState
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
@@ -314,13 +315,17 @@ fun LamiStatusSprite(
     // 挿入設定の変更検知用キー（null は 0 固定）
     val insertionKey = remember(insertionSettings) {
         insertionSettings?.let { settings ->
+            val effectiveIntervalMs = effectiveInsertionIntervalMs(
+                settings,
+                settings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+            )
             InsertionSettingsKey(
                 enabled = settings.enabled,
                 everyNLoops = settings.everyNLoops,
                 probabilityPercent = settings.probabilityPercent,
                 cooldownLoops = settings.cooldownLoops,
                 exclusive = settings.exclusive,
-                intervalMs = settings.intervalMs,
+                intervalMs = effectiveIntervalMs,
                 patterns = settings.patterns,
             ).hashCode()
         } ?: 0
@@ -408,10 +413,14 @@ fun LamiStatusSprite(
             ) == true
             if (shouldInsert && settings?.patterns?.isNotEmpty() == true) {
                 val activeSettings = requireNotNull(settings)
+                val defaultIntervalMs = effectiveInsertionIntervalMs(
+                    activeSettings,
+                    activeSettings.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+                )
                 // 挿入イベント内で重み付き抽選を行う（weight/frames が有効なもののみ）
                 val (patternIndex, pattern) = selectWeightedInsertionPattern(activeSettings.patterns, random)
                     ?: continue
-                val resolvedIntervalMs = pattern.intervalMs ?: activeSettings.intervalMs
+                val resolvedIntervalMs = pattern.intervalMs ?: defaultIntervalMs
                 lastInsertionPatternIndex = patternIndex
                 lastInsertionResolvedIntervalMs = resolvedIntervalMs
                 lastInsertionFrames = pattern.frameSequence.toList()
@@ -423,7 +432,7 @@ fun LamiStatusSprite(
                             "patternIndex=$patternIndex " +
                             "frames=${pattern.frameSequence} " +
                             "patternInterval=${pattern.intervalMs} " +
-                            "defaultInterval=${activeSettings.intervalMs} " +
+                            "defaultInterval=$defaultIntervalMs " +
                             "resolvedInterval=$resolvedIntervalMs " +
                             "weight=${pattern.weight} lastInsertionLoop=$lastInsertionLoop"
                     )

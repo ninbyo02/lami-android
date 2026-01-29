@@ -52,7 +52,11 @@ class SpriteAnimationsThinkingPerStateDefaultTest {
         assertEquals(listOf(7, 7, 7, 6, 7, 7, 6, 7), thinking.baseFrames)
         assertEquals(180, thinking.baseIntervalMs)
         assertTrue("thinking insertion.enabled が false になっている", thinking.insertion.enabled)
-        assertEquals(180, thinking.insertion.intervalMs)
+        val effectiveInsertionIntervalMs = thinking.insertion.intervalMs
+            ?: thinking.insertion.patterns.firstOrNull()?.intervalMs
+            ?: InsertionAnimationSettings.THINKING_DEFAULT.intervalMs
+            ?: 0
+        assertEquals(180, effectiveInsertionIntervalMs)
         assertEquals(4, thinking.insertion.everyNLoops)
         assertEquals(55, thinking.insertion.probabilityPercent)
         assertEquals(5, thinking.insertion.cooldownLoops)

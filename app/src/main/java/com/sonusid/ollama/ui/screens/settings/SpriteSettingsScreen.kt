@@ -368,7 +368,7 @@ private fun AnimationDefaults.toInputState(): AnimationInputState =
             insertionPattern2FramesInput = inputs.pattern2FramesInput,
             insertionPattern2WeightInput = inputs.pattern2WeightInput,
             insertionPattern2IntervalInput = inputs.pattern2IntervalInput,
-            insertionIntervalInput = insertion.intervalMs.toString(),
+            insertionIntervalInput = insertion.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = insertion.everyNLoops.toString(),
             insertionProbabilityInput = insertion.probabilityPercent.toString(),
             insertionCooldownInput = insertion.cooldownLoops.toString(),
@@ -1051,7 +1051,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         )
     }
-    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf(220) }
+    var appliedReadyInsertionIntervalMs by rememberSaveable { mutableStateOf<Int?>(220) }
     var appliedReadyInsertionEveryNLoops by rememberSaveable { mutableStateOf(5) }
     var appliedReadyInsertionProbabilityPercent by rememberSaveable { mutableStateOf(40) }
     var appliedReadyInsertionCooldownLoops by rememberSaveable { mutableStateOf(6) }
@@ -1087,7 +1087,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         )
     }
-    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf(110) }
+    var appliedTalkingInsertionIntervalMs by rememberSaveable { mutableStateOf<Int?>(110) }
     var appliedTalkingInsertionEveryNLoops by rememberSaveable { mutableStateOf(4) }
     var appliedTalkingInsertionProbabilityPercent by rememberSaveable { mutableStateOf(50) }
     var appliedTalkingInsertionCooldownLoops by rememberSaveable { mutableStateOf(2) }
@@ -1405,7 +1405,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         readyInsertionPattern2FramesInput = patternInputs.pattern2FramesInput
         readyInsertionPattern2WeightInput = patternInputs.pattern2WeightInput
         readyInsertionPattern2IntervalInput = patternInputs.pattern2IntervalInput
-        readyInsertionIntervalInput = readyInsertionAnimationSettings.intervalMs.toString()
+        readyInsertionIntervalInput = readyInsertionAnimationSettings.intervalMs?.toString().orEmpty()
         readyInsertionEveryNInput = readyInsertionAnimationSettings.everyNLoops.toString()
         readyInsertionProbabilityInput = readyInsertionAnimationSettings.probabilityPercent.toString()
         readyInsertionCooldownInput = readyInsertionAnimationSettings.cooldownLoops.toString()
@@ -1433,7 +1433,7 @@ fun SpriteSettingsScreen(navController: NavController) {
         talkingInsertionPattern2FramesInput = patternInputs.pattern2FramesInput
         talkingInsertionPattern2WeightInput = patternInputs.pattern2WeightInput
         talkingInsertionPattern2IntervalInput = patternInputs.pattern2IntervalInput
-        talkingInsertionIntervalInput = talkingInsertionAnimationSettings.intervalMs.toString()
+        talkingInsertionIntervalInput = talkingInsertionAnimationSettings.intervalMs?.toString().orEmpty()
         talkingInsertionEveryNInput = talkingInsertionAnimationSettings.everyNLoops.toString()
         talkingInsertionProbabilityInput = talkingInsertionAnimationSettings.probabilityPercent.toString()
         talkingInsertionCooldownInput = talkingInsertionAnimationSettings.cooldownLoops.toString()
@@ -1479,7 +1479,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .joinToString(separator = ",")
         readyIntervalInput = config.baseIntervalMs.toString()
         readyInsertionEnabled = config.insertion.enabled
-        readyInsertionIntervalInput = config.insertion.intervalMs.toString()
+        readyInsertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty()
         readyInsertionEveryNInput = config.insertion.everyNLoops.toString()
         readyInsertionProbabilityInput = config.insertion.probabilityPercent.toString()
         readyInsertionCooldownInput = config.insertion.cooldownLoops.toString()
@@ -1539,7 +1539,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             .joinToString(separator = ",")
         talkingIntervalInput = config.baseIntervalMs.toString()
         talkingInsertionEnabled = config.insertion.enabled
-        talkingInsertionIntervalInput = config.insertion.intervalMs.toString()
+        talkingInsertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty()
         talkingInsertionEveryNInput = config.insertion.everyNLoops.toString()
         talkingInsertionProbabilityInput = config.insertion.probabilityPercent.toString()
         talkingInsertionCooldownInput = config.insertion.cooldownLoops.toString()
@@ -1595,7 +1595,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
             insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
             insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -1660,7 +1660,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
             insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
             insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -1725,7 +1725,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
             insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
             insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -1791,7 +1791,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
             insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
             insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -1856,7 +1856,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
             insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
             insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-            insertionIntervalInput = config.insertion.intervalMs.toString(),
+            insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
             insertionEveryNInput = config.insertion.everyNLoops.toString(),
             insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
             insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -1924,7 +1924,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
                 insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
                 insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-                insertionIntervalInput = config.insertion.intervalMs.toString(),
+                insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
                 insertionEveryNInput = config.insertion.everyNLoops.toString(),
                 insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
                 insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -1994,7 +1994,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 insertionPattern2FramesInput = patternInputs.pattern2FramesInput,
                 insertionPattern2WeightInput = patternInputs.pattern2WeightInput,
                 insertionPattern2IntervalInput = patternInputs.pattern2IntervalInput,
-                insertionIntervalInput = config.insertion.intervalMs.toString(),
+                insertionIntervalInput = config.insertion.intervalMs?.toString().orEmpty(),
                 insertionEveryNInput = config.insertion.everyNLoops.toString(),
                 insertionProbabilityInput = config.insertion.probabilityPercent.toString(),
                 insertionCooldownInput = config.insertion.cooldownLoops.toString(),
@@ -2219,6 +2219,13 @@ fun SpriteSettingsScreen(navController: NavController) {
             )
         }
         return ValidationResult(rawValue, null)
+    }
+
+    fun parseOptionalIntervalMsInput(input: String): ValidationResult<Int> {
+        if (input.isBlank()) {
+            return ValidationResult(null, null)
+        }
+        return parseIntervalMsInput(input)
     }
 
     fun parseEveryNLoopsInput(input: String): ValidationResult<Int> {
@@ -2498,13 +2505,7 @@ fun SpriteSettingsScreen(navController: NavController) {
             pattern2IntervalInput = pattern2IntervalInput,
             frameCount = spriteSheetConfig.frameCount
         )
-        val shouldRequireInterval = patternsResult.patterns?.isEmpty() == true
-        val shouldValidateInterval = shouldRequireInterval || intervalInput.isNotBlank()
-        val intervalResult = if (shouldValidateInterval) {
-            parseIntervalMsInput(intervalInput)
-        } else {
-            ValidationResult(null, null)
-        }
+        val intervalResult = parseOptionalIntervalMsInput(intervalInput)
         val everyNResult = parseEveryNLoopsInput(everyNInput)
         val probabilityResult = parseProbabilityPercentInput(probabilityInput)
         val cooldownResult = parseCooldownLoopsInput(cooldownInput)
@@ -2573,27 +2574,25 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
 
         val patterns = patternsResult.patterns
-        val fallbackInterval = when (target) {
-            AnimationType.READY -> appliedReadyInsertionIntervalMs
-            AnimationType.TALKING -> appliedTalkingInsertionIntervalMs
-            else -> resolveExtraAnimationInput(target).appliedInsertion.intervalMs
-        }
-        val interval = when {
-            intervalResult.error != null -> null
-            intervalResult.value != null -> intervalResult.value
-            !shouldRequireInterval -> fallbackInterval
-            else -> null
+        val interval = if (intervalResult.error == null) {
+            intervalResult.value
+        } else {
+            null
         }
         val everyN = everyNResult.value
         val probability = probabilityResult.value
         val cooldown = cooldownResult.value
 
-        if (patterns != null && interval != null && everyN != null && probability != null && cooldown != null) {
-            val resolvedPatterns = patterns.map { pattern ->
-                if (pattern.intervalMs == null) {
-                    pattern.copy(intervalMs = interval)
-                } else {
-                    pattern
+        if (patterns != null && everyN != null && probability != null && cooldown != null && intervalResult.error == null) {
+            val resolvedPatterns = if (interval == null) {
+                patterns
+            } else {
+                patterns.map { pattern ->
+                    if (pattern.intervalMs == null) {
+                        pattern.copy(intervalMs = interval)
+                    } else {
+                        pattern
+                    }
                 }
             }
             return InsertionAnimationSettings(
@@ -2785,12 +2784,17 @@ fun SpriteSettingsScreen(navController: NavController) {
             json = json,
             fallback = fallback.patterns,
         )
-        val intervalMs = json.optInt(JSON_INTERVAL_MS_KEY, fallback.intervalMs)
-        if (intervalMs !in InsertionAnimationSettings.MIN_INTERVAL_MS..InsertionAnimationSettings.MAX_INTERVAL_MS) {
-            return ValidationResult(
-                null,
-                "intervalMsは${InsertionAnimationSettings.MIN_INTERVAL_MS}〜${InsertionAnimationSettings.MAX_INTERVAL_MS}の範囲で入力してください"
-            )
+        val intervalMs = if (json.has(JSON_INTERVAL_MS_KEY)) {
+            val resolved = json.optInt(JSON_INTERVAL_MS_KEY, fallback.intervalMs ?: 0)
+            if (resolved !in InsertionAnimationSettings.MIN_INTERVAL_MS..InsertionAnimationSettings.MAX_INTERVAL_MS) {
+                return ValidationResult(
+                    null,
+                    "intervalMsは${InsertionAnimationSettings.MIN_INTERVAL_MS}〜${InsertionAnimationSettings.MAX_INTERVAL_MS}の範囲で入力してください"
+                )
+            }
+            resolved
+        } else {
+            null
         }
         val everyNLoops = json.optInt(JSON_EVERY_N_LOOPS_KEY, fallback.everyNLoops)
         if (everyNLoops < InsertionAnimationSettings.MIN_EVERY_N_LOOPS) {
@@ -2913,22 +2917,21 @@ fun SpriteSettingsScreen(navController: NavController) {
                 pattern2IntervalInput = insertionPattern2IntervalInput,
                 frameCount = spriteSheetConfig.frameCount
             )
-            val intervalResult = parseIntervalMsInput(insertionIntervalInput)
+            val intervalResult = parseOptionalIntervalMsInput(insertionIntervalInput)
             val everyNResult = parseEveryNLoopsInput(insertionEveryNInput)
             val probabilityResult = parseProbabilityPercentInput(insertionProbabilityInput)
             val cooldownResult = parseCooldownLoopsInput(insertionCooldownInput)
             if (listOf(
                     patternsResult.patterns,
-                    intervalResult.value,
                     everyNResult.value,
                     probabilityResult.value,
                     cooldownResult.value
-                ).all { it != null }
+                ).all { it != null } && intervalResult.error == null
             ) {
                 InsertionAnimationSettings(
                     enabled = true,
                     patterns = patternsResult.patterns!!,
-                    intervalMs = intervalResult.value!!,
+                    intervalMs = intervalResult.value,
                     everyNLoops = everyNResult.value!!,
                     probabilityPercent = probabilityResult.value!!,
                     cooldownLoops = cooldownResult.value!!,
@@ -3100,21 +3103,32 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 val insertionEnabled = validatedInsertion?.enabled == true
                 val defaultInsertionIntervalMs = when (targetState) {
-                    SpriteState.READY -> InsertionAnimationSettings.READY_DEFAULT.intervalMs
-                    SpriteState.SPEAKING -> InsertionAnimationSettings.TALKING_DEFAULT.intervalMs
+                    SpriteState.READY -> InsertionAnimationSettings.READY_DEFAULT.intervalMs ?: 0
+                    SpriteState.SPEAKING -> InsertionAnimationSettings.TALKING_DEFAULT.intervalMs ?: 0
                     SpriteState.TALK_SHORT,
                     SpriteState.TALK_LONG,
                     SpriteState.TALK_CALM,
-                    SpriteState.IDLE -> resolveInputState(selectedAnimation).appliedInsertion.intervalMs
-                    SpriteState.THINKING -> InsertionAnimationSettings.THINKING_DEFAULT.intervalMs
-                    SpriteState.OFFLINE -> InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs
+                    SpriteState.IDLE -> {
+                        val appliedInsertion = resolveInputState(selectedAnimation).appliedInsertion
+                        effectiveInsertionIntervalMs(
+                            appliedInsertion,
+                            appliedInsertion.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+                        )
+                    }
+                    SpriteState.THINKING -> InsertionAnimationSettings.THINKING_DEFAULT.intervalMs ?: 0
+                    SpriteState.OFFLINE -> InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs ?: 0
                     SpriteState.ERROR -> settingsPreferences
                         .defaultAnimationSettingsForState(SpriteState.ERROR)
                         .second
-                        .intervalMs
-                    else -> InsertionAnimationSettings.DEFAULT.intervalMs
+                        .intervalMs ?: 0
+                    else -> InsertionAnimationSettings.DEFAULT.intervalMs ?: 0
                 }
-                val insertionIntervalMs = validatedInsertion?.intervalMs ?: defaultInsertionIntervalMs
+                val insertionIntervalMs = validatedInsertion?.intervalMs
+                val resolvedInsertionIntervalMs = if (validatedInsertion == null) {
+                    defaultInsertionIntervalMs
+                } else {
+                    effectiveInsertionIntervalMs(validatedInsertion, defaultInsertionIntervalMs)
+                }
                 val hasMissingPatternInterval = insertionEnabled &&
                     (validatedInsertion
                         ?.patterns
@@ -3137,16 +3151,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                         ?.patterns
                         ?.getOrNull(0)
                         ?.intervalMs
-                        ?: insertionIntervalMs
+                        ?: resolvedInsertionIntervalMs
                     val pattern1Interval = validatedInsertion
                         ?.patterns
                         ?.getOrNull(1)
                         ?.intervalMs
-                        ?: insertionIntervalMs
+                        ?: resolvedInsertionIntervalMs
                     Log.d(
                         "LamiSprite",
                         "persistPerStateAnimationJson input: state=${targetState.name} " +
-                            "key=$animationKeyForState insertionIntervalMs=$insertionIntervalMs " +
+                            "key=$animationKeyForState insertionIntervalMs=$resolvedInsertionIntervalMs " +
                             "pattern0IntervalMs=$pattern0Interval pattern1IntervalMs=$pattern1Interval"
                     )
                     Log.d(
@@ -3156,7 +3170,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "baseFrames=${validatedBase.frames()} baseFramesSize=${validatedBase.frames().size} " +
                             "baseIntervalMs=${validatedBase.intervalMs} " +
                             "insertionEnabled=${validatedInsertion?.enabled ?: false} " +
-                            "insertionIntervalMs=${validatedInsertion?.intervalMs ?: 0} " +
+                            "insertionIntervalMs=${validatedInsertion?.intervalMs} " +
                             "pattern0Frames=${pattern0?.frames()} " +
                             "pattern0Weight=${pattern0?.weight} " +
                             "pattern0IntervalMs=${pattern0?.intervalMs} " +
@@ -3173,7 +3187,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 val insertionJson = JSONObject().apply {
                     // insertion: enabled=falseでも構造を保持し、patternsは最小配列にする
                     put(JSON_ENABLED_KEY, insertionEnabled)
-                    put(JSON_INTERVAL_MS_KEY, insertionIntervalMs)
+                    if (insertionIntervalMs != null) {
+                        put(JSON_INTERVAL_MS_KEY, insertionIntervalMs)
+                    }
                     put(
                         JSON_PATTERNS_KEY,
                         JSONArray().apply {
@@ -3186,7 +3202,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             JSONObject().apply {
                                                 put(JSON_FRAMES_KEY, JSONArray(pattern.frames()))
                                                 put(JSON_WEIGHT_KEY, pattern.weight)
-                                                put(JSON_PATTERN_INTERVAL_MS_KEY, pattern.intervalMs ?: insertionIntervalMs)
+                                                put(
+                                                    JSON_PATTERN_INTERVAL_MS_KEY,
+                                                    pattern.intervalMs ?: resolvedInsertionIntervalMs
+                                                )
                                             }
                                         )
                                     }
@@ -3966,6 +3985,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         intervalMs = selectedState.appliedBase.intervalMs,
                                     )
                                 }
+                                val appliedInsertion = selectedState.appliedInsertion
+                                val effectiveInsertionIntervalMs = effectiveInsertionIntervalMs(
+                                    appliedInsertion,
+                                    appliedInsertion.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+                                )
+                                val shouldShowDefaultInterval = appliedInsertion.intervalMs != null
                                 val selectedInsertionPreview = remember(
                                     selectedState.insertionPattern1FramesInput,
                                     selectedState.insertionPattern1WeightInput,
@@ -3977,7 +4002,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     selectedState.insertionCooldownInput,
                                     selectedState.insertionEnabled,
                                     selectedState.insertionExclusive,
-                                    selectedState.appliedInsertion.intervalMs,
+                                    effectiveInsertionIntervalMs,
                                     spriteSheetConfig.frameCount,
                                 ) {
                                     buildInsertionPreviewSummary(
@@ -3992,7 +4017,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                         probabilityInput = selectedState.insertionProbabilityInput,
                                         cooldownInput = selectedState.insertionCooldownInput,
                                         exclusive = selectedState.insertionExclusive,
-                                        defaultIntervalMs = selectedState.appliedInsertion.intervalMs,
+                                        defaultIntervalMs = effectiveInsertionIntervalMs,
                                         frameCount = spriteSheetConfig.frameCount,
                                     )
                                 }
@@ -4394,9 +4419,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     everyNError = selectedState.insertionEveryNError,
                                     probabilityError = selectedState.insertionProbabilityError,
                                     cooldownError = selectedState.insertionCooldownError,
-                                    patterns = selectedState.appliedInsertion.patterns,
-                                    defaultIntervalMs = selectedState.appliedInsertion.intervalMs,
-                                    defaults = selectedState.appliedInsertion,
+                                    patterns = appliedInsertion.patterns,
+                                    defaultIntervalMs = effectiveInsertionIntervalMs,
+                                    shouldShowDefaultInterval = shouldShowDefaultInterval,
+                                    defaults = appliedInsertion,
                                     summary = selectedInsertionSummary,
                                     previewValues = selectedInsertionPreviewValues
                                 )
@@ -4608,6 +4634,7 @@ private data class InsertionAnimationUiState(
     val cooldownError: String?,
     val patterns: List<InsertionPattern>,
     val defaultIntervalMs: Int,
+    val shouldShowDefaultInterval: Boolean,
     val defaults: InsertionAnimationSettings,
     val summary: AnimationSummary,
     val previewValues: InsertionPreviewValues,
@@ -4715,6 +4742,7 @@ private fun ReadyAnimationTab(
                 insertionEnabled = insertionState.enabled,
                 insertionPatterns = insertionState.patterns,
                 insertionDefaultIntervalMs = insertionState.defaultIntervalMs,
+                shouldShowDefaultInterval = insertionState.shouldShowDefaultInterval,
                 insertionDefaults = insertionState.defaults,
                 isImeVisible = isImeVisible,
                 modifier = Modifier.fillMaxWidth(),
@@ -5323,6 +5351,7 @@ private fun ReadyAnimationInfo(
     insertionEnabled: Boolean,
     insertionPatterns: List<InsertionPattern>,
     insertionDefaultIntervalMs: Int,
+    shouldShowDefaultInterval: Boolean,
     infoYOffsetDp: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -5342,7 +5371,7 @@ private fun ReadyAnimationInfo(
                 append(" ")
                 append(lastIntervalMs)
                 append("ms")
-                if (lastIntervalMs != insertionDefaultIntervalMs) {
+                if (shouldShowDefaultInterval && lastIntervalMs != insertionDefaultIntervalMs) {
                     append(" (D")
                     append(insertionDefaultIntervalMs)
                     append(")")
@@ -5361,7 +5390,7 @@ private fun ReadyAnimationInfo(
             buildString {
                 append("挿入: ")
                 append(effectiveIntervalText)
-                if (effectiveIntervalText != defaultIntervalText) {
+                if (shouldShowDefaultInterval && effectiveIntervalText != defaultIntervalText) {
                     append(" (D")
                     append(insertionDefaultIntervalMs)
                     append(")")
@@ -5444,6 +5473,7 @@ private fun ReadyAnimationPreviewPane(
     insertionEnabled: Boolean,
     insertionPatterns: List<InsertionPattern>,
     insertionDefaultIntervalMs: Int,
+    shouldShowDefaultInterval: Boolean,
     insertionDefaults: InsertionAnimationSettings,
     isImeVisible: Boolean,
     modifier: Modifier = Modifier,
@@ -5564,6 +5594,7 @@ private fun ReadyAnimationPreviewPane(
                             insertionEnabled = insertionEnabled,
                             insertionPatterns = insertionPatterns,
                             insertionDefaultIntervalMs = insertionDefaultIntervalMs,
+                            shouldShowDefaultInterval = shouldShowDefaultInterval,
                             infoYOffsetDp = previewUiState.infoYOffsetDp,
                             modifier = Modifier
                                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
@@ -5910,14 +5941,17 @@ private fun ReadyAnimationSettings.toJsonObject(): JSONObject =
         .put("intervalMs", intervalMs)
 
 private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
-    JSONObject()
-        .put("enabled", enabled)
-        .put("patterns", patterns.toPatternsJsonArray())
-        .put("intervalMs", intervalMs)
-        .put("everyNLoops", everyNLoops)
-        .put("probabilityPercent", probabilityPercent)
-        .put("cooldownLoops", cooldownLoops)
-        .put("exclusive", exclusive)
+    JSONObject().apply {
+        put("enabled", enabled)
+        put("patterns", patterns.toPatternsJsonArray())
+        if (intervalMs != null) {
+            put("intervalMs", intervalMs)
+        }
+        put("everyNLoops", everyNLoops)
+        put("probabilityPercent", probabilityPercent)
+        put("cooldownLoops", cooldownLoops)
+        put("exclusive", exclusive)
+    }
 
 private fun List<InsertionPattern>.toPatternsJsonArray(): JSONArray =
     JSONArray().apply {
