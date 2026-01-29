@@ -33,10 +33,12 @@ import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -87,6 +89,43 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.onAllNodesWithText("数値を入力してください").assertCountEquals(0)
         waitForText("保存しました")
         composeTestRule.onNodeWithText("保存しました").assertIsDisplayed()
+    }
+
+    @Test
+    fun insertionInterval_empty_omitsIntervalMs_and_previewHidesDefaultInterval() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+        runBlockingIo {
+            prefs.saveSpriteAnimationJson(
+                SpriteState.READY,
+                buildReadyPerStateJsonWithPatterns()
+            )
+            prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
+        }
+
+        setSpriteSettingsContent()
+        ensureAnimTabSelected()
+        scrollToTestTag("spriteInsertionIntervalInput")
+        waitForNodeWithTag("spriteInsertionIntervalInput")
+
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .performClick()
+            .performTextClearance()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithContentDescription("保存").performClick()
+        composeTestRule.waitForIdle()
+        waitForText("保存しました")
+
+        composeTestRule.onAllNodesWithText("D", useUnmergedTree = true).assertCountEquals(0)
+        composeTestRule.onNodeWithText("90ms", substring = true, useUnmergedTree = true).assertIsDisplayed()
+
+        runBlockingIo {
+            val savedJson = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
+            val root = JSONObject(savedJson!!)
+            val insertionObject = root.getJSONObject("insertion")
+            assertTrue("insertion.intervalMs は省略される", insertionObject.has("intervalMs").not())
+        }
     }
 
     private fun runBlockingIo(block: suspend () -> Unit) {

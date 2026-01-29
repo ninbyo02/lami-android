@@ -97,7 +97,7 @@ data class InsertionPattern(
 data class InsertionAnimationSettings(
     val enabled: Boolean,
     val patterns: List<InsertionPattern>,
-    val intervalMs: Int,
+    val intervalMs: Int?,
     val everyNLoops: Int,
     val probabilityPercent: Int,
     val cooldownLoops: Int,
@@ -192,6 +192,16 @@ data class InsertionAnimationSettings(
     }
 }
 
+fun effectiveInsertionIntervalMs(
+    settings: InsertionAnimationSettings,
+    fallbackIntervalMs: Int,
+): Int {
+    val resolvedInterval = settings.intervalMs
+        ?: settings.patterns.firstOrNull()?.intervalMs
+        ?: fallbackIntervalMs
+    return resolvedInterval.coerceAtLeast(0)
+}
+
 data class PerStateAnimationConfig(
     val animationKey: String,
     val baseFrames: List<Int>,
@@ -202,7 +212,7 @@ data class PerStateAnimationConfig(
 data class InsertionConfig(
     val enabled: Boolean,
     val patterns: List<InsertionPatternConfig>,
-    val intervalMs: Int,
+    val intervalMs: Int?,
     val everyNLoops: Int,
     val probabilityPercent: Int,
     val cooldownLoops: Int,
@@ -442,7 +452,6 @@ class SettingsPreferences(private val context: Context) {
 
         val intervalMs = preferences[readyInsertionIntervalMsKey]
             ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
-            ?: InsertionAnimationSettings.READY_DEFAULT.intervalMs
 
         val everyNLoops = preferences[readyInsertionEveryNLoopsKey]
             ?.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
@@ -497,7 +506,6 @@ class SettingsPreferences(private val context: Context) {
 
         val intervalMs = preferences[talkingInsertionIntervalMsKey]
             ?.coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
-            ?: InsertionAnimationSettings.TALKING_DEFAULT.intervalMs
 
         val everyNLoops = preferences[talkingInsertionEveryNLoopsKey]
             ?.coerceAtLeast(InsertionAnimationSettings.MIN_EVERY_N_LOOPS)
@@ -1038,7 +1046,11 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[readyInsertionEnabledKey] = settings.enabled
             preferences[readyInsertionFrameSequenceKey] = settings.patterns.toStorageText()
-            preferences[readyInsertionIntervalMsKey] = settings.intervalMs
+            if (settings.intervalMs == null) {
+                preferences.remove(readyInsertionIntervalMsKey)
+            } else {
+                preferences[readyInsertionIntervalMsKey] = settings.intervalMs
+            }
             preferences[readyInsertionPattern1IntervalMsKey] =
                 patternIntervalToStorageValue(settings.patterns.getOrNull(0)?.intervalMs)
             preferences[readyInsertionPattern2IntervalMsKey] =
@@ -1073,7 +1085,11 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[talkingInsertionEnabledKey] = settings.enabled
             preferences[talkingInsertionFrameSequenceKey] = settings.patterns.toStorageText()
-            preferences[talkingInsertionIntervalMsKey] = settings.intervalMs
+            if (settings.intervalMs == null) {
+                preferences.remove(talkingInsertionIntervalMsKey)
+            } else {
+                preferences[talkingInsertionIntervalMsKey] = settings.intervalMs
+            }
             preferences[talkingInsertionPattern1IntervalMsKey] =
                 patternIntervalToStorageValue(settings.patterns.getOrNull(0)?.intervalMs)
             preferences[talkingInsertionPattern2IntervalMsKey] =
@@ -1216,12 +1232,16 @@ class SettingsPreferences(private val context: Context) {
         val intervalMs = if (insertionObject.has(JSON_INTERVAL_MS_KEY)) {
             insertionObject.getInt(JSON_INTERVAL_MS_KEY)
         } else {
-            insertionDefaults.intervalMs
+            null
         }
+        val fallbackIntervalMs = effectiveInsertionIntervalMs(
+            insertionDefaults,
+            insertionDefaults.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+        )
         val patterns = if (enabled) {
             parsePerStatePatterns(
                 insertionObject.optJSONArray(JSON_PATTERNS_KEY),
-                intervalMs,
+                intervalMs ?: fallbackIntervalMs,
             )
         } else {
             emptyList()
@@ -1461,7 +1481,10 @@ class SettingsPreferences(private val context: Context) {
         } else {
             emptyList()
         }
-        val insertionIntervalMs = normalizedInsertion.intervalMs
+        val insertionIntervalMs = effectiveInsertionIntervalMs(
+            normalizedInsertion,
+            normalizedInsertion.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+        )
         val baseJson = JSONObject()
             .put(JSON_FRAMES_KEY, baseSettings.frameSequence.toJsonArray())
             .put(JSON_INTERVAL_MS_KEY, baseSettings.intervalMs)
@@ -1487,7 +1510,7 @@ class SettingsPreferences(private val context: Context) {
                 }
             )
             // 無効時は intervalMs を保存しない（per-state JSONを最小化する）
-            if (normalizedInsertion.enabled) {
+            if (normalizedInsertion.enabled && normalizedInsertion.intervalMs != null) {
                 put(JSON_INTERVAL_MS_KEY, normalizedInsertion.intervalMs)
             }
             put(JSON_EVERY_N_LOOPS_KEY, normalizedInsertion.everyNLoops)
@@ -1535,9 +1558,15 @@ class SettingsPreferences(private val context: Context) {
         } else {
             emptyList()
         }
-        val intervalMs = (json?.optInt(JSON_INTERVAL_MS_KEY, defaults.intervalMs)
-            ?: defaults.intervalMs)
-            .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
+        val intervalMs = if (json?.has(JSON_INTERVAL_MS_KEY) == true) {
+            json.optInt(
+                JSON_INTERVAL_MS_KEY,
+                defaults.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0
+            )
+                .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
+        } else {
+            null
+        }
         val everyNLoops = if (enabled) {
             (json?.optInt(JSON_EVERY_N_LOOPS_KEY, defaults.everyNLoops)
                 ?: defaults.everyNLoops)
@@ -1599,7 +1628,7 @@ class SettingsPreferences(private val context: Context) {
             } else {
                 emptyList()
             },
-            intervalMs = settings.intervalMs.coerceIn(
+            intervalMs = settings.intervalMs?.coerceIn(
                 InsertionAnimationSettings.MIN_INTERVAL_MS,
                 InsertionAnimationSettings.MAX_INTERVAL_MS
             ),
@@ -1789,18 +1818,22 @@ class SettingsPreferences(private val context: Context) {
 
     private fun InsertionAnimationSettings.toJsonObject(): JSONObject =
         normalizeInsertionSettings(this).let { normalized ->
+            val effectiveIntervalMs = effectiveInsertionIntervalMs(
+                normalized,
+                normalized.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0,
+            )
             JSONObject().apply {
                 put(JSON_ENABLED_KEY, normalized.enabled)
                 put(
                     JSON_PATTERNS_KEY,
                     if (normalized.enabled) {
-                        normalized.patterns.toPatternsJsonArray(normalized.intervalMs)
+                        normalized.patterns.toPatternsJsonArray(effectiveIntervalMs)
                     } else {
                         JSONArray()
                     }
                 )
             // 無効時は intervalMs を保存しない（JSONを最小化する）
-                if (normalized.enabled) {
+                if (normalized.enabled && normalized.intervalMs != null) {
                     put(JSON_INTERVAL_MS_KEY, normalized.intervalMs)
                 }
                 put(JSON_EVERY_N_LOOPS_KEY, normalized.everyNLoops)
