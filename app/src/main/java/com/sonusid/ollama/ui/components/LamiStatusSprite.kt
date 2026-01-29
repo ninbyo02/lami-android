@@ -3,6 +3,11 @@ package com.sonusid.ollama.ui.components
 import android.util.Log
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.snap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -12,12 +17,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
@@ -51,6 +60,8 @@ enum class LamiSpriteStatus {
     OfflineLoop,
     Ready,
 }
+
+private const val DEBUG_OVERLAY_ENABLED = BuildConfig.DEBUG
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
 // 0:95, 1:95, 2:95, 3:94, 4:94, 5:94, 6:90, 7:90, 8:90。
@@ -279,6 +290,7 @@ fun LamiStatusSprite(
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
     resolvedErrorKey: String? = null,
+    debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
 ) {
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val spriteFrameRepository = rememberSpriteFrameRepository()
@@ -397,13 +409,35 @@ fun LamiStatusSprite(
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
     LaunchedEffect(resolvedStatus, perStateAnimJson, animSpec) {
-        if (BuildConfig.DEBUG) {
+        if (DEBUG_OVERLAY_ENABLED) {
             Log.d(
                 "LamiStatusSprite",
                 "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim " +
                     "baseMs=${animSpec.frameDuration.minMs} frames=${animSpec.frames} " +
                     "json=${perStateAnimJson?.take(80)}",
             )
+        }
+    }
+
+    val debugOverlayText = remember(
+        debugOverloadLabel,
+        resolvedStatus,
+        spriteStateForAnim,
+        perStateAnimJson,
+        animSpec,
+    ) {
+        if (!DEBUG_OVERLAY_ENABLED) {
+            ""
+        } else {
+            val perStateJsonState = when {
+                perStateAnimJson == null -> "null"
+                perStateAnimJson.isBlank() -> "blank"
+                else -> "present"
+            }
+            "usedOverload=$debugOverloadLabel\n" +
+                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim\n" +
+                "perStateAnimJson=$perStateJsonState\n" +
+                "frames=${animSpec.frames.size} minMs=${animSpec.frameDuration.minMs}"
         }
     }
 
@@ -528,21 +562,40 @@ fun LamiStatusSprite(
         }
     }
 
-    LamiSprite3x3(
-        frameIndex = currentFrameIndex,
-        sizeDp = constrainedSize,
-        modifier = modifier,
-        contentOffsetDp = contentOffsetDp,
-        contentOffsetYDp = contentOffsetYDp,
-        frameXOffsetPxMap = resolvedFrameXOffsetPxMap,
-        frameYOffsetPxMap = animatedFrameYOffsetPxMap,
-        frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
-        frameSrcSizeMap = resolvedFrameSrcSizeMap,
-        autoCropTransparentArea = autoCropTransparentArea,
-        frameSizePx = frameMaps.frameSize,
-        frameMaps = frameMaps,
-        spriteSheetConfig = spriteSheetConfig,
-    )
+    Box(modifier = modifier) {
+        LamiSprite3x3(
+            frameIndex = currentFrameIndex,
+            sizeDp = constrainedSize,
+            modifier = Modifier,
+            contentOffsetDp = contentOffsetDp,
+            contentOffsetYDp = contentOffsetYDp,
+            frameXOffsetPxMap = resolvedFrameXOffsetPxMap,
+            frameYOffsetPxMap = animatedFrameYOffsetPxMap,
+            frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
+            frameSrcSizeMap = resolvedFrameSrcSizeMap,
+            autoCropTransparentArea = autoCropTransparentArea,
+            frameSizePx = frameMaps.frameSize,
+            frameMaps = frameMaps,
+            spriteSheetConfig = spriteSheetConfig,
+        )
+        if (DEBUG_OVERLAY_ENABLED) {
+            Text(
+                text = debugOverlayText,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(4.dp),
+                    )
+                    // デバッグ表示の読みやすさのため最小限の内側余白
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 11.sp,
+            )
+        }
+    }
 }
 
 @Composable
@@ -580,6 +633,7 @@ fun LamiStatusSprite(
         frameSrcSizeMap = frameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
         resolvedErrorKey = resolvedErrorKey,
+        debugOverloadLabel = "wrapper(status: State<LamiStatus>)",
     )
 }
 
@@ -642,6 +696,7 @@ fun LamiStatusSprite(
         frameSrcSizeMap = frameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
         resolvedErrorKey = resolvedErrorKey,
+        debugOverloadLabel = "wrapper(status: State<LamiAnimationStatus>)",
     )
 }
 
