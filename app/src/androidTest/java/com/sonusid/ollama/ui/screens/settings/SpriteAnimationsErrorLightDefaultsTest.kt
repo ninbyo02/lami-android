@@ -12,6 +12,7 @@ import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,17 +46,19 @@ class SpriteAnimationsErrorLightDefaultsTest {
         assertEquals(listOf(4, 6, 7, 6, 4), base.getJSONArray("frames").toIntList())
 
         assertTrue(insertion.getBoolean("enabled"))
-        assertEquals(390, insertion.getInt("intervalMs"))
-        assertEquals(3, insertion.getInt("everyNLoops"))
-        assertEquals(60, insertion.getInt("probabilityPercent"))
-        assertEquals(4, insertion.getInt("cooldownLoops"))
-        assertEquals(false, insertion.getBoolean("exclusive"))
+        assertFalse("intervalMs は省略可能", insertion.has("intervalMs"))
+        val (_, insertionDefaults) = prefs.defaultErrorAnimationSettingsForKey("ErrorLight")
+        assertEquals(insertionDefaults.everyNLoops, insertion.getInt("everyNLoops"))
+        assertEquals(insertionDefaults.probabilityPercent, insertion.getInt("probabilityPercent"))
+        assertEquals(insertionDefaults.cooldownLoops, insertion.getInt("cooldownLoops"))
+        assertEquals(insertionDefaults.exclusive, insertion.getBoolean("exclusive"))
         val patterns = insertion.getJSONArray("patterns")
-        assertEquals(1, patterns.length())
+        assertEquals(insertionDefaults.patterns.size, patterns.length())
         val pattern = patterns.getJSONObject(0)
-        assertEquals(listOf(2, 4), pattern.getJSONArray("frames").toIntList())
-        assertEquals(1, pattern.getInt("weight"))
-        assertEquals(390, pattern.getInt("intervalMs"))
+        val expectedPattern = insertionDefaults.patterns[0]
+        assertEquals(expectedPattern.frameSequence, pattern.getJSONArray("frames").toIntList())
+        assertEquals(expectedPattern.weight, pattern.getInt("weight"))
+        assertEquals(expectedPattern.intervalMs, pattern.getInt("intervalMs"))
     }
 
     private fun JSONArray.toIntList(): List<Int> = buildList {

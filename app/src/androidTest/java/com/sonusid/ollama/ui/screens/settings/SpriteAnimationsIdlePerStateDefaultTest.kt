@@ -57,11 +57,11 @@ class SpriteAnimationsIdlePerStateDefaultTest {
             ?: idle.insertion.patterns.firstOrNull()?.intervalMs
             ?: InsertionAnimationSettings.IDLE_DEFAULT.intervalMs
             ?: 0
-        assertEquals(125, effectiveInsertionIntervalMs)
-        assertEquals(4, idle.insertion.everyNLoops)
-        assertEquals(50, idle.insertion.probabilityPercent)
+        assertEquals(120, effectiveInsertionIntervalMs)
+        assertEquals(5, idle.insertion.everyNLoops)
+        assertEquals(45, idle.insertion.probabilityPercent)
         assertEquals(4, idle.insertion.cooldownLoops)
-        assertTrue("idle insertion.exclusive が false になっている", idle.insertion.exclusive)
+        assertTrue("idle insertion.exclusive が true になっている", idle.insertion.exclusive)
         assertEquals(
             listOf(
                 InsertionPatternConfig(frames = listOf(5, 8, 5), weight = 3, intervalMs = 120),

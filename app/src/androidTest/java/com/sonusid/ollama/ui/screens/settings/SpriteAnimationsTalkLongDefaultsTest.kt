@@ -55,24 +55,27 @@ class SpriteAnimationsTalkLongDefaultsTest {
 
         val insertion = root.getJSONObject("insertion")
         assertTrue(insertion.getBoolean("enabled"))
-        assertEquals(125, insertion.getInt("intervalMs"))
-        assertEquals(3, insertion.getInt("everyNLoops"))
-        assertEquals(70, insertion.getInt("probabilityPercent"))
-        assertEquals(4, insertion.getInt("cooldownLoops"))
-        assertTrue(insertion.getBoolean("exclusive"))
+        assertEquals(false, insertion.has("intervalMs"))
+        val (_, insertionDefaults) = prefs.defaultAnimationSettingsForState(SpriteState.TALK_LONG)
+        assertEquals(insertionDefaults.everyNLoops, insertion.getInt("everyNLoops"))
+        assertEquals(insertionDefaults.probabilityPercent, insertion.getInt("probabilityPercent"))
+        assertEquals(insertionDefaults.cooldownLoops, insertion.getInt("cooldownLoops"))
+        assertEquals(insertionDefaults.exclusive, insertion.getBoolean("exclusive"))
 
         val patterns = insertion.getJSONArray("patterns")
-        assertEquals(2, patterns.length())
+        assertEquals(insertionDefaults.patterns.size, patterns.length())
 
         val firstPattern = patterns.getJSONObject(0)
-        assertEquals(listOf(1, 5), firstPattern.getJSONArray("frames").toIntList())
-        assertEquals(3, firstPattern.getInt("weight"))
-        assertEquals(120, firstPattern.getInt("intervalMs"))
+        val expectedFirstPattern = insertionDefaults.patterns[0]
+        assertEquals(expectedFirstPattern.frameSequence, firstPattern.getJSONArray("frames").toIntList())
+        assertEquals(expectedFirstPattern.weight, firstPattern.getInt("weight"))
+        assertEquals(expectedFirstPattern.intervalMs, firstPattern.getInt("intervalMs"))
 
         val secondPattern = patterns.getJSONObject(1)
-        assertEquals(listOf(2, 5), secondPattern.getJSONArray("frames").toIntList())
-        assertEquals(1, secondPattern.getInt("weight"))
-        assertEquals(130, secondPattern.getInt("intervalMs"))
+        val expectedSecondPattern = insertionDefaults.patterns[1]
+        assertEquals(expectedSecondPattern.frameSequence, secondPattern.getJSONArray("frames").toIntList())
+        assertEquals(expectedSecondPattern.weight, secondPattern.getInt("weight"))
+        assertEquals(expectedSecondPattern.intervalMs, secondPattern.getInt("intervalMs"))
     }
 
     @Suppress("UNCHECKED_CAST")

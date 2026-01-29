@@ -768,6 +768,22 @@ class SettingsPreferences(private val context: Context) {
             } else {
                 storedKey.ifBlank { defaultKeyForState(state) }
             }
+            if (state == SpriteState.ERROR && resolvedKey == "ErrorHeavy") {
+                val metaObject = currentRoot.optJSONObject(JSON_META_KEY) ?: JSONObject().also {
+                    currentRoot.put(JSON_META_KEY, it)
+                }
+                metaObject.put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_VERSION)
+                saveSpriteAnimationJson(state, currentRoot.toString())
+                updated = true
+                if (BuildConfig.DEBUG) {
+                    Log.d(
+                        "LamiSprite",
+                        "per-state既定差替えを最小化: state=${state.name} " +
+                            "version=$defaultVersion -> $CURRENT_DEFAULT_VERSION"
+                    )
+                }
+                return@forEach
+            }
             val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
                 val (base, insertion) = defaultErrorAnimationSettingsForKey(resolvedKey)
                 Triple(resolvedKey, base, insertion)
@@ -1553,14 +1569,15 @@ class SettingsPreferences(private val context: Context) {
         } else {
             emptyList()
         }
-        val intervalMs = if (json?.has(JSON_INTERVAL_MS_KEY) == true) {
-            json.optInt(
-                JSON_INTERVAL_MS_KEY,
-                defaults.intervalMs ?: InsertionAnimationSettings.DEFAULT.intervalMs ?: 0
+        val intervalMs = when {
+            !enabled -> null
+            json?.has(JSON_INTERVAL_MS_KEY) == true ->
+                json.getInt(JSON_INTERVAL_MS_KEY)
+                    .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
+            else -> defaults.intervalMs?.coerceIn(
+                InsertionAnimationSettings.MIN_INTERVAL_MS,
+                InsertionAnimationSettings.MAX_INTERVAL_MS,
             )
-                .coerceIn(InsertionAnimationSettings.MIN_INTERVAL_MS, InsertionAnimationSettings.MAX_INTERVAL_MS)
-        } else {
-            null
         }
         val everyNLoops = if (enabled) {
             (json?.optInt(JSON_EVERY_N_LOOPS_KEY, defaults.everyNLoops)
