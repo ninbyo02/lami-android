@@ -61,9 +61,12 @@ class SettingsPreferencesOfflineDefaultTest {
         val config = settingsPreferences
             .parseAndValidatePerStateAnimationJson(offlineJson, SpriteState.OFFLINE)
             .getOrThrow()
+        val effectiveInsertionIntervalMs = config.insertion.intervalMs
+            ?: InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs
+            ?: 0
         assertEquals(
             InsertionAnimationSettings.OFFLINE_DEFAULT.intervalMs,
-            config.insertion.intervalMs,
+            effectiveInsertionIntervalMs,
         )
     }
 }

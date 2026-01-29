@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -33,10 +34,12 @@ import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -87,6 +90,44 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.onAllNodesWithText("数値を入力してください").assertCountEquals(0)
         waitForText("保存しました")
         composeTestRule.onNodeWithText("保存しました").assertIsDisplayed()
+    }
+
+    @Test
+    fun insertionInterval_empty_omitsIntervalMs_and_previewHidesDefaultInterval() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+        runBlockingIo {
+            prefs.saveSpriteAnimationJson(
+                SpriteState.READY,
+                buildReadyPerStateJsonWithPatterns()
+            )
+            prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
+        }
+
+        setSpriteSettingsContent()
+        ensureAnimTabSelected()
+        scrollToTestTag("spriteInsertionIntervalInput")
+        waitForNodeWithTag("spriteInsertionIntervalInput")
+
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .performClick()
+            .performTextClearance()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithContentDescription("保存").performClick()
+        composeTestRule.waitForIdle()
+        waitForText("保存しました")
+
+        val insertionTexts = collectInsertionInfoTexts()
+        assertTrue("挿入プレビューに D 表記が残っている: $insertionTexts", insertionTexts.none { it.contains("(D") })
+        assertTrue("挿入プレビューに 90ms が表示されていない: $insertionTexts", insertionTexts.any { it.contains("90ms") })
+
+        runBlockingIo {
+            val savedJson = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
+            val root = JSONObject(savedJson!!)
+            val insertionObject = root.getJSONObject("insertion")
+            assertTrue("insertion.intervalMs は省略される", insertionObject.has("intervalMs").not())
+        }
     }
 
     private fun runBlockingIo(block: suspend () -> Unit) {
@@ -199,6 +240,16 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         }
         node.children.forEach { child: SemanticsNode ->
             collectTestTags(child, tags)
+        }
+    }
+
+    private fun collectInsertionInfoTexts(): List<String> {
+        val nodes = composeTestRule
+            .onAllNodes(hasText("挿入:", substring = true), useUnmergedTree = true)
+            .fetchSemanticsNodes()
+        return nodes.mapNotNull { node ->
+            val textList = node.config.getOrNull(SemanticsProperties.Text) ?: return@mapNotNull null
+            textList.joinToString(separator = "") { it.text }
         }
     }
 

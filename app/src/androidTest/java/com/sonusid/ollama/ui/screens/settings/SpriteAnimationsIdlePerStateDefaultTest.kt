@@ -53,7 +53,11 @@ class SpriteAnimationsIdlePerStateDefaultTest {
         assertEquals(listOf(8, 8, 8, 8), idle.baseFrames)
         assertEquals(ReadyAnimationSettings.IDLE_DEFAULT.intervalMs, idle.baseIntervalMs)
         assertTrue("idle insertion.enabled が false になっている", idle.insertion.enabled)
-        assertEquals(125, idle.insertion.intervalMs)
+        val effectiveInsertionIntervalMs = idle.insertion.intervalMs
+            ?: idle.insertion.patterns.firstOrNull()?.intervalMs
+            ?: InsertionAnimationSettings.IDLE_DEFAULT.intervalMs
+            ?: 0
+        assertEquals(125, effectiveInsertionIntervalMs)
         assertEquals(4, idle.insertion.everyNLoops)
         assertEquals(50, idle.insertion.probabilityPercent)
         assertEquals(4, idle.insertion.cooldownLoops)

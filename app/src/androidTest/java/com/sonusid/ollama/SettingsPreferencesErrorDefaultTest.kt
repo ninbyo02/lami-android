@@ -2,6 +2,7 @@ package com.sonusid.ollama
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.SpriteState
 import kotlinx.coroutines.flow.first
@@ -39,7 +40,11 @@ class SettingsPreferencesErrorDefaultTest {
 
         val insertion = config.insertion
         assertTrue(insertion.enabled)
-        assertEquals(390, insertion.intervalMs)
+        val effectiveInsertionIntervalMs = insertion.intervalMs
+            ?: insertion.patterns.firstOrNull()?.intervalMs
+            ?: InsertionAnimationSettings.ERROR_DEFAULT.intervalMs
+            ?: 0
+        assertEquals(390, effectiveInsertionIntervalMs)
         assertEquals(3, insertion.everyNLoops)
         assertEquals(60, insertion.probabilityPercent)
         assertEquals(4, insertion.cooldownLoops)
