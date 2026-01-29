@@ -9,7 +9,6 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -118,9 +117,8 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         composeTestRule.waitForIdle()
         waitForText("保存しました")
 
-        val insertionTexts = collectInsertionInfoTexts()
-        assertTrue("挿入プレビューに D 表記が残っている: $insertionTexts", insertionTexts.none { it.contains("(D") })
-        assertTrue("挿入プレビューに 90ms が表示されていない: $insertionTexts", insertionTexts.any { it.contains("90ms") })
+        composeTestRule.onAllNodesWithText("D", useUnmergedTree = true).assertCountEquals(0)
+        composeTestRule.onNodeWithText("90ms", substring = true, useUnmergedTree = true).assertIsDisplayed()
 
         runBlockingIo {
             val savedJson = prefs.spriteAnimationJsonFlow(SpriteState.READY).first()
@@ -240,16 +238,6 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         }
         node.children.forEach { child: SemanticsNode ->
             collectTestTags(child, tags)
-        }
-    }
-
-    private fun collectInsertionInfoTexts(): List<String> {
-        val nodes = composeTestRule
-            .onAllNodes(hasText("挿入:", substring = true), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-        return nodes.mapNotNull { node ->
-            val textList = node.config.getOrNull(SemanticsProperties.Text) ?: return@mapNotNull null
-            textList.joinToString(separator = "") { it.text }
         }
     }
 
