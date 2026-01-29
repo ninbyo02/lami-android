@@ -86,7 +86,7 @@ class SpriteAnimationsPerStateMetaTest {
     }
 
     @Test
-    fun upgradePerStateAnimationJsonsIfNeeded_skips_when_meta_missing() = runBlocking {
+    fun upgradePerStateAnimationJsonsIfNeeded_migrates_when_meta_missing() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = SettingsPreferences(context)
         prefs.clearAllPreferencesForTest()
@@ -95,22 +95,30 @@ class SpriteAnimationsPerStateMetaTest {
             animationKey = "Ready",
             baseIntervalMs = 180,
         )
-        prefs.saveSpriteAnimationJson(SpriteState.READY, before)
+        prefs.saveRawSpriteAnimationJsonForTest(SpriteState.READY, before)
 
-        val after = withTimeout(5_000) { prefs.spriteAnimationJsonFlow(SpriteState.READY).first() }
-        assertNotNull("meta なしでも JSON は保持される", after)
+        val after = awaitDefaultVersion(
+            prefs = prefs,
+            state = SpriteState.READY,
+            expectedVersion = prefs.currentDefaultAnimationVersion(),
+        )
+        assertNotNull("meta なしでも JSON は移行される", after)
         assertEquals(
-            "meta.defaultVersion は付与されない",
-            null,
-            prefs.readMetaDefaultVersionOrNull(after!!)
+            "meta.defaultVersion は CURRENT_DEFAULT_VERSION を付与する",
+            prefs.currentDefaultAnimationVersion(),
+            prefs.readMetaDefaultVersionOrNull(after)
         )
         assertEquals(
-            "meta.userModified は null のまま",
-            null,
+            "meta.userModified は false 扱いになる",
+            false,
             prefs.readMetaUserModifiedOrNull(after)
         )
         val baseIntervalMs = JSONObject(after).getJSONObject("base").getInt("intervalMs")
-        assertEquals("meta なしのため base.intervalMs は維持する", 180, baseIntervalMs)
+        assertEquals(
+            "meta なしはデフォルトへ差し替える",
+            ReadyAnimationSettings.READY_DEFAULT.intervalMs,
+            baseIntervalMs
+        )
     }
 
     @Test

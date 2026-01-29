@@ -569,14 +569,15 @@ class SettingsPreferences(private val context: Context) {
 
     // state別JSONが正（保存の本命）
     suspend fun saveSpriteAnimationJson(state: SpriteState, json: String) {
+        val normalizedJson = normalizePerStateAnimationJsonMeta(json) ?: json
         if (BuildConfig.DEBUG) {
             val key = spriteAnimationJsonPreferencesKey(state)
-            val snippet = json.take(120)
+            val snippet = normalizedJson.take(120)
             val current = context.dataStore.data.first()[key]
             Log.d(
                 "LamiSprite",
                 "saveSpriteAnimationJson start: state=${state.name} key=${key.name} " +
-                    "length=${json.length} head=${snippet}"
+                    "length=${normalizedJson.length} head=${snippet}"
             )
             Log.d(
                 "LamiSprite",
@@ -586,7 +587,7 @@ class SettingsPreferences(private val context: Context) {
             dumpDataStoreDebug("before saveSpriteAnimationJson:${state.name}")
         }
         context.dataStore.edit { preferences ->
-            preferences[spriteAnimationJsonPreferencesKey(state)] = json
+            preferences[spriteAnimationJsonPreferencesKey(state)] = normalizedJson
         }
         if (BuildConfig.DEBUG) {
             val key = spriteAnimationJsonPreferencesKey(state)
@@ -725,12 +726,26 @@ class SettingsPreferences(private val context: Context) {
             val userModified = readMetaUserModifiedOrNull(currentJson)
             val defaultVersion = readMetaDefaultVersionOrNull(currentJson)
             if (userModified == null || defaultVersion == null) {
-                if (BuildConfig.DEBUG) {
-                    Log.d(
-                        "LamiSprite",
-                        "per-state upgrade skip: state=${state.name} reason=missingMeta"
-                    )
+                val (animationKey, baseDefaults, insertionDefaults) = if (state == SpriteState.ERROR) {
+                    val selectedKey = normalizeErrorKey(preferences[selectedKeyErrorKey])
+                    val (base, insertion) = defaultErrorAnimationSettingsForKey(selectedKey)
+                    Triple(selectedKey, base, insertion)
+                } else {
+                    val defaultKey = defaultKeyForState(state)
+                    val (base, insertion) = defaultAnimationSettingsForStateAndKey(state, defaultKey)
+                    Triple(defaultKey, base, insertion)
                 }
+                val perStateJson = buildPerStateAnimationJsonOrNull(
+                    animationKey = animationKey,
+                    baseSettings = baseDefaults,
+                    insertionSettings = insertionDefaults,
+                ) ?: return@forEach
+                saveSpriteAnimationJson(state, perStateJson)
+                updated = true
+                Log.i(
+                    "LamiSprite",
+                    "per-state migrate: state=${state.name} version=${defaultVersion ?: "none"} -> $CURRENT_DEFAULT_VERSION"
+                )
                 return@forEach
             }
             if (userModified == true) {
@@ -773,6 +788,9 @@ class SettingsPreferences(private val context: Context) {
                     currentRoot.put(JSON_META_KEY, it)
                 }
                 metaObject.put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_VERSION)
+                if (!metaObject.has(META_USER_MODIFIED_KEY)) {
+                    metaObject.put(META_USER_MODIFIED_KEY, false)
+                }
                 saveSpriteAnimationJson(state, currentRoot.toString())
                 updated = true
                 if (BuildConfig.DEBUG) {
@@ -1538,6 +1556,28 @@ class SettingsPreferences(private val context: Context) {
             .put(JSON_INSERTION_KEY, insertionJson)
             .put(JSON_META_KEY, metaJson)
             .toString()
+    }
+
+    private fun normalizePerStateAnimationJsonMeta(json: String): String? = runCatching {
+        val root = JSONObject(json)
+        val meta = root.optJSONObject(JSON_META_KEY) ?: JSONObject().also {
+            root.put(JSON_META_KEY, it)
+        }
+        if (!meta.has(META_DEFAULT_VERSION_KEY)) {
+            meta.put(META_DEFAULT_VERSION_KEY, 0)
+        }
+        if (!meta.has(META_USER_MODIFIED_KEY)) {
+            meta.put(META_USER_MODIFIED_KEY, false)
+        }
+        root.toString()
+    }.getOrNull()
+
+    @VisibleForTesting
+    internal suspend fun saveRawSpriteAnimationJsonForTest(state: SpriteState, json: String) {
+        // テスト用にmeta無しJSONを直接保存する
+        context.dataStore.edit { preferences ->
+            preferences[spriteAnimationJsonPreferencesKey(state)] = json
+        }
     }
 
     private fun overridePerStateAnimationKey(json: String, animationKey: String): String? =
