@@ -950,9 +950,19 @@ class SettingsPreferences(private val context: Context) {
                 val (base, insertion) = defaultsForState(state)
                 Triple(defaultKey, base, insertion)
             }
+            // OFFLINE の intervalMs は UI と同じ範囲で保持する
+            val resolvedBaseDefaults = if (state == SpriteState.OFFLINE) {
+                val clampedIntervalMs = config.baseIntervalMs.coerceIn(
+                    ReadyAnimationSettings.MIN_INTERVAL_MS,
+                    ReadyAnimationSettings.MAX_INTERVAL_MS,
+                )
+                baseDefaults.copy(intervalMs = clampedIntervalMs)
+            } else {
+                baseDefaults
+            }
             val perStateJson = buildPerStateAnimationJsonOrNull(
                 animationKey = animationKey,
-                baseSettings = baseDefaults,
+                baseSettings = resolvedBaseDefaults,
                 insertionSettings = insertionDefaults,
             ) ?: return@forEach
             saveSpriteAnimationJson(state, perStateJson)
