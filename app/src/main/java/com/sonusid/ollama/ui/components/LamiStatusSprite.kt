@@ -421,24 +421,8 @@ fun LamiStatusSprite(
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
-    val defaultFrameXOffsetPxMap = remember(frameMaps) {
-        frameMaps.toFrameXOffsetPxMap()
-    }
-    val resolvedFrameXOffsetPxMap = remember(frameXOffsetPxMap, defaultFrameXOffsetPxMap) {
-        defaultFrameXOffsetPxMap.toMutableMap().apply {
-            putAll(frameXOffsetPxMap)
-        }
-    }
-    val defaultFrameYOffsetPxMap = remember(frameMaps) {
-        frameMaps.toFrameYOffsetPxMap()
-    }
-    val resolvedFrameYOffsetPxMap = remember(frameYOffsetPxMap, defaultFrameYOffsetPxMap) {
-        defaultFrameYOffsetPxMap.toMutableMap().apply {
-            putAll(frameYOffsetPxMap)
-        }
-    }
-    val currentFrameXOffsetPx = resolvedFrameXOffsetPxMap[currentFrameIndex] ?: 0
-    val currentFrameYOffsetPx = resolvedFrameYOffsetPxMap[currentFrameIndex] ?: 0
+    val currentFrameXOffsetPx = frameXOffsetPxMap[currentFrameIndex] ?: 0
+    val currentFrameYOffsetPx = frameYOffsetPxMap[currentFrameIndex] ?: 0
     val debugOverlayText = remember(
         debugOverloadLabel,
         resolvedStatus,
@@ -563,8 +547,8 @@ fun LamiStatusSprite(
             modifier = Modifier,
             contentOffsetDp = contentOffsetDp,
             contentOffsetYDp = contentOffsetYDp,
-            frameXOffsetPxMap = resolvedFrameXOffsetPxMap,
-            frameYOffsetPxMap = resolvedFrameYOffsetPxMap,
+            frameXOffsetPxMap = frameXOffsetPxMap,
+            frameYOffsetPxMap = frameYOffsetPxMap,
             frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
             frameSrcSizeMap = resolvedFrameSrcSizeMap,
             autoCropTransparentArea = autoCropTransparentArea,
