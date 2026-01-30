@@ -21,7 +21,6 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
-private const val OFFLINE_BASE_INTERVAL_MIN_MS = 500
 private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
@@ -871,8 +870,12 @@ class SettingsPreferences(private val context: Context) {
         val baseObject = root.optJSONObject(JSON_BASE_KEY)
         if (baseObject?.has(JSON_INTERVAL_MS_KEY) == true) {
             val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
-            if (baseIntervalMs < OFFLINE_BASE_INTERVAL_MIN_MS) {
-                baseObject.put(JSON_INTERVAL_MS_KEY, ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs)
+            val clampedIntervalMs = baseIntervalMs.coerceIn(
+                ReadyAnimationSettings.MIN_INTERVAL_MS,
+                ReadyAnimationSettings.MAX_INTERVAL_MS,
+            )
+            if (clampedIntervalMs != baseIntervalMs) {
+                baseObject.put(JSON_INTERVAL_MS_KEY, clampedIntervalMs)
                 root.put(JSON_BASE_KEY, baseObject)
                 changed = true
             }
