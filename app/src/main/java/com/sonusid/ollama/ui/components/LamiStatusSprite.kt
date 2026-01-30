@@ -425,6 +425,8 @@ fun LamiStatusSprite(
     val currentFrameYOffsetPx = frameYOffsetPxMap[currentFrameIndex] ?: 0
     val debugOverlayText = remember(
         debugOverloadLabel,
+        lastInsertionResolvedIntervalMs,
+        lastInsertionFrames,
         resolvedStatus,
         spriteStateForAnim,
         perStateAnimJson,
