@@ -30,6 +30,11 @@ class SettingsPreferencesOfflineIntervalClampTest {
         val offlineJson = buildOfflinePerStateJson(intervalMs = 120)
         prefs.saveSpriteAnimationJson(SpriteState.OFFLINE, offlineJson)
 
+        val storedBeforeEnsure = withTimeout(5_000) {
+            prefs.spriteAnimationJsonFlow(SpriteState.OFFLINE).first()
+        }
+        val beforeIntervalMs = JSONObject(storedBeforeEnsure!!).getJSONObject("base").getInt("intervalMs")
+
         prefs.ensurePerStateAnimationJsonsInitialized().getOrThrow()
 
         val storedJson = withTimeout(5_000) {
@@ -37,6 +42,7 @@ class SettingsPreferencesOfflineIntervalClampTest {
         }
         val baseIntervalMs = JSONObject(storedJson!!).getJSONObject("base").getInt("intervalMs")
 
+        assertEquals(120, beforeIntervalMs)
         assertEquals(120, baseIntervalMs)
     }
 
