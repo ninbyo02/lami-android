@@ -1567,10 +1567,12 @@ class SettingsPreferences(private val context: Context) {
             root.put(JSON_META_KEY, it)
         }
         if (!meta.has(META_DEFAULT_VERSION_KEY)) {
-            meta.put(META_DEFAULT_VERSION_KEY, 0)
+            // meta無しJSONはユーザー投入の可能性が高いので最新既定として扱う
+            meta.put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_VERSION)
         }
         if (!meta.has(META_USER_MODIFIED_KEY)) {
-            meta.put(META_USER_MODIFIED_KEY, false)
+            // meta無しJSONはユーザー改変扱いにして既定差替えを避ける
+            meta.put(META_USER_MODIFIED_KEY, true)
         }
         root.toString()
     }.getOrNull()
