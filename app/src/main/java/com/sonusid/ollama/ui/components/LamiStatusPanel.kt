@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +35,9 @@ data class LamiStatusUi(
     val subtitle: String?,
 )
 
+// デバッグ時の横オフセット調整（必要なら -2.dp などへ変更）
+private val DEBUG_SPRITE_OFFSET_X_DP = (-1).dp
+
 @Composable
 fun LamiStatusPanel(
     status: LamiStatus,
@@ -57,6 +61,7 @@ fun LamiStatusPanel(
         ) {
             val debugEnabled = BuildConfig.DEBUG
             val outlineColor = MaterialTheme.colorScheme.outline
+            val debugSpriteOffsetX = if (debugEnabled) DEBUG_SPRITE_OFFSET_X_DP else 0.dp
             val spriteBorderModifier = if (debugEnabled) {
                 Modifier.border(1.dp, outlineColor)
             } else {
@@ -71,15 +76,24 @@ fun LamiStatusPanel(
                     status = statusState,
                     sizeDp = spriteSize,
                     contentOffsetDp = 0.dp,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .offset(x = debugSpriteOffsetX),
                 )
                 if (debugEnabled) {
                     Canvas(modifier = Modifier.matchParentSize()) {
                         val centerX = size.width / 2f
+                        val centerY = size.height / 2f
                         drawLine(
                             color = outlineColor,
                             start = Offset(centerX, 0f),
                             end = Offset(centerX, size.height),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                        drawLine(
+                            color = outlineColor,
+                            start = Offset(0f, centerY),
+                            end = Offset(size.width, centerY),
                             strokeWidth = 1.dp.toPx(),
                         )
                     }
