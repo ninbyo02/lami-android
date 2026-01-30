@@ -1,8 +1,6 @@
 package com.sonusid.ollama.ui.components
 
 import android.util.Log
-import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -420,29 +418,6 @@ fun LamiStatusSprite(
         }
     }
 
-    val debugOverlayText = remember(
-        debugOverloadLabel,
-        resolvedStatus,
-        spriteStateForAnim,
-        perStateAnimJson,
-        animSpec,
-    ) {
-        if (!DEBUG_OVERLAY_ENABLED) {
-            ""
-        } else {
-            val json = perStateAnimJson
-            val perStateJsonState = when {
-                json == null -> "null"
-                json.isBlank() -> "blank"
-                else -> "present"
-            }
-            "usedOverload=$debugOverloadLabel\n" +
-                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim\n" +
-                "perStateAnimJson=$perStateJsonState\n" +
-                "frames=${animSpec.frames.size} minMs=${animSpec.frameDuration.minMs}"
-        }
-    }
-
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
@@ -462,20 +437,37 @@ fun LamiStatusSprite(
             putAll(frameYOffsetPxMap)
         }
     }
-    val targetFrameYOffsetPx = resolvedFrameYOffsetPxMap[currentFrameIndex] ?: 0
-    // スナップで即時反映し、フレーム切替時の縦揺れ（バネ挙動のオーバーシュート）を防ぐ
-    val animatedFrameYOffsetPx by animateIntAsState(
-        targetValue = targetFrameYOffsetPx,
-        animationSpec = snap(),
-        label = "frameYOffsetPx",
-    )
-    val animatedFrameYOffsetPxMap = remember(
-        resolvedFrameYOffsetPxMap,
+    val currentFrameXOffsetPx = resolvedFrameXOffsetPxMap[currentFrameIndex] ?: 0
+    val currentFrameYOffsetPx = resolvedFrameYOffsetPxMap[currentFrameIndex] ?: 0
+    val debugOverlayText = remember(
+        debugOverloadLabel,
+        resolvedStatus,
+        spriteStateForAnim,
+        perStateAnimJson,
+        animSpec,
         currentFrameIndex,
-        animatedFrameYOffsetPx,
+        currentFrameXOffsetPx,
+        currentFrameYOffsetPx,
     ) {
-        resolvedFrameYOffsetPxMap.toMutableMap().apply {
-            put(currentFrameIndex, animatedFrameYOffsetPx)
+        if (!DEBUG_OVERLAY_ENABLED) {
+            ""
+        } else {
+            val json = perStateAnimJson
+            val perStateJsonState = when {
+                json == null -> "null"
+                json.isBlank() -> "blank"
+                else -> "present"
+            }
+            val animationKey = when {
+                json.isNullOrBlank() -> "fallback"
+                else -> "json:${json.hashCode()}"
+            }
+            "usedOverload=$debugOverloadLabel\n" +
+                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim\n" +
+                "animationKey=$animationKey perStateAnimJson=$perStateJsonState\n" +
+                "baseFrames=${animSpec.frames} baseIntervalMs=${animSpec.frameDuration.minMs}\n" +
+                "currentFrameIndex=$currentFrameIndex\n" +
+                "dstOffsetPx=(x=$currentFrameXOffsetPx, y=$currentFrameYOffsetPx)"
         }
     }
 
@@ -572,7 +564,7 @@ fun LamiStatusSprite(
             contentOffsetDp = contentOffsetDp,
             contentOffsetYDp = contentOffsetYDp,
             frameXOffsetPxMap = resolvedFrameXOffsetPxMap,
-            frameYOffsetPxMap = animatedFrameYOffsetPxMap,
+            frameYOffsetPxMap = resolvedFrameYOffsetPxMap,
             frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
             frameSrcSizeMap = resolvedFrameSrcSizeMap,
             autoCropTransparentArea = autoCropTransparentArea,
