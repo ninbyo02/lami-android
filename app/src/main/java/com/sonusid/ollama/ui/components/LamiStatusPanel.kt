@@ -51,7 +51,8 @@ fun LamiStatusPanel(
         ) {
             LamiStatusSprite(
                 status = statusState,
-                sizeDp = spriteSize
+                sizeDp = spriteSize,
+                contentOffsetDp = 1.dp
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
