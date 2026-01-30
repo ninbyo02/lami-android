@@ -56,8 +56,9 @@ fun LamiStatusPanel(
             horizontalArrangement = Arrangement.Start
         ) {
             val debugEnabled = BuildConfig.DEBUG
+            val outlineColor = MaterialTheme.colorScheme.outline
             val spriteBorderModifier = if (debugEnabled) {
-                Modifier.border(1.dp, MaterialTheme.colorScheme.outline)
+                Modifier.border(1.dp, outlineColor)
             } else {
                 Modifier
             }
@@ -76,7 +77,7 @@ fun LamiStatusPanel(
                     Canvas(modifier = Modifier.matchParentSize()) {
                         val centerX = size.width / 2f
                         drawLine(
-                            color = MaterialTheme.colorScheme.outline,
+                            color = outlineColor,
                             start = Offset(centerX, 0f),
                             end = Offset(centerX, size.height),
                             strokeWidth = 1.dp.toPx(),
