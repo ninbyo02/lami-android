@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,7 +48,9 @@ fun About(navController: NavController) {
                             baseUrl = baseUrl,
                             selectedModel = null,
                             lastError = null,
+                            lamiStatus = LamiStatus.READY,
                             lamiState = LamiState.Idle,
+                            modifier = Modifier.offset(x = (-1).dp),
                             onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
                         )
                         IconButton(onClick = { navController.popBackStack() }) {
@@ -71,11 +74,11 @@ fun About(navController: NavController) {
             LamiSprite(
                 state = LamiState.Idle,
                 lamiStatus = LamiStatus.READY,
-                sizeDp = 120.dp,
+                sizeDp = 160.dp,
                 modifier = Modifier,
                 shape = CircleShape,
                 backgroundColor = MaterialTheme.colorScheme.surfaceBright,
-                contentPadding = 14.dp,
+                contentPadding = 10.dp,
                 animationsEnabled = true,
                 replacementEnabled = true,
                 blinkEffectEnabled = true,
