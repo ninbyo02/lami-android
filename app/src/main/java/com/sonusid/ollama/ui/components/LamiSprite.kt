@@ -264,6 +264,8 @@ fun LamiSprite(
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled,
+            // センター表示に揃えるためオフセットを 0.dp に固定する
+            contentOffsetDp = 0.dp,
         )
     }
 }
