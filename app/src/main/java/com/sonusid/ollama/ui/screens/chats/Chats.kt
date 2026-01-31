@@ -1,6 +1,5 @@
 package com.sonusid.ollama.ui.screens.chats
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,24 +9,19 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
-import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.viewmodels.LamiStatus
+import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +33,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val baseUrl by viewModel.baseUrl.collectAsState()
     val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
     val lamiUiState by viewModel.lamiUiState.collectAsState()
-    val context = LocalContext.current
+    val lamiState by viewModel.lamiState.collectAsState()
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
@@ -103,9 +97,17 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    DebugCenteredSprite(
-                        status = lamiStatusState,
-                        sizeDp = 96.dp
+                    LamiSprite(
+                        state = lamiState,
+                        lamiStatus = lamiStatusState.value,
+                        sizeDp = 96.dp,
+                        contentPadding = 0.dp,
+                        tightContainer = true,
+                        backgroundColor = Color.Transparent,
+                        debugOverlayEnabled = false,
+                        animationsEnabled = true,
+                        replacementEnabled = true,
+                        blinkEffectEnabled = true,
                     )
                     Spacer(Modifier.height(60.dp))
                     Text("Click on + to start a new chat")
@@ -165,11 +167,17 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     onValueChange = { chatTitle = it },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            LamiStatusSprite(
-                                status = lamiStatusState,
+                            LamiSprite(
+                                state = lamiState,
+                                lamiStatus = lamiStatusState.value,
                                 sizeDp = 32.dp,
-                                modifier = Modifier,
-                                debugOverlayEnabled = false
+                                contentPadding = 0.dp,
+                                tightContainer = true,
+                                backgroundColor = Color.Transparent,
+                                debugOverlayEnabled = false,
+                                animationsEnabled = true,
+                                replacementEnabled = true,
+                                blinkEffectEnabled = true,
                             )
                             Spacer(Modifier.width(5.dp))
                             Text("Chat Title")
@@ -184,53 +192,5 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     }
 }
 
-@Composable
-private fun DebugCenteredSprite(
-    status: State<LamiStatus>,
-    sizeDp: Dp,
-    modifier: Modifier = Modifier,
-    contentOffsetDp: Dp? = null,
-    contentOffsetYDp: Dp? = null,
-    debugCrosshairEnabled: Boolean = false,
-) {
-    val debugEnabled = BuildConfig.DEBUG
-    val lineColor = MaterialTheme.colorScheme.outline
-    val offsetX = if (debugEnabled) DEBUG_EMPTY_STATE_SPRITE_OFFSET_X else 0.dp
-    Box(
-        modifier = modifier.size(sizeDp)
-    ) {
-        LamiStatusSprite(
-            status = status,
-            sizeDp = sizeDp,
-            contentOffsetDp = contentOffsetDp ?: 0.dp,
-            contentOffsetYDp = contentOffsetYDp ?: 0.dp,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(x = offsetX),
-            debugOverlayEnabled = false
-        )
-        if (debugEnabled && debugCrosshairEnabled) {
-            Canvas(modifier = Modifier.matchParentSize()) {
-                val centerX = size.width / 2f
-                val centerY = size.height / 2f
-                val strokeWidth = 1.dp.toPx()
-                drawLine(
-                    color = lineColor,
-                    start = Offset(centerX, 0f),
-                    end = Offset(centerX, size.height),
-                    strokeWidth = strokeWidth
-                )
-                drawLine(
-                    color = lineColor,
-                    start = Offset(0f, centerY),
-                    end = Offset(size.width, centerY),
-                    strokeWidth = strokeWidth
-                )
-            }
-        }
-    }
-}
-
 private val TopAppBarSpacer = 8.dp
 private val ContentSpacing = 12.dp
-private val DEBUG_EMPTY_STATE_SPRITE_OFFSET_X = 1.dp
