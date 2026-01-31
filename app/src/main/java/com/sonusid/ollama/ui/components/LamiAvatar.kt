@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,7 +69,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.toPx
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
@@ -178,6 +178,7 @@ fun LamiAvatar(
             status = avatarSpriteStatus,
             sizeDp = avatarSize.dp,
             modifier = Modifier
+                .offset(x = 1.dp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
             contentOffsetDp = 2.dp + 1.dp,
