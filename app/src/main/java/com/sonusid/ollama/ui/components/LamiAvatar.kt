@@ -72,9 +72,9 @@ import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
-import com.sonusid.ollama.viewmodels.mapToLamiState
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import kotlinx.coroutines.launch
@@ -91,6 +91,7 @@ fun LamiAvatar(
     selectedModel: String?,
     lastError: String?,
     lamiStatus: LamiStatus = LamiStatus.CONNECTING,
+    lamiState: LamiState,
     availableModels: List<ModelInfo> = emptyList(),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
@@ -123,15 +124,10 @@ fun LamiAvatar(
     val fallbackMessage = initializationState?.errorMessage
     val debugEnabled = BuildConfig.DEBUG
     val outlineColor = MaterialTheme.colorScheme.outline
-    val avatarSpriteStatus = remember(lamiStatus, selectedModel, lastError) {
-        val currentState = mapToLamiState(
-            lamiStatus = lamiStatus,
-            selectedModel = selectedModel,
-            lastError = lastError
-        )
+    val avatarSpriteStatus = remember(lamiStatus, lamiState, lastError) {
         mapToLamiSpriteStatus(
             lamiStatus = lamiStatus,
-            lamiState = currentState,
+            lamiState = lamiState,
             lastError = lastError
         )
     }
@@ -273,11 +269,6 @@ fun LamiAvatar(
                     }
                 }
 
-                val currentState = mapToLamiState(
-                    lamiStatus = lamiStatus,
-                    selectedModel = selectedModel,
-                    lastError = lastError
-                )
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -297,7 +288,7 @@ fun LamiAvatar(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 LamiSprite(
-                                    state = currentState,
+                                    state = lamiState,
                                     sizeDp = 64.dp,
                                     animationsEnabled = animationsEnabled,
                                     replacementEnabled = replacementEnabled,
