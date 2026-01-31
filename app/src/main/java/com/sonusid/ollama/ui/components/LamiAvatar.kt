@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -75,8 +76,6 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
-import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import kotlinx.coroutines.launch
 
 import java.text.SimpleDateFormat
@@ -124,13 +123,8 @@ fun LamiAvatar(
     val fallbackMessage = initializationState?.errorMessage
     val debugEnabled = BuildConfig.DEBUG
     val outlineColor = MaterialTheme.colorScheme.outline
-    val avatarSpriteStatus = remember(lamiStatus, lamiState, lastError) {
-        mapToLamiSpriteStatus(
-            lamiStatus = lamiStatus,
-            lamiState = lamiState,
-            lastError = lastError
-        )
-    }
+    // センターのスプライトと同じ State<LamiStatus> 経路に合わせる
+    val avatarStatusState = rememberUpdatedState(lamiStatus)
     val statusLabel = remember(lamiStatus) {
         when (lamiStatus) {
             LamiStatus.CONNECTING -> "接続中"
@@ -171,13 +165,13 @@ fun LamiAvatar(
             )
     ) {
         LamiStatusSprite(
-            status = avatarSpriteStatus,
+            status = avatarStatusState,
             sizeDp = avatarSize.dp,
             modifier = Modifier
                 .offset(x = AVATAR_SPRITE_OFFSET_X_DP)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
-            contentOffsetDp = 3.dp,
+            contentOffsetDp = 0.dp,
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled
