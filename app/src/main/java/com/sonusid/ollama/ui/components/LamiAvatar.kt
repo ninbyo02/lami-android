@@ -168,7 +168,7 @@ fun LamiAvatar(
         val minSizeDpInt = minAvatarSize.value.roundToInt()
         val computedOffsetDp =
             if (avatarSize <= minSizeDpInt) {
-                AVATAR_SPRITE_OFFSET_X_DP - 1.dp
+                AVATAR_SPRITE_OFFSET_X_DP - AVATAR_MIN_OFFSET_ADJUST_DP
             } else {
                 AVATAR_SPRITE_OFFSET_X_DP
             }
@@ -507,3 +507,4 @@ private fun StatusInfoItem(
 
 // 視認が難しい場合は一時的にオフセットを変更して確認する
 private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
+private val AVATAR_MIN_OFFSET_ADJUST_DP = 1.dp
