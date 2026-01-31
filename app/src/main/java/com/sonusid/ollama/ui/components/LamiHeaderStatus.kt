@@ -48,6 +48,7 @@ fun LamiHeaderStatus(
             selectedModel = selectedModel,
             lastError = lastError,
             lamiStatus = lamiStatus,
+            lamiState = lamiState,
             availableModels = availableModels,
             initialAvatarSize = 64.dp,
             minAvatarSize = 48.dp,

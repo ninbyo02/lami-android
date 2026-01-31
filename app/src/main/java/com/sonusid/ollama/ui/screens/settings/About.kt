@@ -36,6 +36,7 @@ import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiStatusSprite
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import com.sonusid.ollama.viewmodels.LamiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +51,7 @@ fun About(navController: NavController) {
                             baseUrl = baseUrl,
                             selectedModel = null,
                             lastError = null,
+                            lamiState = LamiState.Idle,
                             onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
                         )
                         IconButton(onClick = { navController.popBackStack() }) {
