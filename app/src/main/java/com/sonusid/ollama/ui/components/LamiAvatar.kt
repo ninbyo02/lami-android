@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,10 +29,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -177,6 +178,7 @@ fun LamiAvatar(
             status = avatarSpriteStatus,
             sizeDp = avatarSize.dp,
             modifier = Modifier
+                .offset(x = AVATAR_SPRITE_OFFSET_X_DP)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
             contentOffsetDp = 3.dp,
@@ -188,11 +190,19 @@ fun LamiAvatar(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
+                val offsetDx = AVATAR_SPRITE_OFFSET_X_DP.toPx()
+                val shiftedCenterX = centerX + offsetDx
                 val strokeWidth = 1.dp.toPx()
                 drawLine(
                     color = outlineColor,
                     start = Offset(centerX, 0f),
                     end = Offset(centerX, size.height),
+                    strokeWidth = strokeWidth,
+                )
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(shiftedCenterX, 0f),
+                    end = Offset(shiftedCenterX, size.height),
                     strokeWidth = strokeWidth,
                 )
                 drawLine(
@@ -331,7 +341,7 @@ fun LamiAvatar(
                     if (showStatusDetails) {
                         item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
                     }
-                    item { Divider() }
+                    item { HorizontalDivider() }
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
@@ -500,3 +510,5 @@ private fun StatusInfoItem(
         Text(value, fontSize = 13.sp)
     }
 }
+
+private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
