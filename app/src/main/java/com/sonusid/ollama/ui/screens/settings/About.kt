@@ -31,6 +31,7 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,11 +70,12 @@ fun About(navController: NavController) {
         ) {
             LamiSprite(
                 state = LamiState.Idle,
-                sizeDp = 100.dp,
+                lamiStatus = LamiStatus.READY,
+                sizeDp = 120.dp,
                 modifier = Modifier,
                 shape = CircleShape,
                 backgroundColor = MaterialTheme.colorScheme.surfaceBright,
-                contentPadding = 20.dp,
+                contentPadding = 14.dp,
                 animationsEnabled = true,
                 replacementEnabled = true,
                 blinkEffectEnabled = true,
