@@ -165,11 +165,18 @@ fun LamiAvatar(
                 }
             )
     ) {
+        val minSizeDpInt = minAvatarSize.value.roundToInt()
+        val computedOffsetDp =
+            if (avatarSize <= minSizeDpInt) {
+                AVATAR_SPRITE_OFFSET_X_DP - 1.dp
+            } else {
+                AVATAR_SPRITE_OFFSET_X_DP
+            }
         LamiStatusSprite(
             status = avatarStatusState,
             sizeDp = avatarSize.dp,
             modifier = Modifier
-                .offset(x = AVATAR_SPRITE_OFFSET_X_DP)
+                .offset(x = computedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
             contentOffsetDp = 0.dp,
@@ -181,7 +188,7 @@ fun LamiAvatar(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
-                val offsetDx = AVATAR_SPRITE_OFFSET_X_DP.toPx()
+                val offsetDx = computedOffsetDp.toPx()
                 val shiftedCenterX = centerX + offsetDx
                 val strokeWidth = 1.dp.toPx()
                 drawLine(
