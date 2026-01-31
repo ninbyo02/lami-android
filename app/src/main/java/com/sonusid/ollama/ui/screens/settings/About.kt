@@ -82,8 +82,8 @@ fun About(navController: NavController) {
                     modifier = Modifier,
                     shape = CircleShape,
                     backgroundColor = MaterialTheme.colorScheme.surfaceBright,
-                    // 中央キャラ：背景円の余白を最小化する
-                    contentPadding = 2.dp,
+                    // 中央キャラ：背景円の余白をなくす
+                    contentPadding = 0.dp,
                     animationsEnabled = true,
                     replacementEnabled = true,
                     blinkEffectEnabled = true,
