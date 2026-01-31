@@ -58,7 +58,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     lamiState = lamiUiState.state,
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
-                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
+                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                    debugOverlayEnabled = false
                 )
             },
             actions = {

@@ -178,7 +178,8 @@ fun Home(
                         viewModel.onUserInteraction()
                         viewModel.updateSelectedModel(modelName)
                     },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) }
+                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                    debugOverlayEnabled = false
                 )
             },
             actions = {
