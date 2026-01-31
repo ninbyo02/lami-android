@@ -291,6 +291,7 @@ fun LamiAvatar(
                             ) {
                                 LamiSprite(
                                     state = lamiState,
+                                    lamiStatus = lamiStatus,
                                     sizeDp = 64.dp,
                                     animationsEnabled = animationsEnabled,
                                     replacementEnabled = replacementEnabled,

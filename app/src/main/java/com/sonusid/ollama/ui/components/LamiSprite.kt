@@ -39,6 +39,7 @@ import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
 import com.sonusid.ollama.sprite.SpriteSheetLoadResult
 import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
@@ -233,6 +234,7 @@ private fun rememberSpriteSheet(@DrawableRes resId: Int): ImageBitmap {
 @Composable
 fun LamiSprite(
     state: LamiState,
+    lamiStatus: LamiStatus? = null,
     sizeDp: Dp,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(8.dp),
@@ -245,7 +247,10 @@ fun LamiSprite(
         is LamiState.Speaking -> MaterialTheme.colorScheme.tertiaryContainer
         LamiState.Idle -> MaterialTheme.colorScheme.primaryContainer
     }
-    val spriteStatus = mapToLamiSpriteStatus(lamiState = state)
+    val spriteStatus = mapToLamiSpriteStatus(
+        lamiState = state,
+        lamiStatus = lamiStatus,
+    )
 
     val contentPadding = 6.dp
     val spriteSize = sizeDp - (contentPadding * 2)
