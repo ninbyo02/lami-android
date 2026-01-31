@@ -297,7 +297,8 @@ fun LamiAvatar(
                                     sizeDp = 64.dp,
                                     animationsEnabled = animationsEnabled,
                                     replacementEnabled = replacementEnabled,
-                                    blinkEffectEnabled = blinkEffectEnabled
+                                    blinkEffectEnabled = blinkEffectEnabled,
+                                    debugOverlayEnabled = false
                                 )
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
