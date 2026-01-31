@@ -105,7 +105,8 @@ fun LamiAvatar(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var animationsEnabled by rememberSaveable { mutableStateOf(true) }
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
-    var blinkEffectEnabled by rememberSaveable { mutableStateOf(false) }
+    // 左上アバターもセンターと同じ Ready アニメになるよう既定は true
+    var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
     var showStatusDetails by rememberSaveable { mutableStateOf(true) }
     val clampedInitialSize = initialAvatarSize.value
         .roundToInt()
@@ -418,6 +419,7 @@ fun LamiAvatar(
                         )
                     }
                     item {
+                        // 簡易確認: READY 時に左上とセンターのアニメが一致すること
                         ToggleRow(
                             label = "点滅エフェクト",
                             checked = blinkEffectEnabled,
