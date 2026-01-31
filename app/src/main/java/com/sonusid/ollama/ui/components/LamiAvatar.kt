@@ -1,18 +1,21 @@
 package com.sonusid.ollama.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -31,6 +34,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -52,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -63,6 +68,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toPx
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.viewmodels.LamiStatus
@@ -114,6 +121,8 @@ fun LamiAvatar(
     val initializationState = RetrofitClient.getLastInitializationState()
     val fallbackActive = initializationState?.usedFallback == true
     val fallbackMessage = initializationState?.errorMessage
+    val debugEnabled = BuildConfig.DEBUG
+    val outlineColor = MaterialTheme.colorScheme.outline
     val avatarSpriteStatus = remember(lamiStatus, selectedModel, lastError) {
         val currentState = mapToLamiState(
             lamiStatus = lamiStatus,
@@ -157,6 +166,13 @@ fun LamiAvatar(
                     showSheet = true
                 }
             )
+            .then(
+                if (debugEnabled) {
+                    Modifier.border(1.dp, outlineColor)
+                } else {
+                    Modifier
+                }
+            )
     ) {
         LamiStatusSprite(
             status = avatarSpriteStatus,
@@ -164,10 +180,30 @@ fun LamiAvatar(
             modifier = Modifier
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
+            contentOffsetDp = 2.dp + 1.dp,
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled
         )
+        if (debugEnabled) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val centerX = size.width / 2f
+                val centerY = size.height / 2f
+                val strokeWidth = 1.dp.toPx()
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(centerX, 0f),
+                    end = Offset(centerX, size.height),
+                    strokeWidth = strokeWidth,
+                )
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(0f, centerY),
+                    end = Offset(size.width, centerY),
+                    strokeWidth = strokeWidth,
+                )
+            }
+        }
 
         DropdownMenu(
             expanded = showMenu,
