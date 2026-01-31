@@ -52,7 +52,8 @@ fun About(navController: NavController) {
                             lamiStatus = LamiStatus.READY,
                             lamiState = LamiState.Idle,
                             modifier = Modifier.offset(x = (-1).dp),
-                            onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
+                            onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                            debugOverlayEnabled = false,
                         )
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(painterResource(R.drawable.back), "exit")
@@ -85,6 +86,8 @@ fun About(navController: NavController) {
                     animationsEnabled = true,
                     replacementEnabled = true,
                     blinkEffectEnabled = true,
+                    contentOffsetYDp = 2.dp,
+                    debugOverlayEnabled = false,
                 )
                 // 下：タイトルとの距離を確保するための Spacer
                 Spacer(Modifier.height(20.dp))

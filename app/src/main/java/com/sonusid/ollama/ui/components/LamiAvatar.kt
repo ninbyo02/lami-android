@@ -99,6 +99,7 @@ fun LamiAvatar(
     maxAvatarSize: Dp = 64.dp,
     onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
+    debugOverlayEnabled: Boolean = true,
 ) {
     val haptic = LocalHapticFeedback.current
     var showMenu by remember { mutableStateOf(false) }
@@ -182,7 +183,8 @@ fun LamiAvatar(
             contentOffsetDp = 0.dp,
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
-            blinkEffectEnabled = blinkEffectEnabled
+            blinkEffectEnabled = blinkEffectEnabled,
+            debugOverlayEnabled = debugOverlayEnabled,
         )
         if (debugEnabled) {
             Canvas(modifier = Modifier.fillMaxSize()) {
