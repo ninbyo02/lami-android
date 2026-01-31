@@ -277,6 +277,7 @@ fun LamiStatusSprite(
     status: LamiSpriteStatus,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    maxSizeDp: Dp = 100.dp,
     contentOffsetDp: Dp = 2.dp,
     contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
@@ -292,7 +293,7 @@ fun LamiStatusSprite(
     debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
 ) {
     val overlayOn = DEBUG_OVERLAY_ENABLED && debugOverlayEnabled
-    val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
+    val constrainedSize = remember(sizeDp, maxSizeDp) { sizeDp.coerceIn(32.dp, maxSizeDp) }
     val spriteFrameRepository = rememberSpriteFrameRepository()
     val frameMaps = rememberSpriteFrameMaps(repository = spriteFrameRepository)
     val defaultConfig = remember { SpriteSheetConfig.default3x3() }
@@ -586,6 +587,7 @@ fun LamiStatusSprite(
     status: State<LamiStatus>,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    maxSizeDp: Dp = 100.dp,
     contentOffsetDp: Dp = 2.dp,
     contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
@@ -606,6 +608,7 @@ fun LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
         sizeDp = sizeDp,
+        maxSizeDp = maxSizeDp,
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
         animationsEnabled = animationsEnabled,
@@ -627,6 +630,7 @@ fun LamiStatusSprite(
     status: State<LamiAnimationStatus>,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    maxSizeDp: Dp = 100.dp,
     contentOffsetDp: Dp = 2.dp,
     contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
@@ -671,6 +675,7 @@ fun LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
         sizeDp = sizeDp,
+        maxSizeDp = maxSizeDp,
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
         animationsEnabled = animationsEnabled,
