@@ -511,5 +511,5 @@ private fun StatusInfoItem(
     }
 }
 
-// 視認が難しい場合は一時的に (-8).dp にして確認し、最終的に (-1).dp に戻す
-private val AVATAR_SPRITE_OFFSET_X_DP = (-1).dp
+// 視認が難しい場合は一時的にオフセットを変更して確認する
+private val AVATAR_SPRITE_OFFSET_X_DP = 0.dp
