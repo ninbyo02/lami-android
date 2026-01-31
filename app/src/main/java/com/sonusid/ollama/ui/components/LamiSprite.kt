@@ -246,6 +246,7 @@ fun LamiSprite(
     blinkEffectEnabled: Boolean = true,
     contentOffsetYDp: Dp = 0.dp,
     tightContainer: Boolean = false,
+    maxStatusSpriteSizeDp: Dp = 100.dp,
     debugOverlayEnabled: Boolean = true,
 ) {
     val resolvedBackgroundColor = backgroundColor ?: when (state) {
@@ -273,6 +274,7 @@ fun LamiSprite(
         LamiStatusSprite(
             status = spriteStatus,
             sizeDp = spriteSize,
+            maxSizeDp = maxStatusSpriteSizeDp,
             modifier = Modifier.clip(shape),
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,

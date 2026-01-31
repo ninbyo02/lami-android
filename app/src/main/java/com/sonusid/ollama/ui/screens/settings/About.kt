@@ -77,7 +77,9 @@ fun About(navController: NavController) {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 BoxWithConstraints {
-                    val targetSize = 352.dp
+                    // 中央キャラ：現状の上限(100.dp)を基準に約2倍を目標にする
+                    val baseSpriteSize = 100.dp
+                    val targetSize = baseSpriteSize * 2f
                     val maxSizeByWidth = maxWidth * 0.92f
                     val maxSizeByHeight = maxHeight * 0.45f
                     val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
@@ -95,6 +97,7 @@ fun About(navController: NavController) {
                         blinkEffectEnabled = true,
                         contentOffsetYDp = 2.dp,
                         tightContainer = true,
+                        maxStatusSpriteSizeDp = finalSize,
                         debugOverlayEnabled = false,
                     )
                 }
