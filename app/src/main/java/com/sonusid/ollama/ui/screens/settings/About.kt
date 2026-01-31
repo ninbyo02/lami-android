@@ -82,11 +82,13 @@ fun About(navController: NavController) {
                     modifier = Modifier,
                     shape = CircleShape,
                     backgroundColor = MaterialTheme.colorScheme.surfaceBright,
-                    contentPadding = 10.dp,
+                    // 中央キャラ：背景円の余白を最小化する
+                    contentPadding = 2.dp,
                     animationsEnabled = true,
                     replacementEnabled = true,
                     blinkEffectEnabled = true,
                     contentOffsetYDp = 2.dp,
+                    tightContainer = true,
                     debugOverlayEnabled = false,
                 )
                 // 下：タイトルとの距離を確保するための Spacer

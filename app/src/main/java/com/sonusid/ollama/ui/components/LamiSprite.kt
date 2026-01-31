@@ -245,6 +245,7 @@ fun LamiSprite(
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
     contentOffsetYDp: Dp = 0.dp,
+    tightContainer: Boolean = false,
     debugOverlayEnabled: Boolean = true,
 ) {
     val resolvedBackgroundColor = backgroundColor ?: when (state) {
@@ -257,14 +258,16 @@ fun LamiSprite(
         lamiStatus = lamiStatus,
     )
 
-    val spriteSize = sizeDp - (contentPadding * 2)
+    val spriteSize = (sizeDp - (contentPadding * 2)).coerceAtLeast(0.dp)
+    val containerSize = if (tightContainer) spriteSize else sizeDp
+    val resolvedPadding = if (tightContainer) 0.dp else contentPadding
 
     Box(
         modifier = modifier
-            .size(sizeDp)
+            .size(containerSize)
             .background(resolvedBackgroundColor, shape)
-            // 内側：スプライトを中央に収めるための padding
-            .padding(contentPadding),
+            // 内側：スプライトを中央に収めるための padding（tightContainer 時は余白を無効化）
+            .padding(resolvedPadding),
         contentAlignment = Alignment.Center
     ) {
         LamiStatusSprite(
