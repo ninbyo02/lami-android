@@ -168,7 +168,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                             LamiStatusSprite(
                                 status = lamiStatusState,
                                 sizeDp = 32.dp,
-                                modifier = Modifier
+                                modifier = Modifier,
+                                debugOverlayEnabled = false
                             )
                             Spacer(Modifier.width(5.dp))
                             Text("Chat Title")
@@ -190,6 +191,7 @@ private fun DebugCenteredSprite(
     modifier: Modifier = Modifier,
     contentOffsetDp: Dp? = null,
     contentOffsetYDp: Dp? = null,
+    debugCrosshairEnabled: Boolean = false,
 ) {
     val debugEnabled = BuildConfig.DEBUG
     val lineColor = MaterialTheme.colorScheme.outline
@@ -204,9 +206,10 @@ private fun DebugCenteredSprite(
             contentOffsetYDp = contentOffsetYDp ?: 0.dp,
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(x = offsetX)
+                .offset(x = offsetX),
+            debugOverlayEnabled = false
         )
-        if (debugEnabled) {
+        if (debugEnabled && debugCrosshairEnabled) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
