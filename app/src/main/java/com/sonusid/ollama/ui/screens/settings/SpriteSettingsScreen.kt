@@ -5600,15 +5600,15 @@ private fun ReadyAnimationPreviewPane(
                                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
                                 .offset(
-                                    x = previewUiState.headerLeftXOffsetDp.dp,
-                                    y = previewUiState.headerLeftYOffsetDp.dp
+                                    previewUiState.headerLeftXOffsetDp.dp,
+                                    previewUiState.headerLeftYOffsetDp.dp
                                 )
                                 // [dp] 左: プレビュー の余白(余白)に関係
                                 .padding(
                                     start = spriteSize + (spriteSize * 0.08f).coerceIn(4.dp, 6.dp)
                                 )
                                 // [dp] 左右: プレビュー の余白(余白)に関係
-                                .offset(x = previewUiState.infoXOffsetDp.dp)
+                                .offset(previewUiState.infoXOffsetDp.dp)
                         )
                     }
                 )
