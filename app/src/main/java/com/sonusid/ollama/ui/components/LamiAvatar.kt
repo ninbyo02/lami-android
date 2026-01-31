@@ -159,7 +159,7 @@ fun LamiAvatar(
                 }
             )
             .then(
-                if (debugEnabled) {
+                if (debugEnabled && debugOverlayEnabled) {
                     Modifier.border(1.dp, outlineColor)
                 } else {
                     Modifier
@@ -186,7 +186,7 @@ fun LamiAvatar(
             blinkEffectEnabled = blinkEffectEnabled,
             debugOverlayEnabled = debugOverlayEnabled,
         )
-        if (debugEnabled) {
+        if (debugEnabled && debugOverlayEnabled) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
