@@ -229,4 +229,4 @@ private fun DebugCenteredSprite(
 
 private val TopAppBarSpacer = 8.dp
 private val ContentSpacing = 12.dp
-private val DEBUG_EMPTY_STATE_SPRITE_OFFSET_X = (-1).dp
+private val DEBUG_EMPTY_STATE_SPRITE_OFFSET_X = 1.dp
