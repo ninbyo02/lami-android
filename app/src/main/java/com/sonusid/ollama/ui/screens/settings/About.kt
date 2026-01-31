@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -75,22 +76,28 @@ fun About(navController: NavController) {
                     .align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                LamiSprite(
-                    state = LamiState.Idle,
-                    lamiStatus = LamiStatus.READY,
-                    sizeDp = 176.dp,
-                    modifier = Modifier,
-                    shape = CircleShape,
-                    backgroundColor = MaterialTheme.colorScheme.surfaceBright,
-                    // 中央キャラ：背景円の余白をなくす
-                    contentPadding = 0.dp,
-                    animationsEnabled = true,
-                    replacementEnabled = true,
-                    blinkEffectEnabled = true,
-                    contentOffsetYDp = 2.dp,
-                    tightContainer = true,
-                    debugOverlayEnabled = false,
-                )
+                BoxWithConstraints {
+                    val targetSize = 352.dp
+                    val maxSizeByWidth = maxWidth * 0.92f
+                    val maxSizeByHeight = maxHeight * 0.45f
+                    val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
+                    LamiSprite(
+                        state = LamiState.Idle,
+                        lamiStatus = LamiStatus.READY,
+                        sizeDp = finalSize,
+                        modifier = Modifier,
+                        shape = CircleShape,
+                        backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                        // 中央キャラ：背景円の余白をなくす
+                        contentPadding = 0.dp,
+                        animationsEnabled = true,
+                        replacementEnabled = true,
+                        blinkEffectEnabled = true,
+                        contentOffsetYDp = 2.dp,
+                        tightContainer = true,
+                        debugOverlayEnabled = false,
+                    )
+                }
                 // 下：タイトルとの距離を確保するための Spacer
                 Spacer(Modifier.height(20.dp))
                 Text("Ollama", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
