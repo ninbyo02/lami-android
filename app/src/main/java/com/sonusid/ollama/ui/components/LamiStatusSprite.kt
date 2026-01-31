@@ -282,6 +282,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    debugOverlayEnabled: Boolean = true,
     frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
@@ -290,6 +291,7 @@ fun LamiStatusSprite(
     resolvedErrorKey: String? = null,
     debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
 ) {
+    val overlayOn = DEBUG_OVERLAY_ENABLED && debugOverlayEnabled
     val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
     val spriteFrameRepository = rememberSpriteFrameRepository()
     val frameMaps = rememberSpriteFrameMaps(repository = spriteFrameRepository)
@@ -407,7 +409,7 @@ fun LamiStatusSprite(
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
     LaunchedEffect(resolvedStatus, perStateAnimJson, animSpec) {
-        if (DEBUG_OVERLAY_ENABLED) {
+        if (overlayOn) {
             val json = perStateAnimJson
             Log.d(
                 "LamiStatusSprite",
@@ -424,6 +426,7 @@ fun LamiStatusSprite(
     val currentFrameXOffsetPx = frameXOffsetPxMap[currentFrameIndex] ?: 0
     val currentFrameYOffsetPx = frameYOffsetPxMap[currentFrameIndex] ?: 0
     val debugOverlayText = remember(
+        overlayOn,
         debugOverloadLabel,
         lastInsertionResolvedIntervalMs,
         lastInsertionFrames,
@@ -435,7 +438,7 @@ fun LamiStatusSprite(
         currentFrameXOffsetPx,
         currentFrameYOffsetPx,
     ) {
-        if (!DEBUG_OVERLAY_ENABLED) {
+        if (!overlayOn) {
             ""
         } else {
             val json = perStateAnimJson
@@ -558,7 +561,7 @@ fun LamiStatusSprite(
             frameMaps = frameMaps,
             spriteSheetConfig = spriteSheetConfig,
         )
-        if (DEBUG_OVERLAY_ENABLED) {
+        if (overlayOn) {
             Text(
                 text = debugOverlayText,
                 modifier = Modifier
@@ -588,6 +591,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    debugOverlayEnabled: Boolean = true,
     frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
@@ -607,6 +611,7 @@ fun LamiStatusSprite(
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        debugOverlayEnabled = debugOverlayEnabled,
         frameXOffsetPxMap = frameXOffsetPxMap,
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
@@ -627,6 +632,7 @@ fun LamiStatusSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    debugOverlayEnabled: Boolean = true,
     selectedModel: String? = null,
     lastError: String? = null,
     retryCount: Int = 0,
@@ -670,6 +676,7 @@ fun LamiStatusSprite(
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        debugOverlayEnabled = debugOverlayEnabled,
         frameXOffsetPxMap = frameXOffsetPxMap,
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,

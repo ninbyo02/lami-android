@@ -244,6 +244,8 @@ fun LamiSprite(
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    contentOffsetYDp: Dp = 0.dp,
+    debugOverlayEnabled: Boolean = true,
 ) {
     val resolvedBackgroundColor = backgroundColor ?: when (state) {
         is LamiState.Thinking -> MaterialTheme.colorScheme.secondaryContainer
@@ -274,6 +276,8 @@ fun LamiSprite(
             blinkEffectEnabled = blinkEffectEnabled,
             // センター表示に揃えるためオフセットを 0.dp に固定する
             contentOffsetDp = 0.dp,
+            contentOffsetYDp = contentOffsetYDp,
+            debugOverlayEnabled = debugOverlayEnabled,
         )
     }
 }
