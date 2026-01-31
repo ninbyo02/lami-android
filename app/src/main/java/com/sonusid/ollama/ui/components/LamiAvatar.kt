@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -178,10 +177,9 @@ fun LamiAvatar(
             status = avatarSpriteStatus,
             sizeDp = avatarSize.dp,
             modifier = Modifier
-                .offset(x = 1.dp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
-            contentOffsetDp = 2.dp + 1.dp,
+            contentOffsetDp = 2.dp,
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled
