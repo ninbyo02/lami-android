@@ -179,7 +179,7 @@ fun LamiAvatar(
             modifier = Modifier
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
-            contentOffsetDp = 2.dp,
+            contentOffsetDp = 3.dp,
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled
