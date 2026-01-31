@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -61,36 +62,39 @@ fun About(navController: NavController) {
                 title = { Text("About") }
             )
         }) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 // 上：Scaffold の余白をそのまま適用する
                 .padding(paddingValues)
-                // 上：中央キャラを見やすい位置に寄せるための最小限 top padding
-                .padding(top = 100.dp)
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-
+                .fillMaxSize()
         ) {
-            LamiSprite(
-                state = LamiState.Idle,
-                lamiStatus = LamiStatus.READY,
-                sizeDp = 160.dp,
-                modifier = Modifier,
-                shape = CircleShape,
-                backgroundColor = MaterialTheme.colorScheme.surfaceBright,
-                contentPadding = 10.dp,
-                animationsEnabled = true,
-                replacementEnabled = true,
-                blinkEffectEnabled = true,
-            )
-            // 下：タイトルとの距離を確保するための Spacer
-            Spacer(Modifier.height(20.dp))
-            Text("Ollama", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-            // 下：バージョン表示との距離を確保するための Spacer
-            Spacer(Modifier.height(10.dp))
-            Text("v1.0.0 (Beta)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            // 下：セクション終端の余白を確保するための Spacer
-            Spacer(Modifier.height(24.dp))
+            Column(
+                modifier = Modifier
+                    // 上：画面中央基準で位置を安定させる
+                    .align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                LamiSprite(
+                    state = LamiState.Idle,
+                    lamiStatus = LamiStatus.READY,
+                    sizeDp = 176.dp,
+                    modifier = Modifier,
+                    shape = CircleShape,
+                    backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                    contentPadding = 10.dp,
+                    animationsEnabled = true,
+                    replacementEnabled = true,
+                    blinkEffectEnabled = true,
+                )
+                // 下：タイトルとの距離を確保するための Spacer
+                Spacer(Modifier.height(20.dp))
+                Text("Ollama", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                // 下：バージョン表示との距離を確保するための Spacer
+                Spacer(Modifier.height(10.dp))
+                Text("v1.0.0 (Beta)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                // 下：セクション終端の余白を確保するための Spacer
+                Spacer(Modifier.height(24.dp))
+            }
         }
     }
 }
