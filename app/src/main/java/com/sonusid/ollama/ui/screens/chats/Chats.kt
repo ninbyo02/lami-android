@@ -164,9 +164,10 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     onValueChange = { chatTitle = it },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            DebugCenteredSprite(
+                            LamiStatusSprite(
                                 status = lamiStatusState,
-                                sizeDp = 32.dp
+                                sizeDp = 32.dp,
+                                modifier = Modifier
                             )
                             Spacer(Modifier.width(5.dp))
                             Text("Chat Title")
@@ -191,7 +192,7 @@ private fun DebugCenteredSprite(
 ) {
     val debugEnabled = BuildConfig.DEBUG
     val lineColor = MaterialTheme.colorScheme.outline
-    val offsetX = if (debugEnabled) DEBUG_CHATS_SPRITE_OFFSET_X else 0.dp
+    val offsetX = if (debugEnabled) DEBUG_EMPTY_STATE_SPRITE_OFFSET_X else 0.dp
     Box(
         modifier = modifier.size(sizeDp)
     ) {
@@ -228,4 +229,4 @@ private fun DebugCenteredSprite(
 
 private val TopAppBarSpacer = 8.dp
 private val ContentSpacing = 12.dp
-private val DEBUG_CHATS_SPRITE_OFFSET_X = (-1).dp
+private val DEBUG_EMPTY_STATE_SPRITE_OFFSET_X = (-1).dp
