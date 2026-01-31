@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.home
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -53,6 +54,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -178,7 +180,8 @@ fun Home(
                         viewModel.onUserInteraction()
                         viewModel.updateSelectedModel(modelName)
                     },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) }
+                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                    debugOverlayEnabled = false
                 )
             },
             actions = {
@@ -303,6 +306,30 @@ fun Home(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    BoxWithConstraints {
+                        val baseSpriteSize = 100.dp
+                        val targetSize = baseSpriteSize * 2f
+                        val maxSizeByWidth = maxWidth * 0.92f
+                        val maxSizeByHeight = maxHeight * 0.45f
+                        val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
+                        LamiSprite(
+                            state = lamiUiState.state,
+                            lamiStatus = lamiAnimationStatus,
+                            sizeDp = finalSize,
+                            shape = CircleShape,
+                            backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                            contentPadding = 0.dp,
+                            animationsEnabled = true,
+                            replacementEnabled = true,
+                            blinkEffectEnabled = true,
+                            contentOffsetYDp = 2.dp,
+                            tightContainer = true,
+                            maxStatusSpriteSizeDp = finalSize,
+                            debugOverlayEnabled = false,
+                        )
+                    }
+                    // 下：案内テキストとの距離を確保するための Spacer
+                    Spacer(modifier = Modifier.size(20.dp))
                     Text(
                         text = "最初のメッセージを送信して会話を始めましょう",
                         style = MaterialTheme.typography.bodyLarge

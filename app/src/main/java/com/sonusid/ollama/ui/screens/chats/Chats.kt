@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.chats
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,19 +10,23 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiStatusSprite
+import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +58,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     lamiState = lamiUiState.state,
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
-                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
+                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                    debugOverlayEnabled = false
                 )
             },
             actions = {
@@ -97,7 +103,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    LamiStatusSprite(
+                    DebugCenteredSprite(
                         status = lamiStatusState,
                         sizeDp = 96.dp
                     )
@@ -161,7 +167,9 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             LamiStatusSprite(
                                 status = lamiStatusState,
-                                sizeDp = 32.dp
+                                sizeDp = 32.dp,
+                                modifier = Modifier,
+                                debugOverlayEnabled = false
                             )
                             Spacer(Modifier.width(5.dp))
                             Text("Chat Title")
@@ -176,5 +184,53 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     }
 }
 
+@Composable
+private fun DebugCenteredSprite(
+    status: State<LamiStatus>,
+    sizeDp: Dp,
+    modifier: Modifier = Modifier,
+    contentOffsetDp: Dp? = null,
+    contentOffsetYDp: Dp? = null,
+    debugCrosshairEnabled: Boolean = false,
+) {
+    val debugEnabled = BuildConfig.DEBUG
+    val lineColor = MaterialTheme.colorScheme.outline
+    val offsetX = if (debugEnabled) DEBUG_EMPTY_STATE_SPRITE_OFFSET_X else 0.dp
+    Box(
+        modifier = modifier.size(sizeDp)
+    ) {
+        LamiStatusSprite(
+            status = status,
+            sizeDp = sizeDp,
+            contentOffsetDp = contentOffsetDp ?: 0.dp,
+            contentOffsetYDp = contentOffsetYDp ?: 0.dp,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(x = offsetX),
+            debugOverlayEnabled = false
+        )
+        if (debugEnabled && debugCrosshairEnabled) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val centerX = size.width / 2f
+                val centerY = size.height / 2f
+                val strokeWidth = 1.dp.toPx()
+                drawLine(
+                    color = lineColor,
+                    start = Offset(centerX, 0f),
+                    end = Offset(centerX, size.height),
+                    strokeWidth = strokeWidth
+                )
+                drawLine(
+                    color = lineColor,
+                    start = Offset(0f, centerY),
+                    end = Offset(size.width, centerY),
+                    strokeWidth = strokeWidth
+                )
+            }
+        }
+    }
+}
+
 private val TopAppBarSpacer = 8.dp
 private val ContentSpacing = 12.dp
+private val DEBUG_EMPTY_STATE_SPRITE_OFFSET_X = 1.dp

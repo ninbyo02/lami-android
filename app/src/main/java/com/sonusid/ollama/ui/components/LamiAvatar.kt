@@ -1,18 +1,22 @@
 package com.sonusid.ollama.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -25,12 +29,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -46,12 +51,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -63,13 +70,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
-import com.sonusid.ollama.viewmodels.mapToLamiState
-import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import kotlinx.coroutines.launch
 
 import java.text.SimpleDateFormat
@@ -84,6 +90,7 @@ fun LamiAvatar(
     selectedModel: String?,
     lastError: String?,
     lamiStatus: LamiStatus = LamiStatus.CONNECTING,
+    lamiState: LamiState,
     availableModels: List<ModelInfo> = emptyList(),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
@@ -92,13 +99,15 @@ fun LamiAvatar(
     maxAvatarSize: Dp = 64.dp,
     onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
+    debugOverlayEnabled: Boolean = true,
 ) {
     val haptic = LocalHapticFeedback.current
     var showMenu by remember { mutableStateOf(false) }
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var animationsEnabled by rememberSaveable { mutableStateOf(true) }
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
-    var blinkEffectEnabled by rememberSaveable { mutableStateOf(false) }
+    // 左上アバターもセンターと同じ Ready アニメになるよう既定は true
+    var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
     var showStatusDetails by rememberSaveable { mutableStateOf(true) }
     val clampedInitialSize = initialAvatarSize.value
         .roundToInt()
@@ -114,18 +123,10 @@ fun LamiAvatar(
     val initializationState = RetrofitClient.getLastInitializationState()
     val fallbackActive = initializationState?.usedFallback == true
     val fallbackMessage = initializationState?.errorMessage
-    val avatarSpriteStatus = remember(lamiStatus, selectedModel, lastError) {
-        val currentState = mapToLamiState(
-            lamiStatus = lamiStatus,
-            selectedModel = selectedModel,
-            lastError = lastError
-        )
-        mapToLamiSpriteStatus(
-            lamiStatus = lamiStatus,
-            lamiState = currentState,
-            lastError = lastError
-        )
-    }
+    val debugEnabled = BuildConfig.DEBUG
+    val outlineColor = MaterialTheme.colorScheme.outline
+    // センターのスプライトと同じ State<LamiStatus> 経路に合わせる
+    val avatarStatusState = rememberUpdatedState(lamiStatus)
     val statusLabel = remember(lamiStatus) {
         when (lamiStatus) {
             LamiStatus.CONNECTING -> "接続中"
@@ -157,17 +158,61 @@ fun LamiAvatar(
                     showSheet = true
                 }
             )
+            .then(
+                if (debugEnabled && debugOverlayEnabled) {
+                    Modifier.border(1.dp, outlineColor)
+                } else {
+                    Modifier
+                }
+            )
     ) {
+        val minSizeDpInt = minAvatarSize.value.roundToInt()
+        val computedOffsetDp =
+            if (avatarSize <= minSizeDpInt) {
+                AVATAR_SPRITE_OFFSET_X_DP - AVATAR_MIN_OFFSET_ADJUST_DP
+            } else {
+                AVATAR_SPRITE_OFFSET_X_DP
+            }
         LamiStatusSprite(
-            status = avatarSpriteStatus,
+            status = avatarStatusState,
             sizeDp = avatarSize.dp,
             modifier = Modifier
+                .offset(x = computedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
+            contentOffsetDp = 0.dp,
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
-            blinkEffectEnabled = blinkEffectEnabled
+            blinkEffectEnabled = blinkEffectEnabled,
+            debugOverlayEnabled = debugOverlayEnabled,
         )
+        if (debugEnabled && debugOverlayEnabled) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val centerX = size.width / 2f
+                val centerY = size.height / 2f
+                val offsetDx = computedOffsetDp.toPx()
+                val shiftedCenterX = centerX + offsetDx
+                val strokeWidth = 1.dp.toPx()
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(centerX, 0f),
+                    end = Offset(centerX, size.height),
+                    strokeWidth = strokeWidth,
+                )
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(shiftedCenterX, 0f),
+                    end = Offset(shiftedCenterX, size.height),
+                    strokeWidth = strokeWidth,
+                )
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(0f, centerY),
+                    end = Offset(size.width, centerY),
+                    strokeWidth = strokeWidth,
+                )
+            }
+        }
 
         DropdownMenu(
             expanded = showMenu,
@@ -228,11 +273,6 @@ fun LamiAvatar(
                     }
                 }
 
-                val currentState = mapToLamiState(
-                    lamiStatus = lamiStatus,
-                    selectedModel = selectedModel,
-                    lastError = lastError
-                )
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -252,11 +292,13 @@ fun LamiAvatar(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 LamiSprite(
-                                    state = currentState,
+                                    state = lamiState,
+                                    lamiStatus = lamiStatus,
                                     sizeDp = 64.dp,
                                     animationsEnabled = animationsEnabled,
                                     replacementEnabled = replacementEnabled,
-                                    blinkEffectEnabled = blinkEffectEnabled
+                                    blinkEffectEnabled = blinkEffectEnabled,
+                                    debugOverlayEnabled = false
                                 )
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -296,7 +338,7 @@ fun LamiAvatar(
                     if (showStatusDetails) {
                         item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
                     }
-                    item { Divider() }
+                    item { HorizontalDivider() }
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
@@ -388,6 +430,7 @@ fun LamiAvatar(
                         )
                     }
                     item {
+                        // 簡易確認: READY 時に左上とセンターのアニメが一致すること
                         ToggleRow(
                             label = "点滅エフェクト",
                             checked = blinkEffectEnabled,
@@ -465,3 +508,7 @@ private fun StatusInfoItem(
         Text(value, fontSize = 13.sp)
     }
 }
+
+// 視認が難しい場合は一時的にオフセットを変更して確認する
+private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
+private val AVATAR_MIN_OFFSET_ADJUST_DP = 1.dp

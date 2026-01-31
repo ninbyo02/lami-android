@@ -1,11 +1,15 @@
 package com.sonusid.ollama.ui.components
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,9 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 
@@ -49,10 +55,44 @@ fun LamiStatusPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
-            LamiStatusSprite(
-                status = statusState,
-                sizeDp = spriteSize
-            )
+            val debugEnabled = BuildConfig.DEBUG
+            val outlineColor = MaterialTheme.colorScheme.outline
+            val spriteBorderModifier = if (debugEnabled) {
+                Modifier.border(1.dp, outlineColor)
+            } else {
+                Modifier
+            }
+            Box(
+                modifier = Modifier
+                    .size(spriteSize)
+                    .then(spriteBorderModifier)
+            ) {
+                LamiStatusSprite(
+                    status = statusState,
+                    sizeDp = spriteSize,
+                    contentOffsetDp = 0.dp,
+                    modifier = Modifier
+                        .align(Alignment.Center),
+                )
+                if (debugEnabled) {
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        val centerX = size.width / 2f
+                        val centerY = size.height / 2f
+                        drawLine(
+                            color = outlineColor,
+                            start = Offset(centerX, 0f),
+                            end = Offset(centerX, size.height),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                        drawLine(
+                            color = outlineColor,
+                            start = Offset(0f, centerY),
+                            end = Offset(size.width, centerY),
+                            strokeWidth = 1.dp.toPx(),
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(

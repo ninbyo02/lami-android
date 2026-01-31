@@ -21,7 +21,6 @@ import kotlin.random.Random
 import java.io.File
 
 private const val SETTINGS_DATA_STORE_NAME = "ollama_settings"
-private const val OFFLINE_BASE_INTERVAL_MIN_MS = 500
 private val Context.dataStore by preferencesDataStore(
     name = SETTINGS_DATA_STORE_NAME
 )
@@ -871,8 +870,12 @@ class SettingsPreferences(private val context: Context) {
         val baseObject = root.optJSONObject(JSON_BASE_KEY)
         if (baseObject?.has(JSON_INTERVAL_MS_KEY) == true) {
             val baseIntervalMs = baseObject.getInt(JSON_INTERVAL_MS_KEY)
-            if (baseIntervalMs < OFFLINE_BASE_INTERVAL_MIN_MS) {
-                baseObject.put(JSON_INTERVAL_MS_KEY, ReadyAnimationSettings.OFFLINE_DEFAULT.intervalMs)
+            val clampedIntervalMs = baseIntervalMs.coerceIn(
+                ReadyAnimationSettings.MIN_INTERVAL_MS,
+                ReadyAnimationSettings.MAX_INTERVAL_MS,
+            )
+            if (clampedIntervalMs != baseIntervalMs) {
+                baseObject.put(JSON_INTERVAL_MS_KEY, clampedIntervalMs)
                 root.put(JSON_BASE_KEY, baseObject)
                 changed = true
             }
@@ -947,9 +950,19 @@ class SettingsPreferences(private val context: Context) {
                 val (base, insertion) = defaultsForState(state)
                 Triple(defaultKey, base, insertion)
             }
+            // OFFLINE の intervalMs は UI と同じ範囲で保持する
+            val resolvedBaseDefaults = if (state == SpriteState.OFFLINE) {
+                val clampedIntervalMs = config.baseIntervalMs.coerceIn(
+                    ReadyAnimationSettings.MIN_INTERVAL_MS,
+                    ReadyAnimationSettings.MAX_INTERVAL_MS,
+                )
+                baseDefaults.copy(intervalMs = clampedIntervalMs)
+            } else {
+                baseDefaults
+            }
             val perStateJson = buildPerStateAnimationJsonOrNull(
                 animationKey = animationKey,
-                baseSettings = baseDefaults,
+                baseSettings = resolvedBaseDefaults,
                 insertionSettings = insertionDefaults,
             ) ?: return@forEach
             saveSpriteAnimationJson(state, perStateJson)
@@ -1564,10 +1577,12 @@ class SettingsPreferences(private val context: Context) {
             root.put(JSON_META_KEY, it)
         }
         if (!meta.has(META_DEFAULT_VERSION_KEY)) {
-            meta.put(META_DEFAULT_VERSION_KEY, 0)
+            // meta無しJSONはユーザー投入の可能性が高いので最新既定として扱う
+            meta.put(META_DEFAULT_VERSION_KEY, CURRENT_DEFAULT_VERSION)
         }
         if (!meta.has(META_USER_MODIFIED_KEY)) {
-            meta.put(META_USER_MODIFIED_KEY, false)
+            // meta無しJSONはユーザー改変扱いにして既定差替えを避ける
+            meta.put(META_USER_MODIFIED_KEY, true)
         }
         root.toString()
     }.getOrNull()

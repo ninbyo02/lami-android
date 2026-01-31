@@ -1,8 +1,11 @@
 package com.sonusid.ollama.ui.components
 
 import android.util.Log
-import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.snap
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -12,12 +15,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.data.SpriteSheetConfig
@@ -36,6 +43,8 @@ import com.sonusid.ollama.viewmodels.bucket
 import com.sonusid.ollama.viewmodels.mapToAnimationLamiStatus
 import com.sonusid.ollama.viewmodels.resolveErrorKey
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
+import org.json.JSONObject
 import kotlin.random.Random
 
 enum class LamiSpriteStatus {
@@ -49,6 +58,8 @@ enum class LamiSpriteStatus {
     OfflineLoop,
     Ready,
 }
+
+private val DEBUG_OVERLAY_ENABLED: Boolean = BuildConfig.DEBUG
 
 // 96x96 各フレームの不透明バウンディングボックス下端（顎先基準想定）は
 // 0:95, 1:95, 2:95, 3:94, 4:94, 5:94, 6:90, 7:90, 8:90。
@@ -178,6 +189,49 @@ private val statusAnimationMap: Map<LamiSpriteStatus, AnimationSpec> = mapOf(
     ),
 )
 
+private fun LamiSpriteStatus.toSpriteStateOrNull(): SpriteState? = when (this) {
+    LamiSpriteStatus.Ready -> SpriteState.READY
+    LamiSpriteStatus.Idle -> SpriteState.IDLE
+    LamiSpriteStatus.Thinking -> SpriteState.THINKING
+    LamiSpriteStatus.TalkShort -> SpriteState.SPEAKING
+    LamiSpriteStatus.TalkLong -> SpriteState.TALK_LONG
+    LamiSpriteStatus.TalkCalm -> SpriteState.TALK_CALM
+    LamiSpriteStatus.ErrorLight,
+    LamiSpriteStatus.ErrorHeavy,
+    -> SpriteState.ERROR
+    LamiSpriteStatus.OfflineLoop -> SpriteState.OFFLINE
+}
+
+private fun animSpecFromPerStateJsonOrFallback(
+    json: String?,
+    fallback: AnimationSpec,
+    maxFrameIndex: Int,
+): AnimationSpec {
+    if (json.isNullOrBlank()) return fallback
+    return runCatching {
+        val root = JSONObject(json)
+        val base = root.getJSONObject("base")
+        val framesJson = base.getJSONArray("frames")
+        val frames = buildList(framesJson.length()) {
+            for (index in 0 until framesJson.length()) {
+                add(framesJson.getInt(index))
+            }
+        }.ifEmpty { fallback.frames }
+        val intervalMs = base.getInt("intervalMs").coerceAtLeast(1)
+        val clampedFrames = frames.map { it.coerceIn(0, maxFrameIndex) }
+        AnimationSpec(
+            frames = clampedFrames,
+            frameDuration = FrameDurationSpec(
+                minMs = intervalMs.toLong(),
+                maxMs = intervalMs.toLong(),
+                jitterFraction = 0f,
+            ),
+            loop = true,
+            insertions = emptyList(),
+        )
+    }.getOrElse { fallback }
+}
+
 private fun selectInsertionSettingsForStatus(
     status: LamiSpriteStatus,
     readySettings: InsertionAnimationSettings,
@@ -223,19 +277,23 @@ fun LamiStatusSprite(
     status: LamiSpriteStatus,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    maxSizeDp: Dp = 100.dp,
     contentOffsetDp: Dp = 2.dp,
     contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    debugOverlayEnabled: Boolean = true,
     frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
     frameSrcSizeMap: Map<Int, IntSize> = emptyMap(),
     autoCropTransparentArea: Boolean = false,
     resolvedErrorKey: String? = null,
+    debugOverloadLabel: String = "core(status: LamiSpriteStatus)",
 ) {
-    val constrainedSize = remember(sizeDp) { sizeDp.coerceIn(32.dp, 100.dp) }
+    val overlayOn = DEBUG_OVERLAY_ENABLED && debugOverlayEnabled
+    val constrainedSize = remember(sizeDp, maxSizeDp) { sizeDp.coerceIn(32.dp, maxSizeDp) }
     val spriteFrameRepository = rememberSpriteFrameRepository()
     val frameMaps = rememberSpriteFrameMaps(repository = spriteFrameRepository)
     val defaultConfig = remember { SpriteSheetConfig.default3x3() }
@@ -295,9 +353,19 @@ fun LamiStatusSprite(
             else -> errorAdjustedStatus
         }
     }
-
-    val animSpec = remember(resolvedStatus) {
+    val spriteStateForAnim = remember(resolvedStatus) { resolvedStatus.toSpriteStateOrNull() }
+    val perStateAnimJson by remember(spriteStateForAnim) {
+        spriteStateForAnim?.let { settingsPreferences.resolvedSpriteAnimationJsonFlow(it) } ?: flowOf(null)
+    }.collectAsState(initial = null)
+    val fallbackAnimSpec = remember(resolvedStatus) {
         statusAnimationMap[resolvedStatus] ?: statusAnimationMap.getValue(LamiSpriteStatus.Idle)
+    }
+    val animSpec = remember(perStateAnimJson, fallbackAnimSpec, maxFrameIndex) {
+        animSpecFromPerStateJsonOrFallback(
+            json = perStateAnimJson,
+            fallback = fallbackAnimSpec,
+            maxFrameIndex = maxFrameIndex,
+        )
     }
     val readyInsertionSettings by settingsPreferences.readyInsertionAnimationSettings.collectAsState(
         initial = InsertionAnimationSettings.READY_DEFAULT,
@@ -341,39 +409,55 @@ fun LamiStatusSprite(
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
+    LaunchedEffect(resolvedStatus, perStateAnimJson, animSpec) {
+        if (overlayOn) {
+            val json = perStateAnimJson
+            Log.d(
+                "LamiStatusSprite",
+                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim " +
+                    "baseMs=${animSpec.frameDuration.minMs} frames=${animSpec.frames} " +
+                    "json=${json?.take(80)}",
+            )
+        }
+    }
+
     var currentFrameIndex by remember(resolvedStatus, maxFrameIndex) {
         mutableStateOf(animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0)
     }
-    val defaultFrameXOffsetPxMap = remember(frameMaps) {
-        frameMaps.toFrameXOffsetPxMap()
-    }
-    val resolvedFrameXOffsetPxMap = remember(frameXOffsetPxMap, defaultFrameXOffsetPxMap) {
-        defaultFrameXOffsetPxMap.toMutableMap().apply {
-            putAll(frameXOffsetPxMap)
-        }
-    }
-    val defaultFrameYOffsetPxMap = remember(frameMaps) {
-        frameMaps.toFrameYOffsetPxMap()
-    }
-    val resolvedFrameYOffsetPxMap = remember(frameYOffsetPxMap, defaultFrameYOffsetPxMap) {
-        defaultFrameYOffsetPxMap.toMutableMap().apply {
-            putAll(frameYOffsetPxMap)
-        }
-    }
-    val targetFrameYOffsetPx = resolvedFrameYOffsetPxMap[currentFrameIndex] ?: 0
-    // スナップで即時反映し、フレーム切替時の縦揺れ（バネ挙動のオーバーシュート）を防ぐ
-    val animatedFrameYOffsetPx by animateIntAsState(
-        targetValue = targetFrameYOffsetPx,
-        animationSpec = snap(),
-        label = "frameYOffsetPx",
-    )
-    val animatedFrameYOffsetPxMap = remember(
-        resolvedFrameYOffsetPxMap,
+    val currentFrameXOffsetPx = frameXOffsetPxMap[currentFrameIndex] ?: 0
+    val currentFrameYOffsetPx = frameYOffsetPxMap[currentFrameIndex] ?: 0
+    val debugOverlayText = remember(
+        overlayOn,
+        debugOverloadLabel,
+        lastInsertionResolvedIntervalMs,
+        lastInsertionFrames,
+        resolvedStatus,
+        spriteStateForAnim,
+        perStateAnimJson,
+        animSpec,
         currentFrameIndex,
-        animatedFrameYOffsetPx,
+        currentFrameXOffsetPx,
+        currentFrameYOffsetPx,
     ) {
-        resolvedFrameYOffsetPxMap.toMutableMap().apply {
-            put(currentFrameIndex, animatedFrameYOffsetPx)
+        if (!overlayOn) {
+            ""
+        } else {
+            val json = perStateAnimJson
+            val perStateJsonState = when {
+                json == null -> "null"
+                json.isBlank() -> "blank"
+                else -> "present"
+            }
+            val animationKey = when {
+                json.isNullOrBlank() -> "fallback"
+                else -> "json:${json.hashCode()}"
+            }
+            "usedOverload=$debugOverloadLabel\n" +
+                "resolvedStatus=$resolvedStatus spriteState=$spriteStateForAnim\n" +
+                "animationKey=$animationKey perStateAnimJson=$perStateJsonState\n" +
+                "baseFrames=${animSpec.frames} baseIntervalMs=${animSpec.frameDuration.minMs}\n" +
+                "currentFrameIndex=$currentFrameIndex\n" +
+                "dstOffsetPx=(x=$currentFrameXOffsetPx, y=$currentFrameYOffsetPx)"
         }
     }
 
@@ -462,21 +546,40 @@ fun LamiStatusSprite(
         }
     }
 
-    LamiSprite3x3(
-        frameIndex = currentFrameIndex,
-        sizeDp = constrainedSize,
-        modifier = modifier,
-        contentOffsetDp = contentOffsetDp,
-        contentOffsetYDp = contentOffsetYDp,
-        frameXOffsetPxMap = resolvedFrameXOffsetPxMap,
-        frameYOffsetPxMap = animatedFrameYOffsetPxMap,
-        frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
-        frameSrcSizeMap = resolvedFrameSrcSizeMap,
-        autoCropTransparentArea = autoCropTransparentArea,
-        frameSizePx = frameMaps.frameSize,
-        frameMaps = frameMaps,
-        spriteSheetConfig = spriteSheetConfig,
-    )
+    Box(modifier = modifier) {
+        LamiSprite3x3(
+            frameIndex = currentFrameIndex,
+            sizeDp = constrainedSize,
+            modifier = Modifier,
+            contentOffsetDp = contentOffsetDp,
+            contentOffsetYDp = contentOffsetYDp,
+            frameXOffsetPxMap = frameXOffsetPxMap,
+            frameYOffsetPxMap = frameYOffsetPxMap,
+            frameSrcOffsetMap = resolvedFrameSrcOffsetMap,
+            frameSrcSizeMap = resolvedFrameSrcSizeMap,
+            autoCropTransparentArea = autoCropTransparentArea,
+            frameSizePx = frameMaps.frameSize,
+            frameMaps = frameMaps,
+            spriteSheetConfig = spriteSheetConfig,
+        )
+        if (overlayOn) {
+            Text(
+                text = debugOverlayText,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(4.dp),
+                    )
+                    // デバッグ表示の読みやすさのため最小限の内側余白
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 11.sp,
+            )
+        }
+    }
 }
 
 @Composable
@@ -484,11 +587,13 @@ fun LamiStatusSprite(
     status: State<LamiStatus>,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    maxSizeDp: Dp = 100.dp,
     contentOffsetDp: Dp = 2.dp,
     contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    debugOverlayEnabled: Boolean = true,
     frameXOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameYOffsetPxMap: Map<Int, Int> = emptyMap(),
     frameSrcOffsetMap: Map<Int, IntOffset> = emptyMap(),
@@ -503,17 +608,20 @@ fun LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
         sizeDp = sizeDp,
+        maxSizeDp = maxSizeDp,
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        debugOverlayEnabled = debugOverlayEnabled,
         frameXOffsetPxMap = frameXOffsetPxMap,
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
         resolvedErrorKey = resolvedErrorKey,
+        debugOverloadLabel = "wrapper(status: State<LamiStatus>)",
     )
 }
 
@@ -522,11 +630,13 @@ fun LamiStatusSprite(
     status: State<LamiAnimationStatus>,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
+    maxSizeDp: Dp = 100.dp,
     contentOffsetDp: Dp = 2.dp,
     contentOffsetYDp: Dp = 0.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    debugOverlayEnabled: Boolean = true,
     selectedModel: String? = null,
     lastError: String? = null,
     retryCount: Int = 0,
@@ -565,17 +675,20 @@ fun LamiStatusSprite(
         status = spriteStatus,
         modifier = modifier,
         sizeDp = sizeDp,
+        maxSizeDp = maxSizeDp,
         contentOffsetDp = contentOffsetDp,
         contentOffsetYDp = contentOffsetYDp,
         animationsEnabled = animationsEnabled,
         replacementEnabled = replacementEnabled,
         blinkEffectEnabled = blinkEffectEnabled,
+        debugOverlayEnabled = debugOverlayEnabled,
         frameXOffsetPxMap = frameXOffsetPxMap,
         frameYOffsetPxMap = frameYOffsetPxMap,
         frameSrcOffsetMap = frameSrcOffsetMap,
         frameSrcSizeMap = frameSrcSizeMap,
         autoCropTransparentArea = autoCropTransparentArea,
         resolvedErrorKey = resolvedErrorKey,
+        debugOverloadLabel = "wrapper(status: State<LamiAnimationStatus>)",
     )
 }
 

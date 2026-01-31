@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
@@ -39,6 +40,7 @@ import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
 import com.sonusid.ollama.sprite.SpriteSheetLoadResult
 import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
 import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
@@ -233,37 +235,54 @@ private fun rememberSpriteSheet(@DrawableRes resId: Int): ImageBitmap {
 @Composable
 fun LamiSprite(
     state: LamiState,
+    lamiStatus: LamiStatus? = null,
     sizeDp: Dp,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(8.dp),
+    backgroundColor: Color? = null,
+    contentPadding: Dp = 6.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
+    contentOffsetYDp: Dp = 0.dp,
+    tightContainer: Boolean = false,
+    maxStatusSpriteSizeDp: Dp = 100.dp,
+    debugOverlayEnabled: Boolean = true,
 ) {
-    val backgroundColor = when (state) {
+    val resolvedBackgroundColor = backgroundColor ?: when (state) {
         is LamiState.Thinking -> MaterialTheme.colorScheme.secondaryContainer
         is LamiState.Speaking -> MaterialTheme.colorScheme.tertiaryContainer
         LamiState.Idle -> MaterialTheme.colorScheme.primaryContainer
     }
-    val spriteStatus = mapToLamiSpriteStatus(lamiState = state)
+    val spriteStatus = mapToLamiSpriteStatus(
+        lamiState = state,
+        lamiStatus = lamiStatus,
+    )
 
-    val contentPadding = 6.dp
-    val spriteSize = sizeDp - (contentPadding * 2)
+    val spriteSize = (sizeDp - (contentPadding * 2)).coerceAtLeast(0.dp)
+    val containerSize = if (tightContainer) spriteSize else sizeDp
+    val resolvedPadding = if (tightContainer) 0.dp else contentPadding
 
     Box(
         modifier = modifier
-            .size(sizeDp)
-            .background(backgroundColor, shape)
-            .padding(contentPadding),
+            .size(containerSize)
+            .background(resolvedBackgroundColor, shape)
+            // 内側：スプライトを中央に収めるための padding（tightContainer 時は余白を無効化）
+            .padding(resolvedPadding),
         contentAlignment = Alignment.Center
     ) {
         LamiStatusSprite(
             status = spriteStatus,
             sizeDp = spriteSize,
+            maxSizeDp = maxStatusSpriteSizeDp,
             modifier = Modifier.clip(shape),
             animationsEnabled = animationsEnabled,
             replacementEnabled = replacementEnabled,
             blinkEffectEnabled = blinkEffectEnabled,
+            // センター表示に揃えるためオフセットを 0.dp に固定する
+            contentOffsetDp = 0.dp,
+            contentOffsetYDp = contentOffsetYDp,
+            debugOverlayEnabled = debugOverlayEnabled,
         )
     }
 }

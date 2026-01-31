@@ -133,7 +133,7 @@ class MainActivity : ComponentActivity() {
                                     Settings(navController)
                                 }
                                 composable(Routes.ABOUT) {
-                                    About(navController)
+                                    About(navController, viewModel)
                                 }
                                 composable(SettingsRoute.SpriteSettings.route) {
                                     SpriteSettingsScreen(navController)
