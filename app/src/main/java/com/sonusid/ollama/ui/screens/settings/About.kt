@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,13 +35,24 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun About(navController: NavController) {
+fun About(
+    navController: NavController,
+    viewModel: OllamaViewModel? = null,
+) {
     val baseUrl = remember { RetrofitClient.currentBaseUrl().trimEnd('/') }
+    val lamiStatus =
+        viewModel?.lamiAnimationStatus?.collectAsState(initial = LamiStatus.READY)?.value
+            ?: LamiStatus.READY
+    val lamiState =
+        viewModel?.lamiUiState?.collectAsState(initial = LamiUiState())?.value?.state
+            ?: LamiState.Idle
     Scaffold(
         topBar = {
             TopAppBar(
@@ -50,8 +62,8 @@ fun About(navController: NavController) {
                             baseUrl = baseUrl,
                             selectedModel = null,
                             lastError = null,
-                            lamiStatus = LamiStatus.READY,
-                            lamiState = LamiState.Idle,
+                            lamiStatus = lamiStatus,
+                            lamiState = lamiState,
                             modifier = Modifier.offset(x = (-1).dp),
                             onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
                             debugOverlayEnabled = false,
@@ -84,8 +96,8 @@ fun About(navController: NavController) {
                     val maxSizeByHeight = maxHeight * 0.45f
                     val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
                     LamiSprite(
-                        state = LamiState.Idle,
-                        lamiStatus = LamiStatus.READY,
+                        state = lamiState,
+                        lamiStatus = lamiStatus,
                         sizeDp = finalSize,
                         modifier = Modifier,
                         shape = CircleShape,
