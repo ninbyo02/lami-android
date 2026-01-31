@@ -1,14 +1,11 @@
 package com.sonusid.ollama.ui.screens.settings
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,7 +19,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,8 +30,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
-import com.sonusid.ollama.ui.components.LamiStatusSprite
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
+import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.viewmodels.LamiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,32 +59,32 @@ fun About(navController: NavController) {
         }) { paddingValues ->
         Column(
             modifier = Modifier
+                // 上：Scaffold の余白をそのまま適用する
                 .padding(paddingValues)
+                // 上：中央キャラを見やすい位置に寄せるための最小限 top padding
                 .padding(top = 100.dp)
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
 
         ) {
-            Box(
-                modifier = Modifier
-                    .clip(shape = CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                LamiStatusSprite(
-                    status = mapToLamiSpriteStatus(),
-                    sizeDp = 100.dp,
-                    modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.surfaceBright
-                        )
-                        .size(100.dp)
-                        .padding(20.dp)
-                )
-            }
+            LamiSprite(
+                state = LamiState.Idle,
+                sizeDp = 100.dp,
+                modifier = Modifier,
+                shape = CircleShape,
+                backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                contentPadding = 20.dp,
+                animationsEnabled = true,
+                replacementEnabled = true,
+                blinkEffectEnabled = true,
+            )
+            // 下：タイトルとの距離を確保するための Spacer
             Spacer(Modifier.height(20.dp))
             Text("Ollama", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            // 下：バージョン表示との距離を確保するための Spacer
             Spacer(Modifier.height(10.dp))
             Text("v1.0.0 (Beta)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            // 下：セクション終端の余白を確保するための Spacer
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -99,5 +94,5 @@ fun About(navController: NavController) {
 @Composable
 fun AboutPreview() {
     val dummyNav = rememberNavController()
-   MaterialTheme(colorScheme = lightColorScheme()) { About(dummyNav) }
+    MaterialTheme(colorScheme = lightColorScheme()) { About(dummyNav) }
 }

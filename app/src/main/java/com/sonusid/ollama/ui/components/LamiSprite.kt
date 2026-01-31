@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
@@ -238,11 +239,13 @@ fun LamiSprite(
     sizeDp: Dp,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(8.dp),
+    backgroundColor: Color? = null,
+    contentPadding: Dp = 6.dp,
     animationsEnabled: Boolean = true,
     replacementEnabled: Boolean = true,
     blinkEffectEnabled: Boolean = true,
 ) {
-    val backgroundColor = when (state) {
+    val resolvedBackgroundColor = backgroundColor ?: when (state) {
         is LamiState.Thinking -> MaterialTheme.colorScheme.secondaryContainer
         is LamiState.Speaking -> MaterialTheme.colorScheme.tertiaryContainer
         LamiState.Idle -> MaterialTheme.colorScheme.primaryContainer
@@ -252,13 +255,13 @@ fun LamiSprite(
         lamiStatus = lamiStatus,
     )
 
-    val contentPadding = 6.dp
     val spriteSize = sizeDp - (contentPadding * 2)
 
     Box(
         modifier = modifier
             .size(sizeDp)
-            .background(backgroundColor, shape)
+            .background(resolvedBackgroundColor, shape)
+            // 内側：スプライトを中央に収めるための padding
             .padding(contentPadding),
         contentAlignment = Alignment.Center
     ) {
