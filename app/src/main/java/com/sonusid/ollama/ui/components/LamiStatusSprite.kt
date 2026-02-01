@@ -637,8 +637,10 @@ fun LamiStatusSprite(
                 }
             }
         }
+        val tickIndexInt = tickIndex.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
         val safeIndex = if (timeline.isNotEmpty()) {
-            timeline[(tickIndex % timeline.size).coerceAtLeast(0)]
+            val idx = (tickIndexInt % timeline.size).coerceAtLeast(0)
+            timeline[idx]
         } else {
             0
         }
