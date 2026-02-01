@@ -288,9 +288,9 @@ private class DeterministicInsertionCache {
     var lastDecision: DeterministicInsertionDecision? = null
 }
 
-private const val DETERMINISTIC_GOLDEN_GAMMA: Long = 0x9E3779B97F4A7C15uL.toLong()
-private const val DETERMINISTIC_MIX1: Long = 0xBF58476D1CE4E5B9uL.toLong()
-private const val DETERMINISTIC_MIX2: Long = 0x94D049BB133111EBuL.toLong()
+private val DETERMINISTIC_GOLDEN_GAMMA: Long = 0x9E3779B97F4A7C15uL.toLong()
+private val DETERMINISTIC_MIX1: Long = 0xBF58476D1CE4E5B9uL.toLong()
+private val DETERMINISTIC_MIX2: Long = 0x94D049BB133111EBuL.toLong()
 
 private fun deterministicSeed(
     syncEpochMs: Long,
