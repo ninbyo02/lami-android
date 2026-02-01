@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -194,7 +195,7 @@ fun SpriteEditorScreen(navController: NavController) {
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
                     val moveButtonWidth = 64.dp
-                    val moveButtonHeight = 36.dp
+                    val moveButtonHeight = 32.dp
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
                     val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
@@ -676,15 +677,15 @@ private fun MoveButton(
     Box(
         modifier = modifier
             // [dp] 縦: 移動ボタンのタップ領域確保(最小48dp)に関係
-            .sizeIn(minHeight = buttonMinHeight),
+            .height(buttonMinHeight),
         contentAlignment = Alignment.Center
     ) {
         Button(
             onClick = onMove,
             modifier = Modifier
-                .width(buttonWidth)
                 // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
                 .height(buttonHeight)
+                .width(buttonWidth)
                 .repeatOnPress(onMove)
                 .testTag(testTag),
             contentPadding = padding,
