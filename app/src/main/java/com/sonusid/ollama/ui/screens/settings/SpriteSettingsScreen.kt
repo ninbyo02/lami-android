@@ -133,6 +133,7 @@ import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
+import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.CoroutineScope
@@ -5305,6 +5306,7 @@ private fun ReadyAnimationCharacter(
     frameRegion: SpriteFrameRegion?,
     spriteSizeDp: Dp,
     charYOffsetDp: Int,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
@@ -5312,6 +5314,7 @@ private fun ReadyAnimationCharacter(
         modifier = modifier
             // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
             .size(spriteSizeDp)
+            .background(backgroundColor, RoundedCornerShape(8.dp))
             // [dp] 上下: プレビュー の余白(余白)に関係
             .offset(y = charYOffsetDp.dp),
         contentAlignment = Alignment.Center
@@ -5561,6 +5564,7 @@ private fun ReadyAnimationPreviewPane(
                 } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
                 }
+                val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
 
                 ReadyPreviewSlot(
                     cardHeightModifier = cardHeightModifier,
@@ -5576,6 +5580,7 @@ private fun ReadyAnimationPreviewPane(
                             frameRegion = previewState.frameRegion,
                             spriteSizeDp = spriteSize,
                             charYOffsetDp = previewUiState.charYOffsetDp,
+                            backgroundColor = editorBackdropColor,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 // [dp] 左上: プレビュー の余白(余白)に関係
