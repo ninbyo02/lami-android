@@ -200,6 +200,91 @@ fun SpriteEditorScreen(navController: NavController) {
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
                     val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    var widthText by remember(state?.widthInput) {
+                        mutableStateOf(state?.widthInput.orEmpty())
+                    }
+                    var heightText by remember(state?.heightInput) {
+                        mutableStateOf(state?.heightInput.orEmpty())
+                    }
+                    val inputContent: @Composable (Modifier) -> Unit = { modifier ->
+                        Row(
+                            modifier = modifier,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = widthText,
+                                onValueChange = { input: String ->
+                                    val sanitized = digitsOnly(input).take(4)
+                                    widthText = sanitized
+                                    updateState { current ->
+                                        val updated = current.copy(widthInput = sanitized)
+                                        val width = sanitized.toIntOrNull()
+                                        if (width != null && width > 0) {
+                                            val resized = current.selection.resize(width, current.selection.h)
+                                            val normalized = rectNormalizeClamp(
+                                                resized,
+                                                current.bitmap.width,
+                                                current.bitmap.height,
+                                            )
+                                            updated.copy(
+                                                selection = normalized,
+                                                widthInput = normalized.w.toString(),
+                                                heightInput = normalized.h.toString(),
+                                            )
+                                        } else {
+                                            updated
+                                        }
+                                    }
+                                },
+                                label = { Text("W(px)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .width(72.dp)
+                                    .height(44.dp)
+                                    // Material3の最小高さ制約で44.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 44.dp)
+                                    .testTag("spriteEditorWidthPx"),
+                            )
+                            OutlinedTextField(
+                                value = heightText,
+                                onValueChange = { input: String ->
+                                    val sanitized = digitsOnly(input).take(4)
+                                    heightText = sanitized
+                                    updateState { current ->
+                                        val updated = current.copy(heightInput = sanitized)
+                                        val height = sanitized.toIntOrNull()
+                                        if (height != null && height > 0) {
+                                            val resized = current.selection.resize(current.selection.w, height)
+                                            val normalized = rectNormalizeClamp(
+                                                resized,
+                                                current.bitmap.width,
+                                                current.bitmap.height,
+                                            )
+                                            updated.copy(
+                                                selection = normalized,
+                                                widthInput = normalized.w.toString(),
+                                                heightInput = normalized.h.toString(),
+                                            )
+                                        } else {
+                                            updated
+                                        }
+                                    }
+                                },
+                                label = { Text("H(px)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .width(72.dp)
+                                    .height(44.dp)
+                                    // Material3の最小高さ制約で44.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 44.dp)
+                                    .testTag("spriteEditorHeightPx"),
+                            )
+                        }
+                    }
                     val previewContent: @Composable () -> Unit = {
                         Box(
                             modifier = Modifier
@@ -261,6 +346,12 @@ fun SpriteEditorScreen(navController: NavController) {
                                     }
                                 }
                             }
+                            inputContent(
+                                Modifier
+                                    .align(Alignment.BottomEnd)
+                                    // [dp] 右下: W/H入力の余白(余白)に関係
+                                    .padding(8.dp)
+                            )
                         }
                     }
                     val statusContent: @Composable (Modifier) -> Unit = { modifier ->
@@ -293,91 +384,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                    var widthText by remember(state?.widthInput) {
-                        mutableStateOf(state?.widthInput.orEmpty())
-                    }
-                    var heightText by remember(state?.heightInput) {
-                        mutableStateOf(state?.heightInput.orEmpty())
-                    }
-                    val inputContent: @Composable (Modifier) -> Unit = { modifier ->
-                        Row(
-                            modifier = modifier,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = widthText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    widthText = sanitized
-                                    updateState { current ->
-                                        val updated = current.copy(widthInput = sanitized)
-                                        val width = sanitized.toIntOrNull()
-                                        if (width != null && width > 0) {
-                                            val resized = current.selection.resize(width, current.selection.h)
-                                            val normalized = rectNormalizeClamp(
-                                                resized,
-                                                current.bitmap.width,
-                                                current.bitmap.height,
-                                            )
-                                            updated.copy(
-                                                selection = normalized,
-                                                widthInput = normalized.w.toString(),
-                                                heightInput = normalized.h.toString(),
-                                            )
-                                        } else {
-                                            updated
-                                        }
-                                    }
-                                },
-                                label = { Text("W(px)") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .height(40.dp)
-                                    // Material3の最小高さ制約で40.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 40.dp)
-                                    .testTag("spriteEditorWidthPx"),
-                            )
-                            OutlinedTextField(
-                                value = heightText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    heightText = sanitized
-                                    updateState { current ->
-                                        val updated = current.copy(heightInput = sanitized)
-                                        val height = sanitized.toIntOrNull()
-                                        if (height != null && height > 0) {
-                                            val resized = current.selection.resize(current.selection.w, height)
-                                            val normalized = rectNormalizeClamp(
-                                                resized,
-                                                current.bitmap.width,
-                                                current.bitmap.height,
-                                            )
-                                            updated.copy(
-                                                selection = normalized,
-                                                widthInput = normalized.w.toString(),
-                                                heightInput = normalized.h.toString(),
-                                            )
-                                        } else {
-                                            updated
-                                        }
-                                    }
-                                },
-                                label = { Text("H(px)") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .height(40.dp)
-                                    // Material3の最小高さ制約で40.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 40.dp)
-                                    .testTag("spriteEditorHeightPx"),
                             )
                         }
                     }
@@ -636,7 +642,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 statusContent(Modifier.fillMaxWidth())
-                                inputContent(Modifier.fillMaxWidth())
                             }
                             moveGridContent(Modifier.fillMaxWidth())
                             controlsContent(Modifier.fillMaxWidth())
@@ -666,7 +671,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     verticalAlignment = Alignment.Top
                                 ) {
                                     statusContent(Modifier.weight(1f))
-                                    inputContent(Modifier.weight(2f))
                                 }
                                 controlsContent(Modifier.fillMaxWidth())
                             }
