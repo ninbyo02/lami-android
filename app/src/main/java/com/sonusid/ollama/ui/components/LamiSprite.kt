@@ -248,6 +248,7 @@ fun LamiSprite(
     tightContainer: Boolean = false,
     maxStatusSpriteSizeDp: Dp = 100.dp,
     debugOverlayEnabled: Boolean = true,
+    syncEpochMs: Long = 0L,
 ) {
     val resolvedBackgroundColor = backgroundColor ?: when (state) {
         is LamiState.Thinking -> MaterialTheme.colorScheme.secondaryContainer
@@ -283,6 +284,7 @@ fun LamiSprite(
             contentOffsetDp = 0.dp,
             contentOffsetYDp = contentOffsetYDp,
             debugOverlayEnabled = debugOverlayEnabled,
+            syncEpochMs = syncEpochMs,
         )
     }
 }

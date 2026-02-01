@@ -27,6 +27,7 @@ fun LamiHeaderStatus(
     onSelectModel: (String) -> Unit,
     onNavigateSettings: () -> Unit,
     debugOverlayEnabled: Boolean = true,
+    syncEpochMs: Long = 0L,
     modifier: Modifier = Modifier,
 ) {
     val statusUi = rememberLamiStatusUi(
@@ -56,7 +57,8 @@ fun LamiHeaderStatus(
             maxAvatarSize = 64.dp,
             onSelectModel = onSelectModel,
             onNavigateSettings = onNavigateSettings,
-            debugOverlayEnabled = debugOverlayEnabled
+            debugOverlayEnabled = debugOverlayEnabled,
+            syncEpochMs = syncEpochMs,
         )
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
