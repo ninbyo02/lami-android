@@ -4465,14 +4465,14 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val statusTextStyle = MaterialTheme.typography.labelMedium.copy(
                                     lineHeight = MaterialTheme.typography.labelMedium.fontSize
                                 )
-                                Box(
+                                Column(
                                     modifier = Modifier
                                         // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
                                         .fillMaxSize()
                                         // テストで調整タブの表示確認に使う最小限の testTag
                                         .testTag("spriteAdjustPanel"),
-                                    // [非dp] 縦: プレビュー/ステータス の上寄せ(配置)に関係
-                                    contentAlignment = Alignment.TopCenter
+                                    // [非dp] 横: プレビュー/ステータス の中央寄せ(配置)に関係
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     SpritePreviewBlock(
                                         imageBitmap = bmp,
@@ -4482,8 +4482,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .fillMaxWidth()
                                             // [dp] 上: プレビュー の余白(余白)に関係
                                             .padding(top = 2.dp)
-                                            // [非dp] 上: プレビュー の配置(配置)に関係
-                                            .align(Alignment.TopCenter),
+                                            // [非dp] 横: プレビュー の配置(配置)に関係
+                                            .align(Alignment.CenterHorizontally),
                                         onContainerSizeChanged = { newContainerSize: IntSize ->
                                             containerSize = newContainerSize
                                             if (bmp != null && bmp.width != 0) {
@@ -4520,10 +4520,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         }
                                     )
+                                    // [dp] 縦: プレビュー と ステータス の間隔(間隔)に関係
+                                    Spacer(modifier = Modifier.weight(1f))
                                     Column(
                                         modifier = Modifier
-                                            // [非dp] 下: ステータス行 の配置(配置)に関係
-                                            .align(Alignment.BottomStart)
                                             // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
                                             // [dp] 左右: ステータス行 の余白(余白)に関係
