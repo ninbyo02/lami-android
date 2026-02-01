@@ -62,6 +62,7 @@ import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
@@ -612,13 +613,17 @@ private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
                     onRepeat()
                     val job = scope.launch {
                         delay(300)
-                        while (true) {
+                        while (isActive) {
                             onRepeat()
                             delay(50)
                         }
                     }
-                    tryAwaitRelease()
-                    job.cancel()
+                    try {
+                        tryAwaitRelease()
+                    } finally {
+                        // 競合やキャンセル時も暴走しないよう必ず停止させる
+                        job.cancel()
+                    }
                 }
             )
         }

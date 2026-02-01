@@ -36,4 +36,14 @@ class SpriteBitmapOpsTest {
         assertEquals(0, Color.alpha(clearedPixel))
         assertTrue(Color.alpha(untouchedPixel) > 0)
     }
+
+    @Test
+    fun clearTransparent_makesPixelFullyTransparent() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLUE)
+
+        val cleared = clearTransparent(bitmap, RectPx.of(0, 0, 1, 1))
+
+        assertEquals(0, Color.alpha(cleared.getPixel(0, 0)))
+    }
 }
