@@ -242,9 +242,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
                                     .width(72.dp)
-                                    .height(48.dp)
-                                    // Material3の最小高さ制約で48.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 48.dp)
+                                    .height(54.dp)
+                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 54.dp)
                                     .testTag("spriteEditorWidthPx"),
                             )
                             OutlinedTextField(
@@ -278,9 +278,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
                                     .width(72.dp)
-                                    .height(48.dp)
-                                    // Material3の最小高さ制約で48.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 48.dp)
+                                    .height(54.dp)
+                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 54.dp)
                                     .testTag("spriteEditorHeightPx"),
                             )
                         }
@@ -381,6 +381,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                         }
                     }
+                    val longPressStep = 4
                     val moveGridContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier,
@@ -394,6 +395,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     label = "←",
                                     testTag = "spriteEditorMoveLeft",
                                     onMove = { moveSelection(-1, 0) },
+                                    onRepeat = { moveSelection(-longPressStep, 0) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -403,6 +405,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     label = "→",
                                     testTag = "spriteEditorMoveRight",
                                     onMove = { moveSelection(1, 0) },
+                                    onRepeat = { moveSelection(longPressStep, 0) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -416,6 +419,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     label = "↓",
                                     testTag = "spriteEditorMoveDown",
                                     onMove = { moveSelection(0, 1) },
+                                    onRepeat = { moveSelection(0, longPressStep) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -425,6 +429,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     label = "↑",
                                     testTag = "spriteEditorMoveUp",
                                     onMove = { moveSelection(0, -1) },
+                                    onRepeat = { moveSelection(0, -longPressStep) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -687,6 +692,7 @@ private fun MoveButton(
     label: String,
     testTag: String,
     onMove: () -> Unit,
+    onRepeat: () -> Unit,
     buttonWidth: androidx.compose.ui.unit.Dp,
     buttonHeight: androidx.compose.ui.unit.Dp,
     buttonMinHeight: androidx.compose.ui.unit.Dp,
@@ -697,7 +703,7 @@ private fun MoveButton(
         modifier = modifier
             // [dp] 縦: 移動ボタンのタップ領域確保(最小48dp)に関係
             .height(buttonMinHeight)
-            .repeatOnPress(onMove),
+            .repeatOnPress(onMove, onRepeat),
         contentAlignment = Alignment.Center
     ) {
         Button(
@@ -718,8 +724,11 @@ private fun MoveButton(
     }
 }
 
-private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
-    pointerInput(onRepeat) {
+private fun Modifier.repeatOnPress(
+    onTap: () -> Unit,
+    onRepeat: () -> Unit,
+): Modifier = composed {
+    pointerInput(onTap, onRepeat) {
         // 簡易動作確認メモ: 単タップ=1回移動 / 長押し=連続移動+加速 / 離す=即停止
         val initialDelayMs = 300
         val startIntervalMs = 200
@@ -727,7 +736,7 @@ private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
         val accelDeltaMs = 20
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
-            onRepeat()
+            onTap()
             val releasedEarly = withTimeoutOrNull(initialDelayMs.toLong()) {
                 waitForUpOrCancellation()
             } != null
@@ -738,6 +747,10 @@ private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
                     waitForUpOrCancellation()
                 } != null
                 if (released) break
+                val releasedBeforeRepeat = withTimeoutOrNull(0L) {
+                    waitForUpOrCancellation()
+                } != null
+                if (releasedBeforeRepeat) break
                 onRepeat()
                 intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
             }
