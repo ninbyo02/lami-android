@@ -296,15 +296,22 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                         }
                     }
+                    var widthText by remember(state?.widthInput) {
+                        mutableStateOf(state?.widthInput.orEmpty())
+                    }
+                    var heightText by remember(state?.heightInput) {
+                        mutableStateOf(state?.heightInput.orEmpty())
+                    }
                     val inputContent: @Composable (Modifier) -> Unit = { modifier ->
                         Row(
                             modifier = modifier,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedTextField(
-                                value = state?.widthInput.orEmpty(),
+                                value = widthText,
                                 onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input)
+                                    val sanitized = digitsOnly(input).take(4)
+                                    widthText = sanitized
                                     updateState { current ->
                                         val updated = current.copy(widthInput = sanitized)
                                         val width = sanitized.toIntOrNull()
@@ -339,9 +346,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                             )
                             OutlinedTextField(
-                                value = state?.heightInput.orEmpty(),
+                                value = heightText,
                                 onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input)
+                                    val sanitized = digitsOnly(input).take(4)
+                                    heightText = sanitized
                                     updateState { current ->
                                         val updated = current.copy(heightInput = sanitized)
                                         val height = sanitized.toIntOrNull()
