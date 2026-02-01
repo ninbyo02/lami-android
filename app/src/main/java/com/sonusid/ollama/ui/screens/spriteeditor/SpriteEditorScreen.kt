@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -55,7 +56,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.tryAwaitRelease
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -67,6 +67,8 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -721,33 +723,27 @@ private fun MoveButton(
 private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
     pointerInput(onRepeat) {
         // 簡易動作確認メモ: 単タップ=1回移動 / 長押し=連続移動+加速 / 離す=即停止
-        val initialDelayMs = 250
-        val startIntervalMs = 140
-        val minIntervalMs = 40
-        val accelStepEvery = 6
-        val accelDeltaMs = 10
+        val initialDelayMs = 300
+        val startIntervalMs = 200
+        val minIntervalMs = 80
+        val accelDeltaMs = 20
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false)
             onRepeat()
-            var repeats = 0
-            var intervalMs = startIntervalMs
             val releasedEarly = withTimeoutOrNull(initialDelayMs.toLong()) {
-                tryAwaitRelease()
-                true
-            } ?: false
+                waitForUpOrCancellation()
+            } != null
             if (releasedEarly) return@awaitEachGesture
-            while (true) {
-                onRepeat()
-                repeats++
-                if (repeats % accelStepEvery == 0) {
+            var intervalMs = startIntervalMs
+            val job = launch {
+                while (isActive) {
+                    delay(intervalMs.toLong())
+                    onRepeat()
                     intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
                 }
-                val released = withTimeoutOrNull(intervalMs.toLong()) {
-                    tryAwaitRelease()
-                    true
-                } ?: false
-                if (released) break
             }
+            waitForUpOrCancellation()
+            job.cancel()
         }
     }
 }
