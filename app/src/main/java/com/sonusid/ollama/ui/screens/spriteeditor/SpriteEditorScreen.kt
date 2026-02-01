@@ -193,6 +193,11 @@ fun SpriteEditorScreen(navController: NavController) {
                     val buttonMinHeight = 48.dp
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
+                    val moveButtonWidth = 64.dp
+                    val moveButtonHeight = 36.dp
+                    val moveButtonMinHeight = 48.dp
+                    // [dp] 左右: 移動ボタン内側の余白(余白)に関係
+                    val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     val previewContent: @Composable () -> Unit = {
                         Box(
                             modifier = Modifier
@@ -362,56 +367,50 @@ fun SpriteEditorScreen(navController: NavController) {
                         Column(
                             modifier = modifier,
                             // [dp] 縦: 移動ボタン の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 MoveButton(
                                     label = "←",
                                     testTag = "spriteEditorMoveLeft",
                                     onMove = { moveSelection(-1, 0) },
-                                    buttonHeight = buttonHeight,
-                                    padding = buttonPadding,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = buttonMinHeight)
+                                    buttonWidth = moveButtonWidth,
+                                    buttonHeight = moveButtonHeight,
+                                    buttonMinHeight = moveButtonMinHeight,
+                                    padding = moveButtonPadding
                                 )
                                 MoveButton(
                                     label = "→",
                                     testTag = "spriteEditorMoveRight",
                                     onMove = { moveSelection(1, 0) },
-                                    buttonHeight = buttonHeight,
-                                    padding = buttonPadding,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = buttonMinHeight)
+                                    buttonWidth = moveButtonWidth,
+                                    buttonHeight = moveButtonHeight,
+                                    buttonMinHeight = moveButtonMinHeight,
+                                    padding = moveButtonPadding
                                 )
                             }
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 MoveButton(
                                     label = "↓",
                                     testTag = "spriteEditorMoveDown",
                                     onMove = { moveSelection(0, 1) },
-                                    buttonHeight = buttonHeight,
-                                    padding = buttonPadding,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = buttonMinHeight)
+                                    buttonWidth = moveButtonWidth,
+                                    buttonHeight = moveButtonHeight,
+                                    buttonMinHeight = moveButtonMinHeight,
+                                    padding = moveButtonPadding
                                 )
                                 MoveButton(
                                     label = "↑",
                                     testTag = "spriteEditorMoveUp",
                                     onMove = { moveSelection(0, -1) },
-                                    buttonHeight = buttonHeight,
-                                    padding = buttonPadding,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = buttonMinHeight)
+                                    buttonWidth = moveButtonWidth,
+                                    buttonHeight = moveButtonHeight,
+                                    buttonMinHeight = moveButtonMinHeight,
+                                    padding = moveButtonPadding
                                 )
                             }
                         }
@@ -668,24 +667,34 @@ private fun MoveButton(
     label: String,
     testTag: String,
     onMove: () -> Unit,
+    buttonWidth: androidx.compose.ui.unit.Dp,
     buttonHeight: androidx.compose.ui.unit.Dp,
+    buttonMinHeight: androidx.compose.ui.unit.Dp,
     padding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    Button(
-        onClick = onMove,
+    Box(
         modifier = modifier
-            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-            .height(buttonHeight)
-            .repeatOnPress(onMove)
-            .testTag(testTag),
-        contentPadding = padding,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        )
+            // [dp] 縦: 移動ボタンのタップ領域確保(最小48dp)に関係
+            .sizeIn(minHeight = buttonMinHeight),
+        contentAlignment = Alignment.Center
     ) {
-        Text(label)
+        Button(
+            onClick = onMove,
+            modifier = Modifier
+                .width(buttonWidth)
+                // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
+                .height(buttonHeight)
+                .repeatOnPress(onMove)
+                .testTag(testTag),
+            contentPadding = padding,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(label)
+        }
     }
 }
 
