@@ -4482,10 +4482,14 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .padding(top = 2.dp)
                                             // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
                                             .aspectRatio(1f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(editorBackdropColor),
+                                            .clip(RoundedCornerShape(8.dp)),
                                         contentAlignment = Alignment.TopCenter
                                     ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(editorBackdropColor)
+                                        )
                                         SpritePreviewBlock(
                                             imageBitmap = bmp,
                                             backgroundColor = Color.Transparent,
@@ -4526,31 +4530,30 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                 }
                                             }
                                         )
-                                        Column(
-                                            modifier = Modifier
-                                                .align(Alignment.BottomStart)
-                                                // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
-                                                .fillMaxWidth()
-                                                // [dp] 左右: ステータス行 の余白(余白)に関係
-                                                .padding(horizontal = 12.dp)
-                                                // [dp] 上下: ステータス行 の余白(余白)に関係
-                                                .padding(vertical = 8.dp),
-                                            // [dp] 縦: ステータス行 の間隔(間隔)に関係
-                                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                                        ) {
-                                            Text(
-                                                text = statusLine1Text,
-                                                style = statusTextStyle,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                text = statusLine2Text,
-                                                style = statusTextStyle,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
+                                            .fillMaxWidth()
+                                            // [dp] 左右: ステータス行 の余白(余白)に関係
+                                            .padding(horizontal = 12.dp)
+                                            // [dp] 上下: ステータス行 の余白(余白)に関係
+                                            .padding(vertical = 8.dp),
+                                        // [dp] 縦: ステータス行 の間隔(間隔)に関係
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = statusLine1Text,
+                                            style = statusTextStyle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = statusLine2Text,
+                                            style = statusTextStyle,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
                                 }
                             }
