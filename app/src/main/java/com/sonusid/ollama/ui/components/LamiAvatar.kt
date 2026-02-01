@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -59,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -94,6 +96,7 @@ fun LamiAvatar(
     availableModels: List<ModelInfo> = emptyList(),
     modifier: Modifier = Modifier,
     avatarShape: Shape = RoundedCornerShape(8.dp),
+    backgroundColor: Color? = null,
     initialAvatarSize: Dp = 36.dp,
     minAvatarSize: Dp = 32.dp,
     maxAvatarSize: Dp = 64.dp,
@@ -126,6 +129,10 @@ fun LamiAvatar(
     val fallbackMessage = initializationState?.errorMessage
     val debugEnabled = BuildConfig.DEBUG
     val outlineColor = MaterialTheme.colorScheme.outline
+    val resolvedBackgroundColor = resolveLamiSpriteBackgroundColor(
+        state = lamiState,
+        backgroundColor = backgroundColor,
+    )
     // センターのスプライトと同じ State<LamiStatus> 経路に合わせる
     val avatarStatusState = rememberUpdatedState(lamiStatus)
     val statusLabel = remember(lamiStatus) {
@@ -147,6 +154,8 @@ fun LamiAvatar(
     Box(
         modifier = modifier
             .size(avatarSize.dp)
+            // 背景色の責務はアバター側に統一して外部依存を減らす
+            .background(resolvedBackgroundColor, avatarShape)
             .clip(avatarShape)
             .combinedClickable(
                 role = Role.Button,
