@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,8 +17,9 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.Icons
@@ -179,400 +181,483 @@ fun SpriteEditorScreen(navController: NavController) {
                     // [非dp] 横: プレビュー/操作領域 の fillMaxWidth(制約)に関係
                     .fillMaxWidth()
                     // [dp] 左右: 画面全体 の余白(余白)に関係
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = 8.dp)
             ) {
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
-                        // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
+                        // [非dp] 横: レイアウト全体 の fillMaxWidth(制約)に関係
                         .fillMaxWidth()
-                        // [dp] 上: プレビュー の余白(余白)に関係
-                        .padding(top = 8.dp)
-                        // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .testTag("spriteEditorPreview"),
-                    contentAlignment = Alignment.TopCenter
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(editorBackdropColor)
-                    )
-                    if (state == null) {
-                        Box(modifier = Modifier.matchParentSize(), contentAlignment = Alignment.Center) {
-                            Text("画像読み込み中", style = MaterialTheme.typography.labelMedium)
-                        }
-                    } else {
-                        androidx.compose.foundation.Image(
-                            bitmap = state.imageBitmap,
-                            contentDescription = "Sprite Editor Preview",
+                    val isNarrow = maxWidth < 420.dp
+                    val buttonHeight = 32.dp
+                    val buttonMinHeight = 48.dp
+                    // [dp] 左右: ボタン内側の余白(余白)に関係
+                    val buttonPadding = PaddingValues(horizontal = 8.dp)
+                    val previewContent: @Composable () -> Unit = {
+                        Box(
                             modifier = Modifier
-                                .matchParentSize()
-                                .onSizeChanged { newSize ->
-                                    displayScale = if (state.bitmap.width > 0) {
-                                        newSize.width / state.bitmap.width.toFloat()
-                                    } else {
-                                        1f
+                                // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
+                                .fillMaxWidth()
+                                // [dp] 上: プレビュー の余白(余白)に関係
+                                .padding(top = 4.dp)
+                                // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .testTag("spriteEditorPreview"),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .background(editorBackdropColor)
+                            )
+                            if (state == null) {
+                                Box(modifier = Modifier.matchParentSize(), contentAlignment = Alignment.Center) {
+                                    Text("画像読み込み中", style = MaterialTheme.typography.labelMedium)
+                                }
+                            } else {
+                                androidx.compose.foundation.Image(
+                                    bitmap = state.imageBitmap,
+                                    contentDescription = "Sprite Editor Preview",
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .onSizeChanged { newSize ->
+                                            displayScale = if (state.bitmap.width > 0) {
+                                                newSize.width / state.bitmap.width.toFloat()
+                                            } else {
+                                                1f
+                                            }
+                                        },
+                                    contentScale = ContentScale.Fit,
+                                )
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    if (state.bitmap.width > 0 && state.bitmap.height > 0) {
+                                        val scaleX = size.width / state.bitmap.width
+                                        val scaleY = size.height / state.bitmap.height
+                                        val scale = min(scaleX, scaleY)
+                                        val destinationWidth = state.bitmap.width * scale
+                                        val destinationHeight = state.bitmap.height * scale
+                                        val offsetX = (size.width - destinationWidth) / 2f
+                                        val offsetY = (size.height - destinationHeight) / 2f
+                                        drawRect(
+                                            color = Color.Red,
+                                            topLeft = Offset(
+                                                x = offsetX + state.selection.x * scale,
+                                                y = offsetY + state.selection.y * scale,
+                                            ),
+                                            size = Size(
+                                                width = state.selection.w * scale,
+                                                height = state.selection.h * scale,
+                                            ),
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    val statusContent: @Composable (Modifier) -> Unit = { modifier ->
+                        Column(
+                            modifier = modifier
+                                // [dp] 上下: ステータス の余白(余白)に関係
+                                .padding(vertical = 4.dp)
+                                .testTag("spriteEditorStatus"),
+                            // [dp] 縦: ステータス の間隔(間隔)に関係
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            val statusLine1 = if (state == null) {
+                                "画像読み込み中"
+                            } else {
+                                "画像: ${state.bitmap.width}×${state.bitmap.height} / ${"%.2f".format(displayScale)}x"
+                            }
+                            val statusLine2 = if (state == null) {
+                                "選択: -, -, -, -"
+                            } else {
+                                "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
+                            }
+                            Text(
+                                text = statusLine1,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = statusLine2,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    val inputContent: @Composable (Modifier) -> Unit = { modifier ->
+                        Row(
+                            modifier = modifier,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = state?.widthInput.orEmpty(),
+                                onValueChange = { input ->
+                                    val sanitized = input.filter { it.isDigit() }
+                                    updateState { current ->
+                                        val updated = current.copy(widthInput = sanitized)
+                                        val width = sanitized.toIntOrNull()
+                                        if (width != null && width > 0) {
+                                            val resized = current.selection.resize(width, current.selection.h)
+                                            val normalized = rectNormalizeClamp(
+                                                resized,
+                                                current.bitmap.width,
+                                                current.bitmap.height,
+                                            )
+                                            updated.copy(
+                                                selection = normalized,
+                                                widthInput = normalized.w.toString(),
+                                                heightInput = normalized.h.toString(),
+                                            )
+                                        } else {
+                                            updated
+                                        }
                                     }
                                 },
-                            contentScale = ContentScale.Fit,
-                        )
-                        Canvas(modifier = Modifier.matchParentSize()) {
-                            if (state.bitmap.width > 0 && state.bitmap.height > 0) {
-                                val scaleX = size.width / state.bitmap.width
-                                val scaleY = size.height / state.bitmap.height
-                                val scale = min(scaleX, scaleY)
-                                val destinationWidth = state.bitmap.width * scale
-                                val destinationHeight = state.bitmap.height * scale
-                                val offsetX = (size.width - destinationWidth) / 2f
-                                val offsetY = (size.height - destinationHeight) / 2f
-                                drawRect(
-                                    color = Color.Red,
-                                    topLeft = Offset(
-                                        x = offsetX + state.selection.x * scale,
-                                        y = offsetY + state.selection.y * scale,
-                                    ),
-                                    size = Size(
-                                        width = state.selection.w * scale,
-                                        height = state.selection.h * scale,
-                                    ),
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()),
+                                label = { Text("W(px)") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = buttonMinHeight)
+                                    .testTag("spriteEditorWidthPx")
+                            )
+                            OutlinedTextField(
+                                value = state?.heightInput.orEmpty(),
+                                onValueChange = { input ->
+                                    val sanitized = input.filter { it.isDigit() }
+                                    updateState { current ->
+                                        val updated = current.copy(heightInput = sanitized)
+                                        val height = sanitized.toIntOrNull()
+                                        if (height != null && height > 0) {
+                                            val resized = current.selection.resize(current.selection.w, height)
+                                            val normalized = rectNormalizeClamp(
+                                                resized,
+                                                current.bitmap.width,
+                                                current.bitmap.height,
+                                            )
+                                            updated.copy(
+                                                selection = normalized,
+                                                widthInput = normalized.w.toString(),
+                                                heightInput = normalized.h.toString(),
+                                            )
+                                        } else {
+                                            updated
+                                        }
+                                    }
+                                },
+                                label = { Text("H(px)") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = buttonMinHeight)
+                                    .testTag("spriteEditorHeightPx")
+                            )
+                        }
+                    }
+                    val moveGridContent: @Composable (Modifier) -> Unit = { modifier ->
+                        Column(
+                            modifier = modifier,
+                            // [dp] 縦: 移動ボタン の間隔(間隔)に関係
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                MoveButton(
+                                    label = "←",
+                                    testTag = "spriteEditorMoveLeft",
+                                    onMove = { moveSelection(-1, 0) },
+                                    buttonHeight = buttonHeight,
+                                    padding = buttonPadding,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = buttonMinHeight)
+                                )
+                                MoveButton(
+                                    label = "→",
+                                    testTag = "spriteEditorMoveRight",
+                                    onMove = { moveSelection(1, 0) },
+                                    buttonHeight = buttonHeight,
+                                    padding = buttonPadding,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = buttonMinHeight)
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                MoveButton(
+                                    label = "↓",
+                                    testTag = "spriteEditorMoveDown",
+                                    onMove = { moveSelection(0, 1) },
+                                    buttonHeight = buttonHeight,
+                                    padding = buttonPadding,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = buttonMinHeight)
+                                )
+                                MoveButton(
+                                    label = "↑",
+                                    testTag = "spriteEditorMoveUp",
+                                    onMove = { moveSelection(0, -1) },
+                                    buttonHeight = buttonHeight,
+                                    padding = buttonPadding,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = buttonMinHeight)
                                 )
                             }
                         }
                     }
-                }
-                Column(
-                    modifier = Modifier
-                        // [非dp] 横: ステータス の fillMaxWidth(制約)に関係
-                        .fillMaxWidth()
-                        // [dp] 上下: ステータス の余白(余白)に関係
-                        .padding(vertical = 8.dp)
-                        .testTag("spriteEditorStatus"),
-                    // [dp] 縦: ステータス の間隔(間隔)に関係
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    val statusLine1 = if (state == null) {
-                        "画像読み込み中"
+                    val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
+                        Column(
+                            modifier = modifier
+                                .testTag("spriteEditorControls"),
+                            // [dp] 縦: 操作エリア の間隔(間隔)に関係
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val clip = copyRect(current.bitmap, current.selection)
+                                            current.withClipboard(clip)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorCopy"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Copy")
+                                }
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val clip = copyRect(current.bitmap, current.selection)
+                                            val cleared = clearTransparent(current.bitmap, current.selection)
+                                            current.withClipboard(clip).withBitmap(cleared)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorCut"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Cut")
+                                }
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val clip = current.clipboard
+                                            if (clip == null) {
+                                                current
+                                            } else {
+                                                val pasted = paste(current.bitmap, clip, current.selection.x, current.selection.y)
+                                                current.withBitmap(pasted)
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorPaste"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Paste")
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val cleared = clearTransparent(current.bitmap, current.selection)
+                                            current.withBitmap(cleared)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorDelete"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Delete")
+                                }
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val filled = fillBlack(current.bitmap, current.selection)
+                                            current.withBitmap(filled)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorFillBlack"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Fill Black")
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                                            current.withSavedSnapshot(snapshot)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorSave"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Save")
+                                }
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val resetBitmap = current.savedSnapshot ?: current.initialBitmap
+                                            val normalized = ensureArgb8888(resetBitmap)
+                                            val nextSelection = rectNormalizeClamp(
+                                                current.selection,
+                                                normalized.width,
+                                                normalized.height,
+                                            )
+                                            current.copy(
+                                                bitmap = normalized,
+                                                imageBitmap = normalized.asImageBitmap(),
+                                                selection = nextSelection,
+                                                widthInput = nextSelection.w.toString(),
+                                                heightInput = nextSelection.h.toString(),
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorReset"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Reset")
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = { importLauncher.launch(arrayOf("image/png")) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorImport"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Import")
+                                }
+                                Button(
+                                    onClick = { exportLauncher.launch("sprite.png") },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorExport"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Export")
+                                }
+                            }
+                        }
+                    }
+                    if (isNarrow) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            // [dp] 縦: 画面縦積み時の間隔(間隔)に関係
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            previewContent()
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                // [dp] 縦: ステータスと入力の間隔(間隔)に関係
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                statusContent(Modifier.fillMaxWidth())
+                                inputContent(Modifier.fillMaxWidth())
+                            }
+                            moveGridContent(Modifier.fillMaxWidth())
+                            controlsContent(Modifier.fillMaxWidth())
+                        }
                     } else {
-                        "画像: ${state.bitmap.width}×${state.bitmap.height} / ${"%.2f".format(displayScale)}x"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .widthIn(min = 96.dp, max = 140.dp),
+                                // [dp] 縦: 矢印ボタン列の間隔(間隔)に関係
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                moveGridContent(Modifier.fillMaxWidth())
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                // [dp] 縦: 右カラムの間隔(間隔)に関係
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                previewContent()
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    statusContent(Modifier.weight(1f))
+                                    inputContent(Modifier.weight(2f))
+                                }
+                                controlsContent(Modifier.fillMaxWidth())
+                            }
+                        }
                     }
-                    val statusLine2 = if (state == null) {
-                        "選択: -, -, -, -"
-                    } else {
-                        "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
-                    }
-                    Text(
-                        text = statusLine1,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = statusLine2,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    // [dp] 下: 操作エリア下部の余白(余白)に関係
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                Column(
-                    modifier = Modifier
-                        // [非dp] 横: 操作エリア の fillMaxWidth(制約)に関係
-                        .fillMaxWidth()
-                        .testTag("spriteEditorControls"),
-                    // [dp] 縦: 操作エリア の間隔(間隔)に関係
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val buttonHeight = 32.dp
-                    // [dp] 左右: ボタン内側の余白(余白)に関係
-                    val buttonPadding = PaddingValues(horizontal = 8.dp)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = state?.widthInput.orEmpty(),
-                            onValueChange = { input ->
-                                val sanitized = input.filter { it.isDigit() }
-                                updateState { current ->
-                                    val updated = current.copy(widthInput = sanitized)
-                                    val width = sanitized.toIntOrNull()
-                                    if (width != null && width > 0) {
-                                        val resized = current.selection.resize(width, current.selection.h)
-                                        val normalized = rectNormalizeClamp(
-                                            resized,
-                                            current.bitmap.width,
-                                            current.bitmap.height,
-                                        )
-                                        updated.copy(
-                                            selection = normalized,
-                                            widthInput = normalized.w.toString(),
-                                            heightInput = normalized.h.toString(),
-                                        )
-                                    } else {
-                                        updated
-                                    }
-                                }
-                            },
-                            label = { Text("W(px)") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("spriteEditorWidthPx")
-                        )
-                        OutlinedTextField(
-                            value = state?.heightInput.orEmpty(),
-                            onValueChange = { input ->
-                                val sanitized = input.filter { it.isDigit() }
-                                updateState { current ->
-                                    val updated = current.copy(heightInput = sanitized)
-                                    val height = sanitized.toIntOrNull()
-                                    if (height != null && height > 0) {
-                                        val resized = current.selection.resize(current.selection.w, height)
-                                        val normalized = rectNormalizeClamp(
-                                            resized,
-                                            current.bitmap.width,
-                                            current.bitmap.height,
-                                        )
-                                        updated.copy(
-                                            selection = normalized,
-                                            widthInput = normalized.w.toString(),
-                                            heightInput = normalized.h.toString(),
-                                        )
-                                    } else {
-                                        updated
-                                    }
-                                }
-                            },
-                            label = { Text("H(px)") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("spriteEditorHeightPx")
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // [非dp] 横: 移動ボタン の左右余白(配置)に関係
-                        Spacer(modifier = Modifier.weight(1f))
-                        MoveButton(
-                            label = "↑",
-                            testTag = "spriteEditorMoveUp",
-                            onMove = { moveSelection(0, -1) },
-                            buttonHeight = buttonHeight,
-                            padding = buttonPadding
-                        )
-                        // [非dp] 横: 移動ボタン の左右余白(配置)に関係
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        MoveButton(
-                            label = "←",
-                            testTag = "spriteEditorMoveLeft",
-                            onMove = { moveSelection(-1, 0) },
-                            buttonHeight = buttonHeight,
-                            padding = buttonPadding
-                        )
-                        // [非dp] 横: 移動ボタン の左右余白(配置)に関係
-                        Spacer(modifier = Modifier.weight(1f))
-                        MoveButton(
-                            label = "→",
-                            testTag = "spriteEditorMoveRight",
-                            onMove = { moveSelection(1, 0) },
-                            buttonHeight = buttonHeight,
-                            padding = buttonPadding
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // [非dp] 横: 移動ボタン の左右余白(配置)に関係
-                        Spacer(modifier = Modifier.weight(1f))
-                        MoveButton(
-                            label = "↓",
-                            testTag = "spriteEditorMoveDown",
-                            onMove = { moveSelection(0, 1) },
-                            buttonHeight = buttonHeight,
-                            padding = buttonPadding
-                        )
-                        // [非dp] 横: 移動ボタン の左右余白(配置)に関係
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val clip = copyRect(current.bitmap, current.selection)
-                                    current.withClipboard(clip)
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorCopy"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Copy")
-                        }
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val clip = copyRect(current.bitmap, current.selection)
-                                    val cleared = clearTransparent(current.bitmap, current.selection)
-                                    current.withClipboard(clip).withBitmap(cleared)
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorCut"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Cut")
-                        }
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val clip = current.clipboard
-                                    if (clip == null) {
-                                        current
-                                    } else {
-                                        val pasted = paste(current.bitmap, clip, current.selection.x, current.selection.y)
-                                        current.withBitmap(pasted)
-                                    }
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorPaste"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Paste")
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val cleared = clearTransparent(current.bitmap, current.selection)
-                                    current.withBitmap(cleared)
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorDelete"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Delete")
-                        }
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val filled = fillBlack(current.bitmap, current.selection)
-                                    current.withBitmap(filled)
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorFillBlack"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Fill Black")
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
-                                    current.withSavedSnapshot(snapshot)
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorSave"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Save")
-                        }
-                        Button(
-                            onClick = {
-                                updateState { current ->
-                                    val resetBitmap = current.savedSnapshot ?: current.initialBitmap
-                                    val normalized = ensureArgb8888(resetBitmap)
-                                    val nextSelection = rectNormalizeClamp(
-                                        current.selection,
-                                        normalized.width,
-                                        normalized.height,
-                                    )
-                                    current.copy(
-                                        bitmap = normalized,
-                                        imageBitmap = normalized.asImageBitmap(),
-                                        selection = nextSelection,
-                                        widthInput = nextSelection.w.toString(),
-                                        heightInput = nextSelection.h.toString(),
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorReset"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Reset")
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { importLauncher.launch(arrayOf("image/png")) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorImport"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Import")
-                        }
-                        Button(
-                            onClick = { exportLauncher.launch("sprite.png") },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(buttonHeight)
-                                .testTag("spriteEditorExport"),
-                            contentPadding = buttonPadding
-                        ) {
-                            Text("Export")
-                        }
-                    }
-                }
-                // [dp] 下: 操作エリア下部の余白(余白)に関係
-                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -585,12 +670,13 @@ private fun MoveButton(
     onMove: () -> Unit,
     buttonHeight: androidx.compose.ui.unit.Dp,
     padding: PaddingValues,
+    modifier: Modifier = Modifier,
 ) {
     Button(
         onClick = onMove,
-        modifier = Modifier
+        modifier = modifier
+            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
             .height(buttonHeight)
-            .width(64.dp)
             .repeatOnPress(onMove)
             .testTag(testTag),
         contentPadding = padding,
