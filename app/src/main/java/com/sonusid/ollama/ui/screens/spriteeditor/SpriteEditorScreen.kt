@@ -747,10 +747,6 @@ private fun Modifier.repeatOnPress(
                     waitForUpOrCancellation()
                 } != null
                 if (released) break
-                val releasedBeforeRepeat = withTimeoutOrNull(0L) {
-                    waitForUpOrCancellation()
-                } != null
-                if (releasedBeforeRepeat) break
                 onRepeat()
                 intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
             }
