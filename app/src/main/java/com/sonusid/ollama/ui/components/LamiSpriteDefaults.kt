@@ -1,20 +1,14 @@
 package com.sonusid.ollama.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.sonusid.ollama.viewmodels.LamiState
 
-internal val LamiCharacterBackdropLight = Color(0xFFFFE3EC)
-internal val LamiCharacterBackdropDark = Color(0xFFFFCDD9)
-
 @Composable
 internal fun rememberLamiCharacterBackdropColor(): Color {
-    return if (isSystemInDarkTheme()) {
-        LamiCharacterBackdropDark
-    } else {
-        LamiCharacterBackdropLight
-    }
+    // FAB（＋ボタン）の既定 containerColor と同系色に統一する
+    return MaterialTheme.colorScheme.primaryContainer
 }
 
 @Composable
