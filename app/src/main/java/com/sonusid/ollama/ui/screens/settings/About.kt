@@ -35,6 +35,7 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
@@ -104,7 +105,7 @@ fun About(
                         sizeDp = finalSize,
                         modifier = Modifier,
                         shape = CircleShape,
-                        backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                        backgroundColor = rememberLamiCharacterBackdropColor(),
                         // 中央キャラ：背景円の余白をなくす
                         contentPadding = 0.dp,
                         animationsEnabled = true,

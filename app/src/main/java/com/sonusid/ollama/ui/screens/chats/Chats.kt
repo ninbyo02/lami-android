@@ -20,8 +20,8 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
-import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,7 +105,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         sizeDp = 96.dp,
                         contentPadding = 0.dp,
                         tightContainer = true,
-                        backgroundColor = Color.Transparent,
+                        backgroundColor = rememberLamiCharacterBackdropColor(),
                         debugOverlayEnabled = false,
                         animationsEnabled = true,
                         replacementEnabled = true,
@@ -176,7 +176,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                                 sizeDp = 32.dp,
                                 contentPadding = 0.dp,
                                 tightContainer = true,
-                                backgroundColor = Color.Transparent,
+                                backgroundColor = rememberLamiCharacterBackdropColor(),
                                 debugOverlayEnabled = false,
                                 animationsEnabled = true,
                                 replacementEnabled = true,

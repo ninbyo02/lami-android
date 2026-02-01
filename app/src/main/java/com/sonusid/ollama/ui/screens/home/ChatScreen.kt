@@ -55,6 +55,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -319,7 +320,7 @@ fun Home(
                             lamiStatus = lamiAnimationStatus,
                             sizeDp = finalSize,
                             shape = CircleShape,
-                            backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                            backgroundColor = rememberLamiCharacterBackdropColor(),
                             contentPadding = 0.dp,
                             animationsEnabled = true,
                             replacementEnabled = true,
