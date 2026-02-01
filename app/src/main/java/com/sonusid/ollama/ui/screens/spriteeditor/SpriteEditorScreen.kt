@@ -195,7 +195,6 @@ fun SpriteEditorScreen(navController: NavController) {
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
                     val moveButtonWidth = 64.dp
-                    val moveButtonHeight = 32.dp
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
                     val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
@@ -327,7 +326,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 label = { Text("W(px)") },
                                 singleLine = true,
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .width(96.dp)
                                     .heightIn(min = buttonMinHeight)
                                     .testTag("spriteEditorWidthPx")
                             )
@@ -358,7 +357,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 label = { Text("H(px)") },
                                 singleLine = true,
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .width(96.dp)
                                     .heightIn(min = buttonMinHeight)
                                     .testTag("spriteEditorHeightPx")
                             )
@@ -368,17 +367,17 @@ fun SpriteEditorScreen(navController: NavController) {
                         Column(
                             modifier = modifier,
                             // [dp] 縦: 移動ボタン の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 MoveButton(
                                     label = "←",
                                     testTag = "spriteEditorMoveLeft",
                                     onMove = { moveSelection(-1, 0) },
                                     buttonWidth = moveButtonWidth,
-                                    buttonHeight = moveButtonHeight,
+                                    buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding
                                 )
@@ -387,20 +386,20 @@ fun SpriteEditorScreen(navController: NavController) {
                                     testTag = "spriteEditorMoveRight",
                                     onMove = { moveSelection(1, 0) },
                                     buttonWidth = moveButtonWidth,
-                                    buttonHeight = moveButtonHeight,
+                                    buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding
                                 )
                             }
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 MoveButton(
                                     label = "↓",
                                     testTag = "spriteEditorMoveDown",
                                     onMove = { moveSelection(0, 1) },
                                     buttonWidth = moveButtonWidth,
-                                    buttonHeight = moveButtonHeight,
+                                    buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding
                                 )
@@ -409,7 +408,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     testTag = "spriteEditorMoveUp",
                                     onMove = { moveSelection(0, -1) },
                                     buttonWidth = moveButtonWidth,
-                                    buttonHeight = moveButtonHeight,
+                                    buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding
                                 )
