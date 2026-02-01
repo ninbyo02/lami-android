@@ -242,9 +242,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
                                     .width(72.dp)
-                                    .height(44.dp)
-                                    // Material3の最小高さ制約で44.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 44.dp)
+                                    .height(48.dp)
+                                    // Material3の最小高さ制約で48.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 48.dp)
                                     .testTag("spriteEditorWidthPx"),
                             )
                             OutlinedTextField(
@@ -278,9 +278,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
                                     .width(72.dp)
-                                    .height(44.dp)
-                                    // Material3の最小高さ制約で44.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 44.dp)
+                                    .height(48.dp)
+                                    // Material3の最小高さ制約で48.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 48.dp)
                                     .testTag("spriteEditorHeightPx"),
                             )
                         }
@@ -346,12 +346,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     }
                                 }
                             }
-                            inputContent(
-                                Modifier
-                                    .align(Alignment.BottomEnd)
-                                    // [dp] 右下: W/H入力の余白(余白)に関係
-                                    .padding(8.dp)
-                            )
                         }
                     }
                     val statusContent: @Composable (Modifier) -> Unit = { modifier ->
@@ -636,12 +630,13 @@ fun SpriteEditorScreen(navController: NavController) {
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             previewContent()
-                            Column(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                // [dp] 縦: ステータスと入力の間隔(間隔)に関係
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
                             ) {
-                                statusContent(Modifier.fillMaxWidth())
+                                statusContent(Modifier.weight(1f))
+                                inputContent(Modifier)
                             }
                             moveGridContent(Modifier.fillMaxWidth())
                             controlsContent(Modifier.fillMaxWidth())
@@ -671,6 +666,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     verticalAlignment = Alignment.Top
                                 ) {
                                     statusContent(Modifier.weight(1f))
+                                    inputContent(Modifier)
                                 }
                                 controlsContent(Modifier.fillMaxWidth())
                             }
@@ -729,18 +725,18 @@ private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
             val scope = this
             detectTapGestures(
                 onPress = {
-                    onRepeat()
                     val job = scope.launch {
-                        delay(250)
-                        var intervalMs = 120L
+                        var elapsedMs = 0L
                         while (isActive) {
-                            onRepeat()
-                            delay(intervalMs)
-                            intervalMs = when {
-                                intervalMs > 80L -> (intervalMs - 10L).coerceAtLeast(80L)
-                                intervalMs > 50L -> (intervalMs - 5L).coerceAtLeast(50L)
+                            val intervalMs = when {
+                                elapsedMs < 600L -> 180L
+                                elapsedMs < 1200L -> 120L
+                                elapsedMs < 2000L -> 80L
                                 else -> 50L
                             }
+                            delay(intervalMs)
+                            onRepeat()
+                            elapsedMs += intervalMs
                         }
                     }
                     try {
