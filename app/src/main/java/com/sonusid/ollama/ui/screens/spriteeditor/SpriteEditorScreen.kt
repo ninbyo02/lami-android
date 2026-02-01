@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -342,8 +341,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     // Material3の最小高さ制約で40.dpに収まらない場合があるため保険として残す
                                     .heightIn(min = 40.dp)
                                     .testTag("spriteEditorWidthPx"),
-                                // [dp] 内側余白: 高さ40dpに寄せるため最小限の padding
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                             )
                             OutlinedTextField(
                                 value = heightText,
@@ -380,8 +377,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     // Material3の最小高さ制約で40.dpに収まらない場合があるため保険として残す
                                     .heightIn(min = 40.dp)
                                     .testTag("spriteEditorHeightPx"),
-                                // [dp] 内側余白: 高さ40dpに寄せるため最小限の padding
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                             )
                         }
                     }
