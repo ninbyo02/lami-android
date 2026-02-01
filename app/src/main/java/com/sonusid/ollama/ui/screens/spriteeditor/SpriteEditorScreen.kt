@@ -23,9 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -49,13 +48,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -67,9 +64,9 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -196,10 +193,10 @@ fun SpriteEditorScreen(navController: NavController) {
                     val buttonMinHeight = 48.dp
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
-                    val moveButtonWidth = 64.dp
+                    val moveButtonWidth = 40.dp
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
-                    val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     var widthText by remember(state?.widthInput) {
                         mutableStateOf(state?.widthInput.orEmpty())
                     }
@@ -381,7 +378,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                         }
                     }
-                    val longPressStep = 4
                     val moveGridContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier,
@@ -394,8 +390,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "←",
                                     testTag = "spriteEditorMoveLeft",
-                                    onMove = { moveSelection(-1, 0) },
-                                    onRepeat = { moveSelection(-longPressStep, 0) },
+                                    onTap = { moveSelection(-1, 0) },
+                                    onRepeat = { step -> moveSelection(-step, 0) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -404,8 +400,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "→",
                                     testTag = "spriteEditorMoveRight",
-                                    onMove = { moveSelection(1, 0) },
-                                    onRepeat = { moveSelection(longPressStep, 0) },
+                                    onTap = { moveSelection(1, 0) },
+                                    onRepeat = { step -> moveSelection(step, 0) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -418,8 +414,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "↓",
                                     testTag = "spriteEditorMoveDown",
-                                    onMove = { moveSelection(0, 1) },
-                                    onRepeat = { moveSelection(0, longPressStep) },
+                                    onTap = { moveSelection(0, 1) },
+                                    onRepeat = { step -> moveSelection(0, step) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -428,8 +424,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "↑",
                                     testTag = "spriteEditorMoveUp",
-                                    onMove = { moveSelection(0, -1) },
-                                    onRepeat = { moveSelection(0, -longPressStep) },
+                                    onTap = { moveSelection(0, -1) },
+                                    onRepeat = { step -> moveSelection(0, -step) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -691,28 +687,62 @@ private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit(
 private fun MoveButton(
     label: String,
     testTag: String,
-    onMove: () -> Unit,
-    onRepeat: () -> Unit,
+    onTap: () -> Unit,
+    onRepeat: (stepPx: Int) -> Unit,
     buttonWidth: androidx.compose.ui.unit.Dp,
     buttonHeight: androidx.compose.ui.unit.Dp,
     buttonMinHeight: androidx.compose.ui.unit.Dp,
     padding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    var tapHandled by remember { mutableStateOf(false) }
+    LaunchedEffect(pressed) {
+        if (!pressed) {
+            tapHandled = false
+            return@LaunchedEffect
+        }
+        tapHandled = true
+        onTap()
+        val initialDelayMs = 300
+        val startIntervalMs = 120
+        val minIntervalMs = 80
+        val accelDeltaMs = 10
+        val accelCountThreshold = 12
+        val accelTimeMs = 800
+        val startedAtMs = System.currentTimeMillis()
+        delay(initialDelayMs.toLong())
+        var intervalMs = startIntervalMs
+        var count = 0
+        while (true) {
+            val elapsedMs = System.currentTimeMillis() - startedAtMs
+            val stepPx = if (count < accelCountThreshold && elapsedMs < accelTimeMs) 4 else 8
+            onRepeat(stepPx)
+            count += 1
+            delay(intervalMs.toLong())
+            intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
+        }
+    }
     Box(
         modifier = modifier
             // [dp] 縦: 移動ボタンのタップ領域確保(最小48dp)に関係
-            .height(buttonMinHeight)
-            .repeatOnPress(onMove, onRepeat),
+            .height(buttonMinHeight),
         contentAlignment = Alignment.Center
     ) {
         Button(
-            onClick = {},
+            onClick = {
+                if (!tapHandled) {
+                    onTap()
+                }
+                tapHandled = false
+            },
             modifier = Modifier
                 // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
                 .height(buttonHeight)
                 .width(buttonWidth)
                 .testTag(testTag),
+            interactionSource = interactionSource,
             contentPadding = padding,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -720,36 +750,6 @@ private fun MoveButton(
             )
         ) {
             Text(label)
-        }
-    }
-}
-
-private fun Modifier.repeatOnPress(
-    onTap: () -> Unit,
-    onRepeat: () -> Unit,
-): Modifier = composed {
-    pointerInput(onTap, onRepeat) {
-        // 簡易動作確認メモ: 単タップ=1回移動 / 長押し=連続移動+加速 / 離す=即停止
-        val initialDelayMs = 300
-        val startIntervalMs = 200
-        val minIntervalMs = 80
-        val accelDeltaMs = 20
-        awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false)
-            onTap()
-            val releasedEarly = withTimeoutOrNull(initialDelayMs.toLong()) {
-                waitForUpOrCancellation()
-            } != null
-            if (releasedEarly) return@awaitEachGesture
-            var intervalMs = startIntervalMs
-            while (true) {
-                val released = withTimeoutOrNull(intervalMs.toLong()) {
-                    waitForUpOrCancellation()
-                } != null
-                if (released) break
-                onRepeat()
-                intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
-            }
         }
     }
 }
