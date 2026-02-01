@@ -60,6 +60,7 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -604,19 +605,22 @@ private fun MoveButton(
 private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
     pointerInput(onRepeat) {
         // API差回避のため detectTapGestures + onPress を使う
-        detectTapGestures(
-            onPress = {
-                onRepeat()
-                val job = launch {
-                    delay(300)
-                    while (true) {
-                        onRepeat()
-                        delay(50)
+        coroutineScope {
+            val scope = this
+            detectTapGestures(
+                onPress = {
+                    onRepeat()
+                    val job = scope.launch {
+                        delay(300)
+                        while (true) {
+                            onRepeat()
+                            delay(50)
+                        }
                     }
+                    tryAwaitRelease()
+                    job.cancel()
                 }
-                tryAwaitRelease()
-                job.cancel()
-            }
-        )
+            )
+        }
     }
 }
