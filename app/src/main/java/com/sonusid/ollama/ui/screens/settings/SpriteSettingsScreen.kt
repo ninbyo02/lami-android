@@ -84,6 +84,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -4447,6 +4448,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             SpriteTab.ANIM -> animationTabContent()
 
                             SpriteTab.ADJUST -> {
+                                val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
                                 // delegated property のため smart cast 不可→ローカル束縛
                                 val bmp = imageBitmap
                                 val previewHeaderText = if (bmp != null) {
@@ -4474,6 +4476,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 ) {
                                     SpritePreviewBlock(
                                         imageBitmap = bmp,
+                                        backgroundColor = editorBackdropColor,
                                         modifier = Modifier
                                             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
@@ -5632,6 +5635,7 @@ private fun ReadyAnimationPreviewPane(
 @Composable
 private fun SpritePreviewBlock(
     imageBitmap: ImageBitmap?,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
@@ -5649,6 +5653,7 @@ private fun SpritePreviewBlock(
             1f,
             configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.toFloat()
         ).coerceAtLeast(0.7f)
+        val previewShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
@@ -5656,7 +5661,9 @@ private fun SpritePreviewBlock(
                 // [非dp] 縦横: プレビュー の aspectRatio(制約)に関係
                 .aspectRatio(aspectRatio)
                 // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-                .heightIn(min = minHeight),
+                .heightIn(min = minHeight)
+                .background(backgroundColor, previewShape)
+                .clip(previewShape),
             // [非dp] 縦: プレビュー の配置(配置)に関係
             contentAlignment = Alignment.TopCenter
         ) {
