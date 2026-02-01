@@ -9,6 +9,7 @@ object Routes {
     const val SETTINGS = "setting"
     const val ABOUT = "about"
     const val SPRITE_SETTINGS = "settings/sprite_settings"
+    const val SPRITE_EDITOR = "settings/sprite_editor"
 
     fun chat(chatId: Int): String = "$CHAT/$chatId"
 }
@@ -18,5 +19,9 @@ sealed interface SettingsRoute {
 
     data object SpriteSettings : SettingsRoute {
         override val route: String = Routes.SPRITE_SETTINGS
+    }
+
+    data object SpriteEditor : SettingsRoute {
+        override val route: String = Routes.SPRITE_EDITOR
     }
 }
