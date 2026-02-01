@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -128,6 +129,11 @@ private data class InsertionSettingsKey(
     val exclusive: Boolean,
     val intervalMs: Int,
     val patterns: List<InsertionPattern>,
+)
+
+private data class SyncDiagnostics(
+    val loopCount: Int,
+    val tickIndex: Long,
 )
 
 // 挿入判定は InsertionAnimationSettings に統一し、旧 insertions は無効化する。
@@ -488,6 +494,10 @@ fun LamiStatusSprite(
     var lastInsertionPatternIndex by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
     var lastInsertionResolvedIntervalMs by remember(resolvedStatus, insertionKey) { mutableStateOf<Int?>(null) }
     var lastInsertionFrames by remember(resolvedStatus, insertionKey) { mutableStateOf<List<Int>?>(null) }
+    val lastLoggedSyncLoopState = remember(syncEpochMs, resolvedStatus, insertionKey) {
+        mutableStateOf<Int?>(null)
+    }
+    var lastLoggedSyncAtMs by remember(syncEpochMs, resolvedStatus, insertionKey) { mutableStateOf(0L) }
     // Effect を再起動せずに最新設定を即時反映するため rememberUpdatedState を使う
     val insertionSettingsLatest by rememberUpdatedState(insertionSettings)
 
@@ -506,6 +516,72 @@ fun LamiStatusSprite(
                 syncTimeMs = frameTimeNs / 1_000_000L
             }
         }
+    }
+    val syncDiagnostics by remember {
+        derivedStateOf {
+            if (!useSyncMode || !animationsEnabled) {
+                SyncDiagnostics(loopCount = 0, tickIndex = 0L)
+            } else {
+                val baseFrames = animSpec.frames.ifEmpty { listOf(0) }
+                val baseIntervalMs = animSpec.frameDuration.minMs.coerceAtLeast(1L)
+                val loopDurationMs = baseIntervalMs * baseFrames.size
+                val elapsedMs = (syncTimeMs - syncEpochMs).coerceAtLeast(0L)
+                val loopCount = if (loopDurationMs > 0L) {
+                    (elapsedMs / loopDurationMs).toInt() + 1
+                } else {
+                    1
+                }
+                val loopElapsedMs = if (loopDurationMs > 0L) {
+                    (elapsedMs % loopDurationMs).toInt()
+                } else {
+                    0
+                }
+                val ticksPerFrame = if (baseIntervalMs > 0L) baseIntervalMs else 1L
+                val tickIndex = if (ticksPerFrame > 0L) {
+                    (loopElapsedMs / ticksPerFrame).coerceAtLeast(0)
+                } else {
+                    0
+                }
+                SyncDiagnostics(loopCount = loopCount, tickIndex = tickIndex)
+            }
+        }
+    }
+    LaunchedEffect(
+        useSyncMode,
+        animationsEnabled,
+        syncDiagnostics.loopCount,
+        syncDiagnostics.tickIndex,
+        resolvedStatus,
+        insertionKey,
+        lastInsertionPatternIndex,
+        lastInsertionFrames,
+        lastInsertionResolvedIntervalMs,
+        syncEpochMs,
+    ) {
+        if (!BuildConfig.DEBUG || !useSyncMode || !animationsEnabled) {
+            return@LaunchedEffect
+        }
+        val loopCount = syncDiagnostics.loopCount
+        val nowMs = SystemClock.uptimeMillis()
+        val lastLoggedLoop = lastLoggedSyncLoopState.value
+        val shouldLog = loopCount != lastLoggedLoop || nowMs - lastLoggedSyncAtMs >= 1_000L
+        if (!shouldLog) {
+            return@LaunchedEffect
+        }
+        Log.d(
+            "LamiSync",
+            "useSyncMode=$useSyncMode " +
+                "syncEpochMs=$syncEpochMs " +
+                "resolvedStatus=$resolvedStatus " +
+                "loopCount=$loopCount " +
+                "tickIndex=${syncDiagnostics.tickIndex} " +
+                "insertionKey=$insertionKey " +
+                "lastInsertionPatternIndex=$lastInsertionPatternIndex " +
+                "lastInsertionFrames=$lastInsertionFrames " +
+                "lastInsertionResolvedIntervalMs=$lastInsertionResolvedIntervalMs",
+        )
+        lastLoggedSyncLoopState.value = loopCount
+        lastLoggedSyncAtMs = nowMs
     }
 
     LaunchedEffect(resolvedStatus, perStateAnimJson, animSpec) {
