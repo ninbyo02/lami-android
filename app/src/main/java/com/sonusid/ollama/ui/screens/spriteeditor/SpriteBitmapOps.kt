@@ -7,6 +7,7 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 
+// 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
     return if (src.config == Bitmap.Config.ARGB_8888) {
         src.copy(Bitmap.Config.ARGB_8888, false)
@@ -15,6 +16,7 @@ fun ensureArgb8888(src: Bitmap): Bitmap {
     }
 }
 
+// 選択矩形を画像範囲内に正規化する（矩形の最小サイズを維持）
 fun rectNormalizeClamp(rect: RectPx, imageW: Int, imageH: Int): RectPx {
     val safeImageW = imageW.coerceAtLeast(1)
     val safeImageH = imageH.coerceAtLeast(1)
@@ -27,11 +29,13 @@ fun rectNormalizeClamp(rect: RectPx, imageW: Int, imageH: Int): RectPx {
     return RectPx.of(safeX, safeY, safeW, safeH)
 }
 
+// 指定矩形を切り出した新しいBitmapを返す（元のBitmapは変更しない）
 fun copyRect(src: Bitmap, rect: RectPx): Bitmap {
     val safeRect = rectNormalizeClamp(rect, src.width, src.height)
     return Bitmap.createBitmap(src, safeRect.x, safeRect.y, safeRect.w, safeRect.h)
 }
 
+// 指定矩形を透明でクリアした新しいBitmapを返す（元のBitmapは変更しない）
 fun clearTransparent(src: Bitmap, rect: RectPx): Bitmap {
     val safeRect = rectNormalizeClamp(rect, src.width, src.height)
     val output = src.copy(Bitmap.Config.ARGB_8888, true)
@@ -47,6 +51,7 @@ fun clearTransparent(src: Bitmap, rect: RectPx): Bitmap {
     return output
 }
 
+// 指定矩形を黒で塗りつぶした新しいBitmapを返す（元のBitmapは変更しない）
 fun fillBlack(src: Bitmap, rect: RectPx): Bitmap {
     val safeRect = rectNormalizeClamp(rect, src.width, src.height)
     val output = src.copy(Bitmap.Config.ARGB_8888, true)
@@ -62,6 +67,7 @@ fun fillBlack(src: Bitmap, rect: RectPx): Bitmap {
     return output
 }
 
+// クリップBitmapを貼り付けた新しいBitmapを返す（元のBitmapは変更しない）
 fun paste(src: Bitmap, clip: Bitmap, dstX: Int, dstY: Int): Bitmap {
     val output = src.copy(Bitmap.Config.ARGB_8888, true)
     var safeDstX = dstX

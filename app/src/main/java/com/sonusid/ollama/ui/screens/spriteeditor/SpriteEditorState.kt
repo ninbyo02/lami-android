@@ -3,8 +3,10 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import kotlin.jvm.ConsistentCopyVisibility
 import kotlin.math.min
 
+@ConsistentCopyVisibility
 data class RectPx private constructor(
     val x: Int,
     val y: Int,
