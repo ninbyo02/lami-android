@@ -288,6 +288,10 @@ private class DeterministicInsertionCache {
     var lastDecision: DeterministicInsertionDecision? = null
 }
 
+private const val DETERMINISTIC_GOLDEN_GAMMA: Long = 0x9E3779B97F4A7C15uL.toLong()
+private const val DETERMINISTIC_MIX1: Long = 0xBF58476D1CE4E5B9uL.toLong()
+private const val DETERMINISTIC_MIX2: Long = 0x94D049BB133111EBuL.toLong()
+
 private fun deterministicSeed(
     syncEpochMs: Long,
     status: LamiSpriteStatus,
@@ -296,7 +300,7 @@ private fun deterministicSeed(
     salt: Long,
 ): Long {
     val base = syncEpochMs xor (status.ordinal.toLong() shl 32) xor insertionKey.toLong()
-    val mixed = base + (loopCount.toLong() * 0x9E3779B97F4A7C15L) + salt
+    val mixed = base + (loopCount.toLong() * DETERMINISTIC_GOLDEN_GAMMA) + salt
     return mixed
 }
 
@@ -304,9 +308,9 @@ private fun deterministicNextInt(seed: Long, bound: Int): Int {
     if (bound <= 0) return 0
     var value = seed
     value = value xor (value ushr 30)
-    value *= 0xBF58476D1CE4E5B9L
+    value *= DETERMINISTIC_MIX1
     value = value xor (value ushr 27)
-    value *= 0x94D049BB133111EBL
+    value *= DETERMINISTIC_MIX2
     value = value xor (value ushr 31)
     val positive = value ushr 1
     return (positive % bound.toLong()).toInt()
@@ -567,7 +571,7 @@ fun LamiStatusSprite(
                         status = resolvedStatus,
                         loopCount = loop,
                         insertionKey = insertionKey,
-                        salt = 0x9E3779B97F4A7C15L,
+                        salt = DETERMINISTIC_GOLDEN_GAMMA,
                     )
                     val selection = selectWeightedInsertionPatternDeterministic(
                         patterns = settings.patterns,
