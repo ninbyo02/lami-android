@@ -4481,18 +4481,15 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             // [dp] 上: プレビュー の余白(余白)に関係
                                             .padding(top = 2.dp)
                                             // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
-                                            .aspectRatio(1f),
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(editorBackdropColor),
                                         contentAlignment = Alignment.TopCenter
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .matchParentSize()
-                                                .background(editorBackdropColor)
-                                        )
                                         SpritePreviewBlock(
                                             imageBitmap = bmp,
-                                            backgroundColor = null,
-                                            modifier = Modifier.fillMaxSize(),
+                                            backgroundColor = Color.Transparent,
+                                            modifier = Modifier.matchParentSize(),
                                             onContainerSizeChanged = { newContainerSize: IntSize ->
                                                 containerSize = newContainerSize
                                                 if (bmp != null && bmp.width != 0) {
