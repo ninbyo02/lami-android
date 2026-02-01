@@ -67,8 +67,6 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -735,15 +733,14 @@ private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
             } != null
             if (releasedEarly) return@awaitEachGesture
             var intervalMs = startIntervalMs
-            val job = launch {
-                while (isActive) {
-                    delay(intervalMs.toLong())
-                    onRepeat()
-                    intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
-                }
+            while (true) {
+                val released = withTimeoutOrNull(intervalMs.toLong()) {
+                    waitForUpOrCancellation()
+                } != null
+                if (released) break
+                onRepeat()
+                intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
             }
-            waitForUpOrCancellation()
-            job.cancel()
         }
     }
 }
