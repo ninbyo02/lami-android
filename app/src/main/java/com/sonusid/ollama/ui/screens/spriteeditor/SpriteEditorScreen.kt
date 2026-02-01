@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -57,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -325,10 +327,16 @@ fun SpriteEditorScreen(navController: NavController) {
                                 },
                                 label = { Text("W(px)") },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
-                                    .width(96.dp)
-                                    .heightIn(min = buttonMinHeight)
-                                    .testTag("spriteEditorWidthPx")
+                                    .width(72.dp)
+                                    .height(40.dp)
+                                    // Material3の最小高さ制約で40.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 40.dp)
+                                    .testTag("spriteEditorWidthPx"),
+                                // [dp] 内側余白: 高さ40dpに寄せるため最小限の padding
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                             )
                             OutlinedTextField(
                                 value = state?.heightInput.orEmpty(),
@@ -356,10 +364,16 @@ fun SpriteEditorScreen(navController: NavController) {
                                 },
                                 label = { Text("H(px)") },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier
-                                    .width(96.dp)
-                                    .heightIn(min = buttonMinHeight)
-                                    .testTag("spriteEditorHeightPx")
+                                    .width(72.dp)
+                                    .height(40.dp)
+                                    // Material3の最小高さ制約で40.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 40.dp)
+                                    .testTag("spriteEditorHeightPx"),
+                                // [dp] 内側余白: 高さ40dpに寄せるため最小限の padding
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                             )
                         }
                     }
@@ -707,10 +721,16 @@ private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
                 onPress = {
                     onRepeat()
                     val job = scope.launch {
-                        delay(300)
+                        delay(250)
+                        var intervalMs = 120L
                         while (isActive) {
                             onRepeat()
-                            delay(50)
+                            delay(intervalMs)
+                            intervalMs = when {
+                                intervalMs > 80L -> (intervalMs - 10L).coerceAtLeast(80L)
+                                intervalMs > 50L -> (intervalMs - 5L).coerceAtLeast(50L)
+                                else -> 50L
+                            }
                         }
                     }
                     try {
