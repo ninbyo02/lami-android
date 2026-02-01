@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,14 +44,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.pointer.awaitEachGesture
-import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.waitForUpOrCancellation
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -152,13 +153,13 @@ fun SpriteEditorScreen(navController: NavController) {
             TopAppBar(
                 title = { Text("Sprite Editor") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
                     }
-                }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -602,17 +603,20 @@ private fun MoveButton(
 
 private fun Modifier.repeatOnPress(onRepeat: () -> Unit): Modifier = composed {
     pointerInput(onRepeat) {
-        awaitEachGesture {
-            awaitFirstDown()
-            val job = launch {
-                delay(300)
-                while (true) {
-                    onRepeat()
-                    delay(50)
+        // API差回避のため detectTapGestures + onPress を使う
+        detectTapGestures(
+            onPress = {
+                onRepeat()
+                val job = launch {
+                    delay(300)
+                    while (true) {
+                        onRepeat()
+                        delay(50)
+                    }
                 }
+                tryAwaitRelease()
+                job.cancel()
             }
-            waitForUpOrCancellation()
-            job.cancel()
-        }
+        )
     }
 }
