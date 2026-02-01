@@ -5719,8 +5719,9 @@ private fun SpriteSettingsControls(
             .height(buttonHeight)
 
         val navigatorButtonColors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF6A00FF),
-            contentColor = Color.White
+            // ナビゲーションボタンはテーマ準拠で動的カラーに追従させる
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         )
         val defaultControlButtonColors = ButtonDefaults.filledTonalButtonColors()
         val cellModifier = Modifier
