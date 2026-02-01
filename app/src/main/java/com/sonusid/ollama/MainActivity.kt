@@ -37,6 +37,7 @@ import com.sonusid.ollama.ui.screens.settings.SettingsData
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
+import com.sonusid.ollama.ui.screens.spriteeditor.SpriteEditorScreen
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
@@ -96,7 +97,8 @@ class MainActivity : ComponentActivity() {
                     Routes.CHATS,
                     Routes.SETTINGS,
                     Routes.ABOUT,
-                    SettingsRoute.SpriteSettings.route
+                    SettingsRoute.SpriteSettings.route,
+                    SettingsRoute.SpriteEditor.route
                 )
                 initialRoute = restored?.takeIf { it in allowed } ?: Routes.CHATS
             }
@@ -137,6 +139,9 @@ class MainActivity : ComponentActivity() {
                                 }
                                 composable(SettingsRoute.SpriteSettings.route) {
                                     SpriteSettingsScreen(navController)
+                                }
+                                composable(SettingsRoute.SpriteEditor.route) {
+                                    SpriteEditorScreen(navController)
                                 }
                             }
                         }

@@ -308,6 +308,38 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 .clickable { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
+                        ListItem(
+                            headlineContent = {
+                                Text("Sprite Editor", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "スプライト画像の編集・書き出しを行います",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Filled.BugReport,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navgationController.navigate(SettingsRoute.SpriteEditor.route) }
+                                // [dp] 左右/上下: ListItem の余白(余白)に関係
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
 
                 }
