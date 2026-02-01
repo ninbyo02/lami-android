@@ -303,8 +303,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             OutlinedTextField(
                                 value = state?.widthInput.orEmpty(),
-                                onValueChange = { input ->
-                                    val sanitized = input.filter { it.isDigit() }
+                                onValueChange = { input: String ->
+                                    val sanitized = digitsOnly(input)
                                     updateState { current ->
                                         val updated = current.copy(widthInput = sanitized)
                                         val width = sanitized.toIntOrNull()
@@ -340,8 +340,8 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                             OutlinedTextField(
                                 value = state?.heightInput.orEmpty(),
-                                onValueChange = { input ->
-                                    val sanitized = input.filter { it.isDigit() }
+                                onValueChange = { input: String ->
+                                    val sanitized = digitsOnly(input)
                                     updateState { current ->
                                         val updated = current.copy(heightInput = sanitized)
                                         val height = sanitized.toIntOrNull()
@@ -675,6 +675,8 @@ fun SpriteEditorScreen(navController: NavController) {
         }
     }
 }
+
+private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit() }
 
 @Composable
 private fun MoveButton(
