@@ -696,16 +696,16 @@ private fun MoveButton(
     Box(
         modifier = modifier
             // [dp] 縦: 移動ボタンのタップ領域確保(最小48dp)に関係
-            .height(buttonMinHeight),
+            .height(buttonMinHeight)
+            .repeatOnPress(onMove),
         contentAlignment = Alignment.Center
     ) {
         Button(
-            onClick = onMove,
+            onClick = {},
             modifier = Modifier
                 // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
                 .height(buttonHeight)
                 .width(buttonWidth)
-                .repeatOnPress(onMove)
                 .testTag(testTag),
             contentPadding = padding,
             colors = ButtonDefaults.buttonColors(
