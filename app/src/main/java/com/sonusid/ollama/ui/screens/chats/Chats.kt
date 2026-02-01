@@ -34,6 +34,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val lamiStatusState = viewModel.lamiAnimationStatus.collectAsState()
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiState by viewModel.lamiState.collectAsState()
+    val animationEpochMs by viewModel.animationEpochMs.collectAsState()
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
@@ -53,7 +54,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     availableModels = availableModels,
                     onSelectModel = { viewModel.updateSelectedModel(it) },
                     onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false
+                    debugOverlayEnabled = false,
+                    syncEpochMs = animationEpochMs,
                 )
             },
             actions = {
@@ -108,6 +110,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         animationsEnabled = true,
                         replacementEnabled = true,
                         blinkEffectEnabled = true,
+                        syncEpochMs = animationEpochMs,
                     )
                     Spacer(Modifier.height(60.dp))
                     Text("Click on + to start a new chat")
@@ -178,6 +181,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                                 animationsEnabled = true,
                                 replacementEnabled = true,
                                 blinkEffectEnabled = true,
+                                syncEpochMs = animationEpochMs,
                             )
                             Spacer(Modifier.width(5.dp))
                             Text("Chat Title")
