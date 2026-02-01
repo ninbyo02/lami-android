@@ -3241,16 +3241,55 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "key=$animationKeyForState length=${perStateJsonString.length}"
                     )
                 }
-                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJsonString)
-                val trimmedAnimationKey = animationKeyForState.trim()
-                if (trimmedAnimationKey.isNotEmpty()) {
-                    settingsPreferences.saveSelectedKey(targetState, trimmedAnimationKey)
+                val perStateSaveResult = runCatching {
+                    settingsPreferences.saveSpriteAnimationJson(targetState, perStateJsonString)
                 }
                 if (BuildConfig.DEBUG) {
+                    perStateSaveResult.fold(
+                        onSuccess = {
+                            Log.d(
+                                "LamiSprite",
+                                "per-state saved: state=${targetState.name} key=$animationKeyForState " +
+                                    "size=${perStateJsonString.length}"
+                            )
+                        },
+                        onFailure = { error ->
+                            Log.d(
+                                "LamiSprite",
+                                "per-state save failed: state=${targetState.name} " +
+                                    "key=$animationKeyForState error=${error.message}"
+                            )
+                        }
+                    )
+                }
+                perStateSaveResult.getOrThrow()
+                val trimmedAnimationKey = animationKeyForState.trim()
+                if (trimmedAnimationKey.isNotEmpty()) {
+                    val selectedKeySaveResult = runCatching {
+                        settingsPreferences.saveSelectedKey(targetState, trimmedAnimationKey)
+                    }
+                    if (BuildConfig.DEBUG) {
+                        selectedKeySaveResult.fold(
+                            onSuccess = {
+                                Log.d(
+                                    "LamiSprite",
+                                    "per-key saved: state=${targetState.name} key=$trimmedAnimationKey"
+                                )
+                            },
+                            onFailure = { error ->
+                                Log.d(
+                                    "LamiSprite",
+                                    "per-key save failed: state=${targetState.name} " +
+                                        "key=$trimmedAnimationKey error=${error.message}"
+                                )
+                            }
+                        )
+                    }
+                    selectedKeySaveResult.getOrThrow()
+                } else if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
-                        "per-state saved: state=${targetState.name} key=$animationKeyForState " +
-                            "size=${perStateJson.toString().length}"
+                        "per-key save skipped: state=${targetState.name} key is blank"
                     )
                 }
             }.onSuccess {
