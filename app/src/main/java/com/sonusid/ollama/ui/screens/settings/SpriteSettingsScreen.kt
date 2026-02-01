@@ -4474,77 +4474,86 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     // [非dp] 横: プレビュー/ステータス の中央寄せ(配置)に関係
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    SpritePreviewBlock(
-                                        imageBitmap = bmp,
-                                        backgroundColor = editorBackdropColor,
+                                    Box(
                                         modifier = Modifier
                                             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
                                             // [dp] 上: プレビュー の余白(余白)に関係
                                             .padding(top = 2.dp)
-                                            // [非dp] 横: プレビュー の配置(配置)に関係
-                                            .align(Alignment.CenterHorizontally),
-                                        onContainerSizeChanged = { newContainerSize: IntSize ->
-                                            containerSize = newContainerSize
-                                            if (bmp != null && bmp.width != 0) {
-                                                displayScale = newContainerSize.width / bmp.width.toFloat()
-                                            }
-                                        },
-                                        overlayContent = {
-                                            if (bmp != null &&
-                                                selectedPosition != null &&
-                                                containerSize.width > 0 &&
-                                                containerSize.height > 0
-                                            ) {
-                                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                                    val scaleX = this.size.width / bmp.width
-                                                    val scaleY = this.size.height / bmp.height
-                                                    val scale = min(scaleX, scaleY)
-                                                    val destinationWidth = bmp.width * scale
-                                                    val destinationHeight = bmp.height * scale
-                                                    val offsetX = (this.size.width - destinationWidth) / 2f
-                                                    val offsetY = (this.size.height - destinationHeight) / 2f
-                                                    drawRect(
-                                                        color = Color.Red,
-                                                        topLeft = Offset(
-                                                            x = offsetX + selectedPosition.x * scale,
-                                                            y = offsetY + selectedPosition.y * scale
-                                                        ),
-                                                        size = Size(
-                                                            width = boxSizePx * scale,
-                                                            height = boxSizePx * scale
-                                                        ),
-                                                        style = Stroke(width = 2.dp.toPx())
-                                                    )
+                                            // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
+                                            .aspectRatio(1f),
+                                        contentAlignment = Alignment.TopCenter
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(editorBackdropColor)
+                                        )
+                                        SpritePreviewBlock(
+                                            imageBitmap = bmp,
+                                            backgroundColor = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            onContainerSizeChanged = { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
+                                                if (bmp != null && bmp.width != 0) {
+                                                    displayScale = newContainerSize.width / bmp.width.toFloat()
+                                                }
+                                            },
+                                            overlayContent = {
+                                                if (bmp != null &&
+                                                    selectedPosition != null &&
+                                                    containerSize.width > 0 &&
+                                                    containerSize.height > 0
+                                                ) {
+                                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                                        val scaleX = this.size.width / bmp.width
+                                                        val scaleY = this.size.height / bmp.height
+                                                        val scale = min(scaleX, scaleY)
+                                                        val destinationWidth = bmp.width * scale
+                                                        val destinationHeight = bmp.height * scale
+                                                        val offsetX = (this.size.width - destinationWidth) / 2f
+                                                        val offsetY = (this.size.height - destinationHeight) / 2f
+                                                        drawRect(
+                                                            color = Color.Red,
+                                                            topLeft = Offset(
+                                                                x = offsetX + selectedPosition.x * scale,
+                                                                y = offsetY + selectedPosition.y * scale
+                                                            ),
+                                                            size = Size(
+                                                                width = boxSizePx * scale,
+                                                                height = boxSizePx * scale
+                                                            ),
+                                                            style = Stroke(width = 2.dp.toPx())
+                                                        )
+                                                    }
                                                 }
                                             }
+                                        )
+                                        Column(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomStart)
+                                                // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
+                                                .fillMaxWidth()
+                                                // [dp] 左右: ステータス行 の余白(余白)に関係
+                                                .padding(horizontal = 12.dp)
+                                                // [dp] 上下: ステータス行 の余白(余白)に関係
+                                                .padding(vertical = 8.dp),
+                                            // [dp] 縦: ステータス行 の間隔(間隔)に関係
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Text(
+                                                text = statusLine1Text,
+                                                style = statusTextStyle,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = statusLine2Text,
+                                                style = statusTextStyle,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
                                         }
-                                    )
-                                    // [dp] 縦: プレビュー と ステータス の間隔(間隔)に関係
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    Column(
-                                        modifier = Modifier
-                                            // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
-                                            .fillMaxWidth()
-                                            // [dp] 左右: ステータス行 の余白(余白)に関係
-                                            .padding(horizontal = 12.dp)
-                                            // [dp] 上下: ステータス行 の余白(余白)に関係
-                                            .padding(vertical = 8.dp),
-                                        // [dp] 縦: ステータス行 の間隔(間隔)に関係
-                                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                                    ) {
-                                        Text(
-                                            text = statusLine1Text,
-                                            style = statusTextStyle,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = statusLine2Text,
-                                            style = statusTextStyle,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
                                     }
                                 }
                             }
