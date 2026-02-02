@@ -90,7 +90,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
-    var loadedUri by remember { mutableStateOf<Uri?>(null) }
+    var editUri by remember { mutableStateOf<Uri?>(null) }
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
@@ -99,20 +99,27 @@ fun SpriteEditorScreen(navController: NavController) {
             BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
         }
         if (bitmap == null) {
+            snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar("スプライト画像の読み込みに失敗しました")
         } else {
             editorState = createInitialEditorState(bitmap)
-            loadedUri = null
+            editUri = null
         }
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            runCatching {
+            val persistResult = runCatching {
                 context.contentResolver.takePersistableUriPermission(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            if (persistResult.isFailure) {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    "権限の永続化に失敗しました(必要なら再選択してください)"
                 )
             }
             val bitmap = withContext(Dispatchers.IO) {
@@ -122,6 +129,7 @@ fun SpriteEditorScreen(navController: NavController) {
             }
             val current = editorState
             if (bitmap == null || current == null) {
+                snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar("PNGの読み込みに失敗しました")
                 return@launch
             }
@@ -137,9 +145,21 @@ fun SpriteEditorScreen(navController: NavController) {
                 savedSnapshot = null,
                 initialBitmap = safeBitmap,
             )
-            loadedUri = uri
+            editUri = uri
+            snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar("PNGを読み込みました")
         }
+    }
+
+    suspend fun showSnackbarMessage(
+        message: String,
+        duration: SnackbarDuration = SnackbarDuration.Short,
+    ) {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(
+            message = message,
+            duration = duration,
+        )
     }
 
     suspend fun writeBitmapToUri(targetUri: Uri, bitmap: Bitmap): Boolean {
@@ -150,6 +170,19 @@ fun SpriteEditorScreen(navController: NavController) {
         }
     }
 
+    suspend fun saveToEditUri(state: SpriteEditorState, targetUri: Uri): Boolean {
+        val success = writeBitmapToUri(targetUri, state.bitmap)
+        if (!success) {
+            return false
+        }
+        val snapshot = state.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        editorState = state.copy(
+            savedSnapshot = snapshot,
+            initialBitmap = snapshot,
+        )
+        return true
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("image/png")
     ) { uri ->
@@ -157,14 +190,14 @@ fun SpriteEditorScreen(navController: NavController) {
         scope.launch {
             val bitmap = editorState?.bitmap
             if (bitmap == null) {
-                snackbarHostState.showSnackbar("書き出す画像がありません")
+                showSnackbarMessage("書き出す画像がありません")
                 return@launch
             }
             val success = writeBitmapToUri(uri, bitmap)
             if (success) {
-                snackbarHostState.showSnackbar("PNGを書き出しました")
+                showSnackbarMessage("PNGを書き出しました")
             } else {
-                snackbarHostState.showSnackbar("PNG書き出しに失敗しました")
+                showSnackbarMessage("PNG書き出しに失敗しました")
             }
         }
     }
@@ -232,15 +265,12 @@ fun SpriteEditorScreen(navController: NavController) {
                         .fillMaxWidth()
                 ) {
                     val isNarrow = maxWidth < 420.dp
-                    val buttonHeight = 30.dp
+                    val buttonHeight = 32.dp
                     val buttonMinHeight = 48.dp
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
-                    val moveButtonMinHeight = 48.dp
-                    // [dp] 左右: 移動ボタン内側の余白(余白)に関係
-                    val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     val pillShape = RoundedCornerShape(999.dp)
-                    var moveMode by remember { mutableStateOf(MoveMode.Px) }
+                    var moveMode by remember { mutableStateOf(MoveMode.Box) }
                     var widthText by remember(state?.widthInput) {
                         mutableStateOf(state?.widthInput.orEmpty())
                     }
@@ -401,7 +431,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(vertical = 4.dp)
                                 .testTag("spriteEditorStatus"),
                             // [dp] 縦: ステータス の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             val statusLine1 = if (state == null) {
                                 "画像読み込み中"
@@ -450,7 +480,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             // [dp] 横: 操作エリアの間隔(間隔)に関係
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             // [dp] 縦: 操作エリアの間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             item {
                                 OperationCell(minHeight = buttonMinHeight) {
@@ -460,8 +490,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onTap = { moveSelectionByMode(-1, 0) },
                                         onRepeat = { step -> moveSelectionByMode(-1, 0, step) },
                                         buttonHeight = buttonHeight,
-                                        buttonMinHeight = moveButtonMinHeight,
-                                        padding = moveButtonPadding,
+                                        buttonMinHeight = buttonMinHeight,
+                                        padding = buttonPadding,
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = pillShape,
                                     )
@@ -475,8 +505,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onTap = { moveSelectionByMode(1, 0) },
                                         onRepeat = { step -> moveSelectionByMode(1, 0, step) },
                                         buttonHeight = buttonHeight,
-                                        buttonMinHeight = moveButtonMinHeight,
-                                        padding = moveButtonPadding,
+                                        buttonMinHeight = buttonMinHeight,
+                                        padding = buttonPadding,
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = pillShape,
                                     )
@@ -489,7 +519,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onClick = { moveMode = MoveMode.Px },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight),
                                         contentPadding = buttonPadding,
@@ -519,7 +549,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onClick = { moveMode = MoveMode.Box },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight),
                                         contentPadding = buttonPadding,
@@ -550,8 +580,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onTap = { moveSelectionByMode(0, 1) },
                                         onRepeat = { step -> moveSelectionByMode(0, 1, step) },
                                         buttonHeight = buttonHeight,
-                                        buttonMinHeight = moveButtonMinHeight,
-                                        padding = moveButtonPadding,
+                                        buttonMinHeight = buttonMinHeight,
+                                        padding = buttonPadding,
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = pillShape,
                                     )
@@ -565,8 +595,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onTap = { moveSelectionByMode(0, -1) },
                                         onRepeat = { step -> moveSelectionByMode(0, -1, step) },
                                         buttonHeight = buttonHeight,
-                                        buttonMinHeight = moveButtonMinHeight,
-                                        padding = moveButtonPadding,
+                                        buttonMinHeight = buttonMinHeight,
+                                        padding = buttonPadding,
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = pillShape,
                                     )
@@ -578,42 +608,24 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onClick = {
                                             scope.launch {
                                                 val current = editorState ?: return@launch
-                                                val targetUri = loadedUri
+                                                val targetUri = editUri
                                                 if (targetUri == null) {
-                                                    snackbarHostState.showSnackbar(
-                                                        message = "保存先がありません",
-                                                        duration = SnackbarDuration.Short
+                                                    showSnackbarMessage(
+                                                        "保存先がありません。Import後にSaveするか、Exportを使ってください"
                                                     )
                                                     return@launch
                                                 }
-                                                val result = runCatching {
-                                                    val success = writeBitmapToUri(targetUri, current.bitmap)
-                                                    if (!success) {
-                                                        return@runCatching false
-                                                    }
-                                                    val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
-                                                    editorState = current.copy(
-                                                        savedSnapshot = snapshot,
-                                                        initialBitmap = snapshot,
-                                                    )
-                                                    true
-                                                }
+                                                val result = runCatching { saveToEditUri(current, targetUri) }
                                                 if (result.getOrDefault(false)) {
-                                                    snackbarHostState.showSnackbar(
-                                                        message = "保存しました",
-                                                        duration = SnackbarDuration.Short
-                                                    )
+                                                    showSnackbarMessage("保存しました")
                                                 } else {
-                                                    snackbarHostState.showSnackbar(
-                                                        message = "保存に失敗しました",
-                                                        duration = SnackbarDuration.Short
-                                                    )
+                                                    showSnackbarMessage("保存に失敗しました")
                                                 }
                                             }
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorSave"),
@@ -648,7 +660,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorReset"),
@@ -670,7 +682,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorCopy"),
@@ -698,7 +710,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorPaste"),
@@ -723,7 +735,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorUndo"),
@@ -748,7 +760,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorRedo"),
@@ -771,7 +783,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorDelete"),
@@ -794,7 +806,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorFillBlack"),
@@ -811,7 +823,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onClick = { importLauncher.launch(arrayOf("image/png")) },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorImport"),
@@ -828,7 +840,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         onClick = { exportLauncher.launch("sprite.png") },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorExport"),
@@ -845,7 +857,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             // [dp] 縦: 画面縦積み時の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             previewContent()
                             Row(
@@ -866,7 +878,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             Column(
                                 modifier = Modifier.weight(1f),
                                 // [dp] 縦: 右カラムの間隔(間隔)に関係
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
                                 previewContent()
                                 Row(
