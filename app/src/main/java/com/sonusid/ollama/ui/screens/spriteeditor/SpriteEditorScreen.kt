@@ -2,6 +2,8 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +42,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -86,6 +90,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
+    var loadedUri by remember { mutableStateOf<Uri?>(null) }
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
@@ -97,12 +102,19 @@ fun SpriteEditorScreen(navController: NavController) {
             snackbarHostState.showSnackbar("スプライト画像の読み込みに失敗しました")
         } else {
             editorState = createInitialEditorState(bitmap)
+            loadedUri = null
         }
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
             val bitmap = withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     BitmapFactory.decodeStream(input)
@@ -123,8 +135,18 @@ fun SpriteEditorScreen(navController: NavController) {
                 widthInput = nextSelection.w.toString(),
                 heightInput = nextSelection.h.toString(),
                 savedSnapshot = null,
+                initialBitmap = safeBitmap,
             )
+            loadedUri = uri
             snackbarHostState.showSnackbar("PNGを読み込みました")
+        }
+    }
+
+    suspend fun writeBitmapToUri(targetUri: Uri, bitmap: Bitmap): Boolean {
+        return withContext(Dispatchers.IO) {
+            context.contentResolver.openOutputStream(targetUri)?.use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            } ?: false
         }
     }
 
@@ -138,11 +160,7 @@ fun SpriteEditorScreen(navController: NavController) {
                 snackbarHostState.showSnackbar("書き出す画像がありません")
                 return@launch
             }
-            val success = withContext(Dispatchers.IO) {
-                context.contentResolver.openOutputStream(uri)?.use { output ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-                } ?: false
-            }
+            val success = writeBitmapToUri(uri, bitmap)
             if (success) {
                 snackbarHostState.showSnackbar("PNGを書き出しました")
             } else {
@@ -179,7 +197,19 @@ fun SpriteEditorScreen(navController: NavController) {
                     }
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        // 上: ステータスバー回避のため最小限の top padding
+                        .statusBarsPadding()
+                )
+            }
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -420,7 +450,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             // [dp] 横: 操作エリアの間隔(間隔)に関係
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             // [dp] 縦: 操作エリアの間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(1.dp)
                         ) {
                             item {
                                 OperationCell(minHeight = buttonMinHeight) {
@@ -547,17 +577,37 @@ fun SpriteEditorScreen(navController: NavController) {
                                     Button(
                                         onClick = {
                                             scope.launch {
-                                                val result = runCatching {
-                                                    val current = editorState ?: error("state is null")
-                                                    val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
-                                                    editorState = current.withSavedSnapshot(snapshot)
+                                                val current = editorState ?: return@launch
+                                                val targetUri = loadedUri
+                                                if (targetUri == null) {
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "保存先がありません",
+                                                        duration = SnackbarDuration.Short
+                                                    )
+                                                    return@launch
                                                 }
-                                                if (result.isSuccess) {
-                                                    snackbarHostState.showSnackbar("保存しました")
+                                                val result = runCatching {
+                                                    val success = writeBitmapToUri(targetUri, current.bitmap)
+                                                    if (!success) {
+                                                        return@runCatching false
+                                                    }
+                                                    val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                                                    editorState = current.copy(
+                                                        savedSnapshot = snapshot,
+                                                        initialBitmap = snapshot,
+                                                    )
+                                                    true
+                                                }
+                                                if (result.getOrDefault(false)) {
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "保存しました",
+                                                        duration = SnackbarDuration.Short
+                                                    )
                                                 } else {
-                                                    val detail = result.exceptionOrNull()?.message?.take(40)
-                                                    val suffix = if (detail.isNullOrBlank()) "" else "(${detail})"
-                                                    snackbarHostState.showSnackbar("保存に失敗しました$suffix")
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "保存に失敗しました",
+                                                        duration = SnackbarDuration.Short
+                                                    )
                                                 }
                                             }
                                         },
