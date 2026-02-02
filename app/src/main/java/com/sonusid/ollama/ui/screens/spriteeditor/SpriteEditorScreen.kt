@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -404,81 +406,16 @@ fun SpriteEditorScreen(navController: NavController) {
                         val step = repeatStepPx ?: 4
                         moveSelection(dxSign * step, dySign * step)
                     }
-                    val moveGridContent: @Composable (Modifier) -> Unit = { modifier ->
-                        Column(
-                            modifier = modifier,
-                            // [dp] 縦: 移動ボタン の間隔(間隔)に関係
+                    val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
+                        LazyVerticalGrid(
+                            modifier = modifier.testTag("spriteEditorControls"),
+                            columns = GridCells.Fixed(4),
+                            // [dp] 横: 操作エリアの間隔(間隔)に関係
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            // [dp] 縦: 操作エリアの間隔(間隔)に関係
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                // [dp] 縦: Move Mode の間隔(間隔)に関係
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Text(
-                                    text = "Move Mode",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    // [dp] 横: Move Mode の間隔(間隔)に関係
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    val isPx = moveMode == MoveMode.Px
-                                    Button(
-                                        onClick = { moveMode = MoveMode.Px },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                            .height(buttonHeight)
-                                            .heightIn(min = buttonMinHeight),
-                                        contentPadding = buttonPadding,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isPx) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.surface
-                                            },
-                                            contentColor = if (isPx) {
-                                                MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface
-                                            }
-                                        ),
-                                        border = if (isPx) null else ButtonDefaults.outlinedButtonBorder
-                                    ) {
-                                        Text("PX")
-                                    }
-                                    val isBox = moveMode == MoveMode.Box
-                                    Button(
-                                        onClick = { moveMode = MoveMode.Box },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                            .height(buttonHeight)
-                                            .heightIn(min = buttonMinHeight),
-                                        contentPadding = buttonPadding,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isBox) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.surface
-                                            },
-                                            contentColor = if (isBox) {
-                                                MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface
-                                            }
-                                        ),
-                                        border = if (isBox) null else ButtonDefaults.outlinedButtonBorder
-                                    ) {
-                                        Text("BOX")
-                                    }
-                                }
-                            }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
+                            item {
                                 MoveButton(
                                     label = "←",
                                     testTag = "spriteEditorMoveLeft",
@@ -487,8 +424,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
-                                    padding = moveButtonPadding
+                                    padding = moveButtonPadding,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
+                            }
+                            item {
                                 MoveButton(
                                     label = "→",
                                     testTag = "spriteEditorMoveRight",
@@ -497,12 +437,65 @@ fun SpriteEditorScreen(navController: NavController) {
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
-                                    padding = moveButtonPadding
+                                    padding = moveButtonPadding,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
+                            item {
+                                val isPx = moveMode == MoveMode.Px
+                                Button(
+                                    onClick = { moveMode = MoveMode.Px },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight),
+                                    contentPadding = buttonPadding,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isPx) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        },
+                                        contentColor = if (isPx) {
+                                            MaterialTheme.colorScheme.onPrimary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    ),
+                                    border = if (isPx) null else ButtonDefaults.outlinedButtonBorder
+                                ) {
+                                    Text("PX")
+                                }
+                            }
+                            item {
+                                val isBox = moveMode == MoveMode.Box
+                                Button(
+                                    onClick = { moveMode = MoveMode.Box },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight),
+                                    contentPadding = buttonPadding,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isBox) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        },
+                                        contentColor = if (isBox) {
+                                            MaterialTheme.colorScheme.onPrimary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    ),
+                                    border = if (isBox) null else ButtonDefaults.outlinedButtonBorder
+                                ) {
+                                    Text("BOX")
+                                }
+                            }
+                            item {
                                 MoveButton(
                                     label = "↓",
                                     testTag = "spriteEditorMoveDown",
@@ -511,8 +504,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
-                                    padding = moveButtonPadding
+                                    padding = moveButtonPadding,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
+                            }
+                            item {
                                 MoveButton(
                                     label = "↑",
                                     testTag = "spriteEditorMoveUp",
@@ -521,123 +517,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
-                                    padding = moveButtonPadding
+                                    padding = moveButtonPadding,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
-                        }
-                    }
-                    val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
-                        Column(
-                            modifier = modifier
-                                .testTag("spriteEditorControls"),
-                            // [dp] 縦: 操作エリア の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        updateState { current ->
-                                            val clip = copyRect(current.bitmap, current.selection)
-                                            current.withClipboard(clip)
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                        .height(buttonHeight)
-                                        .heightIn(min = buttonMinHeight)
-                                        .testTag("spriteEditorCopy"),
-                                    contentPadding = buttonPadding
-                                ) {
-                                    Text("Copy")
-                                }
-                                Button(
-                                    onClick = {
-                                        updateState { current ->
-                                            val clip = copyRect(current.bitmap, current.selection)
-                                            val cleared = clearTransparent(current.bitmap, current.selection)
-                                            current.withClipboard(clip).withBitmap(cleared)
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                        .height(buttonHeight)
-                                        .heightIn(min = buttonMinHeight)
-                                        .testTag("spriteEditorCut"),
-                                    contentPadding = buttonPadding
-                                ) {
-                                    Text("Cut")
-                                }
-                                Button(
-                                    onClick = {
-                                        updateState { current ->
-                                            val clip = current.clipboard
-                                            if (clip == null) {
-                                                current
-                                            } else {
-                                                val pasted = paste(current.bitmap, clip, current.selection.x, current.selection.y)
-                                                current.withBitmap(pasted)
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                        .height(buttonHeight)
-                                        .heightIn(min = buttonMinHeight)
-                                        .testTag("spriteEditorPaste"),
-                                    contentPadding = buttonPadding
-                                ) {
-                                    Text("Paste")
-                                }
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        updateState { current ->
-                                            val cleared = clearTransparent(current.bitmap, current.selection)
-                                            current.withBitmap(cleared)
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                        .height(buttonHeight)
-                                        .heightIn(min = buttonMinHeight)
-                                        .testTag("spriteEditorDelete"),
-                                    contentPadding = buttonPadding
-                                ) {
-                                    Text("Delete")
-                                }
-                                Button(
-                                    onClick = {
-                                        updateState { current ->
-                                            val filled = fillBlack(current.bitmap, current.selection)
-                                            current.withBitmap(filled)
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
-                                        .height(buttonHeight)
-                                        .heightIn(min = buttonMinHeight)
-                                        .testTag("spriteEditorFillBlack"),
-                                    contentPadding = buttonPadding
-                                ) {
-                                    Text("Fill Black")
-                                }
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
+                            item {
                                 Button(
                                     onClick = {
                                         updateState { current ->
@@ -646,7 +530,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         }
                                     },
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .fillMaxWidth()
                                         // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
                                         .height(buttonHeight)
                                         .heightIn(min = buttonMinHeight)
@@ -655,6 +539,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 ) {
                                     Text("Save")
                                 }
+                            }
+                            item {
                                 Button(
                                     onClick = {
                                         updateState { current ->
@@ -675,7 +561,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         }
                                     },
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .fillMaxWidth()
                                         // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
                                         .height(buttonHeight)
                                         .heightIn(min = buttonMinHeight)
@@ -685,14 +571,128 @@ fun SpriteEditorScreen(navController: NavController) {
                                     Text("Reset")
                                 }
                             }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
+                            item {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val clip = copyRect(current.bitmap, current.selection)
+                                            current.withClipboard(clip)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorCopy"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Copy")
+                                }
+                            }
+                            item {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val clip = current.clipboard
+                                            if (clip == null) {
+                                                current
+                                            } else {
+                                                val pasted = paste(current.bitmap, clip, current.selection.x, current.selection.y)
+                                                current.withBitmap(pasted)
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorPaste"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Paste")
+                                }
+                            }
+                            item {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("未実装です")
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorUndo"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Undo")
+                                }
+                            }
+                            item {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("未実装です")
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorRedo"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Redo")
+                                }
+                            }
+                            item {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val cleared = clearTransparent(current.bitmap, current.selection)
+                                            current.withBitmap(cleared)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorDelete"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Delete")
+                                }
+                            }
+                            item {
+                                Button(
+                                    onClick = {
+                                        updateState { current ->
+                                            val filled = fillBlack(current.bitmap, current.selection)
+                                            current.withBitmap(filled)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag("spriteEditorFillBlack"),
+                                    contentPadding = buttonPadding
+                                ) {
+                                    Text("Fill Black")
+                                }
+                            }
+                            item {
                                 Button(
                                     onClick = { importLauncher.launch(arrayOf("image/png")) },
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .fillMaxWidth()
                                         // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
                                         .height(buttonHeight)
                                         .heightIn(min = buttonMinHeight)
@@ -701,10 +701,12 @@ fun SpriteEditorScreen(navController: NavController) {
                                 ) {
                                     Text("Import")
                                 }
+                            }
+                            item {
                                 Button(
                                     onClick = { exportLauncher.launch("sprite.png") },
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .fillMaxWidth()
                                         // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
                                         .height(buttonHeight)
                                         .heightIn(min = buttonMinHeight)
@@ -731,7 +733,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 statusContent(Modifier.weight(1f))
                                 inputContent(Modifier)
                             }
-                            moveGridContent(Modifier.fillMaxWidth())
                             controlsContent(Modifier.fillMaxWidth())
                         }
                     } else {
@@ -739,14 +740,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .widthIn(min = 160.dp, max = 200.dp),
-                                // [dp] 縦: 矢印ボタン列の間隔(間隔)に関係
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                moveGridContent(Modifier.fillMaxWidth())
-                            }
                             Column(
                                 modifier = Modifier.weight(1f),
                                 // [dp] 縦: 右カラムの間隔(間隔)に関係
