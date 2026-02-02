@@ -38,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -197,10 +198,11 @@ fun SpriteEditorScreen(navController: NavController) {
                     val buttonMinHeight = 48.dp
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
-                    val moveButtonWidth = 38.dp
+                    val moveButtonWidth = 76.dp
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
                     val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    var moveMode by remember { mutableStateOf(MoveMode.Px) }
                     var widthText by remember(state?.widthInput) {
                         mutableStateOf(state?.widthInput.orEmpty())
                     }
@@ -387,20 +389,101 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                         }
                     }
+                    fun moveSelectionByMode(dxSign: Int, dySign: Int, repeatStepPx: Int? = null) {
+                        val currentMode = moveMode
+                        if (currentMode == MoveMode.Box) {
+                            val current = editorState ?: return
+                            val step = if (dxSign != 0) {
+                                current.selection.w.coerceAtLeast(1)
+                            } else {
+                                current.selection.h.coerceAtLeast(1)
+                            }
+                            moveSelection(dxSign * step, dySign * step)
+                            return
+                        }
+                        val step = repeatStepPx ?: 4
+                        moveSelection(dxSign * step, dySign * step)
+                    }
                     val moveGridContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier,
                             // [dp] 縦: 移動ボタン の間隔(間隔)に関係
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                // [dp] 縦: Move Mode の間隔(間隔)に関係
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    text = "Move Mode",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    // [dp] 横: Move Mode の間隔(間隔)に関係
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    val isPx = moveMode == MoveMode.Px
+                                    Button(
+                                        onClick = { moveMode = MoveMode.Px },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            .height(buttonHeight)
+                                            .heightIn(min = buttonMinHeight),
+                                        contentPadding = buttonPadding,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isPx) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            },
+                                            contentColor = if (isPx) {
+                                                MaterialTheme.colorScheme.onPrimary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            }
+                                        ),
+                                        border = if (isPx) null else ButtonDefaults.outlinedButtonBorder
+                                    ) {
+                                        Text("PX")
+                                    }
+                                    val isBox = moveMode == MoveMode.Box
+                                    Button(
+                                        onClick = { moveMode = MoveMode.Box },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            // [dp] 縦: 見た目30dpを維持しつつタップ領域を確保
+                                            .height(buttonHeight)
+                                            .heightIn(min = buttonMinHeight),
+                                        contentPadding = buttonPadding,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isBox) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.surface
+                                            },
+                                            contentColor = if (isBox) {
+                                                MaterialTheme.colorScheme.onPrimary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            }
+                                        ),
+                                        border = if (isBox) null else ButtonDefaults.outlinedButtonBorder
+                                    ) {
+                                        Text("BOX")
+                                    }
+                                }
+                            }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 MoveButton(
                                     label = "←",
                                     testTag = "spriteEditorMoveLeft",
-                                    onTap = { moveSelection(-1, 0) },
-                                    onRepeat = { step -> moveSelection(-step, 0) },
+                                    onTap = { moveSelectionByMode(-1, 0) },
+                                    onRepeat = { step -> moveSelectionByMode(-1, 0, step) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -409,8 +492,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "→",
                                     testTag = "spriteEditorMoveRight",
-                                    onTap = { moveSelection(1, 0) },
-                                    onRepeat = { step -> moveSelection(step, 0) },
+                                    onTap = { moveSelectionByMode(1, 0) },
+                                    onRepeat = { step -> moveSelectionByMode(1, 0, step) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -423,8 +506,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "↓",
                                     testTag = "spriteEditorMoveDown",
-                                    onTap = { moveSelection(0, 1) },
-                                    onRepeat = { step -> moveSelection(0, step) },
+                                    onTap = { moveSelectionByMode(0, 1) },
+                                    onRepeat = { step -> moveSelectionByMode(0, 1, step) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -433,8 +516,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 MoveButton(
                                     label = "↑",
                                     testTag = "spriteEditorMoveUp",
-                                    onTap = { moveSelection(0, -1) },
-                                    onRepeat = { step -> moveSelection(0, -step) },
+                                    onTap = { moveSelectionByMode(0, -1) },
+                                    onRepeat = { step -> moveSelectionByMode(0, -1, step) },
                                     buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
@@ -658,7 +741,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             Column(
                                 modifier = Modifier
-                                    .widthIn(min = 96.dp, max = 140.dp),
+                                    .widthIn(min = 160.dp, max = 200.dp),
                                 // [dp] 縦: 矢印ボタン列の間隔(間隔)に関係
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
@@ -710,8 +793,7 @@ private fun MoveButton(
             .height(buttonMinHeight),
         contentAlignment = Alignment.Center
     ) {
-        Button(
-            onClick = {},
+        Surface(
             modifier = Modifier
                 // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
                 .height(buttonHeight)
@@ -752,13 +834,24 @@ private fun MoveButton(
                         }
                     }
                 },
-            contentPadding = padding,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = MaterialTheme.shapes.small
         ) {
-            Text(label)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // [dp] 上下左右: 移動ボタン内側の余白(余白)に関係
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(label)
+            }
         }
     }
+}
+
+private enum class MoveMode {
+    Px,
+    Box,
 }
