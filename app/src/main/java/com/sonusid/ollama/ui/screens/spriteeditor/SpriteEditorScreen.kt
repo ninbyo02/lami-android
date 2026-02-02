@@ -200,7 +200,6 @@ fun SpriteEditorScreen(navController: NavController) {
                     val buttonMinHeight = 48.dp
                     // [dp] 左右: ボタン内側の余白(余白)に関係
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
-                    val moveButtonWidth = 76.dp
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
                     val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
@@ -407,13 +406,14 @@ fun SpriteEditorScreen(navController: NavController) {
                         moveSelection(dxSign * step, dySign * step)
                     }
                     val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
+                        // 操作ボタン領域: 4x4グリッドで均等配置
                         LazyVerticalGrid(
                             modifier = modifier.testTag("spriteEditorControls"),
                             columns = GridCells.Fixed(4),
                             // [dp] 横: 操作エリアの間隔(間隔)に関係
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             // [dp] 縦: 操作エリアの間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             item {
                                 MoveButton(
@@ -421,7 +421,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     testTag = "spriteEditorMoveLeft",
                                     onTap = { moveSelectionByMode(-1, 0) },
                                     onRepeat = { step -> moveSelectionByMode(-1, 0, step) },
-                                    buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding,
@@ -434,7 +433,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     testTag = "spriteEditorMoveRight",
                                     onTap = { moveSelectionByMode(1, 0) },
                                     onRepeat = { step -> moveSelectionByMode(1, 0, step) },
-                                    buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding,
@@ -501,7 +499,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     testTag = "spriteEditorMoveDown",
                                     onTap = { moveSelectionByMode(0, 1) },
                                     onRepeat = { step -> moveSelectionByMode(0, 1, step) },
-                                    buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding,
@@ -514,7 +511,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     testTag = "spriteEditorMoveUp",
                                     onTap = { moveSelectionByMode(0, -1) },
                                     onRepeat = { step -> moveSelectionByMode(0, -1, step) },
-                                    buttonWidth = moveButtonWidth,
                                     buttonHeight = buttonHeight,
                                     buttonMinHeight = moveButtonMinHeight,
                                     padding = moveButtonPadding,
@@ -774,7 +770,6 @@ private fun MoveButton(
     testTag: String,
     onTap: () -> Unit,
     onRepeat: (stepPx: Int) -> Unit,
-    buttonWidth: androidx.compose.ui.unit.Dp,
     buttonHeight: androidx.compose.ui.unit.Dp,
     buttonMinHeight: androidx.compose.ui.unit.Dp,
     padding: PaddingValues,
@@ -790,7 +785,7 @@ private fun MoveButton(
             modifier = Modifier
                 // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
                 .height(buttonHeight)
-                .width(buttonWidth)
+                .fillMaxWidth()
                 .testTag(testTag)
                 // 簡易確認: 枠が震えない/長押し停止が即/単押し1回/8px↔4px切替
                 .pointerInput(Unit) {
@@ -829,7 +824,7 @@ private fun MoveButton(
                 },
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = RoundedCornerShape(999.dp)
+            shape = MaterialTheme.shapes.small
         ) {
             Box(
                 modifier = Modifier
