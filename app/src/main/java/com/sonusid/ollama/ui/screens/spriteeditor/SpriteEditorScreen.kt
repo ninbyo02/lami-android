@@ -411,9 +411,9 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = modifier.testTag("spriteEditorControls"),
                             columns = GridCells.Fixed(4),
                             // [dp] 横: 操作エリアの間隔(間隔)に関係
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                             // [dp] 縦: 操作エリアの間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             item {
                                 MoveButton(
@@ -829,7 +829,7 @@ private fun MoveButton(
                 },
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = MaterialTheme.shapes.small
+            shape = RoundedCornerShape(999.dp)
         ) {
             Box(
                 modifier = Modifier
