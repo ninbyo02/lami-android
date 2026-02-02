@@ -209,6 +209,7 @@ fun SpriteEditorScreen(navController: NavController) {
                     val moveButtonMinHeight = 48.dp
                     // [dp] 左右: 移動ボタン内側の余白(余白)に関係
                     val moveButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    val pillShape = RoundedCornerShape(999.dp)
                     var moveMode by remember { mutableStateOf(MoveMode.Px) }
                     var widthText by remember(state?.widthInput) {
                         mutableStateOf(state?.widthInput.orEmpty())
@@ -419,7 +420,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             // [dp] 横: 操作エリアの間隔(間隔)に関係
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             // [dp] 縦: 操作エリアの間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             item {
                                 OperationCell(minHeight = buttonMinHeight) {
@@ -431,7 +432,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         buttonHeight = buttonHeight,
                                         buttonMinHeight = moveButtonMinHeight,
                                         padding = moveButtonPadding,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = pillShape,
                                     )
                                 }
                             }
@@ -445,7 +447,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         buttonHeight = buttonHeight,
                                         buttonMinHeight = moveButtonMinHeight,
                                         padding = moveButtonPadding,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = pillShape,
                                     )
                                 }
                             }
@@ -460,6 +463,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight),
                                         contentPadding = buttonPadding,
+                                        shape = pillShape,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (isPx) {
                                                 MaterialTheme.colorScheme.primary
@@ -489,6 +493,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight),
                                         contentPadding = buttonPadding,
+                                        shape = pillShape,
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (isBox) {
                                                 MaterialTheme.colorScheme.primary
@@ -517,7 +522,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         buttonHeight = buttonHeight,
                                         buttonMinHeight = moveButtonMinHeight,
                                         padding = moveButtonPadding,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = pillShape,
                                     )
                                 }
                             }
@@ -531,7 +537,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         buttonHeight = buttonHeight,
                                         buttonMinHeight = moveButtonMinHeight,
                                         padding = moveButtonPadding,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = pillShape,
                                     )
                                 }
                             }
@@ -539,9 +546,19 @@ fun SpriteEditorScreen(navController: NavController) {
                                 OperationCell(minHeight = buttonMinHeight) {
                                     Button(
                                         onClick = {
-                                            updateState { current ->
-                                                val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
-                                                current.withSavedSnapshot(snapshot)
+                                            scope.launch {
+                                                val result = runCatching {
+                                                    val current = editorState ?: error("state is null")
+                                                    val snapshot = current.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                                                    editorState = current.withSavedSnapshot(snapshot)
+                                                }
+                                                if (result.isSuccess) {
+                                                    snackbarHostState.showSnackbar("保存しました")
+                                                } else {
+                                                    val detail = result.exceptionOrNull()?.message?.take(40)
+                                                    val suffix = if (detail.isNullOrBlank()) "" else "(${detail})"
+                                                    snackbarHostState.showSnackbar("保存に失敗しました$suffix")
+                                                }
                                             }
                                         },
                                         modifier = Modifier
@@ -550,7 +567,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorSave"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Save")
                                     }
@@ -584,7 +602,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorReset"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Reset")
                                     }
@@ -605,7 +624,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorCopy"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Copy")
                                     }
@@ -632,7 +652,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorPaste"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Paste")
                                     }
@@ -656,7 +677,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorUndo"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Undo")
                                     }
@@ -680,7 +702,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorRedo"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Redo")
                                     }
@@ -702,7 +725,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorDelete"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Delete")
                                     }
@@ -724,7 +748,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorFillBlack"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Fill Black")
                                     }
@@ -740,7 +765,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorImport"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Import")
                                     }
@@ -756,7 +782,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             .height(buttonHeight)
                                             .heightIn(min = buttonMinHeight)
                                             .testTag("spriteEditorExport"),
-                                        contentPadding = buttonPadding
+                                        contentPadding = buttonPadding,
+                                        shape = pillShape,
                                     ) {
                                         Text("Export")
                                     }
@@ -805,7 +832,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
                     // [dp] 下: 操作エリア下部の余白(余白)に関係
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
@@ -837,6 +864,7 @@ private fun MoveButton(
     buttonHeight: androidx.compose.ui.unit.Dp,
     buttonMinHeight: androidx.compose.ui.unit.Dp,
     padding: PaddingValues,
+    shape: androidx.compose.ui.graphics.Shape,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -888,7 +916,7 @@ private fun MoveButton(
                 },
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = MaterialTheme.shapes.small
+            shape = shape,
         ) {
             Box(
                 modifier = Modifier
