@@ -92,6 +92,10 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
+private const val GRID_ON_SCALE = 8f
+private const val GRID_OFF_SCALE = 7f
+private const val GRID_MAJOR_STEP = 8
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpriteEditorScreen(navController: NavController) {
@@ -105,6 +109,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var panOffset by remember { mutableStateOf(Offset.Zero) }
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
+    var isGridEnabled by remember { mutableStateOf(false) }
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
@@ -377,6 +382,27 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
                     val previewContent: @Composable () -> Unit = {
+                        val gridRenderScale = remember(state, previewSize, displayScale) {
+                            if (state == null) {
+                                0f
+                            } else if (previewSize.width == 0 || previewSize.height == 0) {
+                                0f
+                            } else if (state.bitmap.width <= 0 || state.bitmap.height <= 0) {
+                                0f
+                            } else {
+                                val scaleX = previewSize.width.toFloat() / state.bitmap.width
+                                val scaleY = previewSize.height.toFloat() / state.bitmap.height
+                                min(scaleX, scaleY) * displayScale
+                            }
+                        }
+                        LaunchedEffect(gridRenderScale) {
+                            if (gridRenderScale <= 0f) return@LaunchedEffect
+                            if (!isGridEnabled && gridRenderScale >= GRID_ON_SCALE) {
+                                isGridEnabled = true
+                            } else if (isGridEnabled && gridRenderScale < GRID_OFF_SCALE) {
+                                isGridEnabled = false
+                            }
+                        }
                         fun clampPanOffset(
                             currentPanOffset: Offset,
                             nextDisplayScale: Float,
@@ -468,6 +494,58 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
                                         val renderOffsetXPx = offsetXPx + panOffset.x.roundToInt()
                                         val renderOffsetYPx = offsetYPx + panOffset.y.roundToInt()
+                                        if (isGridEnabled) {
+                                            val renderLeft = renderOffsetXPx.toFloat()
+                                            val renderTop = renderOffsetYPx.toFloat()
+                                            val renderRight = renderLeft + destinationWidth
+                                            val renderBottom = renderTop + destinationHeight
+                                            clipRect(renderLeft, renderTop, renderRight, renderBottom) {
+                                                val stepPx = renderScale
+                                                val minorColor = Color.White.copy(alpha = 0.12f)
+                                                val majorColor = Color.White.copy(alpha = 0.2f)
+                                                var lineX = renderLeft
+                                                while (lineX <= renderRight) {
+                                                    drawLine(
+                                                        color = minorColor,
+                                                        start = Offset(lineX, renderTop),
+                                                        end = Offset(lineX, renderBottom),
+                                                        strokeWidth = 1f,
+                                                    )
+                                                    lineX += stepPx
+                                                }
+                                                var lineY = renderTop
+                                                while (lineY <= renderBottom) {
+                                                    drawLine(
+                                                        color = minorColor,
+                                                        start = Offset(renderLeft, lineY),
+                                                        end = Offset(renderRight, lineY),
+                                                        strokeWidth = 1f,
+                                                    )
+                                                    lineY += stepPx
+                                                }
+                                                val majorStepPx = stepPx * GRID_MAJOR_STEP
+                                                var majorX = renderLeft
+                                                while (majorX <= renderRight) {
+                                                    drawLine(
+                                                        color = majorColor,
+                                                        start = Offset(majorX, renderTop),
+                                                        end = Offset(majorX, renderBottom),
+                                                        strokeWidth = 1f,
+                                                    )
+                                                    majorX += majorStepPx
+                                                }
+                                                var majorY = renderTop
+                                                while (majorY <= renderBottom) {
+                                                    drawLine(
+                                                        color = majorColor,
+                                                        start = Offset(renderLeft, majorY),
+                                                        end = Offset(renderRight, majorY),
+                                                        strokeWidth = 1f,
+                                                    )
+                                                    majorY += majorStepPx
+                                                }
+                                            }
+                                        }
                                         val copied = copiedSelection
                                         if (copied != null) {
                                             val copiedXPx = (copied.x * renderScale).roundToInt()
