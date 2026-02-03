@@ -96,6 +96,20 @@ import kotlin.math.roundToInt
 private const val GRID_ON_SCALE = 8f
 private const val GRID_OFF_SCALE = 7f
 private const val GRID_MAJOR_STEP = 8
+private const val GRID_ALPHA_MAX_SCALE = 16f
+
+private fun lerpFloat(start: Float, end: Float, t: Float): Float {
+    return start + (end - start) * t
+}
+
+private fun gridAlphaForScale(scale: Float, minAlpha: Float, maxAlpha: Float): Float {
+    val t = ((scale - GRID_ON_SCALE) / (GRID_ALPHA_MAX_SCALE - GRID_ON_SCALE)).coerceIn(0f, 1f)
+    return lerpFloat(minAlpha, maxAlpha, t)
+}
+
+private fun snapToPixelCenter(value: Float): Float {
+    return value.roundToInt().toFloat() + 0.5f
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -502,24 +516,43 @@ fun SpriteEditorScreen(navController: NavController) {
                                             val renderBottom = renderTop + destinationHeight
                                             clipRect(renderLeft, renderTop, renderRight, renderBottom) {
                                                 val stepPx = renderScale
-                                                val minorColor = Color.White.copy(alpha = 0.12f)
-                                                val majorColor = Color.White.copy(alpha = 0.2f)
+                                                val minorAlpha = gridAlphaForScale(renderScale, 0.18f, 0.42f)
+                                                val majorAlpha = gridAlphaForScale(renderScale, 0.30f, 0.60f)
+                                                val minorBlackColor = Color.Black.copy(alpha = minorAlpha * 0.35f)
+                                                val minorWhiteColor = Color.White.copy(alpha = minorAlpha)
+                                                val majorBlackColor = Color.Black.copy(alpha = majorAlpha * 0.35f)
+                                                val majorWhiteColor = Color.White.copy(alpha = majorAlpha)
+                                                val majorStroke = if (renderScale >= 12f) 2f else 1.5f
                                                 var lineX = renderLeft
                                                 while (lineX <= renderRight) {
+                                                    val snappedX = snapToPixelCenter(lineX)
                                                     drawLine(
-                                                        color = minorColor,
-                                                        start = Offset(lineX, renderTop),
-                                                        end = Offset(lineX, renderBottom),
+                                                        color = minorBlackColor,
+                                                        start = Offset(snappedX, renderTop),
+                                                        end = Offset(snappedX, renderBottom),
+                                                        strokeWidth = 1f,
+                                                    )
+                                                    drawLine(
+                                                        color = minorWhiteColor,
+                                                        start = Offset(snappedX, renderTop),
+                                                        end = Offset(snappedX, renderBottom),
                                                         strokeWidth = 1f,
                                                     )
                                                     lineX += stepPx
                                                 }
                                                 var lineY = renderTop
                                                 while (lineY <= renderBottom) {
+                                                    val snappedY = snapToPixelCenter(lineY)
                                                     drawLine(
-                                                        color = minorColor,
-                                                        start = Offset(renderLeft, lineY),
-                                                        end = Offset(renderRight, lineY),
+                                                        color = minorBlackColor,
+                                                        start = Offset(renderLeft, snappedY),
+                                                        end = Offset(renderRight, snappedY),
+                                                        strokeWidth = 1f,
+                                                    )
+                                                    drawLine(
+                                                        color = minorWhiteColor,
+                                                        start = Offset(renderLeft, snappedY),
+                                                        end = Offset(renderRight, snappedY),
                                                         strokeWidth = 1f,
                                                     )
                                                     lineY += stepPx
@@ -527,21 +560,35 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 val majorStepPx = stepPx * GRID_MAJOR_STEP
                                                 var majorX = renderLeft
                                                 while (majorX <= renderRight) {
+                                                    val snappedX = snapToPixelCenter(majorX)
                                                     drawLine(
-                                                        color = majorColor,
-                                                        start = Offset(majorX, renderTop),
-                                                        end = Offset(majorX, renderBottom),
-                                                        strokeWidth = 1f,
+                                                        color = majorBlackColor,
+                                                        start = Offset(snappedX, renderTop),
+                                                        end = Offset(snappedX, renderBottom),
+                                                        strokeWidth = majorStroke,
+                                                    )
+                                                    drawLine(
+                                                        color = majorWhiteColor,
+                                                        start = Offset(snappedX, renderTop),
+                                                        end = Offset(snappedX, renderBottom),
+                                                        strokeWidth = majorStroke,
                                                     )
                                                     majorX += majorStepPx
                                                 }
                                                 var majorY = renderTop
                                                 while (majorY <= renderBottom) {
+                                                    val snappedY = snapToPixelCenter(majorY)
                                                     drawLine(
-                                                        color = majorColor,
-                                                        start = Offset(renderLeft, majorY),
-                                                        end = Offset(renderRight, majorY),
-                                                        strokeWidth = 1f,
+                                                        color = majorBlackColor,
+                                                        start = Offset(renderLeft, snappedY),
+                                                        end = Offset(renderRight, snappedY),
+                                                        strokeWidth = majorStroke,
+                                                    )
+                                                    drawLine(
+                                                        color = majorWhiteColor,
+                                                        start = Offset(renderLeft, snappedY),
+                                                        end = Offset(renderRight, snappedY),
+                                                        strokeWidth = majorStroke,
                                                     )
                                                     majorY += majorStepPx
                                                 }
