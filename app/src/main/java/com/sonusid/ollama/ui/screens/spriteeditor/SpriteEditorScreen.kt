@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
@@ -449,13 +450,13 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val selectionYPx = (state.selection.y * scale).roundToInt()
                                         val selectionWPx = (state.selection.w * scale).roundToInt()
                                         val selectionHPx = (state.selection.h * scale).roundToInt()
-                                        val clipboardImage = state.clipboard?.asImageBitmap()
+                                        val clipboardImage = state.clipboard?.let { ensureArgb8888(it).asImageBitmap() }
                                         if (clipboardImage != null) {
-                                            drawImage(
+                                            drawImageRect(
                                                 image = clipboardImage,
-                                                topLeft = Offset(
-                                                    x = (offsetXPx + selectionXPx).toFloat(),
-                                                    y = (offsetYPx + selectionYPx).toFloat(),
+                                                dstOffset = IntOffset(
+                                                    x = offsetXPx + selectionXPx,
+                                                    y = offsetYPx + selectionYPx,
                                                 ),
                                                 dstSize = IntSize(
                                                     width = selectionWPx,
