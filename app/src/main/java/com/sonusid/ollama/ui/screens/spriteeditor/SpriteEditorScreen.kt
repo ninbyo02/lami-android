@@ -474,11 +474,12 @@ fun SpriteEditorScreen(navController: NavController) {
                     }
                     val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(modifier = modifier) {
-                            val standardButton: @Composable (
+                            @Composable
+                            fun StandardButton(
                                 label: String,
                                 testTag: String,
                                 onClick: () -> Unit,
-                            ) -> Unit = { label, testTag, onClick ->
+                            ) {
                                 Button(
                                     onClick = onClick,
                                     modifier = Modifier
@@ -626,7 +627,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Save",
                                             testTag = "spriteEditorSave",
                                             onClick = {
@@ -652,7 +653,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Reset",
                                             testTag = "spriteEditorReset",
                                             onClick = {
@@ -679,7 +680,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Copy",
                                             testTag = "spriteEditorCopy",
                                             onClick = {
@@ -693,7 +694,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Paste",
                                             testTag = "spriteEditorPaste",
                                             onClick = {
@@ -718,7 +719,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Undo",
                                             testTag = "spriteEditorUndo",
                                             onClick = {
@@ -739,7 +740,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Redo",
                                             testTag = "spriteEditorRedo",
                                             onClick = {
@@ -760,7 +761,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Delete",
                                             testTag = "spriteEditorDelete",
                                             onClick = {
@@ -775,7 +776,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Fill Black",
                                             testTag = "spriteEditorFillBlack",
                                             onClick = {
@@ -790,7 +791,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Import",
                                             testTag = "spriteEditorImport",
                                             onClick = { importLauncher.launch(arrayOf("image/png")) },
@@ -799,7 +800,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        standardButton(
+                                        StandardButton(
                                             label = "Export",
                                             testTag = "spriteEditorExport",
                                             onClick = { exportLauncher.launch("sprite.png") },
