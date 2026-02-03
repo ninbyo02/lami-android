@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -448,6 +449,21 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val selectionYPx = (state.selection.y * scale).roundToInt()
                                         val selectionWPx = (state.selection.w * scale).roundToInt()
                                         val selectionHPx = (state.selection.h * scale).roundToInt()
+                                        val clipboardImage = state.clipboard?.asImageBitmap()
+                                        if (clipboardImage != null) {
+                                            drawImage(
+                                                image = clipboardImage,
+                                                topLeft = Offset(
+                                                    x = (offsetXPx + selectionXPx).toFloat(),
+                                                    y = (offsetYPx + selectionYPx).toFloat(),
+                                                ),
+                                                dstSize = IntSize(
+                                                    width = selectionWPx,
+                                                    height = selectionHPx,
+                                                ),
+                                                alpha = 0.45f,
+                                            )
+                                        }
                                         val strokePx = max(1, 2.dp.toPx().roundToInt())
                                         drawRect(
                                             color = Color.Red,
