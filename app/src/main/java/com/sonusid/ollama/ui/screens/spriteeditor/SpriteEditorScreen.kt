@@ -1,8 +1,8 @@
 package com.sonusid.ollama.ui.screens.spriteeditor
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -78,6 +78,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -107,13 +110,19 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     LaunchedEffect(context) {
-        val bitmap = withContext(Dispatchers.IO) {
+        val autosaveFile = internalAutosaveFile(context)
+        val autosaveBitmap = loadInternalAutosave(context)
+        if (autosaveFile.exists() && autosaveBitmap == null) {
+            showSnackbarMessage("スプライト画像の読み込みに失敗しました")
+        }
+        val bitmap = autosaveBitmap ?: withContext(Dispatchers.IO) {
             BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
         }
         if (bitmap == null) {
             showSnackbarMessage("スプライト画像の読み込みに失敗しました")
         } else {
-            editorState = createInitialEditorState(bitmap)
+            val safeBitmap = ensureArgb8888(bitmap)
+            editorState = createInitialEditorState(safeBitmap)
             editUriString = null
         }
     }
@@ -165,13 +174,16 @@ fun SpriteEditorScreen(navController: NavController) {
         }
     }
 
-    suspend fun saveToEditUri(state: SpriteEditorState, targetUri: Uri): Boolean {
-        val success = writeBitmapToUri(targetUri, state.bitmap)
+    suspend fun saveInternalAutosave(state: SpriteEditorState): Boolean {
+        val safeBitmap = ensureArgb8888(state.bitmap)
+        val success = saveInternalAutosave(context, safeBitmap)
         if (!success) {
             return false
         }
-        val snapshot = state.bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        val snapshot = safeBitmap.copy(Bitmap.Config.ARGB_8888, false)
         editorState = state.copy(
+            bitmap = safeBitmap,
+            imageBitmap = safeBitmap.asImageBitmap(),
             savedSnapshot = snapshot,
             initialBitmap = snapshot,
         )
@@ -630,14 +642,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             onClick = {
                                                 scope.launch {
                                                     val current = editorState ?: return@launch
-                                                    val targetUri = editUriString?.let(Uri::parse)
-                                                    if (targetUri == null) {
-                                                        showSnackbarMessage(
-                                                            "保存先がありません。Import後にSaveするか、Exportを使ってください"
-                                                        )
-                                                        return@launch
-                                                    }
-                                                    val result = runCatching { saveToEditUri(current, targetUri) }
+                                                    val result = runCatching { saveInternalAutosave(current) }
                                                     if (result.getOrDefault(false)) {
                                                         showSnackbarMessage("保存しました")
                                                     } else {
@@ -976,6 +981,37 @@ private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot): SpriteEdi
         widthInput = normalized.w.toString(),
         heightInput = normalized.h.toString(),
     )
+}
+
+private fun internalAutosaveFile(context: android.content.Context): File {
+    return File(context.filesDir, "sprite_editor/sprite_editor_autosave.png")
+}
+
+private suspend fun loadInternalAutosave(context: android.content.Context): Bitmap? {
+    return withContext(Dispatchers.IO) {
+        val file = internalAutosaveFile(context)
+        if (!file.exists()) {
+            return@withContext null
+        }
+        runCatching {
+            FileInputStream(file).use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }.getOrNull()?.let { bitmap -> ensureArgb8888(bitmap) }
+    }
+}
+
+private suspend fun saveInternalAutosave(context: android.content.Context, bitmap: Bitmap): Boolean {
+    return withContext(Dispatchers.IO) {
+        val file = internalAutosaveFile(context)
+        file.parentFile?.mkdirs()
+        runCatching {
+            val safeBitmap = ensureArgb8888(bitmap)
+            FileOutputStream(file).use { output ->
+                safeBitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
+        }.getOrDefault(false)
+    }
 }
 
 private const val MAX_HISTORY = 10
