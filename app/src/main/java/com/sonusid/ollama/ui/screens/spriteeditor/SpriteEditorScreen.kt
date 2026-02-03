@@ -474,6 +474,25 @@ fun SpriteEditorScreen(navController: NavController) {
                     }
                     val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(modifier = modifier) {
+                            val standardButton: @Composable (
+                                label: String,
+                                testTag: String,
+                                onClick: () -> Unit,
+                            ) -> Unit = { label, testTag, onClick ->
+                                Button(
+                                    onClick = onClick,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                                        .height(buttonHeight)
+                                        .heightIn(min = buttonMinHeight)
+                                        .testTag(testTag),
+                                    contentPadding = buttonPadding,
+                                    shape = pillShape,
+                                ) {
+                                    Text(label)
+                                }
+                            }
                             // 操作ボタン領域: 4x4グリッドで均等配置
                             LazyVerticalGrid(
                                 modifier = Modifier
@@ -607,7 +626,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Save",
+                                            testTag = "spriteEditorSave",
                                             onClick = {
                                                 scope.launch {
                                                     val current = editorState ?: return@launch
@@ -626,22 +647,14 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     }
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorSave"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Save")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Reset",
+                                            testTag = "spriteEditorReset",
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
@@ -661,44 +674,28 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     )
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorReset"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Reset")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Copy",
+                                            testTag = "spriteEditorCopy",
                                             onClick = {
                                                 updateState { current ->
                                                     val clip = copyRect(current.bitmap, current.selection)
                                                     current.withClipboard(clip)
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorCopy"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Copy")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Paste",
+                                            testTag = "spriteEditorPaste",
                                             onClick = {
                                                 updateState { current ->
                                                     val clip = current.clipboard
@@ -716,72 +713,56 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     }
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorPaste"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Paste")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Undo",
+                                            testTag = "spriteEditorUndo",
                                             onClick = {
-                                                val current = editorState ?: return@Button
-                                                val snapshot = undoStack.removeLastOrNull() ?: return@Button
-                                                redoStack.addLast(EditorSnapshot(ensureArgb8888(current.bitmap), current.selection))
-                                                if (redoStack.size > MAX_HISTORY) {
-                                                    redoStack.removeFirst()
+                                                val current = editorState
+                                                val snapshot = undoStack.removeLastOrNull()
+                                                if (current != null && snapshot != null) {
+                                                    redoStack.addLast(
+                                                        EditorSnapshot(ensureArgb8888(current.bitmap), current.selection)
+                                                    )
+                                                    if (redoStack.size > MAX_HISTORY) {
+                                                        redoStack.removeFirst()
+                                                    }
+                                                    editorState = current.applySnapshot(snapshot)
                                                 }
-                                                editorState = current.applySnapshot(snapshot)
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorUndo"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Undo")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Redo",
+                                            testTag = "spriteEditorRedo",
                                             onClick = {
-                                                val current = editorState ?: return@Button
-                                                val snapshot = redoStack.removeLastOrNull() ?: return@Button
-                                                undoStack.addLast(EditorSnapshot(ensureArgb8888(current.bitmap), current.selection))
-                                                if (undoStack.size > MAX_HISTORY) {
-                                                    undoStack.removeFirst()
+                                                val current = editorState
+                                                val snapshot = redoStack.removeLastOrNull()
+                                                if (current != null && snapshot != null) {
+                                                    undoStack.addLast(
+                                                        EditorSnapshot(ensureArgb8888(current.bitmap), current.selection)
+                                                    )
+                                                    if (undoStack.size > MAX_HISTORY) {
+                                                        undoStack.removeFirst()
+                                                    }
+                                                    editorState = current.applySnapshot(snapshot)
                                                 }
-                                                editorState = current.applySnapshot(snapshot)
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorRedo"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Redo")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Delete",
+                                            testTag = "spriteEditorDelete",
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
@@ -789,22 +770,14 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     current.withBitmap(cleared)
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorDelete"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Delete")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Fill Black",
+                                            testTag = "spriteEditorFillBlack",
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
@@ -812,51 +785,25 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     current.withBitmap(filled)
                                                 }
                                             },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorFillBlack"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Fill Black")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Import",
+                                            testTag = "spriteEditorImport",
                                             onClick = { importLauncher.launch(arrayOf("image/png")) },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorImport"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Import")
-                                        }
+                                        )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        Button(
+                                        standardButton(
+                                            label = "Export",
+                                            testTag = "spriteEditorExport",
                                             onClick = { exportLauncher.launch("sprite.png") },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight)
-                                                .testTag("spriteEditorExport"),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                        ) {
-                                            Text("Export")
-                                        }
+                                        )
                                     }
                                 }
                             }
@@ -941,66 +888,60 @@ private fun MoveButton(
     shape: androidx.compose.ui.graphics.Shape,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    Surface(
         modifier = modifier
-            // [dp] 縦: 移動ボタンのタップ領域確保(最小48dp)に関係
-            .height(buttonMinHeight),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier
-                // [dp] 縦: 見た目を固定しつつタップ領域は外側で確保
-                .height(buttonHeight)
-                .fillMaxWidth()
-                .testTag(testTag)
-                // 簡易確認: 枠が震えない/長押し停止が即/単押し1回/8px↔4px切替
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        awaitFirstDown()
-                        onTap()
-                        val initialDelayMs = 300L
-                        val startIntervalMs = 140L
-                        val minIntervalMs = 90L
-                        val accelDeltaMs = 10L
-                        val accelCountThreshold = 12
-                        val accelTimeMs = 800L
-                        val startedAtMs = System.currentTimeMillis()
-                        val releasedBeforeRepeat = withTimeoutOrNull(initialDelayMs) {
+            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+            .height(buttonHeight)
+            .heightIn(min = buttonMinHeight)
+            .fillMaxWidth()
+            .testTag(testTag)
+            // 簡易確認: 枠が震えない/長押し停止が即/単押し1回/8px↔4px切替
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown()
+                    onTap()
+                    val initialDelayMs = 300L
+                    val startIntervalMs = 140L
+                    val minIntervalMs = 90L
+                    val accelDeltaMs = 10L
+                    val accelCountThreshold = 12
+                    val accelTimeMs = 800L
+                    val startedAtMs = System.currentTimeMillis()
+                    val releasedBeforeRepeat = withTimeoutOrNull(initialDelayMs) {
+                        waitForUpOrCancellation()
+                    }
+                    if (releasedBeforeRepeat != null) {
+                        return@awaitEachGesture
+                    }
+                    var intervalMs = startIntervalMs
+                    var count = 0
+                    while (true) {
+                        val elapsedMs = System.currentTimeMillis() - startedAtMs
+                        val stepPx = if (count < accelCountThreshold && elapsedMs < accelTimeMs) 4 else 8
+                        onRepeat(stepPx)
+                        count += 1
+                        val released = withTimeoutOrNull(intervalMs) {
                             waitForUpOrCancellation()
                         }
-                        if (releasedBeforeRepeat != null) {
+                        if (released != null) {
                             return@awaitEachGesture
                         }
-                        var intervalMs = startIntervalMs
-                        var count = 0
-                        while (true) {
-                            val elapsedMs = System.currentTimeMillis() - startedAtMs
-                            val stepPx = if (count < accelCountThreshold && elapsedMs < accelTimeMs) 4 else 8
-                            onRepeat(stepPx)
-                            count += 1
-                            val released = withTimeoutOrNull(intervalMs) {
-                                waitForUpOrCancellation()
-                            }
-                            if (released != null) {
-                                return@awaitEachGesture
-                            }
-                            intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
-                        }
+                        intervalMs = (intervalMs - accelDeltaMs).coerceAtLeast(minIntervalMs)
                     }
-                },
-            color = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = shape,
+                }
+            },
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = shape,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // [dp] 上下左右: 移動ボタン内側の余白(余白)に関係
+                .padding(padding),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // [dp] 上下左右: 移動ボタン内側の余白(余白)に関係
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(label)
-            }
+            Text(label)
         }
     }
 }
