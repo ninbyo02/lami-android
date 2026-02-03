@@ -285,6 +285,7 @@ fun SpriteEditorScreen(navController: NavController) {
                     val buttonPadding = PaddingValues(horizontal = 8.dp)
                     val pillShape = RoundedCornerShape(999.dp)
                     var moveMode by remember { mutableStateOf(MoveMode.Box) }
+                    var pxStepBase by rememberSaveable { mutableStateOf(4) }
                     var widthText by remember(state?.widthInput) {
                         mutableStateOf(state?.widthInput.orEmpty())
                     }
@@ -425,7 +426,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             val copiedStrokePx = max(1, 3.dp.toPx().roundToInt())
                                             val copiedColor = Color.Cyan
                                             drawRect(
-                                                color = copiedColor.copy(alpha = 0.25f),
+                                                color = copiedColor.copy(alpha = 0.35f),
                                                 topLeft = Offset(
                                                     x = (offsetXPx + copiedXPx).toFloat(),
                                                     y = (offsetYPx + copiedYPx).toFloat(),
@@ -466,10 +467,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     width = selectionWPx,
                                                     height = selectionHPx,
                                                 ),
-                                                alpha = 0.45f,
+                                                alpha = 0.78f,
                                                 colorFilter = ColorFilter.tint(
                                                     color = Color(0xFF7FD7FF),
-                                                    blendMode = BlendMode.SrcAtop,
+                                                    blendMode = BlendMode.SrcIn,
                                                 ),
                                             )
                                         }
@@ -510,6 +511,11 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
                             }
+                            val statusLine3 = if (state == null) {
+                                "移動: -"
+                            } else {
+                                "移動: ${pxStepBase}px"
+                            }
                             Text(
                                 text = statusLine1,
                                 style = MaterialTheme.typography.labelMedium,
@@ -518,6 +524,12 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                             Text(
                                 text = statusLine2,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = statusLine3,
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -536,7 +548,14 @@ fun SpriteEditorScreen(navController: NavController) {
                             moveSelection(dxSign * step, dySign * step)
                             return
                         }
-                        val step = repeatStepPx ?: 4
+                        val adjustedRepeatStepPx = repeatStepPx?.let { repeatStep ->
+                            if (pxStepBase == 4) {
+                                repeatStep
+                            } else {
+                                (repeatStep / 4).coerceAtLeast(1)
+                            }
+                        }
+                        val step = adjustedRepeatStepPx ?: pxStepBase
                         moveSelection(dxSign * step, dySign * step)
                     }
                     val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
@@ -606,7 +625,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         val isPx = moveMode == MoveMode.Px
                                         Button(
-                                            onClick = { moveMode = MoveMode.Px },
+                                            onClick = {
+                                                moveMode = MoveMode.Px
+                                                pxStepBase = if (pxStepBase == 4) 1 else 4
+                                            },
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
