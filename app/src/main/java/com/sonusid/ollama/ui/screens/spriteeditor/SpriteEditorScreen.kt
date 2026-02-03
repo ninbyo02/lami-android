@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -101,7 +102,9 @@ fun SpriteEditorScreen(navController: NavController) {
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
+    var panOffset by remember { mutableStateOf(Offset.Zero) }
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    var previewSize by remember { mutableStateOf(IntSize.Zero) }
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
@@ -374,8 +377,44 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
                     val previewContent: @Composable () -> Unit = {
-                        val transformableState = rememberTransformableState { zoomChange, _, _ ->
-                            displayScale = (displayScale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                        fun clampPanOffset(
+                            currentPanOffset: Offset,
+                            nextDisplayScale: Float,
+                        ): Offset {
+                            val current = editorState
+                            if (current == null) return Offset.Zero
+                            if (previewSize.width == 0 || previewSize.height == 0) return Offset.Zero
+                            if (current.bitmap.width <= 0 || current.bitmap.height <= 0) return Offset.Zero
+                            val scaleX = previewSize.width.toFloat() / current.bitmap.width
+                            val scaleY = previewSize.height.toFloat() / current.bitmap.height
+                            val fitScale = min(scaleX, scaleY)
+                            val renderScale = fitScale * nextDisplayScale
+                            val destinationWidth = current.bitmap.width * renderScale
+                            val destinationHeight = current.bitmap.height * renderScale
+                            val viewWidth = previewSize.width.toFloat()
+                            val viewHeight = previewSize.height.toFloat()
+                            val clampedX = if (destinationWidth <= viewWidth) {
+                                0f
+                            } else {
+                                val maxOffsetX = (destinationWidth - viewWidth) / 2f
+                                currentPanOffset.x.coerceIn(-maxOffsetX, maxOffsetX)
+                            }
+                            val clampedY = if (destinationHeight <= viewHeight) {
+                                0f
+                            } else {
+                                val maxOffsetY = (destinationHeight - viewHeight) / 2f
+                                currentPanOffset.y.coerceIn(-maxOffsetY, maxOffsetY)
+                            }
+                            return Offset(clampedX, clampedY)
+                        }
+                        val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
+                            val nextScale = (displayScale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                            displayScale = nextScale
+                            val nextPan = panOffset + panChange
+                            panOffset = clampPanOffset(nextPan, nextScale)
+                        }
+                        LaunchedEffect(previewSize, editorState) {
+                            panOffset = clampPanOffset(panOffset, displayScale)
                         }
                         Box(
                             modifier = Modifier
@@ -386,6 +425,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                 // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(8.dp))
+                                .onSizeChanged { size ->
+                                    previewSize = size
+                                    panOffset = clampPanOffset(panOffset, displayScale)
+                                }
                                 .transformable(state = transformableState)
                                 .testTag("spriteEditorPreview"),
                             contentAlignment = Alignment.TopCenter
@@ -408,6 +451,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         .graphicsLayer {
                                             scaleX = displayScale
                                             scaleY = displayScale
+                                            translationX = panOffset.x
+                                            translationY = panOffset.y
                                         },
                                     contentScale = ContentScale.Fit,
                                 )
@@ -421,6 +466,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val destinationHeight = state.bitmap.height * renderScale
                                         val offsetXPx = ((size.width - destinationWidth) / 2f).roundToInt()
                                         val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
+                                        val renderOffsetXPx = offsetXPx + panOffset.x.roundToInt()
+                                        val renderOffsetYPx = offsetYPx + panOffset.y.roundToInt()
                                         val copied = copiedSelection
                                         if (copied != null) {
                                             val copiedXPx = (copied.x * renderScale).roundToInt()
@@ -432,8 +479,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             drawRect(
                                                 color = copiedColor.copy(alpha = 0.35f),
                                                 topLeft = Offset(
-                                                    x = (offsetXPx + copiedXPx).toFloat(),
-                                                    y = (offsetYPx + copiedYPx).toFloat(),
+                                                    x = (renderOffsetXPx + copiedXPx).toFloat(),
+                                                    y = (renderOffsetYPx + copiedYPx).toFloat(),
                                                 ),
                                                 size = Size(
                                                     width = copiedWPx.toFloat(),
@@ -443,8 +490,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             drawRect(
                                                 color = copiedColor,
                                                 topLeft = Offset(
-                                                    x = (offsetXPx + copiedXPx).toFloat(),
-                                                    y = (offsetYPx + copiedYPx).toFloat(),
+                                                    x = (renderOffsetXPx + copiedXPx).toFloat(),
+                                                    y = (renderOffsetYPx + copiedYPx).toFloat(),
                                                 ),
                                                 size = Size(
                                                     width = copiedWPx.toFloat(),
@@ -464,8 +511,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 srcOffset = IntOffset(0, 0),
                                                 srcSize = IntSize(clipboardImage.width, clipboardImage.height),
                                                 dstOffset = IntOffset(
-                                                    x = offsetXPx + selectionXPx,
-                                                    y = offsetYPx + selectionYPx,
+                                                    x = renderOffsetXPx + selectionXPx,
+                                                    y = renderOffsetYPx + selectionYPx,
                                                 ),
                                                 dstSize = IntSize(
                                                     width = selectionWPx,
@@ -482,8 +529,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                         drawRect(
                                             color = Color.Red,
                                             topLeft = Offset(
-                                                x = (offsetXPx + selectionXPx).toFloat(),
-                                                y = (offsetYPx + selectionYPx).toFloat(),
+                                                x = (renderOffsetXPx + selectionXPx).toFloat(),
+                                                y = (renderOffsetYPx + selectionYPx).toFloat(),
                                             ),
                                             size = Size(
                                                 width = selectionWPx.toFloat(),
@@ -743,6 +790,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                             label = "Reset",
                                             testTag = "spriteEditorReset",
                                             onClick = {
+                                                displayScale = 1f
+                                                panOffset = Offset.Zero
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
                                                     val resetBitmap = current.savedSnapshot ?: current.initialBitmap
