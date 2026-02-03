@@ -93,6 +93,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
+    var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
@@ -411,6 +412,38 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val destinationHeight = state.bitmap.height * scale
                                         val offsetXPx = ((size.width - destinationWidth) / 2f).roundToInt()
                                         val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
+                                        val copied = copiedSelection
+                                        if (copied != null) {
+                                            val copiedXPx = (copied.x * scale).roundToInt()
+                                            val copiedYPx = (copied.y * scale).roundToInt()
+                                            val copiedWPx = (copied.w * scale).roundToInt()
+                                            val copiedHPx = (copied.h * scale).roundToInt()
+                                            val copiedStrokePx = max(1, 3.dp.toPx().roundToInt())
+                                            val copiedColor = Color.Cyan
+                                            drawRect(
+                                                color = copiedColor.copy(alpha = 0.25f),
+                                                topLeft = Offset(
+                                                    x = (offsetXPx + copiedXPx).toFloat(),
+                                                    y = (offsetYPx + copiedYPx).toFloat(),
+                                                ),
+                                                size = Size(
+                                                    width = copiedWPx.toFloat(),
+                                                    height = copiedHPx.toFloat(),
+                                                ),
+                                            )
+                                            drawRect(
+                                                color = copiedColor,
+                                                topLeft = Offset(
+                                                    x = (offsetXPx + copiedXPx).toFloat(),
+                                                    y = (offsetYPx + copiedYPx).toFloat(),
+                                                ),
+                                                size = Size(
+                                                    width = copiedWPx.toFloat(),
+                                                    height = copiedHPx.toFloat(),
+                                                ),
+                                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = copiedStrokePx.toFloat()),
+                                            )
+                                        }
                                         val selectionXPx = (state.selection.x * scale).roundToInt()
                                         val selectionYPx = (state.selection.y * scale).roundToInt()
                                         val selectionWPx = (state.selection.w * scale).roundToInt()
@@ -688,6 +721,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             onClick = {
                                                 updateState { current ->
                                                     val clip = copyRect(current.bitmap, current.selection)
+                                                    copiedSelection = current.selection
                                                     current.withClipboard(clip)
                                                 }
                                             },
@@ -712,7 +746,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                                             current.selection.x,
                                                             current.selection.y
                                                         )
-                                                        current.withBitmap(pasted)
+                                                        copiedSelection = null
+                                                        current.withBitmap(pasted).withClipboard(null)
                                                     }
                                                 }
                                             },
