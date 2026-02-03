@@ -48,12 +48,14 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +92,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
-    var editUri by remember { mutableStateOf<Uri?>(null) }
+    var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
@@ -99,11 +101,10 @@ fun SpriteEditorScreen(navController: NavController) {
             BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
         }
         if (bitmap == null) {
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar("スプライト画像の読み込みに失敗しました")
+            showSnackbarMessage("スプライト画像の読み込みに失敗しました")
         } else {
             editorState = createInitialEditorState(bitmap)
-            editUri = null
+            editUriString = null
         }
     }
 
@@ -117,10 +118,7 @@ fun SpriteEditorScreen(navController: NavController) {
                 )
             }
             if (persistResult.isFailure) {
-                snackbarHostState.currentSnackbarData?.dismiss()
-                snackbarHostState.showSnackbar(
-                    "権限の永続化に失敗しました(必要なら再選択してください)"
-                )
+                showSnackbarMessage("権限の永続化に失敗しました(必要なら再選択してください)")
             }
             val bitmap = withContext(Dispatchers.IO) {
                 context.contentResolver.openInputStream(uri)?.use { input ->
@@ -129,8 +127,7 @@ fun SpriteEditorScreen(navController: NavController) {
             }
             val current = editorState
             if (bitmap == null || current == null) {
-                snackbarHostState.currentSnackbarData?.dismiss()
-                snackbarHostState.showSnackbar("PNGの読み込みに失敗しました")
+                showSnackbarMessage("PNGの読み込みに失敗しました")
                 return@launch
             }
             pushUndoSnapshot(current, undoStack, redoStack)
@@ -145,9 +142,8 @@ fun SpriteEditorScreen(navController: NavController) {
                 savedSnapshot = null,
                 initialBitmap = safeBitmap,
             )
-            editUri = uri
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar("PNGを読み込みました")
+            editUriString = uri.toString()
+            showSnackbarMessage("PNGを読み込みました")
         }
     }
 
@@ -240,6 +236,8 @@ fun SpriteEditorScreen(navController: NavController) {
                     modifier = Modifier
                         // 上: ステータスバー回避のため最小限の top padding
                         .statusBarsPadding()
+                        // 上: TopAppBar と重ならないように最小限の top padding
+                        .padding(top = TopAppBarDefaults.TopAppBarHeight + 8.dp)
                 )
             }
         },
@@ -633,7 +631,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             onClick = {
                                                 scope.launch {
                                                     val current = editorState ?: return@launch
-                                                    val targetUri = editUri
+                                                    val targetUri = editUriString?.let(Uri::parse)
                                                     if (targetUri == null) {
                                                         showSnackbarMessage(
                                                             "保存先がありません。Import後にSaveするか、Exportを使ってください"
