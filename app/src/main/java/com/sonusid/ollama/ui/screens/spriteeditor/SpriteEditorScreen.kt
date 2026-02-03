@@ -509,11 +509,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
                                         val renderOffsetXPx = offsetXPx + panOffset.x.roundToInt()
                                         val renderOffsetYPx = offsetYPx + panOffset.y.roundToInt()
+                                        val renderLeft = renderOffsetXPx.toFloat()
+                                        val renderTop = renderOffsetYPx.toFloat()
+                                        val renderRight = renderLeft + destinationWidth
+                                        val renderBottom = renderTop + destinationHeight
                                         if (isGridEnabled) {
-                                            val renderLeft = renderOffsetXPx.toFloat()
-                                            val renderTop = renderOffsetYPx.toFloat()
-                                            val renderRight = renderLeft + destinationWidth
-                                            val renderBottom = renderTop + destinationHeight
                                             clipRect(renderLeft, renderTop, renderRight, renderBottom) {
                                                 val stepPx = renderScale
                                                 val minorAlpha = gridAlphaForScale(renderScale, 0.18f, 0.42f)
@@ -594,6 +594,32 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 }
                                             }
                                         }
+                                        val outlineTopLeft = Offset(
+                                            x = renderLeft + 0.5f,
+                                            y = renderTop + 0.5f,
+                                        )
+                                        val outlineSize = Size(
+                                            width = max(0f, destinationWidth - 1f),
+                                            height = max(0f, destinationHeight - 1f),
+                                        )
+                                        drawRect(
+                                            color = Color.Black.copy(alpha = 0.35f),
+                                            topLeft = outlineTopLeft,
+                                            size = outlineSize,
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f),
+                                        )
+                                        drawRect(
+                                            color = Color.White.copy(alpha = 0.55f),
+                                            topLeft = Offset(
+                                                x = outlineTopLeft.x + 1f,
+                                                y = outlineTopLeft.y + 1f,
+                                            ),
+                                            size = Size(
+                                                width = max(0f, outlineSize.width - 2f),
+                                                height = max(0f, outlineSize.height - 2f),
+                                            ),
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f),
+                                        )
                                         val copied = copiedSelection
                                         if (copied != null) {
                                             val copiedXPx = (copied.x * renderScale).roundToInt()
