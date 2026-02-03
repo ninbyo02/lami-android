@@ -465,7 +465,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(top = 4.dp)
                                 // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
                                 .aspectRatio(1f)
-                                .clip(RoundedCornerShape(8.dp))
                                 .onSizeChanged { size ->
                                     previewSize = size
                                     panOffset = clampPanOffset(panOffset, displayScale)
