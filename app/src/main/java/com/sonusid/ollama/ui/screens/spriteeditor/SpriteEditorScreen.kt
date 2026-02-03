@@ -48,7 +48,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -237,7 +236,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         // 上: ステータスバー回避のため最小限の top padding
                         .statusBarsPadding()
                         // 上: TopAppBar と重ならないように最小限の top padding
-                        .padding(top = TopAppBarDefaults.TopAppBarHeight + 8.dp)
+                        .padding(top = 56.dp + 8.dp)
                 )
             }
         },
