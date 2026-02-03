@@ -95,6 +95,17 @@ fun SpriteEditorScreen(navController: NavController) {
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
+    suspend fun showSnackbarMessage(
+        message: String,
+        duration: SnackbarDuration = SnackbarDuration.Short,
+    ) {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(
+            message = message,
+            duration = duration,
+        )
+    }
+
     LaunchedEffect(context) {
         val bitmap = withContext(Dispatchers.IO) {
             BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
@@ -144,17 +155,6 @@ fun SpriteEditorScreen(navController: NavController) {
             editUriString = uri.toString()
             showSnackbarMessage("PNGを読み込みました")
         }
-    }
-
-    suspend fun showSnackbarMessage(
-        message: String,
-        duration: SnackbarDuration = SnackbarDuration.Short,
-    ) {
-        snackbarHostState.currentSnackbarData?.dismiss()
-        snackbarHostState.showSnackbar(
-            message = message,
-            duration = duration,
-        )
     }
 
     suspend fun writeBitmapToUri(targetUri: Uri, bitmap: Bitmap): Boolean {
