@@ -31,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -66,7 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -221,7 +223,7 @@ fun SpriteEditorScreen(navController: NavController) {
 
     fun moveSelection(dx: Int, dy: Int) {
         val current = editorState ?: return
-        pushUndoSnapshot(current, undoStack, redoStack)
+        // selection移動はbitmap履歴に含めない（Undo/Redo対象外）
         updateState { state ->
             val moved = state.selection.moveBy(dx, dy)
             state.withSelection(rectNormalizeClamp(moved, state.bitmap.width, state.bitmap.height))
@@ -372,6 +374,9 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
                     val previewContent: @Composable () -> Unit = {
+                        val transformableState = rememberTransformableState { zoomChange, _, _ ->
+                            displayScale = (displayScale * zoomChange).coerceIn(MIN_SCALE, MAX_SCALE)
+                        }
                         Box(
                             modifier = Modifier
                                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
@@ -381,6 +386,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(8.dp))
+                                .transformable(state = transformableState)
                                 .testTag("spriteEditorPreview"),
                             contentAlignment = Alignment.TopCenter
                         ) {
@@ -399,12 +405,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                     contentDescription = "Sprite Editor Preview",
                                     modifier = Modifier
                                         .matchParentSize()
-                                        .onSizeChanged { newSize ->
-                                            displayScale = if (state.bitmap.width > 0) {
-                                                newSize.width / state.bitmap.width.toFloat()
-                                            } else {
-                                                1f
-                                            }
+                                        .graphicsLayer {
+                                            scaleX = displayScale
+                                            scaleY = displayScale
                                         },
                                     contentScale = ContentScale.Fit,
                                 )
@@ -412,17 +415,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                     if (state.bitmap.width > 0 && state.bitmap.height > 0) {
                                         val scaleX = size.width / state.bitmap.width
                                         val scaleY = size.height / state.bitmap.height
-                                        val scale = min(scaleX, scaleY)
-                                        val destinationWidth = state.bitmap.width * scale
-                                        val destinationHeight = state.bitmap.height * scale
+                                        val fitScale = min(scaleX, scaleY)
+                                        val renderScale = fitScale * displayScale
+                                        val destinationWidth = state.bitmap.width * renderScale
+                                        val destinationHeight = state.bitmap.height * renderScale
                                         val offsetXPx = ((size.width - destinationWidth) / 2f).roundToInt()
                                         val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
                                         val copied = copiedSelection
                                         if (copied != null) {
-                                            val copiedXPx = (copied.x * scale).roundToInt()
-                                            val copiedYPx = (copied.y * scale).roundToInt()
-                                            val copiedWPx = (copied.w * scale).roundToInt()
-                                            val copiedHPx = (copied.h * scale).roundToInt()
+                                            val copiedXPx = (copied.x * renderScale).roundToInt()
+                                            val copiedYPx = (copied.y * renderScale).roundToInt()
+                                            val copiedWPx = (copied.w * renderScale).roundToInt()
+                                            val copiedHPx = (copied.h * renderScale).roundToInt()
                                             val copiedStrokePx = max(1, 3.dp.toPx().roundToInt())
                                             val copiedColor = Color.Cyan
                                             drawRect(
@@ -449,10 +453,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = copiedStrokePx.toFloat()),
                                             )
                                         }
-                                        val selectionXPx = (state.selection.x * scale).roundToInt()
-                                        val selectionYPx = (state.selection.y * scale).roundToInt()
-                                        val selectionWPx = (state.selection.w * scale).roundToInt()
-                                        val selectionHPx = (state.selection.h * scale).roundToInt()
+                                        val selectionXPx = (state.selection.x * renderScale).roundToInt()
+                                        val selectionYPx = (state.selection.y * renderScale).roundToInt()
+                                        val selectionWPx = (state.selection.w * renderScale).roundToInt()
+                                        val selectionHPx = (state.selection.h * renderScale).roundToInt()
                                         val clipboardImage = state.clipboard?.let { ensureArgb8888(it).asImageBitmap() }
                                         if (clipboardImage != null) {
                                             drawImage(
@@ -1097,3 +1101,5 @@ private suspend fun saveInternalAutosave(context: android.content.Context, bitma
 }
 
 private const val MAX_HISTORY = 10
+private const val MIN_SCALE = 0.5f
+private const val MAX_SCALE = 16f
