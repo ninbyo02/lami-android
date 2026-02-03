@@ -61,7 +61,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -452,8 +454,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val selectionHPx = (state.selection.h * scale).roundToInt()
                                         val clipboardImage = state.clipboard?.let { ensureArgb8888(it).asImageBitmap() }
                                         if (clipboardImage != null) {
-                                            drawImageRect(
+                                            drawImage(
                                                 image = clipboardImage,
+                                                srcOffset = IntOffset(0, 0),
+                                                srcSize = IntSize(clipboardImage.width, clipboardImage.height),
                                                 dstOffset = IntOffset(
                                                     x = offsetXPx + selectionXPx,
                                                     y = offsetYPx + selectionYPx,
@@ -463,6 +467,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     height = selectionHPx,
                                                 ),
                                                 alpha = 0.45f,
+                                                colorFilter = ColorFilter.tint(
+                                                    color = Color(0xFF7FD7FF),
+                                                    blendMode = BlendMode.SrcAtop,
+                                                ),
                                             )
                                         }
                                         val strokePx = max(1, 2.dp.toPx().roundToInt())
