@@ -26,6 +26,7 @@ data class SpriteEditorState(
     val bitmap: Bitmap,
     val imageBitmap: ImageBitmap,
     val selection: RectPx,
+    val workingBitmap: Bitmap,
     val clipboard: Bitmap?,
     val savedSnapshot: Bitmap?,
     val initialBitmap: Bitmap,
@@ -52,7 +53,10 @@ data class SpriteEditorState(
     fun withSavedSnapshot(newSnapshot: Bitmap?): SpriteEditorState = copy(savedSnapshot = newSnapshot)
 }
 
-fun createInitialEditorState(bitmap: Bitmap): SpriteEditorState {
+fun createInitialEditorState(
+    bitmap: Bitmap,
+    editMode: EditMode,
+): SpriteEditorState {
     val safeBitmap = ensureArgb8888(bitmap)
     val startSize = min(32, min(safeBitmap.width.coerceAtLeast(1), safeBitmap.height.coerceAtLeast(1)))
     val selection = rectNormalizeClamp(
@@ -60,10 +64,13 @@ fun createInitialEditorState(bitmap: Bitmap): SpriteEditorState {
         imageW = safeBitmap.width,
         imageH = safeBitmap.height,
     )
+    val applyRect = computeApplyRect(selection, editMode, safeBitmap.width, safeBitmap.height)
+    val workingBitmap = copyRect(safeBitmap, applyRect)
     return SpriteEditorState(
         bitmap = safeBitmap,
         imageBitmap = safeBitmap.asImageBitmap(),
         selection = selection,
+        workingBitmap = workingBitmap,
         clipboard = null,
         savedSnapshot = null,
         initialBitmap = safeBitmap,

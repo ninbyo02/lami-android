@@ -116,3 +116,24 @@ fun paste(src: Bitmap, clip: Bitmap, dstX: Int, dstY: Int): Bitmap {
     canvas.drawBitmap(clip, srcRect, dstRect, null)
     return output
 }
+
+// 選択矩形からEditModeに合わせた適用矩形を計算する
+fun computeApplyRect(
+    selection: RectPx,
+    mode: EditMode,
+    imageW: Int,
+    imageH: Int,
+): RectPx {
+    val safeImageW = imageW.coerceAtLeast(1)
+    val safeImageH = imageH.coerceAtLeast(1)
+    val gridSize = mode.gridSize.coerceAtLeast(1)
+    val safeW = minOf(gridSize, safeImageW)
+    val safeH = minOf(gridSize, safeImageH)
+    val snappedX = (selection.x / gridSize) * gridSize
+    val snappedY = (selection.y / gridSize) * gridSize
+    val maxX = (safeImageW - safeW).coerceAtLeast(0)
+    val maxY = (safeImageH - safeH).coerceAtLeast(0)
+    val safeX = snappedX.coerceIn(0, maxX)
+    val safeY = snappedY.coerceIn(0, maxY)
+    return RectPx.of(safeX, safeY, safeW, safeH)
+}
