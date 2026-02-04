@@ -55,6 +55,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -81,6 +82,7 @@ fun Home(
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
+    val animationEpochMs by viewModel.animationEpochMs.collectAsState()
     val baseUrl by viewModel.baseUrl.collectAsState()
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -181,7 +183,8 @@ fun Home(
                         viewModel.updateSelectedModel(modelName)
                     },
                     onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false
+                    debugOverlayEnabled = false,
+                    syncEpochMs = animationEpochMs,
                 )
             },
             actions = {
@@ -317,7 +320,7 @@ fun Home(
                             lamiStatus = lamiAnimationStatus,
                             sizeDp = finalSize,
                             shape = CircleShape,
-                            backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                            backgroundColor = rememberLamiCharacterBackdropColor(),
                             contentPadding = 0.dp,
                             animationsEnabled = true,
                             replacementEnabled = true,
@@ -326,6 +329,7 @@ fun Home(
                             tightContainer = true,
                             maxStatusSpriteSizeDp = finalSize,
                             debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
                         )
                     }
                     // 下：案内テキストとの距離を確保するための Spacer

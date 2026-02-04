@@ -1,4 +1,5 @@
 package com.sonusid.ollama.viewmodels
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
@@ -20,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,6 +55,8 @@ class OllamaViewModel(
     private val _lamiAnimationStatus =
         MutableStateFlow(mapToAnimationLamiStatus(_lamiState.value, _uiState.value, _selectedModel.value))
     val lamiAnimationStatus: StateFlow<LamiStatus> = _lamiAnimationStatus.asStateFlow()
+    private val _animationEpochMs = MutableStateFlow(SystemClock.uptimeMillis())
+    val animationEpochMs: StateFlow<Long> = _animationEpochMs.asStateFlow()
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
@@ -67,6 +72,14 @@ class OllamaViewModel(
             }
         }
         viewModelScope.launch {
+            lamiUiState
+                .map { it.state }
+                .distinctUntilChanged()
+                .collect {
+                    _animationEpochMs.value = SystemClock.uptimeMillis()
+                }
+        }
+        viewModelScope.launch {
             combine(lamiUiState, _uiState, _selectedModel) { lamiUiState, uiState, selectedModel ->
                 mapToAnimationLamiStatus(
                     lamiState = lamiUiState.state,
@@ -74,6 +87,9 @@ class OllamaViewModel(
                     selectedModel = selectedModel,
                 )
             }.collect { mappedStatus ->
+                if (mappedStatus != _lamiAnimationStatus.value) {
+                    _animationEpochMs.value = SystemClock.uptimeMillis()
+                }
                 _lamiAnimationStatus.value = mappedStatus
             }
         }

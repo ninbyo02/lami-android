@@ -35,6 +35,7 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
+import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
@@ -53,6 +54,8 @@ fun About(
     val lamiState =
         viewModel?.lamiUiState?.collectAsState(initial = LamiUiState())?.value?.state
             ?: LamiState.Idle
+    val animationEpochMs =
+        viewModel?.animationEpochMs?.collectAsState(initial = 0L)?.value ?: 0L
     Scaffold(
         topBar = {
             TopAppBar(
@@ -67,6 +70,7 @@ fun About(
                             modifier = Modifier.offset(x = (-1).dp),
                             onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
                             debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
                         )
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(painterResource(R.drawable.back), "exit")
@@ -101,7 +105,7 @@ fun About(
                         sizeDp = finalSize,
                         modifier = Modifier,
                         shape = CircleShape,
-                        backgroundColor = MaterialTheme.colorScheme.surfaceBright,
+                        backgroundColor = rememberLamiCharacterBackdropColor(),
                         // 中央キャラ：背景円の余白をなくす
                         contentPadding = 0.dp,
                         animationsEnabled = true,
@@ -111,6 +115,7 @@ fun About(
                         tightContainer = true,
                         maxStatusSpriteSizeDp = finalSize,
                         debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
                     )
                 }
                 // 下：タイトルとの距離を確保するための Spacer

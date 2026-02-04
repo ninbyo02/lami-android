@@ -84,6 +84,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -133,6 +134,7 @@ import com.sonusid.ollama.ui.components.SpriteFrameRegion
 import com.sonusid.ollama.ui.components.DevMenuSectionHost
 import com.sonusid.ollama.ui.components.drawFramePlaceholder
 import com.sonusid.ollama.ui.components.drawFrameRegion
+import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import kotlinx.coroutines.CoroutineScope
@@ -3239,16 +3241,55 @@ fun SpriteSettingsScreen(navController: NavController) {
                             "key=$animationKeyForState length=${perStateJsonString.length}"
                     )
                 }
-                settingsPreferences.saveSpriteAnimationJson(targetState, perStateJsonString)
-                val trimmedAnimationKey = animationKeyForState.trim()
-                if (trimmedAnimationKey.isNotEmpty()) {
-                    settingsPreferences.saveSelectedKey(targetState, trimmedAnimationKey)
+                val perStateSaveResult = runCatching {
+                    settingsPreferences.saveSpriteAnimationJson(targetState, perStateJsonString)
                 }
                 if (BuildConfig.DEBUG) {
+                    perStateSaveResult.fold(
+                        onSuccess = {
+                            Log.d(
+                                "LamiSprite",
+                                "per-state saved: state=${targetState.name} key=$animationKeyForState " +
+                                    "size=${perStateJsonString.length}"
+                            )
+                        },
+                        onFailure = { error ->
+                            Log.d(
+                                "LamiSprite",
+                                "per-state save failed: state=${targetState.name} " +
+                                    "key=$animationKeyForState error=${error.message}"
+                            )
+                        }
+                    )
+                }
+                perStateSaveResult.getOrThrow()
+                val trimmedAnimationKey = animationKeyForState.trim()
+                if (trimmedAnimationKey.isNotEmpty()) {
+                    val selectedKeySaveResult = runCatching {
+                        settingsPreferences.saveSelectedKey(targetState, trimmedAnimationKey)
+                    }
+                    if (BuildConfig.DEBUG) {
+                        selectedKeySaveResult.fold(
+                            onSuccess = {
+                                Log.d(
+                                    "LamiSprite",
+                                    "per-key saved: state=${targetState.name} key=$trimmedAnimationKey"
+                                )
+                            },
+                            onFailure = { error ->
+                                Log.d(
+                                    "LamiSprite",
+                                    "per-key save failed: state=${targetState.name} " +
+                                        "key=$trimmedAnimationKey error=${error.message}"
+                                )
+                            }
+                        )
+                    }
+                    selectedKeySaveResult.getOrThrow()
+                } else if (BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
-                        "per-state saved: state=${targetState.name} key=$animationKeyForState " +
-                            "size=${perStateJson.toString().length}"
+                        "per-key save skipped: state=${targetState.name} key is blank"
                     )
                 }
             }.onSuccess {
@@ -4446,6 +4487,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                             SpriteTab.ANIM -> animationTabContent()
 
                             SpriteTab.ADJUST -> {
+                                val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
                                 // delegated property のため smart cast 不可→ローカル束縛
                                 val bmp = imageBitmap
                                 val previewHeaderText = if (bmp != null) {
@@ -4462,64 +4504,74 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val statusTextStyle = MaterialTheme.typography.labelMedium.copy(
                                     lineHeight = MaterialTheme.typography.labelMedium.fontSize
                                 )
-                                Box(
+                                Column(
                                     modifier = Modifier
                                         // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
                                         .fillMaxSize()
                                         // テストで調整タブの表示確認に使う最小限の testTag
                                         .testTag("spriteAdjustPanel"),
-                                    // [非dp] 縦: プレビュー/ステータス の上寄せ(配置)に関係
-                                    contentAlignment = Alignment.TopCenter
+                                    // [非dp] 横: プレビュー/ステータス の中央寄せ(配置)に関係
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    SpritePreviewBlock(
-                                        imageBitmap = bmp,
+                                    Box(
                                         modifier = Modifier
                                             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
                                             // [dp] 上: プレビュー の余白(余白)に関係
                                             .padding(top = 2.dp)
-                                            // [非dp] 上: プレビュー の配置(配置)に関係
-                                            .align(Alignment.TopCenter),
-                                        onContainerSizeChanged = { newContainerSize: IntSize ->
-                                            containerSize = newContainerSize
-                                            if (bmp != null && bmp.width != 0) {
-                                                displayScale = newContainerSize.width / bmp.width.toFloat()
-                                            }
-                                        },
-                                        overlayContent = {
-                                            if (bmp != null &&
-                                                selectedPosition != null &&
-                                                containerSize.width > 0 &&
-                                                containerSize.height > 0
-                                            ) {
-                                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                                    val scaleX = this.size.width / bmp.width
-                                                    val scaleY = this.size.height / bmp.height
-                                                    val scale = min(scaleX, scaleY)
-                                                    val destinationWidth = bmp.width * scale
-                                                    val destinationHeight = bmp.height * scale
-                                                    val offsetX = (this.size.width - destinationWidth) / 2f
-                                                    val offsetY = (this.size.height - destinationHeight) / 2f
-                                                    drawRect(
-                                                        color = Color.Red,
-                                                        topLeft = Offset(
-                                                            x = offsetX + selectedPosition.x * scale,
-                                                            y = offsetY + selectedPosition.y * scale
-                                                        ),
-                                                        size = Size(
-                                                            width = boxSizePx * scale,
-                                                            height = boxSizePx * scale
-                                                        ),
-                                                        style = Stroke(width = 2.dp.toPx())
-                                                    )
+                                            // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.TopCenter
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .background(editorBackdropColor)
+                                        )
+                                        SpritePreviewBlock(
+                                            imageBitmap = bmp,
+                                            backgroundColor = Color.Transparent,
+                                            modifier = Modifier.matchParentSize(),
+                                            onContainerSizeChanged = { newContainerSize: IntSize ->
+                                                containerSize = newContainerSize
+                                                if (bmp != null && bmp.width != 0) {
+                                                    displayScale = newContainerSize.width / bmp.width.toFloat()
+                                                }
+                                            },
+                                            overlayContent = {
+                                                if (bmp != null &&
+                                                    selectedPosition != null &&
+                                                    containerSize.width > 0 &&
+                                                    containerSize.height > 0
+                                                ) {
+                                                    Canvas(modifier = Modifier.fillMaxSize()) {
+                                                        val scaleX = this.size.width / bmp.width
+                                                        val scaleY = this.size.height / bmp.height
+                                                        val scale = min(scaleX, scaleY)
+                                                        val destinationWidth = bmp.width * scale
+                                                        val destinationHeight = bmp.height * scale
+                                                        val offsetX = (this.size.width - destinationWidth) / 2f
+                                                        val offsetY = (this.size.height - destinationHeight) / 2f
+                                                        drawRect(
+                                                            color = Color.Red,
+                                                            topLeft = Offset(
+                                                                x = offsetX + selectedPosition.x * scale,
+                                                                y = offsetY + selectedPosition.y * scale
+                                                            ),
+                                                            size = Size(
+                                                                width = boxSizePx * scale,
+                                                                height = boxSizePx * scale
+                                                            ),
+                                                            style = Stroke(width = 2.dp.toPx())
+                                                        )
+                                                    }
                                                 }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                     Column(
                                         modifier = Modifier
-                                            // [非dp] 下: ステータス行 の配置(配置)に関係
-                                            .align(Alignment.BottomStart)
                                             // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
                                             .fillMaxWidth()
                                             // [dp] 左右: ステータス行 の余白(余白)に関係
@@ -5305,6 +5357,7 @@ private fun ReadyAnimationCharacter(
     frameRegion: SpriteFrameRegion?,
     spriteSizeDp: Dp,
     charYOffsetDp: Int,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
@@ -5312,6 +5365,7 @@ private fun ReadyAnimationCharacter(
         modifier = modifier
             // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
             .size(spriteSizeDp)
+            .background(backgroundColor, RoundedCornerShape(8.dp))
             // [dp] 上下: プレビュー の余白(余白)に関係
             .offset(y = charYOffsetDp.dp),
         contentAlignment = Alignment.Center
@@ -5561,6 +5615,7 @@ private fun ReadyAnimationPreviewPane(
                 } else {
                     MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
                 }
+                val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
 
                 ReadyPreviewSlot(
                     cardHeightModifier = cardHeightModifier,
@@ -5576,6 +5631,7 @@ private fun ReadyAnimationPreviewPane(
                             frameRegion = previewState.frameRegion,
                             spriteSizeDp = spriteSize,
                             charYOffsetDp = previewUiState.charYOffsetDp,
+                            backgroundColor = editorBackdropColor,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 // [dp] 左上: プレビュー の余白(余白)に関係
@@ -5627,6 +5683,7 @@ private fun ReadyAnimationPreviewPane(
 @Composable
 private fun SpritePreviewBlock(
     imageBitmap: ImageBitmap?,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
     onContainerSizeChanged: ((IntSize) -> Unit)? = null,
     overlayContent: @Composable BoxScope.() -> Unit = {},
@@ -5644,6 +5701,7 @@ private fun SpritePreviewBlock(
             1f,
             configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.toFloat()
         ).coerceAtLeast(0.7f)
+        val previewShape = RoundedCornerShape(8.dp)
         Box(
             modifier = Modifier
                 // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
@@ -5651,7 +5709,9 @@ private fun SpritePreviewBlock(
                 // [非dp] 縦横: プレビュー の aspectRatio(制約)に関係
                 .aspectRatio(aspectRatio)
                 // [dp] 縦: プレビュー の最小サイズ(最小サイズ)に関係
-                .heightIn(min = minHeight),
+                .heightIn(min = minHeight)
+                .background(backgroundColor, previewShape)
+                .clip(previewShape),
             // [非dp] 縦: プレビュー の配置(配置)に関係
             contentAlignment = Alignment.TopCenter
         ) {
@@ -5719,8 +5779,9 @@ private fun SpriteSettingsControls(
             .height(buttonHeight)
 
         val navigatorButtonColors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF6A00FF),
-            contentColor = Color.White
+            // ナビゲーションボタンはテーマ準拠で動的カラーに追従させる
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         )
         val defaultControlButtonColors = ButtonDefaults.filledTonalButtonColors()
         val cellModifier = Modifier

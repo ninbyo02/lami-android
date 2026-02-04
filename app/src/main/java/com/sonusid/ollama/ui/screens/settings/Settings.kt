@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -75,6 +76,7 @@ import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -99,6 +101,8 @@ internal data class ServerInput(
     val url: String,
     val isActive: Boolean = false
 )
+
+private const val SETTINGS_SUCCESS_SNACKBAR_MS = 1200L
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -134,6 +138,21 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 launchSingleTop = true
                 popUpTo(Routes.CHATS) { inclusive = true }
             }
+        }
+    }
+
+    fun showSuccessSnackbarShort(message: String) {
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val dismissJob = launch {
+                delay(SETTINGS_SUCCESS_SNACKBAR_MS)
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Indefinite
+            )
+            dismissJob.cancel()
         }
     }
 
@@ -287,6 +306,38 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                        ListItem(
+                            headlineContent = {
+                                Text("Sprite Editor", style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    "スプライト画像の編集・書き出しを行います",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Filled.BugReport,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { navgationController.navigate(SettingsRoute.SpriteEditor.route) }
+                                // [dp] 左右/上下: ListItem の余白(余白)に関係
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -541,7 +592,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                                 val normalized = normalizeUrlInput(current.url).trimEnd('/')
                                                 serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
                                             }
-                                            snackbarHostState.showSnackbar("サーバー設定を保存しました")
+                                            showSuccessSnackbarShort("サーバー設定を保存しました")
                                         }
                                     }
                                 }) {

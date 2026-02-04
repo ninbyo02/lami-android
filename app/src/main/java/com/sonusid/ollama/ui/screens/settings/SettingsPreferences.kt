@@ -1595,6 +1595,9 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    /**
+     * per-state JSONのanimationKeyを上書きする（per-key legacy移行時の補正用途）。
+     */
     private fun overridePerStateAnimationKey(json: String, animationKey: String): String? =
         runCatching {
             val root = JSONObject(json)
