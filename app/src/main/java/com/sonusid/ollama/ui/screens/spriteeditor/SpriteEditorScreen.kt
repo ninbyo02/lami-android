@@ -923,18 +923,20 @@ fun SpriteEditorScreen(navController: NavController) {
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                fun modeButtonColors(selected: Boolean) = ButtonDefaults.buttonColors(
-                                    containerColor = if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.surface
-                                    },
-                                    contentColor = if (selected) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
+                                @Composable
+                                fun modeButtonColors(selected: Boolean): ButtonColors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = if (selected) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        },
+                                        contentColor = if (selected) {
+                                            MaterialTheme.colorScheme.onPrimary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                    )
                                 val modeButtonModifier = Modifier
                                     .height(32.dp)
                                     .heightIn(min = 48.dp)
