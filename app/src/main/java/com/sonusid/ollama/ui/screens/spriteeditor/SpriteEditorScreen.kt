@@ -1320,7 +1320,37 @@ fun SpriteEditorScreen(navController: NavController) {
                             if (item.opensApplyDialog) {
                                 showApplyDialog = true
                             } else {
-                                scope.launch { showSnackbarMessage("TODO: ${item.label}") }
+                                when (item.label) {
+                                    "Grayscale" -> {
+                                        val current = editorState
+                                        if (current == null) {
+                                            scope.launch { showSnackbarMessage("No image loaded") }
+                                        } else {
+                                            scope.launch {
+                                                updateState { state ->
+                                                    pushUndoSnapshot(state, undoStack, redoStack)
+                                                    state
+                                                }
+                                                val grayscaleBitmap = runCatching {
+                                                    withContext(Dispatchers.Default) {
+                                                        toGrayscale(current.bitmap)
+                                                    }
+                                                }.getOrElse {
+                                                    showSnackbarMessage("Failed to apply Grayscale")
+                                                    return@launch
+                                                }
+                                                updateState { state ->
+                                                    state.copy(
+                                                        bitmap = grayscaleBitmap,
+                                                        imageBitmap = grayscaleBitmap.asImageBitmap(),
+                                                    )
+                                                }
+                                                showSnackbarMessage("Applied: Grayscale")
+                                            }
+                                        }
+                                    }
+                                    else -> scope.launch { showSnackbarMessage("TODO: ${item.label}") }
+                                }
                             }
                         },
                         modifier = Modifier
