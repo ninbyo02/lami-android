@@ -29,12 +29,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -75,9 +72,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.ShaderBrush
@@ -93,11 +88,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -393,73 +385,6 @@ fun SpriteEditorScreen(navController: NavController) {
                     val pillShape = RoundedCornerShape(999.dp)
                     var moveMode by remember { mutableStateOf(MoveMode.Box) }
                     var pxStepBase by rememberSaveable { mutableStateOf(4) }
-                    var widthText by remember(state?.widthInput) {
-                        mutableStateOf(state?.widthInput.orEmpty())
-                    }
-                    var heightText by remember(state?.heightInput) {
-                        mutableStateOf(state?.heightInput.orEmpty())
-                    }
-                    val inputContent: @Composable (Modifier) -> Unit = { modifier ->
-                        Row(
-                            modifier = modifier,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = widthText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    widthText = sanitized
-                                    updateState { current ->
-                                        val updated = current.copy(widthInput = sanitized)
-                                        val width = sanitized.toIntOrNull()
-                                        if (width != null && width > 0) {
-                                            val resized = current.selection.resize(width, current.selection.h)
-                                            updateSelectionWithMode(updated, resized)
-                                        } else {
-                                            updated
-                                        }
-                                    }
-                                },
-                                label = { Text("W(px)") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .height(54.dp)
-                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 54.dp)
-                                    .testTag("spriteEditorWidthPx"),
-                            )
-                            OutlinedTextField(
-                                value = heightText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    heightText = sanitized
-                                    updateState { current ->
-                                        val updated = current.copy(heightInput = sanitized)
-                                        val height = sanitized.toIntOrNull()
-                                        if (height != null && height > 0) {
-                                            val resized = current.selection.resize(current.selection.w, height)
-                                            updateSelectionWithMode(updated, resized)
-                                        } else {
-                                            updated
-                                        }
-                                    }
-                                },
-                                label = { Text("H(px)") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .height(54.dp)
-                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
-                                    .heightIn(min = 54.dp)
-                                    .testTag("spriteEditorHeightPx"),
-                            )
-                        }
-                    }
                     val previewContent: @Composable () -> Unit = {
                         val gridRenderScale = remember(state, previewSize, displayScale) {
                             if (state == null) {
@@ -779,65 +704,16 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val applyYPx = (applyRect.y * renderScale).roundToInt()
                                         val applyWPx = (applyRect.w * renderScale).roundToInt()
                                         val applyHPx = (applyRect.h * renderScale).roundToInt()
-                                        val applyStrokePx = max(1, 2.dp.toPx().roundToInt())
-                                        drawRect(
-                                            color = Color(0xFF7FD7FF).copy(alpha = 0.18f),
-                                            topLeft = Offset(
-                                                x = (renderOffsetXPx + applyXPx).toFloat(),
-                                                y = (renderOffsetYPx + applyYPx).toFloat(),
-                                            ),
-                                            size = Size(
-                                                width = applyWPx.toFloat(),
-                                                height = applyHPx.toFloat(),
-                                            ),
-                                        )
-                                        drawRect(
-                                            color = Color(0xFF7FD7FF),
-                                            topLeft = Offset(
-                                                x = (renderOffsetXPx + applyXPx).toFloat(),
-                                                y = (renderOffsetYPx + applyYPx).toFloat(),
-                                            ),
-                                            size = Size(
-                                                width = applyWPx.toFloat(),
-                                                height = applyHPx.toFloat(),
-                                            ),
-                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = applyStrokePx.toFloat()),
-                                        )
-                                        val selectionXPx = (state.selection.x * renderScale).roundToInt()
-                                        val selectionYPx = (state.selection.y * renderScale).roundToInt()
-                                        val selectionWPx = (state.selection.w * renderScale).roundToInt()
-                                        val selectionHPx = (state.selection.h * renderScale).roundToInt()
-                                        val clipboardImage = state.clipboard?.let { ensureArgb8888(it).asImageBitmap() }
-                                        if (clipboardImage != null) {
-                                            drawImage(
-                                                image = clipboardImage,
-                                                srcOffset = IntOffset(0, 0),
-                                                srcSize = IntSize(clipboardImage.width, clipboardImage.height),
-                                                dstOffset = IntOffset(
-                                                    x = renderOffsetXPx + selectionXPx,
-                                                    y = renderOffsetYPx + selectionYPx,
-                                                ),
-                                                dstSize = IntSize(
-                                                    width = selectionWPx,
-                                                    height = selectionHPx,
-                                                ),
-                                                alpha = 0.78f,
-                                                colorFilter = ColorFilter.tint(
-                                                    color = Color(0xFF7FD7FF),
-                                                    blendMode = BlendMode.SrcIn,
-                                                ),
-                                            )
-                                        }
                                         val strokePx = max(1, 2.dp.toPx().roundToInt())
                                         drawRect(
                                             color = Color.Red,
                                             topLeft = Offset(
-                                                x = (renderOffsetXPx + selectionXPx).toFloat(),
-                                                y = (renderOffsetYPx + selectionYPx).toFloat(),
+                                                x = (renderOffsetXPx + applyXPx).toFloat(),
+                                                y = (renderOffsetYPx + applyYPx).toFloat(),
                                             ),
                                             size = Size(
-                                                width = selectionWPx.toFloat(),
-                                                height = selectionHPx.toFloat(),
+                                                width = applyWPx.toFloat(),
+                                                height = applyHPx.toFloat(),
                                             ),
                                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokePx.toFloat()),
                                         )
@@ -860,16 +736,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "画像: ${state.bitmap.width}×${state.bitmap.height} / ${"%.2f".format(displayScale)}x"
                             }
-                            val statusLine2 = if (state == null) {
-                                "選択: -, -, -, -"
-                            } else {
-                                "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
-                            }
-                            val statusLine3 = if (state == null) {
-                                "移動: -"
-                            } else {
-                                "移動: ${pxStepBase}px"
-                            }
                             val modeLine = if (state == null) {
                                 "Mode: -"
                             } else {
@@ -883,18 +749,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                             Text(
                                 text = statusLine1,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = statusLine2,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = statusLine3,
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -1074,69 +928,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                             modifier = Modifier.fillMaxWidth(),
                                             shape = pillShape,
                                         )
-                                    }
-                                }
-                                item {
-                                    OperationCell(minHeight = buttonMinHeight) {
-                                        val isPx = moveMode == MoveMode.Px
-                                        Button(
-                                            onClick = {
-                                                moveMode = MoveMode.Px
-                                                pxStepBase = if (pxStepBase == 4) 1 else 4
-                                            },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isPx) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    MaterialTheme.colorScheme.surface
-                                                },
-                                                contentColor = if (isPx) {
-                                                    MaterialTheme.colorScheme.onPrimary
-                                                } else {
-                                                    MaterialTheme.colorScheme.onSurface
-                                                }
-                                            ),
-                                            border = if (isPx) null else ButtonDefaults.outlinedButtonBorder
-                                        ) {
-                                            Text("PX")
-                                        }
-                                    }
-                                }
-                                item {
-                                    OperationCell(minHeight = buttonMinHeight) {
-                                        val isBox = moveMode == MoveMode.Box
-                                        Button(
-                                            onClick = { moveMode = MoveMode.Box },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                                .height(buttonHeight)
-                                                .heightIn(min = buttonMinHeight),
-                                            contentPadding = buttonPadding,
-                                            shape = pillShape,
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (isBox) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    MaterialTheme.colorScheme.surface
-                                                },
-                                                contentColor = if (isBox) {
-                                                    MaterialTheme.colorScheme.onPrimary
-                                                } else {
-                                                    MaterialTheme.colorScheme.onSurface
-                                                }
-                                            ),
-                                            border = if (isBox) null else ButtonDefaults.outlinedButtonBorder
-                                        ) {
-                                            Text("BOX")
-                                        }
                                     }
                                 }
                                 item {
@@ -1324,20 +1115,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
                                                     val applyRect = computeApplyRectForState(current)
-                                                    val workingBitmap = ensureWorkingBitmap(current, applyRect)
-                                                    val clearedWorking = clearTransparent(
-                                                        workingBitmap,
-                                                        RectPx.of(0, 0, workingBitmap.width, workingBitmap.height),
-                                                    )
-                                                    val applied = paste(
-                                                        current.bitmap,
-                                                        clearedWorking,
-                                                        applyRect.x,
-                                                        applyRect.y,
-                                                    )
+                                                    val clearedBitmap = clearTransparent(current.bitmap, applyRect)
+                                                    val clearedWorking = copyRect(clearedBitmap, applyRect)
                                                     current.copy(
-                                                        bitmap = applied,
-                                                        imageBitmap = applied.asImageBitmap(),
+                                                        bitmap = clearedBitmap,
+                                                        imageBitmap = clearedBitmap.asImageBitmap(),
                                                         workingBitmap = clearedWorking,
                                                     )
                                                 }
@@ -1435,14 +1217,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             verticalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
                             previewContent()
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                statusContent(Modifier.weight(1f))
-                                inputContent(Modifier)
-                            }
+                            statusContent(Modifier.fillMaxWidth())
                             controlsContent(Modifier.fillMaxWidth())
                         }
                     } else {
@@ -1456,14 +1231,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 verticalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
                                 previewContent()
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    statusContent(Modifier.weight(1f))
-                                    inputContent(Modifier)
-                                }
+                                statusContent(Modifier.fillMaxWidth())
                                 controlsContent(Modifier.fillMaxWidth())
                             }
                         }
@@ -1753,8 +1521,6 @@ fun SpriteEditorScreen(navController: NavController) {
         )
     }
 }
-
-private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit() }
 
 @Composable
 private fun OperationCell(
