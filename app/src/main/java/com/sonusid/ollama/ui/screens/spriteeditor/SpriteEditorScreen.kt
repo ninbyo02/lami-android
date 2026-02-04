@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -30,6 +31,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -39,15 +42,18 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -86,6 +92,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -120,6 +127,11 @@ private enum class SheetType {
     Tools,
 }
 
+private enum class ApplySource(val label: String) {
+    Selection("Selection"),
+    FullImage("Full Image"),
+}
+
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
     return start + (end - start) * t
 }
@@ -150,6 +162,10 @@ fun SpriteEditorScreen(navController: NavController) {
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
     var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
+    var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
+    var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
+    var applyOverwrite by rememberSaveable { mutableStateOf(true) }
+    var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
@@ -1333,13 +1349,130 @@ fun SpriteEditorScreen(navController: NavController) {
         AlertDialog(
             onDismissRequest = { showApplyDialog = false },
             title = { Text("Apply to Sprite") },
-            text = { Text("Apply current edits to the sprite source? This can be undone.") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("Applies the current image (or selection) to a sprite asset.")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Source")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = applySource == ApplySource.Selection,
+                                    onClick = { applySource = ApplySource.Selection },
+                                    role = Role.RadioButton,
+                                )
+                                .testTag("spriteEditorApplySourceSelection"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = applySource == ApplySource.Selection,
+                                onClick = null,
+                            )
+                            Text("Selection")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = applySource == ApplySource.FullImage,
+                                    onClick = { applySource = ApplySource.FullImage },
+                                    role = Role.RadioButton,
+                                )
+                                .testTag("spriteEditorApplySourceFull"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = applySource == ApplySource.FullImage,
+                                onClick = null,
+                            )
+                            Text("Full Image")
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Destination")
+                        OutlinedTextField(
+                            value = applyDestinationLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("spriteEditorApplyDestination")
+                                .clickable {
+                                    scope.launch {
+                                        showSnackbarMessage("TODO: Choose destination sprite")
+                                    }
+                                },
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Options")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("spriteEditorApplyOverwrite"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = applyOverwrite,
+                                onCheckedChange = { applyOverwrite = it },
+                            )
+                            Text("Overwrite existing")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("spriteEditorApplyPreserveAlpha"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = applyPreserveAlpha,
+                                onCheckedChange = { applyPreserveAlpha = it },
+                            )
+                            Text("Preserve transparency")
+                        }
+                    }
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
                         showApplyDialog = false
-                        scope.launch { showSnackbarMessage("Applied (stub)") }
+                        scope.launch {
+                            showSnackbarMessage(
+                                "TODO: Apply to Sprite (Source=${applySource.label}, " +
+                                    "Destination=$applyDestinationLabel, " +
+                                    "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
+                            )
+                        }
                     },
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("spriteEditorApplyConfirm"),
                 ) {
                     Text("Apply")
                 }
@@ -1347,10 +1480,14 @@ fun SpriteEditorScreen(navController: NavController) {
             dismissButton = {
                 Button(
                     onClick = { showApplyDialog = false },
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("spriteEditorApplyCancel"),
                 ) {
                     Text("Cancel")
                 }
             },
+            modifier = Modifier.testTag("spriteEditorApplyDialog"),
         )
     }
 }
