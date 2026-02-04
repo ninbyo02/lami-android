@@ -1257,10 +1257,27 @@ fun SpriteEditorScreen(navController: NavController) {
 
     if (activeSheet != SheetType.None) {
         val sheetTitle = if (activeSheet == SheetType.More) "More" else "Tools"
+        data class SheetItem(
+            val label: String,
+            val testTag: String,
+            val opensApplyDialog: Boolean = false,
+        )
         val sheetItems = if (activeSheet == SheetType.More) {
-            listOf("Flip Copy", "Resize...", "Apply to Sprite...")
+            listOf(
+                SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
+                SheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
+                SheetItem(
+                    label = "Apply to Sprite...",
+                    testTag = "spriteEditorSheetItemApply",
+                    opensApplyDialog = true,
+                ),
+            )
         } else {
-            listOf("Outline", "Grayscale", "Binarize", "BG Transparent...")
+            listOf(
+                SheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
+                SheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
+                SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
+            )
         }
         ModalBottomSheet(
             onDismissRequest = { activeSheet = SheetType.None },
@@ -1280,26 +1297,27 @@ fun SpriteEditorScreen(navController: NavController) {
                         // [dp] 上下: タイトルと項目の間隔(間隔)に関係
                         .height(8.dp)
                 )
-                sheetItems.forEach { label ->
+                sheetItems.forEach { item ->
                     Button(
                         onClick = {
                             activeSheet = SheetType.None
-                            if (label == "Apply to Sprite...") {
+                            if (item.opensApplyDialog) {
                                 showApplyDialog = true
                             } else {
-                                scope.launch { showSnackbarMessage("Not implemented") }
+                                scope.launch { showSnackbarMessage("TODO: ${item.label}") }
                             }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
                             .height(32.dp)
-                            .heightIn(min = 48.dp),
+                            .heightIn(min = 48.dp)
+                            .testTag(item.testTag),
                         // [dp] 左右: ボトムシート内ボタンの余白(余白)に関係
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         shape = RoundedCornerShape(999.dp),
                     ) {
-                        Text(label)
+                        Text(item.label)
                     }
                     Spacer(
                         modifier = Modifier
