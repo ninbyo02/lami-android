@@ -159,6 +159,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
     var isGridEnabled by remember { mutableStateOf(false) }
+    var editMode by rememberSaveable { mutableStateOf(EditMode.SPRITE_96) }
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
     var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
@@ -194,7 +195,7 @@ fun SpriteEditorScreen(navController: NavController) {
             showSnackbarMessage("スプライト画像の読み込みに失敗しました")
         } else {
             val safeBitmap = ensureArgb8888(bitmap)
-            editorState = createInitialEditorState(safeBitmap)
+            editorState = createInitialEditorState(safeBitmap, editMode)
             editUriString = null
         }
     }
@@ -224,10 +225,13 @@ fun SpriteEditorScreen(navController: NavController) {
             pushUndoSnapshot(current, undoStack, redoStack)
             val safeBitmap = ensureArgb8888(bitmap)
             val nextSelection = rectNormalizeClamp(current.selection, safeBitmap.width, safeBitmap.height)
+            val applyRect = computeApplyRect(nextSelection, editMode, safeBitmap.width, safeBitmap.height)
+            val workingBitmap = copyRect(safeBitmap, applyRect)
             editorState = current.copy(
                 bitmap = safeBitmap,
                 imageBitmap = safeBitmap.asImageBitmap(),
                 selection = nextSelection,
+                workingBitmap = workingBitmap,
                 widthInput = nextSelection.w.toString(),
                 heightInput = nextSelection.h.toString(),
                 savedSnapshot = null,
@@ -286,12 +290,48 @@ fun SpriteEditorScreen(navController: NavController) {
         editorState = block(current)
     }
 
+    fun computeApplyRectForState(state: SpriteEditorState): RectPx {
+        return computeApplyRect(state.selection, editMode, state.bitmap.width, state.bitmap.height)
+    }
+
+    fun rebuildWorkingBitmap(
+        state: SpriteEditorState,
+        applyRect: RectPx = computeApplyRectForState(state),
+    ): SpriteEditorState {
+        val workingBitmap = copyRect(state.bitmap, applyRect)
+        return state.copy(workingBitmap = workingBitmap)
+    }
+
+    fun updateSelectionWithMode(state: SpriteEditorState, nextSelection: RectPx): SpriteEditorState {
+        val normalized = rectNormalizeClamp(nextSelection, state.bitmap.width, state.bitmap.height)
+        val applyRect = computeApplyRect(normalized, editMode, state.bitmap.width, state.bitmap.height)
+        val workingBitmap = copyRect(state.bitmap, applyRect)
+        return state.copy(
+            selection = normalized,
+            widthInput = normalized.w.toString(),
+            heightInput = normalized.h.toString(),
+            workingBitmap = workingBitmap,
+        )
+    }
+
+    fun ensureWorkingBitmap(
+        state: SpriteEditorState,
+        applyRect: RectPx,
+    ): Bitmap {
+        val working = state.workingBitmap
+        return if (working.width == applyRect.w && working.height == applyRect.h) {
+            working
+        } else {
+            copyRect(state.bitmap, applyRect)
+        }
+    }
+
     fun moveSelection(dx: Int, dy: Int) {
         val current = editorState ?: return
         // selection移動はbitmap履歴に含めない（Undo/Redo対象外）
         updateState { state ->
             val moved = state.selection.moveBy(dx, dy)
-            state.withSelection(rectNormalizeClamp(moved, state.bitmap.width, state.bitmap.height))
+            updateSelectionWithMode(state, moved)
         }
     }
 
@@ -374,16 +414,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val width = sanitized.toIntOrNull()
                                         if (width != null && width > 0) {
                                             val resized = current.selection.resize(width, current.selection.h)
-                                            val normalized = rectNormalizeClamp(
-                                                resized,
-                                                current.bitmap.width,
-                                                current.bitmap.height,
-                                            )
-                                            updated.copy(
-                                                selection = normalized,
-                                                widthInput = normalized.w.toString(),
-                                                heightInput = normalized.h.toString(),
-                                            )
+                                            updateSelectionWithMode(updated, resized)
                                         } else {
                                             updated
                                         }
@@ -410,16 +441,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val height = sanitized.toIntOrNull()
                                         if (height != null && height > 0) {
                                             val resized = current.selection.resize(current.selection.w, height)
-                                            val normalized = rectNormalizeClamp(
-                                                resized,
-                                                current.bitmap.width,
-                                                current.bitmap.height,
-                                            )
-                                            updated.copy(
-                                                selection = normalized,
-                                                widthInput = normalized.w.toString(),
-                                                heightInput = normalized.h.toString(),
-                                            )
+                                            updateSelectionWithMode(updated, resized)
                                         } else {
                                             updated
                                         }
@@ -747,6 +769,40 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = copiedStrokePx.toFloat()),
                                             )
                                         }
+                                        val applyRect = computeApplyRect(
+                                            state.selection,
+                                            editMode,
+                                            state.bitmap.width,
+                                            state.bitmap.height,
+                                        )
+                                        val applyXPx = (applyRect.x * renderScale).roundToInt()
+                                        val applyYPx = (applyRect.y * renderScale).roundToInt()
+                                        val applyWPx = (applyRect.w * renderScale).roundToInt()
+                                        val applyHPx = (applyRect.h * renderScale).roundToInt()
+                                        val applyStrokePx = max(1, 2.dp.toPx().roundToInt())
+                                        drawRect(
+                                            color = Color(0xFF7FD7FF).copy(alpha = 0.18f),
+                                            topLeft = Offset(
+                                                x = (renderOffsetXPx + applyXPx).toFloat(),
+                                                y = (renderOffsetYPx + applyYPx).toFloat(),
+                                            ),
+                                            size = Size(
+                                                width = applyWPx.toFloat(),
+                                                height = applyHPx.toFloat(),
+                                            ),
+                                        )
+                                        drawRect(
+                                            color = Color(0xFF7FD7FF),
+                                            topLeft = Offset(
+                                                x = (renderOffsetXPx + applyXPx).toFloat(),
+                                                y = (renderOffsetYPx + applyYPx).toFloat(),
+                                            ),
+                                            size = Size(
+                                                width = applyWPx.toFloat(),
+                                                height = applyHPx.toFloat(),
+                                            ),
+                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = applyStrokePx.toFloat()),
+                                        )
                                         val selectionXPx = (state.selection.x * renderScale).roundToInt()
                                         val selectionYPx = (state.selection.y * renderScale).roundToInt()
                                         val selectionWPx = (state.selection.w * renderScale).roundToInt()
@@ -814,6 +870,17 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "移動: ${pxStepBase}px"
                             }
+                            val modeLine = if (state == null) {
+                                "Mode: -"
+                            } else {
+                                "Mode: ${editMode.label}"
+                            }
+                            val applyRect = state?.let { computeApplyRectForState(it) }
+                            val applyLine = if (applyRect == null) {
+                                "Apply rect: (-, -, -, -)"
+                            } else {
+                                "Apply rect: (${applyRect.x}, ${applyRect.y}, ${applyRect.w}, ${applyRect.h})"
+                            }
                             Text(
                                 text = statusLine1,
                                 style = MaterialTheme.typography.labelMedium,
@@ -832,6 +899,94 @@ fun SpriteEditorScreen(navController: NavController) {
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            Text(
+                                text = modeLine,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.testTag("spriteEditorModeLabel"),
+                            )
+                            Text(
+                                text = applyLine,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.testTag("spriteEditorApplyRectText"),
+                            )
+                            Spacer(
+                                modifier = Modifier
+                                    // [dp] 上: モードボタン群の最小余白(余白)に関係
+                                    .height(4.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                fun modeButtonColors(selected: Boolean) = ButtonDefaults.buttonColors(
+                                    containerColor = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    },
+                                    contentColor = if (selected) {
+                                        MaterialTheme.colorScheme.onPrimary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                                val modeButtonModifier = Modifier
+                                    .height(32.dp)
+                                    .heightIn(min = 48.dp)
+                                Button(
+                                    onClick = {
+                                        editMode = EditMode.BOX_32
+                                        updateState { state -> rebuildWorkingBitmap(state) }
+                                    },
+                                    modifier = modeButtonModifier
+                                        .weight(1f)
+                                        .testTag("spriteEditorMode32"),
+                                    // [dp] 左右: モードボタン内側の余白(余白)に関係
+                                    contentPadding = PaddingValues(horizontal = 6.dp),
+                                    shape = RoundedCornerShape(999.dp),
+                                    colors = modeButtonColors(editMode == EditMode.BOX_32),
+                                    border = if (editMode == EditMode.BOX_32) null else ButtonDefaults.outlinedButtonBorder,
+                                ) {
+                                    Text("32x32", maxLines = 1)
+                                }
+                                Button(
+                                    onClick = {
+                                        editMode = EditMode.SPRITE_96
+                                        updateState { state -> rebuildWorkingBitmap(state) }
+                                    },
+                                    modifier = modeButtonModifier
+                                        .weight(1f)
+                                        .testTag("spriteEditorMode96"),
+                                    // [dp] 左右: モードボタン内側の余白(余白)に関係
+                                    contentPadding = PaddingValues(horizontal = 6.dp),
+                                    shape = RoundedCornerShape(999.dp),
+                                    colors = modeButtonColors(editMode == EditMode.SPRITE_96),
+                                    border = if (editMode == EditMode.SPRITE_96) null else ButtonDefaults.outlinedButtonBorder,
+                                ) {
+                                    Text("96x96", maxLines = 1)
+                                }
+                                Button(
+                                    onClick = {
+                                        editMode = EditMode.BLOCK_288
+                                        updateState { state -> rebuildWorkingBitmap(state) }
+                                    },
+                                    modifier = modeButtonModifier
+                                        .weight(1f)
+                                        .testTag("spriteEditorMode288"),
+                                    // [dp] 左右: モードボタン内側の余白(余白)に関係
+                                    contentPadding = PaddingValues(horizontal = 6.dp),
+                                    shape = RoundedCornerShape(999.dp),
+                                    colors = modeButtonColors(editMode == EditMode.BLOCK_288),
+                                    border = if (editMode == EditMode.BLOCK_288) null else ButtonDefaults.outlinedButtonBorder,
+                                ) {
+                                    Text("288x288", maxLines = 1)
+                                }
+                            }
                         }
                     }
                     fun moveSelectionByMode(dxSign: Int, dySign: Int, repeatStepPx: Int? = null) {
@@ -1048,10 +1203,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                                         normalized.width,
                                                         normalized.height,
                                                     )
+                                                    val applyRect = computeApplyRect(
+                                                        nextSelection,
+                                                        editMode,
+                                                        normalized.width,
+                                                        normalized.height,
+                                                    )
+                                                    val workingBitmap = copyRect(normalized, applyRect)
                                                     current.copy(
                                                         bitmap = normalized,
                                                         imageBitmap = normalized.asImageBitmap(),
                                                         selection = nextSelection,
+                                                        workingBitmap = workingBitmap,
                                                         widthInput = nextSelection.w.toString(),
                                                         heightInput = nextSelection.h.toString(),
                                                     )
@@ -1094,7 +1257,14 @@ fun SpriteEditorScreen(navController: NavController) {
                                                             current.selection.y
                                                         )
                                                         copiedSelection = null
-                                                        current.withBitmap(pasted).withClipboard(null)
+                                                        val applyRect = computeApplyRectForState(current)
+                                                        val workingBitmap = copyRect(pasted, applyRect)
+                                                        current.copy(
+                                                            bitmap = pasted,
+                                                            imageBitmap = pasted.asImageBitmap(),
+                                                            workingBitmap = workingBitmap,
+                                                            clipboard = null,
+                                                        )
                                                     }
                                                 }
                                             },
@@ -1116,7 +1286,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     if (redoStack.size > MAX_HISTORY) {
                                                         redoStack.removeFirst()
                                                     }
-                                                    editorState = current.applySnapshot(snapshot)
+                                                    editorState = current.applySnapshot(snapshot, editMode)
                                                 }
                                             },
                                         )
@@ -1137,7 +1307,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     if (undoStack.size > MAX_HISTORY) {
                                                         undoStack.removeFirst()
                                                     }
-                                                    editorState = current.applySnapshot(snapshot)
+                                                    editorState = current.applySnapshot(snapshot, editMode)
                                                 }
                                             },
                                         )
@@ -1151,8 +1321,23 @@ fun SpriteEditorScreen(navController: NavController) {
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
-                                                    val cleared = clearTransparent(current.bitmap, current.selection)
-                                                    current.withBitmap(cleared)
+                                                    val applyRect = computeApplyRectForState(current)
+                                                    val workingBitmap = ensureWorkingBitmap(current, applyRect)
+                                                    val clearedWorking = clearTransparent(
+                                                        workingBitmap,
+                                                        RectPx.of(0, 0, workingBitmap.width, workingBitmap.height),
+                                                    )
+                                                    val applied = paste(
+                                                        current.bitmap,
+                                                        clearedWorking,
+                                                        applyRect.x,
+                                                        applyRect.y,
+                                                    )
+                                                    current.copy(
+                                                        bitmap = applied,
+                                                        imageBitmap = applied.asImageBitmap(),
+                                                        workingBitmap = clearedWorking,
+                                                    )
                                                 }
                                             },
                                         )
@@ -1166,8 +1351,23 @@ fun SpriteEditorScreen(navController: NavController) {
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
-                                                    val filled = fillBlack(current.bitmap, current.selection)
-                                                    current.withBitmap(filled)
+                                                    val applyRect = computeApplyRectForState(current)
+                                                    val workingBitmap = ensureWorkingBitmap(current, applyRect)
+                                                    val filledWorking = fillBlack(
+                                                        workingBitmap,
+                                                        RectPx.of(0, 0, workingBitmap.width, workingBitmap.height),
+                                                    )
+                                                    val applied = paste(
+                                                        current.bitmap,
+                                                        filledWorking,
+                                                        applyRect.x,
+                                                        applyRect.y,
+                                                    )
+                                                    current.copy(
+                                                        bitmap = applied,
+                                                        imageBitmap = applied.asImageBitmap(),
+                                                        workingBitmap = filledWorking,
+                                                    )
                                                 }
                                             },
                                         )
@@ -1327,22 +1527,23 @@ fun SpriteEditorScreen(navController: NavController) {
                                             scope.launch { showSnackbarMessage("No image loaded") }
                                         } else {
                                             scope.launch {
-                                                updateState { state ->
-                                                    pushUndoSnapshot(state, undoStack, redoStack)
-                                                    state
-                                                }
+                                                val applyRect = computeApplyRectForState(current)
+                                                val workingBitmap = ensureWorkingBitmap(current, applyRect)
+                                                pushUndoSnapshot(current, undoStack, redoStack)
                                                 val grayscaleBitmap = runCatching {
                                                     withContext(Dispatchers.Default) {
-                                                        toGrayscale(current.bitmap)
+                                                        toGrayscale(workingBitmap)
                                                     }
                                                 }.getOrElse {
                                                     showSnackbarMessage("Failed to apply Grayscale")
                                                     return@launch
                                                 }
+                                                val applied = paste(current.bitmap, grayscaleBitmap, applyRect.x, applyRect.y)
                                                 updateState { state ->
                                                     state.copy(
-                                                        bitmap = grayscaleBitmap,
-                                                        imageBitmap = grayscaleBitmap.asImageBitmap(),
+                                                        bitmap = applied,
+                                                        imageBitmap = applied.asImageBitmap(),
+                                                        workingBitmap = grayscaleBitmap,
                                                     )
                                                 }
                                                 showSnackbarMessage("Applied: Grayscale")
@@ -1376,6 +1577,8 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     if (showApplyDialog) {
+        val dialogState = editorState
+        val dialogApplyRect = dialogState?.let { computeApplyRectForState(it) }
         AlertDialog(
             onDismissRequest = { showApplyDialog = false },
             title = { Text("Apply to Sprite") },
@@ -1385,6 +1588,20 @@ fun SpriteEditorScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Applies the current image (or selection) to a sprite asset.")
+                    Text(
+                        text = "Mode: ${editMode.label}",
+                        modifier = Modifier.testTag("spriteEditorApplyModeText"),
+                    )
+                    Text(
+                        text = if (dialogApplyRect == null) {
+                            "Apply rect: (-, -, -, -)"
+                        } else {
+                            "Apply rect: (${dialogApplyRect.x}, ${dialogApplyRect.y}, " +
+                                "${dialogApplyRect.w}, ${dialogApplyRect.h})"
+                        },
+                        modifier = Modifier.testTag("spriteEditorApplyRectDialogText"),
+                    )
+                    Text("This will overwrite the target rectangle.")
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1493,10 +1710,23 @@ fun SpriteEditorScreen(navController: NavController) {
                     onClick = {
                         showApplyDialog = false
                         scope.launch {
+                            val current = editorState
+                            if (current == null) {
+                                showSnackbarMessage("No image loaded")
+                                return@launch
+                            }
+                            val applyRect = computeApplyRectForState(current)
+                            val workingBitmap = ensureWorkingBitmap(current, applyRect)
+                            pushUndoSnapshot(current, undoStack, redoStack)
+                            val applied = paste(current.bitmap, workingBitmap, applyRect.x, applyRect.y)
+                            editorState = current.copy(
+                                bitmap = applied,
+                                imageBitmap = applied.asImageBitmap(),
+                                workingBitmap = workingBitmap,
+                            )
                             showSnackbarMessage(
-                                "TODO: Apply to Sprite (Source=${applySource.label}, " +
-                                    "Destination=$applyDestinationLabel, " +
-                                    "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
+                                "Applied (${editMode.label}) to (${applyRect.x}, ${applyRect.y}, " +
+                                    "${applyRect.w}, ${applyRect.h})"
                             )
                         }
                     },
@@ -1630,13 +1860,16 @@ private fun pushUndoSnapshot(
     redoStack.clear()
 }
 
-private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot): SpriteEditorState {
+private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot, editMode: EditMode): SpriteEditorState {
     val normalized = rectNormalizeClamp(snapshot.selection, snapshot.bitmap.width, snapshot.bitmap.height)
     val restoredBitmap = ensureArgb8888(snapshot.bitmap)
+    val applyRect = computeApplyRect(normalized, editMode, restoredBitmap.width, restoredBitmap.height)
+    val workingBitmap = copyRect(restoredBitmap, applyRect)
     return copy(
         bitmap = restoredBitmap,
         imageBitmap = restoredBitmap.asImageBitmap(),
         selection = normalized,
+        workingBitmap = workingBitmap,
         widthInput = normalized.w.toString(),
         heightInput = normalized.h.toString(),
     )
