@@ -90,6 +90,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -98,6 +99,10 @@ private const val GRID_ON_SCALE = 8f
 private const val GRID_OFF_SCALE = 7f
 private const val GRID_MAJOR_STEP = 8
 private const val GRID_ALPHA_MAX_SCALE = 16f
+private const val CHECKER_LIGHT_ALPHA = 0.32f
+private const val CHECKER_DARK_ALPHA = 0.55f
+
+private val CHECKER_CELL_SIZE = 8.dp
 
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
     return start + (end - start) * t
@@ -488,6 +493,51 @@ fun SpriteEditorScreen(navController: NavController) {
                                     Text("画像読み込み中", style = MaterialTheme.typography.labelMedium)
                                 }
                             } else {
+                                val checkerLightColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = CHECKER_LIGHT_ALPHA)
+                                val checkerDarkColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = CHECKER_DARK_ALPHA)
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    if (state.bitmap.width > 0 && state.bitmap.height > 0) {
+                                        val scaleX = size.width / state.bitmap.width
+                                        val scaleY = size.height / state.bitmap.height
+                                        val fitScale = min(scaleX, scaleY)
+                                        val renderScale = fitScale * displayScale
+                                        val destinationWidth = state.bitmap.width * renderScale
+                                        val destinationHeight = state.bitmap.height * renderScale
+                                        val offsetXPx = ((size.width - destinationWidth) / 2f).roundToInt()
+                                        val offsetYPx = ((size.height - destinationHeight) / 2f).roundToInt()
+                                        val renderOffsetXPx = offsetXPx + panOffset.x.roundToInt()
+                                        val renderOffsetYPx = offsetYPx + panOffset.y.roundToInt()
+                                        val renderLeft = renderOffsetXPx.toFloat()
+                                        val renderTop = renderOffsetYPx.toFloat()
+                                        val renderRight = renderLeft + destinationWidth
+                                        val renderBottom = renderTop + destinationHeight
+                                        clipRect(renderLeft, renderTop, renderRight, renderBottom) {
+                                            val cellSizePx = CHECKER_CELL_SIZE.toPx()
+                                            val startX = floor(renderLeft / cellSizePx) * cellSizePx
+                                            val startY = floor(renderTop / cellSizePx) * cellSizePx
+                                            var y = startY
+                                            while (y < renderBottom) {
+                                                val row = ((y - startY) / cellSizePx).toInt()
+                                                var x = startX
+                                                while (x < renderRight) {
+                                                    val column = ((x - startX) / cellSizePx).toInt()
+                                                    val color = if ((row + column) % 2 == 0) {
+                                                        checkerLightColor
+                                                    } else {
+                                                        checkerDarkColor
+                                                    }
+                                                    drawRect(
+                                                        color = color,
+                                                        topLeft = Offset(x, y),
+                                                        size = Size(cellSizePx, cellSizePx),
+                                                    )
+                                                    x += cellSizePx
+                                                }
+                                                y += cellSizePx
+                                            }
+                                        }
+                                    }
+                                }
                                 androidx.compose.foundation.Image(
                                     bitmap = state.imageBitmap,
                                     contentDescription = "Sprite Editor Preview",
