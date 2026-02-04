@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clipToBounds
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -465,6 +466,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(top = 4.dp)
                                 // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
                                 .aspectRatio(1f)
+                                .clipToBounds()
                                 .onSizeChanged { size ->
                                     previewSize = size
                                     panOffset = clampPanOffset(panOffset, displayScale)
