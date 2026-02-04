@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import kotlin.math.roundToInt
 
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
@@ -14,6 +15,28 @@ fun ensureArgb8888(src: Bitmap): Bitmap {
     } else {
         src.copy(Bitmap.Config.ARGB_8888, false)
     }
+}
+
+// 全体をグレースケール化した新しいBitmapを返す（元のBitmapは変更しない）
+fun toGrayscale(src: Bitmap): Bitmap {
+    val safe = ensureArgb8888(src)
+    val width = safe.width
+    val height = safe.height
+    val pixels = IntArray(width * height)
+    safe.getPixels(pixels, 0, width, 0, 0, width, height)
+    for (index in pixels.indices) {
+        val color = pixels[index]
+        val alpha = android.graphics.Color.alpha(color)
+        val red = android.graphics.Color.red(color)
+        val green = android.graphics.Color.green(color)
+        val blue = android.graphics.Color.blue(color)
+        val gray = (0.299f * red + 0.587f * green + 0.114f * blue).roundToInt()
+        val clamped = gray.coerceIn(0, 255)
+        pixels[index] = android.graphics.Color.argb(alpha, clamped, clamped, clamped)
+    }
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(pixels, 0, width, 0, 0, width, height)
+    return output
 }
 
 // 選択矩形を画像範囲内に正規化する（矩形の最小サイズを維持）
