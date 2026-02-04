@@ -924,7 +924,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 @Composable
-                                fun modeButtonColors(selected: Boolean): ButtonColors =
+                                fun modeButtonColors(selected: Boolean) =
                                     ButtonDefaults.buttonColors(
                                         containerColor = if (selected) {
                                             MaterialTheme.colorScheme.primary
