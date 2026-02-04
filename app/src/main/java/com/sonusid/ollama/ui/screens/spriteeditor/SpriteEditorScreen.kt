@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -40,10 +41,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -52,6 +55,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,6 +114,12 @@ private const val CHECKER_DARK_ALPHA = 0.55f
 
 private val CHECKER_CELL_SIZE = 8.dp
 
+private enum class SheetType {
+    None,
+    More,
+    Tools,
+}
+
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
     return start + (end - start) * t
 }
@@ -137,6 +147,10 @@ fun SpriteEditorScreen(navController: NavController) {
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
     var isGridEnabled by remember { mutableStateOf(false) }
+    // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
+    var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
+    var showApplyDialog by rememberSaveable { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
 
@@ -1161,6 +1175,33 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
+                                item {
+                                    OperationCell(minHeight = buttonMinHeight) {
+                                        StandardButton(
+                                            label = "More...",
+                                            testTag = "spriteEditorMore",
+                                            onClick = { activeSheet = SheetType.More },
+                                        )
+                                    }
+                                }
+                                item {
+                                    OperationCell(minHeight = buttonMinHeight) {
+                                        StandardButton(
+                                            label = "Tools",
+                                            testTag = "spriteEditorTools",
+                                            onClick = { activeSheet = SheetType.Tools },
+                                        )
+                                    }
+                                }
+                                item(span = { GridItemSpan(2) }) {
+                                    OperationCell(minHeight = buttonMinHeight) {
+                                        StandardButton(
+                                            label = "Apply to Sprite",
+                                            testTag = "spriteEditorApply",
+                                            onClick = { showApplyDialog = true },
+                                        )
+                                    }
+                                }
                             }
                             Spacer(
                                 modifier = Modifier
@@ -1212,6 +1253,87 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             }
         }
+    }
+
+    if (activeSheet != SheetType.None) {
+        val sheetTitle = if (activeSheet == SheetType.More) "More" else "Tools"
+        val sheetItems = if (activeSheet == SheetType.More) {
+            listOf("Flip Copy", "Resize...", "Apply to Sprite...")
+        } else {
+            listOf("Outline", "Grayscale", "Binarize", "BG Transparent...")
+        }
+        ModalBottomSheet(
+            onDismissRequest = { activeSheet = SheetType.None },
+            sheetState = sheetState,
+        ) {
+            Column(
+                modifier = Modifier
+                    // [dp] 全体: ボトムシート内容の最小余白(余白)に関係
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = sheetTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Spacer(
+                    modifier = Modifier
+                        // [dp] 上下: タイトルと項目の間隔(間隔)に関係
+                        .height(8.dp)
+                )
+                sheetItems.forEach { label ->
+                    Button(
+                        onClick = {
+                            activeSheet = SheetType.None
+                            if (label == "Apply to Sprite...") {
+                                showApplyDialog = true
+                            } else {
+                                scope.launch { showSnackbarMessage("Not implemented") }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+                            .height(32.dp)
+                            .heightIn(min = 48.dp),
+                        // [dp] 左右: ボトムシート内ボタンの余白(余白)に関係
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        shape = RoundedCornerShape(999.dp),
+                    ) {
+                        Text(label)
+                    }
+                    Spacer(
+                        modifier = Modifier
+                            // [dp] 上下: 項目間の間隔(間隔)に関係
+                            .height(6.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showApplyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApplyDialog = false },
+            title = { Text("Apply to Sprite") },
+            text = { Text("Apply current edits to the sprite source? This can be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showApplyDialog = false
+                        scope.launch { showSnackbarMessage("Applied (stub)") }
+                    },
+                ) {
+                    Text("Apply")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showApplyDialog = false },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
