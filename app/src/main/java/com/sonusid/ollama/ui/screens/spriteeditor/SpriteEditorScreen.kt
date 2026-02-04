@@ -3,6 +3,8 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,14 +68,19 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,7 +97,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -495,6 +501,29 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 val checkerLightColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = CHECKER_LIGHT_ALPHA)
                                 val checkerDarkColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = CHECKER_DARK_ALPHA)
+                                val density = LocalDensity.current
+                                val checkerBrush = remember(checkerLightColor, checkerDarkColor, density) {
+                                    val cellSizePx = with(density) { CHECKER_CELL_SIZE.toPx() }
+                                        .roundToInt()
+                                        .coerceAtLeast(1)
+                                    val bitmapSizePx = cellSizePx * 2
+                                    val bitmap = Bitmap.createBitmap(bitmapSizePx, bitmapSizePx, Bitmap.Config.ARGB_8888)
+                                    val canvas = AndroidCanvas(bitmap)
+                                    val lightPaint = Paint().apply { color = checkerLightColor.toArgb() }
+                                    val darkPaint = Paint().apply { color = checkerDarkColor.toArgb() }
+                                    val cellSize = cellSizePx.toFloat()
+                                    canvas.drawRect(0f, 0f, cellSize, cellSize, lightPaint)
+                                    canvas.drawRect(cellSize, 0f, cellSize * 2f, cellSize, darkPaint)
+                                    canvas.drawRect(0f, cellSize, cellSize, cellSize * 2f, darkPaint)
+                                    canvas.drawRect(cellSize, cellSize, cellSize * 2f, cellSize * 2f, lightPaint)
+                                    ShaderBrush(
+                                        ImageShader(
+                                            bitmap.asImageBitmap(),
+                                            TileMode.Repeated,
+                                            TileMode.Repeated,
+                                        ),
+                                    )
+                                }
                                 Canvas(modifier = Modifier.matchParentSize()) {
                                     if (state.bitmap.width > 0 && state.bitmap.height > 0) {
                                         val scaleX = size.width / state.bitmap.width
@@ -512,29 +541,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                         val renderRight = renderLeft + destinationWidth
                                         val renderBottom = renderTop + destinationHeight
                                         clipRect(renderLeft, renderTop, renderRight, renderBottom) {
-                                            val cellSizePx = CHECKER_CELL_SIZE.toPx()
-                                            val startX = floor(renderLeft / cellSizePx) * cellSizePx
-                                            val startY = floor(renderTop / cellSizePx) * cellSizePx
-                                            var y = startY
-                                            while (y < renderBottom) {
-                                                val row = ((y - startY) / cellSizePx).toInt()
-                                                var x = startX
-                                                while (x < renderRight) {
-                                                    val column = ((x - startX) / cellSizePx).toInt()
-                                                    val color = if ((row + column) % 2 == 0) {
-                                                        checkerLightColor
-                                                    } else {
-                                                        checkerDarkColor
-                                                    }
-                                                    drawRect(
-                                                        color = color,
-                                                        topLeft = Offset(x, y),
-                                                        size = Size(cellSizePx, cellSizePx),
-                                                    )
-                                                    x += cellSizePx
-                                                }
-                                                y += cellSizePx
-                                            }
+                                            drawRect(
+                                                brush = checkerBrush,
+                                                topLeft = Offset(renderLeft, renderTop),
+                                                size = Size(renderRight - renderLeft, renderBottom - renderTop),
+                                            )
                                         }
                                     }
                                 }
