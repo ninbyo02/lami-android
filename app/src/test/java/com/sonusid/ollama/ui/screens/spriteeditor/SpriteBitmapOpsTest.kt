@@ -150,4 +150,67 @@ class SpriteBitmapOpsTest {
         }
     }
 
+    @Test
+    fun toBinarize_keepsLowAlphaPixelsTransparent() {
+        val bitmap = Bitmap.createBitmap(4, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(0, 200, 200, 200))
+        bitmap.setPixel(1, 0, Color.argb(8, 200, 200, 200))
+        bitmap.setPixel(2, 0, Color.argb(15, 40, 40, 40))
+        bitmap.setPixel(3, 0, Color.argb(255, 240, 240, 240))
+
+        val result = toBinarize(bitmap)
+
+        assertEquals(0, Color.alpha(result.getPixel(0, 0)))
+        assertEquals(0, Color.alpha(result.getPixel(1, 0)))
+        assertEquals(0, Color.alpha(result.getPixel(2, 0)))
+        assertEquals(255, Color.alpha(result.getPixel(3, 0)))
+    }
+
+    @Test
+    fun toBinarize_fallbackThresholdSplitsDarkAndBrightPixels() {
+        val bitmap = Bitmap.createBitmap(8, 1, Bitmap.Config.ARGB_8888)
+        for (x in 0..3) {
+            bitmap.setPixel(x, 0, Color.argb(255, 10, 10, 10))
+        }
+        for (x in 4..7) {
+            bitmap.setPixel(x, 0, Color.argb(255, 240, 240, 240))
+        }
+
+        val result = toBinarize(bitmap)
+
+        for (x in 0..3) {
+            assertEquals(Color.BLACK, result.getPixel(x, 0))
+        }
+        for (x in 4..7) {
+            assertEquals(Color.WHITE, result.getPixel(x, 0))
+        }
+    }
+
+    @Test
+    fun toBinarize_ignoresTransparentBackgroundInHistogram() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (x in 0..1) {
+            bitmap.setPixel(x, 0, Color.argb(255, 20, 20, 20))
+        }
+        for (x in 2..3) {
+            bitmap.setPixel(x, 0, Color.argb(255, 230, 230, 230))
+        }
+        for (x in 0..1) {
+            bitmap.setPixel(x, 1, Color.argb(255, 20, 20, 20))
+        }
+        for (x in 2..3) {
+            bitmap.setPixel(x, 1, Color.argb(255, 230, 230, 230))
+        }
+
+        val result = toBinarize(bitmap)
+
+        assertEquals(Color.BLACK, result.getPixel(0, 0))
+        assertEquals(Color.BLACK, result.getPixel(1, 1))
+        assertEquals(Color.WHITE, result.getPixel(2, 0))
+        assertEquals(Color.WHITE, result.getPixel(3, 1))
+        assertEquals(0, Color.alpha(result.getPixel(0, 3)))
+        assertEquals(0, Color.alpha(result.getPixel(3, 3)))
+    }
+
 }

@@ -1343,6 +1343,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Outline applied") }
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemBinarize") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val binarizedBitmap = toBinarize(current.bitmap)
+                                    editorState = current.withBitmap(binarizedBitmap)
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Binarize applied") }
+                                }
                             } else {
                                 activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }
