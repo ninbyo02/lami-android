@@ -226,65 +226,74 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun fillRegion_fillsAllSelectionSeedIslandsToOpaqueWhiteAndKeepsBackgroundTransparent() {
-        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.TRANSPARENT)
-        for (y in 1..2) {
-            for (x in 1..2) {
-                bitmap.setPixel(x, y, Color.BLACK)
+    fun fillRegionFromTransparentSeeds_returnsNoOpWhenSelectionHasNoTransparentPixels() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+
+        val result = fillRegionFromTransparentSeeds(bitmap, RectPx.of(0, 0, 4, 4))
+
+        assertEquals(FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION, result.status)
+        for (y in 0 until 4) {
+            for (x in 0 until 4) {
+                assertEquals(Color.BLACK, result.bitmap.getPixel(x, y))
             }
         }
-        for (y in 1..2) {
-            for (x in 4..5) {
-                bitmap.setPixel(x, y, Color.RED)
-            }
-        }
-
-        val filled = fillRegion(bitmap, RectPx.of(0, 0, 6, 6))
-
-        assertEquals(Color.WHITE, filled.getPixel(1, 1))
-        assertEquals(Color.WHITE, filled.getPixel(2, 2))
-        assertEquals(Color.WHITE, filled.getPixel(4, 1))
-        assertEquals(Color.WHITE, filled.getPixel(5, 2))
-        assertEquals(0, Color.alpha(filled.getPixel(0, 0)))
-        assertEquals(0, Color.alpha(filled.getPixel(3, 3)))
     }
 
     @Test
-    fun fillRegion_keepsIslandsOutsideSelectionUnchanged() {
-        val bitmap = Bitmap.createBitmap(8, 4, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.TRANSPARENT)
-        for (y in 1..2) {
-            for (x in 1..2) {
-                bitmap.setPixel(x, y, Color.BLUE)
-            }
-        }
-        for (y in 1..2) {
-            for (x in 5..6) {
-                bitmap.setPixel(x, y, Color.GREEN)
+    fun fillRegionFromTransparentSeeds_fillsOnlyTransparentRegionInsideOpaqueWalls() {
+        val bitmap = Bitmap.createBitmap(5, 5, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        for (y in 1..3) {
+            for (x in 1..3) {
+                bitmap.setPixel(x, y, Color.TRANSPARENT)
             }
         }
 
-        val filled = fillRegion(bitmap, RectPx.of(0, 0, 4, 4))
+        val result = fillRegionFromTransparentSeeds(bitmap, RectPx.of(1, 1, 3, 3))
 
-        assertEquals(Color.WHITE, filled.getPixel(1, 1))
-        assertEquals(Color.WHITE, filled.getPixel(2, 2))
-        assertEquals(Color.GREEN, filled.getPixel(5, 1))
-        assertEquals(Color.GREEN, filled.getPixel(6, 2))
+        assertEquals(FillRegionTransparentStatus.APPLIED, result.status)
+        for (y in 1..3) {
+            for (x in 1..3) {
+                assertEquals(Color.WHITE, result.bitmap.getPixel(x, y))
+            }
+        }
+        assertEquals(Color.BLACK, result.bitmap.getPixel(0, 0))
+        assertEquals(Color.BLACK, result.bitmap.getPixel(4, 4))
     }
 
     @Test
-    fun fillRegion_usesFourNeighborhoodAndDoesNotFillDiagonalOnlyPixel() {
+    fun fillRegionFromTransparentSeeds_abortsWhenFillCountExceedsLimit() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val result = fillRegionFromTransparentSeeds(
+            bitmap,
+            RectPx.of(0, 0, 4, 4),
+            maxFillPixels = 3,
+        )
+
+        assertEquals(FillRegionTransparentStatus.ABORTED_TOO_LARGE, result.status)
+        for (y in 0 until 4) {
+            for (x in 0 until 4) {
+                assertEquals(0, Color.alpha(result.bitmap.getPixel(x, y)))
+            }
+        }
+    }
+
+    @Test
+    fun fillRegionFromTransparentSeeds_usesFourNeighborhoodForConnectivity() {
         val bitmap = Bitmap.createBitmap(3, 3, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.TRANSPARENT)
-        bitmap.setPixel(0, 0, Color.BLACK)
-        bitmap.setPixel(1, 1, Color.BLACK)
+        bitmap.eraseColor(Color.BLACK)
+        bitmap.setPixel(0, 0, Color.TRANSPARENT)
+        bitmap.setPixel(1, 1, Color.TRANSPARENT)
 
-        val filled = fillRegion(bitmap, RectPx.of(0, 0, 1, 1))
+        val result = fillRegionFromTransparentSeeds(bitmap, RectPx.of(0, 0, 1, 1))
 
-        assertEquals(Color.WHITE, filled.getPixel(0, 0))
-        assertEquals(Color.BLACK, filled.getPixel(1, 1))
-        assertEquals(255, Color.alpha(filled.getPixel(1, 1)))
+        assertEquals(FillRegionTransparentStatus.APPLIED, result.status)
+        assertEquals(Color.WHITE, result.bitmap.getPixel(0, 0))
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(1, 1)))
+        assertEquals(Color.BLACK, result.bitmap.getPixel(2, 2))
     }
 
     @Test
