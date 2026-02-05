@@ -14,6 +14,10 @@ const val BINARIZE_FALLBACK_THRESHOLD = 128
 private const val BINARIZE_MIN_VALID_PIXELS = 16
 private const val BINARIZE_MIN_OTSU_THRESHOLD = 40
 private const val BINARIZE_MAX_OTSU_THRESHOLD = 220
+private const val CLEAR_BG_EDGE_SAMPLE_LIMIT = 32
+private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
+private const val CLEAR_BG_MIN_ALPHA = 8
+private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
 
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
@@ -391,4 +395,223 @@ fun addOuterOutline(
     val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     output.setPixels(outPixels, 0, width, 0, 0, width, height)
     return output
+}
+
+// Bitmap全体から外周に接する背景領域を透明化した新しいBitmapを返す（元のBitmapは変更しない）
+fun clearEdgeConnectedBackground(src: Bitmap): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+    val outPixels = srcPixels.copyOf()
+
+    val bgSample = sampleEdgeBackgroundRgb(srcPixels, width, height)
+    val bgR = bgSample?.first ?: 0
+    val bgG = bgSample?.second ?: 0
+    val bgB = bgSample?.third ?: 0
+
+    val visited = BooleanArray(size)
+    val queue = ArrayDeque<Int>()
+
+    fun tryEnqueue(index: Int) {
+        if (!visited[index] && isBackgroundLike(srcPixels[index], bgR, bgG, bgB)) {
+            visited[index] = true
+            queue.addLast(index)
+        }
+    }
+
+    for (x in 0 until width) {
+        tryEnqueue(x)
+        tryEnqueue((height - 1) * width + x)
+    }
+    for (y in 0 until height) {
+        tryEnqueue(y * width)
+        tryEnqueue(y * width + (width - 1))
+    }
+
+    while (queue.isNotEmpty()) {
+        val index = queue.removeFirst()
+        val x = index % width
+        val y = index / width
+
+        outPixels[index] = srcPixels[index] and 0x00FFFFFF
+
+        if (x > 0) tryEnqueue(index - 1)
+        if (x < width - 1) tryEnqueue(index + 1)
+        if (y > 0) tryEnqueue(index - width)
+        if (y < height - 1) tryEnqueue(index + width)
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return output
+}
+
+// 選択矩形内の代表点から連結成分を透明化した新しいBitmapを返す（元のBitmapは変更しない）
+fun clearConnectedRegionFromSelection(
+    src: Bitmap,
+    selection: RectPx,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+    val outPixels = srcPixels.copyOf()
+
+    var seedIndex = -1
+    val endY = safeSelection.y + safeSelection.h
+    val endX = safeSelection.x + safeSelection.w
+    for (y in safeSelection.y until endY) {
+        for (x in safeSelection.x until endX) {
+            val index = y * width + x
+            val alpha = (srcPixels[index] ushr 24) and 0xFF
+            if (alpha > 0) {
+                seedIndex = index
+                break
+            }
+        }
+        if (seedIndex >= 0) {
+            break
+        }
+    }
+
+    if (seedIndex < 0) {
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        output.setPixels(outPixels, 0, width, 0, 0, width, height)
+        return output
+    }
+
+    val seedPixel = srcPixels[seedIndex]
+    val seedR = (seedPixel ushr 16) and 0xFF
+    val seedG = (seedPixel ushr 8) and 0xFF
+    val seedB = seedPixel and 0xFF
+
+    val visited = BooleanArray(size)
+    val queue = ArrayDeque<Int>()
+    visited[seedIndex] = true
+    queue.addLast(seedIndex)
+
+    while (queue.isNotEmpty()) {
+        val index = queue.removeFirst()
+        val x = index % width
+        val y = index / width
+
+        outPixels[index] = srcPixels[index] and 0x00FFFFFF
+
+        if (x > 0) enqueueIfRegionMatch(index - 1, srcPixels, visited, queue, seedR, seedG, seedB)
+        if (x < width - 1) enqueueIfRegionMatch(index + 1, srcPixels, visited, queue, seedR, seedG, seedB)
+        if (y > 0) enqueueIfRegionMatch(index - width, srcPixels, visited, queue, seedR, seedG, seedB)
+        if (y < height - 1) enqueueIfRegionMatch(index + width, srcPixels, visited, queue, seedR, seedG, seedB)
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return output
+}
+
+private fun sampleEdgeBackgroundRgb(
+    pixels: IntArray,
+    width: Int,
+    height: Int,
+): Triple<Int, Int, Int>? {
+    val sampleIndices = linkedSetOf<Int>()
+    for (x in 0 until width) {
+        sampleIndices.add(x)
+        sampleIndices.add((height - 1) * width + x)
+    }
+    for (y in 0 until height) {
+        sampleIndices.add(y * width)
+        sampleIndices.add(y * width + (width - 1))
+    }
+
+    val reds = ArrayList<Int>(CLEAR_BG_EDGE_SAMPLE_LIMIT)
+    val greens = ArrayList<Int>(CLEAR_BG_EDGE_SAMPLE_LIMIT)
+    val blues = ArrayList<Int>(CLEAR_BG_EDGE_SAMPLE_LIMIT)
+
+    for (index in sampleIndices) {
+        val pixel = pixels[index]
+        val alpha = (pixel ushr 24) and 0xFF
+        if (alpha <= 0) {
+            continue
+        }
+        reds.add((pixel ushr 16) and 0xFF)
+        greens.add((pixel ushr 8) and 0xFF)
+        blues.add(pixel and 0xFF)
+        if (reds.size >= CLEAR_BG_EDGE_SAMPLE_LIMIT) {
+            break
+        }
+    }
+
+    if (reds.isEmpty()) {
+        return null
+    }
+
+    reds.sort()
+    greens.sort()
+    blues.sort()
+    val mid = reds.size / 2
+    return Triple(reds[mid], greens[mid], blues[mid])
+}
+
+private fun isBackgroundLike(pixel: Int, bgR: Int, bgG: Int, bgB: Int): Boolean {
+    val alpha = (pixel ushr 24) and 0xFF
+    if (alpha == 0) {
+        return true
+    }
+    if (alpha < CLEAR_BG_MIN_ALPHA) {
+        return false
+    }
+
+    val red = (pixel ushr 16) and 0xFF
+    val green = (pixel ushr 8) and 0xFF
+    val blue = pixel and 0xFF
+    val colorDistance = kotlin.math.abs(red - bgR) +
+        kotlin.math.abs(green - bgG) +
+        kotlin.math.abs(blue - bgB)
+    return colorDistance <= CLEAR_BG_COLOR_DISTANCE_THRESHOLD
+}
+
+private fun enqueueIfRegionMatch(
+    index: Int,
+    srcPixels: IntArray,
+    visited: BooleanArray,
+    queue: ArrayDeque<Int>,
+    seedR: Int,
+    seedG: Int,
+    seedB: Int,
+) {
+    if (visited[index]) {
+        return
+    }
+    val pixel = srcPixels[index]
+    val alpha = (pixel ushr 24) and 0xFF
+    if (alpha <= 0) {
+        return
+    }
+
+    val red = (pixel ushr 16) and 0xFF
+    val green = (pixel ushr 8) and 0xFF
+    val blue = pixel and 0xFF
+    val colorDistance = kotlin.math.abs(red - seedR) +
+        kotlin.math.abs(green - seedG) +
+        kotlin.math.abs(blue - seedB)
+    if (colorDistance > CLEAR_REGION_COLOR_DISTANCE_THRESHOLD) {
+        return
+    }
+
+    visited[index] = true
+    queue.addLast(index)
 }
