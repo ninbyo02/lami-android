@@ -522,6 +522,96 @@ fun clearConnectedRegionFromSelection(
     return output
 }
 
+// 選択矩形内で見つかった非透明連結成分を白で塗りつぶした新しいBitmapを返す（元のBitmapは変更しない）
+fun fillRegion(
+    src: Bitmap,
+    selection: RectPx,
+    alphaThreshold: Int = 0,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+    val outPixels = srcPixels.copyOf()
+
+    val visited = BooleanArray(size)
+    val queue = IntArray(size)
+    val white = 0xFFFFFFFF.toInt()
+    val minAlpha = alphaThreshold.coerceIn(0, 255)
+
+    fun isOpaque(index: Int): Boolean {
+        val alpha = (srcPixels[index] ushr 24) and 0xFF
+        return alpha > minAlpha
+    }
+
+    val startY = safeSelection.y
+    val endY = safeSelection.y + safeSelection.h
+    val startX = safeSelection.x
+    val endX = safeSelection.x + safeSelection.w
+
+    for (y in startY until endY) {
+        for (x in startX until endX) {
+            val seedIndex = y * width + x
+            if (visited[seedIndex] || !isOpaque(seedIndex)) {
+                continue
+            }
+
+            var head = 0
+            var tail = 0
+            queue[tail++] = seedIndex
+            visited[seedIndex] = true
+
+            while (head < tail) {
+                val index = queue[head++]
+                outPixels[index] = white
+
+                val px = index % width
+                val py = index / width
+
+                if (px > 0) {
+                    val left = index - 1
+                    if (!visited[left] && isOpaque(left)) {
+                        visited[left] = true
+                        queue[tail++] = left
+                    }
+                }
+                if (px < width - 1) {
+                    val right = index + 1
+                    if (!visited[right] && isOpaque(right)) {
+                        visited[right] = true
+                        queue[tail++] = right
+                    }
+                }
+                if (py > 0) {
+                    val up = index - width
+                    if (!visited[up] && isOpaque(up)) {
+                        visited[up] = true
+                        queue[tail++] = up
+                    }
+                }
+                if (py < height - 1) {
+                    val down = index + width
+                    if (!visited[down] && isOpaque(down)) {
+                        visited[down] = true
+                        queue[tail++] = down
+                    }
+                }
+            }
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return output
+}
+
 private fun sampleEdgeBackgroundRgb(
     pixels: IntArray,
     width: Int,

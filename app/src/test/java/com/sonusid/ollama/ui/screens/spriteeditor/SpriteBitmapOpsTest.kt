@@ -226,6 +226,68 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun fillRegion_fillsAllSelectionSeedIslandsToOpaqueWhiteAndKeepsBackgroundTransparent() {
+        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 1..2) {
+            for (x in 1..2) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+        for (y in 1..2) {
+            for (x in 4..5) {
+                bitmap.setPixel(x, y, Color.RED)
+            }
+        }
+
+        val filled = fillRegion(bitmap, RectPx.of(0, 0, 6, 6))
+
+        assertEquals(Color.WHITE, filled.getPixel(1, 1))
+        assertEquals(Color.WHITE, filled.getPixel(2, 2))
+        assertEquals(Color.WHITE, filled.getPixel(4, 1))
+        assertEquals(Color.WHITE, filled.getPixel(5, 2))
+        assertEquals(0, Color.alpha(filled.getPixel(0, 0)))
+        assertEquals(0, Color.alpha(filled.getPixel(3, 3)))
+    }
+
+    @Test
+    fun fillRegion_keepsIslandsOutsideSelectionUnchanged() {
+        val bitmap = Bitmap.createBitmap(8, 4, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 1..2) {
+            for (x in 1..2) {
+                bitmap.setPixel(x, y, Color.BLUE)
+            }
+        }
+        for (y in 1..2) {
+            for (x in 5..6) {
+                bitmap.setPixel(x, y, Color.GREEN)
+            }
+        }
+
+        val filled = fillRegion(bitmap, RectPx.of(0, 0, 4, 4))
+
+        assertEquals(Color.WHITE, filled.getPixel(1, 1))
+        assertEquals(Color.WHITE, filled.getPixel(2, 2))
+        assertEquals(Color.GREEN, filled.getPixel(5, 1))
+        assertEquals(Color.GREEN, filled.getPixel(6, 2))
+    }
+
+    @Test
+    fun fillRegion_usesFourNeighborhoodAndDoesNotFillDiagonalOnlyPixel() {
+        val bitmap = Bitmap.createBitmap(3, 3, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.BLACK)
+        bitmap.setPixel(1, 1, Color.BLACK)
+
+        val filled = fillRegion(bitmap, RectPx.of(0, 0, 1, 1))
+
+        assertEquals(Color.WHITE, filled.getPixel(0, 0))
+        assertEquals(Color.BLACK, filled.getPixel(1, 1))
+        assertEquals(255, Color.alpha(filled.getPixel(1, 1)))
+    }
+
+    @Test
     fun toBinarize_keepsLowAlphaPixelsTransparent() {
         val bitmap = Bitmap.createBitmap(4, 1, Bitmap.Config.ARGB_8888)
         bitmap.setPixel(0, 0, Color.argb(0, 200, 200, 200))
