@@ -1338,7 +1338,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
                                     pushUndoSnapshot(current, undoStack, redoStack)
-                                    val outlinedBitmap = addOutline(current.bitmap)
+                                    val outlinedBitmap = addOuterOutline(current.bitmap)
                                     editorState = current.withBitmap(outlinedBitmap)
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Outline applied") }

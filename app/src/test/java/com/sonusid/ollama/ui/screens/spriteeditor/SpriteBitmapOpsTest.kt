@@ -100,4 +100,54 @@ class SpriteBitmapOpsTest {
 
         assertEquals(0, Color.alpha(cleared.getPixel(0, 0)))
     }
+
+    @Test
+    fun addOuterOutline_ignoresClosedInnerHole() {
+        val bitmap = Bitmap.createBitmap(7, 7, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 2..4) {
+            for (x in 2..4) {
+                bitmap.setPixel(x, y, Color.WHITE)
+            }
+        }
+        bitmap.setPixel(3, 3, Color.TRANSPARENT)
+
+        val outlined = addOuterOutline(bitmap)
+
+        assertEquals(0, Color.alpha(outlined.getPixel(3, 3)))
+        assertEquals(Color.BLACK, outlined.getPixel(1, 2))
+        assertEquals(Color.BLACK, outlined.getPixel(5, 4))
+    }
+
+    @Test
+    fun addOuterOutline_drawsOnlyOnOutsideTransparentNeighbors() {
+        val bitmap = Bitmap.createBitmap(5, 5, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(2, 2, Color.WHITE)
+
+        val outlined = addOuterOutline(bitmap)
+
+        assertEquals(Color.WHITE, outlined.getPixel(2, 2))
+        val outlinePositions = setOf(
+            Pair(1, 1), Pair(2, 1), Pair(3, 1),
+            Pair(1, 2), Pair(3, 2),
+            Pair(1, 3), Pair(2, 3), Pair(3, 3),
+        )
+
+        for (y in 0 until 5) {
+            for (x in 0 until 5) {
+                val pixel = outlined.getPixel(x, y)
+                val alpha = Color.alpha(pixel)
+                if (x == 2 && y == 2) {
+                    assertEquals(Color.WHITE, pixel)
+                } else if (Pair(x, y) in outlinePositions) {
+                    assertEquals(0xFF000000.toInt(), pixel)
+                    assertEquals(255, alpha)
+                } else {
+                    assertEquals(0, alpha)
+                }
+            }
+        }
+    }
+
 }
