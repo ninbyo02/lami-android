@@ -9,6 +9,12 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 
+const val BINARIZE_ALPHA_THRESHOLD = 16
+const val BINARIZE_FALLBACK_THRESHOLD = 128
+private const val BINARIZE_MIN_VALID_PIXELS = 16
+private const val BINARIZE_MIN_OTSU_THRESHOLD = 40
+private const val BINARIZE_MAX_OTSU_THRESHOLD = 220
+
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
     return if (src.config == Bitmap.Config.ARGB_8888) {
@@ -111,6 +117,108 @@ fun toGrayscale(src: Bitmap): Bitmap {
     }
     canvas.drawBitmap(safeSrc, 0f, 0f, paint)
     return output
+}
+
+// Bitmap全体を大津の二値化で白黒変換した新しいBitmapを返す（元のBitmapは変更しない）
+fun toBinarize(src: Bitmap, alphaThreshold: Int = BINARIZE_ALPHA_THRESHOLD): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+
+    val otsu = otsuThresholdFromPixels(srcPixels, alphaThreshold)
+    val threshold = if (otsu == null || otsu < BINARIZE_MIN_OTSU_THRESHOLD || otsu > BINARIZE_MAX_OTSU_THRESHOLD) {
+        BINARIZE_FALLBACK_THRESHOLD
+    } else {
+        otsu
+    }
+
+    val outPixels = IntArray(size)
+    for (index in 0 until size) {
+        val pixel = srcPixels[index]
+        val alpha = (pixel ushr 24) and 0xFF
+        if (alpha < alphaThreshold) {
+            outPixels[index] = 0
+            continue
+        }
+
+        val red = (pixel ushr 16) and 0xFF
+        val green = (pixel ushr 8) and 0xFF
+        val blue = pixel and 0xFF
+        val luminance = (299 * red + 587 * green + 114 * blue + 500) / 1000
+        outPixels[index] = if (luminance < threshold) {
+            0xFF000000.toInt()
+        } else {
+            0xFFFFFFFF.toInt()
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return output
+}
+
+private fun otsuThresholdFromPixels(pixels: IntArray, alphaThreshold: Int): Int? {
+    val histogram = IntArray(256)
+    var validPixelCount = 0
+    for (pixel in pixels) {
+        val alpha = (pixel ushr 24) and 0xFF
+        if (alpha < alphaThreshold) {
+            continue
+        }
+        val red = (pixel ushr 16) and 0xFF
+        val green = (pixel ushr 8) and 0xFF
+        val blue = pixel and 0xFF
+        val luminance = (299 * red + 587 * green + 114 * blue + 500) / 1000
+        histogram[luminance] += 1
+        validPixelCount += 1
+    }
+
+    if (validPixelCount < BINARIZE_MIN_VALID_PIXELS) {
+        return null
+    }
+
+    var sum = 0.0
+    for (i in histogram.indices) {
+        sum += i * histogram[i].toDouble()
+    }
+
+    var backgroundWeight = 0.0
+    var backgroundSum = 0.0
+    var bestVariance = -1.0
+    var bestThreshold = 0
+    val total = validPixelCount.toDouble()
+
+    for (i in histogram.indices) {
+        backgroundWeight += histogram[i].toDouble()
+        if (backgroundWeight <= 0.0) {
+            continue
+        }
+
+        val foregroundWeight = total - backgroundWeight
+        if (foregroundWeight <= 0.0) {
+            break
+        }
+
+        backgroundSum += i * histogram[i].toDouble()
+        val backgroundMean = backgroundSum / backgroundWeight
+        val foregroundMean = (sum - backgroundSum) / foregroundWeight
+        val betweenClassVariance = backgroundWeight * foregroundWeight *
+            (backgroundMean - foregroundMean) * (backgroundMean - foregroundMean)
+
+        if (betweenClassVariance > bestVariance) {
+            bestVariance = betweenClassVariance
+            bestThreshold = i
+        }
+    }
+
+    return bestThreshold
 }
 
 // Bitmap全体に8近傍ベースの外側1pxアウトラインを焼き込んだ新しいBitmapを返す（元のBitmapは変更しない）
