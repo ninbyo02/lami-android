@@ -132,6 +132,15 @@ private enum class ApplySource(val label: String) {
     FullImage("Full Image"),
 }
 
+private enum class LastToolOp {
+    Grayscale,
+    Outline,
+    Binarize,
+    ClearBackground,
+    ClearRegion,
+    FillRegion,
+}
+
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
     return start + (end - start) * t
 }
@@ -166,6 +175,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
+    var lastToolOp by rememberSaveable { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
@@ -1176,9 +1186,85 @@ fun SpriteEditorScreen(navController: NavController) {
                                 item(span = { GridItemSpan(2) }) {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         StandardButton(
-                                            label = "Apply to Sprite",
-                                            testTag = "spriteEditorApply",
-                                            onClick = { showApplyDialog = true },
+                                            label = "Repeat",
+                                            testTag = "spriteEditorRepeat",
+                                            onClick = {
+                                                val current = editorState
+                                                if (current == null) {
+                                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                                } else {
+                                                    val op = lastToolOp
+                                                    if (op == null) {
+                                                        scope.launch { showSnackbarMessage("No previous operation") }
+                                                    } else {
+                                                        when (op) {
+                                                            LastToolOp.Grayscale -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val grayBitmap = toGrayscale(current.bitmap)
+                                                                editorState = current.withBitmap(grayBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Grayscale") }
+                                                            }
+
+                                                            LastToolOp.Outline -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val outlinedBitmap = addOuterOutline(current.bitmap)
+                                                                editorState = current.withBitmap(outlinedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Outline") }
+                                                            }
+
+                                                            LastToolOp.Binarize -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val binarizedBitmap = toBinarize(current.bitmap)
+                                                                editorState = current.withBitmap(binarizedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Binarize") }
+                                                            }
+
+                                                            LastToolOp.ClearBackground -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
+                                                                editorState = current.withBitmap(clearedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Clear Background") }
+                                                            }
+
+                                                            LastToolOp.ClearRegion -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val clearedBitmap = clearConnectedRegionFromSelection(
+                                                                    current.bitmap,
+                                                                    current.selection,
+                                                                )
+                                                                editorState = current.withBitmap(clearedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Clear Region") }
+                                                            }
+
+                                                            LastToolOp.FillRegion -> {
+                                                                val fillResult = fillRegionFromTransparentSeeds(
+                                                                    current.bitmap,
+                                                                    current.selection,
+                                                                )
+                                                                when (fillResult.status) {
+                                                                    FillRegionTransparentStatus.APPLIED -> {
+                                                                        pushUndoSnapshot(current, undoStack, redoStack)
+                                                                        editorState = current.withBitmap(fillResult.bitmap)
+                                                                        scope.launch { showSnackbarMessage("Repeated: Fill Region") }
+                                                                    }
+
+                                                                    FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION -> {
+                                                                        scope.launch {
+                                                                            showSnackbarMessage(
+                                                                                "No transparent pixels in selection",
+                                                                            )
+                                                                        }
+                                                                    }
+
+                                                                    FillRegionTransparentStatus.ABORTED_TOO_LARGE -> {
+                                                                        scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -1331,6 +1417,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val grayBitmap = toGrayscale(current.bitmap)
                                     editorState = current.withBitmap(grayBitmap)
+                                    lastToolOp = LastToolOp.Grayscale
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Grayscale applied") }
                                 }
@@ -1343,6 +1430,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val outlinedBitmap = addOuterOutline(current.bitmap)
                                     editorState = current.withBitmap(outlinedBitmap)
+                                    lastToolOp = LastToolOp.Outline
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Outline applied") }
                                 }
@@ -1355,6 +1443,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val binarizedBitmap = toBinarize(current.bitmap)
                                     editorState = current.withBitmap(binarizedBitmap)
+                                    lastToolOp = LastToolOp.Binarize
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Binarize applied") }
                                 }
@@ -1367,6 +1456,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
                                     editorState = current.withBitmap(clearedBitmap)
+                                    lastToolOp = LastToolOp.ClearBackground
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Background cleared") }
                                 }
@@ -1382,6 +1472,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         current.selection,
                                     )
                                     editorState = current.withBitmap(clearedBitmap)
+                                    lastToolOp = LastToolOp.ClearRegion
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Region cleared") }
                                 }
@@ -1400,6 +1491,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         FillRegionTransparentStatus.APPLIED -> {
                                             pushUndoSnapshot(current, undoStack, redoStack)
                                             editorState = current.withBitmap(fillResult.bitmap)
+                                            lastToolOp = LastToolOp.FillRegion
                                             scope.launch { showSnackbarMessage("Fill Region applied") }
                                         }
 
