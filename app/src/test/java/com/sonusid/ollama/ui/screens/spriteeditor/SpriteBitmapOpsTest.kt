@@ -150,6 +150,81 @@ class SpriteBitmapOpsTest {
         }
     }
 
+
+    @Test
+    fun clearEdgeConnectedBackground_removesEdgeConnectedSolidBackground() {
+        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.WHITE)
+        for (y in 2..3) {
+            for (x in 2..3) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+
+        val cleared = clearEdgeConnectedBackground(bitmap)
+
+        assertEquals(0, Color.alpha(cleared.getPixel(0, 0)))
+        assertEquals(0, Color.alpha(cleared.getPixel(5, 5)))
+        assertEquals(255, Color.alpha(cleared.getPixel(2, 2)))
+        assertEquals(Color.BLACK, cleared.getPixel(2, 2))
+        assertEquals(255, Color.alpha(cleared.getPixel(3, 3)))
+    }
+
+    @Test
+    fun clearEdgeConnectedBackground_keepsSpriteOnTransparentCanvas() {
+        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 2..3) {
+            for (x in 2..3) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+
+        val cleared = clearEdgeConnectedBackground(bitmap)
+
+        assertEquals(255, Color.alpha(cleared.getPixel(2, 2)))
+        assertEquals(Color.BLACK, cleared.getPixel(2, 2))
+        assertEquals(255, Color.alpha(cleared.getPixel(3, 3)))
+        assertEquals(0, Color.alpha(cleared.getPixel(0, 0)))
+    }
+
+    @Test
+    fun clearConnectedRegionFromSelection_clearsOnlySeedConnectedComponent() {
+        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 1..2) {
+            for (x in 1..2) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+        for (y in 4..5) {
+            for (x in 4..5) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+
+        val cleared = clearConnectedRegionFromSelection(bitmap, RectPx.of(0, 0, 3, 3))
+
+        assertEquals(0, Color.alpha(cleared.getPixel(1, 1)))
+        assertEquals(0, Color.alpha(cleared.getPixel(2, 2)))
+        assertEquals(255, Color.alpha(cleared.getPixel(4, 4)))
+        assertEquals(Color.BLACK, cleared.getPixel(4, 4))
+        assertEquals(255, Color.alpha(cleared.getPixel(5, 5)))
+    }
+
+    @Test
+    fun clearConnectedRegionFromSelection_isNoOpWhenSelectionHasNoOpaquePixel() {
+        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(4, 4, Color.BLACK)
+
+        val cleared = clearConnectedRegionFromSelection(bitmap, RectPx.of(0, 0, 2, 2))
+
+        assertEquals(255, Color.alpha(cleared.getPixel(4, 4)))
+        assertEquals(Color.BLACK, cleared.getPixel(4, 4))
+        assertEquals(0, Color.alpha(cleared.getPixel(0, 0)))
+    }
+
     @Test
     fun toBinarize_keepsLowAlphaPixelsTransparent() {
         val bitmap = Bitmap.createBitmap(4, 1, Bitmap.Config.ARGB_8888)

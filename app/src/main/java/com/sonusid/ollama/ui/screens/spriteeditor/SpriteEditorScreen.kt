@@ -1293,6 +1293,8 @@ fun SpriteEditorScreen(navController: NavController) {
                 SheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
                 SheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
                 SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
+                SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
+                SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
             )
         }
         ModalBottomSheet(
@@ -1354,6 +1356,33 @@ fun SpriteEditorScreen(navController: NavController) {
                                     editorState = current.withBitmap(binarizedBitmap)
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Binarize applied") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemClearBackground") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
+                                    editorState = current.withBitmap(clearedBitmap)
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Background cleared") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemClearRegion") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val clearedBitmap = clearConnectedRegionFromSelection(
+                                        current.bitmap,
+                                        current.selection,
+                                    )
+                                    editorState = current.withBitmap(clearedBitmap)
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Region cleared") }
                                 }
                             } else {
                                 activeSheet = SheetType.None
