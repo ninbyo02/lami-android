@@ -170,3 +170,117 @@ fun addOutline(
     output.setPixels(outPixels, 0, width, 0, 0, width, height)
     return output
 }
+
+// Bitmap全体に「外側背景に接する境界のみ」1pxアウトラインを焼き込んだ新しいBitmapを返す（元のBitmapは変更しない）
+fun addOuterOutline(
+    src: Bitmap,
+    outlineColor: Int = android.graphics.Color.BLACK,
+    thresholdAlpha: Int = 16,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+
+    val isOpaque = BooleanArray(size)
+    for (index in 0 until size) {
+        val alpha = (srcPixels[index] ushr 24) and 0xFF
+        isOpaque[index] = alpha >= thresholdAlpha
+    }
+
+    val outside = BooleanArray(size)
+    val queue = ArrayDeque<Int>()
+
+    fun enqueueIfOutside(x: Int, y: Int) {
+        val idx = y * width + x
+        if (!isOpaque[idx] && !outside[idx]) {
+            outside[idx] = true
+            queue.addLast(idx)
+        }
+    }
+
+    for (x in 0 until width) {
+        enqueueIfOutside(x, 0)
+        enqueueIfOutside(x, height - 1)
+    }
+    for (y in 0 until height) {
+        enqueueIfOutside(0, y)
+        enqueueIfOutside(width - 1, y)
+    }
+
+    while (queue.isNotEmpty()) {
+        val idx = queue.removeFirst()
+        val x = idx % width
+        val y = idx / width
+
+        if (x > 0) {
+            val left = idx - 1
+            if (!isOpaque[left] && !outside[left]) {
+                outside[left] = true
+                queue.addLast(left)
+            }
+        }
+        if (x < width - 1) {
+            val right = idx + 1
+            if (!isOpaque[right] && !outside[right]) {
+                outside[right] = true
+                queue.addLast(right)
+            }
+        }
+        if (y > 0) {
+            val top = idx - width
+            if (!isOpaque[top] && !outside[top]) {
+                outside[top] = true
+                queue.addLast(top)
+            }
+        }
+        if (y < height - 1) {
+            val bottom = idx + width
+            if (!isOpaque[bottom] && !outside[bottom]) {
+                outside[bottom] = true
+                queue.addLast(bottom)
+            }
+        }
+    }
+
+    val outPixels = srcPixels.copyOf()
+    for (y in 0 until height) {
+        for (x in 0 until width) {
+            val idx = y * width + x
+            if (!outside[idx]) {
+                continue
+            }
+
+            var hasOpaqueNeighbor = false
+            for (ny in (y - 1)..(y + 1)) {
+                if (ny !in 0 until height) continue
+                for (nx in (x - 1)..(x + 1)) {
+                    if (nx !in 0 until width) continue
+                    if (nx == x && ny == y) continue
+                    val neighborIdx = ny * width + nx
+                    if (isOpaque[neighborIdx]) {
+                        hasOpaqueNeighbor = true
+                        break
+                    }
+                }
+                if (hasOpaqueNeighbor) {
+                    break
+                }
+            }
+
+            if (hasOpaqueNeighbor) {
+                outPixels[idx] = outlineColor
+            }
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return output
+}
