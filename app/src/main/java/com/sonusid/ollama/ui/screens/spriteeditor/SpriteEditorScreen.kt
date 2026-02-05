@@ -1316,10 +1316,23 @@ fun SpriteEditorScreen(navController: NavController) {
                 sheetItems.forEach { item ->
                     Button(
                         onClick = {
-                            activeSheet = SheetType.None
                             if (item.opensApplyDialog) {
+                                activeSheet = SheetType.None
                                 showApplyDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemGrayscale") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val grayBitmap = toGrayscale(current.bitmap)
+                                    editorState = current.withBitmap(grayBitmap)
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Grayscale applied") }
+                                }
                             } else {
+                                activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }
                             }
                         },
