@@ -1331,6 +1331,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Grayscale applied") }
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemOutline") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val outlinedBitmap = addOutline(current.bitmap)
+                                    editorState = current.withBitmap(outlinedBitmap)
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Outline applied") }
+                                }
                             } else {
                                 activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }

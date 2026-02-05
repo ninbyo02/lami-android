@@ -58,6 +58,39 @@ class SpriteBitmapOpsTest {
             }
         }
     }
+
+    @Test
+    fun addOutline_adds8NeighborhoodOutlineAndKeepsSourcePixel() {
+        val bitmap = Bitmap.createBitmap(5, 5, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(2, 2, Color.WHITE)
+
+        val outlined = addOutline(bitmap)
+
+        assertEquals(Color.WHITE, outlined.getPixel(2, 2))
+
+        val outlinePositions = setOf(
+            Pair(1, 1), Pair(2, 1), Pair(3, 1),
+            Pair(1, 2), Pair(3, 2),
+            Pair(1, 3), Pair(2, 3), Pair(3, 3),
+        )
+
+        for (y in 0 until 5) {
+            for (x in 0 until 5) {
+                val pixel = outlined.getPixel(x, y)
+                val alpha = Color.alpha(pixel)
+                if (x == 2 && y == 2) {
+                    assertTrue(alpha >= 16)
+                } else if (Pair(x, y) in outlinePositions) {
+                    assertEquals(Color.BLACK, pixel)
+                    assertEquals(255, alpha)
+                } else {
+                    assertEquals(0, alpha)
+                }
+            }
+        }
+    }
+
     @Test
     fun clearTransparent_makesPixelFullyTransparent() {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)

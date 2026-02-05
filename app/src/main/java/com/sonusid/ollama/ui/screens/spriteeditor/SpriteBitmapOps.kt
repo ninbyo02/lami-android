@@ -112,3 +112,61 @@ fun toGrayscale(src: Bitmap): Bitmap {
     canvas.drawBitmap(safeSrc, 0f, 0f, paint)
     return output
 }
+
+// Bitmap全体に8近傍ベースの外側1pxアウトラインを焼き込んだ新しいBitmapを返す（元のBitmapは変更しない）
+fun addOutline(
+    src: Bitmap,
+    outlineColor: Int = android.graphics.Color.BLACK,
+    thresholdAlpha: Int = 16,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+
+    val srcPixels = IntArray(width * height)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+    val outPixels = srcPixels.copyOf()
+
+    val neighborOffsets = arrayOf(
+        intArrayOf(-1, -1), intArrayOf(0, -1), intArrayOf(1, -1),
+        intArrayOf(-1, 0), intArrayOf(1, 0),
+        intArrayOf(-1, 1), intArrayOf(0, 1), intArrayOf(1, 1),
+    )
+
+    for (y in 0 until height) {
+        for (x in 0 until width) {
+            val index = y * width + x
+            val alpha = (srcPixels[index] ushr 24) and 0xFF
+            val isBody = alpha >= thresholdAlpha
+            if (isBody) {
+                continue
+            }
+
+            var hasBodyNeighbor = false
+            for (offset in neighborOffsets) {
+                val nx = x + offset[0]
+                val ny = y + offset[1]
+                if (nx !in 0 until width || ny !in 0 until height) {
+                    continue
+                }
+                val nIndex = ny * width + nx
+                val nAlpha = (srcPixels[nIndex] ushr 24) and 0xFF
+                if (nAlpha >= thresholdAlpha) {
+                    hasBodyNeighbor = true
+                    break
+                }
+            }
+
+            if (hasBodyNeighbor) {
+                outPixels[index] = outlineColor
+            }
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    return output
+}
