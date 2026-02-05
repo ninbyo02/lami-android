@@ -2,6 +2,8 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
@@ -91,5 +93,22 @@ fun paste(src: Bitmap, clip: Bitmap, dstX: Int, dstY: Int): Bitmap {
     val dstRect = Rect(safeDstX, safeDstY, safeDstX + maxW, safeDstY + maxH)
     val canvas = Canvas(output)
     canvas.drawBitmap(clip, srcRect, dstRect, null)
+    return output
+}
+
+// Bitmap全体をグレースケールへ焼き込み変換した新しいBitmapを返す（元のBitmapは変更しない）
+fun toGrayscale(src: Bitmap): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    if (safeSrc.width <= 0 || safeSrc.height <= 0) {
+        return safeSrc
+    }
+    val output = Bitmap.createBitmap(safeSrc.width, safeSrc.height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(output)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        colorFilter = ColorMatrixColorFilter(
+            ColorMatrix().apply { setSaturation(0f) },
+        )
+    }
+    canvas.drawBitmap(safeSrc, 0f, 0f, paint)
     return output
 }
