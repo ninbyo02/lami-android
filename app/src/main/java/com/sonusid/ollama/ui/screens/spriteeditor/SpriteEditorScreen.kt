@@ -95,6 +95,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -179,6 +180,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
+    var transparentStats by remember { mutableStateOf<TransparentSelectionStats?>(null) }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -206,6 +208,20 @@ fun SpriteEditorScreen(navController: NavController) {
             val safeBitmap = ensureArgb8888(bitmap)
             editorState = createInitialEditorState(safeBitmap)
             editUriString = null
+        }
+    }
+
+    LaunchedEffect(editorState?.bitmap, editorState?.selection) {
+        val current = editorState
+        if (current == null) {
+            transparentStats = null
+            return@LaunchedEffect
+        }
+        transparentStats = withContext(Dispatchers.Default) {
+            countTransparentLikeInSelection(
+                bitmap = current.bitmap,
+                selection = current.selection,
+            )
         }
     }
 
@@ -819,6 +835,9 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
                             }
+                            val debugStatsText = transparentStats?.let {
+                                "T<=thr:${it.transparentCount}  thr:${it.threshold}  Amin/Amax:${it.minAlpha}/${it.maxAlpha}"
+                            } ?: "T<=thr:-  thr:${FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD}"
                             val statusLine3 = if (state == null) {
                                 "移動: -"
                             } else {
@@ -830,12 +849,27 @@ fun SpriteEditorScreen(navController: NavController) {
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                text = statusLine2,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = statusLine2,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = debugStatsText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                             Text(
                                 text = statusLine3,
                                 style = MaterialTheme.typography.labelMedium,
