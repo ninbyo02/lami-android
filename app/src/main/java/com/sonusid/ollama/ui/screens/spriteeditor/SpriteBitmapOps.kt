@@ -522,17 +522,31 @@ fun clearConnectedRegionFromSelection(
     return output
 }
 
-// 選択矩形内で見つかった非透明連結成分を白で塗りつぶした新しいBitmapを返す（元のBitmapは変更しない）
-fun fillRegion(
+// 選択矩形内の透明ピクセルをseedに4近傍で連結探索し、到達領域を白で塗る（元のBitmapは変更しない）
+enum class FillRegionTransparentStatus {
+    APPLIED,
+    NO_TRANSPARENT_PIXELS_IN_SELECTION,
+    ABORTED_TOO_LARGE,
+}
+
+data class FillRegionTransparentResult(
+    val bitmap: Bitmap,
+    val status: FillRegionTransparentStatus,
+)
+
+fun fillRegionFromTransparentSeeds(
     src: Bitmap,
     selection: RectPx,
-    alphaThreshold: Int = 0,
-): Bitmap {
+    maxFillPixels: Int = minOf((src.width * src.height) / 2, 300_000),
+): FillRegionTransparentResult {
     val safeSrc = ensureArgb8888(src)
     val width = safeSrc.width
     val height = safeSrc.height
     if (width <= 0 || height <= 0) {
-        return safeSrc
+        return FillRegionTransparentResult(
+            bitmap = safeSrc,
+            status = FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION,
+        )
     }
 
     val safeSelection = rectNormalizeClamp(selection, width, height)
@@ -544,11 +558,11 @@ fun fillRegion(
     val visited = BooleanArray(size)
     val queue = IntArray(size)
     val white = 0xFFFFFFFF.toInt()
-    val minAlpha = alphaThreshold.coerceIn(0, 255)
+    val fillLimit = maxFillPixels.coerceAtLeast(1)
 
-    fun isOpaque(index: Int): Boolean {
+    fun isTransparent(index: Int): Boolean {
         val alpha = (srcPixels[index] ushr 24) and 0xFF
-        return alpha > minAlpha
+        return alpha == 0
     }
 
     val startY = safeSelection.y
@@ -556,60 +570,77 @@ fun fillRegion(
     val startX = safeSelection.x
     val endX = safeSelection.x + safeSelection.w
 
+    var head = 0
+    var tail = 0
     for (y in startY until endY) {
         for (x in startX until endX) {
             val seedIndex = y * width + x
-            if (visited[seedIndex] || !isOpaque(seedIndex)) {
+            if (visited[seedIndex] || !isTransparent(seedIndex)) {
                 continue
             }
-
-            var head = 0
-            var tail = 0
-            queue[tail++] = seedIndex
             visited[seedIndex] = true
+            queue[tail++] = seedIndex
+        }
+    }
 
-            while (head < tail) {
-                val index = queue[head++]
-                outPixels[index] = white
+    if (tail == 0) {
+        return FillRegionTransparentResult(
+            bitmap = safeSrc,
+            status = FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION,
+        )
+    }
 
-                val px = index % width
-                val py = index / width
+    var filledCount = 0
+    while (head < tail) {
+        val index = queue[head++]
+        outPixels[index] = white
+        filledCount += 1
+        if (filledCount > fillLimit) {
+            return FillRegionTransparentResult(
+                bitmap = safeSrc,
+                status = FillRegionTransparentStatus.ABORTED_TOO_LARGE,
+            )
+        }
 
-                if (px > 0) {
-                    val left = index - 1
-                    if (!visited[left] && isOpaque(left)) {
-                        visited[left] = true
-                        queue[tail++] = left
-                    }
-                }
-                if (px < width - 1) {
-                    val right = index + 1
-                    if (!visited[right] && isOpaque(right)) {
-                        visited[right] = true
-                        queue[tail++] = right
-                    }
-                }
-                if (py > 0) {
-                    val up = index - width
-                    if (!visited[up] && isOpaque(up)) {
-                        visited[up] = true
-                        queue[tail++] = up
-                    }
-                }
-                if (py < height - 1) {
-                    val down = index + width
-                    if (!visited[down] && isOpaque(down)) {
-                        visited[down] = true
-                        queue[tail++] = down
-                    }
-                }
+        val px = index % width
+        val py = index / width
+
+        if (px > 0) {
+            val left = index - 1
+            if (!visited[left] && isTransparent(left)) {
+                visited[left] = true
+                queue[tail++] = left
+            }
+        }
+        if (px < width - 1) {
+            val right = index + 1
+            if (!visited[right] && isTransparent(right)) {
+                visited[right] = true
+                queue[tail++] = right
+            }
+        }
+        if (py > 0) {
+            val up = index - width
+            if (!visited[up] && isTransparent(up)) {
+                visited[up] = true
+                queue[tail++] = up
+            }
+        }
+        if (py < height - 1) {
+            val down = index + width
+            if (!visited[down] && isTransparent(down)) {
+                visited[down] = true
+                queue[tail++] = down
             }
         }
     }
 
     val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     output.setPixels(outPixels, 0, width, 0, 0, width, height)
-    return output
+    return FillRegionTransparentResult(
+        bitmap = output,
+        status = FillRegionTransparentStatus.APPLIED,
+    )
 }
 
 private fun sampleEdgeBackgroundRgb(

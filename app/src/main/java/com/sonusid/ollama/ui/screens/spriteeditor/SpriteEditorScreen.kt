@@ -1391,14 +1391,26 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
-                                    pushUndoSnapshot(current, undoStack, redoStack)
-                                    val filledBitmap = fillRegion(
+                                    val fillResult = fillRegionFromTransparentSeeds(
                                         current.bitmap,
                                         current.selection,
                                     )
-                                    editorState = current.withBitmap(filledBitmap)
                                     activeSheet = SheetType.None
-                                    scope.launch { showSnackbarMessage("Fill Region applied") }
+                                    when (fillResult.status) {
+                                        FillRegionTransparentStatus.APPLIED -> {
+                                            pushUndoSnapshot(current, undoStack, redoStack)
+                                            editorState = current.withBitmap(fillResult.bitmap)
+                                            scope.launch { showSnackbarMessage("Fill Region applied") }
+                                        }
+
+                                        FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION -> {
+                                            scope.launch { showSnackbarMessage("No transparent pixels in selection") }
+                                        }
+
+                                        FillRegionTransparentStatus.ABORTED_TOO_LARGE -> {
+                                            scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                        }
+                                    }
                                 }
                             } else {
                                 activeSheet = SheetType.None
