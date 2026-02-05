@@ -20,7 +20,63 @@ private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
 private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
 // Fill Regionで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
-private const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
+const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
+
+data class TransparentSelectionStats(
+    val transparentCount: Int,
+    val threshold: Int,
+    val minAlpha: Int,
+    val maxAlpha: Int,
+)
+
+fun countTransparentLikeInSelection(
+    bitmap: Bitmap,
+    selection: RectPx,
+    transparentAlphaThreshold: Int = FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD,
+): TransparentSelectionStats {
+    val safeBitmap = ensureArgb8888(bitmap)
+    val width = safeBitmap.width
+    val height = safeBitmap.height
+    if (width <= 0 || height <= 0) {
+        return TransparentSelectionStats(
+            transparentCount = 0,
+            threshold = transparentAlphaThreshold,
+            minAlpha = 0,
+            maxAlpha = 0,
+        )
+    }
+
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val selectionPixels = IntArray(safeSelection.w * safeSelection.h)
+    safeBitmap.getPixels(
+        selectionPixels,
+        0,
+        safeSelection.w,
+        safeSelection.x,
+        safeSelection.y,
+        safeSelection.w,
+        safeSelection.h,
+    )
+
+    var transparentCount = 0
+    var minAlpha = 255
+    var maxAlpha = 0
+    for (pixel in selectionPixels) {
+        val alpha = (pixel ushr 24) and 0xFF
+        if (alpha <= transparentAlphaThreshold) {
+            transparentCount += 1
+        }
+        minAlpha = minOf(minAlpha, alpha)
+        maxAlpha = maxOf(maxAlpha, alpha)
+    }
+
+    return TransparentSelectionStats(
+        transparentCount = transparentCount,
+        threshold = transparentAlphaThreshold,
+        minAlpha = minAlpha,
+        maxAlpha = maxAlpha,
+    )
+}
 
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {

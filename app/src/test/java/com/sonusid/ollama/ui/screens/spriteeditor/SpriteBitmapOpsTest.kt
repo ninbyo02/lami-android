@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(manifest = Config.NONE)
+@Config(manifest = Config.NONE, sdk = [34])
 class SpriteBitmapOpsTest {
     @Test
     fun rectNormalizeClamp_clampsToImageBounds() {
@@ -430,5 +430,44 @@ class SpriteBitmapOpsTest {
         assertEquals(0, Color.alpha(result.getPixel(0, 3)))
         assertEquals(0, Color.alpha(result.getPixel(3, 3)))
     }
+
+    @Test
+    fun countTransparentLikeInSelection_threshold8_countsAlphaEqualsThresholdAsTransparent() {
+        val bitmap = Bitmap.createBitmap(4, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(0, 0, 0, 0))
+        bitmap.setPixel(1, 0, Color.argb(1, 0, 0, 0))
+        bitmap.setPixel(2, 0, Color.argb(8, 0, 0, 0))
+        bitmap.setPixel(3, 0, Color.argb(9, 0, 0, 0))
+
+        val stats = countTransparentLikeInSelection(
+            bitmap = bitmap,
+            selection = RectPx.of(0, 0, 4, 1),
+            transparentAlphaThreshold = 8,
+        )
+
+        assertEquals(3, stats.transparentCount)
+        assertEquals(8, stats.threshold)
+        assertEquals(0, stats.minAlpha)
+        assertEquals(9, stats.maxAlpha)
+    }
+
+    @Test
+    fun countTransparentLikeInSelection_ignoresPixelsOutsideSelection() {
+        val bitmap = Bitmap.createBitmap(3, 2, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.argb(255, 10, 10, 10))
+        bitmap.setPixel(0, 0, Color.argb(0, 20, 20, 20))
+        bitmap.setPixel(2, 1, Color.argb(0, 30, 30, 30))
+
+        val stats = countTransparentLikeInSelection(
+            bitmap = bitmap,
+            selection = RectPx.of(0, 0, 1, 1),
+            transparentAlphaThreshold = 8,
+        )
+
+        assertEquals(1, stats.transparentCount)
+        assertEquals(0, stats.minAlpha)
+        assertEquals(0, stats.maxAlpha)
+    }
+
 
 }
