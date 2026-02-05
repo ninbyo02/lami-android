@@ -1295,6 +1295,7 @@ fun SpriteEditorScreen(navController: NavController) {
                 SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
                 SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
                 SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
+                SheetItem(label = "Fill Region", testTag = "spriteEditorSheetItemFillRegion"),
             )
         }
         ModalBottomSheet(
@@ -1383,6 +1384,21 @@ fun SpriteEditorScreen(navController: NavController) {
                                     editorState = current.withBitmap(clearedBitmap)
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Region cleared") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemFillRegion") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val filledBitmap = fillRegion(
+                                        current.bitmap,
+                                        current.selection,
+                                    )
+                                    editorState = current.withBitmap(filledBitmap)
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Fill Region applied") }
                                 }
                             } else {
                                 activeSheet = SheetType.None
