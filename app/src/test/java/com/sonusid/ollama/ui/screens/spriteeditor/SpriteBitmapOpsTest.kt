@@ -314,6 +314,21 @@ class SpriteBitmapOpsTest {
         }
     }
 
+
+    @Test
+    fun fillRegionFromTransparentSeeds_treatsLowAlphaAsTransparent() {
+        val bitmap = Bitmap.createBitmap(3, 3, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        bitmap.setPixel(1, 1, Color.argb(1, 120, 130, 140))
+
+        val result = fillRegionFromTransparentSeeds(bitmap, RectPx.of(1, 1, 1, 1))
+
+        assertEquals(FillRegionTransparentStatus.APPLIED, result.status)
+        assertEquals(Color.WHITE, result.bitmap.getPixel(1, 1))
+        assertEquals(Color.BLACK, result.bitmap.getPixel(0, 0))
+        assertEquals(Color.BLACK, result.bitmap.getPixel(2, 2))
+    }
+
     @Test
     fun fillRegionFromTransparentSeeds_usesFourNeighborhoodForConnectivity() {
         val bitmap = Bitmap.createBitmap(3, 3, Bitmap.Config.ARGB_8888)
