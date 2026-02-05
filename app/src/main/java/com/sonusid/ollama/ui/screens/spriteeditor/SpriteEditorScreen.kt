@@ -1173,7 +1173,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
-                                item {
+                                item(span = { GridItemSpan(2) }) {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         StandardButton(
                                             label = "Apply to Sprite",
