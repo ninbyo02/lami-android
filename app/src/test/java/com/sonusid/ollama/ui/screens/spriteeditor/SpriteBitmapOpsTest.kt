@@ -330,6 +330,30 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun fillRegionFromTransparentSeeds_smallSelectionDoesNotAbortWhenOutsideIsLargeTransparentArea() {
+        val width = 64
+        val height = 64
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val selection = RectPx.of(0, 0, 4, 4)
+        val result = fillRegionFromTransparentSeeds(bitmap, selection)
+
+        assertEquals(FillRegionTransparentStatus.APPLIED, result.status)
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val pixel = result.bitmap.getPixel(x, y)
+                if (x in 0 until 4 && y in 0 until 4) {
+                    assertEquals(Color.WHITE, pixel)
+                } else {
+                    assertEquals(0, Color.alpha(pixel))
+                }
+            }
+        }
+    }
+
+    @Test
     fun toBinarize_keepsLowAlphaPixelsTransparent() {
         val bitmap = Bitmap.createBitmap(4, 1, Bitmap.Config.ARGB_8888)
         bitmap.setPixel(0, 0, Color.argb(0, 200, 200, 200))

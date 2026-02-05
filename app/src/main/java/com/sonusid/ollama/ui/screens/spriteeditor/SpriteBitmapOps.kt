@@ -18,7 +18,7 @@ private const val CLEAR_BG_EDGE_SAMPLE_LIMIT = 32
 private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
 private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
-private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 1_000_000
+private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
 
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
@@ -562,23 +562,23 @@ fun fillRegionFromTransparentSeeds(
     val selectionArea = safeSelection.w * safeSelection.h
     val selectionBasedLimit = selectionArea.coerceAtLeast(1)
         .coerceAtMost(FILL_REGION_ABSOLUTE_MAX_PIXELS)
-    val fillLimit = maxFillPixels.coerceAtLeast(selectionBasedLimit)
-        .coerceAtMost(FILL_REGION_ABSOLUTE_MAX_PIXELS)
+    val fillLimit = maxFillPixels.coerceAtLeast(1)
+        .coerceAtMost(selectionBasedLimit)
 
     fun isTransparent(index: Int): Boolean {
         val alpha = (srcPixels[index] ushr 24) and 0xFF
         return alpha == 0
     }
 
-    val startY = safeSelection.y
-    val endY = safeSelection.y + safeSelection.h
-    val startX = safeSelection.x
-    val endX = safeSelection.x + safeSelection.w
+    val sy = safeSelection.y
+    val ey = safeSelection.y + safeSelection.h
+    val sx = safeSelection.x
+    val ex = safeSelection.x + safeSelection.w
 
     var head = 0
     var tail = 0
-    for (y in startY until endY) {
-        for (x in startX until endX) {
+    for (y in sy until ey) {
+        for (x in sx until ex) {
             val seedIndex = y * width + x
             if (visited[seedIndex] || !isTransparent(seedIndex)) {
                 continue
@@ -610,28 +610,28 @@ fun fillRegionFromTransparentSeeds(
         val px = index % width
         val py = index / width
 
-        if (px > 0) {
+        if (px > sx) {
             val left = index - 1
             if (!visited[left] && isTransparent(left)) {
                 visited[left] = true
                 queue[tail++] = left
             }
         }
-        if (px < width - 1) {
+        if (px + 1 < ex) {
             val right = index + 1
             if (!visited[right] && isTransparent(right)) {
                 visited[right] = true
                 queue[tail++] = right
             }
         }
-        if (py > 0) {
+        if (py > sy) {
             val up = index - width
             if (!visited[up] && isTransparent(up)) {
                 visited[up] = true
                 queue[tail++] = up
             }
         }
-        if (py < height - 1) {
+        if (py + 1 < ey) {
             val down = index + width
             if (!visited[down] && isTransparent(down)) {
                 visited[down] = true
