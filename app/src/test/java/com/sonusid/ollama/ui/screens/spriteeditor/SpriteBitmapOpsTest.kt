@@ -262,6 +262,39 @@ class SpriteBitmapOpsTest {
         assertEquals(Color.BLACK, result.bitmap.getPixel(4, 4))
     }
 
+
+    @Test
+    fun fillRegionFromTransparentSeeds_largeSelectionTransparentBackground_doesNotAbortAndKeepsOutsideUntouched() {
+        val width = 560
+        val height = 560
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.BLACK)
+        bitmap.setPixel(10, 11, Color.BLACK)
+        bitmap.setPixel(12, 11, Color.BLACK)
+        bitmap.setPixel(11, 10, Color.BLACK)
+        bitmap.setPixel(11, 12, Color.BLACK)
+
+        val selection = RectPx.of(1, 0, width - 1, height)
+        val result = fillRegionFromTransparentSeeds(bitmap, selection)
+
+        assertEquals(FillRegionTransparentStatus.APPLIED, result.status)
+        assertEquals(Color.BLACK, result.bitmap.getPixel(0, 0))
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(11, 11)))
+
+        for (y in 0 until height) {
+            for (x in 1 until width) {
+                if ((x == 10 && y == 11) || (x == 12 && y == 11) || (x == 11 && y == 10) || (x == 11 && y == 12)) {
+                    assertEquals(Color.BLACK, result.bitmap.getPixel(x, y))
+                } else if (x == 11 && y == 11) {
+                    assertEquals(0, Color.alpha(result.bitmap.getPixel(x, y)))
+                } else {
+                    assertEquals(Color.WHITE, result.bitmap.getPixel(x, y))
+                }
+            }
+        }
+    }
+
     @Test
     fun fillRegionFromTransparentSeeds_abortsWhenFillCountExceedsLimit() {
         val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)

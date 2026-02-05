@@ -18,6 +18,7 @@ private const val CLEAR_BG_EDGE_SAMPLE_LIMIT = 32
 private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
 private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
+private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 1_000_000
 
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
@@ -537,7 +538,7 @@ data class FillRegionTransparentResult(
 fun fillRegionFromTransparentSeeds(
     src: Bitmap,
     selection: RectPx,
-    maxFillPixels: Int = minOf((src.width * src.height) / 2, 300_000),
+    maxFillPixels: Int = selection.w * selection.h,
 ): FillRegionTransparentResult {
     val safeSrc = ensureArgb8888(src)
     val width = safeSrc.width
@@ -558,7 +559,11 @@ fun fillRegionFromTransparentSeeds(
     val visited = BooleanArray(size)
     val queue = IntArray(size)
     val white = 0xFFFFFFFF.toInt()
-    val fillLimit = maxFillPixels.coerceAtLeast(1)
+    val selectionArea = safeSelection.w * safeSelection.h
+    val selectionBasedLimit = selectionArea.coerceAtLeast(1)
+        .coerceAtMost(FILL_REGION_ABSOLUTE_MAX_PIXELS)
+    val fillLimit = maxFillPixels.coerceAtLeast(selectionBasedLimit)
+        .coerceAtMost(FILL_REGION_ABSOLUTE_MAX_PIXELS)
 
     fun isTransparent(index: Int): Boolean {
         val alpha = (srcPixels[index] ushr 24) and 0xFF
