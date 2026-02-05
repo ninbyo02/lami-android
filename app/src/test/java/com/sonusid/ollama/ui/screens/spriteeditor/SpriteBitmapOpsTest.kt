@@ -37,6 +37,27 @@ class SpriteBitmapOpsTest {
         assertTrue(Color.alpha(untouchedPixel) > 0)
     }
 
+
+    @Test
+    fun toGrayscale_convertsRgbAndPreservesAlpha() {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(255, 255, 0, 0))
+        bitmap.setPixel(1, 0, Color.argb(192, 0, 255, 0))
+        bitmap.setPixel(0, 1, Color.argb(128, 0, 0, 255))
+        bitmap.setPixel(1, 1, Color.argb(64, 40, 80, 120))
+
+        val grayscale = toGrayscale(bitmap)
+
+        for (y in 0 until grayscale.height) {
+            for (x in 0 until grayscale.width) {
+                val srcPixel = bitmap.getPixel(x, y)
+                val grayPixel = grayscale.getPixel(x, y)
+                assertEquals(Color.alpha(srcPixel), Color.alpha(grayPixel))
+                assertEquals(Color.red(grayPixel), Color.green(grayPixel))
+                assertEquals(Color.green(grayPixel), Color.blue(grayPixel))
+            }
+        }
+    }
     @Test
     fun clearTransparent_makesPixelFullyTransparent() {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
