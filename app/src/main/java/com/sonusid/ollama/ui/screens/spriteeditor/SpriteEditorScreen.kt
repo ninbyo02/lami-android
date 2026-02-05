@@ -1327,7 +1327,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 } else {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val grayBitmap = toGrayscale(current.bitmap)
-                                    editorState = current.copy(bitmap = grayBitmap)
+                                    editorState = current.withBitmap(grayBitmap)
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Grayscale applied") }
                                 }
