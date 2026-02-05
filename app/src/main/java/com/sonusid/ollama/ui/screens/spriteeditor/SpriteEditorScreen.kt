@@ -1176,18 +1176,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         StandardButton(
-                                            label = "Import",
-                                            testTag = "spriteEditorImport",
-                                            onClick = { importLauncher.launch(arrayOf("image/png")) },
-                                        )
-                                    }
-                                }
-                                item {
-                                    OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
-                                            label = "Export",
-                                            testTag = "spriteEditorExport",
-                                            onClick = { exportLauncher.launch("sprite.png") },
+                                            label = "Apply to Sprite",
+                                            testTag = "spriteEditorApply",
+                                            onClick = { showApplyDialog = true },
                                         )
                                     }
                                 }
@@ -1209,12 +1200,21 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
-                                item(span = { GridItemSpan(2) }) {
+                                item {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         StandardButton(
-                                            label = "Apply to Sprite",
-                                            testTag = "spriteEditorApply",
-                                            onClick = { showApplyDialog = true },
+                                            label = "Import",
+                                            testTag = "spriteEditorImport",
+                                            onClick = { importLauncher.launch(arrayOf("image/png")) },
+                                        )
+                                    }
+                                }
+                                item {
+                                    OperationCell(minHeight = buttonMinHeight) {
+                                        StandardButton(
+                                            label = "Export",
+                                            testTag = "spriteEditorExport",
+                                            onClick = { exportLauncher.launch("sprite.png") },
                                         )
                                     }
                                 }
