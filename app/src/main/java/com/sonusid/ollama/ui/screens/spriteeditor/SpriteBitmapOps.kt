@@ -19,6 +19,8 @@ private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
 private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
 private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
+// Fill Regionで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
+private const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
 
 // 既存BitmapをARGB_8888で複製する（元のBitmapは変更しない）
 fun ensureArgb8888(src: Bitmap): Bitmap {
@@ -539,6 +541,7 @@ fun fillRegionFromTransparentSeeds(
     src: Bitmap,
     selection: RectPx,
     maxFillPixels: Int = selection.w * selection.h,
+    transparentAlphaThreshold: Int = FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD,
 ): FillRegionTransparentResult {
     val safeSrc = ensureArgb8888(src)
     val width = safeSrc.width
@@ -567,7 +570,7 @@ fun fillRegionFromTransparentSeeds(
 
     fun isTransparent(index: Int): Boolean {
         val alpha = (srcPixels[index] ushr 24) and 0xFF
-        return alpha == 0
+        return alpha <= transparentAlphaThreshold
     }
 
     val sy = safeSelection.y
