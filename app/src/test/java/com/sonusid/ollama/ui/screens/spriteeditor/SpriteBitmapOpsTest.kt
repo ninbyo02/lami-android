@@ -597,5 +597,46 @@ class SpriteBitmapOpsTest {
         assertEquals(0, stats.maxAlpha)
     }
 
+    @Test
+    fun resizeSelectionToMax96_whenAlreadySmall_returnsAppliedFalse_andSelectionUnchanged() {
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.WHITE)
+
+        val selection = RectPx.of(0, 0, 32, 32)
+        val result = resizeSelectionToMax96(bitmap, selection, maxSize = 96)
+
+        assertTrue(!result.applied)
+        assertEquals(selection, result.selection)
+    }
+
+    @Test
+    fun resizeSelectionToMax96_scalesDownAndKeepsAspectRatio() {
+        val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.WHITE)
+
+        val selection = RectPx.of(10, 20, 200, 100)
+        val result = resizeSelectionToMax96(bitmap, selection, maxSize = 96)
+
+        assertTrue(result.applied)
+        assertEquals(96, result.selection.w)
+        assertEquals(48, result.selection.h)
+    }
+
+    @Test
+    fun downscaleNineSamplePremul_allTransparent_staysTransparent() {
+        val srcPixels = IntArray(9) { Color.TRANSPARENT }
+
+        val result = downscaleNineSamplePremul(
+            srcPixels = srcPixels,
+            srcW = 3,
+            srcH = 3,
+            dstW = 2,
+            dstH = 2,
+        )
+
+        result.forEach { pixel ->
+            assertEquals(0, Color.alpha(pixel))
+        }
+    }
 
 }
