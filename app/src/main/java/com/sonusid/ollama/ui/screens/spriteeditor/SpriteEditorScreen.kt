@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -214,6 +215,8 @@ fun SpriteEditorScreen(navController: NavController) {
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var previewSize by remember { mutableStateOf(IntSize.Zero) }
     var isGridEnabled by remember { mutableStateOf(false) }
+    var isDirty by rememberSaveable { mutableStateOf(false) }
+    var showExitConfirmDialog by rememberSaveable { mutableStateOf(false) }
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
     var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
@@ -263,6 +266,7 @@ fun SpriteEditorScreen(navController: NavController) {
         }
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
+        isDirty = true
         lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor)
         val message = if (repeated) "Repeated: Resize" else "Resize applied"
         scope.launch { showSnackbarMessage(message) }
@@ -350,6 +354,19 @@ fun SpriteEditorScreen(navController: NavController) {
         return true
     }
 
+    suspend fun runSave(): Boolean {
+        val current = editorState ?: return false
+        val result = runCatching { saveInternalAutosave(current) }
+        return if (result.getOrDefault(false)) {
+            showSnackbarMessage("保存しました")
+            isDirty = false
+            true
+        } else {
+            showSnackbarMessage("保存に失敗しました")
+            false
+        }
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("image/png")
     ) { uri ->
@@ -383,12 +400,28 @@ fun SpriteEditorScreen(navController: NavController) {
         }
     }
 
+    fun closeEditor() {
+        navController.popBackStack()
+    }
+
+    fun requestCloseEditor() {
+        if (isDirty) {
+            showExitConfirmDialog = true
+        } else {
+            closeEditor()
+        }
+    }
+
+    BackHandler(enabled = isDirty) {
+        requestCloseEditor()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Sprite Editor") },
                 navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(onClick = { requestCloseEditor() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back"
@@ -1123,13 +1156,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             testTag = "spriteEditorSave",
                                             onClick = {
                                                 scope.launch {
-                                                    val current = editorState ?: return@launch
-                                                    val result = runCatching { saveInternalAutosave(current) }
-                                                    if (result.getOrDefault(false)) {
-                                                        showSnackbarMessage("保存しました")
-                                                    } else {
-                                                        showSnackbarMessage("保存に失敗しました")
-                                                    }
+                                                    runSave()
                                                 }
                                             },
                                         )
@@ -1204,6 +1231,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     copiedBitmap = null
                                                     current.withBitmap(pasted).withClipboard(null)
                                                 }
+                                                isDirty = true
                                             },
                                         )
                                     }
@@ -1224,6 +1252,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                         redoStack.removeFirst()
                                                     }
                                                     editorState = current.applySnapshot(snapshot)
+                                                    isDirty = true
                                                 }
                                             },
                                         )
@@ -1245,6 +1274,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                         undoStack.removeFirst()
                                                     }
                                                     editorState = current.applySnapshot(snapshot)
+                                                    isDirty = true
                                                 }
                                             },
                                         )
@@ -1261,6 +1291,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     val cleared = clearTransparent(current.bitmap, current.selection)
                                                     current.withBitmap(cleared)
                                                 }
+                                                isDirty = true
                                             },
                                         )
                                     }
@@ -1276,6 +1307,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                     val filled = fillBlack(current.bitmap, current.selection)
                                                     current.withBitmap(filled)
                                                 }
+                                                isDirty = true
                                             },
                                         )
                                     }
@@ -1299,6 +1331,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 pushUndoSnapshot(current, undoStack, redoStack)
                                                                 val grayBitmap = toGrayscale(current.bitmap)
                                                                 editorState = current.withBitmap(grayBitmap)
+                                                                isDirty = true
                                                                 scope.launch { showSnackbarMessage("Repeated: Grayscale") }
                                                             }
 
@@ -1306,6 +1339,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 pushUndoSnapshot(current, undoStack, redoStack)
                                                                 val outlinedBitmap = addOuterOutline(current.bitmap)
                                                                 editorState = current.withBitmap(outlinedBitmap)
+                                                                isDirty = true
                                                                 scope.launch { showSnackbarMessage("Repeated: Outline") }
                                                             }
 
@@ -1313,6 +1347,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 pushUndoSnapshot(current, undoStack, redoStack)
                                                                 val binarizedBitmap = toBinarize(current.bitmap)
                                                                 editorState = current.withBitmap(binarizedBitmap)
+                                                                isDirty = true
                                                                 scope.launch { showSnackbarMessage("Repeated: Binarize") }
                                                             }
 
@@ -1320,6 +1355,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 pushUndoSnapshot(current, undoStack, redoStack)
                                                                 val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
                                                                 editorState = current.withBitmap(clearedBitmap)
+                                                                isDirty = true
                                                                 scope.launch { showSnackbarMessage("Repeated: Clear Background") }
                                                             }
 
@@ -1330,6 +1366,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     current.selection,
                                                                 )
                                                                 editorState = current.withBitmap(clearedBitmap)
+                                                                isDirty = true
                                                                 scope.launch { showSnackbarMessage("Repeated: Clear Region") }
                                                             }
 
@@ -1351,6 +1388,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     else -> {
                                                                         pushUndoSnapshot(current, undoStack, redoStack)
                                                                         editorState = current.withBitmap(fillResult.bitmap)
+                                                                        isDirty = true
                                                                         scope.launch { showSnackbarMessage("Repeated: Fill Connected") }
                                                                     }
                                                                 }
@@ -1370,6 +1408,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                         current.selection,
                                                                     )
                                                                     editorState = current.withBitmap(centeredBitmap)
+                                                                    isDirty = true
                                                                     scope.launch {
                                                                         showSnackbarMessage("Repeated: Center Content in Box")
                                                                     }
@@ -1554,6 +1593,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         copiedBitmap = flipped
                                         state.withClipboard(flipped)
                                     }
+                                    isDirty = true
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Flip copied") }
                                 }
@@ -1566,6 +1606,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val grayBitmap = toGrayscale(current.bitmap)
                                     editorState = current.withBitmap(grayBitmap)
+                                    isDirty = true
                                     lastToolOp = LastToolOp.Grayscale
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Grayscale applied") }
@@ -1579,6 +1620,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val outlinedBitmap = addOuterOutline(current.bitmap)
                                     editorState = current.withBitmap(outlinedBitmap)
+                                    isDirty = true
                                     lastToolOp = LastToolOp.Outline
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Outline applied") }
@@ -1592,6 +1634,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val binarizedBitmap = toBinarize(current.bitmap)
                                     editorState = current.withBitmap(binarizedBitmap)
+                                    isDirty = true
                                     lastToolOp = LastToolOp.Binarize
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Binarize applied") }
@@ -1605,6 +1648,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
                                     editorState = current.withBitmap(clearedBitmap)
+                                    isDirty = true
                                     lastToolOp = LastToolOp.ClearBackground
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Background cleared") }
@@ -1621,6 +1665,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         current.selection,
                                     )
                                     editorState = current.withBitmap(clearedBitmap)
+                                    isDirty = true
                                     lastToolOp = LastToolOp.ClearRegion
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Region cleared") }
@@ -1649,6 +1694,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         else -> {
                                             pushUndoSnapshot(current, undoStack, redoStack)
                                             editorState = current.withBitmap(fillResult.bitmap)
+                                            isDirty = true
                                             lastToolOp = LastToolOp.FillConnected
                                             scope.launch { showSnackbarMessage("Fill Connected applied") }
                                         }
@@ -1668,6 +1714,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         pushUndoSnapshot(current, undoStack, redoStack)
                                         val centeredBitmap = centerContentInRect(current.bitmap, current.selection)
                                         editorState = current.withBitmap(centeredBitmap)
+                                        isDirty = true
                                         lastToolOp = LastToolOp.CenterContentInBox
                                         scope.launch { showSnackbarMessage("Centered content in selection") }
                                     }
@@ -1712,6 +1759,56 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             }
         }
+    }
+
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            title = { Text("Unsaved changes") },
+            text = { Text("You have unsaved changes. What would you like to do?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val saved = runSave()
+                            if (saved) {
+                                showExitConfirmDialog = false
+                                closeEditor()
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("spriteEditorExitSave"),
+                ) {
+                    Text("Save and Exit")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showExitConfirmDialog = false
+                            closeEditor()
+                        },
+                        modifier = Modifier
+                            .height(32.dp)
+                            .testTag("spriteEditorExitDiscard"),
+                    ) {
+                        Text("Discard and Exit")
+                    }
+                    Button(
+                        onClick = { showExitConfirmDialog = false },
+                        modifier = Modifier
+                            .height(32.dp)
+                            .testTag("spriteEditorExitCancel"),
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            },
+            modifier = Modifier.testTag("spriteEditorExitDialog"),
+        )
     }
 
     if (showApplyDialog) {
@@ -2114,6 +2211,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             newHeight,
                         )
                         editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                        isDirty = true
                         activeSheet = SheetType.None
                         scope.launch { showSnackbarMessage("Canvas resized to ${newWidth}x${newHeight}") }
                     },
