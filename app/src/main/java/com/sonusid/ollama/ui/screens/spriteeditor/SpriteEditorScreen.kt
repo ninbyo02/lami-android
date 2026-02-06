@@ -1398,6 +1398,10 @@ fun SpriteEditorScreen(navController: NavController) {
                 SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
                 SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
                 SheetItem(label = "Fill Connected", testTag = "spriteEditorSheetItemFillConnected"),
+                SheetItem(
+                    label = "Center Content in Box",
+                    testTag = "spriteEditorSheetItemCenterContentInBox",
+                ),
             )
         }
         ModalBottomSheet(
@@ -1519,6 +1523,23 @@ fun SpriteEditorScreen(navController: NavController) {
                                             lastToolOp = LastToolOp.FillConnected
                                             scope.launch { showSnackbarMessage("Fill Connected applied") }
                                         }
+                                    }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemCenterContentInBox") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    val contentBounds = findContentBoundsInRect(current.bitmap, current.selection)
+                                    activeSheet = SheetType.None
+                                    if (contentBounds == null) {
+                                        scope.launch { showSnackbarMessage("No content in selection") }
+                                    } else {
+                                        pushUndoSnapshot(current, undoStack, redoStack)
+                                        val centeredBitmap = centerContentInRect(current.bitmap, current.selection)
+                                        editorState = current.withBitmap(centeredBitmap)
+                                        scope.launch { showSnackbarMessage("Centered content in selection") }
                                     }
                                 }
                             } else {
