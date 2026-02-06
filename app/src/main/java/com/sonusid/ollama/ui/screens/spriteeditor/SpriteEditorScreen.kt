@@ -140,6 +140,7 @@ private enum class LastToolOp {
     ClearBackground,
     ClearRegion,
     FillConnected,
+    CenterContentInBox,
 }
 
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
@@ -1277,6 +1278,26 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     }
                                                                 }
                                                             }
+
+                                                            LastToolOp.CenterContentInBox -> {
+                                                                val contentBounds = findContentBoundsInRect(
+                                                                    current.bitmap,
+                                                                    current.selection,
+                                                                )
+                                                                if (contentBounds == null) {
+                                                                    scope.launch { showSnackbarMessage("Repeated: No content in selection") }
+                                                                } else {
+                                                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                                                    val centeredBitmap = centerContentInRect(
+                                                                        current.bitmap,
+                                                                        current.selection,
+                                                                    )
+                                                                    editorState = current.withBitmap(centeredBitmap)
+                                                                    scope.launch {
+                                                                        showSnackbarMessage("Repeated: Center Content in Box")
+                                                                    }
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1539,6 +1560,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         pushUndoSnapshot(current, undoStack, redoStack)
                                         val centeredBitmap = centerContentInRect(current.bitmap, current.selection)
                                         editorState = current.withBitmap(centeredBitmap)
+                                        lastToolOp = LastToolOp.CenterContentInBox
                                         scope.launch { showSnackbarMessage("Centered content in selection") }
                                     }
                                 }
