@@ -1767,7 +1767,7 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showExitConfirmDialog = false },
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
-            buttons = {
+            confirmButton = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1782,7 +1782,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(32.dp)
                             .testTag("spriteEditorExitDiscard"),
                     ) {
-                        Text("Don’t Save")
+                        Text("Don't Save")
                     }
                     OutlinedButton(
                         onClick = { showExitConfirmDialog = false },
