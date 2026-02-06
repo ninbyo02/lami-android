@@ -139,7 +139,7 @@ private enum class LastToolOp {
     Binarize,
     ClearBackground,
     ClearRegion,
-    FillRegion,
+    FillConnected,
 }
 
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
@@ -180,7 +180,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
-    var transparentStats by remember { mutableStateOf<TransparentSelectionStats?>(null) }
+    var fillStatusText by remember { mutableStateOf("Fill: mode=-") }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -211,19 +211,6 @@ fun SpriteEditorScreen(navController: NavController) {
         }
     }
 
-    LaunchedEffect(editorState?.bitmap, editorState?.selection) {
-        val current = editorState
-        if (current == null) {
-            transparentStats = null
-            return@LaunchedEffect
-        }
-        transparentStats = withContext(Dispatchers.Default) {
-            countTransparentLikeInSelection(
-                bitmap = current.bitmap,
-                selection = current.selection,
-            )
-        }
-    }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -835,9 +822,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
                             }
-                            val debugStatsText = transparentStats?.let {
-                                "T<=thr:${it.transparentCount}  thr:${it.threshold}  Amin/Amax:${it.minAlpha}/${it.maxAlpha}"
-                            } ?: "T<=thr:-  thr:${FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD}"
                             val statusLine3 = if (state == null) {
                                 "移動: -"
                             } else {
@@ -862,12 +846,13 @@ fun SpriteEditorScreen(navController: NavController) {
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = debugStatsText,
+                                    text = fillStatusText,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("spriteEditorFillStatus"),
                                 )
                             }
                             Text(
@@ -1270,28 +1255,25 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 scope.launch { showSnackbarMessage("Repeated: Clear Region") }
                                                             }
 
-                                                            LastToolOp.FillRegion -> {
-                                                                val fillResult = fillRegionFromTransparentSeeds(
+                                                            LastToolOp.FillConnected -> {
+                                                                val fillResult = fillConnectedToWhite(
                                                                     current.bitmap,
                                                                     current.selection,
                                                                 )
-                                                                when (fillResult.status) {
-                                                                    FillRegionTransparentStatus.APPLIED -> {
+                                                                fillStatusText = fillResult.debugText
+                                                                when {
+                                                                    fillResult.aborted -> {
+                                                                        scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                                                    }
+
+                                                                    fillResult.filled <= 0 -> {
+                                                                        scope.launch { showSnackbarMessage("No target pixels in selection") }
+                                                                    }
+
+                                                                    else -> {
                                                                         pushUndoSnapshot(current, undoStack, redoStack)
                                                                         editorState = current.withBitmap(fillResult.bitmap)
-                                                                        scope.launch { showSnackbarMessage("Repeated: Fill Region") }
-                                                                    }
-
-                                                                    FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION -> {
-                                                                        scope.launch {
-                                                                            showSnackbarMessage(
-                                                                                "No transparent pixels in selection",
-                                                                            )
-                                                                        }
-                                                                    }
-
-                                                                    FillRegionTransparentStatus.ABORTED_TOO_LARGE -> {
-                                                                        scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                                                        scope.launch { showSnackbarMessage("Repeated: Fill Connected") }
                                                                     }
                                                                 }
                                                             }
@@ -1415,7 +1397,7 @@ fun SpriteEditorScreen(navController: NavController) {
                 SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
                 SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
                 SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
-                SheetItem(label = "Fill Region", testTag = "spriteEditorSheetItemFillRegion"),
+                SheetItem(label = "Fill Connected", testTag = "spriteEditorSheetItemFillConnected"),
             )
         }
         ModalBottomSheet(
@@ -1510,31 +1492,32 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Region cleared") }
                                 }
-                            } else if (item.testTag == "spriteEditorSheetItemFillRegion") {
+                            } else if (item.testTag == "spriteEditorSheetItemFillConnected") {
                                 val current = editorState
                                 if (current == null) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
-                                    val fillResult = fillRegionFromTransparentSeeds(
+                                    val fillResult = fillConnectedToWhite(
                                         current.bitmap,
                                         current.selection,
                                     )
+                                    fillStatusText = fillResult.debugText
                                     activeSheet = SheetType.None
-                                    when (fillResult.status) {
-                                        FillRegionTransparentStatus.APPLIED -> {
+                                    when {
+                                        fillResult.aborted -> {
+                                            scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                        }
+
+                                        fillResult.filled <= 0 -> {
+                                            scope.launch { showSnackbarMessage("No target pixels in selection") }
+                                        }
+
+                                        else -> {
                                             pushUndoSnapshot(current, undoStack, redoStack)
                                             editorState = current.withBitmap(fillResult.bitmap)
-                                            lastToolOp = LastToolOp.FillRegion
-                                            scope.launch { showSnackbarMessage("Fill Region applied") }
-                                        }
-
-                                        FillRegionTransparentStatus.NO_TRANSPARENT_PIXELS_IN_SELECTION -> {
-                                            scope.launch { showSnackbarMessage("No transparent pixels in selection") }
-                                        }
-
-                                        FillRegionTransparentStatus.ABORTED_TOO_LARGE -> {
-                                            scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                            lastToolOp = LastToolOp.FillConnected
+                                            scope.launch { showSnackbarMessage("Fill Connected applied") }
                                         }
                                     }
                                 }

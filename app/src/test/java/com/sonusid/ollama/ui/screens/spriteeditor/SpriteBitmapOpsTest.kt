@@ -368,6 +368,62 @@ class SpriteBitmapOpsTest {
         }
     }
 
+
+    @Test
+    fun fillConnectedToWhite_alphaMode_fillsConnectedComponentBeyondSelection() {
+        val bitmap = Bitmap.createBitmap(6, 6, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.BLACK)
+        for (y in 1..4) {
+            for (x in 1..4) {
+                bitmap.setPixel(x, y, Color.TRANSPARENT)
+            }
+        }
+
+        val result = fillConnectedToWhite(bitmap, RectPx.of(2, 2, 1, 1))
+
+        assertEquals(Mode.Alpha, result.mode)
+        assertEquals(false, result.aborted)
+        assertEquals(16, result.filled)
+        for (y in 1..4) {
+            for (x in 1..4) {
+                assertEquals(Color.WHITE, result.bitmap.getPixel(x, y))
+            }
+        }
+        assertEquals(Color.BLACK, result.bitmap.getPixel(0, 0))
+    }
+
+    @Test
+    fun fillConnectedToWhite_rgbFallback_fillsSimilarBackgroundComponent() {
+        val bitmap = Bitmap.createBitmap(5, 5, Bitmap.Config.ARGB_8888)
+        val bg = Color.argb(255, 240, 240, 240)
+        bitmap.eraseColor(bg)
+        bitmap.setPixel(2, 2, Color.BLACK)
+
+        val result = fillConnectedToWhite(bitmap, RectPx.of(0, 0, 1, 1))
+
+        assertEquals(Mode.Rgb, result.mode)
+        assertEquals(false, result.aborted)
+        assertEquals(24, result.filled)
+        assertEquals(Color.BLACK, result.bitmap.getPixel(2, 2))
+        assertEquals(Color.WHITE, result.bitmap.getPixel(0, 0))
+        assertEquals(Color.WHITE, result.bitmap.getPixel(4, 4))
+    }
+
+    @Test
+    fun fillConnectedToWhite_abortsWhenConnectedPixelsExceedSelectionBasedLimit() {
+        val width = 200
+        val height = 200
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val result = fillConnectedToWhite(bitmap, RectPx.of(0, 0, 1, 1))
+
+        assertEquals(true, result.aborted)
+        assertEquals(Mode.Alpha, result.mode)
+        assertTrue(result.filled > 64)
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(199, 199)))
+    }
+
     @Test
     fun toBinarize_keepsLowAlphaPixelsTransparent() {
         val bitmap = Bitmap.createBitmap(4, 1, Bitmap.Config.ARGB_8888)
