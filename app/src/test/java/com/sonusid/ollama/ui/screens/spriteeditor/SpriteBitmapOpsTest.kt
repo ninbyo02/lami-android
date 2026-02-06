@@ -226,6 +226,50 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun resizeSelectionToMax96_anchorTopLeft_pastesAtSelectionOrigin() {
+        val bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 2 until 6) {
+            for (x in 2 until 6) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+
+        val result = resizeSelectionToMax96(
+            bitmap,
+            selection = RectPx.of(2, 2, 4, 4),
+            maxSize = 2,
+            anchor = ResizeAnchor.TopLeft,
+        )
+
+        assertEquals(255, Color.alpha(result.bitmap.getPixel(2, 2)))
+        assertEquals(255, Color.alpha(result.bitmap.getPixel(3, 3)))
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(5, 5)))
+    }
+
+    @Test
+    fun resizeSelectionToMax96_anchorCenter_pastesAtSelectionCenter() {
+        val bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 2 until 6) {
+            for (x in 2 until 6) {
+                bitmap.setPixel(x, y, Color.BLACK)
+            }
+        }
+
+        val result = resizeSelectionToMax96(
+            bitmap,
+            selection = RectPx.of(2, 2, 4, 4),
+            maxSize = 2,
+            anchor = ResizeAnchor.Center,
+        )
+
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(2, 2)))
+        assertEquals(255, Color.alpha(result.bitmap.getPixel(3, 3)))
+        assertEquals(0, Color.alpha(result.bitmap.getPixel(5, 5)))
+    }
+
+    @Test
     fun fillRegionFromTransparentSeeds_returnsNoOpWhenSelectionHasNoTransparentPixels() {
         val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.BLACK)
