@@ -149,6 +149,156 @@ fun fillBlack(src: Bitmap, rect: RectPx): Bitmap {
     return output
 }
 
+fun findContentBoundsInRect(
+    src: Bitmap,
+    selection: RectPx,
+    transparentAlphaThreshold: Int = FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD,
+): RectPx? {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return null
+    }
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val selectionPixels = IntArray(safeSelection.w * safeSelection.h)
+    safeSrc.getPixels(
+        selectionPixels,
+        0,
+        safeSelection.w,
+        safeSelection.x,
+        safeSelection.y,
+        safeSelection.w,
+        safeSelection.h,
+    )
+
+    var minX = safeSelection.w
+    var minY = safeSelection.h
+    var maxX = -1
+    var maxY = -1
+    for (y in 0 until safeSelection.h) {
+        val rowOffset = y * safeSelection.w
+        for (x in 0 until safeSelection.w) {
+            val alpha = (selectionPixels[rowOffset + x] ushr 24) and 0xFF
+            if (alpha > transparentAlphaThreshold) {
+                minX = minOf(minX, x)
+                minY = minOf(minY, y)
+                maxX = maxOf(maxX, x)
+                maxY = maxOf(maxY, y)
+            }
+        }
+    }
+
+    if (maxX < 0 || maxY < 0) {
+        return null
+    }
+
+    return RectPx.of(
+        x = minX,
+        y = minY,
+        w = maxX - minX + 1,
+        h = maxY - minY + 1,
+    )
+}
+
+fun centerContentInRect(
+    src: Bitmap,
+    selection: RectPx,
+    transparentAlphaThreshold: Int = FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return safeSrc
+    }
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val selectionPixels = IntArray(safeSelection.w * safeSelection.h)
+    safeSrc.getPixels(
+        selectionPixels,
+        0,
+        safeSelection.w,
+        safeSelection.x,
+        safeSelection.y,
+        safeSelection.w,
+        safeSelection.h,
+    )
+
+    var minX = safeSelection.w
+    var minY = safeSelection.h
+    var maxX = -1
+    var maxY = -1
+    for (y in 0 until safeSelection.h) {
+        val rowOffset = y * safeSelection.w
+        for (x in 0 until safeSelection.w) {
+            val alpha = (selectionPixels[rowOffset + x] ushr 24) and 0xFF
+            if (alpha > transparentAlphaThreshold) {
+                minX = minOf(minX, x)
+                minY = minOf(minY, y)
+                maxX = maxOf(maxX, x)
+                maxY = maxOf(maxY, y)
+            }
+        }
+    }
+
+    if (maxX < 0 || maxY < 0) {
+        return safeSrc
+    }
+
+    val contentCenterX = (minX + maxX) / 2
+    val contentCenterY = (minY + maxY) / 2
+    val selectionCenterX = (safeSelection.w - 1) / 2
+    val selectionCenterY = (safeSelection.h - 1) / 2
+    val dx = selectionCenterX - contentCenterX
+    val dy = selectionCenterY - contentCenterY
+    if (dx == 0 && dy == 0) {
+        return safeSrc
+    }
+
+    val outputPixels = selectionPixels.copyOf()
+    val contentPixels = IntArray(selectionPixels.size)
+    for (y in 0 until safeSelection.h) {
+        val rowOffset = y * safeSelection.w
+        for (x in 0 until safeSelection.w) {
+            val index = rowOffset + x
+            val pixel = selectionPixels[index]
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha > transparentAlphaThreshold) {
+                contentPixels[index] = pixel
+                outputPixels[index] = 0
+            }
+        }
+    }
+
+    for (y in 0 until safeSelection.h) {
+        val rowOffset = y * safeSelection.w
+        for (x in 0 until safeSelection.w) {
+            val index = rowOffset + x
+            val pixel = contentPixels[index]
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha > transparentAlphaThreshold) {
+                val dstX = x + dx
+                val dstY = y + dy
+                if (dstX in 0 until safeSelection.w && dstY in 0 until safeSelection.h) {
+                    outputPixels[dstY * safeSelection.w + dstX] = pixel
+                }
+            }
+        }
+    }
+
+    val output = safeSrc.copy(Bitmap.Config.ARGB_8888, true)
+    output.setPixels(
+        outputPixels,
+        0,
+        safeSelection.w,
+        safeSelection.x,
+        safeSelection.y,
+        safeSelection.w,
+        safeSelection.h,
+    )
+    return output
+}
+
 // クリップBitmapを貼り付けた新しいBitmapを返す（元のBitmapは変更しない）
 fun paste(src: Bitmap, clip: Bitmap, dstX: Int, dstY: Int): Bitmap {
     val output = src.copy(Bitmap.Config.ARGB_8888, true)

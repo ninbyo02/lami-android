@@ -290,7 +290,78 @@ class SpriteBitmapOpsTest {
                     assertEquals(0, Color.alpha(result.bitmap.getPixel(x, y)))
                 } else {
                     assertEquals(Color.WHITE, result.bitmap.getPixel(x, y))
+            }
+        }
+    }
+
+    @Test
+    fun centerContentInRect_movesContentToSelectionCenter() {
+        val bitmap = Bitmap.createBitmap(9, 9, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 0..1) {
+            for (x in 0..1) {
+                bitmap.setPixel(x, y, Color.WHITE)
+            }
+        }
+
+        val centered = centerContentInRect(bitmap, RectPx.of(0, 0, 9, 9))
+
+        var minX = 9
+        var minY = 9
+        var maxX = -1
+        var maxY = -1
+        for (y in 0 until 9) {
+            for (x in 0 until 9) {
+                val alpha = Color.alpha(centered.getPixel(x, y))
+                if (alpha > 0) {
+                    minX = minOf(minX, x)
+                    minY = minOf(minY, y)
+                    maxX = maxOf(maxX, x)
+                    maxY = maxOf(maxY, y)
                 }
+            }
+        }
+
+        assertEquals(4, (minX + maxX) / 2)
+        assertEquals(4, (minY + maxY) / 2)
+        assertEquals(2, maxX - minX + 1)
+        assertEquals(2, maxY - minY + 1)
+    }
+
+    @Test
+    fun centerContentInRect_respectsTransparentAlphaThreshold() {
+        val bitmap = Bitmap.createBitmap(3, 3, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.argb(FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD, 255, 0, 0))
+
+        val ignored = centerContentInRect(bitmap, RectPx.of(0, 0, 3, 3))
+
+        assertEquals(
+            FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD,
+            Color.alpha(ignored.getPixel(0, 0)),
+        )
+        assertEquals(0, Color.alpha(ignored.getPixel(1, 1)))
+
+        val contentBitmap = Bitmap.createBitmap(3, 3, Bitmap.Config.ARGB_8888)
+        contentBitmap.eraseColor(Color.TRANSPARENT)
+        contentBitmap.setPixel(0, 0, Color.argb(FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD + 1, 255, 0, 0))
+
+        val centered = centerContentInRect(contentBitmap, RectPx.of(0, 0, 3, 3))
+
+        assertEquals(0, Color.alpha(centered.getPixel(0, 0)))
+        assertEquals(FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD + 1, Color.alpha(centered.getPixel(1, 1)))
+    }
+
+    @Test
+    fun centerContentInRect_noContentIsNoOp() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+
+        val centered = centerContentInRect(bitmap, RectPx.of(0, 0, 4, 4))
+
+        for (y in 0 until 4) {
+            for (x in 0 until 4) {
+                assertEquals(0, Color.alpha(centered.getPixel(x, y)))
             }
         }
     }
