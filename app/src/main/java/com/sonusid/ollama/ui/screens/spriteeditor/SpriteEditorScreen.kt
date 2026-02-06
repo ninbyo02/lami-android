@@ -68,6 +68,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -133,16 +134,52 @@ private enum class ApplySource(val label: String) {
     FullImage("Full Image"),
 }
 
-private enum class LastToolOp {
-    Grayscale,
-    Outline,
-    Binarize,
-    ClearBackground,
-    ClearRegion,
-    FillConnected,
-    CenterContentInBox,
-    ResizeToMax96,
+private sealed class LastToolOp {
+    data object Grayscale : LastToolOp()
+    data object Outline : LastToolOp()
+    data object Binarize : LastToolOp()
+    data object ClearBackground : LastToolOp()
+    data object ClearRegion : LastToolOp()
+    data object FillConnected : LastToolOp()
+    data object CenterContentInBox : LastToolOp()
+    data class ResizeToMax96(val anchor: ResizeAnchor) : LastToolOp()
 }
+
+private val LastToolOpSaver = Saver<LastToolOp?, List<String>?>(
+    save = { op ->
+        when (op) {
+            null -> null
+            LastToolOp.Grayscale -> listOf("Grayscale")
+            LastToolOp.Outline -> listOf("Outline")
+            LastToolOp.Binarize -> listOf("Binarize")
+            LastToolOp.ClearBackground -> listOf("ClearBackground")
+            LastToolOp.ClearRegion -> listOf("ClearRegion")
+            LastToolOp.FillConnected -> listOf("FillConnected")
+            LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
+            is LastToolOp.ResizeToMax96 -> listOf("ResizeToMax96", op.anchor.name)
+        }
+    },
+    restore = { data ->
+        val type = data?.firstOrNull() ?: return@Saver null
+        when (type) {
+            "Grayscale" -> LastToolOp.Grayscale
+            "Outline" -> LastToolOp.Outline
+            "Binarize" -> LastToolOp.Binarize
+            "ClearBackground" -> LastToolOp.ClearBackground
+            "ClearRegion" -> LastToolOp.ClearRegion
+            "FillConnected" -> LastToolOp.FillConnected
+            "CenterContentInBox" -> LastToolOp.CenterContentInBox
+            "ResizeToMax96" -> {
+                val anchor = data.getOrNull(1)
+                    ?.let { runCatching { ResizeAnchor.valueOf(it) }.getOrNull() }
+                    ?: ResizeAnchor.TopLeft
+                LastToolOp.ResizeToMax96(anchor)
+            }
+
+            else -> null
+        }
+    },
+)
 
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
     return start + (end - start) * t
@@ -179,7 +216,8 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
-    var lastToolOp by rememberSaveable { mutableStateOf<LastToolOp?>(null) }
+    var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var lastToolOp by rememberSaveable(stateSaver = LastToolOpSaver) { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
@@ -198,16 +236,21 @@ fun SpriteEditorScreen(navController: NavController) {
 
     fun runResizeSelection(
         current: SpriteEditorState,
+        anchor: ResizeAnchor,
         repeated: Boolean,
     ) {
-        val resizeResult = resizeSelectionToMax96(current.bitmap, current.selection)
+        val resizeResult = resizeSelectionToMax96(
+            current.bitmap,
+            current.selection,
+            anchor = anchor,
+        )
         if (!resizeResult.applied) {
             scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
             return
         }
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
-        lastToolOp = LastToolOp.ResizeToMax96
+        lastToolOp = LastToolOp.ResizeToMax96(anchor)
         val message = if (repeated) "Repeated: Resize" else "Resize applied"
         scope.launch { showSnackbarMessage(message) }
     }
@@ -1317,8 +1360,12 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 }
                                                             }
 
-                                                            LastToolOp.ResizeToMax96 -> {
-                                                                runResizeSelection(current, repeated = true)
+                                                            is LastToolOp.ResizeToMax96 -> {
+                                                                runResizeSelection(
+                                                                    current,
+                                                                    anchor = lastToolOp.anchor,
+                                                                    repeated = true,
+                                                                )
                                                             }
                                                         }
                                                     }
@@ -1767,7 +1814,54 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showResizeDialog = false },
             title = { Text("Resize") },
             text = {
-                Text("Shrink selection to max 96px (keeps aspect ratio).")
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Shrink selection to max 96px (keeps aspect ratio).")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Anchor")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeAnchor == ResizeAnchor.TopLeft,
+                                    onClick = { resizeAnchor = ResizeAnchor.TopLeft },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeAnchor == ResizeAnchor.TopLeft,
+                                onClick = null,
+                            )
+                            Text("TopLeft")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeAnchor == ResizeAnchor.Center,
+                                    onClick = { resizeAnchor = ResizeAnchor.Center },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeAnchor == ResizeAnchor.Center,
+                                onClick = null,
+                            )
+                            Text("Center")
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(
@@ -1777,7 +1871,11 @@ fun SpriteEditorScreen(navController: NavController) {
                         if (current == null) {
                             scope.launch { showSnackbarMessage("No sprite loaded") }
                         } else {
-                            runResizeSelection(current, repeated = false)
+                            runResizeSelection(
+                                current,
+                                anchor = resizeAnchor,
+                                repeated = false,
+                            )
                         }
                     },
                     modifier = Modifier.height(32.dp),

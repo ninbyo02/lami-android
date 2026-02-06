@@ -48,6 +48,11 @@ data class ResizeSelectionResult(
     val debugText: String,
 )
 
+enum class ResizeAnchor {
+    TopLeft,
+    Center,
+}
+
 fun countTransparentLikeInSelection(
     bitmap: Bitmap,
     selection: RectPx,
@@ -407,6 +412,7 @@ fun resizeSelectionToMax96(
     src: Bitmap,
     selection: RectPx,
     maxSize: Int = 96,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
 ): ResizeSelectionResult {
     val safeSrc = ensureArgb8888(src)
     val width = safeSrc.width
@@ -422,10 +428,14 @@ fun resizeSelectionToMax96(
     val scale = maxSize.toFloat() / maxDim.toFloat()
     val newW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
     val newH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
-    val centerX = safeSelection.x + safeSelection.w / 2f
-    val centerY = safeSelection.y + safeSelection.h / 2f
-    val newX = (centerX - newW / 2f).roundToInt()
-    val newY = (centerY - newH / 2f).roundToInt()
+    val newX = when (anchor) {
+        ResizeAnchor.TopLeft -> safeSelection.x
+        ResizeAnchor.Center -> safeSelection.x + (safeSelection.w - newW) / 2
+    }
+    val newY = when (anchor) {
+        ResizeAnchor.TopLeft -> safeSelection.y
+        ResizeAnchor.Center -> safeSelection.y + (safeSelection.h - newH) / 2
+    }
     val newSelection = rectNormalizeClamp(RectPx.of(newX, newY, newW, newH), width, height)
 
     val clip = ensureArgb8888(copyRect(safeSrc, safeSelection))
