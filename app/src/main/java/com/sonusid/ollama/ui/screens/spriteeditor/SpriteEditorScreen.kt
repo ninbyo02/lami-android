@@ -53,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -1766,44 +1767,48 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showExitConfirmDialog = false },
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val saved = runSave()
-                            if (saved) {
-                                showExitConfirmDialog = false
-                                closeEditor()
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .height(32.dp)
-                        .testTag("spriteEditorExitSave"),
+            buttons = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Save and Exit")
-                }
-            },
-            dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             showExitConfirmDialog = false
                             closeEditor()
                         },
                         modifier = Modifier
+                            .weight(1f)
                             .height(32.dp)
                             .testTag("spriteEditorExitDiscard"),
                     ) {
-                        Text("Discard and Exit")
+                        Text("Don’t Save")
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = { showExitConfirmDialog = false },
                         modifier = Modifier
+                            .weight(1f)
                             .height(32.dp)
                             .testTag("spriteEditorExitCancel"),
                     ) {
                         Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val saved = runSave()
+                                if (saved) {
+                                    showExitConfirmDialog = false
+                                    closeEditor()
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp)
+                            .testTag("spriteEditorExitSave"),
+                    ) {
+                        Text("Save")
                     }
                 }
             },
