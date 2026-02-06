@@ -1767,7 +1767,7 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showExitConfirmDialog = false },
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
-            buttons = {
+            confirmButton = {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1815,7 +1815,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .testTag("spriteEditorExitDiscard"),
                         ) {
                             Text(
-                                "Don't save",
+                                "Don’t save",
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
