@@ -19,8 +19,19 @@ private const val CLEAR_BG_COLOR_DISTANCE_THRESHOLD = 40
 private const val CLEAR_BG_MIN_ALPHA = 8
 private const val CLEAR_REGION_COLOR_DISTANCE_THRESHOLD = 30
 private const val FILL_REGION_ABSOLUTE_MAX_PIXELS = 2_000_000
-// Fill Regionで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
+// Fill Connectedで透明とみなすalphaの上限値（alpha=0以外のほぼ透明背景も対象にする）
 const val FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD = 8
+const val FILL_CONNECTED_RGB_TOLERANCE = 24
+
+enum class Mode { Alpha, Rgb }
+
+data class FillConnectedResult(
+    val bitmap: Bitmap,
+    val filled: Int,
+    val aborted: Boolean,
+    val mode: Mode,
+    val debugText: String,
+)
 
 data class TransparentSelectionStats(
     val transparentCount: Int,
@@ -705,6 +716,159 @@ fun fillRegionFromTransparentSeeds(
         bitmap = output,
         status = FillRegionTransparentStatus.APPLIED,
     )
+}
+
+fun fillConnectedToWhite(
+    src: Bitmap,
+    selection: RectPx,
+    transparentAlphaThreshold: Int = FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD,
+    rgbTolerance: Int = FILL_CONNECTED_RGB_TOLERANCE,
+): FillConnectedResult {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return FillConnectedResult(
+            bitmap = safeSrc,
+            filled = 0,
+            aborted = false,
+            mode = Mode.Alpha,
+            debugText = "Fill: mode=alpha T=0 thr=$transparentAlphaThreshold filled=0",
+        )
+    }
+
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val selectionArea = safeSelection.w * safeSelection.h
+    val maxFillPixels = minOf(
+        selectionArea.coerceAtLeast(1) * 64,
+        FILL_REGION_ABSOLUTE_MAX_PIXELS,
+    )
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+    val outPixels = srcPixels.copyOf()
+    val visited = BooleanArray(size)
+    val queue = IntArray(size)
+
+    val sx = safeSelection.x
+    val sy = safeSelection.y
+    val ex = safeSelection.x + safeSelection.w
+    val ey = safeSelection.y + safeSelection.h
+
+    var transparentCount = 0
+    var rgbCount = 0
+    var sumR = 0L
+    var sumG = 0L
+    var sumB = 0L
+    for (y in sy until ey) {
+        for (x in sx until ex) {
+            val pixel = srcPixels[y * width + x]
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha <= transparentAlphaThreshold) {
+                transparentCount += 1
+            } else {
+                sumR += (pixel ushr 16) and 0xFF
+                sumG += (pixel ushr 8) and 0xFF
+                sumB += pixel and 0xFF
+                rgbCount += 1
+            }
+        }
+    }
+
+    val mode = if (transparentCount > 0) Mode.Alpha else Mode.Rgb
+    val avgR = if (rgbCount > 0) (sumR / rgbCount).toInt() else 0
+    val avgG = if (rgbCount > 0) (sumG / rgbCount).toInt() else 0
+    val avgB = if (rgbCount > 0) (sumB / rgbCount).toInt() else 0
+
+    fun isTarget(pixel: Int): Boolean {
+        val alpha = (pixel ushr 24) and 0xFF
+        return if (mode == Mode.Alpha) {
+            alpha <= transparentAlphaThreshold
+        } else {
+            if (alpha <= transparentAlphaThreshold) return false
+            val red = (pixel ushr 16) and 0xFF
+            val green = (pixel ushr 8) and 0xFF
+            val blue = pixel and 0xFF
+            kotlin.math.abs(red - avgR) + kotlin.math.abs(green - avgG) + kotlin.math.abs(blue - avgB) <= rgbTolerance
+        }
+    }
+
+    var head = 0
+    var tail = 0
+    for (y in sy until ey) {
+        for (x in sx until ex) {
+            val index = y * width + x
+            if (!visited[index] && isTarget(srcPixels[index])) {
+                visited[index] = true
+                queue[tail++] = index
+            }
+        }
+    }
+
+    if (tail == 0) {
+        val debugText = if (mode == Mode.Alpha) {
+            "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=0"
+        } else {
+            "Fill: mode=rgb tol=$rgbTolerance filled=0"
+        }
+        return FillConnectedResult(safeSrc, 0, false, mode, debugText)
+    }
+
+    val white = 0xFFFFFFFF.toInt()
+    var filledCount = 0
+    while (head < tail) {
+        val index = queue[head++]
+        outPixels[index] = white
+        filledCount += 1
+        if (filledCount > maxFillPixels) {
+            val debugText = if (mode == Mode.Alpha) {
+                "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=$filledCount"
+            } else {
+                "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount"
+            }
+            return FillConnectedResult(safeSrc, filledCount, true, mode, debugText)
+        }
+
+        val px = index % width
+        val py = index / width
+        if (px > 0) {
+            val left = index - 1
+            if (!visited[left] && isTarget(srcPixels[left])) {
+                visited[left] = true
+                queue[tail++] = left
+            }
+        }
+        if (px < width - 1) {
+            val right = index + 1
+            if (!visited[right] && isTarget(srcPixels[right])) {
+                visited[right] = true
+                queue[tail++] = right
+            }
+        }
+        if (py > 0) {
+            val up = index - width
+            if (!visited[up] && isTarget(srcPixels[up])) {
+                visited[up] = true
+                queue[tail++] = up
+            }
+        }
+        if (py < height - 1) {
+            val down = index + width
+            if (!visited[down] && isTarget(srcPixels[down])) {
+                visited[down] = true
+                queue[tail++] = down
+            }
+        }
+    }
+
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
+    val debugText = if (mode == Mode.Alpha) {
+        "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=$filledCount"
+    } else {
+        "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount"
+    }
+    return FillConnectedResult(output, filledCount, false, mode, debugText)
 }
 
 private fun sampleEdgeBackgroundRgb(
