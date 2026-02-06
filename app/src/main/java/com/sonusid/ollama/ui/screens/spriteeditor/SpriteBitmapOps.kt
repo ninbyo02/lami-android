@@ -738,11 +738,8 @@ fun fillConnectedToWhite(
     }
 
     val safeSelection = rectNormalizeClamp(selection, width, height)
-    val selectionArea = safeSelection.w * safeSelection.h
-    val maxFillPixels = minOf(
-        selectionArea.coerceAtLeast(1) * 64,
-        FILL_REGION_ABSOLUTE_MAX_PIXELS,
-    )
+    val imageArea = width * height
+    val maxFillPixels = minOf(imageArea, FILL_REGION_ABSOLUTE_MAX_PIXELS).coerceAtLeast(1)
     val size = width * height
     val srcPixels = IntArray(size)
     safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
@@ -807,9 +804,9 @@ fun fillConnectedToWhite(
 
     if (tail == 0) {
         val debugText = if (mode == Mode.Alpha) {
-            "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=0"
+            "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=0 limit=$maxFillPixels"
         } else {
-            "Fill: mode=rgb tol=$rgbTolerance filled=0"
+            "Fill: mode=rgb tol=$rgbTolerance filled=0 limit=$maxFillPixels"
         }
         return FillConnectedResult(safeSrc, 0, false, mode, debugText)
     }
@@ -822,9 +819,9 @@ fun fillConnectedToWhite(
         filledCount += 1
         if (filledCount > maxFillPixels) {
             val debugText = if (mode == Mode.Alpha) {
-                "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=$filledCount"
+                "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=$filledCount limit=$maxFillPixels"
             } else {
-                "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount"
+                "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount limit=$maxFillPixels"
             }
             return FillConnectedResult(safeSrc, filledCount, true, mode, debugText)
         }
@@ -864,9 +861,9 @@ fun fillConnectedToWhite(
     val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     output.setPixels(outPixels, 0, width, 0, 0, width, height)
     val debugText = if (mode == Mode.Alpha) {
-        "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=$filledCount"
+        "Fill: mode=alpha T=$transparentCount thr=$transparentAlphaThreshold filled=$filledCount limit=$maxFillPixels"
     } else {
-        "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount"
+        "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount limit=$maxFillPixels"
     }
     return FillConnectedResult(output, filledCount, false, mode, debugText)
 }

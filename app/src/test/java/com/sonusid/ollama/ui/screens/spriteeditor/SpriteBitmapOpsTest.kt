@@ -410,18 +410,19 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
-    fun fillConnectedToWhite_abortsWhenConnectedPixelsExceedSelectionBasedLimit() {
-        val width = 200
-        val height = 200
+    fun fillConnectedToWhite_largeTransparentBackground_doesNotAbortWithImageBasedLimit() {
+        val width = 288
+        val height = 288
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.TRANSPARENT)
 
-        val result = fillConnectedToWhite(bitmap, RectPx.of(0, 0, 1, 1))
+        val result = fillConnectedToWhite(bitmap, RectPx.of(0, 0, 4, 4))
 
-        assertEquals(true, result.aborted)
+        assertEquals(false, result.aborted)
         assertEquals(Mode.Alpha, result.mode)
-        assertTrue(result.filled > 64)
-        assertEquals(0, Color.alpha(result.bitmap.getPixel(199, 199)))
+        assertEquals(width * height, result.filled)
+        assertEquals(Color.WHITE, result.bitmap.getPixel(width - 1, height - 1))
+        assertTrue(result.debugText.contains("limit=${width * height}"))
     }
 
     @Test
