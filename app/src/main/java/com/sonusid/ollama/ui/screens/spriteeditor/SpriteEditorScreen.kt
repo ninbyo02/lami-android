@@ -1767,32 +1767,13 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showExitConfirmDialog = false },
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
-            confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+            buttons = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // [dp] 左右・下: ダイアログボタンの余白(余白)に関係
+                        .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            showExitConfirmDialog = false
-                            closeEditor()
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(32.dp)
-                            .testTag("spriteEditorExitDiscard"),
-                    ) {
-                        Text("Don't Save")
-                    }
-                    OutlinedButton(
-                        onClick = { showExitConfirmDialog = false },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(32.dp)
-                            .testTag("spriteEditorExitCancel"),
-                    ) {
-                        Text("Cancel")
-                    }
                     Button(
                         onClick = {
                             scope.launch {
@@ -1804,11 +1785,54 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         },
                         modifier = Modifier
-                            .weight(1f)
-                            .height(32.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
                             .testTag("spriteEditorExitSave"),
                     ) {
-                        Text("Save")
+                        Text(
+                            "Save",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(
+                        modifier = Modifier
+                            // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
+                            .height(8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                showExitConfirmDialog = false
+                                closeEditor()
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("spriteEditorExitDiscard"),
+                        ) {
+                            Text(
+                                "Don't save",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showExitConfirmDialog = false },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("spriteEditorExitCancel"),
+                        ) {
+                            Text(
+                                "Cancel",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             },
