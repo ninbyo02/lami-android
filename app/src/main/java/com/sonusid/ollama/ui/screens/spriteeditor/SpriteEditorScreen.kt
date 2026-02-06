@@ -218,11 +218,15 @@ fun SpriteEditorScreen(navController: NavController) {
     var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
     var showResizeDialog by rememberSaveable { mutableStateOf(false) }
+    var showCanvasSizeDialog by rememberSaveable { mutableStateOf(false) }
     var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
     var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var canvasWidthInput by rememberSaveable { mutableStateOf("") }
+    var canvasHeightInput by rememberSaveable { mutableStateOf("") }
+    var canvasAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var lastToolOp by rememberSaveable(stateSaver = LastToolOpSaver) { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
@@ -1480,6 +1484,7 @@ fun SpriteEditorScreen(navController: NavController) {
             listOf(
                 SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
                 SheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
+                SheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
                 SheetItem(
                     label = "Apply to Sprite...",
                     testTag = "spriteEditorSheetItemApply",
@@ -1642,6 +1647,18 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else if (item.testTag == "spriteEditorSheetItemResize") {
                                 activeSheet = SheetType.None
                                 showResizeDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemCanvasSize") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    canvasWidthInput = current.bitmap.width.toString()
+                                    canvasHeightInput = current.bitmap.height.toString()
+                                    canvasAnchor = ResizeAnchor.TopLeft
+                                    activeSheet = SheetType.None
+                                    showCanvasSizeDialog = true
+                                }
                             } else {
                                 activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }
@@ -1892,6 +1909,151 @@ fun SpriteEditorScreen(navController: NavController) {
             dismissButton = {
                 Button(
                     onClick = { showResizeDialog = false },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showCanvasSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showCanvasSizeDialog = false },
+            title = { Text("Canvas Size") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = canvasWidthInput,
+                            onValueChange = { input ->
+                                canvasWidthInput = digitsOnly(input).take(4)
+                            },
+                            label = { Text("W(px)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .width(96.dp)
+                                .height(54.dp)
+                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                .heightIn(min = 54.dp),
+                        )
+                        OutlinedTextField(
+                            value = canvasHeightInput,
+                            onValueChange = { input ->
+                                canvasHeightInput = digitsOnly(input).take(4)
+                            },
+                            label = { Text("H(px)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .width(96.dp)
+                                .height(54.dp)
+                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                .heightIn(min = 54.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Anchor")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                    onClick = { canvasAnchor = ResizeAnchor.TopLeft },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                onClick = null,
+                            )
+                            Text("TopLeft")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = canvasAnchor == ResizeAnchor.Center,
+                                    onClick = { canvasAnchor = ResizeAnchor.Center },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = canvasAnchor == ResizeAnchor.Center,
+                                onClick = null,
+                            )
+                            Text("Center")
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            canvasWidthInput = "288"
+                            canvasHeightInput = "288"
+                        },
+                        modifier = Modifier.height(32.dp),
+                    ) {
+                        Text("Reset 288x288")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCanvasSizeDialog = false
+                        val current = editorState
+                        if (current == null) {
+                            scope.launch { showSnackbarMessage("No sprite loaded") }
+                            return@Button
+                        }
+                        val rawWidth = canvasWidthInput.toIntOrNull() ?: current.bitmap.width
+                        val rawHeight = canvasHeightInput.toIntOrNull() ?: current.bitmap.height
+                        val newWidth = rawWidth.coerceIn(1, 4096)
+                        val newHeight = rawHeight.coerceIn(1, 4096)
+                        if (newWidth == current.bitmap.width && newHeight == current.bitmap.height) {
+                            scope.launch { showSnackbarMessage("Canvas unchanged") }
+                            return@Button
+                        }
+                        pushUndoSnapshot(current, undoStack, redoStack)
+                        val resizedBitmap = resizeCanvas(
+                            current.bitmap,
+                            newWidth,
+                            newHeight,
+                            canvasAnchor,
+                        )
+                        val nextSelection = rectNormalizeClamp(
+                            current.selection,
+                            newWidth,
+                            newHeight,
+                        )
+                        editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                        activeSheet = SheetType.None
+                        scope.launch { showSnackbarMessage("Canvas resized to ${newWidth}x${newHeight}") }
+                    },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Apply")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showCanvasSizeDialog = false },
                     modifier = Modifier.height(32.dp),
                 ) {
                     Text("Cancel")

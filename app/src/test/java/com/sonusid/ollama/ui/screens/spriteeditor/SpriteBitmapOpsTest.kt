@@ -37,6 +37,45 @@ class SpriteBitmapOpsTest {
         assertTrue(Color.alpha(untouchedPixel) > 0)
     }
 
+    @Test
+    fun resizeCanvas_enlargeTopLeft_preservesTopLeftPixel() {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.RED)
+        bitmap.setPixel(1, 1, Color.BLUE)
+
+        val resized = resizeCanvas(bitmap, newW = 4, newH = 4, anchor = ResizeAnchor.TopLeft)
+
+        assertEquals(Color.RED, resized.getPixel(0, 0))
+        assertEquals(Color.BLUE, resized.getPixel(1, 1))
+        assertEquals(0, Color.alpha(resized.getPixel(3, 3)))
+    }
+
+    @Test
+    fun resizeCanvas_enlargeCenter_placesAtCenter() {
+        val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.RED)
+
+        val resized = resizeCanvas(bitmap, newW = 4, newH = 4, anchor = ResizeAnchor.Center)
+
+        assertEquals(Color.RED, resized.getPixel(1, 1))
+        assertEquals(0, Color.alpha(resized.getPixel(0, 0)))
+    }
+
+    @Test
+    fun resizeCanvas_shrinkTopLeft_crops() {
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        bitmap.setPixel(0, 0, Color.GREEN)
+        bitmap.setPixel(3, 3, Color.RED)
+
+        val resized = resizeCanvas(bitmap, newW = 2, newH = 2, anchor = ResizeAnchor.TopLeft)
+
+        assertEquals(Color.GREEN, resized.getPixel(0, 0))
+        assertEquals(0, Color.alpha(resized.getPixel(1, 1)))
+    }
+
 
     @Test
     fun toGrayscale_convertsRgbAndPreservesAlpha() {

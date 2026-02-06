@@ -53,6 +53,31 @@ enum class ResizeAnchor {
     Center,
 }
 
+// Bitmapのキャンバスサイズを変更する（元のBitmapは変更しない）
+fun resizeCanvas(
+    src: Bitmap,
+    newW: Int,
+    newH: Int,
+    anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val safeW = newW.coerceAtLeast(1)
+    val safeH = newH.coerceAtLeast(1)
+    val output = Bitmap.createBitmap(safeW, safeH, Bitmap.Config.ARGB_8888)
+    output.eraseColor(0)
+    val dstX = when (anchor) {
+        ResizeAnchor.TopLeft -> 0
+        ResizeAnchor.Center -> (safeW - safeSrc.width) / 2
+    }
+    val dstY = when (anchor) {
+        ResizeAnchor.TopLeft -> 0
+        ResizeAnchor.Center -> (safeH - safeSrc.height) / 2
+    }
+    val canvas = Canvas(output)
+    canvas.drawBitmap(safeSrc, dstX.toFloat(), dstY.toFloat(), null)
+    return output
+}
+
 fun countTransparentLikeInSelection(
     bitmap: Bitmap,
     selection: RectPx,
