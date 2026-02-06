@@ -155,6 +155,24 @@ fun copyRect(src: Bitmap, rect: RectPx): Bitmap {
     return Bitmap.createBitmap(src, safeRect.x, safeRect.y, safeRect.w, safeRect.h)
 }
 
+// 画像を水平反転した新しいBitmapを返す（元のBitmapは変更しない）
+fun flipHorizontal(src: Bitmap): Bitmap {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val rowPixels = IntArray(width)
+    val flippedRow = IntArray(width)
+    for (y in 0 until height) {
+        safeSrc.getPixels(rowPixels, 0, width, 0, y, width, 1)
+        for (x in 0 until width) {
+            flippedRow[width - 1 - x] = rowPixels[x]
+        }
+        output.setPixels(flippedRow, 0, width, 0, y, width, 1)
+    }
+    return output
+}
+
 // 指定矩形を透明でクリアした新しいBitmapを返す（元のBitmapは変更しない）
 fun clearTransparent(src: Bitmap, rect: RectPx): Bitmap {
     val safeRect = rectNormalizeClamp(rect, src.width, src.height)

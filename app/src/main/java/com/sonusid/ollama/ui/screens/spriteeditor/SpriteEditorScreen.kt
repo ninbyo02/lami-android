@@ -209,6 +209,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
+    var copiedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1168,8 +1169,14 @@ fun SpriteEditorScreen(navController: NavController) {
                                             testTag = "spriteEditorCopy",
                                             onClick = {
                                                 updateState { current ->
-                                                    val clip = copyRect(current.bitmap, current.selection)
+                                                    val safeSelection = rectNormalizeClamp(
+                                                        current.selection,
+                                                        current.bitmap.width,
+                                                        current.bitmap.height,
+                                                    )
+                                                    val clip = ensureArgb8888(copyRect(current.bitmap, safeSelection))
                                                     copiedSelection = current.selection
+                                                    copiedBitmap = clip
                                                     current.withClipboard(clip)
                                                 }
                                             },
@@ -1183,20 +1190,17 @@ fun SpriteEditorScreen(navController: NavController) {
                                             testTag = "spriteEditorPaste",
                                             onClick = {
                                                 updateState { current ->
-                                                    val clip = current.clipboard
-                                                    if (clip == null) {
-                                                        current
-                                                    } else {
-                                                        pushUndoSnapshot(current, undoStack, redoStack)
-                                                        val pasted = paste(
-                                                            current.bitmap,
-                                                            clip,
-                                                            current.selection.x,
-                                                            current.selection.y
-                                                        )
-                                                        copiedSelection = null
-                                                        current.withBitmap(pasted).withClipboard(null)
-                                                    }
+                                                    val clip = copiedBitmap ?: current.clipboard ?: return@updateState current
+                                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                                    val pasted = paste(
+                                                        current.bitmap,
+                                                        clip,
+                                                        current.selection.x,
+                                                        current.selection.y
+                                                    )
+                                                    copiedSelection = null
+                                                    copiedBitmap = null
+                                                    current.withBitmap(pasted).withClipboard(null)
                                                 }
                                             },
                                         )
@@ -1482,7 +1486,6 @@ fun SpriteEditorScreen(navController: NavController) {
         )
         val sheetItems = if (activeSheet == SheetType.More) {
             listOf(
-                SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
                 SheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
                 SheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
                 SheetItem(
@@ -1493,6 +1496,7 @@ fun SpriteEditorScreen(navController: NavController) {
             )
         } else {
             listOf(
+                SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
                 SheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
                 SheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
                 SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
@@ -1529,6 +1533,27 @@ fun SpriteEditorScreen(navController: NavController) {
                             if (item.opensApplyDialog) {
                                 activeSheet = SheetType.None
                                 showApplyDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    updateState { state ->
+                                        val safeSelection = rectNormalizeClamp(
+                                            state.selection,
+                                            state.bitmap.width,
+                                            state.bitmap.height,
+                                        )
+                                        val clip = ensureArgb8888(copyRect(state.bitmap, safeSelection))
+                                        val flipped = flipHorizontal(clip)
+                                        copiedSelection = state.selection
+                                        copiedBitmap = flipped
+                                        state.withClipboard(flipped)
+                                    }
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Flip copied") }
+                                }
                             } else if (item.testTag == "spriteEditorSheetItemGrayscale") {
                                 val current = editorState
                                 if (current == null) {
