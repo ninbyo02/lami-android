@@ -722,4 +722,27 @@ class SpriteBitmapOpsTest {
         }
     }
 
+    @Test
+    fun flipHorizontal_preservesSize_andFlipsPixelsCorrectly() {
+        val bitmap = Bitmap.createBitmap(3, 2, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.argb(255, 10, 20, 30))
+        bitmap.setPixel(1, 0, Color.argb(128, 40, 50, 60))
+        bitmap.setPixel(2, 0, Color.argb(255, 70, 80, 90))
+        bitmap.setPixel(0, 1, Color.TRANSPARENT)
+        bitmap.setPixel(1, 1, Color.argb(200, 11, 22, 33))
+        bitmap.setPixel(2, 1, Color.argb(255, 44, 55, 66))
+
+        val flipped = flipHorizontal(bitmap)
+
+        assertEquals(3, flipped.width)
+        assertEquals(2, flipped.height)
+        assertEquals(bitmap.getPixel(2, 0), flipped.getPixel(0, 0))
+        assertEquals(bitmap.getPixel(1, 0), flipped.getPixel(1, 0))
+        assertEquals(bitmap.getPixel(0, 0), flipped.getPixel(2, 0))
+        assertEquals(bitmap.getPixel(2, 1), flipped.getPixel(0, 1))
+        assertEquals(bitmap.getPixel(1, 1), flipped.getPixel(1, 1))
+        assertEquals(bitmap.getPixel(0, 1), flipped.getPixel(2, 1))
+        assertEquals(0, Color.alpha(flipped.getPixel(2, 1)))
+    }
+
 }
