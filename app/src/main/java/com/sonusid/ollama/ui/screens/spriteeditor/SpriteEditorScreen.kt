@@ -68,6 +68,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -95,6 +96,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -132,6 +134,59 @@ private enum class ApplySource(val label: String) {
     FullImage("Full Image"),
 }
 
+private sealed class LastToolOp {
+    data object Grayscale : LastToolOp()
+    data object Outline : LastToolOp()
+    data object Binarize : LastToolOp()
+    data object ClearBackground : LastToolOp()
+    data object ClearRegion : LastToolOp()
+    data object FillConnected : LastToolOp()
+    data object CenterContentInBox : LastToolOp()
+    data class ResizeToMax96(val anchor: ResizeAnchor) : LastToolOp()
+}
+
+private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
+    save = { op ->
+        when (op) {
+            null -> emptyList()
+            LastToolOp.Grayscale -> listOf("Grayscale")
+            LastToolOp.Outline -> listOf("Outline")
+            LastToolOp.Binarize -> listOf("Binarize")
+            LastToolOp.ClearBackground -> listOf("ClearBackground")
+            LastToolOp.ClearRegion -> listOf("ClearRegion")
+            LastToolOp.FillConnected -> listOf("FillConnected")
+            LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
+            is LastToolOp.ResizeToMax96 -> listOf("ResizeToMax96", op.anchor.name)
+        }
+    },
+    restore = { data ->
+        if (data.isEmpty()) {
+            return@Saver null
+        }
+        val type = data.first()
+        when (type) {
+            "Grayscale" -> LastToolOp.Grayscale
+            "Outline" -> LastToolOp.Outline
+            "Binarize" -> LastToolOp.Binarize
+            "ClearBackground" -> LastToolOp.ClearBackground
+            "ClearRegion" -> LastToolOp.ClearRegion
+            "FillConnected" -> LastToolOp.FillConnected
+            "CenterContentInBox" -> LastToolOp.CenterContentInBox
+            "ResizeToMax96" -> {
+                val anchorName = data.getOrNull(1) ?: ResizeAnchor.TopLeft.name
+                val anchor = try {
+                    ResizeAnchor.valueOf(anchorName)
+                } catch (_: IllegalArgumentException) {
+                    ResizeAnchor.TopLeft
+                }
+                LastToolOp.ResizeToMax96(anchor)
+            }
+
+            else -> null
+        }
+    },
+)
+
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
     return start + (end - start) * t
 }
@@ -154,6 +209,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
+    var copiedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var displayScale by remember { mutableStateOf(1f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
     var editUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -162,13 +218,21 @@ fun SpriteEditorScreen(navController: NavController) {
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
     var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
+    var showResizeDialog by rememberSaveable { mutableStateOf(false) }
+    var showCanvasSizeDialog by rememberSaveable { mutableStateOf(false) }
     var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
     var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
+    var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var canvasWidthInput by rememberSaveable { mutableStateOf("") }
+    var canvasHeightInput by rememberSaveable { mutableStateOf("") }
+    var canvasAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var lastToolOp by rememberSaveable(stateSaver = LastToolOpSaver) { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
+    var fillStatusText by remember { mutableStateOf("Fill: mode=-") }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -179,6 +243,27 @@ fun SpriteEditorScreen(navController: NavController) {
             message = message,
             duration = duration,
         )
+    }
+
+    fun runResizeSelection(
+        current: SpriteEditorState,
+        anchor: ResizeAnchor,
+        repeated: Boolean,
+    ) {
+        val resizeResult = resizeSelectionToMax96(
+            current.bitmap,
+            current.selection,
+            anchor = anchor,
+        )
+        if (!resizeResult.applied) {
+            scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
+            return
+        }
+        pushUndoSnapshot(current, undoStack, redoStack)
+        editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
+        lastToolOp = LastToolOp.ResizeToMax96(anchor)
+        val message = if (repeated) "Repeated: Resize" else "Resize applied"
+        scope.launch { showSnackbarMessage(message) }
     }
 
     LaunchedEffect(context) {
@@ -198,6 +283,7 @@ fun SpriteEditorScreen(navController: NavController) {
             editUriString = null
         }
     }
+
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -820,12 +906,28 @@ fun SpriteEditorScreen(navController: NavController) {
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                text = statusLine2,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = statusLine2,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = fillStatusText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.testTag("spriteEditorFillStatus"),
+                                )
+                            }
                             Text(
                                 text = statusLine3,
                                 style = MaterialTheme.typography.labelMedium,
@@ -1067,8 +1169,14 @@ fun SpriteEditorScreen(navController: NavController) {
                                             testTag = "spriteEditorCopy",
                                             onClick = {
                                                 updateState { current ->
-                                                    val clip = copyRect(current.bitmap, current.selection)
+                                                    val safeSelection = rectNormalizeClamp(
+                                                        current.selection,
+                                                        current.bitmap.width,
+                                                        current.bitmap.height,
+                                                    )
+                                                    val clip = ensureArgb8888(copyRect(current.bitmap, safeSelection))
                                                     copiedSelection = current.selection
+                                                    copiedBitmap = clip
                                                     current.withClipboard(clip)
                                                 }
                                             },
@@ -1082,20 +1190,17 @@ fun SpriteEditorScreen(navController: NavController) {
                                             testTag = "spriteEditorPaste",
                                             onClick = {
                                                 updateState { current ->
-                                                    val clip = current.clipboard
-                                                    if (clip == null) {
-                                                        current
-                                                    } else {
-                                                        pushUndoSnapshot(current, undoStack, redoStack)
-                                                        val pasted = paste(
-                                                            current.bitmap,
-                                                            clip,
-                                                            current.selection.x,
-                                                            current.selection.y
-                                                        )
-                                                        copiedSelection = null
-                                                        current.withBitmap(pasted).withClipboard(null)
-                                                    }
+                                                    val clip = copiedBitmap ?: current.clipboard ?: return@updateState current
+                                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                                    val pasted = paste(
+                                                        current.bitmap,
+                                                        clip,
+                                                        current.selection.x,
+                                                        current.selection.y
+                                                    )
+                                                    copiedSelection = null
+                                                    copiedBitmap = null
+                                                    current.withBitmap(pasted).withClipboard(null)
                                                 }
                                             },
                                         )
@@ -1173,21 +1278,113 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
-                                item {
+                                item(span = { GridItemSpan(2) }) {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         StandardButton(
-                                            label = "Import",
-                                            testTag = "spriteEditorImport",
-                                            onClick = { importLauncher.launch(arrayOf("image/png")) },
-                                        )
-                                    }
-                                }
-                                item {
-                                    OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
-                                            label = "Export",
-                                            testTag = "spriteEditorExport",
-                                            onClick = { exportLauncher.launch("sprite.png") },
+                                            label = "Repeat",
+                                            testTag = "spriteEditorRepeat",
+                                            onClick = {
+                                                val current = editorState
+                                                if (current == null) {
+                                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                                } else {
+                                                    val op = lastToolOp
+                                                    if (op == null) {
+                                                        scope.launch { showSnackbarMessage("No previous operation") }
+                                                    } else {
+                                                        when (op) {
+                                                            LastToolOp.Grayscale -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val grayBitmap = toGrayscale(current.bitmap)
+                                                                editorState = current.withBitmap(grayBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Grayscale") }
+                                                            }
+
+                                                            LastToolOp.Outline -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val outlinedBitmap = addOuterOutline(current.bitmap)
+                                                                editorState = current.withBitmap(outlinedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Outline") }
+                                                            }
+
+                                                            LastToolOp.Binarize -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val binarizedBitmap = toBinarize(current.bitmap)
+                                                                editorState = current.withBitmap(binarizedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Binarize") }
+                                                            }
+
+                                                            LastToolOp.ClearBackground -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
+                                                                editorState = current.withBitmap(clearedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Clear Background") }
+                                                            }
+
+                                                            LastToolOp.ClearRegion -> {
+                                                                pushUndoSnapshot(current, undoStack, redoStack)
+                                                                val clearedBitmap = clearConnectedRegionFromSelection(
+                                                                    current.bitmap,
+                                                                    current.selection,
+                                                                )
+                                                                editorState = current.withBitmap(clearedBitmap)
+                                                                scope.launch { showSnackbarMessage("Repeated: Clear Region") }
+                                                            }
+
+                                                            LastToolOp.FillConnected -> {
+                                                                val fillResult = fillConnectedToWhite(
+                                                                    current.bitmap,
+                                                                    current.selection,
+                                                                )
+                                                                fillStatusText = fillResult.debugText
+                                                                when {
+                                                                    fillResult.aborted -> {
+                                                                        scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                                                    }
+
+                                                                    fillResult.filled <= 0 -> {
+                                                                        scope.launch { showSnackbarMessage("No target pixels in selection") }
+                                                                    }
+
+                                                                    else -> {
+                                                                        pushUndoSnapshot(current, undoStack, redoStack)
+                                                                        editorState = current.withBitmap(fillResult.bitmap)
+                                                                        scope.launch { showSnackbarMessage("Repeated: Fill Connected") }
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            LastToolOp.CenterContentInBox -> {
+                                                                val contentBounds = findContentBoundsInRect(
+                                                                    current.bitmap,
+                                                                    current.selection,
+                                                                )
+                                                                if (contentBounds == null) {
+                                                                    scope.launch { showSnackbarMessage("Repeated: No content in selection") }
+                                                                } else {
+                                                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                                                    val centeredBitmap = centerContentInRect(
+                                                                        current.bitmap,
+                                                                        current.selection,
+                                                                    )
+                                                                    editorState = current.withBitmap(centeredBitmap)
+                                                                    scope.launch {
+                                                                        showSnackbarMessage("Repeated: Center Content in Box")
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            is LastToolOp.ResizeToMax96 -> {
+                                                                runResizeSelection(
+                                                                    current,
+                                                                    anchor = op.anchor,
+                                                                    repeated = true,
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
                                         )
                                     }
                                 }
@@ -1209,12 +1406,21 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
-                                item(span = { GridItemSpan(2) }) {
+                                item {
                                     OperationCell(minHeight = buttonMinHeight) {
                                         StandardButton(
-                                            label = "Apply to Sprite",
-                                            testTag = "spriteEditorApply",
-                                            onClick = { showApplyDialog = true },
+                                            label = "Import",
+                                            testTag = "spriteEditorImport",
+                                            onClick = { importLauncher.launch(arrayOf("image/png")) },
+                                        )
+                                    }
+                                }
+                                item {
+                                    OperationCell(minHeight = buttonMinHeight) {
+                                        StandardButton(
+                                            label = "Export",
+                                            testTag = "spriteEditorExport",
+                                            onClick = { exportLauncher.launch("sprite.png") },
                                         )
                                     }
                                 }
@@ -1280,8 +1486,8 @@ fun SpriteEditorScreen(navController: NavController) {
         )
         val sheetItems = if (activeSheet == SheetType.More) {
             listOf(
-                SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
                 SheetItem(label = "Resize...", testTag = "spriteEditorSheetItemResize"),
+                SheetItem(label = "Canvas Size...", testTag = "spriteEditorSheetItemCanvasSize"),
                 SheetItem(
                     label = "Apply to Sprite...",
                     testTag = "spriteEditorSheetItemApply",
@@ -1290,9 +1496,17 @@ fun SpriteEditorScreen(navController: NavController) {
             )
         } else {
             listOf(
+                SheetItem(label = "Flip Copy", testTag = "spriteEditorSheetItemFlipCopy"),
                 SheetItem(label = "Grayscale", testTag = "spriteEditorSheetItemGrayscale"),
                 SheetItem(label = "Outline", testTag = "spriteEditorSheetItemOutline"),
                 SheetItem(label = "Binarize", testTag = "spriteEditorSheetItemBinarize"),
+                SheetItem(label = "Clear Background", testTag = "spriteEditorSheetItemClearBackground"),
+                SheetItem(label = "Clear Region", testTag = "spriteEditorSheetItemClearRegion"),
+                SheetItem(label = "Fill Connected", testTag = "spriteEditorSheetItemFillConnected"),
+                SheetItem(
+                    label = "Center Content in Box",
+                    testTag = "spriteEditorSheetItemCenterContentInBox",
+                ),
             )
         }
         ModalBottomSheet(
@@ -1319,6 +1533,27 @@ fun SpriteEditorScreen(navController: NavController) {
                             if (item.opensApplyDialog) {
                                 activeSheet = SheetType.None
                                 showApplyDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    updateState { state ->
+                                        val safeSelection = rectNormalizeClamp(
+                                            state.selection,
+                                            state.bitmap.width,
+                                            state.bitmap.height,
+                                        )
+                                        val clip = ensureArgb8888(copyRect(state.bitmap, safeSelection))
+                                        val flipped = flipHorizontal(clip)
+                                        copiedSelection = state.selection
+                                        copiedBitmap = flipped
+                                        state.withClipboard(flipped)
+                                    }
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Flip copied") }
+                                }
                             } else if (item.testTag == "spriteEditorSheetItemGrayscale") {
                                 val current = editorState
                                 if (current == null) {
@@ -1328,8 +1563,126 @@ fun SpriteEditorScreen(navController: NavController) {
                                     pushUndoSnapshot(current, undoStack, redoStack)
                                     val grayBitmap = toGrayscale(current.bitmap)
                                     editorState = current.withBitmap(grayBitmap)
+                                    lastToolOp = LastToolOp.Grayscale
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("Grayscale applied") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemOutline") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val outlinedBitmap = addOuterOutline(current.bitmap)
+                                    editorState = current.withBitmap(outlinedBitmap)
+                                    lastToolOp = LastToolOp.Outline
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Outline applied") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemBinarize") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val binarizedBitmap = toBinarize(current.bitmap)
+                                    editorState = current.withBitmap(binarizedBitmap)
+                                    lastToolOp = LastToolOp.Binarize
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Binarize applied") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemClearBackground") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val clearedBitmap = clearEdgeConnectedBackground(current.bitmap)
+                                    editorState = current.withBitmap(clearedBitmap)
+                                    lastToolOp = LastToolOp.ClearBackground
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Background cleared") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemClearRegion") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val clearedBitmap = clearConnectedRegionFromSelection(
+                                        current.bitmap,
+                                        current.selection,
+                                    )
+                                    editorState = current.withBitmap(clearedBitmap)
+                                    lastToolOp = LastToolOp.ClearRegion
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Region cleared") }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemFillConnected") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    val fillResult = fillConnectedToWhite(
+                                        current.bitmap,
+                                        current.selection,
+                                    )
+                                    fillStatusText = fillResult.debugText
+                                    activeSheet = SheetType.None
+                                    when {
+                                        fillResult.aborted -> {
+                                            scope.launch { showSnackbarMessage("Fill aborted (too large)") }
+                                        }
+
+                                        fillResult.filled <= 0 -> {
+                                            scope.launch { showSnackbarMessage("No target pixels in selection") }
+                                        }
+
+                                        else -> {
+                                            pushUndoSnapshot(current, undoStack, redoStack)
+                                            editorState = current.withBitmap(fillResult.bitmap)
+                                            lastToolOp = LastToolOp.FillConnected
+                                            scope.launch { showSnackbarMessage("Fill Connected applied") }
+                                        }
+                                    }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemCenterContentInBox") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    val contentBounds = findContentBoundsInRect(current.bitmap, current.selection)
+                                    activeSheet = SheetType.None
+                                    if (contentBounds == null) {
+                                        scope.launch { showSnackbarMessage("No content in selection") }
+                                    } else {
+                                        pushUndoSnapshot(current, undoStack, redoStack)
+                                        val centeredBitmap = centerContentInRect(current.bitmap, current.selection)
+                                        editorState = current.withBitmap(centeredBitmap)
+                                        lastToolOp = LastToolOp.CenterContentInBox
+                                        scope.launch { showSnackbarMessage("Centered content in selection") }
+                                    }
+                                }
+                            } else if (item.testTag == "spriteEditorSheetItemResize") {
+                                activeSheet = SheetType.None
+                                showResizeDialog = true
+                            } else if (item.testTag == "spriteEditorSheetItemCanvasSize") {
+                                val current = editorState
+                                if (current == null) {
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    canvasWidthInput = current.bitmap.width.toString()
+                                    canvasHeightInput = current.bitmap.height.toString()
+                                    canvasAnchor = ResizeAnchor.TopLeft
+                                    activeSheet = SheetType.None
+                                    showCanvasSizeDialog = true
                                 }
                             } else {
                                 activeSheet = SheetType.None
@@ -1501,6 +1854,236 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             },
             modifier = Modifier.testTag("spriteEditorApplyDialog"),
+        )
+    }
+
+    if (showResizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showResizeDialog = false },
+            title = { Text("Resize") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Shrink selection to max 96px (keeps aspect ratio).")
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Anchor")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeAnchor == ResizeAnchor.TopLeft,
+                                    onClick = { resizeAnchor = ResizeAnchor.TopLeft },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeAnchor == ResizeAnchor.TopLeft,
+                                onClick = null,
+                            )
+                            Text("TopLeft")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeAnchor == ResizeAnchor.Center,
+                                    onClick = { resizeAnchor = ResizeAnchor.Center },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeAnchor == ResizeAnchor.Center,
+                                onClick = null,
+                            )
+                            Text("Center")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResizeDialog = false
+                        val current = editorState
+                        if (current == null) {
+                            scope.launch { showSnackbarMessage("No sprite loaded") }
+                        } else {
+                            runResizeSelection(
+                                current,
+                                anchor = resizeAnchor,
+                                repeated = false,
+                            )
+                        }
+                    },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showResizeDialog = false },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showCanvasSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showCanvasSizeDialog = false },
+            title = { Text("Canvas Size") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = canvasWidthInput,
+                            onValueChange = { input ->
+                                canvasWidthInput = digitsOnly(input).take(4)
+                            },
+                            label = { Text("W(px)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .width(96.dp)
+                                .height(54.dp)
+                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                .heightIn(min = 54.dp),
+                        )
+                        OutlinedTextField(
+                            value = canvasHeightInput,
+                            onValueChange = { input ->
+                                canvasHeightInput = digitsOnly(input).take(4)
+                            },
+                            label = { Text("H(px)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .width(96.dp)
+                                .height(54.dp)
+                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                .heightIn(min = 54.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Anchor")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                    onClick = { canvasAnchor = ResizeAnchor.TopLeft },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                onClick = null,
+                            )
+                            Text("TopLeft")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = canvasAnchor == ResizeAnchor.Center,
+                                    onClick = { canvasAnchor = ResizeAnchor.Center },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = canvasAnchor == ResizeAnchor.Center,
+                                onClick = null,
+                            )
+                            Text("Center")
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            canvasWidthInput = "288"
+                            canvasHeightInput = "288"
+                        },
+                        modifier = Modifier.height(32.dp),
+                    ) {
+                        Text("Reset 288x288")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showCanvasSizeDialog = false
+                        val current = editorState
+                        if (current == null) {
+                            scope.launch { showSnackbarMessage("No sprite loaded") }
+                            return@Button
+                        }
+                        val rawWidth = canvasWidthInput.toIntOrNull() ?: current.bitmap.width
+                        val rawHeight = canvasHeightInput.toIntOrNull() ?: current.bitmap.height
+                        val newWidth = rawWidth.coerceIn(1, 4096)
+                        val newHeight = rawHeight.coerceIn(1, 4096)
+                        if (newWidth == current.bitmap.width && newHeight == current.bitmap.height) {
+                            scope.launch { showSnackbarMessage("Canvas unchanged") }
+                            return@Button
+                        }
+                        pushUndoSnapshot(current, undoStack, redoStack)
+                        val resizedBitmap = resizeCanvas(
+                            current.bitmap,
+                            newWidth,
+                            newHeight,
+                            canvasAnchor,
+                        )
+                        val nextSelection = rectNormalizeClamp(
+                            current.selection,
+                            newWidth,
+                            newHeight,
+                        )
+                        editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                        activeSheet = SheetType.None
+                        scope.launch { showSnackbarMessage("Canvas resized to ${newWidth}x${newHeight}") }
+                    },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Apply")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showCanvasSizeDialog = false },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Cancel")
+                }
+            },
         )
     }
 }
