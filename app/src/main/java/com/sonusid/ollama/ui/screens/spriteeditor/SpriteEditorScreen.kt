@@ -142,13 +142,13 @@ private sealed class LastToolOp {
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
     data object CenterContentInBox : LastToolOp()
-    data class ResizeToMax96(val anchor: ResizeAnchor) : LastToolOp()
+    data class ResizeToMax96(val anchor: ResizeAnchor, val stepFactor: Float) : LastToolOp()
 }
 
 private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
     save = { op ->
         when (op) {
-            null -> emptyList()
+            null -> listOf("None")
             LastToolOp.Grayscale -> listOf("Grayscale")
             LastToolOp.Outline -> listOf("Outline")
             LastToolOp.Binarize -> listOf("Binarize")
@@ -156,15 +156,13 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
             LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
-            is LastToolOp.ResizeToMax96 -> listOf("ResizeToMax96", op.anchor.name)
+            is LastToolOp.ResizeToMax96 -> listOf("ResizeToMax96", op.anchor.name, op.stepFactor.toString())
         }
     },
     restore = { data ->
-        if (data.isEmpty()) {
-            return@Saver null
-        }
-        val type = data.first()
+        val type = data.firstOrNull() ?: "None"
         when (type) {
+            "None" -> null
             "Grayscale" -> LastToolOp.Grayscale
             "Outline" -> LastToolOp.Outline
             "Binarize" -> LastToolOp.Binarize
@@ -179,7 +177,8 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
                 } catch (_: IllegalArgumentException) {
                     ResizeAnchor.TopLeft
                 }
-                LastToolOp.ResizeToMax96(anchor)
+                val stepFactor = data.getOrNull(2)?.toFloatOrNull() ?: 0.5f
+                LastToolOp.ResizeToMax96(anchor, stepFactor)
             }
 
             else -> null
@@ -225,6 +224,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
+    var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
     var canvasWidthInput by rememberSaveable { mutableStateOf("") }
     var canvasHeightInput by rememberSaveable { mutableStateOf("") }
     var canvasAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
@@ -248,12 +248,14 @@ fun SpriteEditorScreen(navController: NavController) {
     fun runResizeSelection(
         current: SpriteEditorState,
         anchor: ResizeAnchor,
+        stepFactor: Float,
         repeated: Boolean,
     ) {
         val resizeResult = resizeSelectionToMax96(
             current.bitmap,
             current.selection,
             anchor = anchor,
+            stepFactor = stepFactor,
         )
         if (!resizeResult.applied) {
             scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
@@ -261,7 +263,7 @@ fun SpriteEditorScreen(navController: NavController) {
         }
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
-        lastToolOp = LastToolOp.ResizeToMax96(anchor)
+        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor)
         val message = if (repeated) "Repeated: Resize" else "Resize applied"
         scope.launch { showSnackbarMessage(message) }
     }
@@ -1378,6 +1380,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                 runResizeSelection(
                                                                     current,
                                                                     anchor = op.anchor,
+                                                                    stepFactor = op.stepFactor,
                                                                     repeated = true,
                                                                 )
                                                             }
@@ -1909,6 +1912,48 @@ fun SpriteEditorScreen(navController: NavController) {
                             Text("Center")
                         }
                     }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Step Factor")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeStepFactor == 0.5f,
+                                    onClick = { resizeStepFactor = 0.5f },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeStepFactor == 0.5f,
+                                onClick = null,
+                            )
+                            Text("0.5")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeStepFactor == 0.75f,
+                                    onClick = { resizeStepFactor = 0.75f },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeStepFactor == 0.75f,
+                                onClick = null,
+                            )
+                            Text("0.75")
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -1922,6 +1967,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             runResizeSelection(
                                 current,
                                 anchor = resizeAnchor,
+                                stepFactor = resizeStepFactor,
                                 repeated = false,
                             )
                         }
