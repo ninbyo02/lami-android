@@ -145,10 +145,10 @@ private sealed class LastToolOp {
     data class ResizeToMax96(val anchor: ResizeAnchor) : LastToolOp()
 }
 
-private val LastToolOpSaver = Saver<LastToolOp?, List<String>?>(
+private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
     save = { op ->
         when (op) {
-            null -> null
+            null -> emptyList()
             LastToolOp.Grayscale -> listOf("Grayscale")
             LastToolOp.Outline -> listOf("Outline")
             LastToolOp.Binarize -> listOf("Binarize")
@@ -160,7 +160,10 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>?>(
         }
     },
     restore = { data ->
-        val type = data?.firstOrNull() ?: return@Saver null
+        if (data.isEmpty()) {
+            return@Saver null
+        }
+        val type = data.first()
         when (type) {
             "Grayscale" -> LastToolOp.Grayscale
             "Outline" -> LastToolOp.Outline
@@ -170,9 +173,12 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>?>(
             "FillConnected" -> LastToolOp.FillConnected
             "CenterContentInBox" -> LastToolOp.CenterContentInBox
             "ResizeToMax96" -> {
-                val anchor = data.getOrNull(1)
-                    ?.let { runCatching { ResizeAnchor.valueOf(it) }.getOrNull() }
-                    ?: ResizeAnchor.TopLeft
+                val anchorName = data.getOrNull(1) ?: ResizeAnchor.TopLeft.name
+                val anchor = try {
+                    ResizeAnchor.valueOf(anchorName)
+                } catch (_: IllegalArgumentException) {
+                    ResizeAnchor.TopLeft
+                }
                 LastToolOp.ResizeToMax96(anchor)
             }
 
@@ -1363,7 +1369,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                                             is LastToolOp.ResizeToMax96 -> {
                                                                 runResizeSelection(
                                                                     current,
-                                                                    anchor = lastToolOp.anchor,
+                                                                    anchor = op.anchor,
                                                                     repeated = true,
                                                                 )
                                                             }
