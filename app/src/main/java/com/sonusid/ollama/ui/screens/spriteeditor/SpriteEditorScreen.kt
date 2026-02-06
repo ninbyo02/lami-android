@@ -141,6 +141,7 @@ private enum class LastToolOp {
     ClearRegion,
     FillConnected,
     CenterContentInBox,
+    ResizeToMax96,
 }
 
 private fun lerpFloat(start: Float, end: Float, t: Float): Float {
@@ -173,6 +174,7 @@ fun SpriteEditorScreen(navController: NavController) {
     // 追加UIの状態管理: BottomSheet と Apply ダイアログ用
     var activeSheet by rememberSaveable { mutableStateOf(SheetType.None) }
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
+    var showResizeDialog by rememberSaveable { mutableStateOf(false) }
     var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
     var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
@@ -192,6 +194,22 @@ fun SpriteEditorScreen(navController: NavController) {
             message = message,
             duration = duration,
         )
+    }
+
+    fun runResizeSelection(
+        current: SpriteEditorState,
+        repeated: Boolean,
+    ) {
+        val resizeResult = resizeSelectionToMax96(current.bitmap, current.selection)
+        if (!resizeResult.applied) {
+            scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
+            return
+        }
+        pushUndoSnapshot(current, undoStack, redoStack)
+        editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
+        lastToolOp = LastToolOp.ResizeToMax96
+        val message = if (repeated) "Repeated: Resize" else "Resize applied"
+        scope.launch { showSnackbarMessage(message) }
     }
 
     LaunchedEffect(context) {
@@ -1298,6 +1316,10 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     }
                                                                 }
                                                             }
+
+                                                            LastToolOp.ResizeToMax96 -> {
+                                                                runResizeSelection(current, repeated = true)
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1564,6 +1586,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                         scope.launch { showSnackbarMessage("Centered content in selection") }
                                     }
                                 }
+                            } else if (item.testTag == "spriteEditorSheetItemResize") {
+                                activeSheet = SheetType.None
+                                showResizeDialog = true
                             } else {
                                 activeSheet = SheetType.None
                                 scope.launch { showSnackbarMessage("TODO: ${item.label}") }
@@ -1734,6 +1759,40 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             },
             modifier = Modifier.testTag("spriteEditorApplyDialog"),
+        )
+    }
+
+    if (showResizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showResizeDialog = false },
+            title = { Text("Resize") },
+            text = {
+                Text("Shrink selection to max 96px (keeps aspect ratio).")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResizeDialog = false
+                        val current = editorState
+                        if (current == null) {
+                            scope.launch { showSnackbarMessage("No sprite loaded") }
+                        } else {
+                            runResizeSelection(current, repeated = false)
+                        }
+                    },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showResizeDialog = false },
+                    modifier = Modifier.height(32.dp),
+                ) {
+                    Text("Cancel")
+                }
+            },
         )
     }
 }

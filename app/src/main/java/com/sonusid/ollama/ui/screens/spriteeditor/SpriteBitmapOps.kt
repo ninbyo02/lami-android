@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import kotlin.math.roundToInt
 
 const val BINARIZE_ALPHA_THRESHOLD = 16
 const val BINARIZE_FALLBACK_THRESHOLD = 128
@@ -38,6 +39,13 @@ data class TransparentSelectionStats(
     val threshold: Int,
     val minAlpha: Int,
     val maxAlpha: Int,
+)
+
+data class ResizeSelectionResult(
+    val bitmap: Bitmap,
+    val selection: RectPx,
+    val applied: Boolean,
+    val debugText: String,
 )
 
 fun countTransparentLikeInSelection(
@@ -324,6 +332,127 @@ fun paste(src: Bitmap, clip: Bitmap, dstX: Int, dstY: Int): Bitmap {
     val canvas = Canvas(output)
     canvas.drawBitmap(clip, srcRect, dstRect, null)
     return output
+}
+
+// 9点サンプリング(3x3)でpremultiplied alpha平均のダウンサンプル
+fun downscaleNineSamplePremul(
+    srcPixels: IntArray,
+    srcW: Int,
+    srcH: Int,
+    dstW: Int,
+    dstH: Int,
+): IntArray {
+    val safeSrcW = srcW.coerceAtLeast(1)
+    val safeSrcH = srcH.coerceAtLeast(1)
+    val safeDstW = dstW.coerceAtLeast(1)
+    val safeDstH = dstH.coerceAtLeast(1)
+    val output = IntArray(safeDstW * safeDstH)
+    val samplePoints = floatArrayOf(0.17f, 0.5f, 0.83f)
+    val scaleX = safeSrcW.toFloat() / safeDstW.toFloat()
+    val scaleY = safeSrcH.toFloat() / safeDstH.toFloat()
+    val maxX = (safeSrcW - 1).toFloat()
+    val maxY = (safeSrcH - 1).toFloat()
+    for (y in 0 until safeDstH) {
+        val srcTop = y * scaleY
+        val srcBottom = (y + 1) * scaleY
+        for (x in 0 until safeDstW) {
+            val srcLeft = x * scaleX
+            val srcRight = (x + 1) * scaleX
+            var accR = 0f
+            var accG = 0f
+            var accB = 0f
+            var accA = 0f
+            for (sy in samplePoints) {
+                val sampleY = (srcTop + (srcBottom - srcTop) * sy).coerceIn(0f, maxY)
+                val iy = sampleY.roundToInt()
+                val rowOffset = iy * safeSrcW
+                for (sx in samplePoints) {
+                    val sampleX = (srcLeft + (srcRight - srcLeft) * sx).coerceIn(0f, maxX)
+                    val ix = sampleX.roundToInt()
+                    val pixel = srcPixels[rowOffset + ix]
+                    val a = (pixel ushr 24) and 0xFF
+                    val r = (pixel ushr 16) and 0xFF
+                    val g = (pixel ushr 8) and 0xFF
+                    val b = pixel and 0xFF
+                    accA += a.toFloat()
+                    accR += r * a.toFloat()
+                    accG += g * a.toFloat()
+                    accB += b * a.toFloat()
+                }
+            }
+            val avgA = accA / 9f
+            val outA = avgA.roundToInt().coerceIn(0, 255)
+            val outR: Int
+            val outG: Int
+            val outB: Int
+            if (accA <= 0f) {
+                outR = 0
+                outG = 0
+                outB = 0
+            } else {
+                val invA = 1f / accA
+                outR = (accR * invA).roundToInt().coerceIn(0, 255)
+                outG = (accG * invA).roundToInt().coerceIn(0, 255)
+                outB = (accB * invA).roundToInt().coerceIn(0, 255)
+            }
+            output[y * safeDstW + x] =
+                (outA shl 24) or (outR shl 16) or (outG shl 8) or outB
+        }
+    }
+    return output
+}
+
+// 選択矩形内を最大サイズに合わせて縮小する
+fun resizeSelectionToMax96(
+    src: Bitmap,
+    selection: RectPx,
+    maxSize: Int = 96,
+): ResizeSelectionResult {
+    val safeSrc = ensureArgb8888(src)
+    val width = safeSrc.width
+    val height = safeSrc.height
+    if (width <= 0 || height <= 0) {
+        return ResizeSelectionResult(safeSrc, selection, false, "invalid bitmap")
+    }
+    val safeSelection = rectNormalizeClamp(selection, width, height)
+    val maxDim = maxOf(safeSelection.w, safeSelection.h)
+    if (maxDim <= maxSize) {
+        return ResizeSelectionResult(safeSrc, safeSelection, false, "already <= max")
+    }
+    val scale = maxSize.toFloat() / maxDim.toFloat()
+    val newW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
+    val newH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
+    val centerX = safeSelection.x + safeSelection.w / 2f
+    val centerY = safeSelection.y + safeSelection.h / 2f
+    val newX = (centerX - newW / 2f).roundToInt()
+    val newY = (centerY - newH / 2f).roundToInt()
+    val newSelection = rectNormalizeClamp(RectPx.of(newX, newY, newW, newH), width, height)
+
+    val clip = ensureArgb8888(copyRect(safeSrc, safeSelection))
+    val clipPixels = IntArray(clip.width * clip.height)
+    clip.getPixels(clipPixels, 0, clip.width, 0, 0, clip.width, clip.height)
+    val downscaledPixels = downscaleNineSamplePremul(
+        srcPixels = clipPixels,
+        srcW = clip.width,
+        srcH = clip.height,
+        dstW = newSelection.w,
+        dstH = newSelection.h,
+    )
+    val clipBitmap = Bitmap.createBitmap(newSelection.w, newSelection.h, Bitmap.Config.ARGB_8888)
+    clipBitmap.setPixels(
+        downscaledPixels,
+        0,
+        newSelection.w,
+        0,
+        0,
+        newSelection.w,
+        newSelection.h,
+    )
+
+    val cleared = clearTransparent(safeSrc, safeSelection)
+    val pasted = paste(cleared, clipBitmap, newSelection.x, newSelection.y)
+    val debugText = "scale=$scale, new=${newSelection.w}x${newSelection.h}"
+    return ResizeSelectionResult(pasted, newSelection, true, debugText)
 }
 
 // Bitmap全体をグレースケールへ焼き込み変換した新しいBitmapを返す（元のBitmapは変更しない）
