@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -72,6 +71,7 @@ import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
@@ -231,25 +231,21 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     snackbar = { snackbarData ->
                         val message = snackbarData.visuals.message
                         val isConnectionError = message.contains("接続できません")
-                        Snackbar(
-                            containerColor = if (isConnectionError) {
-                                MaterialTheme.colorScheme.surface
-                            } else {
-                                MaterialTheme.colorScheme.inverseSurface
-                            }
-                        ) {
-                            Text(
-                                text = message,
-                                color = if (isConnectionError) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    Color.White
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        val containerColor = if (isConnectionError) {
+                            MaterialTheme.colorScheme.surface
+                        } else {
+                            MaterialTheme.colorScheme.inverseSurface
                         }
+                        val contentColor = if (isConnectionError) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            Color.White
+                        }
+                        ProjectSnackbar(
+                            message = message,
+                            containerColor = containerColor,
+                            contentColor = contentColor,
+                        )
                     }
                 )
             }
