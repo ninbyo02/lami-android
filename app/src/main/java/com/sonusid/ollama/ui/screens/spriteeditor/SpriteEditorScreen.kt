@@ -468,11 +468,10 @@ fun SpriteEditorScreen(navController: NavController) {
                         .fillMaxWidth()
                 ) {
                     val isNarrow = maxWidth < 420.dp
-                    val buttonHeight = 32.dp
-                    val buttonMinHeight = 48.dp
-                    // [dp] 左右: ボタン内側の余白(余白)に関係
-                    val buttonPadding = PaddingValues(horizontal = 8.dp)
-                    val pillShape = RoundedCornerShape(999.dp)
+                    val buttonHeight = SpriteEditorButtonHeight
+                    val buttonMinHeight = SpriteEditorButtonMinHeight
+                    val buttonPadding = SpriteEditorButtonPadding
+                    val pillShape = SpriteEditorPillShape
                     var moveMode by remember { mutableStateOf(MoveMode.Box) }
                     var pxStepBase by rememberSaveable { mutableStateOf(4) }
                     var widthText by remember(state?.widthInput) {
@@ -996,26 +995,6 @@ fun SpriteEditorScreen(navController: NavController) {
                     }
                     val controlsContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(modifier = modifier) {
-                            @Composable
-                            fun StandardButton(
-                                label: String,
-                                testTag: String,
-                                onClick: () -> Unit,
-                            ) {
-                                Button(
-                                    onClick = onClick,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
-                                        .height(buttonHeight)
-                                        .heightIn(min = buttonMinHeight)
-                                        .testTag(testTag),
-                                    contentPadding = buttonPadding,
-                                    shape = pillShape,
-                                ) {
-                                    Text(label)
-                                }
-                            }
                             // 操作ボタン領域: 4x4グリッドで均等配置
                             LazyVerticalGrid(
                                 modifier = Modifier
@@ -1152,9 +1131,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorSave"),
                                             label = "Save",
-                                            testTag = "spriteEditorSave",
                                             onClick = {
                                                 scope.launch {
                                                     runSave()
@@ -1165,9 +1146,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorReset"),
                                             label = "Reset",
-                                            testTag = "spriteEditorReset",
                                             onClick = {
                                                 displayScale = 1f
                                                 panOffset = Offset.Zero
@@ -1194,9 +1177,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorCopy"),
                                             label = "Copy",
-                                            testTag = "spriteEditorCopy",
                                             onClick = {
                                                 updateState { current ->
                                                     val safeSelection = rectNormalizeClamp(
@@ -1215,9 +1200,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorPaste"),
                                             label = "Paste",
-                                            testTag = "spriteEditorPaste",
                                             onClick = {
                                                 updateState { current ->
                                                     val clip = copiedBitmap ?: current.clipboard ?: return@updateState current
@@ -1239,9 +1226,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorUndo"),
                                             label = "Undo",
-                                            testTag = "spriteEditorUndo",
                                             onClick = {
                                                 val current = editorState
                                                 val snapshot = undoStack.removeLastOrNull()
@@ -1261,9 +1250,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorRedo"),
                                             label = "Redo",
-                                            testTag = "spriteEditorRedo",
                                             onClick = {
                                                 val current = editorState
                                                 val snapshot = redoStack.removeLastOrNull()
@@ -1283,9 +1274,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorDelete"),
                                             label = "Delete",
-                                            testTag = "spriteEditorDelete",
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
@@ -1299,9 +1292,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorFillBlack"),
                                             label = "Fill Black",
-                                            testTag = "spriteEditorFillBlack",
                                             onClick = {
                                                 updateState { current ->
                                                     pushUndoSnapshot(current, undoStack, redoStack)
@@ -1315,9 +1310,11 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item(span = { GridItemSpan(2) }) {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorRepeat"),
                                             label = "Repeat",
-                                            testTag = "spriteEditorRepeat",
                                             onClick = {
                                                 val current = editorState
                                                 if (current == null) {
@@ -1433,36 +1430,44 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorMore"),
                                             label = "More...",
-                                            testTag = "spriteEditorMore",
                                             onClick = { activeSheet = SheetType.More },
                                         )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorTools"),
                                             label = "Tools",
-                                            testTag = "spriteEditorTools",
                                             onClick = { activeSheet = SheetType.Tools },
                                         )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorImport"),
                                             label = "Import",
-                                            testTag = "spriteEditorImport",
                                             onClick = { importLauncher.launch(arrayOf("image/png")) },
                                         )
                                     }
                                 }
                                 item {
                                     OperationCell(minHeight = buttonMinHeight) {
-                                        StandardButton(
+                                        SpriteEditorStandardButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .testTag("spriteEditorExport"),
                                             label = "Export",
-                                            testTag = "spriteEditorExport",
                                             onClick = { exportLauncher.launch("sprite.png") },
                                         )
                                     }
@@ -1768,38 +1773,24 @@ fun SpriteEditorScreen(navController: NavController) {
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
             confirmButton = {
-                val dialogPillShape = RoundedCornerShape(999.dp)
-                val dialogButtonPadding = PaddingValues(horizontal = 12.dp)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         // [dp] 左右・下: ダイアログボタンの余白(余白)に関係
                         .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
                 ) {
-                    OutlinedButton(
+                    SpriteEditorStandardOutlinedButton(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("spriteEditorExitDiscard"),
+                        label = "Don’t Save",
                         onClick = {
                             showExitConfirmDialog = false
                             closeEditor()
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
-                            .heightIn(min = 48.dp)
-                            .testTag("spriteEditorExitDiscard"),
-                        contentPadding = dialogButtonPadding,
-                        shape = dialogPillShape,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "Don’t Save",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Spacer(
                         modifier = Modifier
                             // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
@@ -1809,28 +1800,20 @@ fun SpriteEditorScreen(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        OutlinedButton(
-                            onClick = { showExitConfirmDialog = false },
+                        SpriteEditorStandardOutlinedButton(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(32.dp)
-                                .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitCancel"),
-                            contentPadding = dialogButtonPadding,
-                            shape = dialogPillShape,
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    "Cancel",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                        Button(
+                            label = "Cancel",
+                            onClick = { showExitConfirmDialog = false },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        SpriteEditorStandardButton(
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("spriteEditorExitSave"),
+                            label = "Save",
                             onClick = {
                                 scope.launch {
                                     val saved = runSave()
@@ -1840,25 +1823,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                     }
                                 }
                             },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp)
-                                .heightIn(min = 48.dp)
-                                .testTag("spriteEditorExitSave"),
-                            contentPadding = dialogButtonPadding,
-                            shape = dialogPillShape,
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    "Save",
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             },
@@ -2288,6 +2255,73 @@ fun SpriteEditorScreen(navController: NavController) {
 }
 
 private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit() }
+
+// [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+private val SpriteEditorButtonHeight = 32.dp
+private val SpriteEditorButtonMinHeight = 48.dp
+// [dp] 左右: ボタン内側の余白(余白)に関係
+private val SpriteEditorButtonPadding = PaddingValues(horizontal = 8.dp)
+private val SpriteEditorPillShape = RoundedCornerShape(999.dp)
+
+@Composable
+private fun SpriteEditorStandardButton(
+    modifier: Modifier = Modifier,
+    label: String,
+    onClick: () -> Unit,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+            .height(SpriteEditorButtonHeight)
+            .heightIn(min = SpriteEditorButtonMinHeight),
+        contentPadding = SpriteEditorButtonPadding,
+        shape = SpriteEditorPillShape,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                maxLines = maxLines,
+                overflow = overflow,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpriteEditorStandardOutlinedButton(
+    modifier: Modifier = Modifier,
+    label: String,
+    onClick: () -> Unit,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
+            .height(SpriteEditorButtonHeight)
+            .heightIn(min = SpriteEditorButtonMinHeight),
+        contentPadding = SpriteEditorButtonPadding,
+        shape = SpriteEditorPillShape,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                maxLines = maxLines,
+                overflow = overflow,
+            )
+        }
+    }
+}
 
 @Composable
 private fun OperationCell(
