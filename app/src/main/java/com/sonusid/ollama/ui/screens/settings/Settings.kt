@@ -102,7 +102,7 @@ internal data class ServerInput(
     val isActive: Boolean = false
 )
 
-private const val SETTINGS_SUCCESS_SNACKBAR_MS = 1200L
+private const val SETTINGS_SUCCESS_SNACKBAR_MS = 900L
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
