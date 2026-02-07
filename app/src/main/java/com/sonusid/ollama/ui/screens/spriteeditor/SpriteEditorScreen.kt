@@ -57,6 +57,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -460,7 +461,16 @@ fun SpriteEditorScreen(navController: NavController) {
                         .statusBarsPadding()
                         // 上: TopAppBar と重ならないように最小限の top padding
                         .padding(top = 56.dp + 8.dp)
-                )
+                ) { data ->
+                    Snackbar {
+                        Text(
+                            text = data.visuals.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         },
     ) { innerPadding ->
