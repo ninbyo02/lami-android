@@ -856,7 +856,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
-    val successSnackbarDurationMs = 1200L
+    val successSnackbarDurationMs = 900L
     val errorSnackbarDurationMs = 1800L
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
@@ -918,7 +918,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .showSnackbar(
                     message = message,
                     actionLabel = if (isError) "ERROR" else null,
-                    duration = SnackbarDuration.Short
+                    duration = SnackbarDuration.Indefinite
                 )
             dismissJob.cancel()
         }
