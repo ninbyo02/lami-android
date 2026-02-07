@@ -1790,6 +1790,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .fillMaxWidth()
                                 // [dp] 左右: 1段目ボタンの横幅を詰めるための最小余白(余白)に関係
                                 .padding(horizontal = 4.dp)
+                                // [dp] 左右: 1段目ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                                .padding(horizontal = 2.dp)
                                 .testTag("spriteEditorExitDiscard"),
                             label = "Don’t Save",
                             onClick = {
@@ -1814,6 +1816,8 @@ fun SpriteEditorScreen(navController: NavController) {
                             SpriteEditorStandardOutlinedButton(
                                 modifier = Modifier
                                     .weight(1f)
+                                    // [dp] 左右: 2段目左ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                                    .padding(horizontal = 2.dp)
                                     .testTag("spriteEditorExitCancel"),
                                 label = "Cancel",
                                 onClick = { showExitConfirmDialog = false },
@@ -1823,6 +1827,8 @@ fun SpriteEditorScreen(navController: NavController) {
                             SpriteEditorStandardButton(
                                 modifier = Modifier
                                     .weight(1f)
+                                    // [dp] 左右: 2段目右ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                                    .padding(horizontal = 2.dp)
                                     .testTag("spriteEditorExitSave"),
                                 label = "Save",
                                 onClick = {
