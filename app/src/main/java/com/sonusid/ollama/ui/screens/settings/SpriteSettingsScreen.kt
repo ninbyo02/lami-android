@@ -918,7 +918,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .showSnackbar(
                     message = message,
                     actionLabel = if (isError) "ERROR" else null,
-                    duration = SnackbarDuration.Indefinite
+                    duration = SnackbarDuration.Short
                 )
             dismissJob.cancel()
         }
