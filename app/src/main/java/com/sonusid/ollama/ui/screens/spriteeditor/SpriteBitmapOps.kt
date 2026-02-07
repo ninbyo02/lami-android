@@ -450,12 +450,146 @@ fun downscaleNineSamplePremul(
     return output
 }
 
+private fun downscaleNineSamplePremulAlphaWeighted(
+    srcPixels: IntArray,
+    srcW: Int,
+    srcH: Int,
+    dstW: Int,
+    dstH: Int,
+    minAlphaCutoff: Int = 4,
+): IntArray {
+    val safeSrcW = srcW.coerceAtLeast(1)
+    val safeSrcH = srcH.coerceAtLeast(1)
+    val safeDstW = dstW.coerceAtLeast(1)
+    val safeDstH = dstH.coerceAtLeast(1)
+    val output = IntArray(safeDstW * safeDstH)
+    val samplePoints = floatArrayOf(0.17f, 0.5f, 0.83f)
+    val scaleX = safeSrcW.toFloat() / safeDstW.toFloat()
+    val scaleY = safeSrcH.toFloat() / safeDstH.toFloat()
+    val maxX = (safeSrcW - 1).toFloat()
+    val maxY = (safeSrcH - 1).toFloat()
+    for (y in 0 until safeDstH) {
+        val srcTop = y * scaleY
+        val srcBottom = (y + 1) * scaleY
+        for (x in 0 until safeDstW) {
+            val srcLeft = x * scaleX
+            val srcRight = (x + 1) * scaleX
+            var accR = 0f
+            var accG = 0f
+            var accB = 0f
+            var accA = 0f
+            var accW = 0f
+            for (sy in samplePoints) {
+                val sampleY = (srcTop + (srcBottom - srcTop) * sy).coerceIn(0f, maxY)
+                val iy = sampleY.roundToInt()
+                val rowOffset = iy * safeSrcW
+                for (sx in samplePoints) {
+                    val sampleX = (srcLeft + (srcRight - srcLeft) * sx).coerceIn(0f, maxX)
+                    val ix = sampleX.roundToInt()
+                    val pixel = srcPixels[rowOffset + ix]
+                    val a = (pixel ushr 24) and 0xFF
+                    if (a <= minAlphaCutoff) {
+                        continue
+                    }
+                    val weight = a.toFloat() / 255f
+                    val r = (pixel ushr 16) and 0xFF
+                    val g = (pixel ushr 8) and 0xFF
+                    val b = pixel and 0xFF
+                    accW += weight
+                    accA += a * weight
+                    accR += r * a * weight
+                    accG += g * a * weight
+                    accB += b * a * weight
+                }
+            }
+            val outA: Int
+            val outR: Int
+            val outG: Int
+            val outB: Int
+            if (accW <= 0f || accA <= 0f) {
+                outA = 0
+                outR = 0
+                outG = 0
+                outB = 0
+            } else {
+                outA = (accA / accW).roundToInt().coerceIn(0, 255)
+                val invA = 1f / accA
+                outR = (accR * invA).roundToInt().coerceIn(0, 255)
+                outG = (accG * invA).roundToInt().coerceIn(0, 255)
+                outB = (accB * invA).roundToInt().coerceIn(0, 255)
+            }
+            output[y * safeDstW + x] =
+                (outA shl 24) or (outR shl 16) or (outG shl 8) or outB
+        }
+    }
+    return output
+}
+
+private fun downscaleMultiStepAlphaWeightedPremul(
+    srcPixels: IntArray,
+    srcW: Int,
+    srcH: Int,
+    dstW: Int,
+    dstH: Int,
+    stepFactor: Float,
+    minAlphaCutoff: Int = 4,
+    maxSteps: Int = 16,
+): IntArray {
+    var curW = srcW.coerceAtLeast(1)
+    var curH = srcH.coerceAtLeast(1)
+    var curPixels = srcPixels
+    val safeDstW = dstW.coerceAtLeast(1)
+    val safeDstH = dstH.coerceAtLeast(1)
+    var stepCount = 0
+    while (curW > safeDstW || curH > safeDstH) {
+        var nextW = maxOf(safeDstW, (curW * stepFactor).roundToInt())
+        var nextH = maxOf(safeDstH, (curH * stepFactor).roundToInt())
+        if (nextW == curW && curW > safeDstW) {
+            nextW = curW - 1
+        }
+        if (nextH == curH && curH > safeDstH) {
+            nextH = curH - 1
+        }
+        if (nextW >= curW && nextH >= curH) {
+            break
+        }
+        stepCount += 1
+        if (stepCount > maxSteps) {
+            break
+        }
+        curPixels = downscaleNineSamplePremulAlphaWeighted(
+            srcPixels = curPixels,
+            srcW = curW,
+            srcH = curH,
+            dstW = nextW,
+            dstH = nextH,
+            minAlphaCutoff = minAlphaCutoff,
+        )
+        curW = nextW
+        curH = nextH
+    }
+    return if (curW == safeDstW && curH == safeDstH) {
+        curPixels
+    } else {
+        downscaleNineSamplePremulAlphaWeighted(
+            srcPixels = curPixels,
+            srcW = curW,
+            srcH = curH,
+            dstW = safeDstW,
+            dstH = safeDstH,
+            minAlphaCutoff = minAlphaCutoff,
+        )
+    }
+}
+
 // 選択矩形内を最大サイズに合わせて縮小する
 fun resizeSelectionToMax96(
     src: Bitmap,
     selection: RectPx,
     maxSize: Int = 96,
     anchor: ResizeAnchor = ResizeAnchor.TopLeft,
+    stepFactor: Float = 0.5f,
+    minAlphaCutoff: Int = 4,
 ): ResizeSelectionResult {
     val safeSrc = ensureArgb8888(src)
     val width = safeSrc.width
@@ -484,12 +618,14 @@ fun resizeSelectionToMax96(
     val clip = ensureArgb8888(copyRect(safeSrc, safeSelection))
     val clipPixels = IntArray(clip.width * clip.height)
     clip.getPixels(clipPixels, 0, clip.width, 0, 0, clip.width, clip.height)
-    val downscaledPixels = downscaleNineSamplePremul(
+    val downscaledPixels = downscaleMultiStepAlphaWeightedPremul(
         srcPixels = clipPixels,
         srcW = clip.width,
         srcH = clip.height,
         dstW = newSelection.w,
         dstH = newSelection.h,
+        stepFactor = stepFactor,
+        minAlphaCutoff = minAlphaCutoff,
     )
     val clipBitmap = Bitmap.createBitmap(newSelection.w, newSelection.h, Bitmap.Config.ARGB_8888)
     clipBitmap.setPixels(
@@ -504,7 +640,7 @@ fun resizeSelectionToMax96(
 
     val cleared = clearTransparent(safeSrc, safeSelection)
     val pasted = paste(cleared, clipBitmap, newSelection.x, newSelection.y)
-    val debugText = "scale=$scale, new=${newSelection.w}x${newSelection.h}"
+    val debugText = "scale=$scale new=${newSelection.w}x${newSelection.h} step=$stepFactor cutoff=$minAlphaCutoff"
     return ResizeSelectionResult(pasted, newSelection, true, debugText)
 }
 

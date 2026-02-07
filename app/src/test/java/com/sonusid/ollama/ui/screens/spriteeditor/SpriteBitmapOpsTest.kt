@@ -706,6 +706,73 @@ class SpriteBitmapOpsTest {
     }
 
     @Test
+    fun multiStep_allTransparent_staysTransparent() {
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        val selection = RectPx.of(0, 0, 32, 32)
+
+        val results = listOf(0.5f, 0.75f).map { stepFactor ->
+            resizeSelectionToMax96(
+                bitmap,
+                selection = selection,
+                maxSize = 8,
+                anchor = ResizeAnchor.TopLeft,
+                stepFactor = stepFactor,
+            )
+        }
+
+        results.forEach { result ->
+            for (y in result.selection.y until result.selection.y + result.selection.h) {
+                for (x in result.selection.x until result.selection.x + result.selection.w) {
+                    assertEquals(0, Color.alpha(result.bitmap.getPixel(x, y)))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun thinLine_keepsSomeCoverage() {
+        val bitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.TRANSPARENT)
+        for (y in 0 until 32) {
+            bitmap.setPixel(16, y, Color.WHITE)
+        }
+        val selection = RectPx.of(0, 0, 32, 32)
+
+        val results = listOf(0.5f, 0.75f).map { stepFactor ->
+            resizeSelectionToMax96(
+                bitmap,
+                selection = selection,
+                maxSize = 8,
+                anchor = ResizeAnchor.TopLeft,
+                stepFactor = stepFactor,
+            )
+        }
+
+        results.forEach { result ->
+            var foundAlpha = false
+            var foundWhiteish = false
+            for (y in result.selection.y until result.selection.y + result.selection.h) {
+                for (x in result.selection.x until result.selection.x + result.selection.w) {
+                    val pixel = result.bitmap.getPixel(x, y)
+                    val alpha = Color.alpha(pixel)
+                    if (alpha > 0) {
+                        foundAlpha = true
+                        val r = Color.red(pixel)
+                        val g = Color.green(pixel)
+                        val b = Color.blue(pixel)
+                        if (r > 200 && g > 200 && b > 200) {
+                            foundWhiteish = true
+                        }
+                    }
+                }
+            }
+            assertTrue(foundAlpha)
+            assertTrue(foundWhiteish)
+        }
+    }
+
+    @Test
     fun downscaleNineSamplePremul_allTransparent_staysTransparent() {
         val srcPixels = IntArray(9) { Color.TRANSPARENT }
 
