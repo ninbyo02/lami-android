@@ -57,7 +57,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -106,6 +105,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -460,16 +460,14 @@ fun SpriteEditorScreen(navController: NavController) {
                         // 上: ステータスバー回避のため最小限の top padding
                         .statusBarsPadding()
                         // 上: TopAppBar と重ならないように最小限の top padding
-                        .padding(top = 56.dp + 8.dp)
+                        // 左右: スナックバーの余白を確保
+                        .padding(top = 56.dp + 8.dp, start = 16.dp, end = 16.dp)
                 ) { data ->
-                    Snackbar {
-                        Text(
-                            text = data.visuals.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    ProjectSnackbar(
+                        message = data.visuals.message,
+                        containerColor = MaterialTheme.colorScheme.inverseSurface,
+                        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    )
                 }
             }
         },

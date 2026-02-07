@@ -49,7 +49,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
@@ -137,6 +136,7 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
+import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -4606,7 +4606,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 hostState = snackbarHostState,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .fillMaxWidth()
+                    // 左右: Settings と揃えるための最小余白
+                    .padding(start = 16.dp, end = 16.dp)
                     .zIndex(10f),
             ) { data ->
                 val isError = data.visuals.actionLabel == "ERROR"
@@ -4620,18 +4621,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 } else {
                     MaterialTheme.colorScheme.inverseOnSurface
                 }
-                Snackbar(
-                    modifier = Modifier.fillMaxWidth(),
+                ProjectSnackbar(
+                    message = data.visuals.message,
                     containerColor = containerColor,
-                    contentColor = contentColor
-                ) {
-                    Text(
-                        text = data.visuals.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                    contentColor = contentColor,
+                )
             }
     }
 }
