@@ -54,6 +54,7 @@ import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -90,6 +91,21 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
+
+    fun showSnackbarShort(message: String) {
+        coroutineScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val dismissJob = launch {
+                delay(PROJECT_SNACKBAR_SHORT_MS)
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+            dismissJob.cancel()
+        }
+    }
 
 
     LaunchedEffect(chatId, chats) {
@@ -245,12 +261,7 @@ fun Home(
                     onClick = {
                         viewModel.onUserInteraction()
                         if (selectedModel.isNullOrBlank()) {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "モデルを選択してください",
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
+                            showSnackbarShort("モデルを選択してください")
                             return@ElevatedButton
                         }
 
@@ -285,10 +296,7 @@ fun Home(
     }) { paddingValues ->
         LaunchedEffect(errorMessage) {
             if (errorMessage != null) {
-                snackbarHostState.showSnackbar(
-                    message = errorMessage,
-                    duration = SnackbarDuration.Short
-                )
+                showSnackbarShort(errorMessage)
             }
         }
 
