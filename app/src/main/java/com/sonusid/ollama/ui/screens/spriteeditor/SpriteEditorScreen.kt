@@ -104,8 +104,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
@@ -243,6 +246,20 @@ fun SpriteEditorScreen(navController: NavController) {
         duration: SnackbarDuration = SnackbarDuration.Short,
     ) {
         snackbarHostState.currentSnackbarData?.dismiss()
+        if (duration == SnackbarDuration.Short) {
+            coroutineScope {
+                val dismissJob = launch {
+                    delay(PROJECT_SNACKBAR_SHORT_MS)
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                }
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Indefinite,
+                )
+                dismissJob.cancel()
+            }
+            return
+        }
         snackbarHostState.showSnackbar(
             message = message,
             duration = duration,
