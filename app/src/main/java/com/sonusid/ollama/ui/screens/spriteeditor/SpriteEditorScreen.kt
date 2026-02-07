@@ -1773,59 +1773,66 @@ fun SpriteEditorScreen(navController: NavController) {
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
             confirmButton = {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         // [dp] 左右・下: ダイアログボタンの余白(余白)に関係
                         .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    SpriteEditorStandardOutlinedButton(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("spriteEditorExitDiscard"),
-                        label = "Don’t Save",
-                        onClick = {
-                            showExitConfirmDialog = false
-                            closeEditor()
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(
-                        modifier = Modifier
-                            // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
-                            .height(12.dp)
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
                     ) {
                         SpriteEditorStandardOutlinedButton(
                             modifier = Modifier
-                                .weight(1f)
-                                .testTag("spriteEditorExitCancel"),
-                            label = "Cancel",
-                            onClick = { showExitConfirmDialog = false },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        SpriteEditorStandardButton(
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("spriteEditorExitSave"),
-                            label = "Save",
+                                .fillMaxWidth()
+                                .testTag("spriteEditorExitDiscard"),
+                            label = "Don’t Save",
                             onClick = {
-                                scope.launch {
-                                    val saved = runSave()
-                                    if (saved) {
-                                        showExitConfirmDialog = false
-                                        closeEditor()
-                                    }
-                                }
+                                showExitConfirmDialog = false
+                                closeEditor()
                             },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        Spacer(
+                            modifier = Modifier
+                                // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
+                                .height(12.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            SpriteEditorStandardOutlinedButton(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("spriteEditorExitCancel"),
+                                label = "Cancel",
+                                onClick = { showExitConfirmDialog = false },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            SpriteEditorStandardButton(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("spriteEditorExitSave"),
+                                label = "Save",
+                                onClick = {
+                                    scope.launch {
+                                        val saved = runSave()
+                                        if (saved) {
+                                            showExitConfirmDialog = false
+                                            closeEditor()
+                                        }
+                                    }
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             },
