@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -227,7 +230,30 @@ fun Home(
                 }
             }
         )
-    }, snackbarHost = { SnackbarHost(snackbarHostState) }, bottomBar = {
+    }, snackbarHost = {
+        Box(modifier = Modifier.fillMaxSize()) {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    // 上：ステータスバー回避のため最小限の top padding
+                    .statusBarsPadding()
+                    // 上：TopAppBar回避のため最小限の top padding、左右：スナックバーの余白
+                    .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp),
+                snackbar = { snackbarData ->
+                    val message = snackbarData.visuals.message
+                    Snackbar(containerColor = MaterialTheme.colorScheme.inverseSurface) {
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            )
+        }
+    }, bottomBar = {
         OutlinedTextField(
             interactionSource = interactionSource,
             leadingIcon = {
