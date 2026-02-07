@@ -1768,6 +1768,8 @@ fun SpriteEditorScreen(navController: NavController) {
             title = { Text("Unsaved changes") },
             text = { Text("You have unsaved changes. What would you like to do?") },
             confirmButton = {
+                val dialogPillShape = RoundedCornerShape(999.dp)
+                val dialogButtonPadding = PaddingValues(horizontal = 12.dp)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1784,14 +1786,19 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(32.dp)
                             .heightIn(min = 48.dp)
                             .testTag("spriteEditorExitDiscard"),
-                        contentPadding = buttonPadding,
-                        shape = pillShape,
+                        contentPadding = dialogButtonPadding,
+                        shape = dialogPillShape,
                     ) {
-                        Text(
-                            "Don’t Save",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Don’t Save",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                     Spacer(
                         modifier = Modifier
@@ -1809,14 +1816,19 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .height(32.dp)
                                 .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitCancel"),
-                            contentPadding = buttonPadding,
-                            shape = pillShape,
+                            contentPadding = dialogButtonPadding,
+                            shape = dialogPillShape,
                         ) {
-                            Text(
-                                "Cancel",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "Cancel",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                         Button(
                             onClick = {
@@ -1833,14 +1845,19 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .height(32.dp)
                                 .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitSave"),
-                            contentPadding = buttonPadding,
-                            shape = pillShape,
+                            contentPadding = dialogButtonPadding,
+                            shape = dialogPillShape,
                         ) {
-                            Text(
-                                "Save",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "Save",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
