@@ -3890,6 +3890,41 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
             }
         },
+        snackbarHost = {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        // 上: ステータスバー回避のため最小限の top padding
+                        .statusBarsPadding()
+                        // 上: TopAppBar と同じ高さ基準で揃えるための最小余白
+                        // 左右: Settings と揃えるための最小余白
+                        .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp)
+                        .zIndex(10f),
+                ) { data ->
+                    val isError = data.visuals.actionLabel == "ERROR"
+                    val containerColor = if (isError) {
+                        MaterialTheme.colorScheme.errorContainer
+                    } else {
+                        MaterialTheme.colorScheme.inverseSurface
+                    }
+                    val contentColor = if (isError) {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    } else {
+                        MaterialTheme.colorScheme.inverseOnSurface
+                    }
+                    ProjectSnackbar(
+                        message = data.visuals.message,
+                        containerColor = containerColor,
+                        contentColor = contentColor,
+                    )
+                }
+            }
+        },
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
         Box(
@@ -4600,39 +4635,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
                         }
                     }
-                }
-            }
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        // 上: ステータスバー回避のため最小限の top padding
-                        .statusBarsPadding()
-                        // 上: TopAppBar と同じ高さ基準で揃えるための最小余白
-                        // 左右: Settings と揃えるための最小余白
-                        .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp)
-                        .zIndex(10f),
-                ) { data ->
-                    val isError = data.visuals.actionLabel == "ERROR"
-                    val containerColor = if (isError) {
-                        MaterialTheme.colorScheme.errorContainer
-                    } else {
-                        MaterialTheme.colorScheme.inverseSurface
-                    }
-                    val contentColor = if (isError) {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    } else {
-                        MaterialTheme.colorScheme.inverseOnSurface
-                    }
-                    ProjectSnackbar(
-                        message = data.visuals.message,
-                        containerColor = containerColor,
-                        contentColor = contentColor,
-                    )
                 }
             }
         }
