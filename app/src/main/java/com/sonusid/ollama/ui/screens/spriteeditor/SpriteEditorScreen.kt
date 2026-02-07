@@ -1784,6 +1784,8 @@ fun SpriteEditorScreen(navController: NavController) {
                             .height(32.dp)
                             .heightIn(min = 48.dp)
                             .testTag("spriteEditorExitDiscard"),
+                        contentPadding = buttonPadding,
+                        shape = pillShape,
                     ) {
                         Text(
                             "Don’t Save",
@@ -1807,6 +1809,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .height(32.dp)
                                 .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitCancel"),
+                            contentPadding = buttonPadding,
+                            shape = pillShape,
                         ) {
                             Text(
                                 "Cancel",
@@ -1829,6 +1833,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .height(32.dp)
                                 .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitSave"),
+                            contentPadding = buttonPadding,
+                            shape = pillShape,
                         ) {
                             Text(
                                 "Save",
