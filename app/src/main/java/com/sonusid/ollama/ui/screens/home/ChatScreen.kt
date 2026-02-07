@@ -246,7 +246,8 @@ fun Home(
                         Text(
                             text = message,
                             color = MaterialTheme.colorScheme.inverseOnSurface,
-                            maxLines = 2,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }

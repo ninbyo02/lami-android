@@ -4625,7 +4625,12 @@ fun SpriteSettingsScreen(navController: NavController) {
                     containerColor = containerColor,
                     contentColor = contentColor
                 ) {
-                    Text(text = data.visuals.message)
+                    Text(
+                        text = data.visuals.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
     }

@@ -244,7 +244,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     MaterialTheme.colorScheme.error
                                 } else {
                                     Color.White
-                                }
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
