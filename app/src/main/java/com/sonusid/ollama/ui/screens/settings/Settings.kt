@@ -150,7 +150,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             }
             snackbarHostState.showSnackbar(
                 message = message,
-                duration = SnackbarDuration.Indefinite
+                duration = SnackbarDuration.Short
             )
             dismissJob.cancel()
         }
@@ -453,7 +453,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     IconButton(onClick = {
                                         if (serverInputs.size >= maxServers) {
                                             scope.launch {
-                                                snackbarHostState.showSnackbar("追加できるサーバー数は最大${maxServers}件です")
+                                                snackbarHostState.showSnackbar(
+                                                    message = "追加できるサーバー数は最大${maxServers}件です",
+                                                    duration = SnackbarDuration.Short
+                                                )
                                             }
                                         } else {
                                             serverInputs.add(
@@ -472,7 +475,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         IconButton(onClick = {
                                             if (serverInputs.size <= 1) {
                                                 scope.launch {
-                                                    snackbarHostState.showSnackbar("最低1件のサーバーを残してください")
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "最低1件のサーバーを残してください",
+                                                        duration = SnackbarDuration.Short
+                                                    )
                                                 }
                                                 return@IconButton
                                             }
@@ -516,7 +522,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 Button(onClick = {
                                     scope.launch {
                                         if (serverInputs.any { it.url.isBlank() }) {
-                                            snackbarHostState.showSnackbar("空のURLを保存できません")
+                                            snackbarHostState.showSnackbar(
+                                                message = "空のURLを保存できません",
+                                                duration = SnackbarDuration.Short
+                                            )
                                             return@launch
                                         }
                                         val normalizedInputs = getNormalizedInputs()
@@ -524,11 +533,17 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         duplicateUrls = duplicates
                                         if (duplicates.isNotEmpty()) {
                                             connectionStatuses = emptyMap()
-                                            snackbarHostState.showSnackbar("同じURLは複数登録できません")
+                                            snackbarHostState.showSnackbar(
+                                                message = "同じURLは複数登録できません",
+                                                duration = SnackbarDuration.Short
+                                            )
                                             return@launch
                                         }
                                         if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
-                                            snackbarHostState.showSnackbar(PORT_ERROR_MESSAGE)
+                                            snackbarHostState.showSnackbar(
+                                                message = PORT_ERROR_MESSAGE,
+                                                duration = SnackbarDuration.Short
+                                            )
                                             return@launch
                                         }
                                         if (serverInputs.none { it.isActive }) {
@@ -542,11 +557,17 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         val unreachableConnections = validationResults.filterValues { !it.isReachable }
                                         val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
                                         if (unreachableConnections.isNotEmpty()) {
-                                            snackbarHostState.showSnackbar("選択中のサーバーに接続できません。入力内容を確認してください")
+                                            snackbarHostState.showSnackbar(
+                                                message = "選択中のサーバーに接続できません。入力内容を確認してください",
+                                                duration = SnackbarDuration.Short
+                                            )
                                             return@launch
                                         }
                                         if (warningMessages.isNotEmpty()) {
-                                            snackbarHostState.showSnackbar(warningMessages.joinToString("\n"))
+                                            snackbarHostState.showSnackbar(
+                                                message = warningMessages.joinToString("\n"),
+                                                duration = SnackbarDuration.Short
+                                            )
                                         }
                                         connectionStatuses = validationResults.mapValues { entry ->
                                             entry.value.copy(errorMessage = null)
@@ -568,7 +589,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         if (initializationState.usedFallback) {
                                             val fallbackMessage = initializationState.errorMessage
                                                 ?: "有効なURLがないためデフォルトにフォールバックしました"
-                                            snackbarHostState.showSnackbar(fallbackMessage)
+                                            snackbarHostState.showSnackbar(
+                                                message = fallbackMessage,
+                                                duration = SnackbarDuration.Short
+                                            )
                                             val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
                                             val hasActive = storedUrls.any { it.isActive }
                                             serverInputs.clear()
