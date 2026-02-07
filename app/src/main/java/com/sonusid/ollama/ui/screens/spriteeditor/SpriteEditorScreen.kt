@@ -1781,6 +1781,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(32.dp)
                             .heightIn(min = 48.dp)
                             .testTag("spriteEditorExitDiscard"),
                     ) {
@@ -1793,16 +1794,17 @@ fun SpriteEditorScreen(navController: NavController) {
                     Spacer(
                         modifier = Modifier
                             // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
-                            .height(8.dp)
+                            .height(12.dp)
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         OutlinedButton(
                             onClick = { showExitConfirmDialog = false },
                             modifier = Modifier
                                 .weight(1f)
+                                .height(32.dp)
                                 .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitCancel"),
                         ) {
@@ -1824,6 +1826,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             },
                             modifier = Modifier
                                 .weight(1f)
+                                .height(32.dp)
                                 .heightIn(min = 48.dp)
                                 .testTag("spriteEditorExitSave"),
                         ) {
