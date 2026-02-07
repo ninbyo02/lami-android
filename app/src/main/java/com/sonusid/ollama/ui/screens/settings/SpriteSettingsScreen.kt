@@ -918,6 +918,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .showSnackbar(
                     message = message,
                     actionLabel = if (isError) "ERROR" else null,
+                    // Indefinite: 手動の遅延制御で表示時間を統一するため
                     duration = SnackbarDuration.Indefinite
                 )
             dismissJob.cancel()
