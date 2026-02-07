@@ -137,6 +137,7 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -856,8 +857,6 @@ fun SpriteSettingsScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
-    val successSnackbarDurationMs = 900L
-    val errorSnackbarDurationMs = 1800L
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
@@ -909,9 +908,8 @@ fun SpriteSettingsScreen(navController: NavController) {
     fun showTopSnackbar(message: String, isError: Boolean) {
         coroutineScope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
-            val dismissDelayMs = if (isError) errorSnackbarDurationMs else successSnackbarDurationMs
             val dismissJob = launch {
-                delay(dismissDelayMs)
+                delay(PROJECT_SNACKBAR_SHORT_MS)
                 snackbarHostState.currentSnackbarData?.dismiss()
             }
             snackbarHostState

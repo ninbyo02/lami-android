@@ -72,6 +72,7 @@ import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
@@ -101,8 +102,6 @@ internal data class ServerInput(
     val url: String,
     val isActive: Boolean = false
 )
-
-private const val SETTINGS_SUCCESS_SNACKBAR_MS = 900L
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -145,7 +144,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
             val dismissJob = launch {
-                delay(SETTINGS_SUCCESS_SNACKBAR_MS)
+                delay(PROJECT_SNACKBAR_SHORT_MS)
                 snackbarHostState.currentSnackbarData?.dismiss()
             }
             snackbarHostState.showSnackbar(
