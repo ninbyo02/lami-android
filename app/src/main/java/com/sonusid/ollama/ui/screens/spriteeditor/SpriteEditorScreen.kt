@@ -1774,23 +1774,18 @@ fun SpriteEditorScreen(navController: NavController) {
                         // [dp] 左右・下: ダイアログボタンの余白(余白)に関係
                         .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
                 ) {
-                    Button(
+                    OutlinedButton(
                         onClick = {
-                            scope.launch {
-                                val saved = runSave()
-                                if (saved) {
-                                    showExitConfirmDialog = false
-                                    closeEditor()
-                                }
-                            }
+                            showExitConfirmDialog = false
+                            closeEditor()
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
-                            .testTag("spriteEditorExitSave"),
+                            .testTag("spriteEditorExitDiscard"),
                     ) {
                         Text(
-                            "Save",
+                            "Don’t Save",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -1805,22 +1800,6 @@ fun SpriteEditorScreen(navController: NavController) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         OutlinedButton(
-                            onClick = {
-                                showExitConfirmDialog = false
-                                closeEditor()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp)
-                                .testTag("spriteEditorExitDiscard"),
-                        ) {
-                            Text(
-                                "Don’t save",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        OutlinedButton(
                             onClick = { showExitConfirmDialog = false },
                             modifier = Modifier
                                 .weight(1f)
@@ -1829,6 +1808,27 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             Text(
                                 "Cancel",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val saved = runSave()
+                                    if (saved) {
+                                        showExitConfirmDialog = false
+                                        closeEditor()
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .testTag("spriteEditorExitSave"),
+                        ) {
+                            Text(
+                                "Save",
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
