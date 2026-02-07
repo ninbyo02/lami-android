@@ -4606,8 +4606,11 @@ fun SpriteSettingsScreen(navController: NavController) {
                 hostState = snackbarHostState,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    // 上: ステータスバー回避のため最小限の top padding
+                    .statusBarsPadding()
+                    // 上: TopAppBar と同じ高さ基準で揃えるための最小余白
                     // 左右: Settings と揃えるための最小余白
-                    .padding(start = 16.dp, end = 16.dp)
+                    .padding(top = 56.dp + 8.dp, start = 16.dp, end = 16.dp)
                     .zIndex(10f),
             ) { data ->
                 val isError = data.visuals.actionLabel == "ERROR"

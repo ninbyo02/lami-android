@@ -226,8 +226,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     hostState = snackbarHostState,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        // 上: ステータスバー回避のため最小限の top padding
                         .statusBarsPadding()
-                        .padding(top = 72.dp, start = 16.dp, end = 16.dp),
+                        // 上: TopAppBar と重ならないように最小限の top padding
+                        // 左右: スナックバーの余白を確保
+                        .padding(top = 56.dp + 8.dp, start = 16.dp, end = 16.dp),
                     snackbar = { snackbarData ->
                         val message = snackbarData.visuals.message
                         val isConnectionError = message.contains("接続できません")
