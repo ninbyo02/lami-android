@@ -139,6 +139,7 @@ import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkThe
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.TopAppBarHeight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -4601,7 +4602,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     }
                 }
             }
-        }
             // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
             SnackbarHost(
                 hostState = snackbarHostState,
@@ -4611,7 +4611,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     .statusBarsPadding()
                     // 上: TopAppBar と同じ高さ基準で揃えるための最小余白
                     // 左右: Settings と揃えるための最小余白
-                    .padding(top = 56.dp + 8.dp, start = 16.dp, end = 16.dp)
+                    .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp)
                     .zIndex(10f),
             ) { data ->
                 val isError = data.visuals.actionLabel == "ERROR"
@@ -4631,6 +4631,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     contentColor = contentColor,
                 )
             }
+        }
     }
 }
 }

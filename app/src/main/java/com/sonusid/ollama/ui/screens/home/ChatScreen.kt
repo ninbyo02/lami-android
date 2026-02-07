@@ -58,6 +58,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.TopAppBarHeight
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -420,5 +421,3 @@ fun Home(
         }
     }
 }
-
-private val TopAppBarHeight = 64.dp
