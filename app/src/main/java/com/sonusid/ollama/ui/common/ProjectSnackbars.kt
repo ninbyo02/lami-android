@@ -24,7 +24,7 @@ fun ProjectSnackbar(
         Text(
             text = message,
             color = contentColor,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -169,7 +170,8 @@ class MainActivity : ComponentActivity() {
                                     // 上：ステータスバー回避のため最小限の top padding
                                     .statusBarsPadding()
                                     // 上：TopAppBar回避のため最小限の top padding、左右：スナックバーの余白
-                                    .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp),
+                                    .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp)
+                                    .widthIn(max = 560.dp),
                                 snackbar = { data ->
                                     val isError = data.visuals.actionLabel == "ERROR"
                                     val containerColor = if (isError) {
