@@ -405,6 +405,9 @@ fun downscaleNineSamplePremul(
             var accG = 0f
             var accB = 0f
             var accA = 0f
+            var maxAlpha = 0
+            var brightestPixel = Color.TRANSPARENT
+            var brightestScore = -1
             for (sy in samplePoints) {
                 val sampleY = (srcTop + (srcBottom - srcTop) * sy).coerceIn(0f, maxY)
                 val iy = sampleY.toInt()
@@ -417,6 +420,14 @@ fun downscaleNineSamplePremul(
                     val r = (pixel ushr 16) and 0xFF
                     val g = (pixel ushr 8) and 0xFF
                     val b = pixel and 0xFF
+                    if (a > 0) {
+                        val brightness = r + g + b
+                        if (a > maxAlpha || (a == maxAlpha && brightness > brightestScore)) {
+                            maxAlpha = a
+                            brightestScore = brightness
+                            brightestPixel = pixel
+                        }
+                    }
                     accA += a.toFloat()
                     accR += r * a.toFloat()
                     accG += g * a.toFloat()
@@ -432,6 +443,11 @@ fun downscaleNineSamplePremul(
                 outR = 0
                 outG = 0
                 outB = 0
+            } else if (outA == 0 && maxAlpha > 0) {
+                // 極細線の消失を防ぐため、代表ピクセルを採用する
+                outR = (brightestPixel ushr 16) and 0xFF
+                outG = (brightestPixel ushr 8) and 0xFF
+                outB = brightestPixel and 0xFF
             } else {
                 val invA = 1f / accA
                 outR = (accR * invA).roundToInt().coerceIn(0, 255)
@@ -439,7 +455,8 @@ fun downscaleNineSamplePremul(
                 outB = (accB * invA).roundToInt().coerceIn(0, 255)
             }
             output[y * safeDstW + x] =
-                (outA shl 24) or (outR shl 16) or (outG shl 8) or outB
+                ((if (outA == 0 && maxAlpha > 0) maxAlpha else outA) shl 24) or
+                    (outR shl 16) or (outG shl 8) or outB
         }
     }
     return output
@@ -692,6 +709,9 @@ fun resizeSelectionToMax96(
         ResizeAnchor.Center -> safeSelection.y + (safeSelection.h - dstH) / 2
     }
     val newSelection = rectNormalizeClamp(RectPx.of(pasteX, pasteY, dstW, dstH), width, height)
+    // clamp 後の座標に合わせて貼り付ける（座標ズレ防止）
+    val dstX = newSelection.x
+    val dstY = newSelection.y
 
     val downscaledPixels = downscaleRegionMaxAlpha(
         src = safeSrc,
@@ -710,10 +730,13 @@ fun resizeSelectionToMax96(
         newSelection.h,
     )
 
+    // 元の選択範囲をクリアしてから縮小結果を貼り付ける
     val cleared = clearTransparent(safeSrc, safeSelection)
-    val pasted = paste(cleared, clipBitmap, newSelection.x, newSelection.y)
+    val output = cleared.copy(Bitmap.Config.ARGB_8888, true)
+    val canvas = Canvas(output)
+    canvas.drawBitmap(clipBitmap, dstX.toFloat(), dstY.toFloat(), null)
     val debugText = "scale=$scale new=${newSelection.w}x${newSelection.h} step=$stepFactor cutoff=$minAlphaCutoff"
-    return ResizeSelectionResult(pasted, newSelection, true, debugText)
+    return ResizeSelectionResult(output, newSelection, true, debugText)
 }
 
 // Bitmap全体をグレースケールへ焼き込み変換した新しいBitmapを返す（元のBitmapは変更しない）
