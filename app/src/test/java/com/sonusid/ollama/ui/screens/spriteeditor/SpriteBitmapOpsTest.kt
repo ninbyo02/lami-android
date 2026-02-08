@@ -813,3 +813,5 @@ class SpriteBitmapOpsTest {
     }
 
 }
+
+}
