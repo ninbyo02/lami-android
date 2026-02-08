@@ -235,13 +235,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 top = verticalPadding,
                 bottom = 0.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
                 CardSectionHeader(
                     title = "デバッグツール",
                     description = "スプライト関連の挙動を確認・調整するためのツールです",
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
                     Column {
@@ -316,7 +316,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "表示設定",
                     description = "テーマカラーなどの外観設定を変更できます",
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
                     ListItem(
@@ -348,7 +348,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "サーバー設定",
                     description = "Ollama サーバーのURLと接続状態を管理します",
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
             itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
