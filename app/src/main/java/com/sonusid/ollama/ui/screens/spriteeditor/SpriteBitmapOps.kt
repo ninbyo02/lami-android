@@ -483,7 +483,7 @@ private fun downscaleNineSamplePremulAlphaWeighted(
                     val ix = sampleX.roundToInt()
                     val pixel = srcPixels[rowOffset + ix]
                     val a = (pixel ushr 24) and 0xFF
-                    if (a <= minAlphaCutoff) {
+                    if (a < minAlphaCutoff) {
                         continue
                     }
                     val weight = a.toFloat() / 255f
@@ -1100,7 +1100,7 @@ fun fillRegionFromTransparentSeeds(
 
     fun isTransparent(index: Int): Boolean {
         val alpha = (srcPixels[index] ushr 24) and 0xFF
-        return alpha <= transparentAlphaThreshold
+        return alpha < transparentAlphaThreshold
     }
 
     val sy = safeSelection.y
@@ -1224,7 +1224,7 @@ fun fillConnectedToWhite(
         for (x in sx until ex) {
             val pixel = srcPixels[y * width + x]
             val alpha = (pixel ushr 24) and 0xFF
-            if (alpha <= transparentAlphaThreshold) {
+            if (alpha < transparentAlphaThreshold) {
                 transparentCount += 1
             } else {
                 sumR += (pixel ushr 16) and 0xFF
@@ -1243,9 +1243,9 @@ fun fillConnectedToWhite(
     fun isTarget(pixel: Int): Boolean {
         val alpha = (pixel ushr 24) and 0xFF
         return if (mode == Mode.Alpha) {
-            alpha <= transparentAlphaThreshold
+            alpha < transparentAlphaThreshold
         } else {
-            if (alpha <= transparentAlphaThreshold) return false
+            if (alpha < transparentAlphaThreshold) return false
             val red = (pixel ushr 16) and 0xFF
             val green = (pixel ushr 8) and 0xFF
             val blue = pixel and 0xFF
