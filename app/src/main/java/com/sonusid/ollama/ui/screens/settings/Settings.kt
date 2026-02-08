@@ -368,7 +368,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             }
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Box(
+                        Column(
                             modifier = Modifier.weight(1f)
                         ) {
                             Box(modifier = Modifier.fillMaxWidth()) {
@@ -389,33 +389,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp),
-                                    supportingText = {
-                                        when {
-                                            duplicateUrls[serverInput.localId] == true -> {
-                                                Text(
-                                                    text = "このURLは既に追加されています",
-                                                    color = MaterialTheme.colorScheme.error
-                                                )
-                                            }
-                                            isValidatingConnections && serverInput.isActive -> {
-                                                Text(
-                                                    text = "接続確認中…",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                            connectionStatuses[serverInput.localId]?.isReachable == false -> {
-                                                val message = connectionStatuses[serverInput.localId]?.errorMessage
-                                                    ?: "接続できません"
-                                                Text(message, color = MaterialTheme.colorScheme.error)
-                                            }
-                                            connectionStatuses[serverInput.localId]?.warningMessage != null -> {
-                                                val message = connectionStatuses[serverInput.localId]?.warningMessage
-                                                if (message != null) {
-                                                    Text(message)
-                                                }
-                                            }
-                                        }
-                                    },
                                     colors = OutlinedTextFieldDefaults.colors(
                                         errorBorderColor = MaterialTheme.colorScheme.error,
                                         errorCursorColor = MaterialTheme.colorScheme.error,
@@ -483,6 +456,40 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             .size(28.dp),
                                         strokeWidth = 6.dp
                                     )
+                                }
+                            }
+                            when {
+                                duplicateUrls[serverInput.localId] == true -> {
+                                    Text(
+                                        text = "このURLは既に追加されています",
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                    )
+                                }
+                                isValidatingConnections && serverInput.isActive -> {
+                                    Text(
+                                        text = "接続確認中…",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                    )
+                                }
+                                connectionStatuses[serverInput.localId]?.isReachable == false -> {
+                                    val message = connectionStatuses[serverInput.localId]?.errorMessage
+                                        ?: "接続できません"
+                                    Text(
+                                        text = message,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                    )
+                                }
+                                connectionStatuses[serverInput.localId]?.warningMessage != null -> {
+                                    val message = connectionStatuses[serverInput.localId]?.warningMessage
+                                    if (message != null) {
+                                        Text(
+                                            text = message,
+                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                        )
+                                    }
                                 }
                             }
                         }
