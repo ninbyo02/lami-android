@@ -12,7 +12,7 @@ fun gitShaShort(): String {
     val stdout = ByteArrayOutputStream()
     return try {
         exec {
-            commandLine("git", "rev-parse", "--short", "HEAD")
+            commandLine("git", "rev-parse", "--short=7", "HEAD")
             standardOutput = stdout
             isIgnoreExitValue = true
         }
