@@ -100,6 +100,9 @@ internal data class ServerInput(
     val isActive: Boolean = false
 )
 
+// サーバー接続検証中インジケータの視覚的中心補正
+private val ServerValidationIndicatorYOffset = 3.dp
+
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
     context.startActivity(intent)
@@ -454,7 +457,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             CircularProgressIndicator(
                                                 modifier = Modifier
                                                     .align(Alignment.Center)
-                                                    .offset(y = 3.dp)
+                                                    .offset(y = ServerValidationIndicatorYOffset)
                                                     .size(28.dp),
                                                 strokeWidth = 6.dp
                                             )
