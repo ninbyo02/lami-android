@@ -605,8 +605,10 @@ private fun downscaleRegionMaxAlpha(
     val safeDstH = dstH.coerceAtLeast(1)
     val srcW = safeRect.w.coerceAtLeast(1)
     val srcH = safeRect.h.coerceAtLeast(1)
-    val srcPixels = IntArray(srcW * srcH)
-    src.getPixels(srcPixels, 0, srcW, safeRect.x, safeRect.y, srcW, srcH)
+    val bitmapW = src.width.coerceAtLeast(1)
+    val bitmapH = src.height.coerceAtLeast(1)
+    val srcPixels = IntArray(bitmapW * bitmapH)
+    src.getPixels(srcPixels, 0, bitmapW, 0, 0, bitmapW, bitmapH)
     val outPixels = IntArray(safeDstW * safeDstH)
     val scaleX = srcW.toFloat() / safeDstW.toFloat()
     val scaleY = srcH.toFloat() / safeDstH.toFloat()
@@ -631,9 +633,11 @@ private fun downscaleRegionMaxAlpha(
             var bestBrightness = -1
             // 縮小先の代表ピクセルは「最大alpha優先」、同点は最も明るい色を採用
             for (sy in sy0..sy1) {
-                val row = sy * srcW
+                val srcY = (safeRect.y + sy).coerceIn(0, bitmapH - 1)
+                val row = srcY * bitmapW
                 for (sx in sx0..sx1) {
-                    val pixel = srcPixels[row + sx]
+                    val srcX = (safeRect.x + sx).coerceIn(0, bitmapW - 1)
+                    val pixel = srcPixels[row + srcX]
                     val alpha = (pixel ushr 24) and 0xFF
                     val brightness = ((pixel ushr 16) and 0xFF) +
                         ((pixel ushr 8) and 0xFF) +
