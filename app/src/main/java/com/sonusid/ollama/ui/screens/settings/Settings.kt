@@ -451,13 +451,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     }
                                 )
                                 if (isValidatingConnections && serverInput.isActive) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier
-                                            .align(Alignment.Center)
-                                            .offset(y = (-2).dp)
-                                            .size(28.dp),
-                                        strokeWidth = 6.dp
-                                    )
+                                            CircularProgressIndicator(
+                                                modifier = Modifier
+                                                    .align(Alignment.Center)
+                                                    .offset(y = 2.dp)
+                                                    .size(28.dp),
+                                                strokeWidth = 6.dp
+                                            )
                                 }
                             }
                             when {
