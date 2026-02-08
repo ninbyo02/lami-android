@@ -4,15 +4,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -33,8 +30,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,7 +47,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -71,7 +65,7 @@ import com.sonusid.ollama.db.AppDatabase
 import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
-import com.sonusid.ollama.ui.common.ProjectSnackbar
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
@@ -116,7 +110,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val db = AppDatabase.getDatabase(context)
     val baseUrlRepository = remember { BaseUrlRepository(db.baseUrlDao()) }
     val modelPreferenceRepository = remember { ModelPreferenceRepository(db.modelPreferenceDao()) }
-    val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalAppSnackbarHostState.current
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     var connectionStatuses by remember { mutableStateOf<Map<String, ConnectionValidationResult>>(emptyMap()) }
     var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
@@ -219,39 +213,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 },
                 title = { Text("Settings") }
             )
-        },
-        snackbarHost = {
-            Box(modifier = Modifier.fillMaxSize()) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        // 上: ステータスバー回避のため最小限の top padding
-                        .statusBarsPadding()
-                        // 上: TopAppBar と重ならないように最小限の top padding
-                        // 左右: スナックバーの余白を確保
-                        .padding(top = 56.dp + 8.dp, start = 16.dp, end = 16.dp),
-                    snackbar = { snackbarData ->
-                        val message = snackbarData.visuals.message
-                        val isConnectionError = message.contains("接続できません")
-                        val containerColor = if (isConnectionError) {
-                            MaterialTheme.colorScheme.surface
-                        } else {
-                            MaterialTheme.colorScheme.inverseSurface
-                        }
-                        val contentColor = if (isConnectionError) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            Color.White
-                        }
-                        ProjectSnackbar(
-                            message = message,
-                            containerColor = containerColor,
-                            contentColor = contentColor,
-                        )
-                    }
-                )
-            }
         },
         bottomBar = {
             Row(
@@ -560,6 +521,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         if (unreachableConnections.isNotEmpty()) {
                                             snackbarHostState.showSnackbar(
                                                 message = "選択中のサーバーに接続できません。入力内容を確認してください",
+                                                actionLabel = "ERROR",
                                                 duration = SnackbarDuration.Short
                                             )
                                             return@launch
