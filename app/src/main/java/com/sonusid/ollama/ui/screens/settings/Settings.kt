@@ -348,7 +348,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "サーバー設定",
                     description = "Ollama サーバーのURLと接続状態を管理します",
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    modifier = Modifier.padding(
+                        // 下: サーバー設定の見出しとカードの間隔を最小限確保
+                        bottom = 2.dp
+                    )
                 )
             }
             itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
