@@ -8,15 +8,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -230,9 +227,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             modifier = Modifier
                 .fillMaxSize()
                 // 上下左右の余白を反映するための padding
-                .padding(paddingValues)
-                // ナビゲーションバーと重ならないように Insets を適用
-                .windowInsetsPadding(WindowInsets.navigationBars),
+                .padding(paddingValues),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 horizontal = horizontalPadding,
                 vertical = verticalPadding
