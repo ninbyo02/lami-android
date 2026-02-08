@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -114,6 +116,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val serverInputs = remember { mutableStateListOf<ServerInput>() }
     var connectionStatuses by remember { mutableStateOf<Map<String, ConnectionValidationResult>>(emptyMap()) }
     var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
     val maxServers = 5
@@ -365,104 +368,123 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             }
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        OutlinedTextField(
-                            value = serverInput.url,
-                            onValueChange = { newValue ->
-                                val normalized = normalizeUrlInput(newValue)
-                                serverInputs[index] = serverInput.copy(url = normalized)
-                                val normalizedInputs = getNormalizedInputs()
-                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                            },
-                            placeholder = { Text("http://host:port") },
-                            label = { Text("Server ${index + 1}") },
-                            singleLine = true,
-                            isError = duplicateUrls[serverInput.localId] == true ||
-                                !validateUrlFormat(serverInput.url).isValid ||
-                                connectionStatuses[serverInput.localId]?.isReachable == false,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(vertical = 4.dp),
-                            supportingText = {
-                                when {
-                                    duplicateUrls[serverInput.localId] == true -> {
-                                        Text(
-                                            text = "このURLは既に追加されています",
-                                            color = MaterialTheme.colorScheme.error
-                                        )
-                                    }
-                                    connectionStatuses[serverInput.localId]?.isReachable == false -> {
-                                        val message = connectionStatuses[serverInput.localId]?.errorMessage
-                                            ?: "接続できません"
-                                        Text(message, color = MaterialTheme.colorScheme.error)
-                                    }
-                                    connectionStatuses[serverInput.localId]?.warningMessage != null -> {
-                                        val message = connectionStatuses[serverInput.localId]?.warningMessage
-                                        if (message != null) {
-                                            Text(message)
-                                        }
-                                    }
-                                }
-                            },
-                            colors = TextFieldDefaults.outlinedTextFieldColors(
-                                errorBorderColor = MaterialTheme.colorScheme.error,
-                                errorCursorColor = MaterialTheme.colorScheme.error,
-                                errorLabelColor = MaterialTheme.colorScheme.error,
-                                errorLeadingIconColor = MaterialTheme.colorScheme.error,
-                                errorTrailingIconColor = MaterialTheme.colorScheme.error
-                            ),
-                            trailingIcon = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = {
-                                        if (serverInputs.size >= maxServers) {
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar(
-                                                    message = "追加できるサーバー数は最大${maxServers}件です",
-                                                    duration = SnackbarDuration.Short
-                                                )
-                                            }
-                                        } else {
-                                            serverInputs.add(
-                                                ServerInput(
-                                                    url = "http://localhost:13511/",
-                                                    isActive = false
-                                                )
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = serverInput.url,
+                                onValueChange = { newValue ->
+                                    val normalized = normalizeUrlInput(newValue)
+                                    serverInputs[index] = serverInput.copy(url = normalized)
+                                    val normalizedInputs = getNormalizedInputs()
+                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                },
+                                placeholder = { Text("http://host:port") },
+                                label = { Text("Server ${index + 1}") },
+                                singleLine = true,
+                                isError = duplicateUrls[serverInput.localId] == true ||
+                                    !validateUrlFormat(serverInput.url).isValid ||
+                                    connectionStatuses[serverInput.localId]?.isReachable == false,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                supportingText = {
+                                    when {
+                                        duplicateUrls[serverInput.localId] == true -> {
+                                            Text(
+                                                text = "このURLは既に追加されています",
+                                                color = MaterialTheme.colorScheme.error
                                             )
-                                            val normalizedInputs = getNormalizedInputs()
-                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         }
-                                    }) {
-                                        Icon(Icons.Filled.Add, contentDescription = "Add server")
+                                        isValidatingConnections && serverInput.isActive -> {
+                                            Text(
+                                                text = "接続確認中…",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        connectionStatuses[serverInput.localId]?.isReachable == false -> {
+                                            val message = connectionStatuses[serverInput.localId]?.errorMessage
+                                                ?: "接続できません"
+                                            Text(message, color = MaterialTheme.colorScheme.error)
+                                        }
+                                        connectionStatuses[serverInput.localId]?.warningMessage != null -> {
+                                            val message = connectionStatuses[serverInput.localId]?.warningMessage
+                                            if (message != null) {
+                                                Text(message)
+                                            }
+                                        }
                                     }
-                                    if (serverInputs.size > 1) {
+                                },
+                                colors = TextFieldDefaults.outlinedTextFieldColors(
+                                    errorBorderColor = MaterialTheme.colorScheme.error,
+                                    errorCursorColor = MaterialTheme.colorScheme.error,
+                                    errorLabelColor = MaterialTheme.colorScheme.error,
+                                    errorLeadingIconColor = MaterialTheme.colorScheme.error,
+                                    errorTrailingIconColor = MaterialTheme.colorScheme.error
+                                ),
+                                trailingIcon = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         IconButton(onClick = {
-                                            if (serverInputs.size <= 1) {
+                                            if (serverInputs.size >= maxServers) {
                                                 scope.launch {
                                                     snackbarHostState.showSnackbar(
-                                                        message = "最低1件のサーバーを残してください",
+                                                        message = "追加できるサーバー数は最大${maxServers}件です",
                                                         duration = SnackbarDuration.Short
                                                     )
                                                 }
-                                                return@IconButton
-                                            }
-                                            val wasActive = serverInputs[index].isActive
-                                            val updatedInvalidConnections =
-                                                connectionStatuses.toMutableMap().apply {
-                                                    remove(serverInput.localId)
-                                                }
-                                            serverInputs.removeAt(index)
-                                            connectionStatuses = updatedInvalidConnections
-                                            val normalizedInputs = getNormalizedInputs()
-                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                            if (wasActive && serverInputs.isNotEmpty()) {
-                                                serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                            } else {
+                                                serverInputs.add(
+                                                    ServerInput(
+                                                        url = "http://localhost:13511/",
+                                                        isActive = false
+                                                    )
+                                                )
+                                                val normalizedInputs = getNormalizedInputs()
+                                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                             }
                                         }) {
-                                            Icon(Icons.Filled.Delete, contentDescription = "Remove server")
+                                            Icon(Icons.Filled.Add, contentDescription = "Add server")
+                                        }
+                                        if (serverInputs.size > 1) {
+                                            IconButton(onClick = {
+                                                if (serverInputs.size <= 1) {
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar(
+                                                            message = "最低1件のサーバーを残してください",
+                                                            duration = SnackbarDuration.Short
+                                                        )
+                                                    }
+                                                    return@IconButton
+                                                }
+                                                val wasActive = serverInputs[index].isActive
+                                                val updatedInvalidConnections =
+                                                    connectionStatuses.toMutableMap().apply {
+                                                        remove(serverInput.localId)
+                                                    }
+                                                serverInputs.removeAt(index)
+                                                connectionStatuses = updatedInvalidConnections
+                                                val normalizedInputs = getNormalizedInputs()
+                                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                                if (wasActive && serverInputs.isNotEmpty()) {
+                                                    serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                                }
+                                            }) {
+                                                Icon(Icons.Filled.Delete, contentDescription = "Remove server")
+                                            }
                                         }
                                     }
                                 }
+                            )
+                            if (isValidatingConnections && serverInput.isActive) {
+                                Box(
+                                    modifier = Modifier.matchParentSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -512,8 +534,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
                                         val inputsForValidation = getNormalizedInputs()
-                                        val validationResults = withContext(Dispatchers.IO) {
-                                            validateActiveConnections(inputsForValidation, ::isValidURL)
+                                        isValidatingConnections = true
+                                        val validationResults = try {
+                                            withContext(Dispatchers.IO) {
+                                                validateActiveConnections(inputsForValidation, ::isValidURL)
+                                            }
+                                        } finally {
+                                            isValidatingConnections = false
                                         }
                                         connectionStatuses = validationResults
                                         val unreachableConnections = validationResults.filterValues { !it.isReachable }
@@ -657,9 +684,12 @@ internal suspend fun isValidURL(urlString: String): ConnectionValidationResult {
     return try {
         val baseUrl = formatResult.normalizedUrl.trimEnd('/')
         val requestUrl = URL("$baseUrl/api/tags")
+        // LAN 内利用を想定し、体感ラグを抑えるためにタイムアウトを短めに設定する
+        val connectTimeoutSeconds = 2L
+        val readTimeoutSeconds = 3L
         val client = OkHttpClient.Builder()
-            .connectTimeout(3, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
+            .connectTimeout(connectTimeoutSeconds, TimeUnit.SECONDS)
+            .readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
             .followRedirects(false)
             .followSslRedirects(false)
             .build()
