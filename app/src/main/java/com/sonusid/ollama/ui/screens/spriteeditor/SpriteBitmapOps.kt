@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 const val BINARIZE_ALPHA_THRESHOLD = 16
@@ -592,6 +593,63 @@ private fun downscaleMultiStepAlphaWeightedPremul(
     }
 }
 
+private fun downscaleRegionMaxAlpha(
+    src: Bitmap,
+    rect: RectPx,
+    dstW: Int,
+    dstH: Int,
+): IntArray {
+    val safeRect = rectNormalizeClamp(rect, src.width, src.height)
+    val safeDstW = dstW.coerceAtLeast(1)
+    val safeDstH = dstH.coerceAtLeast(1)
+    val srcW = safeRect.w.coerceAtLeast(1)
+    val srcH = safeRect.h.coerceAtLeast(1)
+    val srcPixels = IntArray(srcW * srcH)
+    src.getPixels(srcPixels, 0, srcW, safeRect.x, safeRect.y, srcW, srcH)
+    val outPixels = IntArray(safeDstW * safeDstH)
+    val scaleX = srcW.toFloat() / safeDstW.toFloat()
+    val scaleY = srcH.toFloat() / safeDstH.toFloat()
+    for (y in 0 until safeDstH) {
+        val srcTop = y * scaleY
+        val srcBottom = (y + 1) * scaleY
+        var sy0 = floor(srcTop).toInt().coerceIn(0, srcH - 1)
+        var sy1 = floor(srcBottom).toInt().coerceIn(0, srcH - 1)
+        if (sy1 < sy0) {
+            sy1 = sy0
+        }
+        for (x in 0 until safeDstW) {
+            val srcLeft = x * scaleX
+            val srcRight = (x + 1) * scaleX
+            var sx0 = floor(srcLeft).toInt().coerceIn(0, srcW - 1)
+            var sx1 = floor(srcRight).toInt().coerceIn(0, srcW - 1)
+            if (sx1 < sx0) {
+                sx1 = sx0
+            }
+            var bestPixel = Color.TRANSPARENT
+            var bestAlpha = -1
+            var bestBrightness = -1
+            // 縮小先の代表ピクセルは「最大alpha優先」、同点は最も明るい色を採用
+            for (sy in sy0..sy1) {
+                val row = sy * srcW
+                for (sx in sx0..sx1) {
+                    val pixel = srcPixels[row + sx]
+                    val alpha = (pixel ushr 24) and 0xFF
+                    val brightness = ((pixel ushr 16) and 0xFF) +
+                        ((pixel ushr 8) and 0xFF) +
+                        (pixel and 0xFF)
+                    if (alpha > bestAlpha || (alpha == bestAlpha && brightness > bestBrightness)) {
+                        bestAlpha = alpha
+                        bestBrightness = brightness
+                        bestPixel = pixel
+                    }
+                }
+            }
+            outPixels[y * safeDstW + x] = bestPixel
+        }
+    }
+    return outPixels
+}
+
 // 選択矩形内を最大サイズに合わせて縮小する
 fun resizeSelectionToMax96(
     src: Bitmap,
@@ -613,29 +671,25 @@ fun resizeSelectionToMax96(
         return ResizeSelectionResult(safeSrc, safeSelection, false, "already <= max")
     }
     val scale = maxSize.toFloat() / maxDim.toFloat()
-    val newW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
-    val newH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
-    val newX = when (anchor) {
+    val dstW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
+    val dstH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
+    val pasteX = when (anchor) {
         ResizeAnchor.TopLeft -> safeSelection.x
-        ResizeAnchor.Center -> safeSelection.x + (safeSelection.w - newW) / 2
+        // 選択範囲の中心に合わせるため、縮小後サイズとの差分を半分だけずらす
+        ResizeAnchor.Center -> safeSelection.x + (safeSelection.w - dstW) / 2
     }
-    val newY = when (anchor) {
+    val pasteY = when (anchor) {
         ResizeAnchor.TopLeft -> safeSelection.y
-        ResizeAnchor.Center -> safeSelection.y + (safeSelection.h - newH) / 2
+        // 選択範囲の中心に合わせるため、縮小後サイズとの差分を半分だけずらす
+        ResizeAnchor.Center -> safeSelection.y + (safeSelection.h - dstH) / 2
     }
-    val newSelection = rectNormalizeClamp(RectPx.of(newX, newY, newW, newH), width, height)
+    val newSelection = rectNormalizeClamp(RectPx.of(pasteX, pasteY, dstW, dstH), width, height)
 
-    val clip = ensureArgb8888(copyRect(safeSrc, safeSelection))
-    val clipPixels = IntArray(clip.width * clip.height)
-    clip.getPixels(clipPixels, 0, clip.width, 0, 0, clip.width, clip.height)
-    val downscaledPixels = downscaleMultiStepAlphaWeightedPremul(
-        srcPixels = clipPixels,
-        srcW = clip.width,
-        srcH = clip.height,
+    val downscaledPixels = downscaleRegionMaxAlpha(
+        src = safeSrc,
+        rect = safeSelection,
         dstW = newSelection.w,
         dstH = newSelection.h,
-        stepFactor = stepFactor,
-        minAlphaCutoff = minAlphaCutoff,
     )
     val clipBitmap = Bitmap.createBitmap(newSelection.w, newSelection.h, Bitmap.Config.ARGB_8888)
     clipBitmap.setPixels(
