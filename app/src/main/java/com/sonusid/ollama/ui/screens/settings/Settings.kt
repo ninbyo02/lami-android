@@ -454,7 +454,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             CircularProgressIndicator(
                                                 modifier = Modifier
                                                     .align(Alignment.Center)
-                                                    .offset(y = 2.dp)
+                                                    .offset(y = 3.dp)
                                                     .size(28.dp),
                                                 strokeWidth = 6.dp
                                             )
