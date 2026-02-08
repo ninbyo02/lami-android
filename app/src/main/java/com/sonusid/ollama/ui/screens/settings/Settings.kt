@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -211,12 +212,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val verticalPadding = 12.dp
 
     val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
     val systemBarInsets = WindowInsets.systemBars
     // 上と左右の安全領域は維持し、下のみ余白を除外する Insets
     val scaffoldInsets = WindowInsets(
-        left = systemBarInsets.getLeft(density),
+        left = systemBarInsets.getLeft(density, layoutDirection),
         top = systemBarInsets.getTop(density),
-        right = systemBarInsets.getRight(density),
+        right = systemBarInsets.getRight(density, layoutDirection),
         bottom = 0
     )
 
