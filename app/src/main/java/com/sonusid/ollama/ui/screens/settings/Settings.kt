@@ -35,7 +35,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -368,7 +368,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             }
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Box(modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
                             OutlinedTextField(
                                 value = serverInput.url,
                                 onValueChange = { newValue ->
@@ -413,7 +416,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         }
                                     }
                                 },
-                                colors = TextFieldDefaults.outlinedTextFieldColors(
+                                colors = OutlinedTextFieldDefaults.colors(
                                     errorBorderColor = MaterialTheme.colorScheme.error,
                                     errorCursorColor = MaterialTheme.colorScheme.error,
                                     errorLabelColor = MaterialTheme.colorScheme.error,
@@ -474,15 +477,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 }
                             )
                             if (isValidatingConnections && serverInput.isActive) {
-                                Box(
-                                    modifier = Modifier.matchParentSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                }
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(28.dp),
+                                    strokeWidth = 6.dp
+                                )
                             }
                         }
                     }
