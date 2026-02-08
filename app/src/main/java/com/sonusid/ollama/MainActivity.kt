@@ -175,16 +175,8 @@ class MainActivity : ComponentActivity() {
                                 snackbar = { data ->
                                     val isError = data.visuals.actionLabel == "ERROR"
                                     val textMaxLines = if (isError) 4 else 2
-                                    val containerColor = if (isError) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.inverseSurface
-                                    }
-                                    val contentColor = if (isError) {
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.inverseOnSurface
-                                    }
+                                    val containerColor = MaterialTheme.colorScheme.inverseSurface
+                                    val contentColor = MaterialTheme.colorScheme.inverseOnSurface
                                     ProjectSnackbar(
                                         message = data.visuals.message,
                                         containerColor = containerColor,
