@@ -2230,30 +2230,34 @@ fun SpriteEditorScreen(navController: NavController) {
                             scope.launch { showSnackbarMessage("No sprite loaded") }
                             return@Button
                         }
-                        val rawWidth = canvasWidthInput.toIntOrNull() ?: current.bitmap.width
-                        val rawHeight = canvasHeightInput.toIntOrNull() ?: current.bitmap.height
-                        val newWidth = rawWidth.coerceIn(1, 4096)
-                        val newHeight = rawHeight.coerceIn(1, 4096)
-                        if (newWidth == current.bitmap.width && newHeight == current.bitmap.height) {
+                        val maxW = current.bitmap.width
+                        val maxH = current.bitmap.height
+                        val parsedW = canvasWidthInput.toIntOrNull()
+                        val parsedH = canvasHeightInput.toIntOrNull()
+                        val safeW = (parsedW ?: maxW).coerceIn(1, maxW)
+                        val safeH = (parsedH ?: maxH).coerceIn(1, maxH)
+                        canvasWidthInput = safeW.toString()
+                        canvasHeightInput = safeH.toString()
+                        if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
                             scope.launch { showSnackbarMessage("Canvas unchanged") }
                             return@Button
                         }
                         pushUndoSnapshot(current, undoStack, redoStack)
                         val resizedBitmap = resizeCanvas(
                             current.bitmap,
-                            newWidth,
-                            newHeight,
+                            safeW,
+                            safeH,
                             canvasAnchor,
                         )
                         val nextSelection = rectNormalizeClamp(
                             current.selection,
-                            newWidth,
-                            newHeight,
+                            safeW,
+                            safeH,
                         )
                         editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
                         isDirty = true
                         activeSheet = SheetType.None
-                        scope.launch { showSnackbarMessage("Canvas resized to ${newWidth}x${newHeight}") }
+                        scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
                     },
                     modifier = Modifier.height(32.dp),
                 ) {
