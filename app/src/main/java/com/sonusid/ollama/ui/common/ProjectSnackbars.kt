@@ -13,6 +13,7 @@ fun ProjectSnackbar(
     message: String,
     containerColor: Color,
     contentColor: Color,
+    maxLines: Int = 2,
     modifier: Modifier = Modifier,
 ) {
     Snackbar(
@@ -24,7 +25,7 @@ fun ProjectSnackbar(
         Text(
             text = message,
             color = contentColor,
-            maxLines = 2,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
         )
     }
