@@ -162,6 +162,8 @@ data class SpriteSheetSnapshot(
     val boxPositions: List<BoxPosition>,
 )
 
+private val SpriteSettingsTabRowHeight = 32.dp
+
 private fun Modifier.debugBounds(tag: String): Modifier =
     this.onGloballyPositioned { c ->
         val r = c.boundsInWindow()
@@ -3895,15 +3897,16 @@ fun SpriteSettingsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.TopCenter
             ) {
+                val snackbarTopPadding = TopAppBarHeight + SpriteSettingsTabRowHeight + 8.dp
                 // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
                 SnackbarHost(
                     hostState = snackbarHostState,
                     modifier = Modifier
                         // 上: ステータスバー回避のため最小限の top padding
                         .statusBarsPadding()
-                        // 上: TopAppBar と同じ高さ基準で揃えるための最小余白
+                        // 上: TabRow を避けるための最小余白
                         // 左右: Settings と揃えるための最小余白
-                        .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp)
+                        .padding(top = snackbarTopPadding, start = 16.dp, end = 16.dp)
                         .zIndex(10f),
                 ) { data ->
                     val isError = data.visuals.actionLabel == "ERROR"
@@ -3983,7 +3986,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 // [非dp] 横: TopAppBar の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
                                 // [dp] 縦: TopAppBar の最小サイズ(最小サイズ)に関係
-                                .height(32.dp),
+                                .height(SpriteSettingsTabRowHeight),
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
                             indicator = { tabPositions ->
                                 TabRowDefaults.SecondaryIndicator(
