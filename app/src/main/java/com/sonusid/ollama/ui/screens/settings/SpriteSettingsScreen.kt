@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,8 +49,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
@@ -137,7 +134,7 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
-import com.sonusid.ollama.ui.common.ProjectSnackbar
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.TopAppBarHeight
 import kotlinx.coroutines.CoroutineScope
@@ -858,7 +855,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val safeImageWidth = imageWidth.coerceAtLeast(1)
     val safeImageHeight = imageHeight.coerceAtLeast(1)
     val defaultSpriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalAppSnackbarHostState.current
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     val settingsPreferences = remember(context.applicationContext) {
@@ -3890,42 +3887,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                     onSizeDecrease = { updateBoxSize(-4) },
                     onSizeIncrease = { updateBoxSize(4) }
                 )
-            }
-        },
-        snackbarHost = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                val snackbarTopPadding = TopAppBarHeight + SpriteSettingsTabRowHeight + 8.dp
-                // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier
-                        // 上: ステータスバー回避のため最小限の top padding
-                        .statusBarsPadding()
-                        // 上: TabRow を避けるための最小余白
-                        // 左右: Settings と揃えるための最小余白
-                        .padding(top = snackbarTopPadding, start = 16.dp, end = 16.dp)
-                        .zIndex(10f),
-                ) { data ->
-                    val isError = data.visuals.actionLabel == "ERROR"
-                    val containerColor = if (isError) {
-                        MaterialTheme.colorScheme.errorContainer
-                    } else {
-                        MaterialTheme.colorScheme.inverseSurface
-                    }
-                    val contentColor = if (isError) {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    } else {
-                        MaterialTheme.colorScheme.inverseOnSurface
-                    }
-                    ProjectSnackbar(
-                        message = data.visuals.message,
-                        containerColor = containerColor,
-                        contentColor = contentColor,
-                    )
-                }
             }
         },
         contentWindowInsets = WindowInsets.systemBars
