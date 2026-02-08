@@ -24,12 +24,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
@@ -40,6 +42,11 @@ import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+
+internal fun buildVersionLabel(version: String, sha: String): String {
+    val shaShort = sha.trim().takeIf { it.isNotBlank() }?.take(7)
+    return if (shaShort != null) "v$version ($shaShort)" else "v$version"
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,7 +84,7 @@ fun About(
                         }
                     }
                 },
-                title = { Text("About") }
+                title = { Text(stringResource(R.string.about)) }
             )
         }) { paddingValues ->
         Box(
@@ -120,10 +127,19 @@ fun About(
                 }
                 // 下：タイトルとの距離を確保するための Spacer
                 Spacer(Modifier.height(20.dp))
-                Text("Ollama", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    stringResource(R.string.app_name),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
                 // 下：バージョン表示との距離を確保するための Spacer
                 Spacer(Modifier.height(10.dp))
-                Text("v1.0.0 (Beta)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
+                Text(
+                    versionLabel,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
                 // 下：セクション終端の余白を確保するための Spacer
                 Spacer(Modifier.height(24.dp))
             }

@@ -1,9 +1,26 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     id("com.google.devtools.ksp")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("kotlin-parcelize")
+}
+
+fun gitShaShort(): String {
+    val stdout = ByteArrayOutputStream()
+    return try {
+        exec {
+            commandLine("git", "rev-parse", "--short=7", "HEAD")
+            standardOutput = stdout
+            isIgnoreExitValue = true
+        }
+        stdout.toString().trim().takeIf { it.isNotBlank() } ?: ""
+    } catch (e: Exception) {
+        // .git がない配布物などで取得できない場合に備えて空文字にする
+        ""
+    }
 }
 
 android {
@@ -19,6 +36,8 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val gitSha = gitShaShort()
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
     }
 
     buildTypes {

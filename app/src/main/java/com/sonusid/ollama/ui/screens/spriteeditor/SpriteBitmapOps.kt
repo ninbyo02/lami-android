@@ -2,12 +2,11 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
+import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 const val BINARIZE_ALPHA_THRESHOLD = 16
@@ -177,15 +176,11 @@ fun flipHorizontal(src: Bitmap): Bitmap {
 fun clearTransparent(src: Bitmap, rect: RectPx): Bitmap {
     val safeRect = rectNormalizeClamp(rect, src.width, src.height)
     val output = src.copy(Bitmap.Config.ARGB_8888, true)
-    val canvas = Canvas(output)
-    val paint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
-    canvas.drawRect(
-        safeRect.x.toFloat(),
-        safeRect.y.toFloat(),
-        (safeRect.x + safeRect.w).toFloat(),
-        (safeRect.y + safeRect.h).toFloat(),
-        paint
-    )
+    for (y in safeRect.y until (safeRect.y + safeRect.h)) {
+        for (x in safeRect.x until (safeRect.x + safeRect.w)) {
+            output.setPixel(x, y, Color.TRANSPARENT)
+        }
+    }
     return output
 }
 
@@ -410,18 +405,29 @@ fun downscaleNineSamplePremul(
             var accG = 0f
             var accB = 0f
             var accA = 0f
+            var maxAlpha = 0
+            var brightestPixel = Color.TRANSPARENT
+            var brightestScore = -1
             for (sy in samplePoints) {
                 val sampleY = (srcTop + (srcBottom - srcTop) * sy).coerceIn(0f, maxY)
-                val iy = sampleY.roundToInt()
+                val iy = sampleY.toInt()
                 val rowOffset = iy * safeSrcW
                 for (sx in samplePoints) {
                     val sampleX = (srcLeft + (srcRight - srcLeft) * sx).coerceIn(0f, maxX)
-                    val ix = sampleX.roundToInt()
+                    val ix = sampleX.toInt()
                     val pixel = srcPixels[rowOffset + ix]
                     val a = (pixel ushr 24) and 0xFF
                     val r = (pixel ushr 16) and 0xFF
                     val g = (pixel ushr 8) and 0xFF
                     val b = pixel and 0xFF
+                    if (a > 0) {
+                        val brightness = r + g + b
+                        if (a > maxAlpha || (a == maxAlpha && brightness > brightestScore)) {
+                            maxAlpha = a
+                            brightestScore = brightness
+                            brightestPixel = pixel
+                        }
+                    }
                     accA += a.toFloat()
                     accR += r * a.toFloat()
                     accG += g * a.toFloat()
@@ -437,6 +443,11 @@ fun downscaleNineSamplePremul(
                 outR = 0
                 outG = 0
                 outB = 0
+            } else if (outA == 0 && maxAlpha > 0) {
+                // 極細線の消失を防ぐため、代表ピクセルを採用する
+                outR = (brightestPixel ushr 16) and 0xFF
+                outG = (brightestPixel ushr 8) and 0xFF
+                outB = brightestPixel and 0xFF
             } else {
                 val invA = 1f / accA
                 outR = (accR * invA).roundToInt().coerceIn(0, 255)
@@ -444,7 +455,8 @@ fun downscaleNineSamplePremul(
                 outB = (accB * invA).roundToInt().coerceIn(0, 255)
             }
             output[y * safeDstW + x] =
-                (outA shl 24) or (outR shl 16) or (outG shl 8) or outB
+                ((if (outA == 0 && maxAlpha > 0) maxAlpha else outA) shl 24) or
+                    (outR shl 16) or (outG shl 8) or outB
         }
     }
     return output
@@ -479,22 +491,32 @@ private fun downscaleNineSamplePremulAlphaWeighted(
             var accB = 0f
             var accA = 0f
             var accW = 0f
+            var maxAlpha = 0
+            var maxR = 0
+            var maxG = 0
+            var maxB = 0
             for (sy in samplePoints) {
                 val sampleY = (srcTop + (srcBottom - srcTop) * sy).coerceIn(0f, maxY)
-                val iy = sampleY.roundToInt()
+                val iy = sampleY.toInt()
                 val rowOffset = iy * safeSrcW
                 for (sx in samplePoints) {
                     val sampleX = (srcLeft + (srcRight - srcLeft) * sx).coerceIn(0f, maxX)
-                    val ix = sampleX.roundToInt()
+                    val ix = sampleX.toInt()
                     val pixel = srcPixels[rowOffset + ix]
                     val a = (pixel ushr 24) and 0xFF
-                    if (a <= minAlphaCutoff) {
+                    if (a < minAlphaCutoff) {
                         continue
                     }
                     val weight = a.toFloat() / 255f
                     val r = (pixel ushr 16) and 0xFF
                     val g = (pixel ushr 8) and 0xFF
                     val b = pixel and 0xFF
+                    if (a > maxAlpha) {
+                        maxAlpha = a
+                        maxR = r
+                        maxG = g
+                        maxB = b
+                    }
                     accW += weight
                     accA += a * weight
                     accR += r * a * weight
@@ -512,11 +534,18 @@ private fun downscaleNineSamplePremulAlphaWeighted(
                 outG = 0
                 outB = 0
             } else {
-                outA = (accA / accW).roundToInt().coerceIn(0, 255)
-                val invA = 1f / accA
-                outR = (accR * invA).roundToInt().coerceIn(0, 255)
-                outG = (accG * invA).roundToInt().coerceIn(0, 255)
-                outB = (accB * invA).roundToInt().coerceIn(0, 255)
+                val avgA = (accA / accW).roundToInt().coerceIn(0, 255)
+                outA = maxOf(avgA, maxAlpha)
+                if (outA == maxAlpha && maxAlpha > 0) {
+                    outR = maxR
+                    outG = maxG
+                    outB = maxB
+                } else {
+                    val invA = 1f / accA
+                    outR = (accR * invA).roundToInt().coerceIn(0, 255)
+                    outG = (accG * invA).roundToInt().coerceIn(0, 255)
+                    outB = (accB * invA).roundToInt().coerceIn(0, 255)
+                }
             }
             output[y * safeDstW + x] =
                 (outA shl 24) or (outR shl 16) or (outG shl 8) or outB
@@ -582,6 +611,70 @@ private fun downscaleMultiStepAlphaWeightedPremul(
     }
 }
 
+private fun downscaleRegionMaxAlpha(
+    src: Bitmap,
+    rect: RectPx,
+    dstW: Int,
+    dstH: Int,
+): IntArray {
+    val safeRect = rectNormalizeClamp(rect, src.width, src.height)
+    val safeDstW = dstW.coerceAtLeast(1)
+    val safeDstH = dstH.coerceAtLeast(1)
+    val srcW = safeRect.w.coerceAtLeast(1)
+    val srcH = safeRect.h.coerceAtLeast(1)
+    val selectionPixels = IntArray(srcW * srcH)
+    val rowBuffer = IntArray(srcW)
+    // 選択範囲のオフセットを必ず反映して取得する（座標系ズレ防止）
+    for (y in 0 until srcH) {
+        src.getPixels(rowBuffer, 0, srcW, safeRect.x, safeRect.y + y, srcW, 1)
+        System.arraycopy(rowBuffer, 0, selectionPixels, y * srcW, srcW)
+    }
+    val outPixels = IntArray(safeDstW * safeDstH)
+    val scaleX = srcW.toFloat() / safeDstW.toFloat()
+    val scaleY = srcH.toFloat() / safeDstH.toFloat()
+    for (y in 0 until safeDstH) {
+        val srcTop = y * scaleY
+        val srcBottom = (y + 1) * scaleY
+        // floor/ceilの混在でサンプル範囲の空を避ける
+        var sy0 = floor(srcTop).toInt().coerceIn(0, srcH - 1)
+        var sy1 = (ceil(srcBottom).toInt() - 1).coerceIn(0, srcH - 1)
+        if (sy1 < sy0) {
+            sy1 = sy0
+        }
+        for (x in 0 until safeDstW) {
+            val srcLeft = x * scaleX
+            val srcRight = (x + 1) * scaleX
+            // floor/ceilの混在でサンプル範囲の空を避ける
+            var sx0 = floor(srcLeft).toInt().coerceIn(0, srcW - 1)
+            var sx1 = (ceil(srcRight).toInt() - 1).coerceIn(0, srcW - 1)
+            if (sx1 < sx0) {
+                sx1 = sx0
+            }
+            var bestPixel = Color.TRANSPARENT
+            var bestAlpha = -1
+            var bestBrightness = -1
+            // 縮小先の代表ピクセルは「最大alpha優先」、同点は最も明るい色を採用
+            for (sy in sy0..sy1) {
+                val row = sy * srcW
+                for (sx in sx0..sx1) {
+                    val pixel = selectionPixels[row + sx]
+                    val alpha = (pixel ushr 24) and 0xFF
+                    val brightness = ((pixel ushr 16) and 0xFF) +
+                        ((pixel ushr 8) and 0xFF) +
+                        (pixel and 0xFF)
+                    if (alpha > bestAlpha || (alpha == bestAlpha && brightness > bestBrightness)) {
+                        bestAlpha = alpha
+                        bestBrightness = brightness
+                        bestPixel = pixel
+                    }
+                }
+            }
+            outPixels[y * safeDstW + x] = bestPixel
+        }
+    }
+    return outPixels
+}
+
 // 選択矩形内を最大サイズに合わせて縮小する
 fun resizeSelectionToMax96(
     src: Bitmap,
@@ -603,29 +696,28 @@ fun resizeSelectionToMax96(
         return ResizeSelectionResult(safeSrc, safeSelection, false, "already <= max")
     }
     val scale = maxSize.toFloat() / maxDim.toFloat()
-    val newW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
-    val newH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
-    val newX = when (anchor) {
+    val dstW = (safeSelection.w * scale).roundToInt().coerceAtLeast(1)
+    val dstH = (safeSelection.h * scale).roundToInt().coerceAtLeast(1)
+    val pasteX = when (anchor) {
         ResizeAnchor.TopLeft -> safeSelection.x
-        ResizeAnchor.Center -> safeSelection.x + (safeSelection.w - newW) / 2
+        // 選択範囲の中心に合わせるため、縮小後サイズとの差分を半分だけずらす
+        ResizeAnchor.Center -> safeSelection.x + (safeSelection.w - dstW) / 2
     }
-    val newY = when (anchor) {
+    val pasteY = when (anchor) {
         ResizeAnchor.TopLeft -> safeSelection.y
-        ResizeAnchor.Center -> safeSelection.y + (safeSelection.h - newH) / 2
+        // 選択範囲の中心に合わせるため、縮小後サイズとの差分を半分だけずらす
+        ResizeAnchor.Center -> safeSelection.y + (safeSelection.h - dstH) / 2
     }
-    val newSelection = rectNormalizeClamp(RectPx.of(newX, newY, newW, newH), width, height)
+    val newSelection = rectNormalizeClamp(RectPx.of(pasteX, pasteY, dstW, dstH), width, height)
+    // clamp 後の座標に合わせて貼り付ける（座標ズレ防止）
+    val dstX = newSelection.x
+    val dstY = newSelection.y
 
-    val clip = ensureArgb8888(copyRect(safeSrc, safeSelection))
-    val clipPixels = IntArray(clip.width * clip.height)
-    clip.getPixels(clipPixels, 0, clip.width, 0, 0, clip.width, clip.height)
-    val downscaledPixels = downscaleMultiStepAlphaWeightedPremul(
-        srcPixels = clipPixels,
-        srcW = clip.width,
-        srcH = clip.height,
+    val downscaledPixels = downscaleRegionMaxAlpha(
+        src = safeSrc,
+        rect = safeSelection,
         dstW = newSelection.w,
         dstH = newSelection.h,
-        stepFactor = stepFactor,
-        minAlphaCutoff = minAlphaCutoff,
     )
     val clipBitmap = Bitmap.createBitmap(newSelection.w, newSelection.h, Bitmap.Config.ARGB_8888)
     clipBitmap.setPixels(
@@ -638,10 +730,13 @@ fun resizeSelectionToMax96(
         newSelection.h,
     )
 
+    // 元の選択範囲をクリアしてから縮小結果を貼り付ける
     val cleared = clearTransparent(safeSrc, safeSelection)
-    val pasted = paste(cleared, clipBitmap, newSelection.x, newSelection.y)
+    val output = cleared.copy(Bitmap.Config.ARGB_8888, true)
+    val canvas = Canvas(output)
+    canvas.drawBitmap(clipBitmap, dstX.toFloat(), dstY.toFloat(), null)
     val debugText = "scale=$scale new=${newSelection.w}x${newSelection.h} step=$stepFactor cutoff=$minAlphaCutoff"
-    return ResizeSelectionResult(pasted, newSelection, true, debugText)
+    return ResizeSelectionResult(output, newSelection, true, debugText)
 }
 
 // Bitmap全体をグレースケールへ焼き込み変換した新しいBitmapを返す（元のBitmapは変更しない）
@@ -650,14 +745,23 @@ fun toGrayscale(src: Bitmap): Bitmap {
     if (safeSrc.width <= 0 || safeSrc.height <= 0) {
         return safeSrc
     }
-    val output = Bitmap.createBitmap(safeSrc.width, safeSrc.height, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(output)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        colorFilter = ColorMatrixColorFilter(
-            ColorMatrix().apply { setSaturation(0f) },
-        )
+    val width = safeSrc.width
+    val height = safeSrc.height
+    val size = width * height
+    val srcPixels = IntArray(size)
+    safeSrc.getPixels(srcPixels, 0, width, 0, 0, width, height)
+    val outPixels = IntArray(size)
+    for (index in 0 until size) {
+        val pixel = srcPixels[index]
+        val alpha = (pixel ushr 24) and 0xFF
+        val red = (pixel ushr 16) and 0xFF
+        val green = (pixel ushr 8) and 0xFF
+        val blue = pixel and 0xFF
+        val gray = (299 * red + 587 * green + 114 * blue + 500) / 1000
+        outPixels[index] = (alpha shl 24) or (gray shl 16) or (gray shl 8) or gray
     }
-    canvas.drawBitmap(safeSrc, 0f, 0f, paint)
+    val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    output.setPixels(outPixels, 0, width, 0, 0, width, height)
     return output
 }
 
@@ -953,12 +1057,20 @@ fun clearEdgeConnectedBackground(src: Bitmap): Bitmap {
     val bgR = bgSample?.first ?: 0
     val bgG = bgSample?.second ?: 0
     val bgB = bgSample?.third ?: 0
+    val transparentOnly = bgSample == null
 
     val visited = BooleanArray(size)
     val queue = ArrayDeque<Int>()
 
     fun tryEnqueue(index: Int) {
-        if (!visited[index] && isBackgroundLike(srcPixels[index], bgR, bgG, bgB)) {
+        val pixel = srcPixels[index]
+        val alpha = (pixel ushr 24) and 0xFF
+        val isBackground = if (transparentOnly) {
+            alpha == 0
+        } else {
+            isBackgroundLike(pixel, bgR, bgG, bgB)
+        }
+        if (!visited[index] && isBackground) {
             visited[index] = true
             queue.addLast(index)
         }
@@ -1105,7 +1217,7 @@ fun fillRegionFromTransparentSeeds(
 
     fun isTransparent(index: Int): Boolean {
         val alpha = (srcPixels[index] ushr 24) and 0xFF
-        return alpha <= transparentAlphaThreshold
+        return alpha < transparentAlphaThreshold
     }
 
     val sy = safeSelection.y
@@ -1115,14 +1227,25 @@ fun fillRegionFromTransparentSeeds(
 
     var head = 0
     var tail = 0
+    fun enqueueSeed(x: Int, y: Int) {
+        val seedIndex = y * width + x
+        if (visited[seedIndex] || !isTransparent(seedIndex)) {
+            return
+        }
+        visited[seedIndex] = true
+        queue[tail++] = seedIndex
+    }
+
+    for (x in sx until ex) {
+        enqueueSeed(x, sy)
+        if (ey - 1 != sy) {
+            enqueueSeed(x, ey - 1)
+        }
+    }
     for (y in sy until ey) {
-        for (x in sx until ex) {
-            val seedIndex = y * width + x
-            if (visited[seedIndex] || !isTransparent(seedIndex)) {
-                continue
-            }
-            visited[seedIndex] = true
-            queue[tail++] = seedIndex
+        enqueueSeed(sx, y)
+        if (ex - 1 != sx) {
+            enqueueSeed(ex - 1, y)
         }
     }
 
@@ -1229,7 +1352,7 @@ fun fillConnectedToWhite(
         for (x in sx until ex) {
             val pixel = srcPixels[y * width + x]
             val alpha = (pixel ushr 24) and 0xFF
-            if (alpha <= transparentAlphaThreshold) {
+            if (alpha < transparentAlphaThreshold) {
                 transparentCount += 1
             } else {
                 sumR += (pixel ushr 16) and 0xFF
@@ -1248,9 +1371,9 @@ fun fillConnectedToWhite(
     fun isTarget(pixel: Int): Boolean {
         val alpha = (pixel ushr 24) and 0xFF
         return if (mode == Mode.Alpha) {
-            alpha <= transparentAlphaThreshold
+            alpha < transparentAlphaThreshold
         } else {
-            if (alpha <= transparentAlphaThreshold) return false
+            if (alpha < transparentAlphaThreshold) return false
             val red = (pixel ushr 16) and 0xFF
             val green = (pixel ushr 8) and 0xFF
             val blue = pixel and 0xFF
