@@ -5,8 +5,6 @@ import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import kotlin.math.roundToInt
 
@@ -177,15 +175,11 @@ fun flipHorizontal(src: Bitmap): Bitmap {
 fun clearTransparent(src: Bitmap, rect: RectPx): Bitmap {
     val safeRect = rectNormalizeClamp(rect, src.width, src.height)
     val output = src.copy(Bitmap.Config.ARGB_8888, true)
-    val canvas = Canvas(output)
-    val paint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
-    canvas.drawRect(
-        safeRect.x.toFloat(),
-        safeRect.y.toFloat(),
-        (safeRect.x + safeRect.w).toFloat(),
-        (safeRect.y + safeRect.h).toFloat(),
-        paint
-    )
+    for (y in safeRect.y until (safeRect.y + safeRect.h)) {
+        for (x in safeRect.x until (safeRect.x + safeRect.w)) {
+            output.setPixel(x, y, Color.TRANSPARENT)
+        }
+    }
     return output
 }
 
