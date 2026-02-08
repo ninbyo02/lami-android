@@ -2,11 +2,13 @@ package com.sonusid.ollama.ui.screens.home
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.align
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -53,7 +55,6 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -90,22 +91,6 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
-
-    fun showSnackbarShort(message: String) {
-        coroutineScope.launch {
-            snackbarHostState.currentSnackbarData?.dismiss()
-            val dismissJob = launch {
-                delay(PROJECT_SNACKBAR_SHORT_MS)
-                snackbarHostState.currentSnackbarData?.dismiss()
-            }
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
-            dismissJob.cancel()
-        }
-    }
-
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -181,6 +166,16 @@ fun Home(
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
             viewModel.onUserInteraction()
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            snackbarHostState.showSnackbar(
+                message = errorMessage,
+                duration = SnackbarDuration.Short,
+                actionLabel = "ERROR"
+            )
         }
     }
 
@@ -260,7 +255,13 @@ fun Home(
                     onClick = {
                         viewModel.onUserInteraction()
                         if (selectedModel.isNullOrBlank()) {
-                            showSnackbarShort("モデルを選択してください")
+                            coroutineScope.launch {
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbarHostState.showSnackbar(
+                                    message = "モデルを選択してください",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
                             return@ElevatedButton
                         }
 
@@ -293,12 +294,6 @@ fun Home(
             )
         )
     }) { paddingValues ->
-        LaunchedEffect(errorMessage) {
-            if (errorMessage != null) {
-                showSnackbarShort(errorMessage)
-            }
-        }
-
         Box(
             modifier = Modifier
                 .padding(paddingValues)
