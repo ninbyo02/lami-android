@@ -228,9 +228,12 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 .fillMaxSize()
                 // 上下左右の余白を反映するための padding
                 .padding(paddingValues),
+            // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = horizontalPadding,
-                vertical = verticalPadding
+                start = horizontalPadding,
+                end = horizontalPadding,
+                top = verticalPadding,
+                bottom = 0.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
