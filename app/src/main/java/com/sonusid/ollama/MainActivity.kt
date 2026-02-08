@@ -174,6 +174,7 @@ class MainActivity : ComponentActivity() {
                                     .widthIn(max = 560.dp),
                                 snackbar = { data ->
                                     val isError = data.visuals.actionLabel == "ERROR"
+                                    val textMaxLines = if (isError) 4 else 2
                                     val containerColor = if (isError) {
                                         MaterialTheme.colorScheme.errorContainer
                                     } else {
@@ -188,6 +189,7 @@ class MainActivity : ComponentActivity() {
                                         message = data.visuals.message,
                                         containerColor = containerColor,
                                         contentColor = contentColor,
+                                        maxLines = textMaxLines,
                                     )
                                 }
                             )
