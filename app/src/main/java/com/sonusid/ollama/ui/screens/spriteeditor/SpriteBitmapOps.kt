@@ -605,16 +605,20 @@ private fun downscaleRegionMaxAlpha(
     val safeDstH = dstH.coerceAtLeast(1)
     val srcW = safeRect.w.coerceAtLeast(1)
     val srcH = safeRect.h.coerceAtLeast(1)
-    val bitmapW = src.width.coerceAtLeast(1)
-    val bitmapH = src.height.coerceAtLeast(1)
-    val srcPixels = IntArray(bitmapW * bitmapH)
-    src.getPixels(srcPixels, 0, bitmapW, 0, 0, bitmapW, bitmapH)
+    val selectionPixels = IntArray(srcW * srcH)
+    val rowBuffer = IntArray(srcW)
+    // 選択範囲のオフセットを必ず反映して取得する（座標系ズレ防止）
+    for (y in 0 until srcH) {
+        src.getPixels(rowBuffer, 0, srcW, safeRect.x, safeRect.y + y, srcW, 1)
+        System.arraycopy(rowBuffer, 0, selectionPixels, y * srcW, srcW)
+    }
     val outPixels = IntArray(safeDstW * safeDstH)
     val scaleX = srcW.toFloat() / safeDstW.toFloat()
     val scaleY = srcH.toFloat() / safeDstH.toFloat()
     for (y in 0 until safeDstH) {
         val srcTop = y * scaleY
         val srcBottom = (y + 1) * scaleY
+        // floor/ceilの混在でサンプル範囲の空を避ける
         var sy0 = floor(srcTop).toInt().coerceIn(0, srcH - 1)
         var sy1 = (ceil(srcBottom).toInt() - 1).coerceIn(0, srcH - 1)
         if (sy1 < sy0) {
@@ -623,6 +627,7 @@ private fun downscaleRegionMaxAlpha(
         for (x in 0 until safeDstW) {
             val srcLeft = x * scaleX
             val srcRight = (x + 1) * scaleX
+            // floor/ceilの混在でサンプル範囲の空を避ける
             var sx0 = floor(srcLeft).toInt().coerceIn(0, srcW - 1)
             var sx1 = (ceil(srcRight).toInt() - 1).coerceIn(0, srcW - 1)
             if (sx1 < sx0) {
@@ -633,11 +638,9 @@ private fun downscaleRegionMaxAlpha(
             var bestBrightness = -1
             // 縮小先の代表ピクセルは「最大alpha優先」、同点は最も明るい色を採用
             for (sy in sy0..sy1) {
-                val srcY = (safeRect.y + sy).coerceIn(0, bitmapH - 1)
-                val row = srcY * bitmapW
+                val row = sy * srcW
                 for (sx in sx0..sx1) {
-                    val srcX = (safeRect.x + sx).coerceIn(0, bitmapW - 1)
-                    val pixel = srcPixels[row + srcX]
+                    val pixel = selectionPixels[row + sx]
                     val alpha = (pixel ushr 24) and 0xFF
                     val brightness = ((pixel ushr 16) and 0xFF) +
                         ((pixel ushr 8) and 0xFF) +
