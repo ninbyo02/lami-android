@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -51,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -206,8 +211,21 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val horizontalPadding = 16.dp
     val verticalPadding = 12.dp
 
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val systemBarInsets = WindowInsets.systemBars
+    // 上と左右の安全領域は維持し、下のみ余白を除外する Insets
+    val scaffoldInsets = WindowInsets(
+        left = systemBarInsets.getLeft(density, layoutDirection),
+        top = systemBarInsets.getTop(density),
+        right = systemBarInsets.getRight(density, layoutDirection),
+        bottom = 0
+    )
+
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
+        // 上と左右の安全領域は維持し、下のみ余白を除外する
+        contentWindowInsets = scaffoldInsets,
         topBar = {
             TopAppBar(
                 navigationIcon = {
@@ -220,29 +238,27 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 },
                 title = { Text("Settings") }
             )
-        },
-        bottomBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) { Text("Ollama v1.0.0") }
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.padding(paddingValues),
+            modifier = Modifier
+                .fillMaxSize()
+                // 上下左右の余白を反映するための padding
+                .padding(paddingValues),
+            // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = horizontalPadding,
-                vertical = verticalPadding
+                start = horizontalPadding,
+                end = horizontalPadding,
+                top = verticalPadding,
+                bottom = 0.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
                 CardSectionHeader(
                     title = "デバッグツール",
                     description = "スプライト関連の挙動を確認・調整するためのツールです",
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
                     Column {
@@ -317,7 +333,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "表示設定",
                     description = "テーマカラーなどの外観設定を変更できます",
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
                     ListItem(
@@ -349,7 +365,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "サーバー設定",
                     description = "Ollama サーバーのURLと接続状態を管理します",
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(
+                        // 下: サーバー設定の見出しとカードの間隔を最小限確保
+                        bottom = 2.dp
+                    )
                 )
             }
             itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
