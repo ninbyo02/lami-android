@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
@@ -613,7 +614,7 @@ private fun downscaleRegionMaxAlpha(
         val srcTop = y * scaleY
         val srcBottom = (y + 1) * scaleY
         var sy0 = floor(srcTop).toInt().coerceIn(0, srcH - 1)
-        var sy1 = floor(srcBottom).toInt().coerceIn(0, srcH - 1)
+        var sy1 = (ceil(srcBottom).toInt() - 1).coerceIn(0, srcH - 1)
         if (sy1 < sy0) {
             sy1 = sy0
         }
@@ -621,7 +622,7 @@ private fun downscaleRegionMaxAlpha(
             val srcLeft = x * scaleX
             val srcRight = (x + 1) * scaleX
             var sx0 = floor(srcLeft).toInt().coerceIn(0, srcW - 1)
-            var sx1 = floor(srcRight).toInt().coerceIn(0, srcW - 1)
+            var sx1 = (ceil(srcRight).toInt() - 1).coerceIn(0, srcW - 1)
             if (sx1 < sx0) {
                 sx1 = sx0
             }
