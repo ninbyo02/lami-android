@@ -43,6 +43,11 @@ import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
+internal fun buildVersionLabel(version: String, sha: String): String {
+    val shaShort = sha.trim().takeIf { it.isNotBlank() }?.take(7)
+    return if (shaShort != null) "v$version ($shaShort)" else "v$version"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun About(
@@ -129,8 +134,9 @@ fun About(
                 )
                 // 下：バージョン表示との距離を確保するための Spacer
                 Spacer(Modifier.height(10.dp))
+                val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
                 Text(
-                    "v${BuildConfig.VERSION_NAME}",
+                    versionLabel,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
