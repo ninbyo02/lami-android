@@ -373,6 +373,7 @@ class SpriteBitmapOpsTest {
                     assertEquals(0, Color.alpha(result.bitmap.getPixel(x, y)))
                 } else {
                     assertEquals(Color.WHITE, result.bitmap.getPixel(x, y))
+                }
             }
         }
     }
@@ -811,7 +812,5 @@ class SpriteBitmapOpsTest {
         assertEquals(bitmap.getPixel(0, 1), flipped.getPixel(2, 1))
         assertEquals(0, Color.alpha(flipped.getPixel(2, 1)))
     }
-
-}
 
 }
