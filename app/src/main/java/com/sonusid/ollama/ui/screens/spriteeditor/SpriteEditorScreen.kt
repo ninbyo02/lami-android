@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -58,8 +57,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -104,8 +101,12 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
@@ -206,7 +207,7 @@ private fun snapToPixelCenter(value: Float): Float {
 fun SpriteEditorScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalAppSnackbarHostState.current
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
@@ -243,6 +244,20 @@ fun SpriteEditorScreen(navController: NavController) {
         duration: SnackbarDuration = SnackbarDuration.Short,
     ) {
         snackbarHostState.currentSnackbarData?.dismiss()
+        if (duration == SnackbarDuration.Short) {
+            coroutineScope {
+                val dismissJob = launch {
+                    delay(PROJECT_SNACKBAR_SHORT_MS)
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                }
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Indefinite,
+                )
+                dismissJob.cancel()
+            }
+            return
+        }
         snackbarHostState.showSnackbar(
             message = message,
             duration = duration,
@@ -430,21 +445,6 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     }
             )
-        },
-        snackbarHost = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier
-                        // 上: ステータスバー回避のため最小限の top padding
-                        .statusBarsPadding()
-                        // 上: TopAppBar と重ならないように最小限の top padding
-                        .padding(top = 56.dp + 8.dp)
-                )
-            }
         },
     ) { innerPadding ->
         Column(

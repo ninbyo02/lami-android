@@ -29,8 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -45,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -53,6 +53,7 @@ import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -85,11 +86,10 @@ fun Home(
     val animationEpochMs by viewModel.animationEpochMs.collectAsState()
     val baseUrl by viewModel.baseUrl.collectAsState()
     val listState = rememberLazyListState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
-
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -168,6 +168,16 @@ fun Home(
         }
     }
 
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            snackbarHostState.showSnackbar(
+                message = errorMessage,
+                duration = SnackbarDuration.Short,
+                actionLabel = "ERROR"
+            )
+        }
+    }
+
     Scaffold(topBar = {
         TopAppBar(
             title = {
@@ -210,7 +220,7 @@ fun Home(
                 }
             }
         )
-    }, snackbarHost = { SnackbarHost(snackbarHostState) }, bottomBar = {
+    }, bottomBar = {
         OutlinedTextField(
             interactionSource = interactionSource,
             leadingIcon = {
@@ -245,7 +255,11 @@ fun Home(
                         viewModel.onUserInteraction()
                         if (selectedModel.isNullOrBlank()) {
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar("モデルを選択してください")
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbarHostState.showSnackbar(
+                                    message = "モデルを選択してください",
+                                    duration = SnackbarDuration.Short
+                                )
                             }
                             return@ElevatedButton
                         }
@@ -279,12 +293,6 @@ fun Home(
             )
         )
     }) { paddingValues ->
-        LaunchedEffect(errorMessage) {
-            if (errorMessage != null) {
-                snackbarHostState.showSnackbar(errorMessage)
-            }
-        }
-
         Box(
             modifier = Modifier
                 .padding(paddingValues)
@@ -382,5 +390,3 @@ fun Home(
         }
     }
 }
-
-private val TopAppBarHeight = 64.dp

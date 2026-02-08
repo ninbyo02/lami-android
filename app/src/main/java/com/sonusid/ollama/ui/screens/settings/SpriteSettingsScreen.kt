@@ -49,9 +49,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
@@ -137,6 +134,9 @@ import com.sonusid.ollama.ui.components.drawFrameRegion
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
 import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.TopAppBarHeight
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -158,6 +158,8 @@ data class SpriteSheetSnapshot(
     val boxSizePx: Int,
     val boxPositions: List<BoxPosition>,
 )
+
+private val SpriteSettingsTabRowHeight = 32.dp
 
 private fun Modifier.debugBounds(tag: String): Modifier =
     this.onGloballyPositioned { c ->
@@ -853,11 +855,9 @@ fun SpriteSettingsScreen(navController: NavController) {
     val safeImageWidth = imageWidth.coerceAtLeast(1)
     val safeImageHeight = imageHeight.coerceAtLeast(1)
     val defaultSpriteSheetConfig = remember { SpriteSheetConfig.default3x3() }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalAppSnackbarHostState.current
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
-    val successSnackbarDurationMs = 1200L
-    val errorSnackbarDurationMs = 1800L
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
@@ -909,15 +909,15 @@ fun SpriteSettingsScreen(navController: NavController) {
     fun showTopSnackbar(message: String, isError: Boolean) {
         coroutineScope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
-            val dismissDelayMs = if (isError) errorSnackbarDurationMs else successSnackbarDurationMs
             val dismissJob = launch {
-                delay(dismissDelayMs)
+                delay(PROJECT_SNACKBAR_SHORT_MS)
                 snackbarHostState.currentSnackbarData?.dismiss()
             }
             snackbarHostState
                 .showSnackbar(
                     message = message,
                     actionLabel = if (isError) "ERROR" else null,
+                    // Indefinite: 手動の遅延制御で表示時間を統一するため
                     duration = SnackbarDuration.Indefinite
                 )
             dismissJob.cancel()
@@ -3947,7 +3947,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 // [非dp] 横: TopAppBar の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
                                 // [dp] 縦: TopAppBar の最小サイズ(最小サイズ)に関係
-                                .height(32.dp),
+                                .height(SpriteSettingsTabRowHeight),
                             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
                             indicator = { tabPositions ->
                                 TabRowDefaults.SecondaryIndicator(
@@ -4602,33 +4602,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
             }
         }
-            // 上: TabRow/コンテンツの上に重ねる Snackbar の配置(配置)に関係
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .zIndex(10f),
-            ) { data ->
-                val isError = data.visuals.actionLabel == "ERROR"
-                val containerColor = if (isError) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    MaterialTheme.colorScheme.inverseSurface
-                }
-                val contentColor = if (isError) {
-                    MaterialTheme.colorScheme.onErrorContainer
-                } else {
-                    MaterialTheme.colorScheme.inverseOnSurface
-                }
-                Snackbar(
-                    modifier = Modifier.fillMaxWidth(),
-                    containerColor = containerColor,
-                    contentColor = contentColor
-                ) {
-                    Text(text = data.visuals.message)
-                }
-            }
     }
 }
 }

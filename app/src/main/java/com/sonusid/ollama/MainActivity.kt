@@ -7,14 +7,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
@@ -38,6 +47,9 @@ import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.Settings
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.screens.spriteeditor.SpriteEditorScreen
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.ProjectSnackbar
+import com.sonusid.ollama.ui.common.TopAppBarHeight
 import com.sonusid.ollama.ui.theme.OllamaTheme
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
@@ -103,47 +115,76 @@ class MainActivity : ComponentActivity() {
                 initialRoute = restored?.takeIf { it in allowed } ?: Routes.CHATS
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Column(
-                        modifier = Modifier
-                            // 全体：ScaffoldのinnerPaddingを適用しコンテンツ被りを防止
-                            .padding(innerPadding)
-                            .fillMaxSize()
-                    ) {
-                        if (initialRoute == null) {
-                            // 起動時1回だけ復元が終わるまでNavHostを描かない（NavHost再生成防止）
-                            Box(modifier = Modifier.fillMaxSize())
-                        } else {
-                            NavHost(
-                                navController = navController,
-                                startDestination = initialRoute!!
+                val appSnackbarHostState = remember { SnackbarHostState() }
+                CompositionLocalProvider(
+                    LocalAppSnackbarHostState provides appSnackbarHostState
+                ) {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier
+                                    // 全体：ScaffoldのinnerPaddingを適用しコンテンツ被りを防止
+                                    .padding(innerPadding)
+                                    .fillMaxSize()
                             ) {
-                                composable(Routes.HOME) {
-                                    Home(navController, viewModel)
-                                }
-                                composable(Routes.CHATS) {
-                                    Chats(navController, viewModel)
-                                }
-                                composable(
-                                    route = Routes.CHAT_WITH_ID,
-                                    arguments = listOf(navArgument(Routes.CHAT_ID_ARG) { type = NavType.IntType })
-                                ) { backStackEntry ->
-                                    val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG)?.takeIf { it != 0 }
-                                    Home(navController, viewModel, chatId)
-                                }
-                                composable(Routes.SETTINGS) {
-                                    Settings(navController)
-                                }
-                                composable(Routes.ABOUT) {
-                                    About(navController, viewModel)
-                                }
-                                composable(SettingsRoute.SpriteSettings.route) {
-                                    SpriteSettingsScreen(navController)
-                                }
-                                composable(SettingsRoute.SpriteEditor.route) {
-                                    SpriteEditorScreen(navController)
+                                if (initialRoute == null) {
+                                    // 起動時1回だけ復元が終わるまでNavHostを描かない（NavHost再生成防止）
+                                    Box(modifier = Modifier.fillMaxSize())
+                                } else {
+                                    NavHost(
+                                        navController = navController,
+                                        startDestination = initialRoute!!
+                                    ) {
+                                        composable(Routes.HOME) {
+                                            Home(navController, viewModel)
+                                        }
+                                        composable(Routes.CHATS) {
+                                            Chats(navController, viewModel)
+                                        }
+                                        composable(
+                                            route = Routes.CHAT_WITH_ID,
+                                            arguments = listOf(navArgument(Routes.CHAT_ID_ARG) { type = NavType.IntType })
+                                        ) { backStackEntry ->
+                                            val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG)?.takeIf { it != 0 }
+                                            Home(navController, viewModel, chatId)
+                                        }
+                                        composable(Routes.SETTINGS) {
+                                            Settings(navController)
+                                        }
+                                        composable(Routes.ABOUT) {
+                                            About(navController, viewModel)
+                                        }
+                                        composable(SettingsRoute.SpriteSettings.route) {
+                                            SpriteSettingsScreen(navController)
+                                        }
+                                        composable(SettingsRoute.SpriteEditor.route) {
+                                            SpriteEditorScreen(navController)
+                                        }
+                                    }
                                 }
                             }
+                            SnackbarHost(
+                                hostState = appSnackbarHostState,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    // 上：ステータスバー回避のため最小限の top padding
+                                    .statusBarsPadding()
+                                    // 上：TopAppBar回避のため最小限の top padding、左右：スナックバーの余白
+                                    .padding(top = TopAppBarHeight + 8.dp, start = 16.dp, end = 16.dp)
+                                    .widthIn(max = 560.dp),
+                                snackbar = { data ->
+                                    val isError = data.visuals.actionLabel == "ERROR"
+                                    val textMaxLines = if (isError) 4 else 2
+                                    val containerColor = MaterialTheme.colorScheme.inverseSurface
+                                    val contentColor = MaterialTheme.colorScheme.inverseOnSurface
+                                    ProjectSnackbar(
+                                        message = data.visuals.message,
+                                        containerColor = containerColor,
+                                        contentColor = contentColor,
+                                        maxLines = textMaxLines,
+                                    )
+                                }
+                            )
                         }
                     }
                 }
