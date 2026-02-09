@@ -2103,6 +2103,48 @@ fun SpriteEditorScreen(navController: NavController) {
                             Text("Center")
                         }
                     }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Downscale mode")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
+                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.PixelArtStable },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
+                                onClick = null,
+                            )
+                            Text("PixelArt Stable")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
+                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
+                                onClick = null,
+                            )
+                            Text("MultiStep")
+                        }
+                    }
                     if (resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep) {
                         Column(
                             modifier = Modifier
@@ -2145,48 +2187,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 )
                                 Text("0.75")
                             }
-                        }
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectableGroup(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("Downscale mode")
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
-                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.PixelArtStable },
-                                    role = Role.RadioButton,
-                                ),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
-                                onClick = null,
-                            )
-                            Text("PixelArt Stable")
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
-                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep },
-                                    role = Role.RadioButton,
-                                ),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
-                                onClick = null,
-                            )
-                            Text("MultiStep")
                         }
                     }
                     if (resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable) {
