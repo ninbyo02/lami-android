@@ -95,6 +95,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -231,8 +233,12 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
-    var canvasWidthInput by rememberSaveable { mutableStateOf("") }
-    var canvasHeightInput by rememberSaveable { mutableStateOf("") }
+    var canvasWidthInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    var canvasHeightInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
     var canvasAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var lastToolOp by rememberSaveable(stateSaver = LastToolOpSaver) { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
@@ -1735,8 +1741,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
-                                    canvasWidthInput = current.bitmap.width.toString()
-                                    canvasHeightInput = current.bitmap.height.toString()
+                                    canvasWidthInput = TextFieldValue(current.bitmap.width.toString())
+                                    canvasHeightInput = TextFieldValue(current.bitmap.height.toString())
                                     canvasAnchor = ResizeAnchor.TopLeft
                                     activeSheet = SheetType.None
                                     showCanvasSizeDialog = true
@@ -2142,7 +2148,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             value = canvasWidthInput,
                             onValueChange = { input ->
                                 val maxW = editorState?.bitmap?.width ?: 4096
-                                canvasWidthInput = clampPxInput(input, maxW)
+                                canvasWidthInput = clampPxFieldValue(canvasWidthInput, input, maxW)
                             },
                             label = { Text("W(px)") },
                             singleLine = true,
@@ -2158,7 +2164,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             value = canvasHeightInput,
                             onValueChange = { input ->
                                 val maxH = editorState?.bitmap?.height ?: 4096
-                                canvasHeightInput = clampPxInput(input, maxH)
+                                canvasHeightInput = clampPxFieldValue(canvasHeightInput, input, maxH)
                             },
                             label = { Text("H(px)") },
                             singleLine = true,
@@ -2215,8 +2221,8 @@ fun SpriteEditorScreen(navController: NavController) {
                     }
                     Button(
                         onClick = {
-                            canvasWidthInput = "288"
-                            canvasHeightInput = "288"
+                            canvasWidthInput = TextFieldValue("288")
+                            canvasHeightInput = TextFieldValue("288")
                         },
                         modifier = Modifier.height(32.dp),
                     ) {
@@ -2235,12 +2241,12 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                         val maxW = current.bitmap.width
                         val maxH = current.bitmap.height
-                        val parsedW = canvasWidthInput.toIntOrNull()
-                        val parsedH = canvasHeightInput.toIntOrNull()
+                        val parsedW = canvasWidthInput.text.toIntOrNull()
+                        val parsedH = canvasHeightInput.text.toIntOrNull()
                         val safeW = (parsedW ?: maxW).coerceIn(1, maxW)
                         val safeH = (parsedH ?: maxH).coerceIn(1, maxH)
-                        canvasWidthInput = safeW.toString()
-                        canvasHeightInput = safeH.toString()
+                        canvasWidthInput = TextFieldValue(safeW.toString())
+                        canvasHeightInput = TextFieldValue(safeH.toString())
                         if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
                             scope.launch { showSnackbarMessage("Canvas unchanged") }
                             return@Button
@@ -2280,6 +2286,29 @@ fun SpriteEditorScreen(navController: NavController) {
 }
 
 private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit() }
+
+@VisibleForTesting
+internal fun clampPxFieldValue(prev: TextFieldValue, next: TextFieldValue, max: Int): TextFieldValue {
+    val maxDigits = max.coerceAtLeast(1).toString().length
+    val sanitized = digitsOnly(next.text)
+    val parsed = sanitized.toLongOrNull()
+    val exceedsMax = parsed != null && parsed > max
+    val exceedsDigits = sanitized.length > maxDigits
+    val clamped = clampPxInput(next.text, max)
+    val prevText = prev.text
+    if ((exceedsDigits || exceedsMax) && clamped == prevText) {
+        return TextFieldValue(
+            text = prevText,
+            selection = TextRange(prevText.length),
+            composition = null,
+        )
+    }
+    return TextFieldValue(
+        text = clamped,
+        selection = TextRange(clamped.length),
+        composition = null,
+    )
+}
 
 @VisibleForTesting
 internal fun clampPxInput(raw: String, max: Int): String {

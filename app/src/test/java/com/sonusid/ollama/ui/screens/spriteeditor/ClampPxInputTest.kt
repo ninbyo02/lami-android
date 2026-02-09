@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import androidx.compose.ui.text.input.TextFieldValue
 
 class ClampPxInputTest {
     @Test
@@ -37,5 +38,37 @@ class ClampPxInputTest {
     @Test
     fun clampForTwoDigitMax() {
         assertEquals("99", clampPxInput("100", 99))
+    }
+
+    @Test
+    fun clampFieldRejectsFourthDigitForThreeDigitMax() {
+        val prev = TextFieldValue("288")
+        val next = TextFieldValue("2889")
+        val result = clampPxFieldValue(prev, next, 288)
+        assertEquals("288", result.text)
+    }
+
+    @Test
+    fun clampFieldAllowsFourDigitsWithinMax() {
+        val prev = TextFieldValue("409")
+        val next = TextFieldValue("4096")
+        val result = clampPxFieldValue(prev, next, 4096)
+        assertEquals("4096", result.text)
+    }
+
+    @Test
+    fun clampFieldRejectsOverMax() {
+        val prev = TextFieldValue("4096")
+        val next = TextFieldValue("4097")
+        val result = clampPxFieldValue(prev, next, 4096)
+        assertEquals("4096", result.text)
+    }
+
+    @Test
+    fun clampFieldClampsLargePaste() {
+        val prev = TextFieldValue("")
+        val next = TextFieldValue("99999")
+        val result = clampPxFieldValue(prev, next, 288)
+        assertEquals("288", result.text)
     }
 }
