@@ -57,6 +57,14 @@ class ClampPxInputTest {
     }
 
     @Test
+    fun clampFieldAllowsFourDigitsFromEmpty() {
+        val prev = TextFieldValue("")
+        val next = TextFieldValue("4096")
+        val result = clampPxFieldValue(prev, next, 4096)
+        assertEquals("4096", result.text)
+    }
+
+    @Test
     fun clampFieldRejectsOverMax() {
         val prev = TextFieldValue("4096")
         val next = TextFieldValue("4097")

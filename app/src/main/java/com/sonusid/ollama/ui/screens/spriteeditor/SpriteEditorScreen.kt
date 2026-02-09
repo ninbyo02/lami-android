@@ -481,11 +481,23 @@ fun SpriteEditorScreen(navController: NavController) {
                     val pillShape = SpriteEditorPillShape
                     var moveMode by remember { mutableStateOf(MoveMode.Box) }
                     var pxStepBase by rememberSaveable { mutableStateOf(4) }
-                    var widthText by remember(state?.widthInput) {
-                        mutableStateOf(state?.widthInput.orEmpty())
+                    var widthText by rememberSaveable(state?.widthInput, stateSaver = TextFieldValue.Saver) {
+                        val initial = state?.widthInput.orEmpty()
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = initial,
+                                selection = TextRange(initial.length),
+                            ),
+                        )
                     }
-                    var heightText by remember(state?.heightInput) {
-                        mutableStateOf(state?.heightInput.orEmpty())
+                    var heightText by rememberSaveable(state?.heightInput, stateSaver = TextFieldValue.Saver) {
+                        val initial = state?.heightInput.orEmpty()
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = initial,
+                                selection = TextRange(initial.length),
+                            ),
+                        )
                     }
                     val inputContent: @Composable (Modifier) -> Unit = { modifier ->
                         Row(
@@ -494,12 +506,14 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             OutlinedTextField(
                                 value = widthText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    widthText = sanitized
+                                onValueChange = { input: TextFieldValue ->
+                                    val maxWidth = state?.bitmap?.width ?: 4096
+                                    val clamped = clampPxFieldValue(widthText, input, maxWidth)
+                                    widthText = clamped
+                                    val sanitizedText = clamped.text
                                     updateState { current ->
-                                        val updated = current.copy(widthInput = sanitized)
-                                        val width = sanitized.toIntOrNull()
+                                        val updated = current.copy(widthInput = sanitizedText)
+                                        val width = sanitizedText.toIntOrNull()
                                         if (width != null && width > 0) {
                                             val resized = current.selection.resize(width, current.selection.h)
                                             val normalized = rectNormalizeClamp(
@@ -530,12 +544,14 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                             OutlinedTextField(
                                 value = heightText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    heightText = sanitized
+                                onValueChange = { input: TextFieldValue ->
+                                    val maxHeight = state?.bitmap?.height ?: 4096
+                                    val clamped = clampPxFieldValue(heightText, input, maxHeight)
+                                    heightText = clamped
+                                    val sanitizedText = clamped.text
                                     updateState { current ->
-                                        val updated = current.copy(heightInput = sanitized)
-                                        val height = sanitized.toIntOrNull()
+                                        val updated = current.copy(heightInput = sanitizedText)
+                                        val height = sanitizedText.toIntOrNull()
                                         if (height != null && height > 0) {
                                             val resized = current.selection.resize(current.selection.w, height)
                                             val normalized = rectNormalizeClamp(
