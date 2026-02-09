@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TextRange
 
 class ClampPxInputTest {
     @Test
@@ -78,5 +79,45 @@ class ClampPxInputTest {
         val next = TextFieldValue("99999")
         val result = clampPxFieldValue(prev, next, 288)
         assertEquals("288", result.text)
+    }
+
+    @Test
+    fun rejectFieldRejectsFifthDigit() {
+        val prev = TextFieldValue("1024", selection = TextRange(4))
+        val result = rejectPxFieldValueOverMaxDigits(prev, "10245", maxDigits = 4)
+        assertEquals("1024", result.text)
+        assertEquals(TextRange(4), result.selection)
+    }
+
+    @Test
+    fun rejectFieldFiltersDigitsOnly() {
+        val prev = TextFieldValue("1", selection = TextRange(1))
+        val result = rejectPxFieldValueOverMaxDigits(prev, "12a3", maxDigits = 4)
+        assertEquals("123", result.text)
+        assertEquals(TextRange(3), result.selection)
+    }
+
+    @Test
+    fun rejectFieldAllowsEmpty() {
+        val prev = TextFieldValue("12", selection = TextRange(2))
+        val result = rejectPxFieldValueOverMaxDigits(prev, "", maxDigits = 4)
+        assertEquals("", result.text)
+        assertEquals(TextRange(0), result.selection)
+    }
+
+    @Test
+    fun rejectFieldAllowsExactMaxDigits() {
+        val prev = TextFieldValue("999", selection = TextRange(3))
+        val result = rejectPxFieldValueOverMaxDigits(prev, "9999", maxDigits = 4)
+        assertEquals("9999", result.text)
+        assertEquals(TextRange(4), result.selection)
+    }
+
+    @Test
+    fun rejectFieldPreservesLeadingZeros() {
+        val prev = TextFieldValue("0", selection = TextRange(1))
+        val result = rejectPxFieldValueOverMaxDigits(prev, "0001", maxDigits = 4)
+        assertEquals("0001", result.text)
+        assertEquals(TextRange(4), result.selection)
     }
 }

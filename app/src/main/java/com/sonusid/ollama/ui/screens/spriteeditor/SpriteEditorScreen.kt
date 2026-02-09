@@ -2163,8 +2163,11 @@ fun SpriteEditorScreen(navController: NavController) {
                         OutlinedTextField(
                             value = canvasWidthInput,
                             onValueChange = { input ->
-                                val maxW = editorState?.bitmap?.width ?: 4096
-                                canvasWidthInput = clampPxFieldValue(canvasWidthInput, input, maxW)
+                                canvasWidthInput = rejectPxFieldValueOverMaxDigits(
+                                    canvasWidthInput,
+                                    input.text,
+                                    maxDigits = 4,
+                                )
                             },
                             label = { Text("W(px)") },
                             singleLine = true,
@@ -2179,8 +2182,11 @@ fun SpriteEditorScreen(navController: NavController) {
                         OutlinedTextField(
                             value = canvasHeightInput,
                             onValueChange = { input ->
-                                val maxH = editorState?.bitmap?.height ?: 4096
-                                canvasHeightInput = clampPxFieldValue(canvasHeightInput, input, maxH)
+                                canvasHeightInput = rejectPxFieldValueOverMaxDigits(
+                                    canvasHeightInput,
+                                    input.text,
+                                    maxDigits = 4,
+                                )
                             },
                             label = { Text("H(px)") },
                             singleLine = true,
@@ -2255,12 +2261,10 @@ fun SpriteEditorScreen(navController: NavController) {
                             scope.launch { showSnackbarMessage("No sprite loaded") }
                             return@Button
                         }
-                        val maxW = current.bitmap.width
-                        val maxH = current.bitmap.height
                         val parsedW = canvasWidthInput.text.toIntOrNull()
                         val parsedH = canvasHeightInput.text.toIntOrNull()
-                        val safeW = (parsedW ?: maxW).coerceIn(1, maxW)
-                        val safeH = (parsedH ?: maxH).coerceIn(1, maxH)
+                        val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 9999)
+                        val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 9999)
                         canvasWidthInput = TextFieldValue(safeW.toString())
                         canvasHeightInput = TextFieldValue(safeH.toString())
                         if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
@@ -2339,6 +2343,30 @@ internal fun clampPxInput(raw: String, max: Int): String {
     }
     val clamped = parsed.coerceIn(1L, max.toLong()).toString()
     return if (clamped.length > maxDigits) clamped.take(maxDigits) else clamped
+}
+
+@VisibleForTesting
+internal fun rejectPxFieldValueOverMaxDigits(
+    prev: TextFieldValue,
+    nextRaw: String,
+    maxDigits: Int = 4,
+): TextFieldValue {
+    val sanitized = digitsOnly(nextRaw)
+    if (sanitized.isEmpty()) {
+        return TextFieldValue(
+            text = "",
+            selection = TextRange(0),
+            composition = null,
+        )
+    }
+    if (sanitized.length > maxDigits) {
+        return prev
+    }
+    return TextFieldValue(
+        text = sanitized,
+        selection = TextRange(sanitized.length),
+        composition = null,
+    )
 }
 
 // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
