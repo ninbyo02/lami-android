@@ -2243,40 +2243,53 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         }
                     }
-                    SpriteEditorStandardOutlinedButton(
-                        label = "Reset 288x288",
-                        onClick = {
-                            canvasWidthInput = TextFieldValue("288")
-                            canvasHeightInput = TextFieldValue("288")
-                        },
-                    )
                 }
             },
             confirmButton = {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // 左右24dp・下16dpの余白を確保
+                        // [dp] 左右・下: ダイアログボタンの余白(余白)に関係
                         .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(
                         modifier = Modifier
-                            // 幅を最大320dpに制限してレイアウトを安定化
+                            // [dp] 最大幅: ダイアログ内ボタンの横幅上限(サイズ)に関係
                             .widthIn(max = 320.dp)
                             .fillMaxWidth(),
                     ) {
+                        SpriteEditorStandardOutlinedButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // [dp] 左右: 1段目ボタンの横幅を詰めるための最小余白(余白)に関係
+                                .padding(horizontal = 4.dp)
+                                // [dp] 左右: 1段目ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                                .padding(horizontal = 2.dp),
+                            label = "Reset 288x288",
+                            onClick = {
+                                canvasWidthInput = TextFieldValue("288")
+                                canvasHeightInput = TextFieldValue("288")
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(
+                            modifier = Modifier
+                                // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
+                                .height(12.dp)
+                        )
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 左右4dpの余白でボタン間隔を整える
+                                // [dp] 左右: 2段目ボタン全体の横幅を詰めるための最小余白(余白)に関係
                                 .padding(horizontal = 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             SpriteEditorStandardOutlinedButton(
                                 modifier = Modifier
                                     .weight(1f)
-                                    // 左右2dpでボタン間の視覚的な余白を調整
+                                    // [dp] 左右: 2段目左ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
                                     .padding(horizontal = 2.dp),
                                 label = "Cancel",
                                 onClick = { showCanvasSizeDialog = false },
@@ -2286,7 +2299,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             SpriteEditorStandardButton(
                                 modifier = Modifier
                                     .weight(1f)
-                                    // 左右2dpでボタン間の視覚的な余白を調整
+                                    // [dp] 左右: 2段目右ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
                                     .padding(horizontal = 2.dp),
                                 label = "Apply",
                                 onClick = {
