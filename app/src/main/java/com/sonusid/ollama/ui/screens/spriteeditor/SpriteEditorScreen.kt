@@ -2263,8 +2263,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                         val parsedW = canvasWidthInput.text.toIntOrNull()
                         val parsedH = canvasHeightInput.text.toIntOrNull()
-                        val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 9999)
-                        val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 9999)
+                        val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+                        val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
                         canvasWidthInput = TextFieldValue(safeW.toString())
                         canvasHeightInput = TextFieldValue(safeH.toString())
                         if (safeW == current.bitmap.width && safeH == current.bitmap.height) {

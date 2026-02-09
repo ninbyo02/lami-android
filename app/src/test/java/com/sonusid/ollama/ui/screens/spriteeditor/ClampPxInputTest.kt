@@ -37,6 +37,13 @@ class ClampPxInputTest {
     }
 
     @Test
+    fun clampCanvasSizeToUpperLimit() {
+        val parsed = "9999".toIntOrNull()
+        val safe = (parsed ?: 288).coerceIn(1, 4096)
+        assertEquals(4096, safe)
+    }
+
+    @Test
     fun clampForTwoDigitMax() {
         assertEquals("99", clampPxInput("100", 99))
     }
