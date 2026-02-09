@@ -2207,100 +2207,102 @@ fun SpriteEditorScreen(navController: NavController) {
                     ) {
                         Text("Anchor")
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                modifier = Modifier.selectable(
                                     selected = canvasAnchor == ResizeAnchor.TopLeft,
                                     onClick = { canvasAnchor = ResizeAnchor.TopLeft },
                                     role = Role.RadioButton,
                                 ),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = canvasAnchor == ResizeAnchor.TopLeft,
-                                onClick = null,
-                            )
-                            Text("TopLeft")
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                    onClick = null,
+                                )
+                                Text("TopLeft")
+                            }
+                            Row(
+                                modifier = Modifier.selectable(
                                     selected = canvasAnchor == ResizeAnchor.Center,
                                     onClick = { canvasAnchor = ResizeAnchor.Center },
                                     role = Role.RadioButton,
                                 ),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = canvasAnchor == ResizeAnchor.Center,
-                                onClick = null,
-                            )
-                            Text("Center")
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = canvasAnchor == ResizeAnchor.Center,
+                                    onClick = null,
+                                )
+                                Text("Center")
+                            }
                         }
                     }
-                    Button(
+                    SpriteEditorStandardOutlinedButton(
+                        label = "Reset 288x288",
                         onClick = {
                             canvasWidthInput = TextFieldValue("288")
                             canvasHeightInput = TextFieldValue("288")
                         },
-                        modifier = Modifier.height(32.dp),
-                    ) {
-                        Text("Reset 288x288")
-                    }
+                    )
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showCanvasSizeDialog = false
-                        val current = editorState
-                        if (current == null) {
-                            scope.launch { showSnackbarMessage("No sprite loaded") }
-                            return@Button
-                        }
-                        val parsedW = canvasWidthInput.text.toIntOrNull()
-                        val parsedH = canvasHeightInput.text.toIntOrNull()
-                        val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
-                        val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
-                        canvasWidthInput = TextFieldValue(safeW.toString())
-                        canvasHeightInput = TextFieldValue(safeH.toString())
-                        if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
-                            scope.launch { showSnackbarMessage("Canvas unchanged") }
-                            return@Button
-                        }
-                        pushUndoSnapshot(current, undoStack, redoStack)
-                        val resizedBitmap = resizeCanvas(
-                            current.bitmap,
-                            safeW,
-                            safeH,
-                            canvasAnchor,
-                        )
-                        val nextSelection = rectNormalizeClamp(
-                            current.selection,
-                            safeW,
-                            safeH,
-                        )
-                        editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
-                        isDirty = true
-                        activeSheet = SheetType.None
-                        scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
-                    },
-                    modifier = Modifier.height(32.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    Text("Apply")
+                    SpriteEditorStandardOutlinedButton(
+                        label = "Cancel",
+                        onClick = { showCanvasSizeDialog = false },
+                    )
+                    // [dp] ボタン間の最低限の間隔
+                    Spacer(modifier = Modifier.width(12.dp))
+                    SpriteEditorStandardButton(
+                        label = "Apply",
+                        onClick = {
+                            showCanvasSizeDialog = false
+                            val current = editorState
+                            if (current == null) {
+                                scope.launch { showSnackbarMessage("No sprite loaded") }
+                                return@SpriteEditorStandardButton
+                            }
+                            val parsedW = canvasWidthInput.text.toIntOrNull()
+                            val parsedH = canvasHeightInput.text.toIntOrNull()
+                            val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+                            val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
+                            canvasWidthInput = TextFieldValue(safeW.toString())
+                            canvasHeightInput = TextFieldValue(safeH.toString())
+                            if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
+                                scope.launch { showSnackbarMessage("Canvas unchanged") }
+                                return@SpriteEditorStandardButton
+                            }
+                            pushUndoSnapshot(current, undoStack, redoStack)
+                            val resizedBitmap = resizeCanvas(
+                                current.bitmap,
+                                safeW,
+                                safeH,
+                                canvasAnchor,
+                            )
+                            val nextSelection = rectNormalizeClamp(
+                                current.selection,
+                                safeW,
+                                safeH,
+                            )
+                            editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                            isDirty = true
+                            activeSheet = SheetType.None
+                            scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
+                        },
+                    )
                 }
             },
-            dismissButton = {
-                Button(
-                    onClick = { showCanvasSizeDialog = false },
-                    modifier = Modifier.height(32.dp),
-                ) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = {},
         )
     }
 }
