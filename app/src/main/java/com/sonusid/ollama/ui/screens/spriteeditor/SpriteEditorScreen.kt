@@ -9,6 +9,7 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -2140,7 +2141,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         OutlinedTextField(
                             value = canvasWidthInput,
                             onValueChange = { input ->
-                                canvasWidthInput = digitsOnly(input).take(4)
+                                val maxW = editorState?.bitmap?.width ?: 4096
+                                canvasWidthInput = clampPxInput(input, maxW)
                             },
                             label = { Text("W(px)") },
                             singleLine = true,
@@ -2155,7 +2157,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         OutlinedTextField(
                             value = canvasHeightInput,
                             onValueChange = { input ->
-                                canvasHeightInput = digitsOnly(input).take(4)
+                                val maxH = editorState?.bitmap?.height ?: 4096
+                                canvasHeightInput = clampPxInput(input, maxH)
                             },
                             label = { Text("H(px)") },
                             singleLine = true,
@@ -2277,6 +2280,21 @@ fun SpriteEditorScreen(navController: NavController) {
 }
 
 private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit() }
+
+@VisibleForTesting
+internal fun clampPxInput(raw: String, max: Int): String {
+    val sanitized = digitsOnly(raw)
+    if (sanitized.isEmpty()) {
+        return ""
+    }
+    val maxDigits = max.coerceAtLeast(1).toString().length
+    val parsed = sanitized.toLongOrNull()
+    if (parsed == null) {
+        return sanitized.take(maxDigits)
+    }
+    val clamped = parsed.coerceIn(1L, max.toLong()).toString()
+    return if (clamped.length > maxDigits) clamped.take(maxDigits) else clamped
+}
 
 // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
 private val SpriteEditorButtonHeight = 32.dp
