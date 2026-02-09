@@ -2253,54 +2253,80 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             },
             confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 左右24dp・下16dpの余白を確保
+                        .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    Column(
+                        modifier = Modifier
+                            // 幅を最大320dpに制限してレイアウトを安定化
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
                     ) {
-                        SpriteEditorStandardOutlinedButton(
-                            label = "Cancel",
-                            onClick = { showCanvasSizeDialog = false },
-                        )
-                        SpriteEditorStandardButton(
-                            label = "Apply",
-                            onClick = {
-                                showCanvasSizeDialog = false
-                                val current = editorState
-                                if (current == null) {
-                                    scope.launch { showSnackbarMessage("No sprite loaded") }
-                                    return@SpriteEditorStandardButton
-                                }
-                                val parsedW = canvasWidthInput.text.toIntOrNull()
-                                val parsedH = canvasHeightInput.text.toIntOrNull()
-                                val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
-                                val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
-                                canvasWidthInput = TextFieldValue(safeW.toString())
-                                canvasHeightInput = TextFieldValue(safeH.toString())
-                                if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
-                                    scope.launch { showSnackbarMessage("Canvas unchanged") }
-                                    return@SpriteEditorStandardButton
-                                }
-                                pushUndoSnapshot(current, undoStack, redoStack)
-                                val resizedBitmap = resizeCanvas(
-                                    current.bitmap,
-                                    safeW,
-                                    safeH,
-                                    canvasAnchor,
-                                )
-                                val nextSelection = rectNormalizeClamp(
-                                    current.selection,
-                                    safeW,
-                                    safeH,
-                                )
-                                editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
-                                isDirty = true
-                                activeSheet = SheetType.None
-                                scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
-                            },
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // 左右4dpの余白でボタン間隔を整える
+                                .padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            SpriteEditorStandardOutlinedButton(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    // 左右2dpでボタン間の視覚的な余白を調整
+                                    .padding(horizontal = 2.dp),
+                                label = "Cancel",
+                                onClick = { showCanvasSizeDialog = false },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            SpriteEditorStandardButton(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    // 左右2dpでボタン間の視覚的な余白を調整
+                                    .padding(horizontal = 2.dp),
+                                label = "Apply",
+                                onClick = {
+                                    showCanvasSizeDialog = false
+                                    val current = editorState
+                                    if (current == null) {
+                                        scope.launch { showSnackbarMessage("No sprite loaded") }
+                                        return@SpriteEditorStandardButton
+                                    }
+                                    val parsedW = canvasWidthInput.text.toIntOrNull()
+                                    val parsedH = canvasHeightInput.text.toIntOrNull()
+                                    val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+                                    val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
+                                    canvasWidthInput = TextFieldValue(safeW.toString())
+                                    canvasHeightInput = TextFieldValue(safeH.toString())
+                                    if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
+                                        scope.launch { showSnackbarMessage("Canvas unchanged") }
+                                        return@SpriteEditorStandardButton
+                                    }
+                                    pushUndoSnapshot(current, undoStack, redoStack)
+                                    val resizedBitmap = resizeCanvas(
+                                        current.bitmap,
+                                        safeW,
+                                        safeH,
+                                        canvasAnchor,
+                                    )
+                                    val nextSelection = rectNormalizeClamp(
+                                        current.selection,
+                                        safeW,
+                                        safeH,
+                                    )
+                                    editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                                    isDirty = true
+                                    activeSheet = SheetType.None
+                                    scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             },
