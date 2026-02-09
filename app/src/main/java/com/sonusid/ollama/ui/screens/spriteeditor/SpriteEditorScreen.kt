@@ -195,11 +195,11 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
                     ResizeAnchor.TopLeft
                 }
                 val stepFactor = data.getOrNull(2)?.toFloatOrNull() ?: 0.5f
-                val modeName = data.getOrNull(3) ?: ResizeDownscaleMode.DefaultMultiStep.name
+                val modeName = data.getOrNull(3) ?: ResizeDownscaleMode.PixelArtStable.name
                 val downscaleMode = try {
                     ResizeDownscaleMode.valueOf(modeName)
                 } catch (_: IllegalArgumentException) {
-                    ResizeDownscaleMode.DefaultMultiStep
+                    ResizeDownscaleMode.PixelArtStable
                 }
                 val methodName = data.getOrNull(4) ?: PixelArtStableMethod.CenterSample.name
                 val pixelArtMethod = try {
@@ -256,7 +256,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
-    var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.DefaultMultiStep) }
+    var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.PixelArtStable) }
     var resizePixelArtMethod by rememberSaveable { mutableStateOf(PixelArtStableMethod.CenterSample) }
     var canvasWidthInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(""))
