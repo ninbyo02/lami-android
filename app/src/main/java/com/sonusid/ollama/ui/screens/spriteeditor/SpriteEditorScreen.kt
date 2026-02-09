@@ -2257,49 +2257,51 @@ fun SpriteEditorScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    SpriteEditorStandardOutlinedButton(
-                        label = "Cancel",
-                        onClick = { showCanvasSizeDialog = false },
-                    )
-                    // [dp] ボタン間の最低限の間隔
-                    Spacer(modifier = Modifier.width(12.dp))
-                    SpriteEditorStandardButton(
-                        label = "Apply",
-                        onClick = {
-                            showCanvasSizeDialog = false
-                            val current = editorState
-                            if (current == null) {
-                                scope.launch { showSnackbarMessage("No sprite loaded") }
-                                return@SpriteEditorStandardButton
-                            }
-                            val parsedW = canvasWidthInput.text.toIntOrNull()
-                            val parsedH = canvasHeightInput.text.toIntOrNull()
-                            val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
-                            val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
-                            canvasWidthInput = TextFieldValue(safeW.toString())
-                            canvasHeightInput = TextFieldValue(safeH.toString())
-                            if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
-                                scope.launch { showSnackbarMessage("Canvas unchanged") }
-                                return@SpriteEditorStandardButton
-                            }
-                            pushUndoSnapshot(current, undoStack, redoStack)
-                            val resizedBitmap = resizeCanvas(
-                                current.bitmap,
-                                safeW,
-                                safeH,
-                                canvasAnchor,
-                            )
-                            val nextSelection = rectNormalizeClamp(
-                                current.selection,
-                                safeW,
-                                safeH,
-                            )
-                            editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
-                            isDirty = true
-                            activeSheet = SheetType.None
-                            scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
-                        },
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        SpriteEditorStandardOutlinedButton(
+                            label = "Cancel",
+                            onClick = { showCanvasSizeDialog = false },
+                        )
+                        SpriteEditorStandardButton(
+                            label = "Apply",
+                            onClick = {
+                                showCanvasSizeDialog = false
+                                val current = editorState
+                                if (current == null) {
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                    return@SpriteEditorStandardButton
+                                }
+                                val parsedW = canvasWidthInput.text.toIntOrNull()
+                                val parsedH = canvasHeightInput.text.toIntOrNull()
+                                val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+                                val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
+                                canvasWidthInput = TextFieldValue(safeW.toString())
+                                canvasHeightInput = TextFieldValue(safeH.toString())
+                                if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
+                                    scope.launch { showSnackbarMessage("Canvas unchanged") }
+                                    return@SpriteEditorStandardButton
+                                }
+                                pushUndoSnapshot(current, undoStack, redoStack)
+                                val resizedBitmap = resizeCanvas(
+                                    current.bitmap,
+                                    safeW,
+                                    safeH,
+                                    canvasAnchor,
+                                )
+                                val nextSelection = rectNormalizeClamp(
+                                    current.selection,
+                                    safeW,
+                                    safeH,
+                                )
+                                editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                                isDirty = true
+                                activeSheet = SheetType.None
+                                scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
+                            },
+                        )
+                    }
                 }
             },
             dismissButton = {},
