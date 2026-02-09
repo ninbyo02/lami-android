@@ -2163,10 +2163,10 @@ fun SpriteEditorScreen(navController: NavController) {
                         OutlinedTextField(
                             value = canvasWidthInput,
                             onValueChange = { input ->
-                                canvasWidthInput = rejectPxFieldValueOverMaxDigits(
+                                canvasWidthInput = clampPxFieldValue(
                                     canvasWidthInput,
-                                    input.text,
-                                    maxDigits = 4,
+                                    input,
+                                    4096,
                                 )
                             },
                             label = { Text("W(px)") },
@@ -2182,10 +2182,10 @@ fun SpriteEditorScreen(navController: NavController) {
                         OutlinedTextField(
                             value = canvasHeightInput,
                             onValueChange = { input ->
-                                canvasHeightInput = rejectPxFieldValueOverMaxDigits(
+                                canvasHeightInput = clampPxFieldValue(
                                     canvasHeightInput,
-                                    input.text,
-                                    maxDigits = 4,
+                                    input,
+                                    4096,
                                 )
                             },
                             label = { Text("H(px)") },

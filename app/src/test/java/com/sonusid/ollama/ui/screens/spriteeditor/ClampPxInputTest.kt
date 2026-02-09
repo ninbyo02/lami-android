@@ -89,6 +89,15 @@ class ClampPxInputTest {
     }
 
     @Test
+    fun clampFieldClampsCanvasSizeTo4096() {
+        val prev = TextFieldValue("", selection = TextRange(0))
+        val next = TextFieldValue("99999", selection = TextRange(5))
+        val result = clampPxFieldValue(prev, next, 4096)
+        assertEquals("4096", result.text)
+        assertEquals(TextRange(4), result.selection)
+    }
+
+    @Test
     fun rejectFieldRejectsFifthDigit() {
         val prev = TextFieldValue("1024", selection = TextRange(4))
         val result = rejectPxFieldValueOverMaxDigits(prev, "10245", maxDigits = 4)
