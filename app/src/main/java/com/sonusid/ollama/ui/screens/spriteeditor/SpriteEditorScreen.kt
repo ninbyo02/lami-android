@@ -2153,93 +2153,103 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showCanvasSizeDialog = false },
             title = { Text("Canvas Size") },
             text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // [dp] 左右: ダイアログ本文の横幅を揃えるための最小余白(余白)に関係
+                        .padding(start = 24.dp, end = 24.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = canvasWidthInput,
-                            onValueChange = { input ->
-                                canvasWidthInput = clampPxFieldValue(
-                                    canvasWidthInput,
-                                    input,
-                                    4096,
-                                )
-                            },
-                            label = { Text("W(px)") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .width(96.dp)
-                                .height(54.dp)
-                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
-                                .heightIn(min = 54.dp),
-                        )
-                        OutlinedTextField(
-                            value = canvasHeightInput,
-                            onValueChange = { input ->
-                                canvasHeightInput = clampPxFieldValue(
-                                    canvasHeightInput,
-                                    input,
-                                    4096,
-                                )
-                            },
-                            label = { Text("H(px)") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .width(96.dp)
-                                .height(54.dp)
-                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
-                                .heightIn(min = 54.dp),
-                        )
-                    }
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .selectableGroup(),
+                            // [dp] 最大幅: ダイアログ本文の横幅上限(サイズ)に関係
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Anchor")
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            OutlinedTextField(
+                                value = canvasWidthInput,
+                                onValueChange = { input ->
+                                    canvasWidthInput = clampPxFieldValue(
+                                        canvasWidthInput,
+                                        input,
+                                        4096,
+                                    )
+                                },
+                                label = { Text("W(px)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .width(96.dp)
+                                    .height(54.dp)
+                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 54.dp),
+                            )
+                            OutlinedTextField(
+                                value = canvasHeightInput,
+                                onValueChange = { input ->
+                                    canvasHeightInput = clampPxFieldValue(
+                                        canvasHeightInput,
+                                        input,
+                                        4096,
+                                    )
+                                },
+                                label = { Text("H(px)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .width(96.dp)
+                                    .height(54.dp)
+                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 54.dp),
+                            )
+                        }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Anchor")
                             Row(
-                                modifier = Modifier.selectable(
-                                    selected = canvasAnchor == ResizeAnchor.TopLeft,
-                                    onClick = { canvasAnchor = ResizeAnchor.TopLeft },
-                                    role = Role.RadioButton,
-                                ),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                RadioButton(
-                                    selected = canvasAnchor == ResizeAnchor.TopLeft,
-                                    onClick = null,
-                                )
-                                Text("TopLeft")
-                            }
-                            Row(
-                                modifier = Modifier.selectable(
-                                    selected = canvasAnchor == ResizeAnchor.Center,
-                                    onClick = { canvasAnchor = ResizeAnchor.Center },
-                                    role = Role.RadioButton,
-                                ),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                RadioButton(
-                                    selected = canvasAnchor == ResizeAnchor.Center,
-                                    onClick = null,
-                                )
-                                Text("Center")
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                        onClick = { canvasAnchor = ResizeAnchor.TopLeft },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                        onClick = null,
+                                    )
+                                    Text("TopLeft")
+                                }
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasAnchor == ResizeAnchor.Center,
+                                        onClick = { canvasAnchor = ResizeAnchor.Center },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasAnchor == ResizeAnchor.Center,
+                                        onClick = null,
+                                    )
+                                    Text("Center")
+                                }
                             }
                         }
                     }
