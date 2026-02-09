@@ -148,7 +148,12 @@ private sealed class LastToolOp {
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
     data object CenterContentInBox : LastToolOp()
-    data class ResizeToMax96(val anchor: ResizeAnchor, val stepFactor: Float) : LastToolOp()
+    data class ResizeToMax96(
+        val anchor: ResizeAnchor,
+        val stepFactor: Float,
+        val downscaleMode: ResizeDownscaleMode,
+        val pixelArtMethod: PixelArtStableMethod,
+    ) : LastToolOp()
 }
 
 private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
@@ -162,7 +167,13 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
             LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
-            is LastToolOp.ResizeToMax96 -> listOf("ResizeToMax96", op.anchor.name, op.stepFactor.toString())
+            is LastToolOp.ResizeToMax96 -> listOf(
+                "ResizeToMax96",
+                op.anchor.name,
+                op.stepFactor.toString(),
+                op.downscaleMode.name,
+                op.pixelArtMethod.name,
+            )
         }
     },
     restore = { data ->
@@ -184,7 +195,19 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
                     ResizeAnchor.TopLeft
                 }
                 val stepFactor = data.getOrNull(2)?.toFloatOrNull() ?: 0.5f
-                LastToolOp.ResizeToMax96(anchor, stepFactor)
+                val modeName = data.getOrNull(3) ?: ResizeDownscaleMode.DefaultMultiStep.name
+                val downscaleMode = try {
+                    ResizeDownscaleMode.valueOf(modeName)
+                } catch (_: IllegalArgumentException) {
+                    ResizeDownscaleMode.DefaultMultiStep
+                }
+                val methodName = data.getOrNull(4) ?: PixelArtStableMethod.CenterSample.name
+                val pixelArtMethod = try {
+                    PixelArtStableMethod.valueOf(methodName)
+                } catch (_: IllegalArgumentException) {
+                    PixelArtStableMethod.CenterSample
+                }
+                LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
             }
 
             else -> null
@@ -233,6 +256,8 @@ fun SpriteEditorScreen(navController: NavController) {
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
+    var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.DefaultMultiStep) }
+    var resizePixelArtMethod by rememberSaveable { mutableStateOf(PixelArtStableMethod.CenterSample) }
     var canvasWidthInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue(""))
     }
@@ -275,6 +300,8 @@ fun SpriteEditorScreen(navController: NavController) {
         current: SpriteEditorState,
         anchor: ResizeAnchor,
         stepFactor: Float,
+        downscaleMode: ResizeDownscaleMode,
+        pixelArtMethod: PixelArtStableMethod,
         repeated: Boolean,
     ) {
         val resizeResult = resizeSelectionToMax96(
@@ -282,6 +309,8 @@ fun SpriteEditorScreen(navController: NavController) {
             current.selection,
             anchor = anchor,
             stepFactor = stepFactor,
+            downscaleMode = downscaleMode,
+            pixelArtMethod = pixelArtMethod,
         )
         if (!resizeResult.applied) {
             scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
@@ -290,7 +319,7 @@ fun SpriteEditorScreen(navController: NavController) {
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
         isDirty = true
-        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor)
+        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
         val message = if (repeated) "Repeated: Resize" else "Resize applied"
         scope.launch { showSnackbarMessage(message) }
     }
@@ -1441,6 +1470,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     current,
                                                                     anchor = op.anchor,
                                                                     stepFactor = op.stepFactor,
+                                                                    downscaleMode = op.downscaleMode,
+                                                                    pixelArtMethod = op.pixelArtMethod,
                                                                     repeated = true,
                                                                 )
                                                             }
@@ -2114,6 +2145,92 @@ fun SpriteEditorScreen(navController: NavController) {
                             Text("0.75")
                         }
                     }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectableGroup(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Downscale mode")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
+                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
+                                onClick = null,
+                            )
+                            Text("Default (MultiStep)")
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
+                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.PixelArtStable },
+                                    role = Role.RadioButton,
+                                ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
+                                onClick = null,
+                            )
+                            Text("PixelArt Stable")
+                        }
+                    }
+                    if (resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("PixelArt method")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = resizePixelArtMethod == PixelArtStableMethod.CenterSample,
+                                        onClick = { resizePixelArtMethod = PixelArtStableMethod.CenterSample },
+                                        role = Role.RadioButton,
+                                    ),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = resizePixelArtMethod == PixelArtStableMethod.CenterSample,
+                                    onClick = null,
+                                )
+                                Text("CenterSample")
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = resizePixelArtMethod == PixelArtStableMethod.DarkDominant,
+                                        onClick = { resizePixelArtMethod = PixelArtStableMethod.DarkDominant },
+                                        role = Role.RadioButton,
+                                    ),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = resizePixelArtMethod == PixelArtStableMethod.DarkDominant,
+                                    onClick = null,
+                                )
+                                Text("DarkDominant")
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -2128,6 +2245,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 current,
                                 anchor = resizeAnchor,
                                 stepFactor = resizeStepFactor,
+                                downscaleMode = resizeDownscaleMode,
+                                pixelArtMethod = resizePixelArtMethod,
                                 repeated = false,
                             )
                         }
