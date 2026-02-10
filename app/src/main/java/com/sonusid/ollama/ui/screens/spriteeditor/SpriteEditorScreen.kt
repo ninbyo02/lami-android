@@ -1907,6 +1907,34 @@ fun SpriteEditorScreen(navController: NavController) {
 
     if (showApplyDialog) {
         val applyTargetLabel = "Sprite Settings (Current)"
+        val currentEditorBitmap = editorState?.bitmap
+        val currentEditorSelection = editorState?.selection
+        val existingOverrideBitmap = SpriteSettingsSessionSpriteOverride.bitmap
+        val beforeBitmap = remember(existingOverrideBitmap) {
+            // Sprite Settings 側の既存セッション上書きがあればそれを優先表示する
+            existingOverrideBitmap
+        }
+        val afterBitmap = remember(applySource, currentEditorBitmap, currentEditorSelection) {
+            val bitmap = currentEditorBitmap ?: return@remember null
+            when (applySource) {
+                ApplySource.FullImage -> ensureArgb8888(bitmap)
+                ApplySource.Selection -> {
+                    val selection = currentEditorSelection ?: return@remember null
+                    val normalizedSelection = rectNormalizeClamp(
+                        selection,
+                        bitmap.width,
+                        bitmap.height,
+                    )
+                    if (normalizedSelection.w < 1 || normalizedSelection.h < 1) {
+                        null
+                    } else {
+                        ensureArgb8888(copyRect(bitmap, normalizedSelection))
+                    }
+                }
+            }
+        }
+        val beforeImageBitmap = remember(beforeBitmap) { beforeBitmap?.asImageBitmap() }
+        val afterImageBitmap = remember(afterBitmap) { afterBitmap?.asImageBitmap() }
         AlertDialog(
             onDismissRequest = { showApplyDialog = false },
             title = { Text("Apply to Sprite") },
@@ -1985,7 +2013,24 @@ fun SpriteEditorScreen(navController: NavController) {
                                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                         .testTag("spriteEditorApplyPreviewBefore"),
-                                )
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (beforeImageBitmap != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = beforeImageBitmap,
+                                            contentDescription = "Apply Preview Before",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(6.dp),
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "No preview",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
                             }
                             Column(
                                 modifier = Modifier.weight(1f),
@@ -1999,7 +2044,36 @@ fun SpriteEditorScreen(navController: NavController) {
                                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                                         .background(MaterialTheme.colorScheme.surfaceVariant)
                                         .testTag("spriteEditorApplyPreviewAfter"),
-                                )
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (afterImageBitmap != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = afterImageBitmap,
+                                            contentDescription = "Apply Preview After",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(6.dp),
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "No preview",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
+                                if (!applyOverwrite && existingOverrideBitmap != null) {
+                                    Text(
+                                        text = "Overwrite disabled: apply will be rejected",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                                if (applyPreserveAlpha) {
+                                    Text(
+                                        text = "Preserve transparency: Not implemented",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             }
                         }
                     }
