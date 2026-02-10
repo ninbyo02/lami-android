@@ -1968,16 +1968,20 @@ fun SpriteEditorScreen(navController: NavController) {
                     ) {
                         Text("Source")
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = applySource == ApplySource.FullImage,
-                                    onClick = { applySource = ApplySource.FullImage },
-                                    role = Role.RadioButton,
-                                )
-                                .testTag("spriteEditorApplySourceFull"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .selectable(
+                                        selected = applySource == ApplySource.FullImage,
+                                        onClick = { applySource = ApplySource.FullImage },
+                                        role = Role.RadioButton,
+                                    )
+                                    .testTag("spriteEditorApplySourceFull"),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 RadioButton(
                                     selected = applySource == ApplySource.FullImage,
@@ -1985,23 +1989,23 @@ fun SpriteEditorScreen(navController: NavController) {
                                 )
                                 Text("Full Image")
                             }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
+                            Row(
+                                modifier = Modifier
+                                    .selectable(
+                                        selected = applySource == ApplySource.Selection,
+                                        onClick = { applySource = ApplySource.Selection },
+                                        role = Role.RadioButton,
+                                    )
+                                    .testTag("spriteEditorApplySourceSelection"),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
                                     selected = applySource == ApplySource.Selection,
-                                    onClick = { applySource = ApplySource.Selection },
-                                    role = Role.RadioButton,
+                                    onClick = null,
                                 )
-                                .testTag("spriteEditorApplySourceSelection"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = applySource == ApplySource.Selection,
-                                onClick = null,
-                            )
-                            Text("Selection")
+                                Text("Selection")
+                            }
                         }
                     }
                     Column(
