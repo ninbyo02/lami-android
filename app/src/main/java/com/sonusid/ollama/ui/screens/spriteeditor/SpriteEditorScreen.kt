@@ -76,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -2084,40 +2085,61 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                             }
                         }
+                        val commentLines = listOfNotNull(
+                            overwriteMessage.takeIf { it.isNotBlank() },
+                            preserveMessage.takeIf { it.isNotBlank() },
+                        )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(APPLY_DIALOG_COMMENT_MIN_HEIGHT)
+                                .heightIn(min = APPLY_DIALOG_COMMENT_MIN_HEIGHT)
                                 .testTag("spriteEditorApplyCommentArea"),
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
-                            ) {
-                                val hasOverwriteMessage = overwriteMessage.isNotBlank()
-                                val hasPreserveMessage = preserveMessage.isNotBlank()
-                                Text(
-                                    text = if (hasOverwriteMessage) overwriteMessage else " ",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = if (hasOverwriteMessage) 1f else 0f,
-                                        ),
-                                    ),
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Clip,
-                                    softWrap = true,
-                                )
-                                Text(
-                                    text = if (hasPreserveMessage) preserveMessage else " ",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurface.copy(
-                                            alpha = if (hasPreserveMessage) 1f else 0f,
-                                        ),
-                                    ),
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Clip,
-                                    softWrap = true,
-                                )
+                            when {
+                                commentLines.size == 1 -> {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentAlignment = Alignment.TopStart,
+                                    ) {
+                                        Text(
+                                            text = commentLines.first(),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Clip,
+                                            softWrap = true,
+                                        )
+                                    }
+                                }
+
+                                commentLines.size >= 2 -> {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
+                                    ) {
+                                        commentLines.forEach { line ->
+                                            Text(
+                                                text = line,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                maxLines = 3,
+                                                overflow = TextOverflow.Clip,
+                                                softWrap = true,
+                                            )
+                                        }
+                                    }
+                                }
+
+                                else -> {
+                                    Text(
+                                        text = " ",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .alpha(0f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Clip,
+                                        softWrap = true,
+                                    )
+                                }
                             }
                         }
                     }
