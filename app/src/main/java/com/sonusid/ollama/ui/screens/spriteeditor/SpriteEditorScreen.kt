@@ -107,6 +107,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -239,6 +240,9 @@ fun SpriteEditorScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = LocalAppSnackbarHostState.current
+    val settingsPreferences = remember(context.applicationContext) {
+        SettingsPreferences(context.applicationContext)
+    }
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
@@ -298,12 +302,6 @@ fun SpriteEditorScreen(navController: NavController) {
             message = message,
             duration = duration,
         )
-    }
-
-    suspend fun closeApplyDialogThenShowSnackbar(message: String) {
-        showApplyDialog = false
-        withFrameNanos { }
-        showSnackbarMessage(message)
     }
 
     fun runResizeSelection(
@@ -2202,9 +2200,13 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .testTag("spriteEditorApplyResetDefault"),
                             label = "Reset to Default",
                             onClick = {
-                                SpriteSettingsSessionSpriteOverride.bitmap = null
                                 scope.launch {
-                                    closeApplyDialogThenShowSnackbar("Reset to default")
+                                    showApplyDialog = false
+                                    withFrameNanos { }
+                                    SpriteSettingsSessionSpriteOverride.bitmap = null
+                                    deleteCurrentSpriteSheetOverride(context)
+                                    settingsPreferences.saveSpriteCurrentSheetOverrideEnabled(enabled = false)
+                                    showSnackbarMessage("Reset to default")
                                 }
                             },
                             maxLines = 1,
@@ -2251,8 +2253,16 @@ fun SpriteEditorScreen(navController: NavController) {
                                         }
                                     }
 
+                                    showApplyDialog = false
+                                    withFrameNanos { }
                                     SpriteSettingsSessionSpriteOverride.bitmap = sourceBitmap
-                                    closeApplyDialogThenShowSnackbar("Applied to Sprite Settings (Current)")
+                                    val saved = saveCurrentSpriteSheetOverride(context, sourceBitmap)
+                                    if (!saved) {
+                                        showSnackbarMessage("Failed to persist Sprite Settings (Current)")
+                                        return@launch
+                                    }
+                                    settingsPreferences.saveSpriteCurrentSheetOverrideEnabled(enabled = true)
+                                    showSnackbarMessage("Applied to Sprite Settings (Current)")
                                 }
                             },
                             cancelTestTag = "spriteEditorApplyCancel",
@@ -2970,6 +2980,43 @@ private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot): SpriteEdi
 
 private fun internalAutosaveFile(context: android.content.Context): File {
     return File(context.filesDir, "sprite_editor/sprite_editor_autosave.png")
+}
+
+private fun currentSpriteSheetOverrideFile(context: android.content.Context): File {
+    return File(context.filesDir, "sprite_settings/current_sprite_sheet.png")
+}
+
+private suspend fun saveCurrentSpriteSheetOverride(context: android.content.Context, bitmap: Bitmap): Boolean {
+    return withContext(Dispatchers.IO) {
+        val targetFile = currentSpriteSheetOverrideFile(context)
+        val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+        targetFile.parentFile?.mkdirs()
+        runCatching {
+            val safeBitmap = ensureArgb8888(bitmap)
+            FileOutputStream(tempFile).use { output ->
+                safeBitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
+            if (targetFile.exists() && !targetFile.delete()) {
+                tempFile.delete()
+                return@runCatching false
+            }
+            if (!tempFile.renameTo(targetFile)) {
+                tempFile.delete()
+                return@runCatching false
+            }
+            true
+        }.getOrDefault(false)
+    }
+}
+
+private suspend fun deleteCurrentSpriteSheetOverride(context: android.content.Context): Boolean {
+    return withContext(Dispatchers.IO) {
+        val targetFile = currentSpriteSheetOverrideFile(context)
+        if (!targetFile.exists()) {
+            return@withContext true
+        }
+        runCatching { targetFile.delete() }.getOrDefault(false)
+    }
 }
 
 private suspend fun loadInternalAutosave(context: android.content.Context): Bitmap? {
