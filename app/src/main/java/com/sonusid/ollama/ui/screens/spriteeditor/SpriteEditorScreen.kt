@@ -129,7 +129,7 @@ private const val CHECKER_LIGHT_ALPHA = 0.32f
 private const val CHECKER_DARK_ALPHA = 0.55f
 
 private val CHECKER_CELL_SIZE = 8.dp
-private val APPLY_DIALOG_COMMENT_MIN_HEIGHT = 56.dp
+private val APPLY_DIALOG_COMMENT_MIN_HEIGHT = 64.dp
 private val APPLY_DIALOG_COMMENT_SLOT_SPACING = 4.dp
 
 private enum class SheetType {
@@ -2082,40 +2082,42 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(APPLY_DIALOG_COMMENT_MIN_HEIGHT)
-                                        .testTag("spriteEditorApplyCommentArea"),
-                                ) {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
-                                    ) {
-                                        val hasOverwriteMessage = overwriteMessage.isNotBlank()
-                                        val hasPreserveMessage = preserveMessage.isNotBlank()
-                                        Text(
-                                            text = if (hasOverwriteMessage) overwriteMessage else " ",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurface.copy(
-                                                    alpha = if (hasOverwriteMessage) 1f else 0f,
-                                                ),
-                                            ),
-                                            maxLines = 2,
-                                            softWrap = true,
-                                        )
-                                        Text(
-                                            text = if (hasPreserveMessage) preserveMessage else " ",
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurface.copy(
-                                                    alpha = if (hasPreserveMessage) 1f else 0f,
-                                                ),
-                                            ),
-                                            maxLines = 2,
-                                            softWrap = true,
-                                        )
-                                    }
-                                }
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(APPLY_DIALOG_COMMENT_MIN_HEIGHT)
+                                .testTag("spriteEditorApplyCommentArea"),
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
+                            ) {
+                                val hasOverwriteMessage = overwriteMessage.isNotBlank()
+                                val hasPreserveMessage = preserveMessage.isNotBlank()
+                                Text(
+                                    text = if (hasOverwriteMessage) overwriteMessage else " ",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = if (hasOverwriteMessage) 1f else 0f,
+                                        ),
+                                    ),
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Clip,
+                                    softWrap = true,
+                                )
+                                Text(
+                                    text = if (hasPreserveMessage) preserveMessage else " ",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(
+                                            alpha = if (hasPreserveMessage) 1f else 0f,
+                                        ),
+                                    ),
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Clip,
+                                    softWrap = true,
+                                )
                             }
                         }
                     }
