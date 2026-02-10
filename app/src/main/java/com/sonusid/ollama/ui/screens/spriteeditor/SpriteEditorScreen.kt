@@ -109,6 +109,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
@@ -1963,13 +1964,10 @@ fun SpriteEditorScreen(navController: NavController) {
             applyDialogComment = ""
             applyDialogCommentKind = ApplyDialogCommentKind.None
         }
-        val optionCommentLines = remember(applyOverwrite, existingOverrideBitmap, applyPreserveAlpha) {
+        val optionCommentLines = remember(applyOverwrite, existingOverrideBitmap) {
             buildList {
                 if (!applyOverwrite && existingOverrideBitmap != null) {
                     add("Overwrite disabled: apply will be rejected")
-                }
-                if (applyPreserveAlpha) {
-                    add("Preserve transparency: Not implemented")
                 }
             }
         }
@@ -2284,13 +2282,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     return@SpriteEditorCancelApplyRow
                                 }
                                 scope.launch {
-                                    if (applyPreserveAlpha) {
-                                        setApplyDialogComment(
-                                            ApplyDialogCommentKind.Warn,
-                                            "Preserve transparency is not implemented yet",
-                                        )
-                                        return@launch
-                                    }
                                     val existingOverride = SpriteSettingsSessionSpriteOverride.bitmap
                                     if (existingOverride != null && !applyOverwrite) {
                                         setApplyDialogComment(
@@ -2319,8 +2310,29 @@ fun SpriteEditorScreen(navController: NavController) {
                                         }
                                     }
 
-                                    SpriteSettingsSessionSpriteOverride.bitmap = sourceBitmap
-                                    val saved = saveCurrentSpriteSheetOverride(context, sourceBitmap)
+                                    val bitmapToSave = if (applyPreserveAlpha) {
+                                        val before = beforeBitmap
+                                        if (before == null) {
+                                            setApplyDialogComment(
+                                                ApplyDialogCommentKind.Error,
+                                                "Preserve transparency requires existing sprite sheet",
+                                            )
+                                            return@launch
+                                        }
+                                        if (before.width != sourceBitmap.width || before.height != sourceBitmap.height) {
+                                            setApplyDialogComment(
+                                                ApplyDialogCommentKind.Error,
+                                                "Bitmap size mismatch: before=${before.width}x${before.height}, src=${sourceBitmap.width}x${sourceBitmap.height}",
+                                            )
+                                            return@launch
+                                        }
+                                        compositePreserveTransparency(dst = ensureArgb8888(before), src = sourceBitmap)
+                                    } else {
+                                        sourceBitmap
+                                    }
+
+                                    SpriteSettingsSessionSpriteOverride.bitmap = bitmapToSave
+                                    val saved = saveCurrentSpriteSheetOverride(context, bitmapToSave)
                                     if (!saved) {
                                         setApplyDialogComment(
                                             ApplyDialogCommentKind.Error,
