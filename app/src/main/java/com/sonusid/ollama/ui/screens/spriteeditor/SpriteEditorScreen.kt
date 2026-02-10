@@ -2019,8 +2019,9 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
+                SpriteEditorCancelApplyRow(
+                    onCancel = { showApplyDialog = false },
+                    onApply = {
                         showApplyDialog = false
                         scope.launch {
                             showSnackbarMessage(
@@ -2030,23 +2031,11 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                         }
                     },
-                    modifier = Modifier
-                        .height(32.dp)
-                        .testTag("spriteEditorApplyConfirm"),
-                ) {
-                    Text("Apply")
-                }
+                    cancelTestTag = "spriteEditorApplyCancel",
+                    applyTestTag = "spriteEditorApplyConfirm",
+                )
             },
-            dismissButton = {
-                Button(
-                    onClick = { showApplyDialog = false },
-                    modifier = Modifier
-                        .height(32.dp)
-                        .testTag("spriteEditorApplyCancel"),
-                ) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = {},
             modifier = Modifier.testTag("spriteEditorApplyDialog"),
         )
     }
