@@ -71,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -297,6 +298,12 @@ fun SpriteEditorScreen(navController: NavController) {
             message = message,
             duration = duration,
         )
+    }
+
+    suspend fun closeApplyDialogThenShowSnackbar(message: String) {
+        showApplyDialog = false
+        withFrameNanos { }
+        showSnackbarMessage(message)
     }
 
     fun runResizeSelection(
@@ -2197,7 +2204,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             onClick = {
                                 SpriteSettingsSessionSpriteOverride.bitmap = null
                                 scope.launch {
-                                    showSnackbarMessage("Reset to default")
+                                    closeApplyDialogThenShowSnackbar("Reset to default")
                                 }
                             },
                             maxLines = 1,
@@ -2245,8 +2252,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     }
 
                                     SpriteSettingsSessionSpriteOverride.bitmap = sourceBitmap
-                                    showApplyDialog = false
-                                    showSnackbarMessage("Applied to Sprite Settings (Current)")
+                                    closeApplyDialogThenShowSnackbar("Applied to Sprite Settings (Current)")
                                 }
                             },
                             cancelTestTag = "spriteEditorApplyCancel",
