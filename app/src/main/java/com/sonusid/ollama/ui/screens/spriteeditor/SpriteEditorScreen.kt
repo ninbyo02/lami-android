@@ -106,6 +106,7 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -2054,8 +2055,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .testTag("spriteEditorApplyResetDefault"),
                             label = "Reset to Default",
                             onClick = {
+                                SpriteSettingsSessionSpriteOverride.bitmap = null
                                 scope.launch {
-                                    showSnackbarMessage("TODO: Reset target to system default")
+                                    showSnackbarMessage("Reset to default")
                                 }
                             },
                             maxLines = 1,
@@ -2068,13 +2070,36 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(horizontal = 4.dp),
                             onCancel = { showApplyDialog = false },
                             onApply = {
-                                showApplyDialog = false
                                 scope.launch {
-                                    showSnackbarMessage(
-                                        "TODO: Apply to Target=$applyTargetLabel (" +
-                                            "Source=${applySource.label}, " +
-                                            "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
-                                    )
+                                    if (applyPreserveAlpha) {
+                                        showSnackbarMessage("Preserve transparency is not implemented yet")
+                                        return@launch
+                                    }
+                                    val existingOverride = SpriteSettingsSessionSpriteOverride.bitmap
+                                    if (existingOverride != null && !applyOverwrite) {
+                                        showSnackbarMessage("Apply rejected: enable Overwrite existing")
+                                        return@launch
+                                    }
+
+                                    val sourceBitmap = when (applySource) {
+                                        ApplySource.FullImage -> ensureArgb8888(editorState.bitmap)
+                                        ApplySource.Selection -> {
+                                            val normalizedSelection = rectNormalizeClamp(
+                                                editorState.selection,
+                                                editorState.bitmap.width,
+                                                editorState.bitmap.height,
+                                            )
+                                            if (normalizedSelection.w < 1 || normalizedSelection.h < 1) {
+                                                showSnackbarMessage("Selection is empty or invalid")
+                                                return@launch
+                                            }
+                                            ensureArgb8888(copyRect(editorState.bitmap, normalizedSelection))
+                                        }
+                                    }
+
+                                    SpriteSettingsSessionSpriteOverride.bitmap = sourceBitmap
+                                    showApplyDialog = false
+                                    showSnackbarMessage("Applied to Sprite Settings (Current)")
                                 }
                             },
                             cancelTestTag = "spriteEditorApplyCancel",
