@@ -129,6 +129,7 @@ private const val CHECKER_LIGHT_ALPHA = 0.32f
 private const val CHECKER_DARK_ALPHA = 0.55f
 
 private val CHECKER_CELL_SIZE = 8.dp
+private val APPLY_DIALOG_COMMENT_MIN_HEIGHT = 56.dp
 
 private enum class SheetType {
     None,
@@ -1935,6 +1936,17 @@ fun SpriteEditorScreen(navController: NavController) {
         }
         val beforeImageBitmap = remember(beforeBitmap) { beforeBitmap?.asImageBitmap() }
         val afterImageBitmap = remember(afterBitmap) { afterBitmap?.asImageBitmap() }
+        val commentLines = remember(applyOverwrite, existingOverrideBitmap, applyPreserveAlpha) {
+            buildList {
+                if (!applyOverwrite && existingOverrideBitmap != null) {
+                    add("Overwrite disabled: apply will be rejected")
+                }
+                if (applyPreserveAlpha) {
+                    add("Preserve transparency: Not implemented")
+                }
+            }
+        }
+        val commentText = remember(commentLines) { commentLines.joinToString("\n") }
         AlertDialog(
             onDismissRequest = { showApplyDialog = false },
             title = { Text("Apply to Sprite") },
@@ -2062,16 +2074,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                         )
                                     }
                                 }
-                                if (!applyOverwrite && existingOverrideBitmap != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = APPLY_DIALOG_COMMENT_MIN_HEIGHT)
+                                        .testTag("spriteEditorApplyCommentArea"),
+                                ) {
                                     Text(
-                                        text = "Overwrite disabled: apply will be rejected",
+                                        text = commentText,
                                         style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
-                                if (applyPreserveAlpha) {
-                                    Text(
-                                        text = "Preserve transparency: Not implemented",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.graphicsLayer(
+                                            alpha = if (commentText.isEmpty()) 0f else 1f,
+                                        ),
                                     )
                                 }
                             }
