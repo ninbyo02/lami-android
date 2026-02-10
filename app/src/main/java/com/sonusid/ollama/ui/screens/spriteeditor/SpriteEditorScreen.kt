@@ -2236,36 +2236,42 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showResizeDialog = false
-                        val current = editorState
-                        if (current == null) {
-                            scope.launch { showSnackbarMessage("No sprite loaded") }
-                        } else {
-                            runResizeSelection(
-                                current,
-                                anchor = resizeAnchor,
-                                stepFactor = resizeStepFactor,
-                                downscaleMode = resizeDownscaleMode,
-                                pixelArtMethod = resizePixelArtMethod,
-                                repeated = false,
-                            )
-                        }
-                    },
-                    modifier = Modifier.height(32.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // [dp] 左右/下: ボタン領域の横幅と下余白をCanvas Sizeダイアログに揃える(余白)に関係
+                        .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("OK")
+                    Column(
+                        modifier = Modifier
+                            // [dp] 最大幅: ボタン行の横幅上限をCanvas Sizeダイアログに揃える(サイズ)に関係
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        SpriteEditorCancelApplyRow(
+                            onCancel = { showResizeDialog = false },
+                            onApply = {
+                                showResizeDialog = false
+                                val current = editorState
+                                if (current == null) {
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    runResizeSelection(
+                                        current,
+                                        anchor = resizeAnchor,
+                                        stepFactor = resizeStepFactor,
+                                        downscaleMode = resizeDownscaleMode,
+                                        pixelArtMethod = resizePixelArtMethod,
+                                        repeated = false,
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             },
-            dismissButton = {
-                Button(
-                    onClick = { showResizeDialog = false },
-                    modifier = Modifier.height(32.dp),
-                ) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = {},
         )
     }
 
@@ -2410,71 +2416,90 @@ fun SpriteEditorScreen(navController: NavController) {
                                 // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
                                 .height(12.dp)
                         )
-                        Row(
+                        SpriteEditorCancelApplyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // [dp] 左右: 2段目ボタン全体の横幅を詰めるための最小余白(余白)に関係
                                 .padding(horizontal = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            SpriteEditorStandardOutlinedButton(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    // [dp] 左右: 2段目左ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
-                                    .padding(horizontal = 2.dp),
-                                label = "Cancel",
-                                onClick = { showCanvasSizeDialog = false },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            SpriteEditorStandardButton(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    // [dp] 左右: 2段目右ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
-                                    .padding(horizontal = 2.dp),
-                                label = "Apply",
-                                onClick = {
-                                    showCanvasSizeDialog = false
-                                    val current = editorState
-                                    if (current == null) {
-                                        scope.launch { showSnackbarMessage("No sprite loaded") }
-                                        return@SpriteEditorStandardButton
-                                    }
-                                    val parsedW = canvasWidthInput.text.toIntOrNull()
-                                    val parsedH = canvasHeightInput.text.toIntOrNull()
-                                    val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
-                                    val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
-                                    canvasWidthInput = TextFieldValue(safeW.toString())
-                                    canvasHeightInput = TextFieldValue(safeH.toString())
-                                    if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
-                                        scope.launch { showSnackbarMessage("Canvas unchanged") }
-                                        return@SpriteEditorStandardButton
-                                    }
-                                    pushUndoSnapshot(current, undoStack, redoStack)
-                                    val resizedBitmap = resizeCanvas(
-                                        current.bitmap,
-                                        safeW,
-                                        safeH,
-                                        canvasAnchor,
-                                    )
-                                    val nextSelection = rectNormalizeClamp(
-                                        current.selection,
-                                        safeW,
-                                        safeH,
-                                    )
-                                    editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
-                                    isDirty = true
-                                    activeSheet = SheetType.None
-                                    scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
-                                },
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                            onCancel = { showCanvasSizeDialog = false },
+                            onApply = {
+                                showCanvasSizeDialog = false
+                                val current = editorState
+                                if (current == null) {
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                    return@SpriteEditorCancelApplyRow
+                                }
+                                val parsedW = canvasWidthInput.text.toIntOrNull()
+                                val parsedH = canvasHeightInput.text.toIntOrNull()
+                                val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+                                val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
+                                canvasWidthInput = TextFieldValue(safeW.toString())
+                                canvasHeightInput = TextFieldValue(safeH.toString())
+                                if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
+                                    scope.launch { showSnackbarMessage("Canvas unchanged") }
+                                    return@SpriteEditorCancelApplyRow
+                                }
+                                pushUndoSnapshot(current, undoStack, redoStack)
+                                val resizedBitmap = resizeCanvas(
+                                    current.bitmap,
+                                    safeW,
+                                    safeH,
+                                    canvasAnchor,
+                                )
+                                val nextSelection = rectNormalizeClamp(
+                                    current.selection,
+                                    safeW,
+                                    safeH,
+                                )
+                                editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                                isDirty = true
+                                activeSheet = SheetType.None
+                                scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
+                            },
+                        )
                     }
                 }
             },
             dismissButton = {},
+        )
+    }
+}
+
+@Composable
+private fun SpriteEditorCancelApplyRow(
+    modifier: Modifier = Modifier,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+    cancelLabel: String = "Cancel",
+    applyLabel: String = "Apply",
+    cancelTestTag: String? = null,
+    applyTestTag: String? = null,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SpriteEditorStandardOutlinedButton(
+            modifier = Modifier
+                .weight(1f)
+                // [dp] 左右: 左ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                .padding(horizontal = 2.dp)
+                .then(if (cancelTestTag != null) Modifier.testTag(cancelTestTag) else Modifier),
+            label = cancelLabel,
+            onClick = onCancel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        SpriteEditorStandardButton(
+            modifier = Modifier
+                .weight(1f)
+                // [dp] 左右: 右ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                .padding(horizontal = 2.dp)
+                .then(if (applyTestTag != null) Modifier.testTag(applyTestTag) else Modifier),
+            label = applyLabel,
+            onClick = onApply,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
