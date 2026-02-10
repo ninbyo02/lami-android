@@ -252,7 +252,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var showCanvasSizeDialog by rememberSaveable { mutableStateOf(false) }
     var applySource by rememberSaveable { mutableStateOf(ApplySource.FullImage) }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
-    var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
+    var applyPreserveAlpha by rememberSaveable { mutableStateOf(false) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
     var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.PixelArtStable) }
