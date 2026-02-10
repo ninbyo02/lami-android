@@ -146,6 +146,13 @@ private enum class ApplySource(val label: String) {
     FullImage("Full Image"),
 }
 
+private enum class ApplyDialogCommentKind {
+    None,
+    Info,
+    Warn,
+    Error,
+}
+
 private sealed class LastToolOp {
     data object Grayscale : LastToolOp()
     data object Outline : LastToolOp()
@@ -262,6 +269,8 @@ fun SpriteEditorScreen(navController: NavController) {
     var applySource by rememberSaveable { mutableStateOf(ApplySource.FullImage) }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(false) }
+    var applyDialogComment by rememberSaveable { mutableStateOf("") }
+    var applyDialogCommentKind by rememberSaveable { mutableStateOf(ApplyDialogCommentKind.None) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
     var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.PixelArtStable) }
@@ -1642,6 +1651,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         onClick = {
                             if (item.opensApplyDialog) {
                                 activeSheet = SheetType.None
+                                applyDialogComment = ""
+                                applyDialogCommentKind = ApplyDialogCommentKind.None
                                 showApplyDialog = true
                             } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
                                 val current = editorState
@@ -1943,22 +1954,50 @@ fun SpriteEditorScreen(navController: NavController) {
         }
         val beforeImageBitmap = remember(beforeBitmap) { beforeBitmap?.asImageBitmap() }
         val afterImageBitmap = remember(afterBitmap) { afterBitmap?.asImageBitmap() }
-        val overwriteMessage = remember(applyOverwrite, existingOverrideBitmap) {
-            if (!applyOverwrite && existingOverrideBitmap != null) {
-                "Overwrite disabled: apply will be rejected"
-            } else {
-                ""
+        val setApplyDialogComment: (ApplyDialogCommentKind, String) -> Unit = { kind, message ->
+            applyDialogCommentKind = kind
+            applyDialogComment = message
+        }
+        val closeApplyDialog = {
+            showApplyDialog = false
+            applyDialogComment = ""
+            applyDialogCommentKind = ApplyDialogCommentKind.None
+        }
+        val optionCommentLines = remember(applyOverwrite, existingOverrideBitmap, applyPreserveAlpha) {
+            buildList {
+                if (!applyOverwrite && existingOverrideBitmap != null) {
+                    add("Overwrite disabled: apply will be rejected")
+                }
+                if (applyPreserveAlpha) {
+                    add("Preserve transparency: Not implemented")
+                }
             }
         }
-        val preserveMessage = remember(applyPreserveAlpha) {
-            if (applyPreserveAlpha) {
-                "Preserve transparency: Not implemented"
-            } else {
-                ""
-            }
+        val fallbackCommentText = remember(optionCommentLines) { optionCommentLines.joinToString("\n") }
+        val hasExplicitComment = applyDialogCommentKind != ApplyDialogCommentKind.None && applyDialogComment.isNotBlank()
+        val resolvedCommentKind = when {
+            hasExplicitComment -> applyDialogCommentKind
+            fallbackCommentText.isNotBlank() -> ApplyDialogCommentKind.Warn
+            else -> ApplyDialogCommentKind.None
+        }
+        val resolvedCommentText = when {
+            hasExplicitComment -> applyDialogComment
+            else -> fallbackCommentText
+        }
+        val resolvedCommentPrefix = when (resolvedCommentKind) {
+            ApplyDialogCommentKind.None -> ""
+            ApplyDialogCommentKind.Info -> "[INFO] "
+            ApplyDialogCommentKind.Warn -> "[WARN] "
+            ApplyDialogCommentKind.Error -> "[ERROR] "
+        }
+        val resolvedCommentAlpha = when (resolvedCommentKind) {
+            ApplyDialogCommentKind.None -> 0f
+            ApplyDialogCommentKind.Info -> 0.80f
+            ApplyDialogCommentKind.Warn -> 0.88f
+            ApplyDialogCommentKind.Error -> 1f
         }
         AlertDialog(
-            onDismissRequest = { showApplyDialog = false },
+            onDismissRequest = closeApplyDialog,
             title = { Text("Apply to Sprite") },
             text = {
                 Column(
@@ -2090,10 +2129,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                 }
                             }
                         }
-                        val commentLines = listOfNotNull(
-                            overwriteMessage.takeIf { it.isNotBlank() },
-                            preserveMessage.takeIf { it.isNotBlank() },
-                        )
+                        val commentLines = remember(resolvedCommentPrefix, resolvedCommentText) {
+                            if (resolvedCommentText.isBlank()) {
+                                emptyList()
+                            } else {
+                                resolvedCommentText
+                                    .split("\n")
+                                    .filter { it.isNotBlank() }
+                                    .mapIndexed { index, line ->
+                                        if (index == 0) "$resolvedCommentPrefix$line" else line
+                                    }
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2109,6 +2156,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                         Text(
                                             text = commentLines.first(),
                                             style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.alpha(resolvedCommentAlpha),
                                             maxLines = 3,
                                             overflow = TextOverflow.Clip,
                                             softWrap = true,
@@ -2125,6 +2173,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                             Text(
                                                 text = line,
                                                 style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.alpha(resolvedCommentAlpha),
                                                 maxLines = 3,
                                                 overflow = TextOverflow.Clip,
                                                 softWrap = true,
@@ -2162,7 +2211,12 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             Checkbox(
                                 checked = applyOverwrite,
-                                onCheckedChange = { applyOverwrite = it },
+                                onCheckedChange = {
+                                    applyOverwrite = it
+                                    if (applyDialogCommentKind != ApplyDialogCommentKind.Error) {
+                                        setApplyDialogComment(ApplyDialogCommentKind.None, "")
+                                    }
+                                },
                             )
                             Text("Overwrite existing")
                         }
@@ -2175,7 +2229,12 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             Checkbox(
                                 checked = applyPreserveAlpha,
-                                onCheckedChange = { applyPreserveAlpha = it },
+                                onCheckedChange = {
+                                    applyPreserveAlpha = it
+                                    if (applyDialogCommentKind != ApplyDialogCommentKind.Error) {
+                                        setApplyDialogComment(ApplyDialogCommentKind.None, "")
+                                    }
+                                },
                             )
                             Text("Preserve transparency")
                         }
@@ -2201,7 +2260,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             label = "Reset to Default",
                             onClick = {
                                 scope.launch {
-                                    showApplyDialog = false
+                                    closeApplyDialog()
                                     withFrameNanos { }
                                     SpriteSettingsSessionSpriteOverride.bitmap = null
                                     deleteCurrentSpriteSheetOverride(context)
@@ -2217,23 +2276,27 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 4.dp),
-                            onCancel = { showApplyDialog = false },
+                            onCancel = closeApplyDialog,
                             onApply = {
                                 val current = editorState
                                 if (current == null) {
-                                    scope.launch {
-                                        showSnackbarMessage("No sprite loaded")
-                                    }
+                                    setApplyDialogComment(ApplyDialogCommentKind.Error, "No sprite loaded")
                                     return@SpriteEditorCancelApplyRow
                                 }
                                 scope.launch {
                                     if (applyPreserveAlpha) {
-                                        showSnackbarMessage("Preserve transparency is not implemented yet")
+                                        setApplyDialogComment(
+                                            ApplyDialogCommentKind.Warn,
+                                            "Preserve transparency is not implemented yet",
+                                        )
                                         return@launch
                                     }
                                     val existingOverride = SpriteSettingsSessionSpriteOverride.bitmap
                                     if (existingOverride != null && !applyOverwrite) {
-                                        showSnackbarMessage("Apply rejected: enable Overwrite existing")
+                                        setApplyDialogComment(
+                                            ApplyDialogCommentKind.Warn,
+                                            "Apply rejected: enable Overwrite existing",
+                                        )
                                         return@launch
                                     }
 
@@ -2246,22 +2309,28 @@ fun SpriteEditorScreen(navController: NavController) {
                                                 current.bitmap.height,
                                             )
                                             if (normalizedSelection.w < 1 || normalizedSelection.h < 1) {
-                                                showSnackbarMessage("Selection is empty or invalid")
+                                                setApplyDialogComment(
+                                                    ApplyDialogCommentKind.Error,
+                                                    "Selection is empty or invalid",
+                                                )
                                                 return@launch
                                             }
                                             ensureArgb8888(copyRect(current.bitmap, normalizedSelection))
                                         }
                                     }
 
-                                    showApplyDialog = false
-                                    withFrameNanos { }
                                     SpriteSettingsSessionSpriteOverride.bitmap = sourceBitmap
                                     val saved = saveCurrentSpriteSheetOverride(context, sourceBitmap)
                                     if (!saved) {
-                                        showSnackbarMessage("Failed to persist Sprite Settings (Current)")
+                                        setApplyDialogComment(
+                                            ApplyDialogCommentKind.Error,
+                                            "Failed to persist Sprite Settings (Current)",
+                                        )
                                         return@launch
                                     }
                                     settingsPreferences.saveSpriteCurrentSheetOverrideEnabled(enabled = true)
+                                    closeApplyDialog()
+                                    withFrameNanos { }
                                     showSnackbarMessage("Applied to Sprite Settings (Current)")
                                 }
                             },
