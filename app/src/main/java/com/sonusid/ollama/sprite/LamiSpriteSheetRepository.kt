@@ -4,6 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import java.io.File
+import java.io.FileInputStream
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -18,6 +21,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.data.SpriteSheetConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -86,18 +90,8 @@ object LamiSpriteSheetRepository {
                 return@withLock lockedCurrent
             }
             loadState.value = SpriteSheetLoadResult.Loading
-            val bitmap = decodeResource(context) ?: run {
-                val errorMessage = "Failed to decode lami_sprite_3x3_288"
-                Log.w(TAG, errorMessage)
-                val errorResult = SpriteSheetLoadResult.Error(errorMessage)
-                loadState.value = errorResult
-                return@withLock errorResult
-            }
-
-            val cellWidth = (bitmap.width / config.cols).coerceAtLeast(0)
-            val cellHeight = (bitmap.height / config.rows).coerceAtLeast(0)
-            if (cellWidth <= 0 || cellHeight <= 0) {
-                val errorMessage = "Invalid sprite sheet size: bitmap=${bitmap.width}x${bitmap.height}, rows=${config.rows}, cols=${config.cols}"
+            val bitmap = decodeBestEffortBitmap(context = context, config = config) ?: run {
+                val errorMessage = "Failed to decode sprite sheet (override and drawable)"
                 Log.w(TAG, errorMessage)
                 val errorResult = SpriteSheetLoadResult.Error(errorMessage)
                 loadState.value = errorResult
@@ -124,6 +118,57 @@ object LamiSpriteSheetRepository {
     }
 
     fun cachedData(): SpriteSheetData? = (loadState.value as? SpriteSheetLoadResult.Success)?.data
+
+    private suspend fun decodeBestEffortBitmap(context: Context, config: SpriteSheetConfig): Bitmap? {
+        val settings = SettingsPreferences(context.applicationContext)
+        val overrideEnabled = runCatching {
+            settings.spriteCurrentSheetOverrideEnabled.first()
+        }.getOrDefault(false)
+        if (overrideEnabled) {
+            val overrideFile = currentSpriteSheetOverrideFile(context)
+            if (overrideFile.exists()) {
+                val overrideBitmap = decodeOverrideFile(overrideFile)
+                if (overrideBitmap != null) {
+                    if (isBitmapSizeValid(overrideBitmap, config)) {
+                        Log.d(TAG, "Loaded override sprite sheet (${overrideBitmap.width}x${overrideBitmap.height})")
+                        return overrideBitmap
+                    }
+                    Log.w(
+                        TAG,
+                        "Invalid override sprite sheet size: bitmap=${overrideBitmap.width}x${overrideBitmap.height}, rows=${config.rows}, cols=${config.cols}. Fallback to drawable."
+                    )
+                } else {
+                    Log.w(TAG, "Failed to decode override sprite sheet. Fallback to drawable.")
+                }
+            } else {
+                Log.d(TAG, "Override enabled but file is missing. Fallback to drawable.")
+            }
+        }
+        return decodeResource(context)
+    }
+
+    private fun currentSpriteSheetOverrideFile(context: Context): File {
+        return File(context.filesDir, "sprite_settings/current_sprite_sheet.png")
+    }
+
+    private suspend fun decodeOverrideFile(file: File): Bitmap? = withContext(Dispatchers.IO) {
+        runCatching {
+            FileInputStream(file).use { input ->
+                BitmapFactory.decodeStream(input)
+            }
+        }.getOrNull()?.also { bitmap ->
+            if (bitmap.width <= 0 || bitmap.height <= 0) {
+                Log.w(TAG, "Decoded override bitmap is empty: ${bitmap.width}x${bitmap.height}")
+                return@withContext null
+            }
+        }
+    }
+
+    private fun isBitmapSizeValid(bitmap: Bitmap, config: SpriteSheetConfig): Boolean {
+        val cellWidth = (bitmap.width / config.cols).coerceAtLeast(0)
+        val cellHeight = (bitmap.height / config.rows).coerceAtLeast(0)
+        return cellWidth > 0 && cellHeight > 0
+    }
 
     private suspend fun decodeResource(context: Context): Bitmap? = withContext(Dispatchers.IO) {
         BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)?.also { bitmap ->

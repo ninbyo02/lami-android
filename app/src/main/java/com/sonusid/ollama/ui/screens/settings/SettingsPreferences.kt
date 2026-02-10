@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -241,6 +242,8 @@ class SettingsPreferences(private val context: Context) {
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color_enabled")
     private val spriteSheetConfigKey = stringPreferencesKey("sprite_sheet_config")
+    private val spriteCurrentSheetOverrideEnabledKey = booleanPreferencesKey("sprite_current_sheet_override_enabled")
+    private val spriteCurrentSheetOverrideUpdatedAtKey = longPreferencesKey("sprite_current_sheet_override_updated_at")
     private val readyFrameSequenceKey = stringPreferencesKey("ready_frame_sequence")
     private val readyIntervalMsKey = intPreferencesKey("ready_interval_ms")
     private val readyInsertionEnabledKey = booleanPreferencesKey("insertion_enabled")
@@ -398,6 +401,14 @@ class SettingsPreferences(private val context: Context) {
         parsed?.normalize(defaultSpriteSheetConfig) ?: defaultSpriteSheetConfig
     }
 
+    val spriteCurrentSheetOverrideEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[spriteCurrentSheetOverrideEnabledKey] ?: false
+    }
+
+    val spriteCurrentSheetOverrideUpdatedAt: Flow<Long?> = context.dataStore.data.map { preferences ->
+        preferences[spriteCurrentSheetOverrideUpdatedAtKey]
+    }
+
     val readyAnimationSettings: Flow<ReadyAnimationSettings> = context.dataStore.data.map { preferences ->
         val frameSequenceString = preferences[readyFrameSequenceKey]
         val parsedFrames = frameSequenceString
@@ -553,6 +564,13 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveSpriteSheetConfig(config: SpriteSheetConfig) {
         context.dataStore.edit { preferences ->
             preferences[spriteSheetConfigKey] = config.toJson()
+        }
+    }
+
+    suspend fun saveSpriteCurrentSheetOverrideEnabled(enabled: Boolean, updatedAt: Long = System.currentTimeMillis()) {
+        context.dataStore.edit { preferences ->
+            preferences[spriteCurrentSheetOverrideEnabledKey] = enabled
+            preferences[spriteCurrentSheetOverrideUpdatedAtKey] = updatedAt
         }
     }
 
