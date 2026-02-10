@@ -2085,24 +2085,34 @@ fun SpriteEditorScreen(navController: NavController) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .heightIn(min = APPLY_DIALOG_COMMENT_MIN_HEIGHT)
+                                        .height(APPLY_DIALOG_COMMENT_MIN_HEIGHT)
                                         .testTag("spriteEditorApplyCommentArea"),
                                 ) {
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
                                     ) {
+                                        val hasOverwriteMessage = overwriteMessage.isNotBlank()
+                                        val hasPreserveMessage = preserveMessage.isNotBlank()
                                         Text(
-                                            text = overwriteMessage,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
+                                            text = if (hasOverwriteMessage) overwriteMessage else " ",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                                    alpha = if (hasOverwriteMessage) 1f else 0f,
+                                                ),
+                                            ),
+                                            maxLines = 2,
+                                            softWrap = true,
                                         )
                                         Text(
-                                            text = preserveMessage,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
+                                            text = if (hasPreserveMessage) preserveMessage else " ",
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                                    alpha = if (hasPreserveMessage) 1f else 0f,
+                                                ),
+                                            ),
+                                            maxLines = 2,
+                                            softWrap = true,
                                         )
                                     }
                                 }
@@ -2111,14 +2121,14 @@ fun SpriteEditorScreen(navController: NavController) {
                     }
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text("Options")
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("spriteEditorApplyOverwrite"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(
@@ -2131,7 +2141,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("spriteEditorApplyPreserveAlpha"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(
@@ -2169,7 +2179,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
                         SpriteEditorCancelApplyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
