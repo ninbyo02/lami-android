@@ -250,7 +250,7 @@ fun SpriteEditorScreen(navController: NavController) {
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
     var showResizeDialog by rememberSaveable { mutableStateOf(false) }
     var showCanvasSizeDialog by rememberSaveable { mutableStateOf(false) }
-    var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
+    var applySource by rememberSaveable { mutableStateOf(ApplySource.FullImage) }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
@@ -1930,6 +1930,24 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .selectable(
+                                    selected = applySource == ApplySource.FullImage,
+                                    onClick = { applySource = ApplySource.FullImage },
+                                    role = Role.RadioButton,
+                                )
+                                .testTag("spriteEditorApplySourceFull"),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = applySource == ApplySource.FullImage,
+                                    onClick = null,
+                                )
+                                Text("Full Image")
+                            }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
                                     selected = applySource == ApplySource.Selection,
                                     onClick = { applySource = ApplySource.Selection },
                                     role = Role.RadioButton,
@@ -1943,24 +1961,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 onClick = null,
                             )
                             Text("Selection")
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = applySource == ApplySource.FullImage,
-                                    onClick = { applySource = ApplySource.FullImage },
-                                    role = Role.RadioButton,
-                                )
-                                .testTag("spriteEditorApplySourceFull"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = applySource == ApplySource.FullImage,
-                                onClick = null,
-                            )
-                            Text("Full Image")
                         }
                     }
                     Column(
