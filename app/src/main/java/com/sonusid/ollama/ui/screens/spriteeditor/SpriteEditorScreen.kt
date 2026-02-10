@@ -2034,34 +2034,54 @@ fun SpriteEditorScreen(navController: NavController) {
                             Text("Preserve transparency")
                         }
                     }
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch {
-                                showSnackbarMessage("TODO: Reset target to system default")
-                            }
-                        },
-                        modifier = Modifier.testTag("spriteEditorApplyResetDefault"),
-                    ) {
-                        Text("Reset to Default")
-                    }
                 }
             },
             confirmButton = {
-                SpriteEditorCancelApplyRow(
-                    onCancel = { showApplyDialog = false },
-                    onApply = {
-                        showApplyDialog = false
-                        scope.launch {
-                            showSnackbarMessage(
-                                "TODO: Apply to Target=$applyTargetLabel (" +
-                                    "Source=${applySource.label}, " +
-                                    "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
-                            )
-                        }
-                    },
-                    cancelTestTag = "spriteEditorApplyCancel",
-                    applyTestTag = "spriteEditorApplyConfirm",
-                )
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        SpriteEditorStandardOutlinedButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                                .padding(horizontal = 2.dp)
+                                .testTag("spriteEditorApplyResetDefault"),
+                            label = "Reset to Default",
+                            onClick = {
+                                scope.launch {
+                                    showSnackbarMessage("TODO: Reset target to system default")
+                                }
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        SpriteEditorCancelApplyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            onCancel = { showApplyDialog = false },
+                            onApply = {
+                                showApplyDialog = false
+                                scope.launch {
+                                    showSnackbarMessage(
+                                        "TODO: Apply to Target=$applyTargetLabel (" +
+                                            "Source=${applySource.label}, " +
+                                            "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
+                                    )
+                                }
+                            },
+                            cancelTestTag = "spriteEditorApplyCancel",
+                            applyTestTag = "spriteEditorApplyConfirm",
+                        )
+                    }
+                }
             },
             dismissButton = {},
             modifier = Modifier.testTag("spriteEditorApplyDialog"),
