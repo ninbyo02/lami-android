@@ -2070,6 +2070,13 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(horizontal = 4.dp),
                             onCancel = { showApplyDialog = false },
                             onApply = {
+                                val current = editorState
+                                if (current == null) {
+                                    scope.launch {
+                                        showSnackbarMessage("No sprite loaded")
+                                    }
+                                    return@SpriteEditorCancelApplyRow
+                                }
                                 scope.launch {
                                     if (applyPreserveAlpha) {
                                         showSnackbarMessage("Preserve transparency is not implemented yet")
@@ -2082,18 +2089,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                     }
 
                                     val sourceBitmap = when (applySource) {
-                                        ApplySource.FullImage -> ensureArgb8888(editorState.bitmap)
+                                        ApplySource.FullImage -> ensureArgb8888(current.bitmap)
                                         ApplySource.Selection -> {
                                             val normalizedSelection = rectNormalizeClamp(
-                                                editorState.selection,
-                                                editorState.bitmap.width,
-                                                editorState.bitmap.height,
+                                                current.selection,
+                                                current.bitmap.width,
+                                                current.bitmap.height,
                                             )
                                             if (normalizedSelection.w < 1 || normalizedSelection.h < 1) {
                                                 showSnackbarMessage("Selection is empty or invalid")
                                                 return@launch
                                             }
-                                            ensureArgb8888(copyRect(editorState.bitmap, normalizedSelection))
+                                            ensureArgb8888(copyRect(current.bitmap, normalizedSelection))
                                         }
                                     }
 
