@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,6 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -251,7 +251,6 @@ fun SpriteEditorScreen(navController: NavController) {
     var showResizeDialog by rememberSaveable { mutableStateOf(false) }
     var showCanvasSizeDialog by rememberSaveable { mutableStateOf(false) }
     var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
-    var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
     var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
@@ -1906,6 +1905,7 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     if (showApplyDialog) {
+        val applyTargetLabel = "Sprite Settings (Current)"
         AlertDialog(
             onDismissRequest = { showApplyDialog = false },
             title = { Text("Apply to Sprite") },
@@ -1915,6 +1915,10 @@ fun SpriteEditorScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Applies the current image (or selection) to a sprite asset.")
+                    Text(
+                        text = "Target: $applyTargetLabel",
+                        modifier = Modifier.testTag("spriteEditorApplyTarget"),
+                    )
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1963,26 +1967,40 @@ fun SpriteEditorScreen(navController: NavController) {
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Destination")
-                        OutlinedTextField(
-                            value = applyDestinationLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
+                        Text("Preview")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("Before")
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .testTag("spriteEditorApplyPreviewBefore"),
                                 )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("spriteEditorApplyDestination")
-                                .clickable {
-                                    scope.launch {
-                                        showSnackbarMessage("TODO: Choose destination sprite")
-                                    }
-                                },
-                        )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("After")
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .testTag("spriteEditorApplyPreviewAfter"),
+                                )
+                            }
+                        }
                     }
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -2016,6 +2034,16 @@ fun SpriteEditorScreen(navController: NavController) {
                             Text("Preserve transparency")
                         }
                     }
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                showSnackbarMessage("TODO: Reset target to system default")
+                            }
+                        },
+                        modifier = Modifier.testTag("spriteEditorApplyResetDefault"),
+                    ) {
+                        Text("Reset to Default")
+                    }
                 }
             },
             confirmButton = {
@@ -2025,8 +2053,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         showApplyDialog = false
                         scope.launch {
                             showSnackbarMessage(
-                                "TODO: Apply to Sprite (Source=${applySource.label}, " +
-                                    "Destination=$applyDestinationLabel, " +
+                                "TODO: Apply to Target=$applyTargetLabel (" +
+                                    "Source=${applySource.label}, " +
                                     "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
                             )
                         }
