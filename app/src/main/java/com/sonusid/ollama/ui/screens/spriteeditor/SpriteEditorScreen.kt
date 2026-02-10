@@ -88,7 +88,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -130,6 +129,7 @@ private const val CHECKER_DARK_ALPHA = 0.55f
 
 private val CHECKER_CELL_SIZE = 8.dp
 private val APPLY_DIALOG_COMMENT_MIN_HEIGHT = 56.dp
+private val APPLY_DIALOG_COMMENT_SLOT_SPACING = 4.dp
 
 private enum class SheetType {
     None,
@@ -1936,17 +1936,20 @@ fun SpriteEditorScreen(navController: NavController) {
         }
         val beforeImageBitmap = remember(beforeBitmap) { beforeBitmap?.asImageBitmap() }
         val afterImageBitmap = remember(afterBitmap) { afterBitmap?.asImageBitmap() }
-        val commentLines = remember(applyOverwrite, existingOverrideBitmap, applyPreserveAlpha) {
-            buildList {
-                if (!applyOverwrite && existingOverrideBitmap != null) {
-                    add("Overwrite disabled: apply will be rejected")
-                }
-                if (applyPreserveAlpha) {
-                    add("Preserve transparency: Not implemented")
-                }
+        val overwriteMessage = remember(applyOverwrite, existingOverrideBitmap) {
+            if (!applyOverwrite && existingOverrideBitmap != null) {
+                "Overwrite disabled: apply will be rejected"
+            } else {
+                ""
             }
         }
-        val commentText = remember(commentLines) { commentLines.joinToString("\n") }
+        val preserveMessage = remember(applyPreserveAlpha) {
+            if (applyPreserveAlpha) {
+                "Preserve transparency: Not implemented"
+            } else {
+                ""
+            }
+        }
         AlertDialog(
             onDismissRequest = { showApplyDialog = false },
             title = { Text("Apply to Sprite") },
@@ -2084,13 +2087,23 @@ fun SpriteEditorScreen(navController: NavController) {
                                         .heightIn(min = APPLY_DIALOG_COMMENT_MIN_HEIGHT)
                                         .testTag("spriteEditorApplyCommentArea"),
                                 ) {
-                                    Text(
-                                        text = commentText,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.graphicsLayer(
-                                            alpha = if (commentText.isEmpty()) 0f else 1f,
-                                        ),
-                                    )
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
+                                    ) {
+                                        Text(
+                                            text = overwriteMessage,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            text = preserveMessage,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
                             }
                         }
