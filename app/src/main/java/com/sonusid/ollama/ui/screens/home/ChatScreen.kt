@@ -9,12 +9,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -188,8 +186,8 @@ fun Home(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
-            // 上方向 inset の二重適用を避けるため、TopAppBar は左右のみ safeDrawing を適用
-            windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+            // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
+            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             navigationIcon = {
                 Box(
                     // 左端でアバターが見切れないよう最小限の start 余白を確保
