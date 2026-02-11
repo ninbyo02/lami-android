@@ -88,9 +88,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(TopAppBarSpacer))
-            Spacer(modifier = Modifier.height(ContentSpacing))
-
             if (allChats.value.isEmpty()) {
                 Column(
                     modifier = Modifier
@@ -195,6 +192,3 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
         )
     }
 }
-
-private val TopAppBarSpacer = 8.dp
-private val ContentSpacing = 12.dp
