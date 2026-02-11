@@ -295,6 +295,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
     var fillStatusText by remember { mutableStateOf("Fill: mode=-") }
+    var lastFillConnectedSeedType by remember { mutableStateOf<FillConnectedSeedType?>(null) }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -1001,7 +1002,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         }
                     }
-                    val seedTypeChar by remember(editorState, state?.selection) {
+                    val realtimeSeedTypeChar by remember(editorState, state?.selection) {
                         derivedStateOf {
                             val current = editorState ?: return@derivedStateOf '-'
                             val selection = current.selection
@@ -1024,13 +1025,25 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         }
                     }
-                    val seedWord = when (seedTypeChar) {
+                    LaunchedEffect(state?.selection) {
+                        lastFillConnectedSeedType = null
+                    }
+                    fun seedWordFromTypeChar(seedTypeChar: Char): String = when (seedTypeChar) {
                         'T' -> "Transparent"
                         'B' -> "Black"
                         'W' -> "White"
                         'O' -> "Other"
                         else -> "-"
                     }
+                    fun seedWordFromFillConnectedSeedType(seedType: FillConnectedSeedType): String = when (seedType) {
+                        FillConnectedSeedType.Transparent -> "Transparent"
+                        FillConnectedSeedType.Black -> "Black"
+                        FillConnectedSeedType.White -> "White"
+                        FillConnectedSeedType.Other -> "Other"
+                        FillConnectedSeedType.None -> "None"
+                    }
+                    val seedWord = lastFillConnectedSeedType?.let { seedWordFromFillConnectedSeedType(it) }
+                        ?: seedWordFromTypeChar(realtimeSeedTypeChar)
                     val statusContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier
@@ -1501,6 +1514,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     current.selection,
                                                                 )
                                                                 fillStatusText = fillResult.debugText
+                                                                if (fillResult.seedType != FillConnectedSeedType.None) {
+                                                                    lastFillConnectedSeedType = fillResult.seedType
+                                                                }
                                                                 when {
                                                                     fillResult.aborted -> {
                                                                         scope.launch { showSnackbarMessage("Fill aborted (too large)") }
@@ -1818,6 +1834,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                         current.selection,
                                     )
                                     fillStatusText = fillResult.debugText
+                                    if (fillResult.seedType != FillConnectedSeedType.None) {
+                                        lastFillConnectedSeedType = fillResult.seedType
+                                    }
                                     activeSheet = SheetType.None
                                     when {
                                         fillResult.aborted -> {
