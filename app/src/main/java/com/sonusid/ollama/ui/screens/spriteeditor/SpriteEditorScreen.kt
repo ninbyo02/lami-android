@@ -1031,13 +1031,19 @@ fun SpriteEditorScreen(navController: NavController) {
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            Text(
+                                text = statusLine2,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    text = statusLine2,
+                                    text = moveStatusText,
                                     style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -1052,12 +1058,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     modifier = Modifier.testTag("spriteEditorFillStatus"),
                                 )
                             }
-                            Text(
-                                text = moveStatusText,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
                         }
                     }
                     fun moveSelectionByMode(dxSign: Int, dySign: Int, repeatStepPx: Int? = null) {
