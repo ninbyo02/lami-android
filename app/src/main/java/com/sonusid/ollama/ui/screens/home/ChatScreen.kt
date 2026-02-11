@@ -54,7 +54,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.headerAvatarModifier
+import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -181,6 +181,23 @@ fun Home(
 
     Scaffold(topBar = {
         TopAppBar(
+            navigationIcon = {
+                HeaderAvatar(
+                    baseUrl = baseUrl,
+                    selectedModel = selectedModel,
+                    lastError = errorMessage,
+                    lamiStatus = lamiAnimationStatus,
+                    lamiState = lamiUiState.state,
+                    availableModels = availableModels,
+                    onSelectModel = { modelName ->
+                        viewModel.onUserInteraction()
+                        viewModel.updateSelectedModel(modelName)
+                    },
+                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                    debugOverlayEnabled = false,
+                    syncEpochMs = animationEpochMs,
+                )
+            },
             title = {
                 LamiHeaderStatus(
                     baseUrl = baseUrl,
@@ -196,7 +213,7 @@ fun Home(
                     onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                     debugOverlayEnabled = false,
                     syncEpochMs = animationEpochMs,
-                    modifier = Modifier.headerAvatarModifier(),
+                    showAvatar = false,
                 )
             },
             actions = {

@@ -3,10 +3,12 @@ package com.sonusid.ollama.ui.screens.settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,8 +35,8 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.common.headerAvatarModifier
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiUiState
@@ -66,8 +68,24 @@ fun About(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(painterResource(R.drawable.back), "exit")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(painterResource(R.drawable.back), "exit")
+                        }
+                        // TopAppBar 内の視認性を保つため、戻るボタン直後に最小限の間隔を入れる
+                        Spacer(Modifier.width(6.dp))
+                        HeaderAvatar(
+                            baseUrl = baseUrl,
+                            selectedModel = null,
+                            lastError = null,
+                            lamiStatus = lamiStatus,
+                            lamiState = lamiState,
+                            availableModels = emptyList(),
+                            onSelectModel = {},
+                            onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                        )
                     }
                 },
                 title = {
@@ -82,7 +100,7 @@ fun About(
                         onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
-                        modifier = Modifier.headerAvatarModifier(),
+                        showAvatar = false,
                     )
                 },
             )
