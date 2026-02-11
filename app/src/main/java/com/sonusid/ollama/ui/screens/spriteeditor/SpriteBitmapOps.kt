@@ -25,12 +25,21 @@ const val FILL_CONNECTED_RGB_TOLERANCE = 24
 
 enum class Mode { Alpha, Rgb }
 
+enum class FillConnectedSeedType {
+    White,
+    Black,
+    Transparent,
+    Other,
+    None,
+}
+
 data class FillConnectedResult(
     val bitmap: Bitmap,
     val filled: Int,
     val aborted: Boolean,
     val mode: Mode,
     val debugText: String,
+    val seedType: FillConnectedSeedType,
 )
 
 data class TransparentSelectionStats(
@@ -46,6 +55,17 @@ data class ResizeSelectionResult(
     val applied: Boolean,
     val debugText: String,
 )
+
+enum class ResizeDownscaleMode {
+    DefaultMultiStep,
+    PixelArtStable,
+    LegacyMaxAlpha,
+}
+
+enum class PixelArtStableMethod {
+    CenterSample,
+    DarkDominant,
+}
 
 enum class ResizeAnchor {
     TopLeft,
@@ -612,32 +632,26 @@ private fun downscaleMultiStepAlphaWeightedPremul(
 }
 
 private fun downscaleRegionMaxAlpha(
-    src: Bitmap,
-    rect: RectPx,
+    selectionPixels: IntArray,
+    srcW: Int,
+    srcH: Int,
     dstW: Int,
     dstH: Int,
+    preferDark: Boolean = false,
 ): IntArray {
-    val safeRect = rectNormalizeClamp(rect, src.width, src.height)
     val safeDstW = dstW.coerceAtLeast(1)
     val safeDstH = dstH.coerceAtLeast(1)
-    val srcW = safeRect.w.coerceAtLeast(1)
-    val srcH = safeRect.h.coerceAtLeast(1)
-    val selectionPixels = IntArray(srcW * srcH)
-    val rowBuffer = IntArray(srcW)
-    // 選択範囲のオフセットを必ず反映して取得する（座標系ズレ防止）
-    for (y in 0 until srcH) {
-        src.getPixels(rowBuffer, 0, srcW, safeRect.x, safeRect.y + y, srcW, 1)
-        System.arraycopy(rowBuffer, 0, selectionPixels, y * srcW, srcW)
-    }
+    val safeSrcW = srcW.coerceAtLeast(1)
+    val safeSrcH = srcH.coerceAtLeast(1)
     val outPixels = IntArray(safeDstW * safeDstH)
-    val scaleX = srcW.toFloat() / safeDstW.toFloat()
-    val scaleY = srcH.toFloat() / safeDstH.toFloat()
+    val scaleX = safeSrcW.toFloat() / safeDstW.toFloat()
+    val scaleY = safeSrcH.toFloat() / safeDstH.toFloat()
     for (y in 0 until safeDstH) {
         val srcTop = y * scaleY
         val srcBottom = (y + 1) * scaleY
         // floor/ceilの混在でサンプル範囲の空を避ける
-        var sy0 = floor(srcTop).toInt().coerceIn(0, srcH - 1)
-        var sy1 = (ceil(srcBottom).toInt() - 1).coerceIn(0, srcH - 1)
+        var sy0 = floor(srcTop).toInt().coerceIn(0, safeSrcH - 1)
+        var sy1 = (ceil(srcBottom).toInt() - 1).coerceIn(0, safeSrcH - 1)
         if (sy1 < sy0) {
             sy1 = sy0
         }
@@ -645,24 +659,29 @@ private fun downscaleRegionMaxAlpha(
             val srcLeft = x * scaleX
             val srcRight = (x + 1) * scaleX
             // floor/ceilの混在でサンプル範囲の空を避ける
-            var sx0 = floor(srcLeft).toInt().coerceIn(0, srcW - 1)
-            var sx1 = (ceil(srcRight).toInt() - 1).coerceIn(0, srcW - 1)
+            var sx0 = floor(srcLeft).toInt().coerceIn(0, safeSrcW - 1)
+            var sx1 = (ceil(srcRight).toInt() - 1).coerceIn(0, safeSrcW - 1)
             if (sx1 < sx0) {
                 sx1 = sx0
             }
             var bestPixel = Color.TRANSPARENT
             var bestAlpha = -1
-            var bestBrightness = -1
-            // 縮小先の代表ピクセルは「最大alpha優先」、同点は最も明るい色を採用
+            var bestBrightness = if (preferDark) Int.MAX_VALUE else -1
+            // 縮小先の代表ピクセルは「最大alpha優先」、同点は明暗をモードで選ぶ
             for (sy in sy0..sy1) {
-                val row = sy * srcW
+                val row = sy * safeSrcW
                 for (sx in sx0..sx1) {
                     val pixel = selectionPixels[row + sx]
                     val alpha = (pixel ushr 24) and 0xFF
                     val brightness = ((pixel ushr 16) and 0xFF) +
                         ((pixel ushr 8) and 0xFF) +
                         (pixel and 0xFF)
-                    if (alpha > bestAlpha || (alpha == bestAlpha && brightness > bestBrightness)) {
+                    val isBetterBrightness = if (preferDark) {
+                        brightness < bestBrightness
+                    } else {
+                        brightness > bestBrightness
+                    }
+                    if (alpha > bestAlpha || (alpha == bestAlpha && isBetterBrightness)) {
                         bestAlpha = alpha
                         bestBrightness = brightness
                         bestPixel = pixel
@@ -675,6 +694,58 @@ private fun downscaleRegionMaxAlpha(
     return outPixels
 }
 
+private fun downscaleCenterSampleRect(
+    selectionPixels: IntArray,
+    srcW: Int,
+    srcH: Int,
+    dstW: Int,
+    dstH: Int,
+    minAlphaCutoff: Int = 4,
+): IntArray {
+    val safeSrcW = srcW.coerceAtLeast(1)
+    val safeSrcH = srcH.coerceAtLeast(1)
+    val safeDstW = dstW.coerceAtLeast(1)
+    val safeDstH = dstH.coerceAtLeast(1)
+    val output = IntArray(safeDstW * safeDstH)
+    val scaleX = safeSrcW.toFloat() / safeDstW.toFloat()
+    val scaleY = safeSrcH.toFloat() / safeDstH.toFloat()
+    val maxX = safeSrcW - 1
+    val maxY = safeSrcH - 1
+    for (y in 0 until safeDstH) {
+        val srcTop = y * scaleY
+        val srcBottom = (y + 1) * scaleY
+        val sampleY = ((srcTop + srcBottom) * 0.5f).toInt().coerceIn(0, maxY)
+        val rowOffset = sampleY * safeSrcW
+        for (x in 0 until safeDstW) {
+            val srcLeft = x * scaleX
+            val srcRight = (x + 1) * scaleX
+            val sampleX = ((srcLeft + srcRight) * 0.5f).toInt().coerceIn(0, maxX)
+            val pixel = selectionPixels[rowOffset + sampleX]
+            val alpha = (pixel ushr 24) and 0xFF
+            output[y * safeDstW + x] = if (alpha < minAlphaCutoff) {
+                Color.TRANSPARENT
+            } else {
+                pixel
+            }
+        }
+    }
+    return output
+}
+
+private fun copySelectionPixels(src: Bitmap, rect: RectPx): IntArray {
+    val safeRect = rectNormalizeClamp(rect, src.width, src.height)
+    val srcW = safeRect.w.coerceAtLeast(1)
+    val srcH = safeRect.h.coerceAtLeast(1)
+    val selectionPixels = IntArray(srcW * srcH)
+    val rowBuffer = IntArray(srcW)
+    // 選択範囲のオフセットを必ず反映して取得する（座標系ズレ防止）
+    for (y in 0 until srcH) {
+        src.getPixels(rowBuffer, 0, srcW, safeRect.x, safeRect.y + y, srcW, 1)
+        System.arraycopy(rowBuffer, 0, selectionPixels, y * srcW, srcW)
+    }
+    return selectionPixels
+}
+
 // 選択矩形内を最大サイズに合わせて縮小する
 fun resizeSelectionToMax96(
     src: Bitmap,
@@ -683,6 +754,8 @@ fun resizeSelectionToMax96(
     anchor: ResizeAnchor = ResizeAnchor.TopLeft,
     stepFactor: Float = 0.5f,
     minAlphaCutoff: Int = 4,
+    downscaleMode: ResizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep,
+    pixelArtMethod: PixelArtStableMethod = PixelArtStableMethod.CenterSample,
 ): ResizeSelectionResult {
     val safeSrc = ensureArgb8888(src)
     val width = safeSrc.width
@@ -712,13 +785,53 @@ fun resizeSelectionToMax96(
     // clamp 後の座標に合わせて貼り付ける（座標ズレ防止）
     val dstX = newSelection.x
     val dstY = newSelection.y
+    val selectionPixels = copySelectionPixels(safeSrc, safeSelection)
 
-    val downscaledPixels = downscaleRegionMaxAlpha(
-        src = safeSrc,
-        rect = safeSelection,
-        dstW = newSelection.w,
-        dstH = newSelection.h,
-    )
+    val downscaledPixels = when (downscaleMode) {
+        ResizeDownscaleMode.DefaultMultiStep -> {
+            // 既存の細線保護を活かしつつ段階縮小で安定させる
+            downscaleMultiStepAlphaWeightedPremul(
+                srcPixels = selectionPixels,
+                srcW = safeSelection.w,
+                srcH = safeSelection.h,
+                dstW = newSelection.w,
+                dstH = newSelection.h,
+                stepFactor = stepFactor,
+                minAlphaCutoff = minAlphaCutoff,
+            )
+        }
+
+        ResizeDownscaleMode.PixelArtStable -> {
+            when (pixelArtMethod) {
+                PixelArtStableMethod.CenterSample -> downscaleCenterSampleRect(
+                    selectionPixels = selectionPixels,
+                    srcW = safeSelection.w,
+                    srcH = safeSelection.h,
+                    dstW = newSelection.w,
+                    dstH = newSelection.h,
+                    minAlphaCutoff = minAlphaCutoff,
+                )
+
+                PixelArtStableMethod.DarkDominant -> downscaleRegionMaxAlpha(
+                    selectionPixels = selectionPixels,
+                    srcW = safeSelection.w,
+                    srcH = safeSelection.h,
+                    dstW = newSelection.w,
+                    dstH = newSelection.h,
+                    preferDark = true,
+                )
+            }
+        }
+
+        ResizeDownscaleMode.LegacyMaxAlpha -> downscaleRegionMaxAlpha(
+            selectionPixels = selectionPixels,
+            srcW = safeSelection.w,
+            srcH = safeSelection.h,
+            dstW = newSelection.w,
+            dstH = newSelection.h,
+            preferDark = false,
+        )
+    }
     val clipBitmap = Bitmap.createBitmap(newSelection.w, newSelection.h, Bitmap.Config.ARGB_8888)
     clipBitmap.setPixels(
         downscaledPixels,
@@ -735,7 +848,8 @@ fun resizeSelectionToMax96(
     val output = cleared.copy(Bitmap.Config.ARGB_8888, true)
     val canvas = Canvas(output)
     canvas.drawBitmap(clipBitmap, dstX.toFloat(), dstY.toFloat(), null)
-    val debugText = "scale=$scale new=${newSelection.w}x${newSelection.h} step=$stepFactor cutoff=$minAlphaCutoff"
+    val debugText = "scale=$scale new=${newSelection.w}x${newSelection.h} " +
+        "step=$stepFactor cutoff=$minAlphaCutoff mode=$downscaleMode method=$pixelArtMethod"
     return ResizeSelectionResult(output, newSelection, true, debugText)
 }
 
@@ -1325,6 +1439,7 @@ fun fillConnectedToWhite(
             aborted = false,
             mode = Mode.Alpha,
             debugText = "Fill: mode=alpha T=0 thr=$transparentAlphaThreshold filled=0",
+            seedType = FillConnectedSeedType.None,
         )
     }
 
@@ -1383,12 +1498,16 @@ fun fillConnectedToWhite(
 
     var head = 0
     var tail = 0
+    var seedType = FillConnectedSeedType.None
     for (y in sy until ey) {
         for (x in sx until ex) {
             val index = y * width + x
             if (!visited[index] && isTarget(srcPixels[index])) {
                 visited[index] = true
                 queue[tail++] = index
+                if (seedType == FillConnectedSeedType.None) {
+                    seedType = resolveFillConnectedSeedType(srcPixels[index], transparentAlphaThreshold)
+                }
             }
         }
     }
@@ -1399,7 +1518,7 @@ fun fillConnectedToWhite(
         } else {
             "Fill: mode=rgb tol=$rgbTolerance filled=0 limit=$maxFillPixels"
         }
-        return FillConnectedResult(safeSrc, 0, false, mode, debugText)
+        return FillConnectedResult(safeSrc, 0, false, mode, debugText, FillConnectedSeedType.None)
     }
 
     val white = 0xFFFFFFFF.toInt()
@@ -1414,7 +1533,7 @@ fun fillConnectedToWhite(
             } else {
                 "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount limit=$maxFillPixels"
             }
-            return FillConnectedResult(safeSrc, filledCount, true, mode, debugText)
+            return FillConnectedResult(safeSrc, filledCount, true, mode, debugText, seedType)
         }
 
         val px = index % width
@@ -1456,7 +1575,25 @@ fun fillConnectedToWhite(
     } else {
         "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount limit=$maxFillPixels"
     }
-    return FillConnectedResult(output, filledCount, false, mode, debugText)
+    return FillConnectedResult(output, filledCount, false, mode, debugText, seedType)
+}
+
+private fun resolveFillConnectedSeedType(
+    pixel: Int,
+    transparentAlphaThreshold: Int,
+): FillConnectedSeedType {
+    val alpha = (pixel ushr 24) and 0xFF
+    if (alpha < transparentAlphaThreshold) {
+        return FillConnectedSeedType.Transparent
+    }
+    val red = (pixel ushr 16) and 0xFF
+    val green = (pixel ushr 8) and 0xFF
+    val blue = pixel and 0xFF
+    return when {
+        red <= 16 && green <= 16 && blue <= 16 -> FillConnectedSeedType.Black
+        red >= 239 && green >= 239 && blue >= 239 -> FillConnectedSeedType.White
+        else -> FillConnectedSeedType.Other
+    }
 }
 
 private fun sampleEdgeBackgroundRgb(

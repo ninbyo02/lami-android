@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -96,6 +97,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
@@ -158,6 +160,10 @@ data class SpriteSheetSnapshot(
     val boxSizePx: Int,
     val boxPositions: List<BoxPosition>,
 )
+
+internal object SpriteSettingsSessionSpriteOverride {
+    var bitmap: Bitmap? by mutableStateOf(null)
+}
 
 private val SpriteSettingsTabRowHeight = 32.dp
 
@@ -844,11 +850,15 @@ private fun defaultBoxPositions(): List<BoxPosition> =
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
     val context = LocalContext.current
-    val imageBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = context) {
+    val defaultImageBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = context) {
         // 画像デコードは重いため、遷移直後の白ブランクを避ける目的で非同期ロードする
         value = withContext(Dispatchers.IO) {
             BitmapFactory.decodeResource(context.resources, R.drawable.lami_sprite_3x3_288)
         }?.asImageBitmap()
+    }
+    val sessionOverrideBitmap = SpriteSettingsSessionSpriteOverride.bitmap
+    val imageBitmap = remember(defaultImageBitmap, sessionOverrideBitmap) {
+        sessionOverrideBitmap?.asImageBitmap() ?: defaultImageBitmap
     }
     val imageWidth = imageBitmap?.width ?: 0
     val imageHeight = imageBitmap?.height ?: 0
@@ -3582,8 +3592,17 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
     // [非dp] 下: IME の insets(インセット)に関係
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    // [非dp] 四方向: 上左右のみ systemBars を維持し、下の inset は 0 に統一
+    val spriteScreenContentInsets = WindowInsets(
+        left = WindowInsets.systemBars.getLeft(density, layoutDirection),
+        top = WindowInsets.systemBars.getTop(density),
+        right = WindowInsets.systemBars.getRight(density, layoutDirection),
+        bottom = 0
+    )
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -3889,7 +3908,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
             }
         },
-        contentWindowInsets = WindowInsets.systemBars
+        // 下: Sprite Settings 画面下の空白を抑えるため bottom inset は除外
+        contentWindowInsets = spriteScreenContentInsets
     ) { innerPadding ->
         Box(
             // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係

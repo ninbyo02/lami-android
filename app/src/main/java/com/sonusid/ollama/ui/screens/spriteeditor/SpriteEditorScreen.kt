@@ -9,8 +9,10 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,14 +25,17 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +47,6 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -63,6 +67,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,11 +75,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -82,18 +89,22 @@ import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -102,8 +113,12 @@ import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.sprite.compositePreserveTransparency
+import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
+import com.sonusid.ollama.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -125,6 +140,9 @@ private const val CHECKER_LIGHT_ALPHA = 0.32f
 private const val CHECKER_DARK_ALPHA = 0.55f
 
 private val CHECKER_CELL_SIZE = 8.dp
+private val APPLY_DIALOG_COMMENT_MIN_HEIGHT = 64.dp
+private val APPLY_DIALOG_COMMENT_SLOT_SPACING = 4.dp
+private val MOVE_STATUS_FIXED_WIDTH = 72.dp
 
 private enum class SheetType {
     None,
@@ -137,6 +155,13 @@ private enum class ApplySource(val label: String) {
     FullImage("Full Image"),
 }
 
+private enum class ApplyDialogCommentKind {
+    None,
+    Info,
+    Warn,
+    Error,
+}
+
 private sealed class LastToolOp {
     data object Grayscale : LastToolOp()
     data object Outline : LastToolOp()
@@ -145,7 +170,12 @@ private sealed class LastToolOp {
     data object ClearRegion : LastToolOp()
     data object FillConnected : LastToolOp()
     data object CenterContentInBox : LastToolOp()
-    data class ResizeToMax96(val anchor: ResizeAnchor, val stepFactor: Float) : LastToolOp()
+    data class ResizeToMax96(
+        val anchor: ResizeAnchor,
+        val stepFactor: Float,
+        val downscaleMode: ResizeDownscaleMode,
+        val pixelArtMethod: PixelArtStableMethod,
+    ) : LastToolOp()
 }
 
 private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
@@ -159,7 +189,13 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
             LastToolOp.ClearRegion -> listOf("ClearRegion")
             LastToolOp.FillConnected -> listOf("FillConnected")
             LastToolOp.CenterContentInBox -> listOf("CenterContentInBox")
-            is LastToolOp.ResizeToMax96 -> listOf("ResizeToMax96", op.anchor.name, op.stepFactor.toString())
+            is LastToolOp.ResizeToMax96 -> listOf(
+                "ResizeToMax96",
+                op.anchor.name,
+                op.stepFactor.toString(),
+                op.downscaleMode.name,
+                op.pixelArtMethod.name,
+            )
         }
     },
     restore = { data ->
@@ -181,7 +217,19 @@ private val LastToolOpSaver = Saver<LastToolOp?, List<String>>(
                     ResizeAnchor.TopLeft
                 }
                 val stepFactor = data.getOrNull(2)?.toFloatOrNull() ?: 0.5f
-                LastToolOp.ResizeToMax96(anchor, stepFactor)
+                val modeName = data.getOrNull(3) ?: ResizeDownscaleMode.PixelArtStable.name
+                val downscaleMode = try {
+                    ResizeDownscaleMode.valueOf(modeName)
+                } catch (_: IllegalArgumentException) {
+                    ResizeDownscaleMode.PixelArtStable
+                }
+                val methodName = data.getOrNull(4) ?: PixelArtStableMethod.CenterSample.name
+                val pixelArtMethod = try {
+                    PixelArtStableMethod.valueOf(methodName)
+                } catch (_: IllegalArgumentException) {
+                    PixelArtStableMethod.CenterSample
+                }
+                LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
             }
 
             else -> null
@@ -208,6 +256,9 @@ fun SpriteEditorScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = LocalAppSnackbarHostState.current
+    val settingsPreferences = remember(context.applicationContext) {
+        SettingsPreferences(context.applicationContext)
+    }
     val editorBackdropColor = rememberLamiEditorSpriteBackdropColor()
     var editorState by remember { mutableStateOf<SpriteEditorState?>(null) }
     var copiedSelection by remember { mutableStateOf<RectPx?>(null) }
@@ -224,20 +275,28 @@ fun SpriteEditorScreen(navController: NavController) {
     var showApplyDialog by rememberSaveable { mutableStateOf(false) }
     var showResizeDialog by rememberSaveable { mutableStateOf(false) }
     var showCanvasSizeDialog by rememberSaveable { mutableStateOf(false) }
-    var applySource by rememberSaveable { mutableStateOf(ApplySource.Selection) }
-    var applyDestinationLabel by rememberSaveable { mutableStateOf("Sprite (TODO)") }
+    var applySource by rememberSaveable { mutableStateOf(ApplySource.FullImage) }
     var applyOverwrite by rememberSaveable { mutableStateOf(true) }
-    var applyPreserveAlpha by rememberSaveable { mutableStateOf(true) }
+    var applyPreserveAlpha by rememberSaveable { mutableStateOf(false) }
+    var applyDialogComment by rememberSaveable { mutableStateOf("") }
+    var applyDialogCommentKind by rememberSaveable { mutableStateOf(ApplyDialogCommentKind.None) }
     var resizeAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var resizeStepFactor by rememberSaveable { mutableStateOf(0.5f) }
-    var canvasWidthInput by rememberSaveable { mutableStateOf("") }
-    var canvasHeightInput by rememberSaveable { mutableStateOf("") }
+    var resizeDownscaleMode by rememberSaveable { mutableStateOf(ResizeDownscaleMode.PixelArtStable) }
+    var resizePixelArtMethod by rememberSaveable { mutableStateOf(PixelArtStableMethod.CenterSample) }
+    var canvasWidthInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    var canvasHeightInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
     var canvasAnchor by rememberSaveable { mutableStateOf(ResizeAnchor.TopLeft) }
     var lastToolOp by rememberSaveable(stateSaver = LastToolOpSaver) { mutableStateOf<LastToolOp?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val undoStack = remember { ArrayDeque<EditorSnapshot>() }
     val redoStack = remember { ArrayDeque<EditorSnapshot>() }
     var fillStatusText by remember { mutableStateOf("Fill: mode=-") }
+    var lastFillConnectedSeedType by remember { mutableStateOf<FillConnectedSeedType?>(null) }
 
     suspend fun showSnackbarMessage(
         message: String,
@@ -268,6 +327,8 @@ fun SpriteEditorScreen(navController: NavController) {
         current: SpriteEditorState,
         anchor: ResizeAnchor,
         stepFactor: Float,
+        downscaleMode: ResizeDownscaleMode,
+        pixelArtMethod: PixelArtStableMethod,
         repeated: Boolean,
     ) {
         val resizeResult = resizeSelectionToMax96(
@@ -275,6 +336,8 @@ fun SpriteEditorScreen(navController: NavController) {
             current.selection,
             anchor = anchor,
             stepFactor = stepFactor,
+            downscaleMode = downscaleMode,
+            pixelArtMethod = pixelArtMethod,
         )
         if (!resizeResult.applied) {
             scope.launch { showSnackbarMessage("Resize skipped (already <= 96px)") }
@@ -283,7 +346,7 @@ fun SpriteEditorScreen(navController: NavController) {
         pushUndoSnapshot(current, undoStack, redoStack)
         editorState = current.withBitmap(resizeResult.bitmap).withSelection(resizeResult.selection)
         isDirty = true
-        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor)
+        lastToolOp = LastToolOp.ResizeToMax96(anchor, stepFactor, downscaleMode, pixelArtMethod)
         val message = if (repeated) "Repeated: Resize" else "Resize applied"
         scope.launch { showSnackbarMessage(message) }
     }
@@ -432,7 +495,20 @@ fun SpriteEditorScreen(navController: NavController) {
         requestCloseEditor()
     }
 
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val systemBarInsets = WindowInsets.systemBars
+    val scaffoldInsets = with(density) {
+        WindowInsets(
+            left = systemBarInsets.getLeft(this, layoutDirection),
+            top = systemBarInsets.getTop(this),
+            right = systemBarInsets.getRight(this, layoutDirection),
+            bottom = 0,
+        )
+    }
+
     Scaffold(
+        contentWindowInsets = scaffoldInsets,
         topBar = {
             TopAppBar(
                 title = { Text("Sprite Editor") },
@@ -474,11 +550,23 @@ fun SpriteEditorScreen(navController: NavController) {
                     val pillShape = SpriteEditorPillShape
                     var moveMode by remember { mutableStateOf(MoveMode.Box) }
                     var pxStepBase by rememberSaveable { mutableStateOf(4) }
-                    var widthText by remember(state?.widthInput) {
-                        mutableStateOf(state?.widthInput.orEmpty())
+                    var widthText by rememberSaveable(state?.widthInput, stateSaver = TextFieldValue.Saver) {
+                        val initial = state?.widthInput.orEmpty()
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = initial,
+                                selection = TextRange(initial.length),
+                            ),
+                        )
                     }
-                    var heightText by remember(state?.heightInput) {
-                        mutableStateOf(state?.heightInput.orEmpty())
+                    var heightText by rememberSaveable(state?.heightInput, stateSaver = TextFieldValue.Saver) {
+                        val initial = state?.heightInput.orEmpty()
+                        mutableStateOf(
+                            TextFieldValue(
+                                text = initial,
+                                selection = TextRange(initial.length),
+                            ),
+                        )
                     }
                     val inputContent: @Composable (Modifier) -> Unit = { modifier ->
                         Row(
@@ -487,12 +575,14 @@ fun SpriteEditorScreen(navController: NavController) {
                         ) {
                             OutlinedTextField(
                                 value = widthText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    widthText = sanitized
+                                onValueChange = { input: TextFieldValue ->
+                                    val maxWidth = state?.bitmap?.width ?: 4096
+                                    val clamped = clampPxFieldValue(widthText, input, maxWidth)
+                                    widthText = clamped
+                                    val sanitizedText = clamped.text
                                     updateState { current ->
-                                        val updated = current.copy(widthInput = sanitized)
-                                        val width = sanitized.toIntOrNull()
+                                        val updated = current.copy(widthInput = sanitizedText)
+                                        val width = sanitizedText.toIntOrNull()
                                         if (width != null && width > 0) {
                                             val resized = current.selection.resize(width, current.selection.h)
                                             val normalized = rectNormalizeClamp(
@@ -523,12 +613,14 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                             OutlinedTextField(
                                 value = heightText,
-                                onValueChange = { input: String ->
-                                    val sanitized = digitsOnly(input).take(4)
-                                    heightText = sanitized
+                                onValueChange = { input: TextFieldValue ->
+                                    val maxHeight = state?.bitmap?.height ?: 4096
+                                    val clamped = clampPxFieldValue(heightText, input, maxHeight)
+                                    heightText = clamped
+                                    val sanitizedText = clamped.text
                                     updateState { current ->
-                                        val updated = current.copy(heightInput = sanitized)
-                                        val height = sanitized.toIntOrNull()
+                                        val updated = current.copy(heightInput = sanitizedText)
+                                        val height = sanitizedText.toIntOrNull()
                                         if (height != null && height > 0) {
                                             val resized = current.selection.resize(current.selection.w, height)
                                             val normalized = rectNormalizeClamp(
@@ -911,11 +1003,53 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         }
                     }
+                    val realtimeSeedTypeChar by remember(editorState, state?.selection) {
+                        derivedStateOf {
+                            val current = editorState ?: return@derivedStateOf '-'
+                            val selection = current.selection
+                            val seedX = selection.x
+                            val seedY = selection.y
+                            val bitmap = current.bitmap
+                            if (seedX !in 0 until bitmap.width || seedY !in 0 until bitmap.height) {
+                                return@derivedStateOf '-'
+                            }
+                            val seedPixel = bitmap.getPixel(seedX, seedY)
+                            val alpha = (seedPixel ushr 24) and 0xFF
+                            val red = (seedPixel ushr 16) and 0xFF
+                            val green = (seedPixel ushr 8) and 0xFF
+                            val blue = seedPixel and 0xFF
+                            when {
+                                alpha < FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD -> 'T'
+                                red <= 16 && green <= 16 && blue <= 16 -> 'B'
+                                red >= 239 && green >= 239 && blue >= 239 -> 'W'
+                                else -> 'O'
+                            }
+                        }
+                    }
+                    LaunchedEffect(state?.selection) {
+                        lastFillConnectedSeedType = null
+                    }
+                    fun seedWordFromTypeChar(seedTypeChar: Char): String = when (seedTypeChar) {
+                        'T' -> "Transparent"
+                        'B' -> "Black"
+                        'W' -> "White"
+                        'O' -> "Other"
+                        else -> "-"
+                    }
+                    fun seedWordFromFillConnectedSeedType(seedType: FillConnectedSeedType): String = when (seedType) {
+                        FillConnectedSeedType.Transparent -> "Transparent"
+                        FillConnectedSeedType.Black -> "Black"
+                        FillConnectedSeedType.White -> "White"
+                        FillConnectedSeedType.Other -> "Other"
+                        FillConnectedSeedType.None -> "None"
+                    }
+                    val seedWord = lastFillConnectedSeedType?.let { seedWordFromFillConnectedSeedType(it) }
+                        ?: seedWordFromTypeChar(realtimeSeedTypeChar)
                     val statusContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier
                                 // [dp] 上下: ステータス の余白(余白)に関係
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 2.dp)
                                 .testTag("spriteEditorStatus"),
                             // [dp] 縦: ステータス の間隔(間隔)に関係
                             verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -930,14 +1064,23 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
                             }
-                            val statusLine3 = if (state == null) {
+                            val moveStatusText = if (state == null) {
                                 "移動: -"
+                            } else if (moveMode == MoveMode.Box) {
+                                "移動: 1box"
                             } else {
                                 "移動: ${pxStepBase}px"
                             }
+                            val statusTextStyle = MaterialTheme.typography.labelMedium
                             Text(
                                 text = statusLine1,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = statusTextStyle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = statusLine2,
+                                style = statusTextStyle,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -945,30 +1088,28 @@ fun SpriteEditorScreen(navController: NavController) {
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = statusLine2,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
+                                Box(
+                                    // [dp] 横: 「移動: 1box」が収まる固定幅で Seed 表示の開始位置を安定化
+                                    modifier = Modifier.width(MOVE_STATUS_FIXED_WIDTH)
+                                ) {
+                                    Text(
+                                        text = moveStatusText,
+                                        style = statusTextStyle,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                // [dp] 横: 移動ステータスと Seed 表示の最小間隔
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = fillStatusText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                    text = "Seed: $seedWord",
+                                    style = statusTextStyle,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.testTag("spriteEditorFillStatus"),
+                                    textAlign = TextAlign.Start,
+                                    modifier = Modifier.testTag("spriteEditorSeedStatus"),
                                 )
                             }
-                            Text(
-                                text = statusLine3,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
                         }
                     }
                     fun moveSelectionByMode(dxSign: Int, dySign: Int, repeatStepPx: Int? = null) {
@@ -1374,6 +1515,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     current.selection,
                                                                 )
                                                                 fillStatusText = fillResult.debugText
+                                                                if (fillResult.seedType != FillConnectedSeedType.None) {
+                                                                    lastFillConnectedSeedType = fillResult.seedType
+                                                                }
                                                                 when {
                                                                     fillResult.aborted -> {
                                                                         scope.launch { showSnackbarMessage("Fill aborted (too large)") }
@@ -1418,6 +1562,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                                                     current,
                                                                     anchor = op.anchor,
                                                                     stepFactor = op.stepFactor,
+                                                                    downscaleMode = op.downscaleMode,
+                                                                    pixelArtMethod = op.pixelArtMethod,
                                                                     repeated = true,
                                                                 )
                                                             }
@@ -1580,6 +1726,8 @@ fun SpriteEditorScreen(navController: NavController) {
                         onClick = {
                             if (item.opensApplyDialog) {
                                 activeSheet = SheetType.None
+                                applyDialogComment = ""
+                                applyDialogCommentKind = ApplyDialogCommentKind.None
                                 showApplyDialog = true
                             } else if (item.testTag == "spriteEditorSheetItemFlipCopy") {
                                 val current = editorState
@@ -1687,6 +1835,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                         current.selection,
                                     )
                                     fillStatusText = fillResult.debugText
+                                    if (fillResult.seedType != FillConnectedSeedType.None) {
+                                        lastFillConnectedSeedType = fillResult.seedType
+                                    }
                                     activeSheet = SheetType.None
                                     when {
                                         fillResult.aborted -> {
@@ -1734,8 +1885,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                     activeSheet = SheetType.None
                                     scope.launch { showSnackbarMessage("No sprite loaded") }
                                 } else {
-                                    canvasWidthInput = current.bitmap.width.toString()
-                                    canvasHeightInput = current.bitmap.height.toString()
+                                    canvasWidthInput = TextFieldValue(current.bitmap.width.toString())
+                                    canvasHeightInput = TextFieldValue(current.bitmap.height.toString())
                                     canvasAnchor = ResizeAnchor.TopLeft
                                     activeSheet = SheetType.None
                                     showCanvasSizeDialog = true
@@ -1852,8 +2003,76 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     if (showApplyDialog) {
+        val applyTargetLabel = "Sprite Settings (Current)"
+        val currentEditorBitmap = editorState?.bitmap
+        val currentEditorSelection = editorState?.selection
+        val existingOverrideBitmap = SpriteSettingsSessionSpriteOverride.bitmap
+        val beforeBitmap = remember(existingOverrideBitmap) {
+            // Sprite Settings 側の既存セッション上書きがあればそれを優先表示する
+            existingOverrideBitmap
+        }
+        val afterBitmap = remember(applySource, currentEditorBitmap, currentEditorSelection) {
+            val bitmap = currentEditorBitmap ?: return@remember null
+            when (applySource) {
+                ApplySource.FullImage -> ensureArgb8888(bitmap)
+                ApplySource.Selection -> {
+                    val selection = currentEditorSelection ?: return@remember null
+                    val normalizedSelection = rectNormalizeClamp(
+                        selection,
+                        bitmap.width,
+                        bitmap.height,
+                    )
+                    if (normalizedSelection.w < 1 || normalizedSelection.h < 1) {
+                        null
+                    } else {
+                        ensureArgb8888(copyRect(bitmap, normalizedSelection))
+                    }
+                }
+            }
+        }
+        val beforeImageBitmap = remember(beforeBitmap) { beforeBitmap?.asImageBitmap() }
+        val afterImageBitmap = remember(afterBitmap) { afterBitmap?.asImageBitmap() }
+        val setApplyDialogComment: (ApplyDialogCommentKind, String) -> Unit = { kind, message ->
+            applyDialogCommentKind = kind
+            applyDialogComment = message
+        }
+        val closeApplyDialog = {
+            showApplyDialog = false
+            applyDialogComment = ""
+            applyDialogCommentKind = ApplyDialogCommentKind.None
+        }
+        val optionCommentLines = remember(applyOverwrite, existingOverrideBitmap) {
+            buildList {
+                if (!applyOverwrite && existingOverrideBitmap != null) {
+                    add("Overwrite disabled: apply will be rejected")
+                }
+            }
+        }
+        val fallbackCommentText = remember(optionCommentLines) { optionCommentLines.joinToString("\n") }
+        val hasExplicitComment = applyDialogCommentKind != ApplyDialogCommentKind.None && applyDialogComment.isNotBlank()
+        val resolvedCommentKind = when {
+            hasExplicitComment -> applyDialogCommentKind
+            fallbackCommentText.isNotBlank() -> ApplyDialogCommentKind.Warn
+            else -> ApplyDialogCommentKind.None
+        }
+        val resolvedCommentText = when {
+            hasExplicitComment -> applyDialogComment
+            else -> fallbackCommentText
+        }
+        val resolvedCommentPrefix = when (resolvedCommentKind) {
+            ApplyDialogCommentKind.None -> ""
+            ApplyDialogCommentKind.Info -> "[INFO] "
+            ApplyDialogCommentKind.Warn -> "[WARN] "
+            ApplyDialogCommentKind.Error -> "[ERROR] "
+        }
+        val resolvedCommentAlpha = when (resolvedCommentKind) {
+            ApplyDialogCommentKind.None -> 0f
+            ApplyDialogCommentKind.Info -> 0.80f
+            ApplyDialogCommentKind.Warn -> 0.88f
+            ApplyDialogCommentKind.Error -> 1f
+        }
         AlertDialog(
-            onDismissRequest = { showApplyDialog = false },
+            onDismissRequest = closeApplyDialog,
             title = { Text("Apply to Sprite") },
             text = {
                 Column(
@@ -1861,6 +2080,10 @@ fun SpriteEditorScreen(navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Applies the current image (or selection) to a sprite asset.")
+                    Text(
+                        text = "Target: $applyTargetLabel",
+                        modifier = Modifier.testTag("spriteEditorApplyTarget"),
+                    )
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1869,82 +2092,206 @@ fun SpriteEditorScreen(navController: NavController) {
                     ) {
                         Text("Source")
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = applySource == ApplySource.Selection,
-                                    onClick = { applySource = ApplySource.Selection },
-                                    role = Role.RadioButton,
-                                )
-                                .testTag("spriteEditorApplySourceSelection"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            RadioButton(
-                                selected = applySource == ApplySource.Selection,
-                                onClick = null,
-                            )
-                            Text("Selection")
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
+                            Row(
+                                modifier = Modifier
+                                    .selectable(
+                                        selected = applySource == ApplySource.FullImage,
+                                        onClick = { applySource = ApplySource.FullImage },
+                                        role = Role.RadioButton,
+                                    )
+                                    .testTag("spriteEditorApplySourceFull"),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
                                     selected = applySource == ApplySource.FullImage,
-                                    onClick = { applySource = ApplySource.FullImage },
-                                    role = Role.RadioButton,
+                                    onClick = null,
                                 )
-                                .testTag("spriteEditorApplySourceFull"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = applySource == ApplySource.FullImage,
-                                onClick = null,
-                            )
-                            Text("Full Image")
+                                Text("Full Image")
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .selectable(
+                                        selected = applySource == ApplySource.Selection,
+                                        onClick = { applySource = ApplySource.Selection },
+                                        role = Role.RadioButton,
+                                    )
+                                    .testTag("spriteEditorApplySourceSelection"),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = applySource == ApplySource.Selection,
+                                    onClick = null,
+                                )
+                                Text("Selection")
+                            }
                         }
                     }
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Destination")
-                        OutlinedTextField(
-                            value = applyDestinationLabel,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                )
-                            },
+                        Text("Preview")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("Before")
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .testTag("spriteEditorApplyPreviewBefore"),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (beforeImageBitmap != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = beforeImageBitmap,
+                                            contentDescription = "Apply Preview Before",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(6.dp),
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "No preview",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("After")
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f)
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .testTag("spriteEditorApplyPreviewAfter"),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (afterImageBitmap != null) {
+                                        androidx.compose.foundation.Image(
+                                            bitmap = afterImageBitmap,
+                                            contentDescription = "Apply Preview After",
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(6.dp),
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "No preview",
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        val commentLines = remember(resolvedCommentPrefix, resolvedCommentText) {
+                            if (resolvedCommentText.isBlank()) {
+                                emptyList()
+                            } else {
+                                resolvedCommentText
+                                    .split("\n")
+                                    .filter { it.isNotBlank() }
+                                    .mapIndexed { index, line ->
+                                        if (index == 0) "$resolvedCommentPrefix$line" else line
+                                    }
+                            }
+                        }
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("spriteEditorApplyDestination")
-                                .clickable {
-                                    scope.launch {
-                                        showSnackbarMessage("TODO: Choose destination sprite")
+                                .heightIn(min = APPLY_DIALOG_COMMENT_MIN_HEIGHT)
+                                .testTag("spriteEditorApplyCommentArea"),
+                        ) {
+                            when {
+                                commentLines.size == 1 -> {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentAlignment = Alignment.TopStart,
+                                    ) {
+                                        Text(
+                                            text = commentLines.first(),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.alpha(resolvedCommentAlpha),
+                                            maxLines = 3,
+                                            overflow = TextOverflow.Clip,
+                                            softWrap = true,
+                                        )
                                     }
-                                },
-                        )
+                                }
+
+                                commentLines.size >= 2 -> {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(APPLY_DIALOG_COMMENT_SLOT_SPACING),
+                                    ) {
+                                        commentLines.forEach { line ->
+                                            Text(
+                                                text = line,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.alpha(resolvedCommentAlpha),
+                                                maxLines = 3,
+                                                overflow = TextOverflow.Clip,
+                                                softWrap = true,
+                                            )
+                                        }
+                                    }
+                                }
+
+                                else -> {
+                                    Text(
+                                        text = " ",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .alpha(0f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Clip,
+                                        softWrap = true,
+                                    )
+                                }
+                            }
+                        }
                     }
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text("Options")
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("spriteEditorApplyOverwrite"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(
                                 checked = applyOverwrite,
-                                onCheckedChange = { applyOverwrite = it },
+                                onCheckedChange = {
+                                    applyOverwrite = it
+                                    if (applyDialogCommentKind != ApplyDialogCommentKind.Error) {
+                                        setApplyDialogComment(ApplyDialogCommentKind.None, "")
+                                    }
+                                },
                             )
                             Text("Overwrite existing")
                         }
@@ -1952,12 +2299,17 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("spriteEditorApplyPreserveAlpha"),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(
                                 checked = applyPreserveAlpha,
-                                onCheckedChange = { applyPreserveAlpha = it },
+                                onCheckedChange = {
+                                    applyPreserveAlpha = it
+                                    if (applyDialogCommentKind != ApplyDialogCommentKind.Error) {
+                                        setApplyDialogComment(ApplyDialogCommentKind.None, "")
+                                    }
+                                },
                             )
                             Text("Preserve transparency")
                         }
@@ -1965,34 +2317,119 @@ fun SpriteEditorScreen(navController: NavController) {
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showApplyDialog = false
-                        scope.launch {
-                            showSnackbarMessage(
-                                "TODO: Apply to Sprite (Source=${applySource.label}, " +
-                                    "Destination=$applyDestinationLabel, " +
-                                    "Overwrite=$applyOverwrite, PreserveAlpha=$applyPreserveAlpha)"
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .height(32.dp)
-                        .testTag("spriteEditorApplyConfirm"),
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("Apply")
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        SpriteEditorStandardOutlinedButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp)
+                                .padding(horizontal = 2.dp)
+                                .testTag("spriteEditorApplyResetDefault"),
+                            label = "Reset to Default",
+                            onClick = {
+                                scope.launch {
+                                    closeApplyDialog()
+                                    withFrameNanos { }
+                                    SpriteSettingsSessionSpriteOverride.bitmap = null
+                                    deleteCurrentSpriteSheetOverride(context)
+                                    settingsPreferences.saveSpriteCurrentSheetOverrideEnabled(enabled = false)
+                                    showSnackbarMessage("Reset to default")
+                                }
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        SpriteEditorCancelApplyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            onCancel = closeApplyDialog,
+                            onApply = {
+                                val current = editorState
+                                if (current == null) {
+                                    setApplyDialogComment(ApplyDialogCommentKind.Error, "No sprite loaded")
+                                    return@SpriteEditorCancelApplyRow
+                                }
+                                scope.launch {
+                                    val existingOverride = SpriteSettingsSessionSpriteOverride.bitmap
+                                    if (existingOverride != null && !applyOverwrite) {
+                                        setApplyDialogComment(
+                                            ApplyDialogCommentKind.Warn,
+                                            "Apply rejected: enable Overwrite existing",
+                                        )
+                                        return@launch
+                                    }
+
+                                    val sourceBitmap = when (applySource) {
+                                        ApplySource.FullImage -> ensureArgb8888(current.bitmap)
+                                        ApplySource.Selection -> {
+                                            val normalizedSelection = rectNormalizeClamp(
+                                                current.selection,
+                                                current.bitmap.width,
+                                                current.bitmap.height,
+                                            )
+                                            if (normalizedSelection.w < 1 || normalizedSelection.h < 1) {
+                                                setApplyDialogComment(
+                                                    ApplyDialogCommentKind.Error,
+                                                    "Selection is empty or invalid",
+                                                )
+                                                return@launch
+                                            }
+                                            ensureArgb8888(copyRect(current.bitmap, normalizedSelection))
+                                        }
+                                    }
+
+                                    val bitmapToSave = if (applyPreserveAlpha) {
+                                        val before = beforeBitmap
+                                        if (before == null) {
+                                            setApplyDialogComment(
+                                                ApplyDialogCommentKind.Error,
+                                                "Preserve transparency requires existing sprite sheet",
+                                            )
+                                            return@launch
+                                        }
+                                        if (before.width != sourceBitmap.width || before.height != sourceBitmap.height) {
+                                            setApplyDialogComment(
+                                                ApplyDialogCommentKind.Error,
+                                                "Bitmap size mismatch: before=${before.width}x${before.height}, src=${sourceBitmap.width}x${sourceBitmap.height}",
+                                            )
+                                            return@launch
+                                        }
+                                        compositePreserveTransparency(dst = ensureArgb8888(before), src = sourceBitmap)
+                                    } else {
+                                        sourceBitmap
+                                    }
+
+                                    SpriteSettingsSessionSpriteOverride.bitmap = bitmapToSave
+                                    val saved = saveCurrentSpriteSheetOverride(context, bitmapToSave)
+                                    if (!saved) {
+                                        setApplyDialogComment(
+                                            ApplyDialogCommentKind.Error,
+                                            "Failed to persist Sprite Settings (Current)",
+                                        )
+                                        return@launch
+                                    }
+                                    settingsPreferences.saveSpriteCurrentSheetOverrideEnabled(enabled = true)
+                                    closeApplyDialog()
+                                    withFrameNanos { }
+                                    showSnackbarMessage("Applied to Sprite Settings (Current)")
+                                }
+                            },
+                            cancelTestTag = "spriteEditorApplyCancel",
+                            applyTestTag = "spriteEditorApplyConfirm",
+                        )
+                    }
                 }
             },
-            dismissButton = {
-                Button(
-                    onClick = { showApplyDialog = false },
-                    modifier = Modifier
-                        .height(32.dp)
-                        .testTag("spriteEditorApplyCancel"),
-                ) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = {},
             modifier = Modifier.testTag("spriteEditorApplyDialog"),
         )
     }
@@ -2055,73 +2492,169 @@ fun SpriteEditorScreen(navController: NavController) {
                             .selectableGroup(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Step Factor")
+                        Text("Downscale mode")
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .selectable(
-                                    selected = resizeStepFactor == 0.5f,
-                                    onClick = { resizeStepFactor = 0.5f },
+                                    selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
+                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.PixelArtStable },
                                     role = Role.RadioButton,
                                 ),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(
-                                selected = resizeStepFactor == 0.5f,
+                                selected = resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable,
                                 onClick = null,
                             )
-                            Text("0.5")
+                            Text("PixelArt Stable")
                         }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .selectable(
-                                    selected = resizeStepFactor == 0.75f,
-                                    onClick = { resizeStepFactor = 0.75f },
+                                    selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
+                                    onClick = { resizeDownscaleMode = ResizeDownscaleMode.DefaultMultiStep },
                                     role = Role.RadioButton,
                                 ),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(
-                                selected = resizeStepFactor == 0.75f,
+                                selected = resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep,
                                 onClick = null,
                             )
-                            Text("0.75")
+                            Text("MultiStep")
+                        }
+                    }
+                    if (resizeDownscaleMode == ResizeDownscaleMode.DefaultMultiStep) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Step Factor")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = resizeStepFactor == 0.5f,
+                                        onClick = { resizeStepFactor = 0.5f },
+                                        role = Role.RadioButton,
+                                    ),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = resizeStepFactor == 0.5f,
+                                    onClick = null,
+                                )
+                                Text("0.5")
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = resizeStepFactor == 0.75f,
+                                        onClick = { resizeStepFactor = 0.75f },
+                                        role = Role.RadioButton,
+                                    ),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = resizeStepFactor == 0.75f,
+                                    onClick = null,
+                                )
+                                Text("0.75")
+                            }
+                        }
+                    }
+                    if (resizeDownscaleMode == ResizeDownscaleMode.PixelArtStable) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("PixelArt method")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = resizePixelArtMethod == PixelArtStableMethod.CenterSample,
+                                        onClick = { resizePixelArtMethod = PixelArtStableMethod.CenterSample },
+                                        role = Role.RadioButton,
+                                    ),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = resizePixelArtMethod == PixelArtStableMethod.CenterSample,
+                                    onClick = null,
+                                )
+                                Text("CenterSample")
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = resizePixelArtMethod == PixelArtStableMethod.DarkDominant,
+                                        onClick = { resizePixelArtMethod = PixelArtStableMethod.DarkDominant },
+                                        role = Role.RadioButton,
+                                    ),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = resizePixelArtMethod == PixelArtStableMethod.DarkDominant,
+                                    onClick = null,
+                                )
+                                Text("DarkDominant")
+                            }
                         }
                     }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showResizeDialog = false
-                        val current = editorState
-                        if (current == null) {
-                            scope.launch { showSnackbarMessage("No sprite loaded") }
-                        } else {
-                            runResizeSelection(
-                                current,
-                                anchor = resizeAnchor,
-                                stepFactor = resizeStepFactor,
-                                repeated = false,
-                            )
-                        }
-                    },
-                    modifier = Modifier.height(32.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // [dp] 左右/下: ボタン領域の横幅と下余白をCanvas Sizeダイアログに揃える(余白)に関係
+                        .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("OK")
+                    Column(
+                        modifier = Modifier
+                            // [dp] 最大幅: ボタン行の横幅上限をCanvas Sizeダイアログに揃える(サイズ)に関係
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        SpriteEditorCancelApplyRow(
+                            onCancel = { showResizeDialog = false },
+                            onApply = {
+                                showResizeDialog = false
+                                val current = editorState
+                                if (current == null) {
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                } else {
+                                    runResizeSelection(
+                                        current,
+                                        anchor = resizeAnchor,
+                                        stepFactor = resizeStepFactor,
+                                        downscaleMode = resizeDownscaleMode,
+                                        pixelArtMethod = resizePixelArtMethod,
+                                        repeated = false,
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             },
-            dismissButton = {
-                Button(
-                    onClick = { showResizeDialog = false },
-                    modifier = Modifier.height(32.dp),
-                ) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = {},
         )
     }
 
@@ -2130,153 +2663,297 @@ fun SpriteEditorScreen(navController: NavController) {
             onDismissRequest = { showCanvasSizeDialog = false },
             title = { Text("Canvas Size") },
             text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // [dp] 左右: ダイアログ本文の横幅を揃えるための最小余白(余白)に関係
+                        .padding(start = 24.dp, end = 24.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = canvasWidthInput,
-                            onValueChange = { input ->
-                                canvasWidthInput = digitsOnly(input).take(4)
-                            },
-                            label = { Text("W(px)") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .width(96.dp)
-                                .height(54.dp)
-                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
-                                .heightIn(min = 54.dp),
-                        )
-                        OutlinedTextField(
-                            value = canvasHeightInput,
-                            onValueChange = { input ->
-                                canvasHeightInput = digitsOnly(input).take(4)
-                            },
-                            label = { Text("H(px)") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .width(96.dp)
-                                .height(54.dp)
-                                // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
-                                .heightIn(min = 54.dp),
-                        )
-                    }
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .selectableGroup(),
+                            // [dp] 最大幅: ダイアログ本文の横幅上限(サイズ)に関係
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Anchor")
                         Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = canvasWidthInput,
+                                onValueChange = { input ->
+                                    canvasWidthInput = clampPxFieldValue(
+                                        canvasWidthInput,
+                                        input,
+                                        4096,
+                                    )
+                                },
+                                label = { Text("W(px)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .width(96.dp)
+                                    .height(54.dp)
+                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 54.dp),
+                            )
+                            OutlinedTextField(
+                                value = canvasHeightInput,
+                                onValueChange = { input ->
+                                    canvasHeightInput = clampPxFieldValue(
+                                        canvasHeightInput,
+                                        input,
+                                        4096,
+                                    )
+                                },
+                                label = { Text("H(px)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .width(96.dp)
+                                    .height(54.dp)
+                                    // Material3の最小高さ制約で54.dpに収まらない場合があるため保険として残す
+                                    .heightIn(min = 54.dp),
+                            )
+                        }
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .selectable(
-                                    selected = canvasAnchor == ResizeAnchor.TopLeft,
-                                    onClick = { canvasAnchor = ResizeAnchor.TopLeft },
-                                    role = Role.RadioButton,
-                                ),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .selectableGroup(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            RadioButton(
-                                selected = canvasAnchor == ResizeAnchor.TopLeft,
-                                onClick = null,
-                            )
-                            Text("TopLeft")
+                            Text("Anchor")
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                        onClick = { canvasAnchor = ResizeAnchor.TopLeft },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasAnchor == ResizeAnchor.TopLeft,
+                                        onClick = null,
+                                    )
+                                    Text("TopLeft")
+                                }
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = canvasAnchor == ResizeAnchor.Center,
+                                        onClick = { canvasAnchor = ResizeAnchor.Center },
+                                        role = Role.RadioButton,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    RadioButton(
+                                        selected = canvasAnchor == ResizeAnchor.Center,
+                                        onClick = null,
+                                    )
+                                    Text("Center")
+                                }
+                            }
                         }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = canvasAnchor == ResizeAnchor.Center,
-                                    onClick = { canvasAnchor = ResizeAnchor.Center },
-                                    role = Role.RadioButton,
-                                ),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(
-                                selected = canvasAnchor == ResizeAnchor.Center,
-                                onClick = null,
-                            )
-                            Text("Center")
-                        }
-                    }
-                    Button(
-                        onClick = {
-                            canvasWidthInput = "288"
-                            canvasHeightInput = "288"
-                        },
-                        modifier = Modifier.height(32.dp),
-                    ) {
-                        Text("Reset 288x288")
                     }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showCanvasSizeDialog = false
-                        val current = editorState
-                        if (current == null) {
-                            scope.launch { showSnackbarMessage("No sprite loaded") }
-                            return@Button
-                        }
-                        val rawWidth = canvasWidthInput.toIntOrNull() ?: current.bitmap.width
-                        val rawHeight = canvasHeightInput.toIntOrNull() ?: current.bitmap.height
-                        val newWidth = rawWidth.coerceIn(1, 4096)
-                        val newHeight = rawHeight.coerceIn(1, 4096)
-                        if (newWidth == current.bitmap.width && newHeight == current.bitmap.height) {
-                            scope.launch { showSnackbarMessage("Canvas unchanged") }
-                            return@Button
-                        }
-                        pushUndoSnapshot(current, undoStack, redoStack)
-                        val resizedBitmap = resizeCanvas(
-                            current.bitmap,
-                            newWidth,
-                            newHeight,
-                            canvasAnchor,
-                        )
-                        val nextSelection = rectNormalizeClamp(
-                            current.selection,
-                            newWidth,
-                            newHeight,
-                        )
-                        editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
-                        isDirty = true
-                        activeSheet = SheetType.None
-                        scope.launch { showSnackbarMessage("Canvas resized to ${newWidth}x${newHeight}") }
-                    },
-                    modifier = Modifier.height(32.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // [dp] 左右・下: ダイアログボタンの余白(余白)に関係
+                        .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("Apply")
+                    Column(
+                        modifier = Modifier
+                            // [dp] 最大幅: ダイアログ内ボタンの横幅上限(サイズ)に関係
+                            .widthIn(max = 320.dp)
+                            .fillMaxWidth(),
+                    ) {
+                        SpriteEditorStandardOutlinedButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // [dp] 左右: 1段目ボタンの横幅を詰めるための最小余白(余白)に関係
+                                .padding(horizontal = 4.dp)
+                                // [dp] 左右: 1段目ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                                .padding(horizontal = 2.dp),
+                            label = "Reset 288x288",
+                            onClick = {
+                                canvasWidthInput = TextFieldValue("288")
+                                canvasHeightInput = TextFieldValue("288")
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(
+                            modifier = Modifier
+                                // [dp] 上下: 2段ボタン間の間隔(間隔)に関係
+                                .height(12.dp)
+                        )
+                        SpriteEditorCancelApplyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // [dp] 左右: 2段目ボタン全体の横幅を詰めるための最小余白(余白)に関係
+                                .padding(horizontal = 4.dp),
+                            onCancel = { showCanvasSizeDialog = false },
+                            onApply = {
+                                showCanvasSizeDialog = false
+                                val current = editorState
+                                if (current == null) {
+                                    scope.launch { showSnackbarMessage("No sprite loaded") }
+                                    return@SpriteEditorCancelApplyRow
+                                }
+                                val parsedW = canvasWidthInput.text.toIntOrNull()
+                                val parsedH = canvasHeightInput.text.toIntOrNull()
+                                val safeW = (parsedW ?: current.bitmap.width).coerceIn(1, 4096)
+                                val safeH = (parsedH ?: current.bitmap.height).coerceIn(1, 4096)
+                                canvasWidthInput = TextFieldValue(safeW.toString())
+                                canvasHeightInput = TextFieldValue(safeH.toString())
+                                if (safeW == current.bitmap.width && safeH == current.bitmap.height) {
+                                    scope.launch { showSnackbarMessage("Canvas unchanged") }
+                                    return@SpriteEditorCancelApplyRow
+                                }
+                                pushUndoSnapshot(current, undoStack, redoStack)
+                                val resizedBitmap = resizeCanvas(
+                                    current.bitmap,
+                                    safeW,
+                                    safeH,
+                                    canvasAnchor,
+                                )
+                                val nextSelection = rectNormalizeClamp(
+                                    current.selection,
+                                    safeW,
+                                    safeH,
+                                )
+                                editorState = current.withBitmap(resizedBitmap).withSelection(nextSelection)
+                                isDirty = true
+                                activeSheet = SheetType.None
+                                scope.launch { showSnackbarMessage("Canvas resized to ${safeW}x${safeH}") }
+                            },
+                        )
+                    }
                 }
             },
-            dismissButton = {
-                Button(
-                    onClick = { showCanvasSizeDialog = false },
-                    modifier = Modifier.height(32.dp),
-                ) {
-                    Text("Cancel")
-                }
-            },
+            dismissButton = {},
+        )
+    }
+}
+
+@Composable
+private fun SpriteEditorCancelApplyRow(
+    modifier: Modifier = Modifier,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+    cancelLabel: String = "Cancel",
+    applyLabel: String = "Apply",
+    cancelTestTag: String? = null,
+    applyTestTag: String? = null,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SpriteEditorStandardOutlinedButton(
+            modifier = Modifier
+                .weight(1f)
+                // [dp] 左右: 左ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                .padding(horizontal = 2.dp)
+                .then(if (cancelTestTag != null) Modifier.testTag(cancelTestTag) else Modifier),
+            label = cancelLabel,
+            onClick = onCancel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        SpriteEditorStandardButton(
+            modifier = Modifier
+                .weight(1f)
+                // [dp] 左右: 右ボタンの見た目幅を少しだけ詰める最小余白(余白)に関係
+                .padding(horizontal = 2.dp)
+                .then(if (applyTestTag != null) Modifier.testTag(applyTestTag) else Modifier),
+            label = applyLabel,
+            onClick = onApply,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 private fun digitsOnly(input: String): String = input.filter { ch -> ch.isDigit() }
 
+@VisibleForTesting
+internal fun clampPxFieldValue(prev: TextFieldValue, next: TextFieldValue, max: Int): TextFieldValue {
+    val maxDigits = max.coerceAtLeast(1).toString().length
+    val sanitized = digitsOnly(next.text)
+    val parsed = sanitized.toLongOrNull()
+    val exceedsMax = parsed != null && parsed > max
+    val exceedsDigits = sanitized.length > maxDigits
+    val clamped = clampPxInput(next.text, max)
+    val prevText = prev.text
+    if ((exceedsDigits || exceedsMax) && clamped == prevText) {
+        return TextFieldValue(
+            text = prevText,
+            selection = TextRange(prevText.length),
+            composition = null,
+        )
+    }
+    return TextFieldValue(
+        text = clamped,
+        selection = TextRange(clamped.length),
+        composition = null,
+    )
+}
+
+@VisibleForTesting
+internal fun clampPxInput(raw: String, max: Int): String {
+    val sanitized = digitsOnly(raw)
+    if (sanitized.isEmpty()) {
+        return ""
+    }
+    val maxDigits = max.coerceAtLeast(1).toString().length
+    val parsed = sanitized.toLongOrNull()
+    if (parsed == null) {
+        return sanitized.take(maxDigits)
+    }
+    val clamped = parsed.coerceIn(1L, max.toLong()).toString()
+    return if (clamped.length > maxDigits) clamped.take(maxDigits) else clamped
+}
+
+@VisibleForTesting
+internal fun rejectPxFieldValueOverMaxDigits(
+    prev: TextFieldValue,
+    nextRaw: String,
+    maxDigits: Int = 4,
+): TextFieldValue {
+    val sanitized = digitsOnly(nextRaw)
+    if (sanitized.isEmpty()) {
+        return TextFieldValue(
+            text = "",
+            selection = TextRange(0),
+            composition = null,
+        )
+    }
+    if (sanitized.length > maxDigits) {
+        return prev
+    }
+    return TextFieldValue(
+        text = sanitized,
+        selection = TextRange(sanitized.length),
+        composition = null,
+    )
+}
+
 // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
 private val SpriteEditorButtonHeight = 32.dp
-private val SpriteEditorButtonMinHeight = 48.dp
+private val SpriteEditorButtonMinHeight = 46.dp
 // [dp] 左右: ボタン内側の余白(余白)に関係
 private val SpriteEditorButtonPadding = PaddingValues(horizontal = 8.dp)
 private val SpriteEditorPillShape = RoundedCornerShape(999.dp)
@@ -2461,6 +3138,43 @@ private fun SpriteEditorState.applySnapshot(snapshot: EditorSnapshot): SpriteEdi
 
 private fun internalAutosaveFile(context: android.content.Context): File {
     return File(context.filesDir, "sprite_editor/sprite_editor_autosave.png")
+}
+
+private fun currentSpriteSheetOverrideFile(context: android.content.Context): File {
+    return File(context.filesDir, "sprite_settings/current_sprite_sheet.png")
+}
+
+private suspend fun saveCurrentSpriteSheetOverride(context: android.content.Context, bitmap: Bitmap): Boolean {
+    return withContext(Dispatchers.IO) {
+        val targetFile = currentSpriteSheetOverrideFile(context)
+        val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+        targetFile.parentFile?.mkdirs()
+        runCatching {
+            val safeBitmap = ensureArgb8888(bitmap)
+            FileOutputStream(tempFile).use { output ->
+                safeBitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            }
+            if (targetFile.exists() && !targetFile.delete()) {
+                tempFile.delete()
+                return@runCatching false
+            }
+            if (!tempFile.renameTo(targetFile)) {
+                tempFile.delete()
+                return@runCatching false
+            }
+            true
+        }.getOrDefault(false)
+    }
+}
+
+private suspend fun deleteCurrentSpriteSheetOverride(context: android.content.Context): Boolean {
+    return withContext(Dispatchers.IO) {
+        val targetFile = currentSpriteSheetOverrideFile(context)
+        if (!targetFile.exists()) {
+            return@withContext true
+        }
+        runCatching { targetFile.delete() }.getOrDefault(false)
+    }
 }
 
 private suspend fun loadInternalAutosave(context: android.content.Context): Bitmap? {
