@@ -25,12 +25,21 @@ const val FILL_CONNECTED_RGB_TOLERANCE = 24
 
 enum class Mode { Alpha, Rgb }
 
+enum class FillConnectedSeedType {
+    White,
+    Black,
+    Transparent,
+    Other,
+    None,
+}
+
 data class FillConnectedResult(
     val bitmap: Bitmap,
     val filled: Int,
     val aborted: Boolean,
     val mode: Mode,
     val debugText: String,
+    val seedType: FillConnectedSeedType,
 )
 
 data class TransparentSelectionStats(
@@ -1430,6 +1439,7 @@ fun fillConnectedToWhite(
             aborted = false,
             mode = Mode.Alpha,
             debugText = "Fill: mode=alpha T=0 thr=$transparentAlphaThreshold filled=0",
+            seedType = FillConnectedSeedType.None,
         )
     }
 
@@ -1488,12 +1498,16 @@ fun fillConnectedToWhite(
 
     var head = 0
     var tail = 0
+    var seedType = FillConnectedSeedType.None
     for (y in sy until ey) {
         for (x in sx until ex) {
             val index = y * width + x
             if (!visited[index] && isTarget(srcPixels[index])) {
                 visited[index] = true
                 queue[tail++] = index
+                if (seedType == FillConnectedSeedType.None) {
+                    seedType = resolveFillConnectedSeedType(srcPixels[index], transparentAlphaThreshold)
+                }
             }
         }
     }
@@ -1504,7 +1518,7 @@ fun fillConnectedToWhite(
         } else {
             "Fill: mode=rgb tol=$rgbTolerance filled=0 limit=$maxFillPixels"
         }
-        return FillConnectedResult(safeSrc, 0, false, mode, debugText)
+        return FillConnectedResult(safeSrc, 0, false, mode, debugText, FillConnectedSeedType.None)
     }
 
     val white = 0xFFFFFFFF.toInt()
@@ -1519,7 +1533,7 @@ fun fillConnectedToWhite(
             } else {
                 "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount limit=$maxFillPixels"
             }
-            return FillConnectedResult(safeSrc, filledCount, true, mode, debugText)
+            return FillConnectedResult(safeSrc, filledCount, true, mode, debugText, seedType)
         }
 
         val px = index % width
@@ -1561,7 +1575,25 @@ fun fillConnectedToWhite(
     } else {
         "Fill: mode=rgb tol=$rgbTolerance filled=$filledCount limit=$maxFillPixels"
     }
-    return FillConnectedResult(output, filledCount, false, mode, debugText)
+    return FillConnectedResult(output, filledCount, false, mode, debugText, seedType)
+}
+
+private fun resolveFillConnectedSeedType(
+    pixel: Int,
+    transparentAlphaThreshold: Int,
+): FillConnectedSeedType {
+    val alpha = (pixel ushr 24) and 0xFF
+    if (alpha < transparentAlphaThreshold) {
+        return FillConnectedSeedType.Transparent
+    }
+    val red = (pixel ushr 16) and 0xFF
+    val green = (pixel ushr 8) and 0xFF
+    val blue = pixel and 0xFF
+    return when {
+        red <= 16 && green <= 16 && blue <= 16 -> FillConnectedSeedType.Black
+        red >= 239 && green >= 239 && blue >= 239 -> FillConnectedSeedType.White
+        else -> FillConnectedSeedType.Other
+    }
 }
 
 private fun sampleEdgeBackgroundRgb(
