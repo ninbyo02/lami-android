@@ -1001,7 +1001,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         Column(
                             modifier = modifier
                                 // [dp] 上下: ステータス の余白(余白)に関係
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 2.dp)
                                 .testTag("spriteEditorStatus"),
                             // [dp] 縦: ステータス の間隔(間隔)に関係
                             verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -2892,7 +2892,7 @@ internal fun rejectPxFieldValueOverMaxDigits(
 
 // [dp] 縦: 見た目32dpを維持しつつタップ領域を確保
 private val SpriteEditorButtonHeight = 32.dp
-private val SpriteEditorButtonMinHeight = 48.dp
+private val SpriteEditorButtonMinHeight = 46.dp
 // [dp] 左右: ボタン内側の余白(余白)に関係
 private val SpriteEditorButtonPadding = PaddingValues(horizontal = 8.dp)
 private val SpriteEditorPillShape = RoundedCornerShape(999.dp)
