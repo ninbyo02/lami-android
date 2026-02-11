@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.ui.common.headerAvatarModifier
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
@@ -86,7 +87,7 @@ fun HeaderAvatar(
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,
         syncEpochMs = syncEpochMs,
-        modifier = modifier,
+        modifier = modifier.headerAvatarModifier(),
     )
 }
 
