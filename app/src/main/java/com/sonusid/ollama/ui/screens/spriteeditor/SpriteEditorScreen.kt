@@ -139,6 +139,7 @@ private const val CHECKER_DARK_ALPHA = 0.55f
 private val CHECKER_CELL_SIZE = 8.dp
 private val APPLY_DIALOG_COMMENT_MIN_HEIGHT = 64.dp
 private val APPLY_DIALOG_COMMENT_SLOT_SPACING = 4.dp
+private val MOVE_STATUS_FIXED_WIDTH = 72.dp
 
 private enum class SheetType {
     None,
@@ -1041,12 +1042,18 @@ fun SpriteEditorScreen(navController: NavController) {
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = moveStatusText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                Box(
+                                    // [dp] 横: 「移動: 1box」が収まる固定幅で Fill mode の開始位置を安定化
+                                    modifier = Modifier.width(MOVE_STATUS_FIXED_WIDTH)
+                                ) {
+                                    Text(
+                                        text = moveStatusText,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                // [dp] 横: 移動ステータスと Fill mode の最小間隔
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = fillModeStatusText,
