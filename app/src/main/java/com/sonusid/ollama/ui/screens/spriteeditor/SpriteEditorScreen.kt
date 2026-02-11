@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -1018,6 +1019,8 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                             val moveStatusText = if (state == null) {
                                 "移動: -"
+                            } else if (moveMode == MoveMode.Box) {
+                                "移動: 1box"
                             } else {
                                 "移動: ${pxStepBase}px"
                             }
@@ -1044,6 +1047,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     text = moveStatusText,
                                     style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
+                                    modifier = Modifier.offset(x = (-8).dp),
                                 )
                             }
                             Text(
