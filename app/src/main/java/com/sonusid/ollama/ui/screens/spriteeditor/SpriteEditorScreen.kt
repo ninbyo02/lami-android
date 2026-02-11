@@ -1024,6 +1024,13 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         }
                     }
+                    val seedWord = when (seedTypeChar) {
+                        'T' -> "Transparent"
+                        'B' -> "Black"
+                        'W' -> "White"
+                        'O' -> "Other"
+                        else -> "-"
+                    }
                     val statusContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier
@@ -1050,15 +1057,16 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "移動: ${pxStepBase}px"
                             }
+                            val statusTextStyle = MaterialTheme.typography.labelMedium
                             Text(
                                 text = statusLine1,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = statusTextStyle,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = statusLine2,
-                                style = MaterialTheme.typography.labelMedium,
+                                style = statusTextStyle,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -1072,7 +1080,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 ) {
                                     Text(
                                         text = moveStatusText,
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = statusTextStyle,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
@@ -1080,8 +1088,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 // [dp] 横: 移動ステータスと Seed 表示の最小間隔
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Seed: $seedTypeChar",
-                                    style = MaterialTheme.typography.labelMedium,
+                                    text = "Seed: $seedWord",
+                                    style = statusTextStyle,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     textAlign = TextAlign.Start,
