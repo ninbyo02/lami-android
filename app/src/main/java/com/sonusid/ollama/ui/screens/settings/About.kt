@@ -3,11 +3,9 @@ package com.sonusid.ollama.ui.screens.settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,7 +33,7 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.components.LamiAvatar
+import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiUiState
@@ -67,24 +65,24 @@ fun About(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        LamiAvatar(
-                            baseUrl = baseUrl,
-                            selectedModel = null,
-                            lastError = null,
-                            lamiStatus = lamiStatus,
-                            lamiState = lamiState,
-                            modifier = Modifier.offset(x = (-1).dp),
-                            onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                        )
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(painterResource(R.drawable.back), "exit")
-                        }
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(painterResource(R.drawable.back), "exit")
                     }
                 },
-                title = { Text(stringResource(R.string.about)) }
+                title = {
+                    LamiHeaderStatus(
+                        baseUrl = baseUrl,
+                        selectedModel = null,
+                        lastError = null,
+                        lamiStatus = lamiStatus,
+                        lamiState = lamiState,
+                        availableModels = emptyList(),
+                        onSelectModel = {},
+                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                    )
+                }
             )
         }) { paddingValues ->
         Box(
