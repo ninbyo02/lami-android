@@ -1047,14 +1047,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 )
                             }
                             Text(
-                                text = fillStatusText,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
                                 text = fillModeStatusText,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontSize = 11.sp,
