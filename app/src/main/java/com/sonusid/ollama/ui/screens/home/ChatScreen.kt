@@ -189,21 +189,26 @@ fun Home(
             // 上部見切れを防ぐため、TopAppBar 側は標準 Insets を適用
             windowInsets = TopAppBarDefaults.windowInsets,
             navigationIcon = {
-                HeaderAvatar(
-                    baseUrl = baseUrl,
-                    selectedModel = selectedModel,
-                    lastError = errorMessage,
-                    lamiStatus = lamiAnimationStatus,
-                    lamiState = lamiUiState.state,
-                    availableModels = availableModels,
-                    onSelectModel = { modelName ->
-                        viewModel.onUserInteraction()
-                        viewModel.updateSelectedModel(modelName)
-                    },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false,
-                    syncEpochMs = animationEpochMs,
-                )
+                Box(
+                    // 左端でアバターが見切れないよう最小限の start 余白を確保
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    HeaderAvatar(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = errorMessage,
+                        lamiStatus = lamiAnimationStatus,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                    )
+                }
             },
             title = {
                 LamiHeaderStatus(
@@ -374,7 +379,8 @@ fun Home(
             } else {
                 LazyColumn(
                     modifier = contentModifier
-                        .padding(16.dp),
+                        // 上端は詰めつつ、左右と下は既存の可読性を維持
+                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
                     state = listState
                 ) {
                     items(
@@ -396,7 +402,8 @@ fun Home(
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(16.dp),
+                        // エラーバナーの上端だけは詰めて、他方向の余白を維持
+                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
