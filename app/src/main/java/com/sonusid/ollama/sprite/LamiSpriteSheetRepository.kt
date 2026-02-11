@@ -39,6 +39,7 @@ data class SpriteSheetData(
     val imageBitmap: ImageBitmap,
     val rows: Int,
     val cols: Int,
+    val overrideUpdatedAtCacheKey: Long? = null,
 ) {
     val cellSize: IntSize = IntSize(
         width = (bitmap.width / cols).coerceAtLeast(1),
@@ -46,8 +47,10 @@ data class SpriteSheetData(
     )
     val frameCount: Int = (rows * cols).coerceAtLeast(0)
 
-    fun matches(config: SpriteSheetConfig): Boolean {
-        return rows == config.rows && cols == config.cols
+    fun matches(config: SpriteSheetConfig, overrideUpdatedAt: Long?): Boolean {
+        return rows == config.rows &&
+            cols == config.cols &&
+            overrideUpdatedAtCacheKey == overrideUpdatedAt
     }
 
     fun frameRegion(frameIndex: Int, offsetX: Int = 0, offsetY: Int = 0): SpriteSheetFrameRegion? {
@@ -80,13 +83,14 @@ object LamiSpriteSheetRepository {
         config: SpriteSheetConfig = SpriteSheetConfig.default3x3(),
         forceReload: Boolean = false,
     ): SpriteSheetLoadResult {
+        val overrideUpdatedAt = resolveOverrideUpdatedAtCacheKey(context = context)
         val current = loadState.value
-        if (!forceReload && current is SpriteSheetLoadResult.Success && current.data.matches(config)) {
+        if (!forceReload && current is SpriteSheetLoadResult.Success && current.data.matches(config, overrideUpdatedAt)) {
             return current
         }
         return loadMutex.withLock {
             val lockedCurrent = loadState.value
-            if (!forceReload && lockedCurrent is SpriteSheetLoadResult.Success && lockedCurrent.data.matches(config)) {
+            if (!forceReload && lockedCurrent is SpriteSheetLoadResult.Success && lockedCurrent.data.matches(config, overrideUpdatedAt)) {
                 return@withLock lockedCurrent
             }
             loadState.value = SpriteSheetLoadResult.Loading
@@ -103,6 +107,7 @@ object LamiSpriteSheetRepository {
                 imageBitmap = imageBitmap,
                 rows = config.rows,
                 cols = config.cols,
+                overrideUpdatedAtCacheKey = overrideUpdatedAt,
             )
             val successResult = SpriteSheetLoadResult.Success(data)
             loadState.value = successResult
@@ -145,6 +150,17 @@ object LamiSpriteSheetRepository {
             }
         }
         return decodeResource(context)
+    }
+
+    private suspend fun resolveOverrideUpdatedAtCacheKey(context: Context): Long? {
+        val settings = SettingsPreferences(context.applicationContext)
+        val overrideEnabled = runCatching {
+            settings.spriteCurrentSheetOverrideEnabled.first()
+        }.getOrDefault(false)
+        if (!overrideEnabled) return null
+        return runCatching {
+            settings.spriteCurrentSheetOverrideUpdatedAt.first()
+        }.getOrNull()
     }
 
     private fun currentSpriteSheetOverrideFile(context: Context): File {

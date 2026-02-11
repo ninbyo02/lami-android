@@ -1,0 +1,12 @@
+package com.sonusid.ollama.ui.common
+
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.offset
+
+// Header TopAppBar avatar horizontal fine adjustment
+private val HeaderAvatarStartOffset = (-8).dp
+
+fun Modifier.headerAvatarModifier(): Modifier {
+    return this.offset(x = HeaderAvatarStartOffset)
+}

@@ -183,11 +183,16 @@ fun LamiAvatar(
             } else {
                 AVATAR_SPRITE_OFFSET_X_DP
             }
+        // 表示サイズごとに非線形の補正を入れる。
+        // 54dp 以上は、丸め誤差とスプライト余白の見え方が急に強くなるため左補正を段階的に増やす。
+        // 調整ポイント: headerAvatarExtraOffsetBySizeDp() の dp -> offset テーブル値。
+        val sizeBasedOffsetAdjustDp = headerAvatarExtraOffsetBySizeDp(avatarSize.dp)
+        val adjustedOffsetDp = computedOffsetDp + sizeBasedOffsetAdjustDp
         LamiStatusSprite(
             status = avatarStatusState,
             sizeDp = avatarSize.dp,
             modifier = Modifier
-                .offset(x = computedOffsetDp)
+                .offset(x = adjustedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
             contentOffsetDp = 0.dp,
@@ -201,7 +206,7 @@ fun LamiAvatar(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
-                val offsetDx = computedOffsetDp.toPx()
+                val offsetDx = adjustedOffsetDp.toPx()
                 val shiftedCenterX = centerX + offsetDx
                 val strokeWidth = 1.dp.toPx()
                 drawLine(
@@ -523,3 +528,31 @@ private fun StatusInfoItem(
 // 視認が難しい場合は一時的にオフセットを変更して確認する
 private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
 private val AVATAR_MIN_OFFSET_ADJUST_DP = 1.dp
+
+private fun headerAvatarExtraOffsetBySizeDp(sizeDp: Dp): Dp {
+    val offsetTable = listOf(
+        48 to 0.00f,
+        50 to -1.00f,
+        52 to -1.00f,
+        54 to -0.68f,
+        56 to -0.87f,
+        58 to -0.85f,
+        60 to -1.03f,
+        62 to -0.92f,
+        64 to -1.10f,
+    )
+
+    val roundedSizeDp = sizeDp.value.roundToInt()
+    offsetTable.firstOrNull { it.first == roundedSizeDp }?.let { return it.second.dp }
+
+    val lower = offsetTable.lastOrNull { it.first < roundedSizeDp }
+    val upper = offsetTable.firstOrNull { it.first > roundedSizeDp }
+
+    if (lower == null && upper == null) return 0.dp
+    if (lower == null) return upper!!.second.dp
+    if (upper == null) return lower.second.dp
+
+    val t = (roundedSizeDp - lower.first).toFloat() / (upper.first - lower.first).toFloat()
+    val interpolated = lower.second + (upper.second - lower.second) * t
+    return interpolated.dp
+}
