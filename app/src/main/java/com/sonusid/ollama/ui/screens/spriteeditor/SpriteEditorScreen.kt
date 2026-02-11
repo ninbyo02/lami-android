@@ -67,6 +67,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +104,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -999,6 +1001,29 @@ fun SpriteEditorScreen(navController: NavController) {
                             }
                         }
                     }
+                    val seedTypeChar by remember(editorState, state?.selection) {
+                        derivedStateOf {
+                            val current = editorState ?: return@derivedStateOf '-'
+                            val selection = current.selection
+                            val seedX = selection.x
+                            val seedY = selection.y
+                            val bitmap = current.bitmap
+                            if (seedX !in 0 until bitmap.width || seedY !in 0 until bitmap.height) {
+                                return@derivedStateOf '-'
+                            }
+                            val seedPixel = bitmap.getPixel(seedX, seedY)
+                            val alpha = (seedPixel ushr 24) and 0xFF
+                            val red = (seedPixel ushr 16) and 0xFF
+                            val green = (seedPixel ushr 8) and 0xFF
+                            val blue = seedPixel and 0xFF
+                            when {
+                                alpha <= 4 -> 'T'
+                                red <= 16 && green <= 16 && blue <= 16 -> 'B'
+                                red >= 239 && green >= 239 && blue >= 239 -> 'W'
+                                else -> 'O'
+                            }
+                        }
+                    }
                     val statusContent: @Composable (Modifier) -> Unit = { modifier ->
                         Column(
                             modifier = modifier
@@ -1025,7 +1050,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "移動: ${pxStepBase}px"
                             }
-                            val fillModeStatusText = "Fill mode: ${fillStatusText.substringAfter("mode=", "-").substringBefore(' ')}"
                             Text(
                                 text = statusLine1,
                                 style = MaterialTheme.typography.labelMedium,
@@ -1043,7 +1067,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
-                                    // [dp] 横: 「移動: 1box」が収まる固定幅で Fill mode の開始位置を安定化
+                                    // [dp] 横: 「移動: 1box」が収まる固定幅で Seed 表示の開始位置を安定化
                                     modifier = Modifier.width(MOVE_STATUS_FIXED_WIDTH)
                                 ) {
                                     Text(
@@ -1053,18 +1077,15 @@ fun SpriteEditorScreen(navController: NavController) {
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                                // [dp] 横: 移動ステータスと Fill mode の最小間隔
+                                // [dp] 横: 移動ステータスと Seed 表示の最小間隔
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = fillModeStatusText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                    text = "Seed: $seedTypeChar",
+                                    style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .offset(x = 8.dp)
-                                        .testTag("spriteEditorFillStatus"),
+                                    textAlign = TextAlign.Start,
+                                    modifier = Modifier.testTag("spriteEditorSeedStatus"),
                                 )
                             }
                         }
