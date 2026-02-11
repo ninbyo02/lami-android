@@ -19,7 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -185,8 +186,8 @@ fun Home(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
-            // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
-            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+            // 上部見切れを防ぐため、TopAppBar 側は標準 Insets を適用
+            windowInsets = TopAppBarDefaults.windowInsets,
             navigationIcon = {
                 HeaderAvatar(
                     baseUrl = baseUrl,
@@ -228,7 +229,7 @@ fun Home(
                     navHostController.navigate(Routes.CHATS)
                 }) {
                     Icon(
-                        imageVector = Icons.Filled.List,
+                        imageVector = Icons.AutoMirrored.Filled.List,
                         contentDescription = "チャット一覧",
                         modifier = Modifier.size(26.dp)
                     )
