@@ -70,6 +70,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.BuildConfig
@@ -528,30 +529,20 @@ private fun StatusInfoItem(
 // 視認が難しい場合は一時的にオフセットを変更して確認する
 private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
 private val AVATAR_MIN_OFFSET_ADJUST_DP = 1.dp
+private val EXTRA_OFFSET_AT_64_DP = (-5.8).dp
 
 private fun headerAvatarExtraOffsetBySizeDp(sizeDp: Dp): Dp {
-    val dpInt = sizeDp.value.roundToInt()
-    val offsetTable = listOf(
-        48 to 0f,
-        50 to -0.5f,
-        52 to -1.0f,
-        54 to -1.8f,
-        56 to -2.8f,
-        58 to -3.6f,
-        60 to -4.4f,
-        62 to -5.1f,
-        64 to -5.8f,
-    )
+    // 48/50/52dp は既存見た目維持を優先し、追加補正を 0dp に固定する。
+    // 64dp は端末や密度差でズレが目立つため、調整点を 1 箇所(EXTRA_OFFSET_AT_64_DP)に集約する。
+    // 52->64dp の中間値は線形補間で連続的に遷移させ、サイズ変更時の段差を最小化する。
+    val anchorLow = 52.dp
+    val anchorHigh = 64.dp
+    val extraLow = 0.dp
+    val extraHigh = EXTRA_OFFSET_AT_64_DP
 
-    offsetTable.firstOrNull { it.first == dpInt }?.let { return it.second.dp }
+    if (sizeDp <= anchorLow) return extraLow
+    if (sizeDp >= anchorHigh) return extraHigh
 
-    val lower = offsetTable.lastOrNull { it.first <= dpInt }
-    val upper = offsetTable.firstOrNull { it.first >= dpInt }
-
-    if (lower == null) return offsetTable.first().second.dp
-    if (upper == null) return offsetTable.last().second.dp
-    if (lower.first == upper.first) return lower.second.dp
-
-    val t = (dpInt - lower.first).toFloat() / (upper.first - lower.first).toFloat()
-    return (lower.second + (upper.second - lower.second) * t).dp
+    val t = (sizeDp.value - anchorLow.value) / (anchorHigh.value - anchorLow.value)
+    return lerp(extraLow, extraHigh, t)
 }
