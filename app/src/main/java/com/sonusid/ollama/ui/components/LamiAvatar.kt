@@ -538,8 +538,8 @@ private fun headerAvatarExtraOffsetBySizeDp(sizeDp: Dp): Dp {
     val anchorLow = 52.dp
     val anchorHigh = 64.dp
     val extraLow = 0.dp
-    // 64dp時の補正を +1dp右に微調整
-    val extraHigh = EXTRA_OFFSET_AT_64_DP + 5.dp
+    // 64dp時の補正を 0.3dp 左へ微調整
+    val extraHigh = EXTRA_OFFSET_AT_64_DP + 4.7.dp
 
     if (sizeDp <= anchorLow) return extraLow
     if (sizeDp >= anchorHigh) return extraHigh
