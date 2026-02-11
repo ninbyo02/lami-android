@@ -1016,11 +1016,12 @@ fun SpriteEditorScreen(navController: NavController) {
                             } else {
                                 "選択: ${state.selection.x},${state.selection.y},${state.selection.w},${state.selection.h}"
                             }
-                            val statusLine3 = if (state == null) {
+                            val moveStatusText = if (state == null) {
                                 "移動: -"
                             } else {
                                 "移動: ${pxStepBase}px"
                             }
+                            val fillModeStatusText = "Fill mode: ${fillStatusText.substringAfter("mode=", "-").substringBefore(' ')}"
                             Text(
                                 text = statusLine1,
                                 style = MaterialTheme.typography.labelMedium,
@@ -1040,7 +1041,21 @@ fun SpriteEditorScreen(navController: NavController) {
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = fillStatusText,
+                                    text = moveStatusText,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                )
+                            }
+                            Text(
+                                text = fillStatusText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = fillModeStatusText,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
@@ -1048,13 +1063,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.testTag("spriteEditorFillStatus"),
                                 )
-                            }
-                            Text(
-                                text = statusLine3,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
                         }
                     }
                     fun moveSelectionByMode(dxSign: Int, dySign: Int, repeatStepPx: Int? = null) {
