@@ -1039,7 +1039,6 @@ fun SpriteEditorScreen(navController: NavController) {
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
@@ -1048,6 +1047,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = fillModeStatusText,
                                     style = MaterialTheme.typography.labelSmall,
@@ -1055,7 +1055,9 @@ fun SpriteEditorScreen(navController: NavController) {
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.testTag("spriteEditorFillStatus"),
+                                    modifier = Modifier
+                                        .offset(x = 8.dp)
+                                        .testTag("spriteEditorFillStatus"),
                                 )
                             }
                         }
