@@ -70,7 +70,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.BuildConfig
@@ -529,21 +528,31 @@ private fun StatusInfoItem(
 // 視認が難しい場合は一時的にオフセットを変更して確認する
 private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
 private val AVATAR_MIN_OFFSET_ADJUST_DP = 1.dp
-private val EXTRA_OFFSET_AT_64_DP = (-5.8).dp
 
 private fun headerAvatarExtraOffsetBySizeDp(sizeDp: Dp): Dp {
-    // 48/50/52dp は既存見た目維持を優先し、追加補正を 0dp に固定する。
-    // 64dp基準を4dp左へ微調整（実機確認用）
-    // 52->64dp の中間値は線形補間で連続的に遷移させ、サイズ変更時の段差を最小化する。
-    val anchorLow = 52.dp
-    val anchorHigh = 64.dp
-    val extraLow = 0.dp
-    // 64dp時の補正を 0.3dp 左へ微調整
-    val extraHigh = EXTRA_OFFSET_AT_64_DP + 4.7.dp
+    val offsetTable = listOf(
+        48 to 0.00f,
+        50 to -1.00f,
+        52 to -1.00f,
+        54 to -0.68f,
+        56 to -0.87f,
+        58 to -0.85f,
+        60 to -1.03f,
+        62 to -0.92f,
+        64 to -1.10f,
+    )
 
-    if (sizeDp <= anchorLow) return extraLow
-    if (sizeDp >= anchorHigh) return extraHigh
+    val roundedSizeDp = sizeDp.value.roundToInt()
+    offsetTable.firstOrNull { it.first == roundedSizeDp }?.let { return it.second.dp }
 
-    val t = (sizeDp.value - anchorLow.value) / (anchorHigh.value - anchorLow.value)
-    return lerp(extraLow, extraHigh, t)
+    val lower = offsetTable.lastOrNull { it.first < roundedSizeDp }
+    val upper = offsetTable.firstOrNull { it.first > roundedSizeDp }
+
+    if (lower == null && upper == null) return 0.dp
+    if (lower == null) return upper!!.second.dp
+    if (upper == null) return lower.second.dp
+
+    val t = (roundedSizeDp - lower.first).toFloat() / (upper.first - lower.first).toFloat()
+    val interpolated = lower.second + (upper.second - lower.second) * t
+    return interpolated.dp
 }
