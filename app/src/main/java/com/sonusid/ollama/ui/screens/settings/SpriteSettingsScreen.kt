@@ -97,6 +97,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
@@ -3591,8 +3592,17 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
     // [非dp] 下: IME の insets(インセット)に関係
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val imeVisible = WindowInsets.ime.getBottom(density) > 0
+    // [非dp] 四方向: 上左右のみ systemBars を維持し、下の inset は 0 に統一
+    val spriteScreenContentInsets = WindowInsets(
+        left = WindowInsets.systemBars.getLeft(density, layoutDirection),
+        top = WindowInsets.systemBars.getTop(density),
+        right = WindowInsets.systemBars.getRight(density, layoutDirection),
+        bottom = 0
+    )
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -3898,7 +3908,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
             }
         },
-        contentWindowInsets = WindowInsets.systemBars
+        // 下: Sprite Settings 画面下の空白を抑えるため bottom inset は除外
+        contentWindowInsets = spriteScreenContentInsets
     ) { innerPadding ->
         Box(
             // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
