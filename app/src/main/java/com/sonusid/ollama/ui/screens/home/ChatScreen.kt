@@ -46,7 +46,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
@@ -55,7 +54,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.topAppBarContentPaddingWithExtraStart
+import com.sonusid.ollama.ui.common.headerAvatarModifier
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -197,6 +196,7 @@ fun Home(
                     onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                     debugOverlayEnabled = false,
                     syncEpochMs = animationEpochMs,
+                    modifier = Modifier.headerAvatarModifier(),
                 )
             },
             actions = {
@@ -221,7 +221,6 @@ fun Home(
                     )
                 }
             },
-            contentPadding = topAppBarContentPaddingWithExtraStart(LocalLayoutDirection.current),
         )
     }, bottomBar = {
         OutlinedTextField(
