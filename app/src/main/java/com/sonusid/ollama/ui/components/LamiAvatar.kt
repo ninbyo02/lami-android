@@ -183,10 +183,10 @@ fun LamiAvatar(
             } else {
                 AVATAR_SPRITE_OFFSET_X_DP
             }
-        val baseAvatarSizeDp = 48.dp
-        val sizeDeltaDp = (avatarSize.dp - baseAvatarSizeDp).coerceAtLeast(0.dp)
-        // 50dp〜64dp で右寄りに見える分を左へ補正（係数は 0.15f〜0.35f の範囲で調整目安）
-        val sizeBasedOffsetAdjustDp = -(sizeDeltaDp * 0.25f)
+        // 表示サイズごとに非線形の補正を入れる。
+        // 54dp 以上は、丸め誤差とスプライト余白の見え方が急に強くなるため左補正を段階的に増やす。
+        // 調整ポイント: headerAvatarExtraOffsetBySizeDp() の dp -> offset テーブル値。
+        val sizeBasedOffsetAdjustDp = headerAvatarExtraOffsetBySizeDp(avatarSize.dp)
         val adjustedOffsetDp = computedOffsetDp + sizeBasedOffsetAdjustDp
         LamiStatusSprite(
             status = avatarStatusState,
@@ -528,3 +528,30 @@ private fun StatusInfoItem(
 // 視認が難しい場合は一時的にオフセットを変更して確認する
 private val AVATAR_SPRITE_OFFSET_X_DP = 1.dp
 private val AVATAR_MIN_OFFSET_ADJUST_DP = 1.dp
+
+private fun headerAvatarExtraOffsetBySizeDp(sizeDp: Dp): Dp {
+    val dpInt = sizeDp.value.roundToInt()
+    val offsetTable = listOf(
+        48 to 0f,
+        50 to -0.5f,
+        52 to -1.0f,
+        54 to -1.8f,
+        56 to -2.8f,
+        58 to -3.6f,
+        60 to -4.4f,
+        62 to -5.1f,
+        64 to -5.8f,
+    )
+
+    offsetTable.firstOrNull { it.first == dpInt }?.let { return it.second.dp }
+
+    val lower = offsetTable.lastOrNull { it.first <= dpInt }
+    val upper = offsetTable.firstOrNull { it.first >= dpInt }
+
+    if (lower == null) return offsetTable.first().second.dp
+    if (upper == null) return offsetTable.last().second.dp
+    if (lower.first == upper.first) return lower.second.dp
+
+    val t = (dpInt - lower.first).toFloat() / (upper.first - lower.first).toFloat()
+    return (lower.second + (upper.second - lower.second) * t).dp
+}
