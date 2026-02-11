@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -94,6 +96,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
@@ -486,7 +489,20 @@ fun SpriteEditorScreen(navController: NavController) {
         requestCloseEditor()
     }
 
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val systemBarInsets = WindowInsets.systemBars
+    val scaffoldInsets = with(density) {
+        WindowInsets(
+            left = systemBarInsets.getLeft(this, layoutDirection),
+            top = systemBarInsets.getTop(this),
+            right = systemBarInsets.getRight(this, layoutDirection),
+            bottom = 0,
+        )
+    }
+
     Scaffold(
+        contentWindowInsets = scaffoldInsets,
         topBar = {
             TopAppBar(
                 title = { Text("Sprite Editor") },
