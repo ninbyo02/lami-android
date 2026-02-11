@@ -533,12 +533,12 @@ private val EXTRA_OFFSET_AT_64_DP = (-5.8).dp
 
 private fun headerAvatarExtraOffsetBySizeDp(sizeDp: Dp): Dp {
     // 48/50/52dp は既存見た目維持を優先し、追加補正を 0dp に固定する。
-    // 64dp は端末や密度差でズレが目立つため、調整点を 1 箇所(EXTRA_OFFSET_AT_64_DP)に集約する。
+    // 64dp基準を8dp右へ再調整（実機確認用）
     // 52->64dp の中間値は線形補間で連続的に遷移させ、サイズ変更時の段差を最小化する。
     val anchorLow = 52.dp
     val anchorHigh = 64.dp
     val extraLow = 0.dp
-    val extraHigh = EXTRA_OFFSET_AT_64_DP
+    val extraHigh = EXTRA_OFFSET_AT_64_DP + 8.dp
 
     if (sizeDp <= anchorLow) return extraLow
     if (sizeDp >= anchorHigh) return extraHigh
