@@ -1,12 +1,13 @@
 package com.sonusid.ollama.ui.common
 
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-private val HeaderAvatarStartPadding = 6.dp
+private val HeaderAvatarStartOffset = (-6).dp
 
 fun Modifier.headerAvatarModifier(): Modifier {
-    // 左上アバター：TopAppBar先頭からの開始位置を中央寄りにそろえるための最小余白
-    return this.padding(start = HeaderAvatarStartPadding)
+    // TopAppBar のデフォルト先頭インセット相殺目的。padding だと加算されるため offset を使う。
+    // まだ右寄りなら -8.dp, -10.dp, -12.dp の順で微調整する。
+    return this.offset(x = HeaderAvatarStartOffset)
 }
