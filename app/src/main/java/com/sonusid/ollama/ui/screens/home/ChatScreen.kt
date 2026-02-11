@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,7 +36,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -187,8 +188,8 @@ fun Home(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
-            // 上部見切れを防ぐため、TopAppBar 側は標準 Insets を適用
-            windowInsets = TopAppBarDefaults.windowInsets,
+            // 上方向 inset の二重適用を避けるため、TopAppBar は左右のみ safeDrawing を適用
+            windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
             navigationIcon = {
                 Box(
                     // 左端でアバターが見切れないよう最小限の start 余白を確保
