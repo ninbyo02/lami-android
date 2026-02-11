@@ -9,13 +9,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -326,9 +327,14 @@ fun Home(
     }) { paddingValues ->
         Box(
             modifier = Modifier
-                // 上は TopAppBar 直下から開始し、下だけ入力欄・システムバー回避を適用
-                .padding(bottom = paddingValues.calculateBottomPadding())
                 .fillMaxSize()
+                // TopAppBar 配下への潜り込みを防ぐため、Scaffold の上下 inset をここで一元適用
+                .padding(
+                    top = paddingValues.calculateTopPadding(),
+                    bottom = paddingValues.calculateBottomPadding()
+                )
+                // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
+                .consumeWindowInsets(paddingValues)
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
@@ -380,21 +386,24 @@ fun Home(
             } else {
                 LazyColumn(
                     modifier = contentModifier,
-                    // 上は TopAppBar 直下から開始し、下は入力欄に隠れないよう innerPadding を加算
+                    // 上は TopAppBar 直下に詰め、下は最小余白のみを維持
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
                         top = 0.dp,
-                        bottom = 16.dp + paddingValues.calculateBottomPadding()
+                        bottom = 16.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                     state = listState,
                 ) {
-                    items(
+                    itemsIndexed(
                         items = allChats,
-                        key = { message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                    ) { message ->
-                        ChatBubble(message.message, message.isSendbyMe)
+                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                    ) { index, message ->
+                        val topPadding = if (index == 0) 0.dp else 8.dp
+                        Box(modifier = Modifier.padding(top = topPadding)) {
+                            ChatBubble(message.message, message.isSendbyMe)
+                        }
                     }
                 }
             }
