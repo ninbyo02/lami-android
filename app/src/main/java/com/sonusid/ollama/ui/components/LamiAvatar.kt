@@ -183,11 +183,16 @@ fun LamiAvatar(
             } else {
                 AVATAR_SPRITE_OFFSET_X_DP
             }
+        val baseAvatarSizeDp = 48.dp
+        val sizeDeltaDp = (avatarSize.dp - baseAvatarSizeDp).coerceAtLeast(0.dp)
+        // 50dp〜64dp で右寄りに見える分を左へ補正（係数は 0.15f〜0.35f の範囲で調整目安）
+        val sizeBasedOffsetAdjustDp = -(sizeDeltaDp * 0.25f)
+        val adjustedOffsetDp = computedOffsetDp + sizeBasedOffsetAdjustDp
         LamiStatusSprite(
             status = avatarStatusState,
             sizeDp = avatarSize.dp,
             modifier = Modifier
-                .offset(x = computedOffsetDp)
+                .offset(x = adjustedOffsetDp)
                 .fillMaxWidth()
                 .drawWithContent { drawContent() },
             contentOffsetDp = 0.dp,
@@ -201,7 +206,7 @@ fun LamiAvatar(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val centerX = size.width / 2f
                 val centerY = size.height / 2f
-                val offsetDx = computedOffsetDp.toPx()
+                val offsetDx = adjustedOffsetDp.toPx()
                 val shiftedCenterX = centerX + offsetDx
                 val strokeWidth = 1.dp.toPx()
                 drawLine(
