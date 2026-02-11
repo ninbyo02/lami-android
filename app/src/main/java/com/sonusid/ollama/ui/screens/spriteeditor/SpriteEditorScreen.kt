@@ -1032,6 +1032,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
@@ -1040,16 +1042,8 @@ fun SpriteEditorScreen(navController: NavController) {
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = moveStatusText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    modifier = Modifier.offset(x = 2.dp),
-                                )
-                            }
-                            Text(
-                                text = fillModeStatusText,
+                                    text = fillModeStatusText,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
@@ -1057,6 +1051,13 @@ fun SpriteEditorScreen(navController: NavController) {
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.testTag("spriteEditorFillStatus"),
                                 )
+                            }
+                            Text(
+                                text = moveStatusText,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                     fun moveSelectionByMode(dxSign: Int, dySign: Int, repeatStepPx: Int? = null) {
