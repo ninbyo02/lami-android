@@ -118,6 +118,7 @@ import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
+import com.sonusid.ollama.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -1018,7 +1019,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             val green = (seedPixel ushr 8) and 0xFF
                             val blue = seedPixel and 0xFF
                             when {
-                                alpha <= 4 -> 'T'
+                                alpha < FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD -> 'T'
                                 red <= 16 && green <= 16 && blue <= 16 -> 'B'
                                 red >= 239 && green >= 239 && blue >= 239 -> 'W'
                                 else -> 'O'
