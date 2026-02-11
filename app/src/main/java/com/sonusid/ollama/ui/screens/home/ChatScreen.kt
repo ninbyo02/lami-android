@@ -326,7 +326,8 @@ fun Home(
     }) { paddingValues ->
         Box(
             modifier = Modifier
-                .padding(paddingValues)
+                // 上は TopAppBar 直下から開始し、下だけ入力欄・システムバー回避を適用
+                .padding(bottom = paddingValues.calculateBottomPadding())
                 .fillMaxSize()
         ) {
             val contentModifier = Modifier
