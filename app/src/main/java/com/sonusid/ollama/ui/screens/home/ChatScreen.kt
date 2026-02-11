@@ -378,10 +378,16 @@ fun Home(
                 }
             } else {
                 LazyColumn(
-                    modifier = contentModifier
-                        // 上端は詰めつつ、左右と下は既存の可読性を維持
-                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
-                    state = listState
+                    modifier = contentModifier,
+                    // 上は TopAppBar 直下から開始し、下は入力欄に隠れないよう innerPadding を加算
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 0.dp,
+                        bottom = 16.dp + paddingValues.calculateBottomPadding()
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                    state = listState,
                 ) {
                     items(
                         items = allChats,
