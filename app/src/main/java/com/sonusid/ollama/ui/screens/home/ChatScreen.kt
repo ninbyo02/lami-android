@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -47,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
@@ -55,6 +55,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.topAppBarContentPaddingWithExtraStart
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -183,7 +184,6 @@ fun Home(
         TopAppBar(
             title = {
                 LamiHeaderStatus(
-                    modifier = Modifier.offset(x = (-2).dp),
                     baseUrl = baseUrl,
                     selectedModel = selectedModel,
                     lastError = errorMessage,
@@ -220,7 +220,8 @@ fun Home(
                         modifier = Modifier.size(26.dp)
                     )
                 }
-            }
+            },
+            contentPadding = topAppBarContentPaddingWithExtraStart(LocalLayoutDirection.current),
         )
     }, bottomBar = {
         OutlinedTextField(
