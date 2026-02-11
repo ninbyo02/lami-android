@@ -1032,7 +1032,6 @@ fun SpriteEditorScreen(navController: NavController) {
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
@@ -1040,14 +1039,13 @@ fun SpriteEditorScreen(navController: NavController) {
                                     style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = moveStatusText,
                                     style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
-                                    modifier = Modifier.offset(x = (-8).dp),
+                                    modifier = Modifier.offset(x = 2.dp),
                                 )
                             }
                             Text(
