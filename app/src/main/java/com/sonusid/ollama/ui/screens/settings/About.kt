@@ -25,7 +25,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -34,7 +33,7 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.common.topAppBarContentPaddingWithExtraStart
+import com.sonusid.ollama.ui.common.headerAvatarModifier
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -83,9 +82,9 @@ fun About(
                         onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
+                        modifier = Modifier.headerAvatarModifier(),
                     )
                 },
-                contentPadding = topAppBarContentPaddingWithExtraStart(LocalLayoutDirection.current),
             )
         }) { paddingValues ->
         Box(
