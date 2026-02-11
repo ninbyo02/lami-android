@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -179,8 +180,13 @@ fun Home(
         }
     }
 
-    Scaffold(topBar = {
+    Scaffold(
+        // 上部空白を 0dp に固定するため、Scaffold の Insets を無効化
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+        topBar = {
         TopAppBar(
+            // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
+            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             navigationIcon = {
                 HeaderAvatar(
                     baseUrl = baseUrl,
@@ -323,7 +329,7 @@ fun Home(
             if (effectiveChatId == null) {
                 Column(
                     modifier = contentModifier,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     CircularProgressIndicator()
@@ -333,7 +339,7 @@ fun Home(
             } else if (allChats.isEmpty()) {
                 Column(
                     modifier = contentModifier,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     BoxWithConstraints {
@@ -359,8 +365,6 @@ fun Home(
                             syncEpochMs = animationEpochMs,
                         )
                     }
-                    // 下：案内テキストとの距離を確保するための Spacer
-                    Spacer(modifier = Modifier.size(20.dp))
                     Text(
                         text = "最初のメッセージを送信して会話を始めましょう",
                         style = MaterialTheme.typography.bodyLarge

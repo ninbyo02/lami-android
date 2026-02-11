@@ -42,8 +42,12 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     println(allChats.value)
 
     Scaffold(
+        // 上部空白を 0dp に固定するため、Scaffold の Insets を無効化
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
+            // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
+            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
                 LamiHeaderStatus(
                     baseUrl = baseUrl,
@@ -109,7 +113,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         blinkEffectEnabled = true,
                         syncEpochMs = animationEpochMs,
                     )
-                    Spacer(Modifier.height(60.dp))
                     Text("Click on + to start a new chat")
                 }
             } else {
