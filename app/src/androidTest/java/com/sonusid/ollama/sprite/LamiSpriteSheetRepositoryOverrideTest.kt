@@ -15,7 +15,8 @@ import java.io.FileOutputStream
 class LamiSpriteSheetRepositoryOverrideTest {
 
     @Test
-    fun loadLamiSpriteSheet_overrideEnabledAndFileExists_readsOverridePng() = runBlocking {
+    fun loadLamiSpriteSheet_overrideEnabledAndFileExists_readsOverridePng() {
+        runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settings = SettingsPreferences(context)
         val overrideFile = currentSpriteSheetOverrideFile(context)
@@ -36,10 +37,12 @@ class LamiSpriteSheetRepositoryOverrideTest {
         assertEquals(9, data.bitmap.height)
 
         overrideFile.delete()
+        }
     }
 
     @Test
-    fun loadLamiSpriteSheet_overrideEnabledButFileMissing_fallsBackToDrawable() = runBlocking {
+    fun loadLamiSpriteSheet_overrideEnabledButFileMissing_fallsBackToDrawable() {
+        runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settings = SettingsPreferences(context)
         val overrideFile = currentSpriteSheetOverrideFile(context)
@@ -56,6 +59,7 @@ class LamiSpriteSheetRepositoryOverrideTest {
         assertTrue(expected != null)
         assertEquals(expected!!.width, data.bitmap.width)
         assertEquals(expected.height, data.bitmap.height)
+        }
     }
 
     private fun currentSpriteSheetOverrideFile(context: android.content.Context): File {
