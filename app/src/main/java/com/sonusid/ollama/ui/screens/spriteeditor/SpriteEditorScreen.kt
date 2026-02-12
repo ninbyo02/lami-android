@@ -512,36 +512,42 @@ fun SpriteEditorScreen(navController: NavController) {
     Scaffold(
         contentWindowInsets = scaffoldInsets,
         topBar = {
-            TopAppBar(
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                navigationIcon = {
-                    Box(
-                        modifier = Modifier
-                            .width(56.dp)
-                            .fillMaxHeight()
-                            .wrapContentHeight(Alignment.CenterVertically),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        IconButton(onClick = { requestCloseEditor() }) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "exit",
-                                modifier = Modifier.size(24.dp)
-                            )
+            Box(
+                modifier = Modifier
+                    .height(48.dp)
+                    .fillMaxWidth()
+            ) {
+                TopAppBar(
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    navigationIcon = {
+                        Box(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            IconButton(onClick = { requestCloseEditor() }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = "exit",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
-                    }
-                },
-                title = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .wrapContentHeight(Alignment.CenterVertically)
-                    ) {
-                        Text("Sprite Editor")
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+                    },
+                    title = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text("Sprite Editor")
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         },
     ) { innerPadding ->
         Column(
