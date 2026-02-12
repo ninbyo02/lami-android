@@ -250,7 +250,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = horizontalPadding,
                 end = horizontalPadding,
-                top = verticalPadding,
+                top = 0.dp,
                 bottom = 0.dp
             ),
             verticalArrangement = Arrangement.spacedBy(2.dp)
