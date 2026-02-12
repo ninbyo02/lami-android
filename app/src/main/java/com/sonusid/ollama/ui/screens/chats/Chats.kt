@@ -153,7 +153,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         .weight(1f, fill = true)
                         .padding(10.dp),
                     // 先頭スレッドだけヘッダー直下の窮屈さを解消するため上余白を確保
-                    contentPadding = PaddingValues(start = 0.dp, top = 24.dp, end = 0.dp, bottom = 0.dp)
+                    contentPadding = PaddingValues(start = 0.dp, top = 38.dp, end = 0.dp, bottom = 0.dp)
                 ) {
                     items(allChats.value.size) { index ->
                         ElevatedButton(
