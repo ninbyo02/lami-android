@@ -28,11 +28,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.systemBars
@@ -45,8 +47,6 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -100,6 +100,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -501,7 +502,7 @@ fun SpriteEditorScreen(navController: NavController) {
     val scaffoldInsets = with(density) {
         WindowInsets(
             left = systemBarInsets.getLeft(this, layoutDirection),
-            top = systemBarInsets.getTop(this),
+            top = 0,
             right = systemBarInsets.getRight(this, layoutDirection),
             bottom = 0,
         )
@@ -511,15 +512,34 @@ fun SpriteEditorScreen(navController: NavController) {
         contentWindowInsets = scaffoldInsets,
         topBar = {
             TopAppBar(
-                title = { Text("Sprite Editor") },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
                         IconButton(onClick = { requestCloseEditor() }) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "exit",
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
+                },
+                title = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically)
+                    ) {
+                        Text("Sprite Editor")
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
             )
         },
     ) { innerPadding ->
