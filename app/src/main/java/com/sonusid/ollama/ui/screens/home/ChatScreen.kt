@@ -188,11 +188,8 @@ fun Home(
         TopAppBar(
             // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-            navigationIcon = {
-                Box(
-                    // 左端でアバターが見切れないよう最小限の start 余白を確保
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     HeaderAvatar(
                         baseUrl = baseUrl,
                         selectedModel = selectedModel,
@@ -208,25 +205,25 @@ fun Home(
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
                     )
+                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                    Spacer(modifier = Modifier.size(2.dp))
+                    LamiHeaderStatus(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = errorMessage,
+                        lamiStatus = lamiAnimationStatus,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                        showAvatar = false,
+                    )
                 }
-            },
-            title = {
-                LamiHeaderStatus(
-                    baseUrl = baseUrl,
-                    selectedModel = selectedModel,
-                    lastError = errorMessage,
-                    lamiStatus = lamiAnimationStatus,
-                    lamiState = lamiUiState.state,
-                    availableModels = availableModels,
-                    onSelectModel = { modelName ->
-                        viewModel.onUserInteraction()
-                        viewModel.updateSelectedModel(modelName)
-                    },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false,
-                    syncEpochMs = animationEpochMs,
-                    showAvatar = false,
-                )
             },
             actions = {
                 IconButton(onClick = {
@@ -385,11 +382,11 @@ fun Home(
             } else {
                 LazyColumn(
                     modifier = contentModifier,
-                    // 上は TopAppBar 直下に詰め、下は最小余白のみを維持
+                    // 上はヘッダーとの境界として 2dp のみ確保し、下は最小余白のみを維持
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
-                        top = 0.dp,
+                        top = 2.dp,
                         bottom = 16.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
