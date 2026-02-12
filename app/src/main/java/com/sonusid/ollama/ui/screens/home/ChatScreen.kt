@@ -254,79 +254,85 @@ fun Home(
             },
         )
     }, bottomBar = {
-        OutlinedTextField(
-            interactionSource = interactionSource,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Mic,
-                    contentDescription = "音声入力",
-                    modifier = Modifier.size(22.dp)
-                )
-            },
-            label = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ask llama")
-                }
-            },
-            value = userPrompt,
-            onValueChange = {
-                userPrompt = it
-                viewModel.onUserInteraction()
-            },
-            shape = CircleShape,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp, max = 140.dp)
-                .padding(horizontal = 0.dp)
-                .padding(bottom = 5.dp)
-                .imePadding(),
-            singleLine = false,
-            maxLines = 4,
-            suffix = {
-                ElevatedButton(
-                    contentPadding = PaddingValues(0.dp),
-                    enabled = !selectedModel.isNullOrBlank(),
-                    onClick = {
-                        viewModel.onUserInteraction()
-                        if (selectedModel.isNullOrBlank()) {
-                            coroutineScope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                snackbarHostState.showSnackbar(
-                                    message = "モデルを選択してください",
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
-                            return@ElevatedButton
-                        }
-
-                        val currentChatId = effectiveChatId
-                        if (currentChatId != null) {
-                            if (userPrompt.isNotEmpty()) {
-                                placeholder = "I'm thinking ... "
-                                viewModel.insert(
-                                    Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                )
-                                toggle = true
-                                prompt = userPrompt
-                                userPrompt = ""
-                                viewModel.sendPrompt(prompt, selectedModel)
-                                prompt = ""
-                            }
-                        } else {
-                            placeholder = "Setting up a new chat ..."
-                        }
-                    }) {
+                // 入力欄全体を IME 直上に保つため、最外側コンテナで Insets を適用
+                .imePadding()
+        ) {
+            OutlinedTextField(
+                interactionSource = interactionSource,
+                leadingIcon = {
                     Icon(
-                        painterResource(R.drawable.send), contentDescription = "Send Button"
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "音声入力",
+                        modifier = Modifier.size(22.dp)
                     )
-                }
-            },
-            placeholder = { Text(placeholder, fontSize = 15.sp) },
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
+                },
+                label = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Ask llama")
+                    }
+                },
+                value = userPrompt,
+                onValueChange = {
+                    userPrompt = it
+                    viewModel.onUserInteraction()
+                },
+                shape = CircleShape,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp, max = 140.dp)
+                    .padding(horizontal = 0.dp)
+                    .padding(bottom = 5.dp),
+                singleLine = false,
+                maxLines = 4,
+                suffix = {
+                    ElevatedButton(
+                        contentPadding = PaddingValues(0.dp),
+                        enabled = !selectedModel.isNullOrBlank(),
+                        onClick = {
+                            viewModel.onUserInteraction()
+                            if (selectedModel.isNullOrBlank()) {
+                                coroutineScope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(
+                                        message = "モデルを選択してください",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                                return@ElevatedButton
+                            }
+
+                            val currentChatId = effectiveChatId
+                            if (currentChatId != null) {
+                                if (userPrompt.isNotEmpty()) {
+                                    placeholder = "I'm thinking ... "
+                                    viewModel.insert(
+                                        Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                    )
+                                    toggle = true
+                                    prompt = userPrompt
+                                    userPrompt = ""
+                                    viewModel.sendPrompt(prompt, selectedModel)
+                                    prompt = ""
+                                }
+                            } else {
+                                placeholder = "Setting up a new chat ..."
+                            }
+                        }) {
+                        Icon(
+                            painterResource(R.drawable.send), contentDescription = "Send Button"
+                        )
+                    }
+                },
+                placeholder = { Text(placeholder, fontSize = 15.sp) },
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
+                    focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
-        )
+        }
     }) { paddingValues ->
         Box(
             modifier = Modifier
