@@ -39,6 +39,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import kotlinx.coroutines.flow.first
+import com.sonusid.ollama.ui.TestAppWrapper
 
 class SpriteSettingsTalkShortPerStateRestoreTest {
     @get:Rule
@@ -195,17 +196,19 @@ class SpriteSettingsTalkShortPerStateRestoreTest {
     private fun setSpriteSettingsContent() {
         composeTestRule.activityRule.scenario.onActivity { activity ->
             activity.setContent {
-                val navController = rememberNavController()
-                OllamaTheme(dynamicColor = false) {
-                    NavHost(
-                        navController = navController,
-                        startDestination = SettingsRoute.SpriteSettings.route
-                    ) {
-                        composable(SettingsRoute.SpriteSettings.route) {
-                            SpriteSettingsScreen(navController)
-                        }
-                        composable(Routes.SETTINGS) {
-                            Settings(navController)
+                TestAppWrapper {
+                    val navController = rememberNavController()
+                    OllamaTheme(dynamicColor = false) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = SettingsRoute.SpriteSettings.route
+                        ) {
+                            composable(SettingsRoute.SpriteSettings.route) {
+                                SpriteSettingsScreen(navController)
+                            }
+                            composable(Routes.SETTINGS) {
+                                Settings(navController)
+                            }
                         }
                     }
                 }
