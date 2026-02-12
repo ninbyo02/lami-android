@@ -229,6 +229,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         contentWindowInsets = scaffoldInsets,
         topBar = {
             TopAppBar(
+                // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = { onBackRequested() }) {
                         Icon(
