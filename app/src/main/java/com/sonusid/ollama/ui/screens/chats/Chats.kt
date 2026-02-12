@@ -114,10 +114,11 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 )
             }
         }
-    ) { paddingValues ->
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(paddingValues)
+                // TopAppBar 直下からスレッドを開始するため、Scaffold の下側 Insets のみ適用
+                .padding(bottom = innerPadding.calculateBottomPadding())
                 .fillMaxSize()
         ) {
             if (allChats.value.isEmpty()) {
@@ -148,7 +149,9 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f, fill = true)
-                        .padding(10.dp)
+                        .padding(10.dp),
+                    // 上側余白は 0dp を明示し、他方向は既存レイアウトを維持
+                    contentPadding = PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = 0.dp)
                 ) {
                     items(allChats.value.size) { index ->
                         ElevatedButton(
