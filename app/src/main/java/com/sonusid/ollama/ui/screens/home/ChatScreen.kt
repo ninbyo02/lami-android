@@ -275,7 +275,7 @@ fun Home(
             shape = CircleShape,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 0.dp)
                 .padding(bottom = 5.dp)
                 .imePadding(),
             singleLine = true,
@@ -388,8 +388,8 @@ fun Home(
                     modifier = contentModifier,
                     // 上はヘッダーとの境界として 2dp のみ確保し、下は最小余白のみを維持
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = 0.dp,
+                        end = 0.dp,
                         top = 2.dp,
                         bottom = 16.dp
                     ),
@@ -419,7 +419,7 @@ fun Home(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         // エラーバナーの上端だけは詰めて、他方向の余白を維持
-                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+                        .padding(start = 0.dp, top = 0.dp, end = 0.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
