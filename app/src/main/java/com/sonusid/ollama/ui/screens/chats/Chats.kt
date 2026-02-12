@@ -124,6 +124,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             if (allChats.value.isEmpty()) {
                 Column(
                     modifier = Modifier
+                        // 先頭コンテンツがヘッダーに詰まり過ぎないよう最小限の上余白を付与
+                        .padding(top = 8.dp)
                         .fillMaxWidth()
                         .weight(1f, fill = true),
                     verticalArrangement = Arrangement.Top,
@@ -150,8 +152,8 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         .fillMaxWidth()
                         .weight(1f, fill = true)
                         .padding(10.dp),
-                    // 上側余白は 0dp を明示し、他方向は既存レイアウトを維持
-                    contentPadding = PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = 0.dp)
+                    // 先頭スレッドだけヘッダー直下の窮屈さを解消するため最小限の上余白を付与
+                    contentPadding = PaddingValues(start = 0.dp, top = 8.dp, end = 0.dp, bottom = 0.dp)
                 ) {
                     items(allChats.value.size) { index ->
                         ElevatedButton(
