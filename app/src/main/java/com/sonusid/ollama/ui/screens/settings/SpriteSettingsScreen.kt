@@ -3887,6 +3887,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             )
                         }
                     },
+                    // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                     modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
                 )
             }
