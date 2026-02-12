@@ -41,9 +41,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -279,12 +281,16 @@ fun Home(
                 // 入力欄全体を IME 直上に保つため、最外側コンテナで Insets を適用
                 .imePadding()
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom
+            Surface(
+                shape = composerShape,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
                         interactionSource = interactionSource,
@@ -301,13 +307,17 @@ fun Home(
                         shape = composerShape,
                         modifier = Modifier
                             .fillMaxWidth()
+                            // 左下ツールボタン/右下送信ボタンと入力文字が重ならないよう、最小限の余白を確保
+                            .padding(start = 40.dp, end = 52.dp)
                             .heightIn(min = 48.dp, max = 180.dp),
                         singleLine = false,
                         maxLines = 6,
                         placeholder = { Text(placeholder, fontSize = 15.sp) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                            focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent
                         )
                     )
 
@@ -324,7 +334,9 @@ fun Home(
                     if (effectiveLines >= 5) {
                         IconButton(
                             onClick = { expandDialogOpen = true },
-                            modifier = Modifier.align(Alignment.TopEnd)
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 44.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.OpenInFull,
@@ -350,52 +362,49 @@ fun Home(
                             onClick = { toolsMenuExpanded = false }
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                ElevatedButton(
-                    contentPadding = PaddingValues(0.dp),
-                    enabled = !selectedModel.isNullOrBlank(),
-                    onClick = {
-                        viewModel.onUserInteraction()
-                        if (selectedModel.isNullOrBlank()) {
-                            coroutineScope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                snackbarHostState.showSnackbar(
-                                    message = "モデルを選択してください",
-                                    duration = SnackbarDuration.Short
-                                )
+                    ElevatedButton(
+                        contentPadding = PaddingValues(0.dp),
+                        enabled = !selectedModel.isNullOrBlank(),
+                        onClick = {
+                            viewModel.onUserInteraction()
+                            if (selectedModel.isNullOrBlank()) {
+                                coroutineScope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(
+                                        message = "モデルを選択してください",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                                return@ElevatedButton
                             }
-                            return@ElevatedButton
-                        }
 
-                        val currentChatId = effectiveChatId
-                        if (currentChatId != null) {
-                            if (userPrompt.isNotEmpty()) {
-                                placeholder = "I'm thinking ... "
-                                viewModel.insert(
-                                    Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                )
-                                toggle = true
-                                prompt = userPrompt
-                                userPrompt = ""
-                                viewModel.sendPrompt(prompt, selectedModel)
-                                prompt = ""
+                            val currentChatId = effectiveChatId
+                            if (currentChatId != null) {
+                                if (userPrompt.isNotEmpty()) {
+                                    placeholder = "I'm thinking ... "
+                                    viewModel.insert(
+                                        Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                    )
+                                    toggle = true
+                                    prompt = userPrompt
+                                    userPrompt = ""
+                                    viewModel.sendPrompt(prompt, selectedModel)
+                                    prompt = ""
+                                }
+                            } else {
+                                placeholder = "Setting up a new chat ..."
                             }
-                        } else {
-                            placeholder = "Setting up a new chat ..."
-                        }
-                    },
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .align(Alignment.Bottom)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ArrowUpward,
-                        contentDescription = "Send Button"
-                    )
+                        },
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .align(Alignment.BottomEnd)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowUpward,
+                            contentDescription = "Send Button"
+                        )
+                    }
                 }
             }
         }
