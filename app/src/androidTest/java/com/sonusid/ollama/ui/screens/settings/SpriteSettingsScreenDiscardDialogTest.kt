@@ -39,6 +39,7 @@ import org.junit.Before
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
+import com.sonusid.ollama.ui.TestAppWrapper
 
 class SpriteSettingsScreenDiscardDialogTest {
     @get:Rule
@@ -191,17 +192,19 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     private fun setSpriteSettingsContent() {
         composeTestRule.setContent {
-            OllamaTheme {
-                val navController = rememberNavController()
-                NavHost(
-                    navController = navController,
-                    startDestination = SettingsRoute.SpriteSettings.route
-                ) {
-                    composable(SettingsRoute.SpriteSettings.route) {
-                        SpriteSettingsScreen(navController)
-                    }
-                    composable(Routes.SETTINGS) {
-                        Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
+            TestAppWrapper {
+                OllamaTheme {
+                    val navController = rememberNavController()
+                    NavHost(
+                        navController = navController,
+                        startDestination = SettingsRoute.SpriteSettings.route
+                    ) {
+                        composable(SettingsRoute.SpriteSettings.route) {
+                            SpriteSettingsScreen(navController)
+                        }
+                        composable(Routes.SETTINGS) {
+                            Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
+                        }
                     }
                 }
             }
