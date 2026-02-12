@@ -18,6 +18,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -49,18 +50,41 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
-                LamiHeaderStatus(
-                    baseUrl = baseUrl,
-                    selectedModel = selectedModel,
-                    lastError = lastError,
-                    lamiStatus = lamiStatusState.value,
-                    lamiState = lamiUiState.state,
-                    availableModels = availableModels,
-                    onSelectModel = { viewModel.updateSelectedModel(it) },
-                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false,
-                    syncEpochMs = animationEpochMs,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HeaderAvatar(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = lastError,
+                        lamiStatus = lamiStatusState.value,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                    )
+                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                    Spacer(modifier = Modifier.size(2.dp))
+                    LamiHeaderStatus(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = lastError,
+                        lamiStatus = lamiStatusState.value,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                        showAvatar = false,
+                    )
+                }
             },
             actions = {
                     IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
