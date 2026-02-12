@@ -3829,7 +3829,12 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     Scaffold(
         topBar = {
-            Column {
+            Box(
+                modifier = Modifier
+                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
+                    .height(48.dp)
+                    .fillMaxWidth()
+            ) {
                 TopAppBar(
                     title = {
                         Text(
@@ -3889,7 +3894,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                     },
                     // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
                     windowInsets = WindowInsets(0, 0, 0, 0),
-                    modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = adaptiveHorizontalPadding)
                 )
             }
         },
@@ -4024,7 +4031,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 }
                             }
                         }
-                        val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
+                        val contentTopGap = 0.dp
                         // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
                         Spacer(modifier = Modifier.height(contentTopGap))
                         Box(

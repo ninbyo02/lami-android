@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -228,19 +229,27 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         // 左右の安全領域は維持し、上は TopAppBar 側で処理する
         contentWindowInsets = scaffoldInsets,
         topBar = {
-            TopAppBar(
-                // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
-                windowInsets = WindowInsets(0, 0, 0, 0),
-                navigationIcon = {
-                    IconButton(onClick = { onBackRequested() }) {
-                        Icon(
-                            painterResource(R.drawable.back),
-                            "exit"
-                        )
-                    }
-                },
-                title = { Text("Settings") }
-            )
+            Box(
+                modifier = Modifier
+                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
+                    .height(48.dp)
+                    .fillMaxWidth()
+            ) {
+                TopAppBar(
+                    // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    navigationIcon = {
+                        IconButton(onClick = { onBackRequested() }) {
+                            Icon(
+                                painterResource(R.drawable.back),
+                                "exit"
+                            )
+                        }
+                    },
+                    title = { Text("Settings") },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     ) { paddingValues ->
         LazyColumn(
