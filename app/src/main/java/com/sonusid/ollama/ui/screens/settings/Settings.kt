@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -239,14 +241,27 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
-                        IconButton(onClick = { onBackRequested() }) {
+                        IconButton(
+                            onClick = { onBackRequested() },
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
                             Icon(
                                 painterResource(R.drawable.back),
                                 "exit"
                             )
                         }
                     },
-                    title = { Text("Settings") },
+                    title = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text("Settings")
+                        }
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
             }

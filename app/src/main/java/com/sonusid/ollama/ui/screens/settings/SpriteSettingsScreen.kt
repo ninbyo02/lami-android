@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
@@ -3837,14 +3839,25 @@ fun SpriteSettingsScreen(navController: NavController) {
             ) {
                 TopAppBar(
                     title = {
-                        Text(
-                            text = "Sprite Settings",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text(
+                                text = "Sprite Settings",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { onBackRequested() }) {
+                        IconButton(
+                            onClick = { onBackRequested() },
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
                             Icon(
                                 painter = painterResource(R.drawable.back),
                                 contentDescription = "戻る"
