@@ -8,17 +8,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
@@ -179,42 +181,49 @@ fun Home(
         }
     }
 
-    Scaffold(topBar = {
+    Scaffold(
+        // 上部空白を 0dp に固定するため、Scaffold の Insets を無効化
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+        topBar = {
         TopAppBar(
-            navigationIcon = {
-                HeaderAvatar(
-                    baseUrl = baseUrl,
-                    selectedModel = selectedModel,
-                    lastError = errorMessage,
-                    lamiStatus = lamiAnimationStatus,
-                    lamiState = lamiUiState.state,
-                    availableModels = availableModels,
-                    onSelectModel = { modelName ->
-                        viewModel.onUserInteraction()
-                        viewModel.updateSelectedModel(modelName)
-                    },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false,
-                    syncEpochMs = animationEpochMs,
-                )
-            },
+            // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
+            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
-                LamiHeaderStatus(
-                    baseUrl = baseUrl,
-                    selectedModel = selectedModel,
-                    lastError = errorMessage,
-                    lamiStatus = lamiAnimationStatus,
-                    lamiState = lamiUiState.state,
-                    availableModels = availableModels,
-                    onSelectModel = { modelName ->
-                        viewModel.onUserInteraction()
-                        viewModel.updateSelectedModel(modelName)
-                    },
-                    onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false,
-                    syncEpochMs = animationEpochMs,
-                    showAvatar = false,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HeaderAvatar(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = errorMessage,
+                        lamiStatus = lamiAnimationStatus,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                    )
+                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                    Spacer(modifier = Modifier.size(2.dp))
+                    LamiHeaderStatus(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = errorMessage,
+                        lamiStatus = lamiAnimationStatus,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                        showAvatar = false,
+                    )
+                }
             },
             actions = {
                 IconButton(onClick = {
@@ -222,7 +231,7 @@ fun Home(
                     navHostController.navigate(Routes.CHATS)
                 }) {
                     Icon(
-                        imageVector = Icons.Filled.List,
+                        imageVector = Icons.AutoMirrored.Filled.List,
                         contentDescription = "チャット一覧",
                         modifier = Modifier.size(26.dp)
                     )
@@ -314,8 +323,14 @@ fun Home(
     }) { paddingValues ->
         Box(
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize()
+                // TopAppBar 配下への潜り込みを防ぐため、Scaffold の上下 inset をここで一元適用
+                .padding(
+                    top = paddingValues.calculateTopPadding(),
+                    bottom = paddingValues.calculateBottomPadding()
+                )
+                // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
+                .consumeWindowInsets(paddingValues)
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
@@ -323,7 +338,7 @@ fun Home(
             if (effectiveChatId == null) {
                 Column(
                     modifier = contentModifier,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     CircularProgressIndicator()
@@ -333,7 +348,7 @@ fun Home(
             } else if (allChats.isEmpty()) {
                 Column(
                     modifier = contentModifier,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     BoxWithConstraints {
@@ -359,8 +374,6 @@ fun Home(
                             syncEpochMs = animationEpochMs,
                         )
                     }
-                    // 下：案内テキストとの距離を確保するための Spacer
-                    Spacer(modifier = Modifier.size(20.dp))
                     Text(
                         text = "最初のメッセージを送信して会話を始めましょう",
                         style = MaterialTheme.typography.bodyLarge
@@ -368,15 +381,25 @@ fun Home(
                 }
             } else {
                 LazyColumn(
-                    modifier = contentModifier
-                        .padding(16.dp),
-                    state = listState
+                    modifier = contentModifier,
+                    // 上はヘッダーとの境界として 2dp のみ確保し、下は最小余白のみを維持
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 2.dp,
+                        bottom = 16.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                    state = listState,
                 ) {
-                    items(
+                    itemsIndexed(
                         items = allChats,
-                        key = { message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                    ) { message ->
-                        ChatBubble(message.message, message.isSendbyMe)
+                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                    ) { index, message ->
+                        val topPadding = if (index == 0) 0.dp else 8.dp
+                        Box(modifier = Modifier.padding(top = topPadding)) {
+                            ChatBubble(message.message, message.isSendbyMe)
+                        }
                     }
                 }
             }
@@ -391,7 +414,8 @@ fun Home(
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(16.dp),
+                        // エラーバナーの上端だけは詰めて、他方向の余白を維持
+                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(

@@ -35,6 +35,7 @@ import org.json.JSONObject
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import com.sonusid.ollama.ui.TestAppWrapper
 
 class SpriteSettingsTalkLongPerStateRestoreTest {
     @get:Rule
@@ -157,17 +158,19 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     private fun setSpriteSettingsContent() {
         composeTestRule.activityRule.scenario.onActivity { activity ->
             activity.setContent {
-                val navController = rememberNavController()
-                OllamaTheme(dynamicColor = false) {
-                    NavHost(
-                        navController = navController,
-                        startDestination = SettingsRoute.SpriteSettings.route
-                    ) {
-                        composable(SettingsRoute.SpriteSettings.route) {
-                            SpriteSettingsScreen(navController)
-                        }
-                        composable(Routes.SETTINGS) {
-                            Settings(navController)
+                TestAppWrapper {
+                    val navController = rememberNavController()
+                    OllamaTheme(dynamicColor = false) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = SettingsRoute.SpriteSettings.route
+                        ) {
+                            composable(SettingsRoute.SpriteSettings.route) {
+                                SpriteSettingsScreen(navController)
+                            }
+                            composable(Routes.SETTINGS) {
+                                Settings(navController)
+                            }
                         }
                     }
                 }

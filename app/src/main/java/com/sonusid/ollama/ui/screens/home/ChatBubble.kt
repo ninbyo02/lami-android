@@ -28,7 +28,8 @@ fun ChatBubble(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(10.dp),
+            // 上側余白は ChatScreen 側で管理するため、吹き出し側の top padding は持たせない
+            .padding(start = 10.dp, top = 0.dp, end = 10.dp, bottom = 10.dp),
         horizontalArrangement = if (isSentByMe) Arrangement.End else Arrangement.Start
     ) {
         Box(

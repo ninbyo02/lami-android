@@ -2,7 +2,6 @@ package com.sonusid.ollama.sprite
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
@@ -10,15 +9,14 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
 import java.io.File
 import java.io.FileOutputStream
 
-@RunWith(AndroidJUnit4::class)
 class LamiSpriteSheetRepositoryOverrideTest {
 
     @Test
-    fun loadLamiSpriteSheet_overrideEnabledAndFileExists_readsOverridePng() = runBlocking {
+    fun loadLamiSpriteSheet_overrideEnabledAndFileExists_readsOverridePng() {
+        runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settings = SettingsPreferences(context)
         val overrideFile = currentSpriteSheetOverrideFile(context)
@@ -39,10 +37,12 @@ class LamiSpriteSheetRepositoryOverrideTest {
         assertEquals(9, data.bitmap.height)
 
         overrideFile.delete()
+        }
     }
 
     @Test
-    fun loadLamiSpriteSheet_overrideEnabledButFileMissing_fallsBackToDrawable() = runBlocking {
+    fun loadLamiSpriteSheet_overrideEnabledButFileMissing_fallsBackToDrawable() {
+        runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settings = SettingsPreferences(context)
         val overrideFile = currentSpriteSheetOverrideFile(context)
@@ -59,6 +59,7 @@ class LamiSpriteSheetRepositoryOverrideTest {
         assertTrue(expected != null)
         assertEquals(expected!!.width, data.bitmap.width)
         assertEquals(expected.height, data.bitmap.height)
+        }
     }
 
     private fun currentSpriteSheetOverrideFile(context: android.content.Context): File {
