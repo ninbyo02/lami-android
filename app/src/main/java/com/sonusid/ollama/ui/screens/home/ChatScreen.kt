@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -275,10 +276,12 @@ fun Home(
             shape = CircleShape,
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp, max = 140.dp)
                 .padding(horizontal = 0.dp)
                 .padding(bottom = 5.dp)
                 .imePadding(),
-            singleLine = true,
+            singleLine = false,
+            maxLines = 4,
             suffix = {
                 ElevatedButton(
                     contentPadding = PaddingValues(0.dp),
