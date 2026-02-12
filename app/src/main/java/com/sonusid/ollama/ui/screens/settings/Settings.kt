@@ -215,7 +215,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemBarInsets = WindowInsets.systemBars
-    // 左右の安全領域は維持し、上と下の余白を除外する Insets
+    // 左右の安全領域は維持し、上は TopAppBar のデフォルト Insets に任せる
     val scaffoldInsets = WindowInsets(
         left = systemBarInsets.getLeft(density, layoutDirection),
         top = 0,
@@ -225,7 +225,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
-        // 左右の安全領域は維持し、上と下の余白を除外する
+        // 左右の安全領域は維持し、上は TopAppBar 側で処理する
         contentWindowInsets = scaffoldInsets,
         topBar = {
             TopAppBar(
