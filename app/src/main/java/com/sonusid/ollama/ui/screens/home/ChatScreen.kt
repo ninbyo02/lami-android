@@ -24,9 +24,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,7 +42,9 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,6 +74,8 @@ import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.max
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +96,8 @@ fun Home(
     val allChats = allChatsState?.value.orEmpty()
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
+    var toolsMenuExpanded by remember { mutableStateOf(false) }
+    var expandDialogOpen by remember { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
@@ -257,6 +268,11 @@ fun Home(
             },
         )
     }, bottomBar = {
+        val hardLines = userPrompt.count { it == '\n' } + 1
+        val softLinesEstimate = (userPrompt.length / 24) + 1
+        val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
+        val composerShape = if (effectiveLines <= 1) RoundedCornerShape(50) else RoundedCornerShape(16.dp)
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -267,38 +283,74 @@ fun Home(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom
             ) {
-                OutlinedTextField(
-                    interactionSource = interactionSource,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Mic,
-                            contentDescription = "音声入力",
-                            modifier = Modifier.size(22.dp)
+                Box(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        interactionSource = interactionSource,
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Ask llama")
+                            }
+                        },
+                        value = userPrompt,
+                        onValueChange = {
+                            userPrompt = it
+                            viewModel.onUserInteraction()
+                        },
+                        shape = composerShape,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp, max = 180.dp),
+                        singleLine = false,
+                        maxLines = 6,
+                        placeholder = { Text(placeholder, fontSize = 15.sp) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
+                            focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
                         )
-                    },
-                    label = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Ask llama")
-                        }
-                    },
-                    value = userPrompt,
-                    onValueChange = {
-                        userPrompt = it
-                        viewModel.onUserInteraction()
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp, max = 140.dp)
-                        .padding(horizontal = 0.dp),
-                    singleLine = false,
-                    maxLines = 4,
-                    placeholder = { Text(placeholder, fontSize = 15.sp) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                        focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
                     )
-                )
+
+                    IconButton(
+                        onClick = { toolsMenuExpanded = true },
+                        modifier = Modifier.align(Alignment.BottomStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Tools"
+                        )
+                    }
+
+                    if (effectiveLines >= 5) {
+                        IconButton(
+                            onClick = { expandDialogOpen = true },
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.OpenInFull,
+                                contentDescription = "Expand"
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = toolsMenuExpanded,
+                        onDismissRequest = { toolsMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Attach image (placeholder)") },
+                            onClick = { toolsMenuExpanded = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Paste from clipboard (placeholder)") },
+                            onClick = { toolsMenuExpanded = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings (placeholder)") },
+                            onClick = { toolsMenuExpanded = false }
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -344,6 +396,51 @@ fun Home(
                         imageVector = Icons.Filled.ArrowUpward,
                         contentDescription = "Send Button"
                     )
+                }
+            }
+        }
+
+        if (expandDialogOpen) {
+            Dialog(onDismissRequest = { expandDialogOpen = false }) {
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("全体表示", style = MaterialTheme.typography.titleMedium)
+                            IconButton(onClick = { expandDialogOpen = false }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Close expand dialog"
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = userPrompt,
+                            onValueChange = {
+                                userPrompt = it
+                                viewModel.onUserInteraction()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 180.dp, max = 360.dp),
+                            singleLine = false,
+                            maxLines = 16,
+                            placeholder = { Text("ここで全文を編集") }
+                        )
+                        TextButton(
+                            onClick = { expandDialogOpen = false },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("閉じる")
+                        }
+                    }
                 }
             }
         }
