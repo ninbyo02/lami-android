@@ -34,7 +34,7 @@ fun ChatBubble(
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 250.dp)
+                .widthIn(max = 280.dp)
                 .background(
                     color = if (isSentByMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(16.dp)
