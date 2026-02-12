@@ -540,7 +540,7 @@ fun SpriteEditorScreen(navController: NavController) {
                         Text("Sprite Editor")
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxWidth()
             )
         },
     ) { innerPadding ->
