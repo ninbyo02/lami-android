@@ -3852,16 +3852,20 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
                     },
                     navigationIcon = {
-                        IconButton(
-                            onClick = { onBackRequested() },
+                        Box(
                             modifier = Modifier
+                                .width(56.dp)
                                 .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "戻る"
-                            )
+                            IconButton(onClick = { onBackRequested() }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = "戻る",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     },
                     actions = {
@@ -3907,9 +3911,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     },
                     // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
                     windowInsets = WindowInsets(0, 0, 0, 0),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = adaptiveHorizontalPadding)
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         },

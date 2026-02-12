@@ -241,16 +241,20 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
-                        IconButton(
-                            onClick = { onBackRequested() },
+                        Box(
                             modifier = Modifier
+                                .width(56.dp)
                                 .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            Icon(
-                                painterResource(R.drawable.back),
-                                "exit"
-                            )
+                            IconButton(onClick = { onBackRequested() }) {
+                                Icon(
+                                    painterResource(R.drawable.back),
+                                    "exit",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     },
                     title = {
