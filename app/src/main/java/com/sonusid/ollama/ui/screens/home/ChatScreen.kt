@@ -189,7 +189,11 @@ fun Home(
             // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // アバター下端がTopAppBarに接して見えないよう下余白を統一
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
                     HeaderAvatar(
                         baseUrl = baseUrl,
                         selectedModel = selectedModel,

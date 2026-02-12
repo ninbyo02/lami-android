@@ -50,7 +50,11 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // アバター下端がTopAppBarに接して見えないよう下余白を統一
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
                     HeaderAvatar(
                         baseUrl = baseUrl,
                         selectedModel = selectedModel,
