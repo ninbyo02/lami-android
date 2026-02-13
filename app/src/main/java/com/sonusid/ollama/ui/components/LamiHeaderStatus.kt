@@ -1,8 +1,10 @@
 package com.sonusid.ollama.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +17,9 @@ import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
+
+private val HeaderAvatarTopSafePadding = 2.dp
+private val HeaderAvatarMaxSize = 62.dp
 
 @Composable
 fun LamiHeaderStatus(
@@ -43,18 +48,24 @@ fun LamiHeaderStatus(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        LamiAvatar(
-            baseUrl = baseUrl,
-            selectedModel = selectedModel,
-            lastError = lastError,
-            lamiStatus = lamiStatus,
-            availableModels = availableModels,
-            initialAvatarSize = 64.dp,
-            minAvatarSize = 48.dp,
-            maxAvatarSize = 64.dp,
-            onSelectModel = onSelectModel,
-            onNavigateSettings = onNavigateSettings
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            // 上端の見切れを防ぐため、ヘッダー内でのみ最小限の安全余白を確保する。
+            modifier = Modifier.padding(top = HeaderAvatarTopSafePadding)
+        ) {
+            LamiAvatar(
+                baseUrl = baseUrl,
+                selectedModel = selectedModel,
+                lastError = lastError,
+                lamiStatus = lamiStatus,
+                availableModels = availableModels,
+                initialAvatarSize = HeaderAvatarMaxSize,
+                minAvatarSize = 48.dp,
+                maxAvatarSize = HeaderAvatarMaxSize,
+                onSelectModel = onSelectModel,
+                onNavigateSettings = onNavigateSettings
+            )
+        }
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = modelLabel ?: "Model",
