@@ -82,7 +82,7 @@ import kotlin.math.min
 
 private val ComposerMinHeight = 56.dp
 private val ComposerIconSize = 40.dp
-private val AvatarSlotSize = 52.dp
+private val AvatarSlotSize = 72.dp
 private val AvatarTopInset = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
