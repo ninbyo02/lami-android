@@ -259,6 +259,7 @@ fun Home(
                         onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
+                        // navigationIcon 側で HeaderAvatar を表示しているため二重表示を防ぐ
                         showAvatar = false,
                     )
                 }
