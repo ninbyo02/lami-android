@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -207,9 +209,16 @@ fun Home(
     }
 
     Scaffold(
+        // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
-            modifier = Modifier.height(TopAppBarHeight),
+            modifier = Modifier
+                // ステータスバー回避を明示して、アバター見切れを防ぐ
+                .statusBarsPadding()
+                .height(TopAppBarHeight),
+            // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
+            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             navigationIcon = {
                 Box(
                     modifier = Modifier
