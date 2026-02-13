@@ -83,6 +83,8 @@ import kotlin.math.min
 
 private val ComposerMinHeight = 56.dp
 private val ComposerIconSize = 40.dp
+private val AvatarSlotSize = 52.dp
+private val AvatarTopInset = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -208,21 +210,17 @@ fun Home(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
-            // アバター頭頂部の見切れを防ぐため、ヘッダー高さに最小限の逃げを追加
-            modifier = Modifier.height(TopAppBarHeight + 4.dp),
+            modifier = Modifier.height(TopAppBarHeight),
             // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    // TopAppBar 高さ基準を維持しつつ、アバターを上下中央に固定する
-                    modifier = Modifier
-                        .heightIn(min = TopAppBarHeight)
+            navigationIcon = {
+                Box(
+                    modifier = Modifier.size(AvatarSlotSize),
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
-                        contentAlignment = Alignment.Center,
-                        // 上端クリップを避けるため最小限の縦余白を与える
-                        modifier = Modifier.padding(vertical = 2.dp)
+                        // アバター頭頂部の見切れを防ぐため、slot 内でのみ最小限の上余白を確保
+                        modifier = Modifier.padding(top = AvatarTopInset)
                     ) {
                         HeaderAvatar(
                             baseUrl = baseUrl,
@@ -243,8 +241,15 @@ fun Home(
                             maxAvatarSize = 62.dp,
                         )
                     }
-                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
-                    Spacer(modifier = Modifier.size(2.dp))
+                }
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // TopAppBar 高さ基準を維持しつつ、アバターを上下中央に固定する
+                    modifier = Modifier
+                        .heightIn(min = TopAppBarHeight)
+                ) {
                     LamiHeaderStatus(
                         baseUrl = baseUrl,
                         selectedModel = selectedModel,
