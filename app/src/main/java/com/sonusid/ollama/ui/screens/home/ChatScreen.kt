@@ -329,12 +329,6 @@ fun Home(
                             singleLine = false,
                             maxLines = 6,
                             placeholder = { Text(placeholder, fontSize = 15.sp) },
-                            contentPadding = PaddingValues(
-                                start = 12.dp,
-                                end = 12.dp,
-                                top = 10.dp,
-                                bottom = 10.dp
-                            ),
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = Color.Transparent,
                                 focusedBorderColor = Color.Transparent,
