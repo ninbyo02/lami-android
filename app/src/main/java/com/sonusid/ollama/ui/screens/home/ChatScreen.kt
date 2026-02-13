@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
@@ -212,14 +214,20 @@ fun Home(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
-        TopAppBar(
-            modifier = Modifier
-                // ステータスバー回避を明示して、アバター見切れを防ぐ
-                .statusBarsPadding()
-                .height(TopAppBarHeight),
-            // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
-            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-            navigationIcon = {
+            val topAppBarContainerColor = MaterialTheme.colorScheme.surface
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(topAppBarContainerColor)
+                    // ステータスバー分の安全領域のみ確保し、見た目は背景色で埋める
+                    .statusBarsPadding()
+            ) {
+                TopAppBar(
+                    modifier = Modifier.height(TopAppBarHeight),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
+                    // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
+                    windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+                    navigationIcon = {
                 Box(
                     modifier = Modifier
                         // 左端の slot 境界でアバターの縁/影が欠けないよう最小限の開始側余白を付与
@@ -302,9 +310,10 @@ fun Home(
                         modifier = Modifier.size(26.dp)
                     )
                 }
-            },
-        )
-    }, bottomBar = {
+                    },
+                )
+            }
+        }, bottomBar = {
         val hardLines = userPrompt.count { it == '\n' } + 1
         val softLinesEstimate = (userPrompt.length / 24) + 1
         val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
