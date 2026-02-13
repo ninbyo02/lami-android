@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -35,7 +36,9 @@ fun LamiHeaderStatus(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier,
+        modifier = modifier
+            // アバター頭頂部の見切れを防ぐため、ヘッダー行のクリップを無効化
+            .graphicsLayer { clip = false },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -91,11 +94,11 @@ fun HeaderAvatar(
         onSelectModel = onSelectModel,
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,
-        syncEpochMs = syncEpochMs,
-        modifier = modifier
-            .headerAvatarModifier()
-            // 上端見切れを抑えるため、アバター側で安全マージンを確保
-            .padding(top = 2.dp),
+            syncEpochMs = syncEpochMs,
+            modifier = modifier
+                .headerAvatarModifier()
+                // 上端見切れを抑えるため、アバター側で安全マージンを追加確保
+                .padding(top = 3.dp),
     )
 }
 
