@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,7 +48,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,9 +84,6 @@ import kotlin.math.min
 
 private val ComposerMinHeight = 56.dp
 private val ComposerIconSize = 40.dp
-private val AvatarSlotSize = TopAppBarHeight
-private val AvatarTopInset = 0.dp
-private val AvatarStartInset = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,46 +219,29 @@ fun Home(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
                     // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
                     windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-                    navigationIcon = {
-                Box(
-                    modifier = Modifier
-                        // 左端の slot 境界でアバターの縁/影が欠けないよう最小限の開始側余白を付与
-                        .padding(start = AvatarStartInset)
-                        .size(AvatarSlotSize)
-                        // TopAppBar の slot 境界でアバターが欠けないようクリップを無効化
-                        .graphicsLayer { clip = false },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        // アバター頭頂部の見切れを防ぐため、slot 内でのみ最小限の上余白を確保
-                        modifier = Modifier.padding(top = AvatarTopInset)
-                    ) {
-                        HeaderAvatar(
-                            baseUrl = baseUrl,
-                            selectedModel = selectedModel,
-                            lastError = errorMessage,
-                            lamiStatus = lamiAnimationStatus,
-                            lamiState = lamiUiState.state,
-                            availableModels = availableModels,
-                            onSelectModel = { modelName ->
-                                viewModel.onUserInteraction()
-                                viewModel.updateSelectedModel(modelName)
-                            },
-                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                            applyHeaderAvatarModifier = false,
-                        )
-                    }
-                }
-            },
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    // TopAppBar 高さ基準を維持しつつ、アバターを上下中央に固定する
-                    modifier = Modifier
-                        .heightIn(min = TopAppBarHeight)
+                    // Chats 画面とヘッダー位置を揃えるため下余白を統一
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
+                    HeaderAvatar(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = errorMessage,
+                        lamiStatus = lamiAnimationStatus,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                    )
+                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                    Spacer(modifier = Modifier.size(2.dp))
                     LamiHeaderStatus(
                         baseUrl = baseUrl,
                         selectedModel = selectedModel,
@@ -278,7 +256,7 @@ fun Home(
                         onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
-                        // navigationIcon 側で HeaderAvatar を表示しているため二重表示を防ぐ
+                        // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
                         showAvatar = false,
                     )
                 }
