@@ -85,6 +85,7 @@ private val ComposerMinHeight = 56.dp
 private val ComposerIconSize = 40.dp
 private val AvatarSlotSize = TopAppBarHeight
 private val AvatarTopInset = 4.dp
+private val AvatarStartInset = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -212,6 +213,8 @@ fun Home(
             navigationIcon = {
                 Box(
                     modifier = Modifier
+                        // 左端の slot 境界でアバターの縁/影が欠けないよう最小限の開始側余白を付与
+                        .padding(start = AvatarStartInset)
                         .size(AvatarSlotSize)
                         // TopAppBar の slot 境界でアバターが欠けないようクリップを無効化
                         .graphicsLayer { clip = false },
