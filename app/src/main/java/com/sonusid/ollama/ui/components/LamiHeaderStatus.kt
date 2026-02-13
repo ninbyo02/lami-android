@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.ui.common.headerAvatarModifier
 import com.sonusid.ollama.viewmodels.LamiState
@@ -71,6 +72,9 @@ fun HeaderAvatar(
     onNavigateSettings: () -> Unit,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
+    initialAvatarSize: Dp = 64.dp,
+    minAvatarSize: Dp = 48.dp,
+    maxAvatarSize: Dp = 64.dp,
     modifier: Modifier = Modifier,
 ) {
     LamiAvatar(
@@ -80,9 +84,9 @@ fun HeaderAvatar(
         lamiStatus = lamiStatus,
         lamiState = lamiState,
         availableModels = availableModels,
-        initialAvatarSize = 64.dp,
-        minAvatarSize = 48.dp,
-        maxAvatarSize = 64.dp,
+        initialAvatarSize = initialAvatarSize,
+        minAvatarSize = minAvatarSize,
+        maxAvatarSize = maxAvatarSize,
         onSelectModel = onSelectModel,
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,

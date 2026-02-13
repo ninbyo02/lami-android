@@ -69,6 +69,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.TopAppBarHeight
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
@@ -211,24 +212,34 @@ fun Home(
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    // アバター下端がTopAppBarに接して見えないよう下余白を統一
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    // TopAppBar 高さ基準を維持しつつ、アバターを上下中央に固定する
+                    modifier = Modifier
+                        .heightIn(min = TopAppBarHeight)
                 ) {
-                    HeaderAvatar(
-                        baseUrl = baseUrl,
-                        selectedModel = selectedModel,
-                        lastError = errorMessage,
-                        lamiStatus = lamiAnimationStatus,
-                        lamiState = lamiUiState.state,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
-                        },
-                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        // 上端クリップを避けるため最小限の縦余白を与える
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    ) {
+                        HeaderAvatar(
+                            baseUrl = baseUrl,
+                            selectedModel = selectedModel,
+                            lastError = errorMessage,
+                            lamiStatus = lamiAnimationStatus,
+                            lamiState = lamiUiState.state,
+                            availableModels = availableModels,
+                            onSelectModel = { modelName ->
+                                viewModel.onUserInteraction()
+                                viewModel.updateSelectedModel(modelName)
+                            },
+                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                            initialAvatarSize = 62.dp,
+                            minAvatarSize = 46.dp,
+                            maxAvatarSize = 62.dp,
+                        )
+                    }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                     Spacer(modifier = Modifier.size(2.dp))
                     LamiHeaderStatus(
