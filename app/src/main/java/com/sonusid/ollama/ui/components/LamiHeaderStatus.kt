@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -91,7 +92,10 @@ fun HeaderAvatar(
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,
         syncEpochMs = syncEpochMs,
-        modifier = modifier.headerAvatarModifier(),
+        modifier = modifier
+            .headerAvatarModifier()
+            // 上端見切れを抑えるため、アバター側で安全マージンを確保
+            .padding(top = 2.dp),
     )
 }
 
