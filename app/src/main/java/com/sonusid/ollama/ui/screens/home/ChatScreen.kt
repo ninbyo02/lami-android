@@ -82,7 +82,7 @@ import kotlin.math.min
 
 private val ComposerMinHeight = 56.dp
 private val ComposerIconSize = 40.dp
-private val AvatarSlotSize = 72.dp
+private val AvatarSlotSize = TopAppBarHeight
 private val AvatarTopInset = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -231,9 +231,9 @@ fun Home(
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
-                            initialAvatarSize = 62.dp,
-                            minAvatarSize = 46.dp,
-                            maxAvatarSize = 62.dp,
+                            initialAvatarSize = 56.dp,
+                            minAvatarSize = 44.dp,
+                            maxAvatarSize = 56.dp,
                         )
                     }
                 }
