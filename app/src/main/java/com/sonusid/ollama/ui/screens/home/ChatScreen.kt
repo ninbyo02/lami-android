@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -210,7 +211,10 @@ fun Home(
             modifier = Modifier.height(TopAppBarHeight),
             navigationIcon = {
                 Box(
-                    modifier = Modifier.size(AvatarSlotSize),
+                    modifier = Modifier
+                        .size(AvatarSlotSize)
+                        // TopAppBar の slot 境界でアバターが欠けないようクリップを無効化
+                        .graphicsLayer { clip = false },
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -234,6 +238,7 @@ fun Home(
                             initialAvatarSize = 56.dp,
                             minAvatarSize = 44.dp,
                             maxAvatarSize = 56.dp,
+                            applyHeaderAvatarModifier = false,
                         )
                     }
                 }
