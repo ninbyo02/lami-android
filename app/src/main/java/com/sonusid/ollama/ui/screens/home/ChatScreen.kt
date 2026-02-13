@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -207,6 +208,8 @@ fun Home(
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
+            // アバター頭頂部の見切れを防ぐため、ヘッダー高さに最小限の逃げを追加
+            modifier = Modifier.height(TopAppBarHeight + 4.dp),
             // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
