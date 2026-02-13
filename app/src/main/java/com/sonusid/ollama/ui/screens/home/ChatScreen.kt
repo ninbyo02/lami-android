@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -206,13 +205,9 @@ fun Home(
     }
 
     Scaffold(
-        // 上部空白を 0dp に固定するため、Scaffold の Insets を無効化
-        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
         TopAppBar(
             modifier = Modifier.height(TopAppBarHeight),
-            // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
-            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             navigationIcon = {
                 Box(
                     modifier = Modifier.size(AvatarSlotSize),
