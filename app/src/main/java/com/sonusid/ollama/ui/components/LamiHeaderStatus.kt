@@ -79,8 +79,15 @@ fun HeaderAvatar(
     initialAvatarSize: Dp = 64.dp,
     minAvatarSize: Dp = 48.dp,
     maxAvatarSize: Dp = 64.dp,
+    applyHeaderAvatarModifier: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val avatarModifier = if (applyHeaderAvatarModifier) {
+        modifier.headerAvatarModifier()
+    } else {
+        modifier
+    }
+
     LamiAvatar(
         baseUrl = baseUrl,
         selectedModel = selectedModel,
@@ -95,8 +102,7 @@ fun HeaderAvatar(
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,
             syncEpochMs = syncEpochMs,
-            modifier = modifier
-                .headerAvatarModifier()
+            modifier = avatarModifier
                 // 上端見切れを抑えるため、アバター側で安全マージンを追加確保
                 .padding(top = 3.dp),
     )
