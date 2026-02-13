@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -88,7 +87,7 @@ import kotlin.math.min
 private val ComposerMinHeight = 56.dp
 private val ComposerIconSize = 40.dp
 private val AvatarSlotSize = TopAppBarHeight
-private val AvatarTopInset = 4.dp
+private val AvatarTopInset = 0.dp
 private val AvatarStartInset = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -219,8 +218,6 @@ fun Home(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topAppBarContainerColor)
-                    // ステータスバー分の安全領域のみ確保し、見た目は背景色で埋める
-                    .statusBarsPadding()
             ) {
                 TopAppBar(
                     modifier = Modifier.height(TopAppBarHeight),
@@ -255,9 +252,6 @@ fun Home(
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
-                            initialAvatarSize = 56.dp,
-                            minAvatarSize = 44.dp,
-                            maxAvatarSize = 56.dp,
                             applyHeaderAvatarModifier = false,
                         )
                     }
