@@ -294,11 +294,6 @@ fun Home(
                 ) {
                     OutlinedTextField(
                         interactionSource = interactionSource,
-                        label = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Ask llama")
-                            }
-                        },
                         value = userPrompt,
                         onValueChange = {
                             userPrompt = it
