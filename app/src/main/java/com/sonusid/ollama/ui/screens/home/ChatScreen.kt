@@ -79,6 +79,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
 
+private val ComposerMinHeight = 56.dp
+private val ComposerIconSize = 40.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Home(
@@ -292,38 +295,97 @@ fun Home(
                 Box(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
-                        interactionSource = interactionSource,
-                        value = userPrompt,
-                        onValueChange = {
-                            userPrompt = it
-                            viewModel.onUserInteraction()
-                        },
-                        shape = composerShape,
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // 左下ツールボタン/右下送信ボタンと入力文字が重ならないよう、最小限の余白を確保
-                            .padding(start = 40.dp, end = 52.dp)
-                            .heightIn(min = 48.dp, max = 180.dp),
-                        singleLine = false,
-                        maxLines = 6,
-                        placeholder = { Text(placeholder, fontSize = 15.sp) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedContainerColor = Color.Transparent
-                        )
-                    )
-
-                    IconButton(
-                        onClick = { toolsMenuExpanded = true },
-                        modifier = Modifier.align(Alignment.BottomStart)
+                            .heightIn(min = ComposerMinHeight),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Tools"
+                        IconButton(
+                            onClick = { toolsMenuExpanded = true },
+                            modifier = Modifier
+                                .size(ComposerIconSize)
+                                .align(Alignment.CenterVertically)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "Tools"
+                            )
+                        }
+
+                        OutlinedTextField(
+                            interactionSource = interactionSource,
+                            value = userPrompt,
+                            onValueChange = {
+                                userPrompt = it
+                                viewModel.onUserInteraction()
+                            },
+                            shape = composerShape,
+                            modifier = Modifier
+                                .weight(1f)
+                                .align(Alignment.CenterVertically)
+                                // 入力欄の上下余白がつぶれないよう、最小限の高さを維持
+                                .heightIn(min = 48.dp, max = 180.dp),
+                            singleLine = false,
+                            maxLines = 6,
+                            placeholder = { Text(placeholder, fontSize = 15.sp) },
+                            contentPadding = PaddingValues(
+                                start = 12.dp,
+                                end = 12.dp,
+                                top = 10.dp,
+                                bottom = 10.dp
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedContainerColor = Color.Transparent
+                            )
                         )
+
+                        ElevatedButton(
+                            contentPadding = PaddingValues(0.dp),
+                            enabled = !selectedModel.isNullOrBlank(),
+                            onClick = {
+                                viewModel.onUserInteraction()
+                                if (selectedModel.isNullOrBlank()) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                        snackbarHostState.showSnackbar(
+                                            message = "モデルを選択してください",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                    return@ElevatedButton
+                                }
+
+                                val currentChatId = effectiveChatId
+                                if (currentChatId != null) {
+                                    if (userPrompt.isNotEmpty()) {
+                                        placeholder = "I'm thinking ... "
+                                        viewModel.insert(
+                                            Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                        )
+                                        toggle = true
+                                        prompt = userPrompt
+                                        userPrompt = ""
+                                        viewModel.sendPrompt(prompt, selectedModel)
+                                        prompt = ""
+                                    }
+                                } else {
+                                    placeholder = "Setting up a new chat ..."
+                                }
+                            },
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .size(ComposerIconSize)
+                                .align(Alignment.CenterVertically)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowUpward,
+                                contentDescription = "Send Button"
+                            )
+                        }
                     }
 
                     if (effectiveLines >= 5) {
@@ -355,49 +417,6 @@ fun Home(
                         DropdownMenuItem(
                             text = { Text("Settings (placeholder)") },
                             onClick = { toolsMenuExpanded = false }
-                        )
-                    }
-                    ElevatedButton(
-                        contentPadding = PaddingValues(0.dp),
-                        enabled = !selectedModel.isNullOrBlank(),
-                        onClick = {
-                            viewModel.onUserInteraction()
-                            if (selectedModel.isNullOrBlank()) {
-                                coroutineScope.launch {
-                                    snackbarHostState.currentSnackbarData?.dismiss()
-                                    snackbarHostState.showSnackbar(
-                                        message = "モデルを選択してください",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                                return@ElevatedButton
-                            }
-
-                            val currentChatId = effectiveChatId
-                            if (currentChatId != null) {
-                                if (userPrompt.isNotEmpty()) {
-                                    placeholder = "I'm thinking ... "
-                                    viewModel.insert(
-                                        Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                    )
-                                    toggle = true
-                                    prompt = userPrompt
-                                    userPrompt = ""
-                                    viewModel.sendPrompt(prompt, selectedModel)
-                                    prompt = ""
-                                }
-                            } else {
-                                placeholder = "Setting up a new chat ..."
-                            }
-                        },
-                        shape = CircleShape,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .align(Alignment.BottomEnd)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowUpward,
-                            contentDescription = "Send Button"
                         )
                     }
                 }
