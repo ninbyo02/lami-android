@@ -4831,8 +4831,7 @@ private fun ReadyAnimationTab(
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
     // [dp] 下: IME 表示中は追加余白を最小化し、入力欄がキーボード直上へ自然に寄るようにする
-    val extraBottomPadding = if (isImeVisible) 0.dp else 16.dp
-    val listBottomPadding = navigationBottomDp + extraBottomPadding
+    val listBottomPadding = if (isImeVisible) 0.dp else (navigationBottomDp + 16.dp)
     // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
         // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
