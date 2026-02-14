@@ -9,20 +9,32 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,8 +44,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,6 +81,11 @@ import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.max
+import kotlin.math.min
+
+private val ComposerMinHeight = 56.dp
+private val ComposerIconSize = 40.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +106,8 @@ fun Home(
     val allChats = allChatsState?.value.orEmpty()
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
+    var toolsMenuExpanded by remember { mutableStateOf(false) }
+    var expandDialogOpen by remember { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
@@ -182,14 +207,25 @@ fun Home(
     }
 
     Scaffold(
-        // 上部空白を 0dp に固定するため、Scaffold の Insets を無効化
+        // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
-        TopAppBar(
-            // 上部空白を追加しないため、TopAppBar 側の Insets は明示的に 0 に固定
-            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+            val topAppBarContainerColor = MaterialTheme.colorScheme.surface
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(topAppBarContainerColor)
+            ) {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
+                    // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
+                    windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // Chats 画面とヘッダー位置を揃えるため下余白を統一
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
                     HeaderAvatar(
                         baseUrl = baseUrl,
                         selectedModel = selectedModel,
@@ -221,6 +257,7 @@ fun Home(
                         onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
+                        // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
                         showAvatar = false,
                     )
                 }
@@ -246,80 +283,203 @@ fun Home(
                         modifier = Modifier.size(26.dp)
                     )
                 }
-            },
-        )
-    }, bottomBar = {
-        OutlinedTextField(
-            interactionSource = interactionSource,
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Mic,
-                    contentDescription = "音声入力",
-                    modifier = Modifier.size(22.dp)
+                    },
                 )
-            },
-            label = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ask llama")
-                }
-            },
-            value = userPrompt,
-            onValueChange = {
-                userPrompt = it
-                viewModel.onUserInteraction()
-            },
-            shape = CircleShape,
+            }
+        }, bottomBar = {
+        val hardLines = userPrompt.count { it == '\n' } + 1
+        val softLinesEstimate = (userPrompt.length / 24) + 1
+        val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
+        val composerShape = if (effectiveLines <= 1) RoundedCornerShape(50) else RoundedCornerShape(16.dp)
+        val density = LocalDensity.current
+        val imeBottomPx = WindowInsets.ime.getBottom(density)
+        val navBottomPx = WindowInsets.navigationBars.getBottom(density)
+        val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
+        val bottomDp = with(density) { imeOnlyPx.toDp() }
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 5.dp)
-                .imePadding(),
-            singleLine = true,
-            suffix = {
-                ElevatedButton(
-                    contentPadding = PaddingValues(0.dp),
-                    enabled = !selectedModel.isNullOrBlank(),
-                    onClick = {
-                        viewModel.onUserInteraction()
-                        if (selectedModel.isNullOrBlank()) {
-                            coroutineScope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                snackbarHostState.showSnackbar(
-                                    message = "モデルを選択してください",
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
-                            return@ElevatedButton
+                // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
+                .padding(bottom = bottomDp)
+        ) {
+            Surface(
+                shape = composerShape,
+                border = androidx.compose.foundation.BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = ComposerMinHeight),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { toolsMenuExpanded = true },
+                            modifier = Modifier
+                                .size(ComposerIconSize)
+                                .align(Alignment.CenterVertically)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "Tools"
+                            )
                         }
 
-                        val currentChatId = effectiveChatId
-                        if (currentChatId != null) {
-                            if (userPrompt.isNotEmpty()) {
-                                placeholder = "I'm thinking ... "
-                                viewModel.insert(
-                                    Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                )
-                                toggle = true
-                                prompt = userPrompt
-                                userPrompt = ""
-                                viewModel.sendPrompt(prompt, selectedModel)
-                                prompt = ""
-                            }
-                        } else {
-                            placeholder = "Setting up a new chat ..."
+                        OutlinedTextField(
+                            interactionSource = interactionSource,
+                            value = userPrompt,
+                            onValueChange = {
+                                userPrompt = it
+                                viewModel.onUserInteraction()
+                            },
+                            shape = composerShape,
+                            modifier = Modifier
+                                .weight(1f)
+                                .align(Alignment.CenterVertically)
+                                // 入力欄の上下余白がつぶれないよう、最小限の高さを維持
+                                .heightIn(min = 48.dp, max = 180.dp),
+                            singleLine = false,
+                            maxLines = 6,
+                            placeholder = { Text(placeholder, fontSize = 15.sp) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedContainerColor = Color.Transparent
+                            )
+                        )
+
+                        ElevatedButton(
+                            contentPadding = PaddingValues(0.dp),
+                            enabled = !selectedModel.isNullOrBlank(),
+                            onClick = {
+                                viewModel.onUserInteraction()
+                                if (selectedModel.isNullOrBlank()) {
+                                    coroutineScope.launch {
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                        snackbarHostState.showSnackbar(
+                                            message = "モデルを選択してください",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                    return@ElevatedButton
+                                }
+
+                                val currentChatId = effectiveChatId
+                                if (currentChatId != null) {
+                                    if (userPrompt.isNotEmpty()) {
+                                        placeholder = "I'm thinking ... "
+                                        viewModel.insert(
+                                            Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                        )
+                                        toggle = true
+                                        prompt = userPrompt
+                                        userPrompt = ""
+                                        viewModel.sendPrompt(prompt, selectedModel)
+                                        prompt = ""
+                                    }
+                                } else {
+                                    placeholder = "Setting up a new chat ..."
+                                }
+                            },
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .size(ComposerIconSize)
+                                .align(Alignment.CenterVertically)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowUpward,
+                                contentDescription = "Send Button"
+                            )
                         }
-                    }) {
-                    Icon(
-                        painterResource(R.drawable.send), contentDescription = "Send Button"
-                    )
+                    }
+
+                    if (effectiveLines >= 5) {
+                        IconButton(
+                            onClick = { expandDialogOpen = true },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.OpenInFull,
+                                contentDescription = "Expand"
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = toolsMenuExpanded,
+                        onDismissRequest = { toolsMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Attach image (placeholder)") },
+                            onClick = { toolsMenuExpanded = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Paste from clipboard (placeholder)") },
+                            onClick = { toolsMenuExpanded = false }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings (placeholder)") },
+                            onClick = { toolsMenuExpanded = false }
+                        )
+                    }
                 }
-            },
-            placeholder = { Text(placeholder, fontSize = 15.sp) },
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                focusedBorderColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        )
+            }
+        }
+
+        if (expandDialogOpen) {
+            Dialog(onDismissRequest = { expandDialogOpen = false }) {
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("全体表示", style = MaterialTheme.typography.titleMedium)
+                            IconButton(onClick = { expandDialogOpen = false }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Close expand dialog"
+                                )
+                            }
+                        }
+                        OutlinedTextField(
+                            value = userPrompt,
+                            onValueChange = {
+                                userPrompt = it
+                                viewModel.onUserInteraction()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 180.dp, max = 360.dp),
+                            singleLine = false,
+                            maxLines = 16,
+                            placeholder = { Text("ここで全文を編集") }
+                        )
+                        TextButton(
+                            onClick = { expandDialogOpen = false },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("閉じる")
+                        }
+                    }
+                }
+            }
+        }
     }) { paddingValues ->
         Box(
             modifier = Modifier
@@ -380,25 +540,29 @@ fun Home(
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = contentModifier,
-                    // 上はヘッダーとの境界として 2dp のみ確保し、下は最小余白のみを維持
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 2.dp,
-                        bottom = 16.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                    state = listState,
-                ) {
-                    itemsIndexed(
-                        items = allChats,
-                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                    ) { index, message ->
-                        val topPadding = if (index == 0) 0.dp else 8.dp
-                        Box(modifier = Modifier.padding(top = topPadding)) {
-                            ChatBubble(message.message, message.isSendbyMe)
+                Column(modifier = contentModifier) {
+                    // ヘッダー直下の余白をスクロールに依存せず常に表示する
+                    Spacer(modifier = Modifier.height(3.dp))
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        // 下端の入力欄との衝突を避けるため、末尾側だけ余白を保持する
+                        contentPadding = PaddingValues(
+                            start = 0.dp,
+                            end = 0.dp,
+                            bottom = 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        state = listState,
+                    ) {
+                        itemsIndexed(
+                            items = allChats,
+                            key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                        ) { index, message ->
+                            val topPadding = if (index == 0) 0.dp else 8.dp
+                            Box(modifier = Modifier.padding(top = topPadding)) {
+                                ChatBubble(message.message, message.isSendbyMe)
+                            }
                         }
                     }
                 }
@@ -415,7 +579,7 @@ fun Home(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         // エラーバナーの上端だけは詰めて、他方向の余白を維持
-                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp),
+                        .padding(start = 0.dp, top = 0.dp, end = 0.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(

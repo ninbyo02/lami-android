@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -10,7 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sonusid.ollama.ui.common.headerAvatarModifier
 import com.sonusid.ollama.viewmodels.LamiState
@@ -33,7 +36,9 @@ fun LamiHeaderStatus(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier,
+        modifier = modifier
+            // アバター頭頂部の見切れを防ぐため、ヘッダー行のクリップを無効化
+            .graphicsLayer { clip = false },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -71,8 +76,18 @@ fun HeaderAvatar(
     onNavigateSettings: () -> Unit,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
+    initialAvatarSize: Dp = 64.dp,
+    minAvatarSize: Dp = 48.dp,
+    maxAvatarSize: Dp = 64.dp,
+    applyHeaderAvatarModifier: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val avatarModifier = if (applyHeaderAvatarModifier) {
+        modifier.headerAvatarModifier()
+    } else {
+        modifier
+    }
+
     LamiAvatar(
         baseUrl = baseUrl,
         selectedModel = selectedModel,
@@ -80,14 +95,16 @@ fun HeaderAvatar(
         lamiStatus = lamiStatus,
         lamiState = lamiState,
         availableModels = availableModels,
-        initialAvatarSize = 64.dp,
-        minAvatarSize = 48.dp,
-        maxAvatarSize = 64.dp,
+        initialAvatarSize = initialAvatarSize,
+        minAvatarSize = minAvatarSize,
+        maxAvatarSize = maxAvatarSize,
         onSelectModel = onSelectModel,
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,
-        syncEpochMs = syncEpochMs,
-        modifier = modifier.headerAvatarModifier(),
+            syncEpochMs = syncEpochMs,
+            modifier = avatarModifier
+                // 上端見切れを抑えるため、アバター側で安全マージンを追加確保
+                .padding(top = 3.dp),
     )
 }
 

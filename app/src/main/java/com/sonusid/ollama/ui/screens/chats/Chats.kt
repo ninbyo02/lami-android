@@ -18,6 +18,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
@@ -49,18 +50,45 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
             windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
-                LamiHeaderStatus(
-                    baseUrl = baseUrl,
-                    selectedModel = selectedModel,
-                    lastError = lastError,
-                    lamiStatus = lamiStatusState.value,
-                    lamiState = lamiUiState.state,
-                    availableModels = availableModels,
-                    onSelectModel = { viewModel.updateSelectedModel(it) },
-                    onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                    debugOverlayEnabled = false,
-                    syncEpochMs = animationEpochMs,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    // アバター下端がTopAppBarに接して見えないよう下余白を統一
+                    modifier = Modifier.padding(bottom = 4.dp)
+                ) {
+                    HeaderAvatar(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = lastError,
+                        lamiStatus = lamiStatusState.value,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                    )
+                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                    Spacer(modifier = Modifier.size(2.dp))
+                    LamiHeaderStatus(
+                        baseUrl = baseUrl,
+                        selectedModel = selectedModel,
+                        lastError = lastError,
+                        lamiStatus = lamiStatusState.value,
+                        lamiState = lamiUiState.state,
+                        availableModels = availableModels,
+                        onSelectModel = { modelName ->
+                            viewModel.onUserInteraction()
+                            viewModel.updateSelectedModel(modelName)
+                        },
+                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                        debugOverlayEnabled = false,
+                        syncEpochMs = animationEpochMs,
+                        showAvatar = false,
+                    )
+                }
             },
             actions = {
                     IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
@@ -86,15 +114,18 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                 )
             }
         }
-    ) { paddingValues ->
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(paddingValues)
+                // TopAppBar 直下からスレッドを開始するため、Scaffold の下側 Insets のみ適用
+                .padding(bottom = innerPadding.calculateBottomPadding())
                 .fillMaxSize()
         ) {
             if (allChats.value.isEmpty()) {
                 Column(
                     modifier = Modifier
+                        // 先頭コンテンツがヘッダーに詰まり過ぎないよう上余白を確保
+                        .padding(top = 24.dp)
                         .fillMaxWidth()
                         .weight(1f, fill = true),
                     verticalArrangement = Arrangement.Top,
@@ -120,7 +151,9 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f, fill = true)
-                        .padding(10.dp)
+                        .padding(10.dp),
+                    // 先頭スレッドだけヘッダー直下の窮屈さを解消するため上余白を確保
+                    contentPadding = PaddingValues(start = 0.dp, top = 48.dp, end = 0.dp, bottom = 0.dp)
                 ) {
                     items(allChats.value.size) { index ->
                         ElevatedButton(

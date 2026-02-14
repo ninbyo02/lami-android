@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.sonusid.ollama.ui.screens.settings
 
 import android.graphics.Bitmap
@@ -18,12 +20,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
@@ -85,7 +89,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
@@ -106,6 +112,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -146,6 +154,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
@@ -166,16 +175,6 @@ internal object SpriteSettingsSessionSpriteOverride {
 }
 
 private val SpriteSettingsTabRowHeight = 32.dp
-
-private fun Modifier.debugBounds(tag: String): Modifier =
-    this.onGloballyPositioned { c ->
-        val r = c.boundsInWindow()
-        Log.d(
-            "SpritePos",
-            "$tag left=${r.left} top=${r.top} right=${r.right} bottom=${r.bottom} " +
-                "w=${r.width} h=${r.height}"
-        )
-    }
 
 private enum class AnimationType(val internalKey: String, val displayLabel: String) {
     READY("Ready", "Ready"),
@@ -3829,21 +3828,41 @@ fun SpriteSettingsScreen(navController: NavController) {
 
     Scaffold(
         topBar = {
-            Column {
+            Box(
+                modifier = Modifier
+                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
+                    .height(48.dp)
+                    .fillMaxWidth()
+            ) {
                 TopAppBar(
                     title = {
-                        Text(
-                            text = "Sprite Settings",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text(
+                                text = "Sprite Settings",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { onBackRequested() }) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "戻る"
-                            )
+                        Box(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            IconButton(onClick = { onBackRequested() }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = "戻る",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     },
                     actions = {
@@ -3887,7 +3906,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                             )
                         }
                     },
-                    modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)
+                    // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         },
@@ -4022,7 +4043,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 }
                             }
                         }
-                        val contentTopGap = if (selectedTab == SpriteTab.ADJUST) 0.dp else 12.dp
+                        val contentTopGap = 0.dp
                         // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
                         Spacer(modifier = Modifier.height(contentTopGap))
                         Box(
@@ -4721,7 +4742,49 @@ private fun ReadyAnimationTab(
     val effectiveDetailsMaxH = layoutState.detailsMaxHeightDp.coerceAtLeast(1)
 
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    var focusedField by remember { mutableStateOf<String?>(null) }
+    val focusedFieldStates = remember { mutableStateMapOf<String, Boolean>() }
+    var baseFramesRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionIntervalRect by remember { mutableStateOf<Rect?>(null) }
+    val baseFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val insertionIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+
+    fun handleFieldFocus(fieldKey: String, isFocused: Boolean, requester: BringIntoViewRequester) {
+        focusedFieldStates[fieldKey] = isFocused
+        if (isFocused) {
+            focusedField = fieldKey
+            scope.launch {
+                requester.bringIntoView()
+            }
+            return
+        }
+        scope.launch {
+            yield()
+            if (focusedFieldStates.values.none { it }) {
+                focusedField = null
+            }
+        }
+    }
+
+    fun observeFieldBounds(currentRect: Rect?, newRect: Rect): Rect? {
+        return if (newRect.width > 0f && newRect.height > 0f) {
+            newRect
+        } else {
+            currentRect
+        }
+    }
+
+    fun formatImeDebugLine(label: String, rect: Rect?): String {
+        val hasMeasuredBounds = rect != null && rect.width > 0f && rect.height > 0f
+        if (!hasMeasuredBounds) {
+            return "$label: 未計測(bounds=0)"
+        }
+        val gapPx = imeBottomPx - rect.bottom
+        return "$label top=${rect.top.roundToInt()} bottom=${rect.bottom.roundToInt()} h=${rect.height.roundToInt()} gap=${gapPx.roundToInt()}"
+    }
     val heightScale = (configuration.screenHeightDp / 800f).coerceIn(0.85f, 1.15f)
     fun scaledInt(value: Int): Int = (value * heightScale).roundToInt()
     val readyPreviewUiState = ReadyPreviewUiState(
@@ -4747,13 +4810,10 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    val imeBottomPaddingDp = with(density) {
-        imeBottomPx.toDp()
-    }
     val imeExtraPadding = if (isImeVisible) 14.dp else 0.dp
     // [dp] 下: IME の insets(インセット)に関係
     val listBottomPadding = if (isImeVisible) {
-        imeBottomPaddingDp + imeExtraPadding
+        imeBottomDp + imeExtraPadding
     } else {
         0.dp
     }
@@ -4800,6 +4860,30 @@ private fun ReadyAnimationTab(
         // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
         // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
         Spacer(modifier = Modifier.height(6.dp))
+        if (devUnlocked) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text("[IME Debug] visible=$isImeVisible imeBottom=${imeBottomPx}px (${imeBottomDp})")
+                    val focusedFieldLabel = focusedField ?: "null"
+                    Text(
+                        text = "focusedField=$focusedFieldLabel",
+                        modifier = Modifier.testTag("spriteImeDebugFocusedField")
+                    )
+                    Text(formatImeDebugLine(label = "baseFrames", rect = baseFramesRect))
+                    Text(formatImeDebugLine(label = "insertionInterval", rect = insertionIntervalRect))
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+        }
         LazyColumn(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
@@ -4860,6 +4944,20 @@ private fun ReadyAnimationTab(
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            .bringIntoViewRequester(baseFramesBringIntoViewRequester)
+                            .onFocusEvent { focusState ->
+                                handleFieldFocus(
+                                    fieldKey = "baseFrames",
+                                    isFocused = focusState.isFocused,
+                                    requester = baseFramesBringIntoViewRequester,
+                                )
+                            }
+                            .onGloballyPositioned { coordinates ->
+                                baseFramesRect = observeFieldBounds(
+                                    currentRect = baseFramesRect,
+                                    newRect = coordinates.boundsInWindow(),
+                                )
+                            }
                             .testTag("spriteBaseFramesInput"),
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
@@ -5026,6 +5124,20 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
+                                .bringIntoViewRequester(insertionIntervalBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "insertionInterval",
+                                        isFocused = focusState.isFocused,
+                                        requester = insertionIntervalBringIntoViewRequester,
+                                    )
+                                }
+                                .onGloballyPositioned { coordinates ->
+                                    insertionIntervalRect = observeFieldBounds(
+                                        currentRect = insertionIntervalRect,
+                                        newRect = coordinates.boundsInWindow(),
+                                    )
+                                }
                                 .testTag("spriteInsertionIntervalInput"),
                             label = {
                                 Text(

@@ -6,15 +6,21 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -215,42 +221,74 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemBarInsets = WindowInsets.systemBars
-    // 上と左右の安全領域は維持し、下のみ余白を除外する Insets
+    // 左右の安全領域は維持し、上は TopAppBar のデフォルト Insets に任せる
     val scaffoldInsets = WindowInsets(
         left = systemBarInsets.getLeft(density, layoutDirection),
-        top = systemBarInsets.getTop(density),
+        top = 0,
         right = systemBarInsets.getRight(density, layoutDirection),
         bottom = 0
     )
+    val imeBottomDp = WindowInsets.ime.asPaddingValues(density).calculateBottomPadding()
+    val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
+    val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
 
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
-        // 上と左右の安全領域は維持し、下のみ余白を除外する
+        // 左右の安全領域は維持し、上は TopAppBar 側で処理する
         contentWindowInsets = scaffoldInsets,
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = { onBackRequested() }) {
-                        Icon(
-                            painterResource(R.drawable.back),
-                            "exit"
-                        )
-                    }
-                },
-                title = { Text("Settings") }
-            )
+            Box(
+                modifier = Modifier
+                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
+                    .height(48.dp)
+                    .fillMaxWidth()
+            ) {
+                TopAppBar(
+                    // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    navigationIcon = {
+                        Box(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            IconButton(onClick = { onBackRequested() }) {
+                                Icon(
+                                    painterResource(R.drawable.back),
+                                    "exit",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    },
+                    title = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text("Settings")
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 // 上下左右の余白を反映するための padding
-                .padding(paddingValues),
+                .padding(paddingValues)
+                // 下: IME とナビゲーションバーの差分だけを適用し、キーボードとの隙間をなくす
+                .padding(bottom = bottomDp),
             // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = horizontalPadding,
                 end = horizontalPadding,
-                top = verticalPadding,
+                top = 0.dp,
                 bottom = 0.dp
             ),
             verticalArrangement = Arrangement.spacedBy(2.dp)
