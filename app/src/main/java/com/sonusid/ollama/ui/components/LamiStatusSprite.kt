@@ -770,8 +770,8 @@ fun LamiStatusSprite(
             lastInsertionLoopState.value = null
             lastInsertionPatternIndex = null
             lastInsertionResolvedIntervalMs = null
-        lastInsertionFrames = null
-        currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
+            lastInsertionFrames = null
+            currentFrameIndex = animSpec.frames.firstOrNull()?.coerceIn(0, maxFrameIndex) ?: 0
             if (!animationsEnabled || animSpec.frames.isEmpty()) {
                 return@LaunchedEffect
             }
