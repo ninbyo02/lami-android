@@ -4828,21 +4828,10 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    val imeInsetsBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
-    val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val imeExtraPadding = if (isImeVisible) 16.dp else 0.dp
-    // [dp] 下: IME + ナビゲーションバー の insets(インセット)に関係
-    val listBottomPadding = if (isImeVisible) {
-        maxOf(imeBottomDp, imeInsetsBottomPadding, navigationBarBottomPadding) + imeExtraPadding
-    } else {
-        navigationBarBottomPadding
-    }
+    // [dp] 下: リスト の IME 回避に必要な最小限の余白を追加
+    val listBottomPadding = imeBottomDp + 16.dp
     // [dp] 下: IME 表示中のスクロール余地(下駄)を確保するための末尾スペーサー
-    val imeTailSpacerHeight = if (isImeVisible) {
-        maxOf(imeBottomDp, 0.dp) + 24.dp
-    } else {
-        0.dp
-    }
+    val imeTailSpacerHeight = (imeBottomDp + 24.dp).coerceAtLeast(24.dp)
     // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
         // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
