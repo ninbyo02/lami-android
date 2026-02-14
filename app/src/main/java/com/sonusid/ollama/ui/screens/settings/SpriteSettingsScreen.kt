@@ -4828,10 +4828,18 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    val imeExtraPadding = if (isImeVisible) 14.dp else 0.dp
-    // [dp] 下: IME の insets(インセット)に関係
+    val imeInsetsBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    val navigationBarBottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val imeExtraPadding = if (isImeVisible) 16.dp else 0.dp
+    // [dp] 下: IME + ナビゲーションバー の insets(インセット)に関係
     val listBottomPadding = if (isImeVisible) {
-        imeBottomDp + imeExtraPadding
+        maxOf(imeBottomDp, imeInsetsBottomPadding, navigationBarBottomPadding) + imeExtraPadding
+    } else {
+        navigationBarBottomPadding
+    }
+    // [dp] 下: IME 表示中のスクロール余地(下駄)を確保するための末尾スペーサー
+    val imeTailSpacerHeight = if (isImeVisible) {
+        maxOf(imeBottomDp, 0.dp) + 24.dp
     } else {
         0.dp
     }
@@ -5335,6 +5343,13 @@ private fun ReadyAnimationTab(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
                     previewUiState = readyPreviewUiState
+                )
+            }
+            item {
+                Spacer(
+                    modifier = Modifier
+                        // [dp] 下: IME 表示時に最下部入力欄の退避余地を作るためのスペーサー
+                        .height(imeTailSpacerHeight)
                 )
             }
         }
