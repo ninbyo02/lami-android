@@ -534,11 +534,11 @@ fun Home(
             } else {
                 LazyColumn(
                     modifier = contentModifier,
-                    // 上はヘッダーとの境界として 2dp のみ確保し、下は最小余白のみを維持
+                    // 上はヘッダー直下に 6dp の余白を確保して、本文との視覚的な間隔を揃える
                     contentPadding = PaddingValues(
                         start = 0.dp,
                         end = 0.dp,
-                        top = 2.dp,
+                        top = 6.dp,
                         bottom = 16.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
