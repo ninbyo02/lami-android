@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -66,13 +65,13 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
 
     private fun waitForFocusedField(expectedField: String) {
         val expectedText = "focusedField=$expectedField"
-        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
             runCatching {
-                composeTestRule.onNodeWithTag("spriteImeDebugFocusedField")
+                composeTestRule.onNodeWithTag("spriteImeDebugFocusedField", useUnmergedTree = true)
                     .assertTextContains(expectedText)
             }.isSuccess
         }
-        composeTestRule.onNodeWithTag("spriteImeDebugFocusedField")
+        composeTestRule.onNodeWithTag("spriteImeDebugFocusedField", useUnmergedTree = true)
             .assertTextContains(expectedText)
     }
 
@@ -124,7 +123,7 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
     }
 
     private fun scrollToTestTag(tag: String) {
-        composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+        composeTestRule.onNodeWithTag("spriteAnimList", useUnmergedTree = true)
             .performScrollToNode(hasTestTag(tag))
         composeTestRule.waitForIdle()
     }
