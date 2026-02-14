@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -293,8 +292,6 @@ fun Home(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                // 入力欄全体を IME 直上に保つため、最外側コンテナで Insets を適用
-                .imePadding()
         ) {
             Surface(
                 shape = composerShape,
