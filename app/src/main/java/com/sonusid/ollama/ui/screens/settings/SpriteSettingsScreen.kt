@@ -4871,8 +4871,9 @@ private fun ReadyAnimationTab(
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text("[IME Debug] visible=$isImeVisible imeBottom=${imeBottomPx}px (${imeBottomDp})")
+                    val focusedFieldLabel = focusedField ?: "null"
                     Text(
-                        text = "focusedField=${focusedField ?: \"null\"}",
+                        text = "focusedField=$focusedFieldLabel",
                         modifier = Modifier.testTag("spriteImeDebugFocusedField")
                     )
                     Text(formatImeDebugLine(label = "baseFrames", rect = baseFramesRect))
