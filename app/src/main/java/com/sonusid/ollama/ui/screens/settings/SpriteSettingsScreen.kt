@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.sonusid.ollama.ui.screens.settings
 
 import android.graphics.Bitmap
