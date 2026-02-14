@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -534,16 +535,20 @@ fun Home(
             } else {
                 LazyColumn(
                     modifier = contentModifier,
-                    // 上はヘッダー直下に 6dp の余白を確保して、本文との視覚的な間隔を揃える
+                    // 下端の入力欄との衝突を避けるため、末尾側だけ余白を保持する
                     contentPadding = PaddingValues(
                         start = 0.dp,
                         end = 0.dp,
-                        top = 6.dp,
                         bottom = 16.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                     state = listState,
                 ) {
+                    // ヘッダー直下に常に 6dp の視認可能な余白を固定で確保する
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+
                     itemsIndexed(
                         items = allChats,
                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
