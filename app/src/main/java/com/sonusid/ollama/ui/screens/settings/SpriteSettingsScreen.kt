@@ -4830,8 +4830,9 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    // [dp] 下: リスト の下余白は NavigationBars + 最小限の視認性余白に限定（IME 本体は LazyColumn 側の imePadding で回避）
-    val listBottomPadding = navigationBottomDp + 16.dp
+    // [dp] 下: IME 表示中は追加余白を最小化し、入力欄がキーボード直上へ自然に寄るようにする
+    val extraBottomPadding = if (isImeVisible) 0.dp else 16.dp
+    val listBottomPadding = navigationBottomDp + extraBottomPadding
     // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
         // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
@@ -4903,6 +4904,8 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
                 .fillMaxWidth()
+                // [非dp] 下: IME 高さぶんをリスト側で回避し、bringIntoView のスクロールを自然にする
+                .windowInsetsPadding(WindowInsets.ime)
                 .testTag("spriteAnimList"),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
