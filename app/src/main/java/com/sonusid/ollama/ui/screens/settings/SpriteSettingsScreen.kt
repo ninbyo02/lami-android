@@ -4884,6 +4884,7 @@ private fun ReadyAnimationTab(
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            .debugBounds("baseFrames")
                             .testTag("spriteBaseFramesInput"),
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
@@ -5050,6 +5051,7 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
+                                .debugBounds("insertionInterval")
                                 .testTag("spriteInsertionIntervalInput"),
                             label = {
                                 Text(
