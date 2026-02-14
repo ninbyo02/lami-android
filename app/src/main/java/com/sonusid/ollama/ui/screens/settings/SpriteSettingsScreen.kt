@@ -80,6 +80,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.withFrameNanos
 import com.sonusid.ollama.viewmodels.resolveErrorKey
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -4746,26 +4747,43 @@ private fun ReadyAnimationTab(
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
     var focusedField by remember { mutableStateOf<String?>(null) }
+    var focusedRequester by remember { mutableStateOf<BringIntoViewRequester?>(null) }
     val focusedFieldStates = remember { mutableStateMapOf<String, Boolean>() }
     var baseFramesRect by remember { mutableStateOf<Rect?>(null) }
     var insertionIntervalRect by remember { mutableStateOf<Rect?>(null) }
     val baseFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val baseIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern1FramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern1WeightBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern1IntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern2FramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern2WeightBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern2IntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
     val insertionIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val everyNLoopsBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val probabilityPercentBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val cooldownLoopsBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     fun handleFieldFocus(fieldKey: String, isFocused: Boolean, requester: BringIntoViewRequester) {
         focusedFieldStates[fieldKey] = isFocused
         if (isFocused) {
             focusedField = fieldKey
-            scope.launch {
-                requester.bringIntoView()
-            }
+            focusedRequester = requester
             return
         }
         scope.launch {
             yield()
             if (focusedFieldStates.values.none { it }) {
                 focusedField = null
+                focusedRequester = null
             }
+        }
+    }
+
+    LaunchedEffect(focusedField, imeBottomPx) {
+        if (focusedField != null && imeBottomPx > 0) {
+            withFrameNanos { }
+            focusedRequester?.bringIntoView()
         }
     }
 
@@ -4972,6 +4990,14 @@ private fun ReadyAnimationTab(
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            .bringIntoViewRequester(baseIntervalBringIntoViewRequester)
+                            .onFocusEvent { focusState ->
+                                handleFieldFocus(
+                                    fieldKey = "baseInterval",
+                                    isFocused = focusState.isFocused,
+                                    requester = baseIntervalBringIntoViewRequester,
+                                )
+                            }
                             .testTag("spriteBaseIntervalInput"),
                         label = { Text("周期 (ms)") },
                         singleLine = true,
@@ -5029,7 +5055,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern1FramesInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern1FramesBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern1Frames",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern1FramesBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン1 フレーム列（例: 4,5,6）") },
                                 singleLine = true,
                                 isError = insertionState.pattern1FramesError != null,
@@ -5042,7 +5076,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern1WeightInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern1WeightBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern1Weight",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern1WeightBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン1 重み（比率）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5056,7 +5098,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern1IntervalInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern1IntervalBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern1Interval",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern1IntervalBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン1 周期（ms）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5080,7 +5130,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern2FramesInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern2FramesBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern2Frames",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern2FramesBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン2 フレーム列（任意）") },
                                 singleLine = true,
                                 isError = insertionState.pattern2FramesError != null,
@@ -5093,7 +5151,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern2WeightInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern2WeightBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern2Weight",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern2WeightBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン2 重み（比率）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5107,7 +5173,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern2IntervalInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern2IntervalBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern2Interval",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern2IntervalBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン2 周期（ms）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5171,7 +5245,15 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onEveryNInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(everyNLoopsBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "everyNLoops",
+                                        isFocused = focusState.isFocused,
+                                        requester = everyNLoopsBringIntoViewRequester,
+                                    )
+                                },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5185,7 +5267,15 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onProbabilityInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(probabilityPercentBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "probabilityPercent",
+                                        isFocused = focusState.isFocused,
+                                        requester = probabilityPercentBringIntoViewRequester,
+                                    )
+                                },
                             label = { Text("確率（%）") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5199,7 +5289,15 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onCooldownInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(cooldownLoopsBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "cooldownLoops",
+                                        isFocused = focusState.isFocused,
+                                        requester = cooldownLoopsBringIntoViewRequester,
+                                    )
+                                },
                             label = { Text("クールダウン（ループ）") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
