@@ -535,7 +535,7 @@ fun Home(
             } else {
                 Column(modifier = contentModifier) {
                     // ヘッダー直下の余白をスクロールに依存せず常に表示する
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
