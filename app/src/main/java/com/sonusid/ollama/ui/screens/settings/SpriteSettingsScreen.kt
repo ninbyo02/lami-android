@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -4746,6 +4747,7 @@ private fun ReadyAnimationTab(
     val scope = rememberCoroutineScope()
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    val navigationBottomDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
     var focusedField by remember { mutableStateOf<String?>(null) }
     var focusedRequester by remember { mutableStateOf<BringIntoViewRequester?>(null) }
     val focusedFieldStates = remember { mutableStateMapOf<String, Boolean>() }
@@ -4782,6 +4784,7 @@ private fun ReadyAnimationTab(
 
     LaunchedEffect(focusedField, imeBottomPx) {
         if (focusedField != null && imeBottomPx > 0) {
+            withFrameNanos { }
             withFrameNanos { }
             focusedRequester?.bringIntoView()
         }
@@ -4828,10 +4831,10 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    // [dp] 下: リスト の IME 回避に必要な最小限の余白を追加
-    val listBottomPadding = imeBottomDp + 16.dp
-    // [dp] 下: IME 表示中のスクロール余地(下駄)を確保するための末尾スペーサー
-    val imeTailSpacerHeight = (imeBottomDp + 24.dp).coerceAtLeast(24.dp)
+    // [dp] 下: リスト の下余白は NavigationBars + 最小限の視認性余白に限定（IME 本体は LazyColumn 側の imePadding で回避）
+    val listBottomPadding = navigationBottomDp + 16.dp
+    // [dp] 下: 最下部入力欄の視認性を保つための最小スペーサー（IME 高さの加算は二重回避のため行わない）
+    val imeTailSpacerHeight = 24.dp
     // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
         // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
@@ -4839,7 +4842,7 @@ private fun ReadyAnimationTab(
         // 左右: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
         start = 0.dp,
         end = 0.dp,
-        // 下: リスト(アニメタブ) の IME 回避用の余白のみ追加
+        // 下: リスト(アニメタブ) の NavigationBars + 最小余白のみ追加（IME 高さの加算は二重回避）
         bottom = listBottomPadding
     )
 
@@ -4905,6 +4908,8 @@ private fun ReadyAnimationTab(
                 .fillMaxWidth()
                 // [非dp] 横: リスト の fillMaxWidth(制約)に関係
                 .fillMaxWidth()
+                // [非dp] 下: IME 表示時に LazyColumn の可視領域(ビューポート)自体を縮める
+                .imePadding()
                 .testTag("spriteAnimList"),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
