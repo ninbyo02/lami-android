@@ -3,7 +3,7 @@ package com.sonusid.ollama.ui.screens.spriteeditor
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.TextRange
+import androidx.compose.ui.text.TextRange
 
 class ClampPxInputTest {
     @Test
