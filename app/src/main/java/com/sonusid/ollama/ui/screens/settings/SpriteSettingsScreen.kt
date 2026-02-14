@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -4904,10 +4903,6 @@ private fun ReadyAnimationTab(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
                 .fillMaxWidth()
-                // [非dp] 横: リスト の fillMaxWidth(制約)に関係
-                .fillMaxWidth()
-                // [非dp] 下: IME 表示時に LazyColumn の可視領域(ビューポート)自体を縮める
-                .imePadding()
                 .testTag("spriteAnimList"),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
