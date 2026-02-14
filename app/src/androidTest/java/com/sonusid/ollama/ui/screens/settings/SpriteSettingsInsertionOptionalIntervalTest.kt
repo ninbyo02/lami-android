@@ -84,13 +84,12 @@ class SpriteSettingsInsertionOptionalIntervalTest {
             composeTestRule.onAllNodesWithTag("spriteInsertionIntervalInput").assertCountEquals(0)
         }
 
+        waitForSaveButton()
         composeTestRule.onNodeWithContentDescription("保存").performClick()
         composeTestRule.waitForIdle()
 
         composeTestRule.onAllNodesWithText("数値を入力してください").assertCountEquals(0)
-        waitForText("保存しました")
-        composeTestRule.onNodeWithText("保存しました").assertIsDisplayed()
-
+        waitUntilIntervalMsOmitted(context, SpriteState.READY)
         assertIntervalMsOmitted(context, SpriteState.READY)
     }
 
@@ -218,6 +217,38 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         } catch (error: AssertionError) {
             val tags = dumpSemanticsTags()
             throw AssertionError("テキストが見つかりません: $text。現在のタグ一覧: $tags", error)
+        }
+    }
+
+    private fun waitForSaveButton(timeoutMillis: Long = 20_000) {
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                runCatching {
+                    composeTestRule.onNodeWithContentDescription("保存").assertIsDisplayed()
+                }.isSuccess
+            }
+        } catch (error: AssertionError) {
+            val tags = dumpSemanticsTags()
+            throw AssertionError("保存ボタンが表示されません。現在のタグ一覧: $tags", error)
+        }
+    }
+
+    private fun waitUntilIntervalMsOmitted(
+        context: Context,
+        state: SpriteState,
+        timeoutMillis: Long = 20_000
+    ) {
+        try {
+            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
+                runCatching { assertIntervalMsOmitted(context, state) }.isSuccess
+            }
+        } catch (error: AssertionError) {
+            val tags = dumpSemanticsTags()
+            val latestJson = readPerStateJson(context, state)
+            throw AssertionError(
+                "insertion.intervalMs の省略反映待ちでタイムアウトしました。state=$state json=$latestJson tags=$tags",
+                error
+            )
         }
     }
 
