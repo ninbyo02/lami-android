@@ -294,13 +294,13 @@ fun Home(
         val density = LocalDensity.current
         val imeBottomPx = WindowInsets.ime.getBottom(density)
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
-        val bottomPx = if (imeBottomPx > 0) (imeBottomPx - navBottomPx).coerceAtLeast(0) else navBottomPx
-        val bottomDp = with(density) { bottomPx.toDp() }
+        val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
+        val bottomDp = with(density) { imeOnlyPx.toDp() }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                // IME 表示時は navigationBars 分を差し引き、非表示時は navigationBars 分だけ確保
+                // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
         ) {
             Surface(
