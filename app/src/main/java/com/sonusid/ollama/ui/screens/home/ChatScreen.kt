@@ -533,29 +533,29 @@ fun Home(
                     )
                 }
             } else {
-                LazyColumn(
-                    modifier = contentModifier,
-                    // 下端の入力欄との衝突を避けるため、末尾側だけ余白を保持する
-                    contentPadding = PaddingValues(
-                        start = 0.dp,
-                        end = 0.dp,
-                        bottom = 16.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                    state = listState,
-                ) {
-                    // ヘッダー直下に常に 6dp の視認可能な余白を固定で確保する
-                    item {
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
+                Column(modifier = contentModifier) {
+                    // ヘッダー直下の余白をスクロールに依存せず常に表示する
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    itemsIndexed(
-                        items = allChats,
-                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                    ) { index, message ->
-                        val topPadding = if (index == 0) 0.dp else 8.dp
-                        Box(modifier = Modifier.padding(top = topPadding)) {
-                            ChatBubble(message.message, message.isSendbyMe)
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        // 下端の入力欄との衝突を避けるため、末尾側だけ余白を保持する
+                        contentPadding = PaddingValues(
+                            start = 0.dp,
+                            end = 0.dp,
+                            bottom = 16.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        state = listState,
+                    ) {
+                        itemsIndexed(
+                            items = allChats,
+                            key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                        ) { index, message ->
+                            val topPadding = if (index == 0) 0.dp else 8.dp
+                            Box(modifier = Modifier.padding(top = topPadding)) {
+                                ChatBubble(message.message, message.isSendbyMe)
+                            }
                         }
                     }
                 }
