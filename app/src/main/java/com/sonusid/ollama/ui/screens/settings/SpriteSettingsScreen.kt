@@ -4904,7 +4904,7 @@ private fun ReadyAnimationTab(
                 // [非dp] 縦: リスト の weight(制約)に関係
                 .fillMaxWidth()
                 // [非dp] 下: IME 高さぶんをリスト側で回避し、bringIntoView のスクロールを自然にする
-                .windowInsetsPadding(WindowInsets.ime)
+                .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))
                 .testTag("spriteAnimList"),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
