@@ -2,7 +2,6 @@ package com.sonusid.ollama.ui.screens.settings
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -87,7 +86,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.ImageBitmap
@@ -168,16 +169,6 @@ internal object SpriteSettingsSessionSpriteOverride {
 }
 
 private val SpriteSettingsTabRowHeight = 32.dp
-
-private fun Modifier.debugBounds(tag: String): Modifier =
-    this.onGloballyPositioned { c ->
-        val r = c.boundsInWindow()
-        Log.d(
-            "SpritePos",
-            "$tag left=${r.left} top=${r.top} right=${r.right} bottom=${r.bottom} " +
-                "w=${r.width} h=${r.height}"
-        )
-    }
 
 private enum class AnimationType(val internalKey: String, val displayLabel: String) {
     READY("Ready", "Ready"),
@@ -4746,6 +4737,10 @@ private fun ReadyAnimationTab(
 
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    var focusedField by remember { mutableStateOf<String?>(null) }
+    var baseFramesRect by remember { mutableStateOf<Rect?>(null) }
+    var insertionIntervalRect by remember { mutableStateOf<Rect?>(null) }
     val heightScale = (configuration.screenHeightDp / 800f).coerceIn(0.85f, 1.15f)
     fun scaledInt(value: Int): Int = (value * heightScale).roundToInt()
     val readyPreviewUiState = ReadyPreviewUiState(
@@ -4771,13 +4766,10 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    val imeBottomPaddingDp = with(density) {
-        imeBottomPx.toDp()
-    }
     val imeExtraPadding = if (isImeVisible) 14.dp else 0.dp
     // [dp] 下: IME の insets(インセット)に関係
     val listBottomPadding = if (isImeVisible) {
-        imeBottomPaddingDp + imeExtraPadding
+        imeBottomDp + imeExtraPadding
     } else {
         0.dp
     }
@@ -4824,6 +4816,35 @@ private fun ReadyAnimationTab(
         // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
         // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
         Spacer(modifier = Modifier.height(6.dp))
+        if (devUnlocked) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    val baseGapPx = baseFramesRect?.let { imeBottomPx - it.bottom }
+                    val insertionGapPx = insertionIntervalRect?.let { imeBottomPx - it.bottom }
+                    Text("[IME Debug] visible=$isImeVisible imeBottom=${imeBottomPx}px (${imeBottomDp})")
+                    Text("focusedField=${focusedField ?: "null"}")
+                    Text(
+                        "baseFrames top=${baseFramesRect?.top?.roundToInt()} bottom=${baseFramesRect?.bottom?.roundToInt()} " +
+                            "h=${baseFramesRect?.height?.roundToInt()} gap=${baseGapPx?.roundToInt()}"
+                    )
+                    Text(
+                        "insertionInterval top=${insertionIntervalRect?.top?.roundToInt()} " +
+                            "bottom=${insertionIntervalRect?.bottom?.roundToInt()} " +
+                            "h=${insertionIntervalRect?.height?.roundToInt()} gap=${insertionGapPx?.roundToInt()}"
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+        }
         LazyColumn(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
@@ -4884,7 +4905,18 @@ private fun ReadyAnimationTab(
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
-                            .debugBounds("baseFrames")
+                            .onFocusEvent { focusState ->
+                                focusedField = if (focusState.isFocused) {
+                                    "baseFrames"
+                                } else if (focusedField == "baseFrames") {
+                                    null
+                                } else {
+                                    focusedField
+                                }
+                            }
+                            .onGloballyPositioned { coordinates ->
+                                baseFramesRect = coordinates.boundsInWindow()
+                            }
                             .testTag("spriteBaseFramesInput"),
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
@@ -5051,7 +5083,18 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
-                                .debugBounds("insertionInterval")
+                                .onFocusEvent { focusState ->
+                                    focusedField = if (focusState.isFocused) {
+                                        "insertionInterval"
+                                    } else if (focusedField == "insertionInterval") {
+                                        null
+                                    } else {
+                                        focusedField
+                                    }
+                                }
+                                .onGloballyPositioned { coordinates ->
+                                    insertionIntervalRect = coordinates.boundsInWindow()
+                                }
                                 .testTag("spriteInsertionIntervalInput"),
                             label = {
                                 Text(
