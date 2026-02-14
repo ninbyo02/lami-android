@@ -13,7 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -72,7 +71,6 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.TopAppBarHeight
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
@@ -216,7 +214,6 @@ fun Home(
                     .background(topAppBarContainerColor)
             ) {
                 TopAppBar(
-                    modifier = Modifier.height(TopAppBarHeight),
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
                     // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
                     windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
