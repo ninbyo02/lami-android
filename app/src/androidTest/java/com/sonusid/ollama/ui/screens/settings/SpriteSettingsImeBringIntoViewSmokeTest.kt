@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollToNode
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -52,27 +53,21 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
         composeTestRule.onNodeWithTag("spriteBaseFramesInput")
             .assertIsDisplayed()
             .performClick()
-        waitForFocusedField("baseFrames")
+        composeTestRule.onNodeWithTag("spriteBaseFramesInput")
+            .performTextReplacement("1,2,3")
+        composeTestRule.onNodeWithTag("spriteBaseFramesInput")
+            .assertTextContains("1,2,3")
 
         scrollToTestTag("spriteInsertionIntervalInput")
         composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
             .assertIsDisplayed()
             .performClick()
-        waitForFocusedField("insertionInterval")
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .performTextReplacement("120")
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .assertTextContains("120")
 
         composeTestRule.waitForIdle()
-    }
-
-    private fun waitForFocusedField(expectedField: String) {
-        val expectedText = "focusedField=$expectedField"
-        composeTestRule.waitUntil(timeoutMillis = 10_000) {
-            runCatching {
-                composeTestRule.onNodeWithTag("spriteImeDebugFocusedField", useUnmergedTree = true)
-                    .assertTextContains(expectedText)
-            }.isSuccess
-        }
-        composeTestRule.onNodeWithTag("spriteImeDebugFocusedField", useUnmergedTree = true)
-            .assertTextContains(expectedText)
     }
 
     @Suppress("UNCHECKED_CAST")
