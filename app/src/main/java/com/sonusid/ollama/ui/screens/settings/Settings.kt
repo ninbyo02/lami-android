@@ -12,8 +12,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.getBottom
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -94,6 +95,7 @@ import java.net.MalformedURLException
 import java.net.URL
 import java.util.concurrent.TimeUnit
 import java.util.UUID
+import kotlin.math.max
 
 internal data class ConnectionValidationResult(
     val normalizedUrl: String,
@@ -226,6 +228,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         right = systemBarInsets.getRight(density, layoutDirection),
         bottom = 0
     )
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val navBottomPx = WindowInsets.navigationBars.getBottom(density)
+    val bottomPx = max(0, imeBottomPx - navBottomPx)
+    val bottomDp = with(density) { bottomPx.toDp() }
 
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
@@ -277,8 +283,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 .fillMaxSize()
                 // 上下左右の余白を反映するための padding
                 .padding(paddingValues)
-                // 下: キーボード表示中にサーバー入力欄が隠れないよう IME 分のみ追従
-                .imePadding(),
+                // 下: IME とナビゲーションバーの差分だけを適用し、キーボードとの隙間をなくす
+                .padding(bottom = bottomDp),
             // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = horizontalPadding,
