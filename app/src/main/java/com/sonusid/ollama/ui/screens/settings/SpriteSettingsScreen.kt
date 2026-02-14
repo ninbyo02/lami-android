@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
