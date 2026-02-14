@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -62,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -290,11 +291,17 @@ fun Home(
         val softLinesEstimate = (userPrompt.length / 24) + 1
         val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
         val composerShape = if (effectiveLines <= 1) RoundedCornerShape(50) else RoundedCornerShape(16.dp)
+        val density = LocalDensity.current
+        val imeBottomPx = WindowInsets.ime.getBottom(density)
+        val navBottomPx = WindowInsets.navigationBars.getBottom(density)
+        val bottomPx = if (imeBottomPx > 0) (imeBottomPx - navBottomPx).coerceAtLeast(0) else navBottomPx
+        val bottomDp = with(density) { bottomPx.toDp() }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.ime)
+                // IME 表示時は navigationBars 分を差し引き、非表示時は navigationBars 分だけ確保
+                .padding(bottom = bottomDp)
         ) {
             Surface(
                 shape = composerShape,
