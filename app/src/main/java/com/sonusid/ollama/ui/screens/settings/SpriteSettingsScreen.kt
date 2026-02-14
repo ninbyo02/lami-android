@@ -110,6 +110,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -150,6 +152,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.random.Random
@@ -4737,11 +4740,49 @@ private fun ReadyAnimationTab(
     val effectiveDetailsMaxH = layoutState.detailsMaxHeightDp.coerceAtLeast(1)
 
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
     var focusedField by remember { mutableStateOf<String?>(null) }
+    val focusedFieldStates = remember { mutableStateMapOf<String, Boolean>() }
     var baseFramesRect by remember { mutableStateOf<Rect?>(null) }
     var insertionIntervalRect by remember { mutableStateOf<Rect?>(null) }
+    val baseFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val insertionIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+
+    fun handleFieldFocus(fieldKey: String, isFocused: Boolean, requester: BringIntoViewRequester) {
+        focusedFieldStates[fieldKey] = isFocused
+        if (isFocused) {
+            focusedField = fieldKey
+            scope.launch {
+                requester.bringIntoView()
+            }
+            return
+        }
+        scope.launch {
+            yield()
+            if (focusedFieldStates.values.none { it }) {
+                focusedField = null
+            }
+        }
+    }
+
+    fun observeFieldBounds(currentRect: Rect?, newRect: Rect): Rect? {
+        return if (newRect.width > 0f && newRect.height > 0f) {
+            newRect
+        } else {
+            currentRect
+        }
+    }
+
+    fun formatImeDebugLine(label: String, rect: Rect?): String {
+        val hasMeasuredBounds = rect != null && rect.width > 0f && rect.height > 0f
+        if (!hasMeasuredBounds) {
+            return "$label: 未計測(bounds=0)"
+        }
+        val gapPx = imeBottomPx - rect.bottom
+        return "$label top=${rect.top.roundToInt()} bottom=${rect.bottom.roundToInt()} h=${rect.height.roundToInt()} gap=${gapPx.roundToInt()}"
+    }
     val heightScale = (configuration.screenHeightDp / 800f).coerceIn(0.85f, 1.15f)
     fun scaledInt(value: Int): Int = (value * heightScale).roundToInt()
     val readyPreviewUiState = ReadyPreviewUiState(
@@ -4829,19 +4870,13 @@ private fun ReadyAnimationTab(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    val baseGapPx = baseFramesRect?.let { imeBottomPx - it.bottom }
-                    val insertionGapPx = insertionIntervalRect?.let { imeBottomPx - it.bottom }
                     Text("[IME Debug] visible=$isImeVisible imeBottom=${imeBottomPx}px (${imeBottomDp})")
-                    Text("focusedField=${focusedField ?: "null"}")
                     Text(
-                        "baseFrames top=${baseFramesRect?.top?.roundToInt()} bottom=${baseFramesRect?.bottom?.roundToInt()} " +
-                            "h=${baseFramesRect?.height?.roundToInt()} gap=${baseGapPx?.roundToInt()}"
+                        text = "focusedField=${focusedField ?: \"null\"}",
+                        modifier = Modifier.testTag("spriteImeDebugFocusedField")
                     )
-                    Text(
-                        "insertionInterval top=${insertionIntervalRect?.top?.roundToInt()} " +
-                            "bottom=${insertionIntervalRect?.bottom?.roundToInt()} " +
-                            "h=${insertionIntervalRect?.height?.roundToInt()} gap=${insertionGapPx?.roundToInt()}"
-                    )
+                    Text(formatImeDebugLine(label = "baseFrames", rect = baseFramesRect))
+                    Text(formatImeDebugLine(label = "insertionInterval", rect = insertionIntervalRect))
                 }
             }
             Spacer(modifier = Modifier.height(6.dp))
@@ -4906,17 +4941,19 @@ private fun ReadyAnimationTab(
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            .bringIntoViewRequester(baseFramesBringIntoViewRequester)
                             .onFocusEvent { focusState ->
-                                focusedField = if (focusState.isFocused) {
-                                    "baseFrames"
-                                } else if (focusedField == "baseFrames") {
-                                    null
-                                } else {
-                                    focusedField
-                                }
+                                handleFieldFocus(
+                                    fieldKey = "baseFrames",
+                                    isFocused = focusState.isFocused,
+                                    requester = baseFramesBringIntoViewRequester,
+                                )
                             }
                             .onGloballyPositioned { coordinates ->
-                                baseFramesRect = coordinates.boundsInWindow()
+                                baseFramesRect = observeFieldBounds(
+                                    currentRect = baseFramesRect,
+                                    newRect = coordinates.boundsInWindow(),
+                                )
                             }
                             .testTag("spriteBaseFramesInput"),
                         label = { Text("フレーム列 (例: 1,2,3)") },
@@ -5084,17 +5121,19 @@ private fun ReadyAnimationTab(
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                                 .fillMaxWidth()
+                                .bringIntoViewRequester(insertionIntervalBringIntoViewRequester)
                                 .onFocusEvent { focusState ->
-                                    focusedField = if (focusState.isFocused) {
-                                        "insertionInterval"
-                                    } else if (focusedField == "insertionInterval") {
-                                        null
-                                    } else {
-                                        focusedField
-                                    }
+                                    handleFieldFocus(
+                                        fieldKey = "insertionInterval",
+                                        isFocused = focusState.isFocused,
+                                        requester = insertionIntervalBringIntoViewRequester,
+                                    )
                                 }
                                 .onGloballyPositioned { coordinates ->
-                                    insertionIntervalRect = coordinates.boundsInWindow()
+                                    insertionIntervalRect = observeFieldBounds(
+                                        currentRect = insertionIntervalRect,
+                                        newRect = coordinates.boundsInWindow(),
+                                    )
                                 }
                                 .testTag("spriteInsertionIntervalInput"),
                             label = {
