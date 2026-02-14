@@ -6,13 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.getBottom
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
@@ -96,7 +96,6 @@ import java.net.MalformedURLException
 import java.net.URL
 import java.util.concurrent.TimeUnit
 import java.util.UUID
-import kotlin.math.max
 
 internal data class ConnectionValidationResult(
     val normalizedUrl: String,
@@ -229,10 +228,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         right = systemBarInsets.getRight(density, layoutDirection),
         bottom = 0
     )
-    val imeBottomPx = WindowInsets.ime.getBottom(density)
-    val navBottomPx = WindowInsets.navigationBars.getBottom(density)
-    val bottomPx = max(0, imeBottomPx - navBottomPx)
-    val bottomDp = with(density) { bottomPx.toDp() }
+    val imeBottomDp = WindowInsets.ime.asPaddingValues(density).calculateBottomPadding()
+    val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
+    val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
 
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
