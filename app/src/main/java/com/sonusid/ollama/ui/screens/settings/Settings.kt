@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -275,7 +276,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             modifier = Modifier
                 .fillMaxSize()
                 // 上下左右の余白を反映するための padding
-                .padding(paddingValues),
+                .padding(paddingValues)
+                // 下: キーボード表示中にサーバー入力欄が隠れないよう IME 分のみ追従
+                .imePadding(),
             // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = horizontalPadding,
