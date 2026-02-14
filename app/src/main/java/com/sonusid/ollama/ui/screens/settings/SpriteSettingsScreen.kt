@@ -4833,8 +4833,6 @@ private fun ReadyAnimationTab(
     )
     // [dp] 下: リスト の下余白は NavigationBars + 最小限の視認性余白に限定（IME 本体は LazyColumn 側の imePadding で回避）
     val listBottomPadding = navigationBottomDp + 16.dp
-    // [dp] 下: 最下部入力欄の視認性を保つための最小スペーサー（IME 高さの加算は二重回避のため行わない）
-    val imeTailSpacerHeight = 24.dp
     // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
         // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
@@ -5337,13 +5335,6 @@ private fun ReadyAnimationTab(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
                     previewUiState = readyPreviewUiState
-                )
-            }
-            item {
-                Spacer(
-                    modifier = Modifier
-                        // [dp] 下: IME 表示時に最下部入力欄の退避余地を作るためのスペーサー
-                        .height(imeTailSpacerHeight)
                 )
             }
         }
