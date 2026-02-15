@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -61,8 +62,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalTextStyle
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -333,32 +337,40 @@ fun Home(
                             )
                         }
 
-                        OutlinedTextField(
-                            interactionSource = interactionSource,
+                        BasicTextField(
                             value = userPrompt,
-                            onValueChange = {
-                                userPrompt = it
+                            onValueChange = { newValue ->
+                                userPrompt = newValue
                                 viewModel.onUserInteraction()
                             },
-                            shape = composerShape,
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
-                                // 入力欄の上下余白がつぶれないよう、最小限の高さを維持
                                 .heightIn(min = 40.dp, max = 180.dp),
                             singleLine = false,
                             maxLines = 6,
-                            contentPadding = PaddingValues(
-                                horizontal = 4.dp,
-                                vertical = 10.dp
-                            ),
-                            placeholder = { Text(placeholder, fontSize = 15.sp) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
-                            )
+                            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
+                            interactionSource = interactionSource,
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                OutlinedTextFieldDefaults.DecorationBox(
+                                    value = userPrompt,
+                                    innerTextField = innerTextField,
+                                    enabled = true,
+                                    singleLine = false,
+                                    visualTransformation = VisualTransformation.None,
+                                    interactionSource = interactionSource,
+                                    placeholder = { Text(placeholder, fontSize = 15.sp) },
+                                    shape = composerShape,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = Color.Transparent,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedContainerColor = Color.Transparent
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+                                )
+                            }
                         )
 
                         ElevatedButton(
