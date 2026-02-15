@@ -176,6 +176,12 @@ internal object SpriteSettingsSessionSpriteOverride {
 }
 
 private val SpriteSettingsTabRowHeight = 32.dp
+private val PreviewHeaderNudgeDp = (-2).dp
+
+@Composable
+private fun Modifier.previewHeaderNudge(): Modifier {
+    return this.offset(x = PreviewHeaderNudgeDp)
+}
 
 private enum class AnimationType(val internalKey: String, val displayLabel: String) {
     READY("Ready", "Ready"),
@@ -5665,6 +5671,7 @@ private fun ReadyAnimationInfo(
             )
             Text(
                 text = "プレビュー",
+                modifier = Modifier.previewHeaderNudge(),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -5682,6 +5689,7 @@ private fun ReadyAnimationInfo(
             )
             Text(
                 text = "周期: ${state.currentIntervalMs}ms",
+                modifier = Modifier.previewHeaderNudge(),
                 style = MaterialTheme.typography.bodySmall
             )
         }
