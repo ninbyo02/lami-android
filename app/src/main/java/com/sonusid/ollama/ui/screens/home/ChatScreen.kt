@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
@@ -84,7 +83,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
 
-private val ComposerMinHeight = 56.dp
+private val ComposerMinHeight = 48.dp
 private val ComposerIconSize = 40.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -320,6 +319,8 @@ fun Home(
                             .heightIn(min = ComposerMinHeight),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         IconButton(
                             onClick = { toolsMenuExpanded = true },
                             modifier = Modifier
@@ -399,6 +400,8 @@ fun Home(
                                 contentDescription = "Send Button"
                             )
                         }
+
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
 
                     if (effectiveLines >= 5) {
@@ -501,8 +504,6 @@ fun Home(
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.size(12.dp))
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
             } else if (allChats.isEmpty()) {
@@ -568,12 +569,6 @@ fun Home(
                 }
             }
 
-            if (uiState is UiState.Loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                )
-            }
             if (errorMessage != null) {
                 Column(
                     modifier = Modifier
