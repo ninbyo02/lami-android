@@ -348,6 +348,10 @@ fun Home(
                                 .heightIn(min = 40.dp, max = 180.dp),
                             singleLine = false,
                             maxLines = 6,
+                            contentPadding = PaddingValues(
+                                horizontal = 4.dp,
+                                vertical = 10.dp
+                            ),
                             placeholder = { Text(placeholder, fontSize = 15.sp) },
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = Color.Transparent,
