@@ -3,12 +3,12 @@ package com.sonusid.ollama.ui.screens.settings
 import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsFocused
-import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performScrollToNode
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -53,13 +53,19 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
         composeTestRule.onNodeWithTag("spriteBaseFramesInput")
             .assertIsDisplayed()
             .performClick()
-        composeTestRule.onNodeWithTag("spriteBaseFramesInput").assertIsFocused()
+        composeTestRule.onNodeWithTag("spriteBaseFramesInput")
+            .performTextReplacement("1,2,3")
+        composeTestRule.onNodeWithTag("spriteBaseFramesInput")
+            .assertTextContains("1,2,3")
 
         scrollToTestTag("spriteInsertionIntervalInput")
         composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
             .assertIsDisplayed()
             .performClick()
-        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput").assertIsFocused()
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .performTextReplacement("120")
+        composeTestRule.onNodeWithTag("spriteInsertionIntervalInput")
+            .assertTextContains("120")
 
         composeTestRule.waitForIdle()
     }
@@ -112,7 +118,7 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
     }
 
     private fun scrollToTestTag(tag: String) {
-        composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+        composeTestRule.onNodeWithTag("spriteAnimList", useUnmergedTree = true)
             .performScrollToNode(hasTestTag(tag))
         composeTestRule.waitForIdle()
     }

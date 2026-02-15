@@ -80,6 +80,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.withFrameNanos
 import com.sonusid.ollama.viewmodels.resolveErrorKey
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -425,6 +426,7 @@ internal data class DevPreviewSettings(
     val innerBottomDp: Int,
     val outerBottomDp: Int,
     val innerVPadDp: Int,
+    val charXOffsetDp: Int,
     val charYOffsetDp: Int,
     val infoXOffsetDp: Int,
     val infoYOffsetDp: Int,
@@ -441,6 +443,7 @@ internal data class DevPreviewSettings(
 )
 
 internal data class ReadyPreviewUiState(
+    val charXOffsetDp: Int,
     val charYOffsetDp: Int,
     val effectiveMinHeightDp: Int,
     val effectiveCardMaxH: Int?,
@@ -474,6 +477,7 @@ private object DevDefaults {
     const val innerBottomDp = 0
     const val outerBottomDp = 0
     const val innerVPadDp = 8
+    const val charXOffsetDp = 0
     const val charYOffsetDp = 5
     const val infoXOffsetDp = -107
     const val infoYOffsetDp = 3
@@ -494,6 +498,7 @@ private object DevDefaults {
             innerBottomDp = innerBottomDp,
             outerBottomDp = outerBottomDp,
             innerVPadDp = innerVPadDp,
+            charXOffsetDp = charXOffsetDp,
             charYOffsetDp = charYOffsetDp,
             infoXOffsetDp = infoXOffsetDp,
             infoYOffsetDp = infoYOffsetDp,
@@ -515,6 +520,7 @@ private data class DevSettingsDefaults(
     val innerBottomDp: Int?,
     val outerBottomDp: Int?,
     val innerVPadDp: Int?,
+    val charXOffsetDp: Int?,
     val charYOffsetDp: Int?,
     val infoXOffsetDp: Int?,
     val infoYOffsetDp: Int?,
@@ -539,6 +545,7 @@ private data class DevSettingsDefaults(
                     innerBottomDp = dev.optIntOrNull("innerBottomDp"),
                     outerBottomDp = dev.optIntOrNull("outerBottomDp"),
                     innerVPadDp = dev.optIntOrNull("innerVPadDp"),
+                    charXOffsetDp = dev.optIntOrNull("charXOffsetDp"),
                     charYOffsetDp = dev.optIntOrNull("charYOffsetDp"),
                     infoXOffsetDp = dev.optIntOrNull("infoXOffsetDp"),
                     infoYOffsetDp = dev.optIntOrNull("infoYOffsetDp"),
@@ -564,6 +571,7 @@ private fun DevSettingsDefaults.toDevPreviewSettings(): DevPreviewSettings =
         innerBottomDp = innerBottomDp ?: DevDefaults.innerBottomDp,
         outerBottomDp = outerBottomDp ?: DevDefaults.outerBottomDp,
         innerVPadDp = innerVPadDp ?: DevDefaults.innerVPadDp,
+        charXOffsetDp = charXOffsetDp ?: DevDefaults.charXOffsetDp,
         charYOffsetDp = charYOffsetDp ?: DevDefaults.charYOffsetDp,
         infoXOffsetDp = (infoXOffsetDp ?: DevDefaults.infoXOffsetDp).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX),
         infoYOffsetDp = infoYOffsetDp ?: DevDefaults.infoYOffsetDp,
@@ -797,6 +805,7 @@ private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSa
             settings.innerBottomDp,
             settings.outerBottomDp,
             settings.innerVPadDp,
+            settings.charXOffsetDp,
             settings.charYOffsetDp,
             settings.infoYOffsetDp,
             settings.headerOffsetLimitDp,
@@ -816,24 +825,39 @@ private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSa
         if (values.size < 16) {
             DevDefaults.toDevPreviewSettings()
         } else {
+            val charXOffsetIndex = if (values.size >= 18) 4 else -1
+            val charYOffsetIndex = if (values.size >= 18) 5 else 4
+            val infoYOffsetIndex = if (values.size >= 18) 6 else 5
+            val headerOffsetLimitIndex = if (values.size >= 18) 7 else 6
+            val headerLeftXIndex = if (values.size >= 18) 8 else 7
+            val headerLeftYIndex = if (values.size >= 18) 9 else 8
+            val headerRightXIndex = if (values.size >= 18) 10 else 9
+            val headerRightYIndex = if (values.size >= 18) 11 else 10
+            val cardMinHeightIndex = if (values.size >= 18) 12 else 11
+            val detailsMaxHeightIndex = if (values.size >= 18) 13 else 12
+            val detailsMaxLinesIndex = if (values.size >= 18) 14 else 13
+            val headerSpacerIndex = if (values.size >= 18) 15 else 14
+            val bodySpacerIndex = if (values.size >= 18) 16 else 15
+            val infoXOffsetIndex = if (values.size >= 18) 17 else 16
             DevPreviewSettings(
                 cardMaxHeightDp = values[0],
                 innerBottomDp = values[1],
                 outerBottomDp = values[2],
                 innerVPadDp = values[3],
-                charYOffsetDp = values[4],
-                infoYOffsetDp = values[5],
-                infoXOffsetDp = values.getOrNull(16)?.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) ?: DevDefaults.infoXOffsetDp,
-                headerOffsetLimitDp = values[6],
-                headerLeftXOffsetDp = values[7],
-                headerLeftYOffsetDp = values[8],
-                headerRightXOffsetDp = values[9],
-                headerRightYOffsetDp = values[10],
-                cardMinHeightDp = values[11],
-                detailsMaxHeightDp = values[12],
-                detailsMaxLines = values[13],
-                headerSpacerDp = values[14],
-                bodySpacerDp = values[15],
+                charXOffsetDp = values.getOrNull(charXOffsetIndex) ?: DevDefaults.charXOffsetDp,
+                charYOffsetDp = values[charYOffsetIndex],
+                infoYOffsetDp = values[infoYOffsetIndex],
+                infoXOffsetDp = values.getOrNull(infoXOffsetIndex)?.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) ?: DevDefaults.infoXOffsetDp,
+                headerOffsetLimitDp = values[headerOffsetLimitIndex],
+                headerLeftXOffsetDp = values[headerLeftXIndex],
+                headerLeftYOffsetDp = values[headerLeftYIndex],
+                headerRightXOffsetDp = values[headerRightXIndex],
+                headerRightYOffsetDp = values[headerRightYIndex],
+                cardMinHeightDp = values[cardMinHeightIndex],
+                detailsMaxHeightDp = values[detailsMaxHeightIndex],
+                detailsMaxLines = values[detailsMaxLinesIndex],
+                headerSpacerDp = values[headerSpacerIndex],
+                bodySpacerDp = values[bodySpacerIndex],
             )
         }
     }
@@ -4745,50 +4769,52 @@ private fun ReadyAnimationTab(
     val scope = rememberCoroutineScope()
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    val navigationBottomDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
     var focusedField by remember { mutableStateOf<String?>(null) }
+    var focusedRequester by remember { mutableStateOf<BringIntoViewRequester?>(null) }
     val focusedFieldStates = remember { mutableStateMapOf<String, Boolean>() }
-    var baseFramesRect by remember { mutableStateOf<Rect?>(null) }
-    var insertionIntervalRect by remember { mutableStateOf<Rect?>(null) }
     val baseFramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val baseIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern1FramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern1WeightBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern1IntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern2FramesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern2WeightBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val pattern2IntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
     val insertionIntervalBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val everyNLoopsBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val probabilityPercentBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val cooldownLoopsBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     fun handleFieldFocus(fieldKey: String, isFocused: Boolean, requester: BringIntoViewRequester) {
         focusedFieldStates[fieldKey] = isFocused
         if (isFocused) {
             focusedField = fieldKey
-            scope.launch {
-                requester.bringIntoView()
-            }
+            focusedRequester = requester
             return
         }
         scope.launch {
             yield()
             if (focusedFieldStates.values.none { it }) {
                 focusedField = null
+                focusedRequester = null
             }
         }
     }
 
-    fun observeFieldBounds(currentRect: Rect?, newRect: Rect): Rect? {
-        return if (newRect.width > 0f && newRect.height > 0f) {
-            newRect
-        } else {
-            currentRect
+    LaunchedEffect(focusedField, imeBottomPx) {
+        if (focusedField != null && imeBottomPx > 0) {
+            withFrameNanos { }
+            withFrameNanos { }
+            focusedRequester?.bringIntoView()
         }
     }
 
-    fun formatImeDebugLine(label: String, rect: Rect?): String {
-        val hasMeasuredBounds = rect != null && rect.width > 0f && rect.height > 0f
-        if (!hasMeasuredBounds) {
-            return "$label: 未計測(bounds=0)"
-        }
-        val gapPx = imeBottomPx - rect.bottom
-        return "$label top=${rect.top.roundToInt()} bottom=${rect.bottom.roundToInt()} h=${rect.height.roundToInt()} gap=${gapPx.roundToInt()}"
-    }
     val heightScale = (configuration.screenHeightDp / 800f).coerceIn(0.85f, 1.15f)
     fun scaledInt(value: Int): Int = (value * heightScale).roundToInt()
     val readyPreviewUiState = ReadyPreviewUiState(
         charYOffsetDp = scaledInt(layoutState.charYOffsetDp),
+        charXOffsetDp = scaledInt(layoutState.charXOffsetDp),
         effectiveMinHeightDp = effectiveMinHeightDp,
         effectiveCardMaxH = effectiveCardMaxH,
         infoXOffsetDp = layoutState.infoXOffsetDp,
@@ -4810,13 +4836,10 @@ private fun ReadyAnimationTab(
         headerSpacerDp = scaledInt(layoutState.headerSpacerDp),
         bodySpacerDp = scaledInt(layoutState.bodySpacerDp),
     )
-    val imeExtraPadding = if (isImeVisible) 14.dp else 0.dp
-    // [dp] 下: IME の insets(インセット)に関係
-    val listBottomPadding = if (isImeVisible) {
-        imeBottomDp + imeExtraPadding
-    } else {
-        0.dp
-    }
+    // [dp] 下: IME 高さから NavigationBars 分を差し引いた純増分のみを利用して、二重適用を防止
+    val imeBottomExcludingNavDp = (imeBottomDp - navigationBottomDp).coerceAtLeast(0.dp)
+    // [dp] 下: IME 表示中は追加余白を最小化し、入力欄がキーボード直上へ自然に寄るようにする
+    val listBottomPadding = if (isImeVisible) 0.dp else (navigationBottomDp + 16.dp)
     // [dp] 四方向: リスト(アニメタブ) の余白(余白)に関係
     val listContentPadding = PaddingValues(
         // 上: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
@@ -4824,7 +4847,7 @@ private fun ReadyAnimationTab(
         // 左右: リスト(アニメタブ) の余白を外側 contentPadding に統一し、二重適用を防止
         start = 0.dp,
         end = 0.dp,
-        // 下: リスト(アニメタブ) の IME 回避用の余白のみ追加
+        // 下: リスト(アニメタブ) の NavigationBars + 最小余白のみ追加（IME 高さの加算は二重回避）
         bottom = listBottomPadding
     )
 
@@ -4860,36 +4883,12 @@ private fun ReadyAnimationTab(
         // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
         // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
         Spacer(modifier = Modifier.height(6.dp))
-        if (devUnlocked) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text("[IME Debug] visible=$isImeVisible imeBottom=${imeBottomPx}px (${imeBottomDp})")
-                    val focusedFieldLabel = focusedField ?: "null"
-                    Text(
-                        text = "focusedField=$focusedFieldLabel",
-                        modifier = Modifier.testTag("spriteImeDebugFocusedField")
-                    )
-                    Text(formatImeDebugLine(label = "baseFrames", rect = baseFramesRect))
-                    Text(formatImeDebugLine(label = "insertionInterval", rect = insertionIntervalRect))
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-        }
         LazyColumn(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
                 .fillMaxWidth()
-                // [非dp] 横: リスト の fillMaxWidth(制約)に関係
-                .fillMaxWidth()
+                // [dp] 下: IME 表示中のみ純IME分を追加し、入力欄がキーボード直上へ追従するようにする
+                .padding(bottom = if (isImeVisible) imeBottomExcludingNavDp else 0.dp)
                 .testTag("spriteAnimList"),
             state = lazyListState,
             // [dp] 縦: リスト の間隔(間隔)に関係
@@ -4952,12 +4951,6 @@ private fun ReadyAnimationTab(
                                     requester = baseFramesBringIntoViewRequester,
                                 )
                             }
-                            .onGloballyPositioned { coordinates ->
-                                baseFramesRect = observeFieldBounds(
-                                    currentRect = baseFramesRect,
-                                    newRect = coordinates.boundsInWindow(),
-                                )
-                            }
                             .testTag("spriteBaseFramesInput"),
                         label = { Text("フレーム列 (例: 1,2,3)") },
                         singleLine = true,
@@ -4972,6 +4965,14 @@ private fun ReadyAnimationTab(
                         modifier = Modifier
                             // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
                             .fillMaxWidth()
+                            .bringIntoViewRequester(baseIntervalBringIntoViewRequester)
+                            .onFocusEvent { focusState ->
+                                handleFieldFocus(
+                                    fieldKey = "baseInterval",
+                                    isFocused = focusState.isFocused,
+                                    requester = baseIntervalBringIntoViewRequester,
+                                )
+                            }
                             .testTag("spriteBaseIntervalInput"),
                         label = { Text("周期 (ms)") },
                         singleLine = true,
@@ -5029,7 +5030,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern1FramesInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern1FramesBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern1Frames",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern1FramesBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン1 フレーム列（例: 4,5,6）") },
                                 singleLine = true,
                                 isError = insertionState.pattern1FramesError != null,
@@ -5042,7 +5051,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern1WeightInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern1WeightBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern1Weight",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern1WeightBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン1 重み（比率）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5056,7 +5073,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern1IntervalInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern1IntervalBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern1Interval",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern1IntervalBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン1 周期（ms）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5080,7 +5105,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern2FramesInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern2FramesBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern2Frames",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern2FramesBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン2 フレーム列（任意）") },
                                 singleLine = true,
                                 isError = insertionState.pattern2FramesError != null,
@@ -5093,7 +5126,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern2WeightInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern2WeightBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern2Weight",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern2WeightBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン2 重み（比率）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5107,7 +5148,15 @@ private fun ReadyAnimationTab(
                                 onValueChange = insertionState.onPattern2IntervalInputChange,
                                 modifier = Modifier
                                     // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .bringIntoViewRequester(pattern2IntervalBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        handleFieldFocus(
+                                            fieldKey = "pattern2Interval",
+                                            isFocused = focusState.isFocused,
+                                            requester = pattern2IntervalBringIntoViewRequester,
+                                        )
+                                    },
                                 label = { Text("パターン2 周期（ms）") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5130,12 +5179,6 @@ private fun ReadyAnimationTab(
                                         fieldKey = "insertionInterval",
                                         isFocused = focusState.isFocused,
                                         requester = insertionIntervalBringIntoViewRequester,
-                                    )
-                                }
-                                .onGloballyPositioned { coordinates ->
-                                    insertionIntervalRect = observeFieldBounds(
-                                        currentRect = insertionIntervalRect,
-                                        newRect = coordinates.boundsInWindow(),
                                     )
                                 }
                                 .testTag("spriteInsertionIntervalInput"),
@@ -5171,7 +5214,15 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onEveryNInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(everyNLoopsBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "everyNLoops",
+                                        isFocused = focusState.isFocused,
+                                        requester = everyNLoopsBringIntoViewRequester,
+                                    )
+                                },
                             label = { Text("毎 N ループ") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5185,7 +5236,15 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onProbabilityInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(probabilityPercentBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "probabilityPercent",
+                                        isFocused = focusState.isFocused,
+                                        requester = probabilityPercentBringIntoViewRequester,
+                                    )
+                                },
                             label = { Text("確率（%）") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5199,7 +5258,15 @@ private fun ReadyAnimationTab(
                             onValueChange = insertionState.onCooldownInputChange,
                             modifier = Modifier
                                 // [非dp] 横: 入力欄 の fillMaxWidth(制約)に関係
-                                .fillMaxWidth(),
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(cooldownLoopsBringIntoViewRequester)
+                                .onFocusEvent { focusState ->
+                                    handleFieldFocus(
+                                        fieldKey = "cooldownLoops",
+                                        isFocused = focusState.isFocused,
+                                        requester = cooldownLoopsBringIntoViewRequester,
+                                    )
+                                },
                             label = { Text("クールダウン（ループ）") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5461,21 +5528,32 @@ private fun ReadyAnimationCharacter(
     imageBitmap: ImageBitmap?,
     frameRegion: SpriteFrameRegion?,
     spriteSizeDp: Dp,
+    charXOffsetDp: Int,
     charYOffsetDp: Int,
     backgroundColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
+    val characterBackgroundShape = RoundedCornerShape(8.dp)
     Box(
         modifier = modifier
             // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
-            .size(spriteSizeDp)
-            .background(backgroundColor, RoundedCornerShape(8.dp))
-            // [dp] 上下: プレビュー の余白(余白)に関係
-            .offset(y = charYOffsetDp.dp),
+            .size(spriteSizeDp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                // [非dp] 横: キャラ背景の基準位置を左端に固定する
+                .align(Alignment.CenterStart)
+                .background(backgroundColor, characterBackgroundShape)
+        )
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                // [dp] 上下: プレビュー の余白(余白)に関係
+                .offset(x = charXOffsetDp.dp, y = charYOffsetDp.dp)
+        ) {
             val dstW = size.width.roundToInt().coerceAtLeast(1)
             val dstH = size.height.roundToInt().coerceAtLeast(1)
             val side = min(dstW, dstH).coerceAtLeast(1)
@@ -5735,15 +5813,13 @@ private fun ReadyAnimationPreviewPane(
                             imageBitmap = imageBitmap,
                             frameRegion = previewState.frameRegion,
                             spriteSizeDp = spriteSize,
+                            charXOffsetDp = previewUiState.charXOffsetDp,
                             charYOffsetDp = previewUiState.charYOffsetDp,
                             backgroundColor = editorBackdropColor,
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                // [dp] 左上: プレビュー の余白(余白)に関係
-                                .padding(
-                                    start = contentHorizontalPadding,
-                                    top = previewUiState.innerVPadDp.dp + previewUiState.headerSpacerDp.dp
-                                )
+                                .align(Alignment.Center)
+                                // [dp] 四方向: プレビュー の余白を均等にし、ダーク時の見え方ズレを抑える
+                                .padding(all = contentHorizontalPadding)
                         )
                     },
                     info = {
@@ -6157,6 +6233,7 @@ private fun SpriteSheetConfig.toJsonObject(): JSONObject =
 internal fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("cardMaxHeightDp", cardMaxHeightDp)
+        .put("charXOffsetDp", charXOffsetDp)
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoXOffsetDp", infoXOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)

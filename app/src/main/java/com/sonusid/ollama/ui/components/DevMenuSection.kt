@@ -44,6 +44,7 @@ internal data class DevMenuUiState(
     val devUnlocked: Boolean,
     val devMenuEnabled: Boolean,
     val devExpanded: Boolean,
+    val charXOffsetDp: Int,
     val charYOffsetDp: Int,
     val effectiveMinHeightDp: Int,
     val effectiveCardMaxH: Int?,
@@ -70,6 +71,7 @@ internal data class DevMenuUiState(
 internal data class DevMenuCallbacks(
     val onDevExpandedChange: (Boolean) -> Unit,
     val onCopy: () -> Unit,
+    val onCharXOffsetChange: (Int) -> Unit,
     val onCharYOffsetChange: (Int) -> Unit,
     val onInfoXOffsetChange: (Int) -> Unit,
     val onInfoYOffsetChange: (Int) -> Unit,
@@ -147,6 +149,7 @@ internal fun DevMenuSection(
         devUnlocked = devUnlocked,
         devMenuEnabled = devMenuEnabled,
         devExpanded = devExpanded,
+        charXOffsetDp = layoutState.charXOffsetDp,
         charYOffsetDp = layoutState.charYOffsetDp,
         effectiveMinHeightDp = previewUiState.effectiveMinHeightDp,
         effectiveCardMaxH = previewUiState.effectiveCardMaxH,
@@ -172,6 +175,9 @@ internal fun DevMenuSection(
     val devMenuCallbacks = DevMenuCallbacks(
         onDevExpandedChange = { expanded -> devExpanded = expanded },
         onCopy = onCopyDevJson,
+        onCharXOffsetChange = { delta ->
+            layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
+        },
         onCharYOffsetChange = { delta ->
             layoutState.updateDevSettings { charYOffsetDp = (charYOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -274,6 +280,7 @@ private fun ReadyPreviewLayoutState.toDevPreviewSettings(): DevPreviewSettings =
         innerBottomDp = innerBottomDp,
         outerBottomDp = outerBottomDp,
         innerVPadDp = innerVPadDp,
+        charXOffsetDp = charXOffsetDp,
         charYOffsetDp = charYOffsetDp,
         infoXOffsetDp = infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX),
         infoYOffsetDp = infoYOffsetDp,
@@ -359,6 +366,21 @@ private fun DevMenuBlock(
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "CharX:${uiState.charXOffsetDp}dp",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(onClick = { callbacks.onCharXOffsetChange(-1) }) {
+                                    Text("▲")
+                                }
+                                IconButton(onClick = { callbacks.onCharXOffsetChange(1) }) {
+                                    Text("▼")
+                                }
+                            }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
