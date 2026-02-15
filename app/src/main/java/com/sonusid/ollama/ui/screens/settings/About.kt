@@ -43,12 +43,14 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal fun buildVersionLabel(version: String, sha: String): String {
@@ -190,10 +192,19 @@ fun About(
                                 onLongPress = {
                                     clipboardManager.setText(AnnotatedString(fullLicenseText))
                                     scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = copiedText,
-                                            duration = SnackbarDuration.Short,
-                                        )
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                        val dismissJob = launch {
+                                            delay(PROJECT_SNACKBAR_SHORT_MS)
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                        }
+                                        try {
+                                            snackbarHostState.showSnackbar(
+                                                message = copiedText,
+                                                duration = SnackbarDuration.Indefinite,
+                                            )
+                                        } finally {
+                                            dismissJob.cancel()
+                                        }
                                     }
                                 },
                             )
