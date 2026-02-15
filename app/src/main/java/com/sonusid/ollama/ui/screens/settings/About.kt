@@ -59,8 +59,9 @@ internal fun buildVersionLabel(version: String, sha: String): String {
 }
 
 internal fun buildPrLabel(buildPrNumber: String): String {
-    val normalized = buildPrNumber.trim().takeIf { it.isNotBlank() } ?: "—"
-    return "Build: $normalized"
+    val normalized = buildPrNumber.trim().takeIf { it.matches(Regex("^\\d+$")) }
+    val buildNumber = normalized ?: BuildConfig.VERSION_CODE.toString()
+    return "Build: $buildNumber"
 }
 
 @Composable
