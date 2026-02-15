@@ -334,7 +334,7 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .clip(composerShape)
+                                .clip(CircleShape)
                                 .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
                             Icon(
@@ -423,11 +423,11 @@ fun Home(
                                     placeholder = "Setting up a new chat ..."
                                 }
                             },
-                            shape = composerShape,
+                            shape = CircleShape,
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .clip(composerShape)
+                                .clip(CircleShape)
                                 .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
                             Icon(
