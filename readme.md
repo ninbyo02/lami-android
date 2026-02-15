@@ -4,9 +4,9 @@
 
 ## ライセンス（概要）
 
-このプロジェクトは Apache License, Version 2.0 のもとで提供されます（Copyright 2026 ninbyo02）。
+このプロジェクトは Apache License, Version 2.0 のもとで提供されます（Copyright (c) 2026 ninbyo02）。
 
-また、MIT License で提供される upstream 由来のコードを一部含みます。詳細は `NOTICE` を参照してください。
+また、このプロダクトには MIT License で提供されるソフトウェアが含まれます。詳細は `NOTICE` を参照してください。
 
 ## Features
 
@@ -174,7 +174,7 @@ GitHub Actions でも `./gradlew test` を実行する CI を用意している�
 This project is licensed under the Apache License, Version 2.0.
 Copyright (c) 2026 ninbyo02.
 
-It includes portions licensed under the MIT License.
+This product includes software distributed under the MIT License.
 See the NOTICE file for attribution details.
 
 ---
