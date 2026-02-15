@@ -1,16 +1,19 @@
 LAMI - NOTICE
 
 This project is licensed under the Apache License, Version 2.0.
-Copyright 2026 ninbyo02.
+Copyright (c) 2026 ninbyo02.
 
-Certain portions of this project are derived from upstream code licensed under the MIT License:
+Certain portions of this project are derived from upstream code
+licensed under the MIT License:
+
 - Upstream project: Ollama
 - Upstream maintainer: sonusid1325
 - Upstream URL: https://github.com/sonusid1325/ollama-android
 
 These portions remain licensed under the MIT License.
 
-The contents of this NOTICE file are for informational purposes only and do not modify the Apache License.
+The contents of this NOTICE file are for informational purposes
+only and do not modify the Apache License.
 
 MIT License
 

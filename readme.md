@@ -171,11 +171,11 @@ GitHub Actions でも `./gradlew test` を実行する CI を用意している�
 
 ## License
 
-This project is licensed under the **Apache License, Version 2.0**.
-Copyright 2026 **ninbyo02**. See `LICENSE`.
+This project is licensed under the Apache License, Version 2.0.
+Copyright (c) 2026 ninbyo02.
 
-This project includes portions originally licensed under the **MIT License**.
-See `NOTICE` for details.
+It includes portions licensed under the MIT License.
+See the NOTICE file for attribution details.
 
 ---
 
