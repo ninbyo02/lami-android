@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -296,14 +297,14 @@ fun Home(
         val hardLines = userPrompt.count { it == '\n' } + 1
         val softLinesEstimate = (userPrompt.length / 24) + 1
         val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
-        val composerShape = if (effectiveLines <= 1) RoundedCornerShape(50) else RoundedCornerShape(16.dp)
+        val composerShape = RoundedCornerShape(50)
         val density = LocalDensity.current
         val imeBottomPx = WindowInsets.ime.getBottom(density)
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
 
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
@@ -334,7 +335,7 @@ fun Home(
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
                                 .offset(y = 2.dp)
-                                .clip(CircleShape)
+                                .clip(composerShape)
                                 .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
                             Icon(
@@ -356,7 +357,7 @@ fun Home(
                                 .heightIn(min = 44.dp, max = 180.dp),
                             singleLine = false,
                             maxLines = 6,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface),
                             interactionSource = interactionSource,
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             decorationBox = { innerTextField ->
@@ -367,7 +368,13 @@ fun Home(
                                     singleLine = false,
                                     visualTransformation = VisualTransformation.None,
                                     interactionSource = interactionSource,
-                                    placeholder = { Text(placeholder, fontSize = 15.sp) },
+                                    placeholder = {
+                                        Text(
+                                            placeholder,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
                                     colors = OutlinedTextFieldDefaults.colors(
                                         unfocusedBorderColor = Color.Transparent,
                                         focusedBorderColor = Color.Transparent,
@@ -417,12 +424,12 @@ fun Home(
                                     placeholder = "Setting up a new chat ..."
                                 }
                             },
-                            shape = CircleShape,
+                            shape = composerShape,
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
                                 .offset(y = 2.dp)
-                                .clip(CircleShape)
+                                .clip(composerShape)
                                 .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
                             Icon(
@@ -468,6 +475,8 @@ fun Home(
                     }
                 }
             }
+            // 入力欄の背景外に透明な 8dp ギャップを確保する
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (expandDialogOpen) {
