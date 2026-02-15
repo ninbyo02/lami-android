@@ -6,6 +6,8 @@
     <string name="about_license_line1">This project is licensed under the Apache License, Version 2.0.</string>
     <string name="about_license_line2">Original modifications (by ninbyo02) are licensed under the Apache License 2.0.</string>
     <string name="about_license_line3">This project includes upstream code under the MIT License. See NOTICE for details.</string>
+    <string name="notice">NOTICE</string>
+    <string name="copied">Copied</string>
     <string name="sprite_tab_image_adjust">画像調整</string>
     <string name="sprite_tab_frame_edit">フレーム編集</string>
     <string name="sprite_tab_animation_check">アニメ確認</string>

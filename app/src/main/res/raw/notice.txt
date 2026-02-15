@@ -1,4 +1,4 @@
-LAMI Mobile (Android) - NOTICE
+LAMI Mobile - NOTICE
 
 This project is licensed under the Apache License, Version 2.0.
 Original modifications (by ninbyo02) are licensed under the Apache License 2.0.
