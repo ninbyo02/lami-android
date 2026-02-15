@@ -30,7 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -82,10 +84,19 @@ fun NoticeScreen(navController: NavController) {
                         onLongPress = {
                             clipboardManager.setText(AnnotatedString(noticeText))
                             scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = copiedText,
-                                    duration = SnackbarDuration.Short,
-                                )
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                val dismissJob = launch {
+                                    delay(PROJECT_SNACKBAR_SHORT_MS)
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                }
+                                try {
+                                    snackbarHostState.showSnackbar(
+                                        message = copiedText,
+                                        duration = SnackbarDuration.Indefinite,
+                                    )
+                                } finally {
+                                    dismissJob.cancel()
+                                }
                             }
                         },
                     )
