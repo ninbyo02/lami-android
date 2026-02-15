@@ -329,7 +329,7 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerIconSize)
                                 .align(Alignment.Bottom)
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = 10.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Add,
@@ -409,7 +409,7 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerIconSize)
                                 .align(Alignment.Bottom)
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = 10.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.ArrowUpward,
