@@ -2,6 +2,12 @@
 
 ローカルで動く個人用アシスタント「LAMI（ラミィ）」の Android 向けクライアントです。**Jetpack Compose** で構築された表情付き UI を備え、ローカル LLM との接続はオプションとして選択できます。ネットワークに依存せず動作し、プライバシーを尊重したまま日常的なタスクを手元でこなせます。
 
+## ライセンス（概要）
+
+このプロジェクトは Apache License, Version 2.0 のもとで提供されます（Copyright 2026 ninbyo02）。
+
+また、MIT License で提供される upstream 由来のコードを一部含みます。詳細は `NOTICE` を参照してください。
+
 ## Features
 
 - **軽量・高速**: モバイル向けに最適化されたミニマルな UI。
@@ -165,11 +171,11 @@ GitHub Actions でも `./gradlew test` を実行する CI を用意している�
 
 ## License
 
-This project is licensed under the **Apache License 2.0**. See `LICENSE`.
+This project is licensed under the **Apache License, Version 2.0**.
+Copyright 2026 **ninbyo02**. See `LICENSE`.
 
-It includes upstream components under the **MIT License**. See `NOTICE`.
-
-Original modifications (by ninbyo02) are licensed under the Apache License 2.0.
+This project includes portions originally licensed under the **MIT License**.
+See `NOTICE` for details.
 
 ---
 
