@@ -58,6 +58,11 @@ internal fun buildVersionLabel(version: String, sha: String): String {
     return if (shaShort != null) "v$version ($shaShort)" else "v$version"
 }
 
+internal fun buildPrLabel(buildPrNumber: String): String {
+    val normalized = buildPrNumber.trim().takeIf { it.isNotBlank() } ?: "—"
+    return "Build: $normalized"
+}
+
 @Composable
 fun About(
     navController: NavController,
@@ -174,6 +179,11 @@ fun About(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
+                Text(
+                    BuildConfig.APP_SUBTITLE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 // 下：バージョン表示との距離を確保するための Spacer
                 Spacer(Modifier.height(10.dp))
                 val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
@@ -181,6 +191,10 @@ fun About(
                     versionLabel,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(24.dp))
                 ElevatedCard(
