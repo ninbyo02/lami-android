@@ -8,6 +8,7 @@ object Routes {
     const val CHAT_WITH_ID = "$CHAT/{$CHAT_ID_ARG}"
     const val SETTINGS = "setting"
     const val ABOUT = "about"
+    const val NOTICE = "notice"
     const val SPRITE_SETTINGS = "settings/sprite_settings"
     const val SPRITE_EDITOR = "settings/sprite_editor"
 
