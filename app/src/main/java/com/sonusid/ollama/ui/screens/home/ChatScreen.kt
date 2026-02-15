@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -297,7 +296,8 @@ fun Home(
         val hardLines = userPrompt.count { it == '\n' } + 1
         val softLinesEstimate = (userPrompt.length / 24) + 1
         val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
-        val composerShape = RoundedCornerShape(50)
+        val composerCornerRadius = 16.dp
+        val composerShape = if (effectiveLines <= 1) RoundedCornerShape(percent = 50) else RoundedCornerShape(composerCornerRadius)
         val density = LocalDensity.current
         val imeBottomPx = WindowInsets.ime.getBottom(density)
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
@@ -325,7 +325,7 @@ fun Home(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = ComposerMinHeight),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Bottom
                     ) {
                         Spacer(modifier = Modifier.width(12.dp))
 
@@ -334,7 +334,6 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .offset(y = 2.dp)
                                 .clip(composerShape)
                                 .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
@@ -428,7 +427,6 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .offset(y = 2.dp)
                                 .clip(composerShape)
                                 .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
