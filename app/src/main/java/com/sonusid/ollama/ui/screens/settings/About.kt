@@ -173,8 +173,28 @@ fun About(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
-                // 下：セクション終端の余白を確保するための Spacer
+                // 下：ライセンス見出しとの距離を確保するための Spacer
                 Spacer(Modifier.height(24.dp))
+                Text(
+                    stringResource(R.string.about_license_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.about_license_line1),
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.about_license_line2),
+                    fontSize = 12.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.about_license_line3),
+                    fontSize = 12.sp
+                )
             }
         }
     }
