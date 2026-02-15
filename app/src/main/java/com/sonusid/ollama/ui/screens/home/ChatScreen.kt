@@ -83,7 +83,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
 
-private val ComposerMinHeight = 48.dp
+private val ComposerMinHeight = 40.dp
 private val ComposerIconSize = 40.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -319,7 +319,7 @@ fun Home(
                             .heightIn(min = ComposerMinHeight),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
 
                         IconButton(
                             onClick = { toolsMenuExpanded = true },
@@ -345,7 +345,7 @@ fun Home(
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
                                 // 入力欄の上下余白がつぶれないよう、最小限の高さを維持
-                                .heightIn(min = 48.dp, max = 180.dp),
+                                .heightIn(min = 40.dp, max = 180.dp),
                             singleLine = false,
                             maxLines = 6,
                             placeholder = { Text(placeholder, fontSize = 15.sp) },
@@ -401,7 +401,7 @@ fun Home(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                     }
 
                     if (effectiveLines >= 5) {
