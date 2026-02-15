@@ -1,10 +1,9 @@
 NOTICE
 
-This product is licensed under the Apache License, Version 2.0.
+This project is licensed under the Apache License, Version 2.0.
 Copyright (c) 2026 ninbyo02
 
-This product includes software developed by sonusid1325 and
-distributed under the MIT License:
+This project includes software distributed under the MIT License:
 
 - Upstream project: Ollama
 - Upstream maintainer: sonusid1325
@@ -12,8 +11,7 @@ distributed under the MIT License:
 
 The MIT License text is included below.
 
-The contents of this NOTICE file are for informational purposes
-only and do not modify the License.
+The contents of this NOTICE file are for informational purposes only and do not modify the Apache License.
 
 MIT License
 

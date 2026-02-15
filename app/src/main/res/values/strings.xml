@@ -5,7 +5,7 @@
     <string name="about_license_title">License</string>
     <string name="about_license_line1">This project is licensed under the Apache License, Version 2.0.</string>
     <string name="about_license_line2">Copyright (c) 2026 ninbyo02</string>
-    <string name="about_license_line3">This product includes software distributed under the MIT License; see NOTICE for details.</string>
+    <string name="about_license_line3">This project includes software distributed under the MIT License:</string>
     <string name="notice">NOTICE</string>
     <string name="notice_title">LAMI - NOTICE</string>
     <string name="copied">Copied</string>

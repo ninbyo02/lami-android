@@ -174,7 +174,7 @@ GitHub Actions でも `./gradlew test` を実行する CI を用意している�
 This project is licensed under the Apache License, Version 2.0.
 Copyright (c) 2026 ninbyo02
 
-This product includes software distributed under the MIT License; see NOTICE for details.
+This project includes software distributed under the MIT License:
 
 ---
 
