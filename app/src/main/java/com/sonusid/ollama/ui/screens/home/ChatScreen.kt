@@ -89,7 +89,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
 
-private val ComposerMinHeight = 42.dp
+private val ComposerMinHeight = 44.dp
 private val ComposerButtonSize = 48.dp
 private val ComposerButtonIconSize = 20.dp
 
@@ -353,7 +353,7 @@ fun Home(
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
-                                .heightIn(min = 42.dp, max = 180.dp),
+                                .heightIn(min = 44.dp, max = 180.dp),
                             singleLine = false,
                             maxLines = 6,
                             textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
