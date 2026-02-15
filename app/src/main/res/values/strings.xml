@@ -8,6 +8,7 @@
     <string name="about_license_line3">This project includes upstream code under the MIT License. See NOTICE for details.</string>
     <string name="notice">NOTICE</string>
     <string name="copied">Copied</string>
+    <string name="about_notice_copy_done">コピーしました</string>
     <string name="sprite_tab_image_adjust">画像調整</string>
     <string name="sprite_tab_frame_edit">フレーム編集</string>
     <string name="sprite_tab_animation_check">アニメ確認</string>
