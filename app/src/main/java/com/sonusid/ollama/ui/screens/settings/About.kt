@@ -3,12 +3,17 @@ package com.sonusid.ollama.ui.screens.settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,9 +25,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,15 +39,11 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
-import com.sonusid.ollama.api.RetrofitClient
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.components.LamiHeaderStatus
-import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
-import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 
 internal fun buildVersionLabel(version: String, sha: String): String {
@@ -55,7 +57,6 @@ fun About(
     navController: NavController,
     viewModel: OllamaViewModel? = null,
 ) {
-    val baseUrl = remember { RetrofitClient.currentBaseUrl().trimEnd('/') }
     val lamiStatus =
         viewModel?.lamiAnimationStatus?.collectAsState(initial = LamiStatus.READY)?.value
             ?: LamiStatus.READY
@@ -64,47 +65,61 @@ fun About(
             ?: LamiState.Idle
     val animationEpochMs =
         viewModel?.animationEpochMs?.collectAsState(initial = 0L)?.value ?: 0L
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val systemBarInsets = WindowInsets.systemBars
+    // 左右の安全領域は維持し、上は TopAppBar 側で処理する
+    val scaffoldInsets = WindowInsets(
+        left = systemBarInsets.getLeft(density, layoutDirection),
+        top = 0,
+        right = systemBarInsets.getRight(density, layoutDirection),
+        bottom = 0
+    )
+
     Scaffold(
+        // 左右の安全領域は維持し、上は TopAppBar 側で処理する
+        contentWindowInsets = scaffoldInsets,
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(painterResource(R.drawable.back), "exit")
+            Box(
+                modifier = Modifier
+                    // [dp] 縦: Settings 画面と同じ AppBar 高さに揃える
+                    .height(48.dp)
+                    .fillMaxWidth()
+            ) {
+                TopAppBar(
+                    // Settings 画面と同様に TopAppBar 側の Insets は 0 に統一する
+                    windowInsets = WindowInsets(0, 0, 0, 0),
+                    navigationIcon = {
+                        Box(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
-                        // TopAppBar 内の視認性を保つため、戻るボタン直後に最小限の間隔を入れる
-                        Spacer(Modifier.width(6.dp))
-                        HeaderAvatar(
-                            baseUrl = baseUrl,
-                            selectedModel = null,
-                            lastError = null,
-                            lamiStatus = lamiStatus,
-                            lamiState = lamiState,
-                            availableModels = emptyList(),
-                            onSelectModel = {},
-                            onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                        )
-                    }
-                },
-                title = {
-                    LamiHeaderStatus(
-                        baseUrl = baseUrl,
-                        selectedModel = null,
-                        lastError = null,
-                        lamiStatus = lamiStatus,
-                        lamiState = lamiState,
-                        availableModels = emptyList(),
-                        onSelectModel = {},
-                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                        showAvatar = false,
-                    )
-                },
-            )
-        }) { paddingValues ->
+                    },
+                    title = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text(stringResource(R.string.about))
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 // 上：Scaffold の余白をそのまま適用する
