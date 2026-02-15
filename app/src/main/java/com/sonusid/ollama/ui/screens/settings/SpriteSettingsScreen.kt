@@ -4889,7 +4889,7 @@ private fun ReadyAnimationTab(
         // [dp] 縦: プレビュー の間隔(間隔)に関係
         // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
         // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(0.dp))
         LazyColumn(
             modifier = Modifier
                 // [非dp] 縦: リスト の weight(制約)に関係
@@ -4907,7 +4907,9 @@ private fun ReadyAnimationTab(
                 Column(
                     modifier = Modifier
                         // [非dp] 横: リスト の fillMaxWidth(制約)に関係
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        // [dp] 上: 「アニメ設定」ヘッダーをプレビュー直下から 12dp 離して視認性を確保
+                        .padding(top = 12.dp),
                     // [dp] 縦: リスト の間隔(間隔)に関係
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
