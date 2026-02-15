@@ -177,10 +177,11 @@ internal object SpriteSettingsSessionSpriteOverride {
 
 private val SpriteSettingsTabRowHeight = 32.dp
 private val PreviewHeaderNudgeDp = (-2).dp
+private val PreviewHeaderRightExtraNudgeDp = (-2).dp
 
 @Composable
 private fun Modifier.previewHeaderNudge(): Modifier {
-    return this.offset(x = PreviewHeaderNudgeDp)
+    return this.offset(x = PreviewHeaderNudgeDp + PreviewHeaderRightExtraNudgeDp)
 }
 
 private enum class AnimationType(val internalKey: String, val displayLabel: String) {
