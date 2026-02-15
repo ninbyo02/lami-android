@@ -90,7 +90,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 private val ComposerMinHeight = 44.dp
-private val ComposerButtonSize = 48.dp
+private val ComposerButtonSize = 44.dp
 private val ComposerButtonIconSize = 20.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
