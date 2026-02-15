@@ -426,6 +426,7 @@ internal data class DevPreviewSettings(
     val innerBottomDp: Int,
     val outerBottomDp: Int,
     val innerVPadDp: Int,
+    val charXOffsetDp: Int,
     val charYOffsetDp: Int,
     val infoXOffsetDp: Int,
     val infoYOffsetDp: Int,
@@ -442,6 +443,7 @@ internal data class DevPreviewSettings(
 )
 
 internal data class ReadyPreviewUiState(
+    val charXOffsetDp: Int,
     val charYOffsetDp: Int,
     val effectiveMinHeightDp: Int,
     val effectiveCardMaxH: Int?,
@@ -475,6 +477,7 @@ private object DevDefaults {
     const val innerBottomDp = 0
     const val outerBottomDp = 0
     const val innerVPadDp = 8
+    const val charXOffsetDp = 0
     const val charYOffsetDp = 5
     const val infoXOffsetDp = -107
     const val infoYOffsetDp = 3
@@ -495,6 +498,7 @@ private object DevDefaults {
             innerBottomDp = innerBottomDp,
             outerBottomDp = outerBottomDp,
             innerVPadDp = innerVPadDp,
+            charXOffsetDp = charXOffsetDp,
             charYOffsetDp = charYOffsetDp,
             infoXOffsetDp = infoXOffsetDp,
             infoYOffsetDp = infoYOffsetDp,
@@ -516,6 +520,7 @@ private data class DevSettingsDefaults(
     val innerBottomDp: Int?,
     val outerBottomDp: Int?,
     val innerVPadDp: Int?,
+    val charXOffsetDp: Int?,
     val charYOffsetDp: Int?,
     val infoXOffsetDp: Int?,
     val infoYOffsetDp: Int?,
@@ -540,6 +545,7 @@ private data class DevSettingsDefaults(
                     innerBottomDp = dev.optIntOrNull("innerBottomDp"),
                     outerBottomDp = dev.optIntOrNull("outerBottomDp"),
                     innerVPadDp = dev.optIntOrNull("innerVPadDp"),
+                    charXOffsetDp = dev.optIntOrNull("charXOffsetDp"),
                     charYOffsetDp = dev.optIntOrNull("charYOffsetDp"),
                     infoXOffsetDp = dev.optIntOrNull("infoXOffsetDp"),
                     infoYOffsetDp = dev.optIntOrNull("infoYOffsetDp"),
@@ -565,6 +571,7 @@ private fun DevSettingsDefaults.toDevPreviewSettings(): DevPreviewSettings =
         innerBottomDp = innerBottomDp ?: DevDefaults.innerBottomDp,
         outerBottomDp = outerBottomDp ?: DevDefaults.outerBottomDp,
         innerVPadDp = innerVPadDp ?: DevDefaults.innerVPadDp,
+        charXOffsetDp = charXOffsetDp ?: DevDefaults.charXOffsetDp,
         charYOffsetDp = charYOffsetDp ?: DevDefaults.charYOffsetDp,
         infoXOffsetDp = (infoXOffsetDp ?: DevDefaults.infoXOffsetDp).coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX),
         infoYOffsetDp = infoYOffsetDp ?: DevDefaults.infoYOffsetDp,
@@ -798,6 +805,7 @@ private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSa
             settings.innerBottomDp,
             settings.outerBottomDp,
             settings.innerVPadDp,
+            settings.charXOffsetDp,
             settings.charYOffsetDp,
             settings.infoYOffsetDp,
             settings.headerOffsetLimitDp,
@@ -817,24 +825,39 @@ private fun devPreviewSettingsSaver() = androidx.compose.runtime.saveable.listSa
         if (values.size < 16) {
             DevDefaults.toDevPreviewSettings()
         } else {
+            val charXOffsetIndex = if (values.size >= 18) 4 else -1
+            val charYOffsetIndex = if (values.size >= 18) 5 else 4
+            val infoYOffsetIndex = if (values.size >= 18) 6 else 5
+            val headerOffsetLimitIndex = if (values.size >= 18) 7 else 6
+            val headerLeftXIndex = if (values.size >= 18) 8 else 7
+            val headerLeftYIndex = if (values.size >= 18) 9 else 8
+            val headerRightXIndex = if (values.size >= 18) 10 else 9
+            val headerRightYIndex = if (values.size >= 18) 11 else 10
+            val cardMinHeightIndex = if (values.size >= 18) 12 else 11
+            val detailsMaxHeightIndex = if (values.size >= 18) 13 else 12
+            val detailsMaxLinesIndex = if (values.size >= 18) 14 else 13
+            val headerSpacerIndex = if (values.size >= 18) 15 else 14
+            val bodySpacerIndex = if (values.size >= 18) 16 else 15
+            val infoXOffsetIndex = if (values.size >= 18) 17 else 16
             DevPreviewSettings(
                 cardMaxHeightDp = values[0],
                 innerBottomDp = values[1],
                 outerBottomDp = values[2],
                 innerVPadDp = values[3],
-                charYOffsetDp = values[4],
-                infoYOffsetDp = values[5],
-                infoXOffsetDp = values.getOrNull(16)?.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) ?: DevDefaults.infoXOffsetDp,
-                headerOffsetLimitDp = values[6],
-                headerLeftXOffsetDp = values[7],
-                headerLeftYOffsetDp = values[8],
-                headerRightXOffsetDp = values[9],
-                headerRightYOffsetDp = values[10],
-                cardMinHeightDp = values[11],
-                detailsMaxHeightDp = values[12],
-                detailsMaxLines = values[13],
-                headerSpacerDp = values[14],
-                bodySpacerDp = values[15],
+                charXOffsetDp = values.getOrNull(charXOffsetIndex) ?: DevDefaults.charXOffsetDp,
+                charYOffsetDp = values[charYOffsetIndex],
+                infoYOffsetDp = values[infoYOffsetIndex],
+                infoXOffsetDp = values.getOrNull(infoXOffsetIndex)?.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX) ?: DevDefaults.infoXOffsetDp,
+                headerOffsetLimitDp = values[headerOffsetLimitIndex],
+                headerLeftXOffsetDp = values[headerLeftXIndex],
+                headerLeftYOffsetDp = values[headerLeftYIndex],
+                headerRightXOffsetDp = values[headerRightXIndex],
+                headerRightYOffsetDp = values[headerRightYIndex],
+                cardMinHeightDp = values[cardMinHeightIndex],
+                detailsMaxHeightDp = values[detailsMaxHeightIndex],
+                detailsMaxLines = values[detailsMaxLinesIndex],
+                headerSpacerDp = values[headerSpacerIndex],
+                bodySpacerDp = values[bodySpacerIndex],
             )
         }
     }
@@ -4791,6 +4814,7 @@ private fun ReadyAnimationTab(
     fun scaledInt(value: Int): Int = (value * heightScale).roundToInt()
     val readyPreviewUiState = ReadyPreviewUiState(
         charYOffsetDp = scaledInt(layoutState.charYOffsetDp),
+        charXOffsetDp = scaledInt(layoutState.charXOffsetDp),
         effectiveMinHeightDp = effectiveMinHeightDp,
         effectiveCardMaxH = effectiveCardMaxH,
         infoXOffsetDp = layoutState.infoXOffsetDp,
@@ -5504,6 +5528,7 @@ private fun ReadyAnimationCharacter(
     imageBitmap: ImageBitmap?,
     frameRegion: SpriteFrameRegion?,
     spriteSizeDp: Dp,
+    charXOffsetDp: Int,
     charYOffsetDp: Int,
     backgroundColor: Color,
     modifier: Modifier = Modifier,
@@ -5515,7 +5540,7 @@ private fun ReadyAnimationCharacter(
             .size(spriteSizeDp)
             .background(backgroundColor, RoundedCornerShape(8.dp))
             // [dp] 上下: プレビュー の余白(余白)に関係
-            .offset(y = charYOffsetDp.dp),
+            .offset(x = charXOffsetDp.dp, y = charYOffsetDp.dp),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -5778,15 +5803,13 @@ private fun ReadyAnimationPreviewPane(
                             imageBitmap = imageBitmap,
                             frameRegion = previewState.frameRegion,
                             spriteSizeDp = spriteSize,
+                            charXOffsetDp = previewUiState.charXOffsetDp,
                             charYOffsetDp = previewUiState.charYOffsetDp,
                             backgroundColor = editorBackdropColor,
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                // [dp] 左上: プレビュー の余白(余白)に関係
-                                .padding(
-                                    start = contentHorizontalPadding,
-                                    top = previewUiState.innerVPadDp.dp + previewUiState.headerSpacerDp.dp
-                                )
+                                .align(Alignment.Center)
+                                // [dp] 四方向: プレビュー の余白を均等にし、ダーク時の見え方ズレを抑える
+                                .padding(all = contentHorizontalPadding)
                         )
                     },
                     info = {
@@ -6200,6 +6223,7 @@ private fun SpriteSheetConfig.toJsonObject(): JSONObject =
 internal fun DevPreviewSettings.toJsonObject(): JSONObject =
     JSONObject()
         .put("cardMaxHeightDp", cardMaxHeightDp)
+        .put("charXOffsetDp", charXOffsetDp)
         .put("charYOffsetDp", charYOffsetDp)
         .put("infoXOffsetDp", infoXOffsetDp)
         .put("infoYOffsetDp", infoYOffsetDp)

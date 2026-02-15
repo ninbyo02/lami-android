@@ -17,6 +17,7 @@ internal class ReadyPreviewLayoutState(
     innerBottomDp: MutableState<Int>,
     outerBottomDp: MutableState<Int>,
     innerVPadDp: MutableState<Int>,
+    charXOffsetDp: MutableState<Int>,
     charYOffsetDp: MutableState<Int>,
     infoXOffsetDp: MutableState<Int>,
     infoYOffsetDp: MutableState<Int>,
@@ -36,6 +37,7 @@ internal class ReadyPreviewLayoutState(
     var innerBottomDp by innerBottomDp
     var outerBottomDp by outerBottomDp
     var innerVPadDp by innerVPadDp
+    var charXOffsetDp by charXOffsetDp
     var charYOffsetDp by charYOffsetDp
     var infoXOffsetDp by infoXOffsetDp
     var infoYOffsetDp by infoYOffsetDp
@@ -55,6 +57,7 @@ internal class ReadyPreviewLayoutState(
         innerBottomDp = devSettings.innerBottomDp
         outerBottomDp = devSettings.outerBottomDp
         innerVPadDp = devSettings.innerVPadDp
+        charXOffsetDp = devSettings.charXOffsetDp
         charYOffsetDp = devSettings.charYOffsetDp
         infoXOffsetDp = devSettings.infoXOffsetDp.coerceIn(INFO_X_OFFSET_MIN, INFO_X_OFFSET_MAX)
         infoYOffsetDp = devSettings.infoYOffsetDp
@@ -79,6 +82,7 @@ internal class ReadyPreviewLayoutState(
                 innerBottomDp = innerBottomDp,
                 outerBottomDp = outerBottomDp,
                 innerVPadDp = innerVPadDp,
+                charXOffsetDp = charXOffsetDp,
                 charYOffsetDp = charYOffsetDp,
                 infoXOffsetDp = clampedInfoXOffsetDp,
                 infoYOffsetDp = infoYOffsetDp,
@@ -111,6 +115,7 @@ internal fun rememberReadyPreviewLayoutState(
     val innerBottomDp = rememberSaveable(devSettings.innerBottomDp) { mutableStateOf(devSettings.innerBottomDp) }
     val outerBottomDp = rememberSaveable(devSettings.outerBottomDp) { mutableStateOf(devSettings.outerBottomDp) }
     val innerVPadDp = rememberSaveable(devSettings.innerVPadDp) { mutableStateOf(devSettings.innerVPadDp) }
+    val charXOffsetDp = rememberSaveable(devSettings.charXOffsetDp) { mutableStateOf(devSettings.charXOffsetDp) }
     val charYOffsetDp = rememberSaveable(devSettings.charYOffsetDp) { mutableStateOf(devSettings.charYOffsetDp) }
     val infoXOffsetDp = rememberSaveable(devSettings.infoXOffsetDp) { mutableStateOf(devSettings.infoXOffsetDp) }
     val infoYOffsetDp = rememberSaveable(devSettings.infoYOffsetDp) { mutableStateOf(devSettings.infoYOffsetDp) }
@@ -130,6 +135,7 @@ internal fun rememberReadyPreviewLayoutState(
         innerBottomDp,
         outerBottomDp,
         innerVPadDp,
+        charXOffsetDp,
         charYOffsetDp,
         infoXOffsetDp,
         infoYOffsetDp,
@@ -150,6 +156,7 @@ internal fun rememberReadyPreviewLayoutState(
             innerBottomDp = innerBottomDp,
             outerBottomDp = outerBottomDp,
             innerVPadDp = innerVPadDp,
+            charXOffsetDp = charXOffsetDp,
             charYOffsetDp = charYOffsetDp,
             infoXOffsetDp = infoXOffsetDp,
             infoYOffsetDp = infoYOffsetDp,
