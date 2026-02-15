@@ -1,39 +1,34 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -46,19 +41,20 @@ import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
-import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiState
+import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.launch
 
 internal fun buildVersionLabel(version: String, sha: String): String {
     val shaShort = sha.trim().takeIf { it.isNotBlank() }?.take(7)
     return if (shaShort != null) "v$version ($shaShort)" else "v$version"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun About(
     navController: NavController,
@@ -75,88 +71,66 @@ fun About(
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemBarInsets = WindowInsets.systemBars
+    val clipboardManager = LocalClipboardManager.current
+    val snackbarHostState = LocalAppSnackbarHostState.current
+    val scope = rememberCoroutineScope()
+
     // 左右の安全領域は維持し、上は TopAppBar 側で処理する
     val scaffoldInsets = WindowInsets(
         left = systemBarInsets.getLeft(density, layoutDirection),
         top = 0,
         right = systemBarInsets.getRight(density, layoutDirection),
-        bottom = 0
+        bottom = 0,
     )
+
+    val licenseLine1 = stringResource(R.string.about_license_line1)
+    val licenseLine2 = stringResource(R.string.about_license_line2)
     val licenseLine3 = stringResource(R.string.about_license_line3)
-    val noticeText = "NOTICE"
+    val noticeText = stringResource(R.string.notice)
+    val copiedText = stringResource(R.string.copied)
+    val fullLicenseText = listOf(licenseLine1, licenseLine2, licenseLine3).joinToString("\n")
+
     val noticeAnnotatedText = buildAnnotatedString {
         val noticeStart = licenseLine3.indexOf(noticeText)
-        if (noticeStart < 0) {
-            append(licenseLine3)
-            return@buildAnnotatedString
-        }
-        val noticeEnd = noticeStart + noticeText.length
         append(licenseLine3)
-        addStyle(
-            style = SpanStyle(
-                color = MaterialTheme.colorScheme.primary,
-                textDecoration = TextDecoration.Underline
-            ),
-            start = noticeStart,
-            end = noticeEnd
-        )
-        addStringAnnotation(
-            tag = "NOTICE",
-            annotation = Routes.NOTICE,
-            start = noticeStart,
-            end = noticeEnd
-        )
+        if (noticeStart >= 0) {
+            val noticeEnd = noticeStart + noticeText.length
+            addStyle(
+                style = SpanStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline,
+                ),
+                start = noticeStart,
+                end = noticeEnd,
+            )
+            addLink(
+                LinkAnnotation.Clickable(
+                    tag = "notice",
+                    linkInteractionListener = {
+                        navController.navigate(Routes.NOTICE)
+                    },
+                ),
+                start = noticeStart,
+                end = noticeEnd,
+            )
+        }
     }
 
     Scaffold(
         // 左右の安全領域は維持し、上は TopAppBar 側で処理する
         contentWindowInsets = scaffoldInsets,
         topBar = {
-            Box(
-                modifier = Modifier
-                    // [dp] 縦: Settings 画面と同じ AppBar 高さに揃える
-                    .height(48.dp)
-                    .fillMaxWidth()
-            ) {
-                TopAppBar(
-                    // Settings 画面と同様に TopAppBar 側の Insets は 0 に統一する
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    navigationIcon = {
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.back),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    },
-                    title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        ) {
-                            Text(stringResource(R.string.about))
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
+            SettingsTopAppBar(
+                titleResId = R.string.about,
+                onBack = { navController.popBackStack() },
+            )
+        },
     ) { paddingValues ->
         Box(
             modifier = Modifier
                 // 上：Scaffold の余白をそのまま適用する
                 .padding(paddingValues)
-                .fillMaxSize()
+                .fillMaxSize(),
         ) {
             Column(
                 modifier = Modifier
@@ -176,7 +150,7 @@ fun About(
                         lamiStatus = lamiStatus,
                         sizeDp = finalSize,
                         modifier = Modifier,
-                        shape = CircleShape,
+                        shape = androidx.compose.foundation.shape.CircleShape,
                         backgroundColor = rememberLamiCharacterBackdropColor(),
                         // 中央キャラ：背景円の余白をなくす
                         contentPadding = 0.dp,
@@ -195,7 +169,7 @@ fun About(
                 Text(
                     stringResource(R.string.app_name),
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.ExtraBold,
                 )
                 // 下：バージョン表示との距離を確保するための Spacer
                 Spacer(Modifier.height(10.dp))
@@ -203,49 +177,45 @@ fun About(
                 Text(
                     versionLabel,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(24.dp))
                 ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
+                        .pointerInput(fullLicenseText) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    clipboardManager.setText(AnnotatedString(fullLicenseText))
+                                    scope.launch { snackbarHostState.showSnackbar(copiedText) }
+                                },
+                            )
+                        },
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.about_license_title),
                             style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            text = stringResource(R.string.about_license_line1),
+                            text = licenseLine1,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            text = stringResource(R.string.about_license_line2),
+                            text = licenseLine2,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                        ClickableText(
+                        Text(
                             text = noticeAnnotatedText,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = { offset ->
-                                val hasNoticeLink = noticeAnnotatedText
-                                    .getStringAnnotations(
-                                        tag = "NOTICE",
-                                        start = offset,
-                                        end = offset
-                                    )
-                                    .firstOrNull()
-                                if (hasNoticeLink != null) {
-                                    navController.navigate(Routes.NOTICE)
-                                }
-                            }
                         )
                     }
                 }
