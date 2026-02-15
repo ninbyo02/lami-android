@@ -479,8 +479,8 @@ private object DevDefaults {
     const val innerVPadDp = 8
     const val charXOffsetDp = 0
     const val charYOffsetDp = 0
-    const val infoXOffsetDp = -107
-    const val infoYOffsetDp = 3
+    const val infoXOffsetDp = -109
+    const val infoYOffsetDp = -4
     const val headerOffsetLimitDp = 150
     const val headerLeftXOffsetDp = 114
     const val headerLeftYOffsetDp = 1
