@@ -66,7 +66,7 @@ fun NoticeScreen(navController: NavController) {
         contentWindowInsets = scaffoldInsets,
         topBar = {
             SettingsTopAppBar(
-                titleResId = R.string.notice,
+                titleResId = R.string.notice_title,
                 onBack = { navController.popBackStack() },
             )
         },
