@@ -328,7 +328,8 @@ fun Home(
                             onClick = { toolsMenuExpanded = true },
                             modifier = Modifier
                                 .size(ComposerIconSize)
-                                .align(Alignment.CenterVertically)
+                                .align(Alignment.Bottom)
+                                .padding(bottom = 8.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Add,
@@ -407,7 +408,8 @@ fun Home(
                             shape = CircleShape,
                             modifier = Modifier
                                 .size(ComposerIconSize)
-                                .align(Alignment.CenterVertically)
+                                .align(Alignment.Bottom)
+                                .padding(bottom = 8.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.ArrowUpward,
