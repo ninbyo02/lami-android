@@ -64,7 +64,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalTextStyle
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -349,7 +348,7 @@ fun Home(
                                 .heightIn(min = 40.dp, max = 180.dp),
                             singleLine = false,
                             maxLines = 6,
-                            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                             interactionSource = interactionSource,
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             decorationBox = { innerTextField ->
