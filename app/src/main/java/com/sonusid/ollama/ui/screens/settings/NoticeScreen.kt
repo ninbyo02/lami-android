@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,7 +44,7 @@ fun NoticeScreen(navController: NavController) {
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
-    val copiedText = stringResource(R.string.copied)
+    val copiedText = stringResource(R.string.about_notice_copy_done)
 
     // 左右の安全領域は維持し、上は TopAppBar 側で処理する
     val scaffoldInsets = WindowInsets(
@@ -80,7 +81,12 @@ fun NoticeScreen(navController: NavController) {
                     detectTapGestures(
                         onLongPress = {
                             clipboardManager.setText(AnnotatedString(noticeText))
-                            scope.launch { snackbarHostState.showSnackbar(copiedText) }
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = copiedText,
+                                    duration = SnackbarDuration.Short,
+                                )
+                            }
                         },
                     )
                 },

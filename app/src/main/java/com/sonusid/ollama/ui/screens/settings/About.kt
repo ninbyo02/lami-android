@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -87,7 +88,7 @@ fun About(
     val licenseLine2 = stringResource(R.string.about_license_line2)
     val licenseLine3 = stringResource(R.string.about_license_line3)
     val noticeText = stringResource(R.string.notice)
-    val copiedText = stringResource(R.string.copied)
+    val copiedText = stringResource(R.string.about_notice_copy_done)
     val fullLicenseText = listOf(licenseLine1, licenseLine2, licenseLine3).joinToString("\n")
 
     val noticeAnnotatedText = buildAnnotatedString {
@@ -188,7 +189,12 @@ fun About(
                             detectTapGestures(
                                 onLongPress = {
                                     clipboardManager.setText(AnnotatedString(fullLicenseText))
-                                    scope.launch { snackbarHostState.showSnackbar(copiedText) }
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = copiedText,
+                                            duration = SnackbarDuration.Short,
+                                        )
+                                    }
                                 },
                             )
                         },
