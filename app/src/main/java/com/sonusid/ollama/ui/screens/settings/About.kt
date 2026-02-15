@@ -27,13 +27,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,6 +45,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiStatus
@@ -77,6 +82,31 @@ fun About(
         right = systemBarInsets.getRight(density, layoutDirection),
         bottom = 0
     )
+    val licenseLine3 = stringResource(R.string.about_license_line3)
+    val noticeText = "NOTICE"
+    val noticeAnnotatedText = buildAnnotatedString {
+        val noticeStart = licenseLine3.indexOf(noticeText)
+        if (noticeStart < 0) {
+            append(licenseLine3)
+            return@buildAnnotatedString
+        }
+        val noticeEnd = noticeStart + noticeText.length
+        append(licenseLine3)
+        addStyle(
+            style = SpanStyle(
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline
+            ),
+            start = noticeStart,
+            end = noticeEnd
+        )
+        addStringAnnotation(
+            tag = "NOTICE",
+            annotation = Routes.NOTICE,
+            start = noticeStart,
+            end = noticeEnd
+        )
+    }
 
     Scaffold(
         // 左右の安全領域は維持し、上は TopAppBar 側で処理する
@@ -200,10 +230,22 @@ fun About(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Text(
-                            text = stringResource(R.string.about_license_line3),
+                        ClickableText(
+                            text = noticeAnnotatedText,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { offset ->
+                                val hasNoticeLink = noticeAnnotatedText
+                                    .getStringAnnotations(
+                                        tag = "NOTICE",
+                                        start = offset,
+                                        end = offset
+                                    )
+                                    .firstOrNull()
+                                if (hasNoticeLink != null) {
+                                    navController.navigate(Routes.NOTICE)
+                                }
+                            }
                         )
                     }
                 }
