@@ -5544,8 +5544,8 @@ private fun ReadyAnimationCharacter(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                // [dp] 横: キャラ背景の左右余白を均等に見せるため背景のみ右へオフセット
-                .offset(x = 6.dp)
+                // [非dp] 横: キャラ背景の基準位置を左端に固定する
+                .align(Alignment.CenterStart)
                 .background(backgroundColor, characterBackgroundShape)
         )
         Canvas(
