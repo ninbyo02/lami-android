@@ -5534,16 +5534,26 @@ private fun ReadyAnimationCharacter(
     modifier: Modifier = Modifier,
 ) {
     val spriteColorFilter = rememberNightSpriteColorFilterForDarkTheme()
+    val characterBackgroundShape = RoundedCornerShape(8.dp)
     Box(
         modifier = modifier
             // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
-            .size(spriteSizeDp)
-            .background(backgroundColor, RoundedCornerShape(8.dp))
-            // [dp] 上下: プレビュー の余白(余白)に関係
-            .offset(x = charXOffsetDp.dp, y = charYOffsetDp.dp),
+            .size(spriteSizeDp),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                // [dp] 横: キャラ背景の左右余白を均等に見せるため背景のみ右へオフセット
+                .offset(x = 6.dp)
+                .background(backgroundColor, characterBackgroundShape)
+        )
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                // [dp] 上下: プレビュー の余白(余白)に関係
+                .offset(x = charXOffsetDp.dp, y = charYOffsetDp.dp)
+        ) {
             val dstW = size.width.roundToInt().coerceAtLeast(1)
             val dstH = size.height.roundToInt().coerceAtLeast(1)
             val side = min(dstW, dstH).coerceAtLeast(1)
