@@ -5817,7 +5817,7 @@ private fun ReadyAnimationPreviewPane(
                             charYOffsetDp = previewUiState.charYOffsetDp,
                             backgroundColor = editorBackdropColor,
                             modifier = Modifier
-                                .align(Alignment.Center)
+                                .align(Alignment.CenterStart)
                                 // [dp] 四方向: プレビュー の余白を均等にし、ダーク時の見え方ズレを抑える
                                 .padding(all = contentHorizontalPadding)
                         )
