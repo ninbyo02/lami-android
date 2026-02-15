@@ -308,7 +308,7 @@ fun Home(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.primaryContainer
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
             ) {
                 Box(
                     modifier = Modifier.fillMaxWidth()
