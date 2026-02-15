@@ -1,16 +1,16 @@
 LAMI Mobile - NOTICE
 
 This project is licensed under the Apache License, Version 2.0.
-Original modifications (by ninbyo02) are licensed under the Apache License 2.0.
+Copyright 2026 ninbyo02.
 
-This project contains code originally forked from an MIT-licensed project.
-Upstream information identified from this repository:
-- Project name: Ollama (see settings.gradle.kts)
-- Upstream maintainer account: sonusid1325 (see .github/FUNDING.yml)
-- Upstream URL: https://github.com/sonusid1325
+This project includes portions from an upstream project originally licensed under the MIT License:
+- Upstream project: Ollama
+- Upstream maintainer: sonusid1325
+- Upstream URL: https://github.com/sonusid1325/ollama-android
 
-The upstream/fork-origin portions remain subject to the MIT License.
-As the MIT license text is not present elsewhere in this repository, it is included below.
+The upstream portions remain under the MIT License.
+
+The contents of this NOTICE file are for informational purposes only and do not modify the License.
 
 MIT License
 

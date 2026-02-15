@@ -4,8 +4,8 @@
     <string name="version">1.0.0</string>
     <string name="about_license_title">License</string>
     <string name="about_license_line1">This project is licensed under the Apache License, Version 2.0.</string>
-    <string name="about_license_line2">Original modifications (by ninbyo02) are licensed under the Apache License 2.0.</string>
-    <string name="about_license_line3">This project includes upstream code under the MIT License. See NOTICE for details.</string>
+    <string name="about_license_line2">Copyright 2026 ninbyo02.</string>
+    <string name="about_license_line3">It includes portions originally licensed under the MIT License; see NOTICE for details.</string>
     <string name="notice">NOTICE</string>
     <string name="copied">Copied</string>
     <string name="about_notice_copy_done">コピーしました</string>
