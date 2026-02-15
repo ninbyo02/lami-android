@@ -361,7 +361,6 @@ fun Home(
                                     visualTransformation = VisualTransformation.None,
                                     interactionSource = interactionSource,
                                     placeholder = { Text(placeholder, fontSize = 15.sp) },
-                                    shape = composerShape,
                                     colors = OutlinedTextFieldDefaults.colors(
                                         unfocusedBorderColor = Color.Transparent,
                                         focusedBorderColor = Color.Transparent,
