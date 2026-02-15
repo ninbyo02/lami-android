@@ -176,6 +176,7 @@ internal object SpriteSettingsSessionSpriteOverride {
 }
 
 private val SpriteSettingsTabRowHeight = 32.dp
+private val AdjustStatusToControlsSpacing = 12.dp
 private val PreviewHeaderNudgeDp = (-2).dp
 private val PreviewHeaderRightExtraNudgeDp = (-2).dp
 
@@ -3943,23 +3944,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                 )
             }
         },
-        bottomBar = {
-            if (selectedTab == SpriteTab.ADJUST) {
-                SpriteSettingsControls(
-                    buttonHeight = controlButtonHeight,
-                    buttonContentPadding = controlButtonPadding,
-                    buttonShape = actionButtonShape,
-                    onPrev = onPrev,
-                    onNext = onNext,
-                    onMoveXNegative = { onMove(-1, 0) },
-                    onMoveXPositive = { onMove(1, 0) },
-                    onMoveYNegative = { onMove(0, -1) },
-                    onMoveYPositive = { onMove(0, 1) },
-                    onSizeDecrease = { updateBoxSize(-4) },
-                    onSizeIncrease = { updateBoxSize(4) }
-                )
-            }
-        },
         // 下: Sprite Settings 画面下の空白を抑えるため bottom inset は除外
         contentWindowInsets = spriteScreenContentInsets
     ) { innerPadding ->
@@ -4648,8 +4632,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             .fillMaxWidth()
                                             // [dp] 左右: ステータス行 の余白(余白)に関係
                                             .padding(horizontal = 12.dp)
-                                            // [dp] 上下: ステータス行 の余白(余白)に関係
-                                            .padding(vertical = 8.dp),
+                                            // [dp] 上: ステータス行 の余白(余白)に関係
+                                            .padding(top = 8.dp),
                                         // [dp] 縦: ステータス行 の間隔(間隔)に関係
                                         verticalArrangement = Arrangement.spacedBy(2.dp)
                                     ) {
@@ -4666,6 +4650,21 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
+                                    // [dp] 縦: ステータス行と調整ボタン群の間隔を 12.dp に統一
+                                    Spacer(modifier = Modifier.height(AdjustStatusToControlsSpacing))
+                                    SpriteSettingsControls(
+                                        buttonHeight = controlButtonHeight,
+                                        buttonContentPadding = controlButtonPadding,
+                                        buttonShape = actionButtonShape,
+                                        onPrev = onPrev,
+                                        onNext = onNext,
+                                        onMoveXNegative = { onMove(-1, 0) },
+                                        onMoveXPositive = { onMove(1, 0) },
+                                        onMoveYNegative = { onMove(0, -1) },
+                                        onMoveYPositive = { onMove(0, 1) },
+                                        onSizeDecrease = { updateBoxSize(-4) },
+                                        onSizeIncrease = { updateBoxSize(4) }
+                                    )
                                 }
                             }
                         }
@@ -5955,12 +5954,10 @@ private fun SpriteSettingsControls(
         modifier = Modifier
             // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
             .fillMaxWidth()
-            // [非dp] 下: ナビゲーションバー の insets(インセット)に関係
-            .windowInsetsPadding(WindowInsets.navigationBars)
             // [dp] 左右: 下部バー の余白(余白)に関係
             .padding(horizontal = 12.dp)
-            // [dp] 上下: 下部バー の余白(余白)に関係
-            .padding(vertical = 8.dp),
+            // [dp] 下: 下部バー の余白(余白)に関係
+            .padding(bottom = 8.dp),
         // [dp] 縦: 下部バー の間隔(間隔)に関係
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
