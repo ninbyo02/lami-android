@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +27,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -329,6 +331,8 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerIconSize)
                                 .align(Alignment.Bottom)
+                                .clip(CircleShape)
+                                .offset(y = 2.dp)
                                 .padding(bottom = 10.dp)
                         ) {
                             Icon(
@@ -409,6 +413,8 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerIconSize)
                                 .align(Alignment.Bottom)
+                                .clip(CircleShape)
+                                .offset(y = 2.dp)
                                 .padding(bottom = 10.dp)
                         ) {
                             Icon(
