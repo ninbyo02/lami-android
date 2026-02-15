@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -89,7 +90,8 @@ import kotlin.math.max
 import kotlin.math.min
 
 private val ComposerMinHeight = 40.dp
-private val ComposerIconSize = 40.dp
+private val ComposerButtonSize = 48.dp
+private val ComposerButtonIconSize = 20.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -329,15 +331,16 @@ fun Home(
                         IconButton(
                             onClick = { toolsMenuExpanded = true },
                             modifier = Modifier
-                                .size(ComposerIconSize)
+                                .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .clip(CircleShape)
                                 .offset(y = 2.dp)
-                                .padding(bottom = 10.dp)
+                                .clip(CircleShape)
+                                .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Add,
-                                contentDescription = "Tools"
+                                contentDescription = "Tools",
+                                modifier = Modifier.size(ComposerButtonIconSize)
                             )
                         }
 
@@ -379,6 +382,11 @@ fun Home(
                         ElevatedButton(
                             contentPadding = PaddingValues(0.dp),
                             enabled = !selectedModel.isNullOrBlank(),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent
+                            ),
+                            elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
                             onClick = {
                                 viewModel.onUserInteraction()
                                 if (selectedModel.isNullOrBlank()) {
@@ -411,15 +419,16 @@ fun Home(
                             },
                             shape = CircleShape,
                             modifier = Modifier
-                                .size(ComposerIconSize)
+                                .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .clip(CircleShape)
                                 .offset(y = 2.dp)
-                                .padding(bottom = 10.dp)
+                                .clip(CircleShape)
+                                .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.ArrowUpward,
-                                contentDescription = "Send Button"
+                                contentDescription = "Send Button",
+                                modifier = Modifier.size(ComposerButtonIconSize)
                             )
                         }
 
