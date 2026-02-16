@@ -98,6 +98,7 @@ import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
@@ -354,6 +355,23 @@ fun Home(
                                 ),
                                 topLeft = Offset(0f, localTop),
                                 size = Size(size.width, overlayHeight)
+                            )
+
+                            val topHeightRaw = overlayHeight
+                            val topHeight = min(topHeightRaw, localTop).coerceAtLeast(1f)
+                            val topStart = (localTop - topHeight).coerceAtLeast(0f)
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to overlayBase.copy(alpha = 1.0f),
+                                        0.5f to overlayBase.copy(alpha = 0.5f),
+                                        1.0f to overlayBase.copy(alpha = 0.0f)
+                                    ),
+                                    startY = topStart,
+                                    endY = localTop
+                                ),
+                                topLeft = Offset(0f, topStart),
+                                size = Size(size.width, topHeight)
                             )
                         }
                     } else {
