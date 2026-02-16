@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -747,18 +748,26 @@ fun Home(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(TopGradientOverlayHeight)
-                    .clipToBounds()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to overlayBase.copy(alpha = 1.0f),
-                                0.5f to overlayBase.copy(alpha = 0.6f),
-                                1.0f to overlayBase.copy(alpha = 0.0f)
+                    // 上部グラデーションの開始位置をステータスバーぶん下げる
+                    .statusBarsPadding()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // IME の表示有無に関係なく上部グラデの高さを固定する
+                        .height(TopGradientOverlayHeight)
+                        .clipToBounds()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to overlayBase.copy(alpha = 1.0f),
+                                    0.5f to overlayBase.copy(alpha = 0.6f),
+                                    1.0f to overlayBase.copy(alpha = 0.0f)
+                                )
                             )
                         )
-                    )
-            )
+                )
+            }
         }
     }
 }
