@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -346,11 +345,12 @@ fun Home(
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 if (debugOverlayEnabled) {
                     Box(
                         modifier = Modifier
-                            .matchParentSize()
+                            .width(maxWidth)
+                            .height(maxHeight)
                             .zIndex(0f)
                             .drawBehind {
                                 val overlayExtraBottomPx = overlayExtraBottomDp.toPx()
