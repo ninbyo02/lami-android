@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -342,9 +343,7 @@ fun Home(
             Box(modifier = Modifier.fillMaxWidth()) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
+                        .matchParentSize()
                         .drawBehind {
                             drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
                         }
