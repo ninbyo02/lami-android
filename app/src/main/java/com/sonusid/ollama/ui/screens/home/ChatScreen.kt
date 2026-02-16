@@ -51,9 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,7 +65,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -103,14 +105,7 @@ private val ComposerButtonSize = 44.dp
 private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
-private val ComposerSideGutterOverlayWidth = 16.dp
 private val ComposerBottomGapHeight = 8.dp
-private const val ComposerSideGutterMidStop = 0.55f
-private const val ComposerBottomGutterMidStop = 0.55f
-private const val ComposerSideGutterMidAlpha = 0.10f
-private const val ComposerSideGutterMaxAlpha = 0.18f
-private const val ComposerBottomGutterMidAlpha = 0.12f
-private const val ComposerBottomGutterMaxAlpha = 0.22f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,6 +139,7 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
+    var measuredComposerTopY by remember { mutableStateOf(0f) }
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -238,8 +234,12 @@ fun Home(
                 modifier = Modifier
                     .fillMaxSize()
                     .drawBehind {
+                        val top = measuredComposerTopY.coerceAtLeast(0f)
+                        val overlayHeight = (size.height - top).coerceAtLeast(0f)
                         drawRect(
-                            color = Color(0xFFFF9800).copy(alpha = 0.35f)
+                            color = Color(0xFFFF9800).copy(alpha = 0.35f),
+                            topLeft = Offset(0f, top),
+                            size = Size(size.width, overlayHeight)
                         )
                     }
             )
@@ -340,13 +340,6 @@ fun Home(
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
-        val surfaceLuminance = MaterialTheme.colorScheme.surface.luminance()
-        val frostBase = Color.White
-        val frostAlphaBoost = if (surfaceLuminance < 0.4f) 1.10f else 1f
-        val sideMidAlpha = (ComposerSideGutterMidAlpha * frostAlphaBoost).coerceAtMost(0.3f)
-        val sideMaxAlpha = (ComposerSideGutterMaxAlpha * frostAlphaBoost).coerceAtMost(0.3f)
-        val bottomMidAlpha = (ComposerBottomGutterMidAlpha * frostAlphaBoost).coerceAtMost(0.35f)
-        val bottomMaxAlpha = (ComposerBottomGutterMaxAlpha * frostAlphaBoost).coerceAtMost(0.35f)
 
         Column(
             modifier = Modifier
@@ -390,7 +383,11 @@ fun Home(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.primaryContainer
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { coordinates ->
+                                measuredComposerTopY = coordinates.positionInRoot().y
+                            }
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             Row(
@@ -556,63 +553,12 @@ fun Home(
                     }
                 }
 
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .width(ComposerSideGutterOverlayWidth)
-                            .height(ComposerMinHeight + ComposerBottomGapHeight)
-                            .drawBehind {
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colorStops = arrayOf(
-                                            0.00f to Color.Transparent,
-                                            ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
-                                            1.00f to frostBase.copy(alpha = sideMaxAlpha)
-                                        ),
-                                        startY = 0f,
-                                        endY = size.height
-                                    )
-                                )
-                            }
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .width(ComposerSideGutterOverlayWidth)
-                            .height(ComposerMinHeight + ComposerBottomGapHeight)
-                            .drawBehind {
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colorStops = arrayOf(
-                                            0.00f to Color.Transparent,
-                                            ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
-                                            1.00f to frostBase.copy(alpha = sideMaxAlpha)
-                                        ),
-                                        startY = 0f,
-                                        endY = size.height
-                                    )
-                                )
-                            }
-                    )
                 }
             }
             // 入力欄の背景外に透明な 8dp ギャップを確保する
             Spacer(
                 modifier = Modifier
                     .height(ComposerBottomGapHeight)
-                    .drawBehind {
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.00f to Color.Transparent,
-                                    ComposerBottomGutterMidStop to frostBase.copy(alpha = bottomMidAlpha),
-                                    1.00f to frostBase.copy(alpha = bottomMaxAlpha)
-                                ),
-                                startY = 0f,
-                                endY = size.height
-                            )
-                        )
-                    }
             )
         }
 
