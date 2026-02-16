@@ -55,6 +55,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,7 +82,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
@@ -326,6 +329,9 @@ fun Home(
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
+        val navBarDp = with(density) { navBottomPx.toDp() }
+        val debugOverlayEnabled = BuildConfig.DEBUG
+        val overlayExtraBottomDp = ComposerBottomGapHeight + navBarDp + bottomDp
         val surfaceLuminance = MaterialTheme.colorScheme.surface.luminance()
         val frostBase = Color.White
         val frostAlphaBoost = if (surfaceLuminance < 0.4f) 1.10f else 1f
@@ -341,18 +347,26 @@ fun Home(
                 .padding(bottom = bottomDp)
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .drawBehind {
-                            drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
-                        }
-                )
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 17.dp)
-                ) {
+                if (debugOverlayEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .zIndex(0f)
+                            .drawBehind {
+                                val overlayExtraBottomPx = overlayExtraBottomDp.toPx()
+                                drawRect(
+                                    color = Color(0xFFFF9800).copy(alpha = 0.35f),
+                                    size = Size(size.width, size.height + overlayExtraBottomPx)
+                                )
+                            }
+                    )
+                }
+                Box(modifier = Modifier.zIndex(1f)) {
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 17.dp)
+                    ) {
                     // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
                     val availableTextWidthDp =
                         maxWidth - 0.dp - ComposerButtonSize - ComposerButtonSize - 0.dp - (4.dp * 2)
@@ -548,44 +562,45 @@ fun Home(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .width(ComposerSideGutterOverlayWidth)
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
-                        .drawBehind {
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.00f to Color.Transparent,
-                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
-                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
-                                    ),
-                                    startY = 0f,
-                                    endY = size.height
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .width(ComposerSideGutterOverlayWidth)
+                            .height(ComposerMinHeight + ComposerBottomGapHeight)
+                            .drawBehind {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.00f to Color.Transparent,
+                                            ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
+                                            1.00f to frostBase.copy(alpha = sideMaxAlpha)
+                                        ),
+                                        startY = 0f,
+                                        endY = size.height
+                                    )
                                 )
-                            )
-                        }
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .width(ComposerSideGutterOverlayWidth)
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
-                        .drawBehind {
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.00f to Color.Transparent,
-                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
-                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
-                                    ),
-                                    startY = 0f,
-                                    endY = size.height
+                            }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .width(ComposerSideGutterOverlayWidth)
+                            .height(ComposerMinHeight + ComposerBottomGapHeight)
+                            .drawBehind {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.00f to Color.Transparent,
+                                            ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
+                                            1.00f to frostBase.copy(alpha = sideMaxAlpha)
+                                        ),
+                                        startY = 0f,
+                                        endY = size.height
+                                    )
                                 )
-                            )
-                        }
-                )
+                            }
+                    )
+                }
             }
             // 入力欄の背景外に透明な 8dp ギャップを確保する
             Spacer(
