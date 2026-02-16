@@ -575,8 +575,7 @@ fun Home(
                 .fillMaxSize()
                 // TopAppBar 配下への潜り込みを防ぐため、Scaffold の上下 inset をここで一元適用
                 .padding(
-                    top = paddingValues.calculateTopPadding(),
-                    bottom = paddingValues.calculateBottomPadding()
+                    top = paddingValues.calculateTopPadding()
                 )
                 // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
                 .consumeWindowInsets(paddingValues)
@@ -633,11 +632,11 @@ fun Home(
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        // 下端の入力欄との衝突を避けるため、末尾側だけ余白を保持する
+                        // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
                             start = 0.dp,
                             end = 0.dp,
-                            bottom = 16.dp
+                            bottom = 0.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                         state = listState,
@@ -650,6 +649,10 @@ fun Home(
                             Box(modifier = Modifier.padding(top = topPadding)) {
                                 ChatBubble(message.message, message.isSendbyMe)
                             }
+                        }
+                        item(key = "composer_spacer") {
+                            // 末尾メッセージがピル入力欄に隠れない最小限のスクロール余地
+                            Spacer(modifier = Modifier.height(ComposerMinHeight + 8.dp))
                         }
                     }
                 }
