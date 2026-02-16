@@ -321,7 +321,7 @@ fun Home(
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 9.dp)
+                    .padding(horizontal = 11.dp)
             ) {
                 // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
                 val availableTextWidthDp =
