@@ -104,8 +104,12 @@ private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerSideGutterOverlayWidth = 16.dp
 private val ComposerBottomGapHeight = 8.dp
-private const val ComposerSideGutterMaxAlpha = 0.24f
-private const val ComposerBottomGutterMaxAlpha = 0.3f
+private const val ComposerSideGutterMidStop = 0.55f
+private const val ComposerBottomGutterMidStop = 0.55f
+private const val ComposerSideGutterMidAlpha = 0.10f
+private const val ComposerSideGutterMaxAlpha = 0.18f
+private const val ComposerBottomGutterMidAlpha = 0.12f
+private const val ComposerBottomGutterMaxAlpha = 0.22f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -321,17 +325,13 @@ fun Home(
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
-        val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-        val sideFrostColor = if (isDarkSurface) {
-            Color.Black.copy(alpha = ComposerSideGutterMaxAlpha)
-        } else {
-            Color.White.copy(alpha = ComposerSideGutterMaxAlpha)
-        }
-        val bottomFrostColor = if (isDarkSurface) {
-            Color.Black.copy(alpha = ComposerBottomGutterMaxAlpha)
-        } else {
-            Color.White.copy(alpha = ComposerBottomGutterMaxAlpha)
-        }
+        val surfaceLuminance = MaterialTheme.colorScheme.surface.luminance()
+        val frostBase = Color.White
+        val frostAlphaBoost = if (surfaceLuminance < 0.4f) 1.10f else 1f
+        val sideMidAlpha = (ComposerSideGutterMidAlpha * frostAlphaBoost).coerceAtMost(0.3f)
+        val sideMaxAlpha = (ComposerSideGutterMaxAlpha * frostAlphaBoost).coerceAtMost(0.3f)
+        val bottomMidAlpha = (ComposerBottomGutterMidAlpha * frostAlphaBoost).coerceAtMost(0.35f)
+        val bottomMaxAlpha = (ComposerBottomGutterMaxAlpha * frostAlphaBoost).coerceAtMost(0.35f)
 
         Column(
             modifier = Modifier
@@ -548,9 +548,10 @@ fun Home(
                         .drawBehind {
                             drawRect(
                                 brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        sideFrostColor
+                                    colorStops = arrayOf(
+                                        0.00f to Color.Transparent,
+                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
+                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
                                     ),
                                     startY = 0f,
                                     endY = size.height
@@ -566,9 +567,10 @@ fun Home(
                         .drawBehind {
                             drawRect(
                                 brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        sideFrostColor
+                                    colorStops = arrayOf(
+                                        0.00f to Color.Transparent,
+                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
+                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
                                     ),
                                     startY = 0f,
                                     endY = size.height
@@ -584,9 +586,10 @@ fun Home(
                     .drawBehind {
                         drawRect(
                             brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    bottomFrostColor
+                                colorStops = arrayOf(
+                                    0.00f to Color.Transparent,
+                                    ComposerBottomGutterMidStop to frostBase.copy(alpha = bottomMidAlpha),
+                                    1.00f to frostBase.copy(alpha = bottomMaxAlpha)
                                 ),
                                 startY = 0f,
                                 endY = size.height
