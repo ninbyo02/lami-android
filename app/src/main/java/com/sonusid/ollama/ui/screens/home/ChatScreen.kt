@@ -238,9 +238,6 @@ fun Home(
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
     val bottomDp = with(density) { imeOnlyPx.toDp() }
     val topOverlayBase = Color(0xFFFF9800)
-    val topOverlayLowAlpha = 0.15f
-    val topOverlayMidAlpha = 0.35f
-    val topOverlayHighAlpha = 0.55f
 
     Box(
         modifier = Modifier
@@ -251,22 +248,22 @@ fun Home(
                 if (debugOverlayEnabled) {
                     val startY = headerTitleBottomY.coerceAtLeast(0f)
                     val bottomOverlayHeightRoot = (size.height - measuredComposerTopY).coerceAtLeast(0f)
-                    val desiredEndY = startY + bottomOverlayHeightRoot
-                    val endY = desiredEndY.coerceAtMost(measuredComposerTopY.coerceAtLeast(startY))
-                    val topHeight = (endY - startY).coerceAtLeast(0f)
-                    if (topHeight > 0f) {
+                    val orangeHeight = bottomOverlayHeightRoot * 2.5f
+                    val endY = (startY + orangeHeight).coerceAtMost(size.height)
+                    val h = (endY - startY).coerceAtLeast(0f)
+                    if (h > 0f) {
                         drawRect(
                             brush = Brush.verticalGradient(
                                 colorStops = arrayOf(
-                                    0.0f to topOverlayBase.copy(alpha = topOverlayLowAlpha),
-                                    0.5f to topOverlayBase.copy(alpha = topOverlayMidAlpha),
-                                    1.0f to topOverlayBase.copy(alpha = topOverlayHighAlpha)
+                                    0.0f to topOverlayBase.copy(alpha = 1.0f),
+                                    0.5f to topOverlayBase.copy(alpha = 0.6f),
+                                    1.0f to topOverlayBase.copy(alpha = 0.0f)
                                 ),
                                 startY = startY,
                                 endY = endY
                             ),
                             topLeft = Offset(0f, startY),
-                            size = Size(size.width, topHeight)
+                            size = Size(size.width, h)
                         )
                     }
                 }
