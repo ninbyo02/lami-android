@@ -95,7 +95,9 @@ import kotlin.math.roundToInt
 private val ComposerMinHeight = 44.dp
 private val ComposerPillRadius = ComposerMinHeight / 2
 private val ComposerButtonSize = 44.dp
+private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
+private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -368,14 +370,20 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .clip(CircleShape)
-                                .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = "Tools",
-                                modifier = Modifier.size(ComposerButtonIconSize)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(ComposerButtonVisualSize)
+                                    .clip(CircleShape)
+                                    .background(Color.LightGray.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Add,
+                                    contentDescription = "Tools",
+                                    modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                )
+                            }
                         }
 
                         BasicTextField(
@@ -384,6 +392,7 @@ fun Home(
                                 userPrompt = newValue
                                 viewModel.onUserInteraction()
                             },
+                            shape = CircleShape,
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
@@ -461,14 +470,20 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
-                                .clip(CircleShape)
-                                .background(Color.LightGray.copy(alpha = 0.25f))
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.ArrowUpward,
-                                contentDescription = "Send Button",
-                                modifier = Modifier.size(ComposerButtonIconSize)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(ComposerButtonVisualSize)
+                                    .clip(CircleShape)
+                                    .background(Color.LightGray.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowUpward,
+                                    contentDescription = "Send Button",
+                                    modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                )
+                            }
                         }
 
                         // 右ボタンを外側へ寄せるための最小余白
@@ -540,6 +555,7 @@ fun Home(
                                 userPrompt = it
                                 viewModel.onUserInteraction()
                             },
+                            shape = CircleShape,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 180.dp, max = 360.dp),
