@@ -237,7 +237,7 @@ fun Home(
     val navBottomPx = WindowInsets.navigationBars.getBottom(density)
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
     val bottomDp = with(density) { imeOnlyPx.toDp() }
-    val topOverlayBase = Color(0xFFFF9800)
+    val topOverlayBase = MaterialTheme.colorScheme.background
 
     Box(
         modifier = Modifier
