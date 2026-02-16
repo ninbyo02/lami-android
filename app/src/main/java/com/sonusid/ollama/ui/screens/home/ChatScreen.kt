@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -64,6 +65,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -99,6 +101,10 @@ private val ComposerButtonSize = 44.dp
 private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
+private val ComposerHorizontalPadding = 17.dp
+private val ComposerBottomGapHeight = 8.dp
+private const val ComposerSideGutterMaxAlpha = 0.12f
+private const val ComposerBottomGutterMaxAlpha = 0.22f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -321,207 +327,250 @@ fun Home(
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
         ) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 17.dp)
-            ) {
-                // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
-                val availableTextWidthDp =
-                    maxWidth - 0.dp - ComposerButtonSize - ComposerButtonSize - 0.dp - (4.dp * 2)
-                val availableTextWidthPx = with(density) {
-                    availableTextWidthDp.coerceAtLeast(0.dp).toPx().roundToInt().coerceAtLeast(1)
-                }
-                val measuredLines by remember(userPrompt, availableTextWidthPx, composerTextStyle) {
-                    derivedStateOf {
-                        if (userPrompt.isEmpty()) {
-                            1
-                        } else {
-                            textMeasurer.measure(
-                                text = AnnotatedString(userPrompt),
-                                style = composerTextStyle,
-                                softWrap = true,
-                                maxLines = maxComposerLines,
-                                overflow = TextOverflow.Clip,
-                                constraints = Constraints(maxWidth = availableTextWidthPx)
-                            ).lineCount.coerceIn(1, maxComposerLines)
-                        }
-                    }
-                }
-                val composerShape = RoundedCornerShape(ComposerPillRadius)
-                Surface(
-                    shape = composerShape,
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        Row(
+            Box(modifier = Modifier.fillMaxWidth()) {
+                val gutterColor = MaterialTheme.colorScheme.surface
+                val sideGutterBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        gutterColor.copy(alpha = 0f),
+                        gutterColor.copy(alpha = ComposerSideGutterMaxAlpha)
+                    )
+                )
+                val bottomGutterBrush = Brush.verticalGradient(
+                    colors = listOf(
+                        gutterColor.copy(alpha = 0f),
+                        gutterColor.copy(alpha = ComposerBottomGutterMaxAlpha)
+                    )
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .width(ComposerHorizontalPadding)
+                        .fillMaxHeight()
+                        .drawBehind { drawRect(brush = sideGutterBrush) }
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .width(ComposerHorizontalPadding)
+                        .fillMaxHeight()
+                        .drawBehind { drawRect(brush = sideGutterBrush) }
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(ComposerBottomGapHeight)
+                        .drawBehind { drawRect(brush = bottomGutterBrush) }
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = ComposerMinHeight),
-                        verticalAlignment = Alignment.Bottom
+                            .padding(horizontal = ComposerHorizontalPadding)
                     ) {
-                        // 左ボタンを外側へ寄せるための最小余白
-                        Spacer(modifier = Modifier.width(0.dp))
-
-                        IconButton(
-                            onClick = { toolsMenuExpanded = true },
-                            modifier = Modifier
-                                .size(ComposerButtonSize)
-                                .align(Alignment.Bottom)
-                                .clip(CircleShape)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(ComposerButtonVisualSize)
-                                    .clip(CircleShape)
-                                    .background(Color.LightGray.copy(alpha = 0.25f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Add,
-                                    contentDescription = "Tools",
-                                    modifier = Modifier.size(ComposerButtonIconVisualSize)
-                                )
-                            }
+                        // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
+                        val availableTextWidthDp =
+                            maxWidth - 0.dp - ComposerButtonSize - ComposerButtonSize - 0.dp - (4.dp * 2)
+                        val availableTextWidthPx = with(density) {
+                            availableTextWidthDp.coerceAtLeast(0.dp).toPx().roundToInt().coerceAtLeast(1)
                         }
-
-                        BasicTextField(
-                            value = userPrompt,
-                            onValueChange = { newValue ->
-                                userPrompt = newValue
-                                viewModel.onUserInteraction()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .align(Alignment.CenterVertically)
-                                .heightIn(min = 44.dp, max = 180.dp),
-                            singleLine = false,
-                            maxLines = maxComposerLines,
-                            textStyle = composerTextStyle,
-                            interactionSource = interactionSource,
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            decorationBox = { innerTextField ->
-                                OutlinedTextFieldDefaults.DecorationBox(
-                                    value = userPrompt,
-                                    innerTextField = innerTextField,
-                                    enabled = true,
-                                    singleLine = false,
-                                    visualTransformation = VisualTransformation.None,
-                                    interactionSource = interactionSource,
-                                    placeholder = {
-                                        Text(
-                                            placeholder,
-                                            fontSize = 15.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedBorderColor = Color.Transparent,
-                                        focusedBorderColor = Color.Transparent,
-                                        unfocusedContainerColor = Color.Transparent,
-                                        focusedContainerColor = Color.Transparent
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
-                                )
-                            }
-                        )
-
-                        IconButton(
-                            enabled = !selectedModel.isNullOrBlank(),
-                            onClick = {
-                                viewModel.onUserInteraction()
-                                if (selectedModel.isNullOrBlank()) {
-                                    coroutineScope.launch {
-                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                        snackbarHostState.showSnackbar(
-                                            message = "モデルを選択してください",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                    return@IconButton
-                                }
-
-                                val currentChatId = effectiveChatId
-                                if (currentChatId != null) {
-                                    if (userPrompt.isNotEmpty()) {
-                                        placeholder = "I'm thinking ... "
-                                        viewModel.insert(
-                                            Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                        )
-                                        toggle = true
-                                        prompt = userPrompt
-                                        userPrompt = ""
-                                        viewModel.sendPrompt(prompt, selectedModel)
-                                        prompt = ""
-                                    }
+                        val measuredLines by remember(userPrompt, availableTextWidthPx, composerTextStyle) {
+                            derivedStateOf {
+                                if (userPrompt.isEmpty()) {
+                                    1
                                 } else {
-                                    placeholder = "Setting up a new chat ..."
+                                    textMeasurer.measure(
+                                        text = AnnotatedString(userPrompt),
+                                        style = composerTextStyle,
+                                        softWrap = true,
+                                        maxLines = maxComposerLines,
+                                        overflow = TextOverflow.Clip,
+                                        constraints = Constraints(maxWidth = availableTextWidthPx)
+                                    ).lineCount.coerceIn(1, maxComposerLines)
                                 }
-                            },
-                            modifier = Modifier
-                                .size(ComposerButtonSize)
-                                .align(Alignment.Bottom)
-                                .clip(CircleShape)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(ComposerButtonVisualSize)
-                                    .clip(CircleShape)
-                                    .background(Color.LightGray.copy(alpha = 0.25f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowUpward,
-                                    contentDescription = "Send Button",
-                                    modifier = Modifier.size(ComposerButtonIconVisualSize)
-                                )
                             }
                         }
-
-                        // 右ボタンを外側へ寄せるための最小余白
-                        Spacer(modifier = Modifier.width(0.dp))
-                    }
-
-                    if (measuredLines >= 5) {
-                        IconButton(
-                            onClick = { expandDialogOpen = true },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(end = 44.dp)
+                        val composerShape = RoundedCornerShape(ComposerPillRadius)
+                        Surface(
+                            shape = composerShape,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.OpenInFull,
-                                contentDescription = "Expand"
-                            )
-                        }
-                    }
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = ComposerMinHeight),
+                                verticalAlignment = Alignment.Bottom
+                            ) {
+                                // 左ボタンを外側へ寄せるための最小余白
+                                Spacer(modifier = Modifier.width(0.dp))
 
-                        DropdownMenu(
-                        expanded = toolsMenuExpanded,
-                        onDismissRequest = { toolsMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Attach image (placeholder)") },
-                            onClick = { toolsMenuExpanded = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Paste from clipboard (placeholder)") },
-                            onClick = { toolsMenuExpanded = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Settings (placeholder)") },
-                            onClick = { toolsMenuExpanded = false }
-                        )
+                                IconButton(
+                                    onClick = { toolsMenuExpanded = true },
+                                    modifier = Modifier
+                                        .size(ComposerButtonSize)
+                                        .align(Alignment.Bottom)
+                                        .clip(CircleShape)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(ComposerButtonVisualSize)
+                                            .clip(CircleShape)
+                                            .background(Color.LightGray.copy(alpha = 0.25f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Add,
+                                            contentDescription = "Tools",
+                                            modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                        )
+                                    }
+                                }
+
+                                BasicTextField(
+                                    value = userPrompt,
+                                    onValueChange = { newValue ->
+                                        userPrompt = newValue
+                                        viewModel.onUserInteraction()
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .align(Alignment.CenterVertically)
+                                        .heightIn(min = 44.dp, max = 180.dp),
+                                    singleLine = false,
+                                    maxLines = maxComposerLines,
+                                    textStyle = composerTextStyle,
+                                    interactionSource = interactionSource,
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    decorationBox = { innerTextField ->
+                                        OutlinedTextFieldDefaults.DecorationBox(
+                                            value = userPrompt,
+                                            innerTextField = innerTextField,
+                                            enabled = true,
+                                            singleLine = false,
+                                            visualTransformation = VisualTransformation.None,
+                                            interactionSource = interactionSource,
+                                            placeholder = {
+                                                Text(
+                                                    placeholder,
+                                                    fontSize = 15.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                unfocusedBorderColor = Color.Transparent,
+                                                focusedBorderColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent,
+                                                focusedContainerColor = Color.Transparent
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+                                        )
+                                    }
+                                )
+
+                                IconButton(
+                                    enabled = !selectedModel.isNullOrBlank(),
+                                    onClick = {
+                                        viewModel.onUserInteraction()
+                                        if (selectedModel.isNullOrBlank()) {
+                                            coroutineScope.launch {
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                snackbarHostState.showSnackbar(
+                                                    message = "モデルを選択してください",
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                            }
+                                            return@IconButton
+                                        }
+
+                                        val currentChatId = effectiveChatId
+                                        if (currentChatId != null) {
+                                            if (userPrompt.isNotEmpty()) {
+                                                placeholder = "I'm thinking ... "
+                                                viewModel.insert(
+                                                    Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                                )
+                                                toggle = true
+                                                prompt = userPrompt
+                                                userPrompt = ""
+                                                viewModel.sendPrompt(prompt, selectedModel)
+                                                prompt = ""
+                                            }
+                                        } else {
+                                            placeholder = "Setting up a new chat ..."
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(ComposerButtonSize)
+                                        .align(Alignment.Bottom)
+                                        .clip(CircleShape)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(ComposerButtonVisualSize)
+                                            .clip(CircleShape)
+                                            .background(Color.LightGray.copy(alpha = 0.25f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.ArrowUpward,
+                                            contentDescription = "Send Button",
+                                            modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                        )
+                                    }
+                                }
+
+                                // 右ボタンを外側へ寄せるための最小余白
+                                Spacer(modifier = Modifier.width(0.dp))
+                            }
+
+                            if (measuredLines >= 5) {
+                                IconButton(
+                                    onClick = { expandDialogOpen = true },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(end = 44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.OpenInFull,
+                                        contentDescription = "Expand"
+                                    )
+                                }
+                            }
+
+                                DropdownMenu(
+                                expanded = toolsMenuExpanded,
+                                onDismissRequest = { toolsMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Attach image (placeholder)") },
+                                    onClick = { toolsMenuExpanded = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Paste from clipboard (placeholder)") },
+                                    onClick = { toolsMenuExpanded = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Settings (placeholder)") },
+                                    onClick = { toolsMenuExpanded = false }
+                                )
+                                }
+                            }
                         }
                     }
                 }
+                // 入力欄の背景外に透明な 8dp ギャップを確保する
+                Spacer(modifier = Modifier.height(ComposerBottomGapHeight))
+                }
             }
-            // 入力欄の背景外に透明な 8dp ギャップを確保する
-            Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (expandDialogOpen) {
