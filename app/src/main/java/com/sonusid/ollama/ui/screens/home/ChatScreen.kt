@@ -103,7 +103,7 @@ private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerSideGutterOverlayWidth = 16.dp
 private val ComposerBottomGapHeight = 8.dp
-private const val ComposerSideGutterMaxAlpha = 0.2f
+private const val ComposerSideGutterMaxAlpha = 0.24f
 private const val ComposerBottomGutterMaxAlpha = 0.3f
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -320,7 +320,17 @@ fun Home(
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
-        val composerGutterOverlayColor = MaterialTheme.colorScheme.surfaceVariant
+        val isDarkSurface = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+        val sideFrostColor = if (isDarkSurface) {
+            Color.Black.copy(alpha = ComposerSideGutterMaxAlpha)
+        } else {
+            Color.White.copy(alpha = ComposerSideGutterMaxAlpha)
+        }
+        val bottomFrostColor = if (isDarkSurface) {
+            Color.Black.copy(alpha = ComposerBottomGutterMaxAlpha)
+        } else {
+            Color.White.copy(alpha = ComposerBottomGutterMaxAlpha)
+        }
 
         Column(
             modifier = Modifier
@@ -539,7 +549,7 @@ fun Home(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        composerGutterOverlayColor.copy(alpha = ComposerSideGutterMaxAlpha)
+                                        sideFrostColor
                                     ),
                                     startY = 0f,
                                     endY = size.height
@@ -557,7 +567,7 @@ fun Home(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        composerGutterOverlayColor.copy(alpha = ComposerSideGutterMaxAlpha)
+                                        sideFrostColor
                                     ),
                                     startY = 0f,
                                     endY = size.height
@@ -575,7 +585,7 @@ fun Home(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    composerGutterOverlayColor.copy(alpha = ComposerBottomGutterMaxAlpha)
+                                    bottomFrostColor
                                 ),
                                 startY = 0f,
                                 endY = size.height
