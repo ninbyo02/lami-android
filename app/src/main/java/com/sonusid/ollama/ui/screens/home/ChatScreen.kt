@@ -750,8 +750,8 @@ fun Home(
                     .fillMaxWidth()
                     // 上部グラデーションの開始位置をステータスバーぶん下げる
                     .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置からさらに 30dp 下へ移動する
-                    .padding(top = 30.dp)
+                    // 上部グラデーション全体を既存位置からさらに 34dp 下へ移動する
+                    .padding(top = 34.dp)
             ) {
                 Box(
                     modifier = Modifier
