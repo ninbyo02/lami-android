@@ -370,6 +370,7 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
+                                .clip(CircleShape)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -469,6 +470,7 @@ fun Home(
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
+                                .clip(CircleShape)
                         ) {
                             Box(
                                 modifier = Modifier
