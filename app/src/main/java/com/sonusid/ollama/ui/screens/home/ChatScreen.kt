@@ -743,7 +743,7 @@ fun Home(
     }
 
         if (debugOverlayEnabled) {
-            val overlayBase = Color(0xFFFF8A00)
+            val overlayBase = MaterialTheme.colorScheme.background
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
