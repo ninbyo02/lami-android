@@ -143,6 +143,7 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
+    var headerTitleBottomY by remember { mutableStateOf(0f) }
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -256,7 +257,11 @@ fun Home(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     // Chats 画面とヘッダー位置を揃えるため下余白を統一
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    modifier = Modifier
+                        .padding(bottom = 4.dp)
+                        .onGloballyPositioned { coordinates ->
+                            headerTitleBottomY = coordinates.positionInRoot().y + coordinates.size.height
+                        }
                 ) {
                     HeaderAvatar(
                         baseUrl = baseUrl,
@@ -357,22 +362,24 @@ fun Home(
                                 size = Size(size.width, overlayHeight)
                             )
 
-                            val topHeightRaw = overlayHeight
-                            val topHeight = min(topHeightRaw, localTop).coerceAtLeast(1f)
-                            val topStart = (localTop - topHeight).coerceAtLeast(0f)
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.0f to overlayBase.copy(alpha = 1.0f),
-                                        0.5f to overlayBase.copy(alpha = 0.5f),
-                                        1.0f to overlayBase.copy(alpha = 0.0f)
+                            val headerBottomLocalY = (headerTitleBottomY - overlayRootTopY).coerceAtLeast(0f)
+                            val topStart = headerBottomLocalY.coerceAtMost(localTop)
+                            val topHeight = (localTop - topStart).coerceAtLeast(0f)
+                            if (topHeight > 0f) {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to overlayBase.copy(alpha = 1.0f),
+                                            0.5f to overlayBase.copy(alpha = 0.5f),
+                                            1.0f to overlayBase.copy(alpha = 0.0f)
+                                        ),
+                                        startY = topStart,
+                                        endY = localTop
                                     ),
-                                    startY = topStart,
-                                    endY = localTop
-                                ),
-                                topLeft = Offset(0f, topStart),
-                                size = Size(size.width, topHeight)
-                            )
+                                    topLeft = Offset(0f, topStart),
+                                    size = Size(size.width, topHeight)
+                                )
+                            }
                         }
                     } else {
                         modifier
