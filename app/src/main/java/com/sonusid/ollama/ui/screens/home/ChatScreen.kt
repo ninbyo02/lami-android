@@ -340,6 +340,15 @@ fun Home(
                 .padding(bottom = bottomDp)
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .height(ComposerMinHeight + ComposerBottomGapHeight)
+                        .drawBehind {
+                            drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
+                        }
+                )
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -576,15 +585,6 @@ fun Home(
                                     endY = size.height
                                 )
                             )
-                        }
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
-                        .drawBehind {
-                            drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
                         }
                 )
             }
