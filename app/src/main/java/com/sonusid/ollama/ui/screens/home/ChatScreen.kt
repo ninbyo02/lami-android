@@ -85,6 +85,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
@@ -402,12 +403,14 @@ fun Home(
                     val composerShape = RoundedCornerShape(ComposerPillRadius)
                     Surface(
                         shape = composerShape,
+                        color = MaterialTheme.colorScheme.surface,
                         border = androidx.compose.foundation.BorderStroke(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.primaryContainer
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .zIndex(1f)
                             .onGloballyPositioned { coordinates ->
                                 measuredComposerTopY = coordinates.positionInRoot().y
                             }
