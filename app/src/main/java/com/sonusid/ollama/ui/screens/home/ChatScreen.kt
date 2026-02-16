@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -428,14 +427,8 @@ fun Home(
                             }
                         )
 
-                        ElevatedButton(
-                            contentPadding = PaddingValues(0.dp),
+                        IconButton(
                             enabled = !selectedModel.isNullOrBlank(),
-                            colors = ButtonDefaults.elevatedButtonColors(
-                                containerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent
-                            ),
-                            elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 0.dp),
                             onClick = {
                                 viewModel.onUserInteraction()
                                 if (selectedModel.isNullOrBlank()) {
@@ -446,7 +439,7 @@ fun Home(
                                             duration = SnackbarDuration.Short
                                         )
                                     }
-                                    return@ElevatedButton
+                                    return@IconButton
                                 }
 
                                 val currentChatId = effectiveChatId
@@ -466,7 +459,6 @@ fun Home(
                                     placeholder = "Setting up a new chat ..."
                                 }
                             },
-                            shape = CircleShape,
                             modifier = Modifier
                                 .size(ComposerButtonSize)
                                 .align(Alignment.Bottom)
