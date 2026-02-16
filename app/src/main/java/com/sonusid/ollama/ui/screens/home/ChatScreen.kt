@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -108,6 +109,7 @@ private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
+private val TopGradientOverlayHeight = 180.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,7 +144,6 @@ fun Home(
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
     var measuredComposerTopY by remember { mutableStateOf(0f) }
-    var headerTitleBottomY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
 
     LaunchedEffect(chatId, chats) {
@@ -237,42 +238,9 @@ fun Home(
     val navBottomPx = WindowInsets.navigationBars.getBottom(density)
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
     val bottomDp = with(density) { imeOnlyPx.toDp() }
-    val topOverlayBase = MaterialTheme.colorScheme.background
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .drawWithContent {
-                drawContent()
-
-                if (debugOverlayEnabled) {
-                    val offsetPx = 30.dp.toPx()
-                    val startY =
-                        (headerTitleBottomY - offsetPx)
-                            .coerceAtLeast(0f)
-                    val bottomOverlayHeightRoot = (size.height - measuredComposerTopY).coerceAtLeast(0f)
-                    val orangeHeight = bottomOverlayHeightRoot * 2.5f
-                    val endY =
-                        (startY + orangeHeight)
-                            .coerceAtMost(size.height)
-                    val h = (endY - startY).coerceAtLeast(0f)
-                    if (h > 0f) {
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to topOverlayBase.copy(alpha = 1.0f),
-                                    0.5f to topOverlayBase.copy(alpha = 0.6f),
-                                    1.0f to topOverlayBase.copy(alpha = 0.0f)
-                                ),
-                                startY = startY,
-                                endY = endY
-                            ),
-                            topLeft = Offset(0f, startY),
-                            size = Size(size.width, h)
-                        )
-                    }
-                }
-            }
+        modifier = Modifier.fillMaxSize()
     ) {
     Scaffold(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
@@ -294,9 +262,6 @@ fun Home(
                     // Chats 画面とヘッダー位置を揃えるため下余白を統一
                     modifier = Modifier
                         .padding(bottom = 4.dp)
-                        .onGloballyPositioned { coordinates ->
-                            headerTitleBottomY = coordinates.positionInRoot().y + coordinates.size.height
-                        }
                 ) {
                     HeaderAvatar(
                         baseUrl = baseUrl,
@@ -775,5 +740,25 @@ fun Home(
 
         }
     }
+
+        if (debugOverlayEnabled) {
+            val overlayBase = MaterialTheme.colorScheme.background
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(TopGradientOverlayHeight)
+                    .clipToBounds()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to overlayBase.copy(alpha = 1.0f),
+                                0.5f to overlayBase.copy(alpha = 0.6f),
+                                1.0f to overlayBase.copy(alpha = 0.0f)
+                            )
+                        )
+                    )
+            )
+        }
     }
 }
