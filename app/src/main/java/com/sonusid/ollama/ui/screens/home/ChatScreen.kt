@@ -65,6 +65,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -331,7 +334,23 @@ fun Home(
                 .let { modifier ->
                     if (debugOverlayEnabled) {
                         modifier.drawBehind {
-                            drawRect(color = Color(0xFFFF9800).copy(alpha = 0.35f))
+                            val top = measuredComposerTopY.coerceAtLeast(0f)
+                            val overlayHeight = (size.height - top).coerceAtLeast(0f)
+                            if (overlayHeight > 0f) {
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colorStops = arrayOf(
+                                            0.0f to Color(0xFFFF9800).copy(alpha = 0.15f),
+                                            0.5f to Color(0xFFFF9800).copy(alpha = 0.35f),
+                                            1.0f to Color(0xFFFF9800).copy(alpha = 0.55f)
+                                        ),
+                                        startY = top,
+                                        endY = size.height
+                                    ),
+                                    topLeft = Offset(0f, top),
+                                    size = Size(size.width, overlayHeight)
+                                )
+                            }
                         }
                     } else {
                         modifier
