@@ -246,7 +246,7 @@ fun Home(
                 drawContent()
 
                 if (debugOverlayEnabled) {
-                    val offsetPx = 26.dp.toPx()
+                    val offsetPx = 28.dp.toPx()
                     val startY =
                         (headerTitleBottomY - offsetPx)
                             .coerceAtLeast(0f)
