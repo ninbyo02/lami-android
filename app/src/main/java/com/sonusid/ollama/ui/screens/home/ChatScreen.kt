@@ -230,6 +230,12 @@ fun Home(
         }
     }
 
+    val density = LocalDensity.current
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val navBottomPx = WindowInsets.navigationBars.getBottom(density)
+    val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
+    val bottomDp = with(density) { imeOnlyPx.toDp() }
+
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
@@ -321,11 +327,6 @@ fun Home(
             fontFamily = FontFamily.Default,
             color = MaterialTheme.colorScheme.onSurface
         )
-        val density = LocalDensity.current
-        val imeBottomPx = WindowInsets.ime.getBottom(density)
-        val navBottomPx = WindowInsets.navigationBars.getBottom(density)
-        val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
-        val bottomDp = with(density) { imeOnlyPx.toDp() }
         val overlayBase = MaterialTheme.colorScheme.background
 
         Column(
@@ -702,8 +703,8 @@ fun Home(
                             }
                         }
                         item(key = "composer_spacer") {
-                            // 末尾メッセージがピル入力欄に隠れない最小限のスクロール余地
-                            Spacer(modifier = Modifier.height(ComposerMinHeight + 8.dp))
+                            // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
+                            Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
                         }
                     }
                 }
