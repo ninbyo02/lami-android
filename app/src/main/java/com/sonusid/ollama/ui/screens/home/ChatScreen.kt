@@ -340,6 +340,54 @@ fun Home(
                 .padding(bottom = bottomDp)
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .drawBehind {
+                            drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
+                        }
+                )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .width(ComposerSideGutterOverlayWidth)
+                        .height(ComposerMinHeight + ComposerBottomGapHeight)
+                        .drawBehind {
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.00f to Color.Transparent,
+                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
+                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
+                                    ),
+                                    startY = 0f,
+                                    endY = size.height
+                                )
+                            )
+                        }
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .width(ComposerSideGutterOverlayWidth)
+                        .height(ComposerMinHeight + ComposerBottomGapHeight)
+                        .drawBehind {
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.00f to Color.Transparent,
+                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
+                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
+                                    ),
+                                    startY = 0f,
+                                    endY = size.height
+                                )
+                            )
+                        }
+                )
+
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -540,53 +588,6 @@ fun Home(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .width(ComposerSideGutterOverlayWidth)
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
-                        .drawBehind {
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.00f to Color.Transparent,
-                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
-                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
-                                    ),
-                                    startY = 0f,
-                                    endY = size.height
-                                )
-                            )
-                        }
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .width(ComposerSideGutterOverlayWidth)
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
-                        .drawBehind {
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colorStops = arrayOf(
-                                        0.00f to Color.Transparent,
-                                        ComposerSideGutterMidStop to frostBase.copy(alpha = sideMidAlpha),
-                                        1.00f to frostBase.copy(alpha = sideMaxAlpha)
-                                    ),
-                                    startY = 0f,
-                                    endY = size.height
-                                )
-                            )
-                        }
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .height(ComposerMinHeight + ComposerBottomGapHeight)
-                        .drawBehind {
-                            drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
-                        }
-                )
             }
             // 入力欄の背景外に透明な 8dp ギャップを確保する
             Spacer(
