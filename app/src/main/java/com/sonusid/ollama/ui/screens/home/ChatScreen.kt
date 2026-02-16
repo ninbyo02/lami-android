@@ -321,9 +321,9 @@ fun Home(
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
             ) {
-                // Surface 内の実幅から固定要素（Spacer/左右ボタン）と TextField 内部余白を差し引く
+                // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
                 val availableTextWidthDp =
-                    maxWidth - 12.dp - ComposerButtonSize - ComposerButtonSize - (4.dp * 2)
+                    maxWidth - 4.dp - ComposerButtonSize - ComposerButtonSize - 4.dp - (4.dp * 2)
                 val availableTextWidthPx = with(density) {
                     availableTextWidthDp.coerceAtLeast(0.dp).toPx().roundToInt().coerceAtLeast(1)
                 }
@@ -364,7 +364,8 @@ fun Home(
                             .heightIn(min = ComposerMinHeight),
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        Spacer(modifier = Modifier.width(12.dp))
+                        // 左ボタンを外側へ寄せるための最小余白
+                        Spacer(modifier = Modifier.width(4.dp))
 
                         IconButton(
                             onClick = { toolsMenuExpanded = true },
@@ -474,7 +475,8 @@ fun Home(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        // 右ボタンを外側へ寄せるための最小余白
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
 
                     if (measuredLines >= 5) {
