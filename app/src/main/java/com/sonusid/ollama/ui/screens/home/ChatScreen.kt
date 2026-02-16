@@ -711,7 +711,11 @@ fun Home(
                         ) { index, message ->
                             val topPadding = if (index == 0) 0.dp else 8.dp
                             Box(modifier = Modifier.padding(top = topPadding)) {
-                                ChatBubble(message.message, message.isSendbyMe)
+                                if (message.isSendbyMe) {
+                                    ChatBubble(message.message, message.isSendbyMe)
+                                } else {
+                                    PlainAssistantMessage(message.message)
+                                }
                             }
                         }
                         item(key = "composer_spacer") {

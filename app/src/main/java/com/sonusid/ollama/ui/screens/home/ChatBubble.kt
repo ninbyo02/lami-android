@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,7 @@ fun ChatBubble(
             modifier = Modifier
                 // 左右それぞれ +4dp 拡張（合計 +8dp）
                 .widthIn(max = 288.dp)
+                .testTag("userChatBubble")
                 .background(
                     color = if (isSentByMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(16.dp)
@@ -57,6 +59,31 @@ fun ChatBubble(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PlainAssistantMessage(
+    message: String,
+) {
+    val clipboardManager: ClipboardManager = LocalClipboardManager.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .testTag("assistantPlainMessage")
+            .combinedClickable(
+                enabled = true,
+                onClick = {},
+                onLongClick = { clipboardManager.setText(AnnotatedString(message)) }
+            )
+    ) {
+        MarkdownText(
+            message,
+            syntaxHighlightColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun ChatPreview() {
@@ -64,7 +91,7 @@ fun ChatPreview() {
         Scaffold { paddingValues ->
             Column(modifier = Modifier.padding(paddingValues)) {
                 ChatBubble("Heyy", isSentByMe = true)
-                ChatBubble("**Heyy**", isSentByMe = false)
+                PlainAssistantMessage("**Heyy**")
             }
         }
     }
