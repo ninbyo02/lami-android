@@ -326,6 +326,7 @@ fun Home(
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
+        val overlayBase = MaterialTheme.colorScheme.background
 
         Column(
             modifier = Modifier
@@ -343,9 +344,9 @@ fun Home(
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colorStops = arrayOf(
-                                        0.0f to Color(0xFFFF9800).copy(alpha = 0.15f),
-                                        0.5f to Color(0xFFFF9800).copy(alpha = 0.35f),
-                                        1.0f to Color(0xFFFF9800).copy(alpha = 0.55f)
+                                        0.0f to overlayBase.copy(alpha = 0.15f),
+                                        0.5f to overlayBase.copy(alpha = 0.35f),
+                                        1.0f to overlayBase.copy(alpha = 0.55f)
                                     ),
                                     startY = localTop,
                                     endY = localTop + overlayHeight
