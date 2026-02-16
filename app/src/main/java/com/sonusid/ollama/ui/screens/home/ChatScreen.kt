@@ -227,6 +227,7 @@ fun Home(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
