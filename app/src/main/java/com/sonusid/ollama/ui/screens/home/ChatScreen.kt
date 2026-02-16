@@ -618,7 +618,7 @@ fun Home(
                 }
             }
         }
-    }) { paddingValues ->
+    ) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
