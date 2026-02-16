@@ -392,7 +392,6 @@ fun Home(
                                 userPrompt = newValue
                                 viewModel.onUserInteraction()
                             },
-                            shape = CircleShape,
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
