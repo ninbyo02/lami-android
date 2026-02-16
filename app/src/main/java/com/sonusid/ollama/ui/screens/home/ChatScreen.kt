@@ -93,6 +93,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
+private val ComposerPillRadius = ComposerMinHeight / 2
 private val ComposerButtonSize = 44.dp
 private val ComposerButtonIconSize = 20.dp
 
@@ -298,7 +299,6 @@ fun Home(
         }, bottomBar = {
         val textMeasurer = rememberTextMeasurer()
         val maxComposerLines = 6
-        val composerCornerRadius = 28.dp
         val composerTextStyle = MaterialTheme.typography.bodyLarge.copy(
             fontSize = 15.sp,
             fontWeight = FontWeight.Normal,
@@ -343,11 +343,7 @@ fun Home(
                         }
                     }
                 }
-                val composerShape = if (measuredLines <= 1) {
-                    RoundedCornerShape(percent = 50)
-                } else {
-                    RoundedCornerShape(composerCornerRadius)
-                }
+                val composerShape = RoundedCornerShape(ComposerPillRadius)
 
                 Surface(
                     shape = composerShape,
