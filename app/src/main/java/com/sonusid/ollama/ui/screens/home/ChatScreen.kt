@@ -65,8 +65,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -229,22 +227,6 @@ fun Home(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (debugOverlayEnabled) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .drawBehind {
-                        val top = measuredComposerTopY.coerceAtLeast(0f)
-                        val overlayHeight = (size.height - top).coerceAtLeast(0f)
-                        drawRect(
-                            color = Color(0xFFFF9800).copy(alpha = 0.35f),
-                            topLeft = Offset(0f, top),
-                            size = Size(size.width, overlayHeight)
-                        )
-                    }
-            )
-        }
-
     Scaffold(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
@@ -346,6 +328,15 @@ fun Home(
                 .fillMaxWidth()
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
+                .let { modifier ->
+                    if (debugOverlayEnabled) {
+                        modifier.drawBehind {
+                            drawRect(color = Color(0xFFFF9800).copy(alpha = 0.35f))
+                        }
+                    } else {
+                        modifier
+                    }
+                }
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 Box {
