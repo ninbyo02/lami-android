@@ -246,10 +246,15 @@ fun Home(
                 drawContent()
 
                 if (debugOverlayEnabled) {
-                    val startY = headerTitleBottomY.coerceAtLeast(0f)
+                    val offsetPx = 16.dp.toPx()
+                    val startY =
+                        (headerTitleBottomY - offsetPx)
+                            .coerceAtLeast(0f)
                     val bottomOverlayHeightRoot = (size.height - measuredComposerTopY).coerceAtLeast(0f)
                     val orangeHeight = bottomOverlayHeightRoot * 2.5f
-                    val endY = (startY + orangeHeight).coerceAtMost(size.height)
+                    val endY =
+                        (startY + orangeHeight)
+                            .coerceAtMost(size.height)
                     val h = (endY - startY).coerceAtLeast(0f)
                     if (h > 0f) {
                         drawRect(
