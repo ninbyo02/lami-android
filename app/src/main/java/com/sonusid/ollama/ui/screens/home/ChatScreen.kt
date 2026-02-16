@@ -68,6 +68,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
@@ -303,6 +305,8 @@ fun Home(
         val composerTextStyle = MaterialTheme.typography.bodyLarge.copy(
             fontSize = 15.sp,
             fontWeight = FontWeight.Normal,
+            fontSynthesis = FontSynthesis.None,
+            fontFamily = FontFamily.Default,
             color = MaterialTheme.colorScheme.onSurface
         )
         val density = LocalDensity.current
