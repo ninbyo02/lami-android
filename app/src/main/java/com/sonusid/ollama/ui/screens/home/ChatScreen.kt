@@ -142,7 +142,6 @@ fun Home(
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
     var measuredComposerTopY by remember { mutableStateOf(0f) }
-    var overlayRootTopY by remember { mutableStateOf(0f) }
     var headerTitleBottomY by remember { mutableStateOf(0f) }
 
     LaunchedEffect(chatId, chats) {
@@ -237,8 +236,39 @@ fun Home(
     val navBottomPx = WindowInsets.navigationBars.getBottom(density)
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
     val bottomDp = with(density) { imeOnlyPx.toDp() }
+    val topOverlayBase = Color(0xFFFF9800)
+    val topOverlayLowAlpha = 0.15f
+    val topOverlayMidAlpha = 0.35f
+    val topOverlayHighAlpha = 0.55f
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .drawWithContent {
+                drawContent()
+
+                if (debugOverlayEnabled) {
+                    val startY = headerTitleBottomY.coerceAtLeast(0f)
+                    val endY = measuredComposerTopY.coerceAtLeast(startY)
+                    val topHeight = (endY - startY).coerceAtLeast(0f)
+                    if (topHeight > 0f) {
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to topOverlayBase.copy(alpha = topOverlayLowAlpha),
+                                    0.5f to topOverlayBase.copy(alpha = topOverlayMidAlpha),
+                                    1.0f to topOverlayBase.copy(alpha = topOverlayHighAlpha)
+                                ),
+                                startY = startY,
+                                endY = endY
+                            ),
+                            topLeft = Offset(0f, startY),
+                            size = Size(size.width, topHeight)
+                        )
+                    }
+                }
+            }
+    ) {
     Scaffold(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
@@ -334,23 +364,16 @@ fun Home(
             color = MaterialTheme.colorScheme.onSurface
         )
         val overlayBase = MaterialTheme.colorScheme.background
-        val topOverlayBase = Color(0xFFFF9800)
-        val topOverlayLowAlpha = 0.15f
-        val topOverlayMidAlpha = 0.35f
-        val topOverlayHighAlpha = 0.55f
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
-                .onGloballyPositioned { coordinates ->
-                    overlayRootTopY = coordinates.positionInRoot().y
-                }
                 .let { modifier ->
                     if (debugOverlayEnabled) {
                         modifier.drawWithContent {
-                            val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
+                            val localTop = measuredComposerTopY.coerceAtLeast(0f)
                             val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
                             drawRect(
                                 brush = Brush.verticalGradient(
@@ -367,25 +390,6 @@ fun Home(
                             )
 
                             drawContent()
-
-                            val headerBottomLocalY = (headerTitleBottomY - overlayRootTopY).coerceAtLeast(0f)
-                            val topEnd = headerBottomLocalY.coerceAtMost(localTop)
-                            val topHeight = (localTop - topEnd).coerceAtLeast(0f)
-                            if (topHeight > 0f) {
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colorStops = arrayOf(
-                                            0.0f to topOverlayBase.copy(alpha = topOverlayHighAlpha),
-                                            0.5f to topOverlayBase.copy(alpha = topOverlayMidAlpha),
-                                            1.0f to topOverlayBase.copy(alpha = topOverlayLowAlpha)
-                                        ),
-                                        startY = topEnd,
-                                        endY = localTop
-                                    ),
-                                    topLeft = Offset(0f, topEnd),
-                                    size = Size(size.width, topHeight)
-                                )
-                            }
                         }
                     } else {
                         modifier
