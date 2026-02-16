@@ -623,6 +623,7 @@ fun Home(
             }
         }
     }) { paddingValues ->
+        val scaffoldBottomPadding = paddingValues.calculateBottomPadding()
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -685,11 +686,11 @@ fun Home(
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
+                        // 入力欄が bottomBar に重なるため、末尾が隠れない最小限の下余白を付与する
                         contentPadding = PaddingValues(
                             start = 0.dp,
                             end = 0.dp,
-                            bottom = 0.dp
+                            bottom = scaffoldBottomPadding
                         ),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                         state = listState,
@@ -702,10 +703,6 @@ fun Home(
                             Box(modifier = Modifier.padding(top = topPadding)) {
                                 ChatBubble(message.message, message.isSendbyMe)
                             }
-                        }
-                        item(key = "composer_spacer") {
-                            // 末尾メッセージがピル入力欄に隠れない最小限のスクロール余地
-                            Spacer(modifier = Modifier.height(ComposerMinHeight + 8.dp))
                         }
                     }
                 }
