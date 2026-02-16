@@ -143,6 +143,7 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var headerTitleBottomY by remember { mutableStateOf(0f) }
+    var overlayRootTopY by remember { mutableStateOf(0f) }
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -249,7 +250,9 @@ fun Home(
 
                 if (debugOverlayEnabled) {
                     val startY = headerTitleBottomY.coerceAtLeast(0f)
-                    val endY = measuredComposerTopY.coerceAtLeast(startY)
+                    val bottomOverlayHeightRoot = (size.height - measuredComposerTopY).coerceAtLeast(0f)
+                    val desiredEndY = startY + bottomOverlayHeightRoot
+                    val endY = desiredEndY.coerceAtMost(measuredComposerTopY.coerceAtLeast(startY))
                     val topHeight = (endY - startY).coerceAtLeast(0f)
                     if (topHeight > 0f) {
                         drawRect(
@@ -370,11 +373,16 @@ fun Home(
                 .fillMaxWidth()
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
+                .onGloballyPositioned { coordinates ->
+                    overlayRootTopY = coordinates.positionInRoot().y
+                }
                 .let { modifier ->
                     if (debugOverlayEnabled) {
                         modifier.drawWithContent {
-                            val localTop = measuredComposerTopY.coerceAtLeast(0f)
+                            val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
                             val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
+                            drawContent()
+
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colorStops = arrayOf(
@@ -388,8 +396,6 @@ fun Home(
                                 topLeft = Offset(0f, localTop),
                                 size = Size(size.width, overlayHeight)
                             )
-
-                            drawContent()
                         }
                     } else {
                         modifier
