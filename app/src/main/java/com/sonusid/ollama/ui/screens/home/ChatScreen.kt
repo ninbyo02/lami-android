@@ -578,6 +578,15 @@ fun Home(
                             )
                         }
                 )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .height(ComposerMinHeight + ComposerBottomGapHeight)
+                        .drawBehind {
+                            drawRect(Color(0xFFFF9800).copy(alpha = 0.35f))
+                        }
+                )
             }
             // 入力欄の背景外に透明な 8dp ギャップを確保する
             Spacer(
