@@ -141,6 +141,7 @@ fun Home(
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
     var measuredComposerTopY by remember { mutableStateOf(0f) }
+    var overlayRootTopY by remember { mutableStateOf(0f) }
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -331,26 +332,27 @@ fun Home(
                 .fillMaxWidth()
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
+                .onGloballyPositioned { coordinates ->
+                    overlayRootTopY = coordinates.positionInRoot().y
+                }
                 .let { modifier ->
                     if (debugOverlayEnabled) {
                         modifier.drawBehind {
-                            val top = measuredComposerTopY.coerceAtLeast(0f)
-                            val overlayHeight = (size.height - top).coerceAtLeast(0f)
-                            if (overlayHeight > 0f) {
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        colorStops = arrayOf(
-                                            0.0f to Color(0xFFFF9800).copy(alpha = 0.15f),
-                                            0.5f to Color(0xFFFF9800).copy(alpha = 0.35f),
-                                            1.0f to Color(0xFFFF9800).copy(alpha = 0.55f)
-                                        ),
-                                        startY = top,
-                                        endY = size.height
+                            val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
+                            val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to Color(0xFFFF9800).copy(alpha = 0.15f),
+                                        0.5f to Color(0xFFFF9800).copy(alpha = 0.35f),
+                                        1.0f to Color(0xFFFF9800).copy(alpha = 0.55f)
                                     ),
-                                    topLeft = Offset(0f, top),
-                                    size = Size(size.width, overlayHeight)
-                                )
-                            }
+                                    startY = localTop,
+                                    endY = localTop + overlayHeight
+                                ),
+                                topLeft = Offset(0f, localTop),
+                                size = Size(size.width, overlayHeight)
+                            )
                         }
                     } else {
                         modifier
