@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -32,7 +34,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedButton
@@ -54,6 +55,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,11 +64,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontSynthesis
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Constraints
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
@@ -81,11 +91,14 @@ import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.max
-import kotlin.math.min
+import kotlin.math.roundToInt
 
-private val ComposerMinHeight = 56.dp
-private val ComposerIconSize = 40.dp
+private val ComposerMinHeight = 44.dp
+private val ComposerPillRadius = ComposerMinHeight / 2
+private val ComposerButtonSize = 44.dp
+private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
+private val ComposerButtonIconSize = 20.dp
+private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -287,77 +300,137 @@ fun Home(
                 )
             }
         }, bottomBar = {
-        val hardLines = userPrompt.count { it == '\n' } + 1
-        val softLinesEstimate = (userPrompt.length / 24) + 1
-        val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
-        val composerShape = if (effectiveLines <= 1) RoundedCornerShape(50) else RoundedCornerShape(16.dp)
+        val textMeasurer = rememberTextMeasurer()
+        val maxComposerLines = 6
+        val composerTextStyle = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Normal,
+            fontSynthesis = FontSynthesis.None,
+            fontFamily = FontFamily.Default,
+            color = MaterialTheme.colorScheme.onSurface
+        )
         val density = LocalDensity.current
         val imeBottomPx = WindowInsets.ime.getBottom(density)
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
 
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
         ) {
-            Surface(
-                shape = composerShape,
-                border = androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 17.dp)
             ) {
-                Box(
+                // Surface 内の実幅から固定要素（左右 Spacer/左右ボタン）と TextField 内部余白を差し引く
+                val availableTextWidthDp =
+                    maxWidth - 0.dp - ComposerButtonSize - ComposerButtonSize - 0.dp - (4.dp * 2)
+                val availableTextWidthPx = with(density) {
+                    availableTextWidthDp.coerceAtLeast(0.dp).toPx().roundToInt().coerceAtLeast(1)
+                }
+                val measuredLines by remember(userPrompt, availableTextWidthPx, composerTextStyle) {
+                    derivedStateOf {
+                        if (userPrompt.isEmpty()) {
+                            1
+                        } else {
+                            textMeasurer.measure(
+                                text = AnnotatedString(userPrompt),
+                                style = composerTextStyle,
+                                softWrap = true,
+                                maxLines = maxComposerLines,
+                                overflow = TextOverflow.Clip,
+                                constraints = Constraints(maxWidth = availableTextWidthPx)
+                            ).lineCount.coerceIn(1, maxComposerLines)
+                        }
+                    }
+                }
+                val composerShape = RoundedCornerShape(ComposerPillRadius)
+                Surface(
+                    shape = composerShape,
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = ComposerMinHeight),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Bottom
                     ) {
+                        // 左ボタンを外側へ寄せるための最小余白
+                        Spacer(modifier = Modifier.width(0.dp))
+
                         IconButton(
                             onClick = { toolsMenuExpanded = true },
                             modifier = Modifier
-                                .size(ComposerIconSize)
-                                .align(Alignment.CenterVertically)
+                                .size(ComposerButtonSize)
+                                .align(Alignment.Bottom)
+                                .clip(CircleShape)
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = "Tools"
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(ComposerButtonVisualSize)
+                                    .clip(CircleShape)
+                                    .background(Color.LightGray.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Add,
+                                    contentDescription = "Tools",
+                                    modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                )
+                            }
                         }
 
-                        OutlinedTextField(
-                            interactionSource = interactionSource,
+                        BasicTextField(
                             value = userPrompt,
-                            onValueChange = {
-                                userPrompt = it
+                            onValueChange = { newValue ->
+                                userPrompt = newValue
                                 viewModel.onUserInteraction()
                             },
-                            shape = composerShape,
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
-                                // 入力欄の上下余白がつぶれないよう、最小限の高さを維持
-                                .heightIn(min = 48.dp, max = 180.dp),
+                                .heightIn(min = 44.dp, max = 180.dp),
                             singleLine = false,
-                            maxLines = 6,
-                            placeholder = { Text(placeholder, fontSize = 15.sp) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedContainerColor = Color.Transparent
-                            )
+                            maxLines = maxComposerLines,
+                            textStyle = composerTextStyle,
+                            interactionSource = interactionSource,
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                OutlinedTextFieldDefaults.DecorationBox(
+                                    value = userPrompt,
+                                    innerTextField = innerTextField,
+                                    enabled = true,
+                                    singleLine = false,
+                                    visualTransformation = VisualTransformation.None,
+                                    interactionSource = interactionSource,
+                                    placeholder = {
+                                        Text(
+                                            placeholder,
+                                            fontSize = 15.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = Color.Transparent,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedContainerColor = Color.Transparent
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+                                )
+                            }
                         )
 
-                        ElevatedButton(
-                            contentPadding = PaddingValues(0.dp),
+                        IconButton(
                             enabled = !selectedModel.isNullOrBlank(),
                             onClick = {
                                 viewModel.onUserInteraction()
@@ -369,7 +442,7 @@ fun Home(
                                             duration = SnackbarDuration.Short
                                         )
                                     }
-                                    return@ElevatedButton
+                                    return@IconButton
                                 }
 
                                 val currentChatId = effectiveChatId
@@ -389,19 +462,31 @@ fun Home(
                                     placeholder = "Setting up a new chat ..."
                                 }
                             },
-                            shape = CircleShape,
                             modifier = Modifier
-                                .size(ComposerIconSize)
-                                .align(Alignment.CenterVertically)
+                                .size(ComposerButtonSize)
+                                .align(Alignment.Bottom)
+                                .clip(CircleShape)
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.ArrowUpward,
-                                contentDescription = "Send Button"
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(ComposerButtonVisualSize)
+                                    .clip(CircleShape)
+                                    .background(Color.LightGray.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ArrowUpward,
+                                    contentDescription = "Send Button",
+                                    modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                )
+                            }
                         }
+
+                        // 右ボタンを外側へ寄せるための最小余白
+                        Spacer(modifier = Modifier.width(0.dp))
                     }
 
-                    if (effectiveLines >= 5) {
+                    if (measuredLines >= 5) {
                         IconButton(
                             onClick = { expandDialogOpen = true },
                             modifier = Modifier
@@ -415,7 +500,7 @@ fun Home(
                         }
                     }
 
-                    DropdownMenu(
+                        DropdownMenu(
                         expanded = toolsMenuExpanded,
                         onDismissRequest = { toolsMenuExpanded = false }
                     ) {
@@ -431,9 +516,12 @@ fun Home(
                             text = { Text("Settings (placeholder)") },
                             onClick = { toolsMenuExpanded = false }
                         )
+                        }
                     }
                 }
             }
+            // 入力欄の背景外に透明な 8dp ギャップを確保する
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (expandDialogOpen) {
@@ -463,6 +551,7 @@ fun Home(
                                 userPrompt = it
                                 viewModel.onUserInteraction()
                             },
+                            shape = CircleShape,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 180.dp, max = 360.dp),
@@ -486,8 +575,7 @@ fun Home(
                 .fillMaxSize()
                 // TopAppBar 配下への潜り込みを防ぐため、Scaffold の上下 inset をここで一元適用
                 .padding(
-                    top = paddingValues.calculateTopPadding(),
-                    bottom = paddingValues.calculateBottomPadding()
+                    top = paddingValues.calculateTopPadding()
                 )
                 // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
                 .consumeWindowInsets(paddingValues)
@@ -501,8 +589,6 @@ fun Home(
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.size(12.dp))
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
             } else if (allChats.isEmpty()) {
@@ -546,11 +632,11 @@ fun Home(
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        // 下端の入力欄との衝突を避けるため、末尾側だけ余白を保持する
+                        // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
                             start = 0.dp,
                             end = 0.dp,
-                            bottom = 16.dp
+                            bottom = 0.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                         state = listState,
@@ -564,16 +650,14 @@ fun Home(
                                 ChatBubble(message.message, message.isSendbyMe)
                             }
                         }
+                        item(key = "composer_spacer") {
+                            // 末尾メッセージがピル入力欄に隠れない最小限のスクロール余地
+                            Spacer(modifier = Modifier.height(ComposerMinHeight + 8.dp))
+                        }
                     }
                 }
             }
 
-            if (uiState is UiState.Loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                )
-            }
             if (errorMessage != null) {
                 Column(
                     modifier = Modifier

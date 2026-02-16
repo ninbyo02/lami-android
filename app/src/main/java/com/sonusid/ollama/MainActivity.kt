@@ -45,6 +45,7 @@ import com.sonusid.ollama.ui.screens.settings.About
 import com.sonusid.ollama.ui.screens.settings.SettingsData
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.Settings
+import com.sonusid.ollama.ui.screens.settings.NoticeScreen
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
 import com.sonusid.ollama.ui.screens.spriteeditor.SpriteEditorScreen
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
@@ -109,6 +110,7 @@ class MainActivity : ComponentActivity() {
                     Routes.CHATS,
                     Routes.SETTINGS,
                     Routes.ABOUT,
+                    Routes.NOTICE,
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
@@ -153,6 +155,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                         composable(Routes.ABOUT) {
                                             About(navController, viewModel)
+                                        }
+                                        composable(Routes.NOTICE) {
+                                            NoticeScreen(navController)
                                         }
                                         composable(SettingsRoute.SpriteSettings.route) {
                                             SpriteSettingsScreen(navController)

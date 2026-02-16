@@ -24,4 +24,25 @@ class AboutVersionLabelTest {
 
         assertEquals("v1.0.0 (61034f0)", actual)
     }
+
+    @Test
+    fun buildPrLabel_withPrNumber_formatsBuildLabel() {
+        val actual = buildPrLabel(buildPrNumber = "1240")
+
+        assertEquals("Build: 1240", actual)
+    }
+
+    @Test
+    fun buildPrLabel_withBlankPrNumber_fallsBackToVersionCode() {
+        val actual = buildPrLabel(buildPrNumber = "   ")
+
+        assertEquals("Build: 1", actual)
+    }
+
+    @Test
+    fun buildPrLabel_withNonNumericPrNumber_fallsBackToVersionCode() {
+        val actual = buildPrLabel(buildPrNumber = "PR-1240")
+
+        assertEquals("Build: 1", actual)
+    }
 }

@@ -1,5 +1,6 @@
 package com.sonusid.ollama.data
 
+import android.content.Context
 import android.os.Parcelable
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -55,29 +56,9 @@ data class SpriteSheetConfig(
     }
 
     companion object {
-        const val DEFAULT_JSON: String = """
-            {
-              "boxes": [
-                {"frameIndex":0,"height":88,"width":88,"x":0,"y":9},
-                {"frameIndex":1,"height":88,"width":88,"x":96,"y":9},
-                {"frameIndex":2,"height":88,"width":88,"x":191,"y":9},
-                {"frameIndex":3,"height":88,"width":88,"x":0,"y":104},
-                {"frameIndex":4,"height":88,"width":88,"x":95,"y":104},
-                {"frameIndex":5,"height":88,"width":88,"x":191,"y":103},
-                {"frameIndex":6,"height":88,"width":88,"x":0,"y":196},
-                {"frameIndex":7,"height":88,"width":88,"x":95,"y":196},
-                {"frameIndex":8,"height":88,"width":88,"x":191,"y":196}
-              ],
-              "cols": 3,
-              "rows": 3,
-              "frameCount": 9,
-              "frameWidth": 88,
-              "frameHeight": 88,
-              "insertionEnabled": false
-            }
-        """
+        private const val DEFAULT_ASSET_PATH = "sprite_default_settings.json"
 
-        val DEFAULT: SpriteSheetConfig = fromJson(DEFAULT_JSON) ?: SpriteSheetConfig(
+        private val LEGACY_SAFE_FALLBACK: SpriteSheetConfig = SpriteSheetConfig(
             rows = 3,
             cols = 3,
             frameWidth = 88,
@@ -96,6 +77,10 @@ data class SpriteSheetConfig(
             insertionEnabled = false,
         )
 
+        val DEFAULT: SpriteSheetConfig by lazy {
+            loadDefaultFromAssets() ?: LEGACY_SAFE_FALLBACK
+        }
+
         fun default3x3(): SpriteSheetConfig = DEFAULT
 
         fun fromJson(json: String, gson: Gson = Gson()): SpriteSheetConfig? {
@@ -104,6 +89,31 @@ data class SpriteSheetConfig(
             } catch (ex: JsonSyntaxException) {
                 null
             }
+        }
+
+        private fun loadDefaultFromAssets(): SpriteSheetConfig? {
+            val applicationContext = resolveApplicationContext() ?: return null
+            return runCatching {
+                applicationContext.assets.open(DEFAULT_ASSET_PATH).bufferedReader().use { reader ->
+                    fromJson(reader.readText())
+                }
+            }.getOrNull() ?: null
+        }
+
+        private fun resolveApplicationContext(): Context? {
+            val currentApplication = runCatching {
+                val activityThreadClass = Class.forName("android.app.ActivityThread")
+                val currentApplicationMethod = activityThreadClass.getDeclaredMethod("currentApplication")
+                currentApplicationMethod.invoke(null)
+            }.getOrNull() as? Context
+
+            if (currentApplication != null) return currentApplication.applicationContext
+
+            return runCatching {
+                val appGlobalsClass = Class.forName("android.app.AppGlobals")
+                val initialApplicationMethod = appGlobalsClass.getDeclaredMethod("getInitialApplication")
+                initialApplicationMethod.invoke(null)
+            }.getOrNull() as? Context
         }
     }
 }

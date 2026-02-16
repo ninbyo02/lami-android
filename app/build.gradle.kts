@@ -23,6 +23,16 @@ fun gitShaShort(): String {
     }
 }
 
+fun resolveBuildPrNumber(): String {
+    val fromProperty = providers.gradleProperty("buildPr").orNull?.trim().orEmpty()
+    if (fromProperty.isNotEmpty()) return fromProperty
+
+    val fromEnv = System.getenv("GITHUB_EVENT_NUMBER")?.trim().orEmpty()
+    if (fromEnv.isNotEmpty()) return fromEnv
+
+    return ""
+}
+
 android {
 
     namespace = "com.sonusid.ollama"
@@ -37,7 +47,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val gitSha = gitShaShort()
+        val buildPrNumber = resolveBuildPrNumber()
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
+        buildConfigField("String", "BUILD_PR_NUMBER", "\"$buildPrNumber\"")
+        buildConfigField("String", "APP_SUBTITLE", "\"LAMI — Lightweight AI for Memory & Interaction\"")
     }
 
     buildTypes {
