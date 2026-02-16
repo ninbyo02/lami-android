@@ -568,56 +568,14 @@ fun Home(
                     }
                 }
                 // 入力欄の背景外に透明な 8dp ギャップを確保する
-                Spacer(modifier = Modifier.height(ComposerBottomGapHeight))
-                }
+                Spacer(
+                    modifier = Modifier
+                        .height(ComposerBottomGapHeight)
+                        .fillMaxWidth()
+                        .drawBehind { drawRect(brush = bottomGutterBrush) }
+                )
             }
-        }
-
-        if (expandDialogOpen) {
-            Dialog(onDismissRequest = { expandDialogOpen = false }) {
-                Card {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("全体表示", style = MaterialTheme.typography.titleMedium)
-                            IconButton(onClick = { expandDialogOpen = false }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Close expand dialog"
-                                )
-                            }
-                        }
-                        OutlinedTextField(
-                            value = userPrompt,
-                            onValueChange = {
-                                userPrompt = it
-                                viewModel.onUserInteraction()
-                            },
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 180.dp, max = 360.dp),
-                            singleLine = false,
-                            maxLines = 16,
-                            placeholder = { Text("ここで全文を編集") }
-                        )
-                        TextButton(
-                            onClick = { expandDialogOpen = false },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Text("閉じる")
-                        }
-                    }
-                }
-            }
-        }
+        },
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -727,6 +685,51 @@ fun Home(
                 }
             }
 
+            if (expandDialogOpen) {
+                Dialog(onDismissRequest = { expandDialogOpen = false }) {
+                    Card {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("全体表示", style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = { expandDialogOpen = false }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Close expand dialog"
+                                    )
+                                }
+                            }
+                            OutlinedTextField(
+                                value = userPrompt,
+                                onValueChange = {
+                                    userPrompt = it
+                                    viewModel.onUserInteraction()
+                                },
+                                shape = CircleShape,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 180.dp, max = 360.dp),
+                                singleLine = false,
+                                maxLines = 16,
+                                placeholder = { Text("ここで全文を編集") }
+                            )
+                            TextButton(
+                                onClick = { expandDialogOpen = false },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Text("閉じる")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
