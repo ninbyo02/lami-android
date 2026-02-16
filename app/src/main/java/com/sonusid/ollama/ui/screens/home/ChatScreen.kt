@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -64,6 +65,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -99,6 +102,23 @@ private val ComposerButtonSize = 44.dp
 private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
+
+private fun Modifier.fauxGlassGutterVeil(
+    baseColor: Color,
+    veilAlpha: Float,
+): Modifier = drawWithCache {
+    val veilBrush = Brush.verticalGradient(
+        colorStops = arrayOf(
+            0.0f to baseColor.copy(alpha = 0f),
+            1.0f to baseColor.copy(alpha = veilAlpha),
+        ),
+        startY = 0f,
+        endY = size.height,
+    )
+    onDrawBehind {
+        drawRect(brush = veilBrush, topLeft = Offset.Zero, size = size)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -349,6 +369,7 @@ fun Home(
                     }
                 }
                 val composerShape = RoundedCornerShape(ComposerPillRadius)
+                val gutterVeilColor = MaterialTheme.colorScheme.surface
 
                 Surface(
                     shape = composerShape,
@@ -359,6 +380,27 @@ fun Home(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Box(modifier = Modifier.fillMaxWidth()) {
+                        // 左ガター（+ボタン側）にだけ擬似ガラスのベールを敷く
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .size(width = ComposerButtonSize, height = ComposerMinHeight)
+                                .fauxGlassGutterVeil(
+                                    baseColor = gutterVeilColor,
+                                    veilAlpha = 0.14f,
+                                )
+                        )
+                        // 右ガター（送信ボタン側）にだけ擬似ガラスのベールを敷く
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(width = ComposerButtonSize, height = ComposerMinHeight)
+                                .fauxGlassGutterVeil(
+                                    baseColor = gutterVeilColor,
+                                    veilAlpha = 0.14f,
+                                )
+                        )
+
                         Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -521,8 +563,16 @@ fun Home(
                     }
                 }
             }
-            // 入力欄の背景外に透明な 8dp ギャップを確保する
-            Spacer(modifier = Modifier.height(8.dp))
+            // 入力欄の下ガターにだけ、上へ溶ける薄いベールを重ねる
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .fauxGlassGutterVeil(
+                        baseColor = MaterialTheme.colorScheme.surface,
+                        veilAlpha = 0.16f,
+                    )
+            )
         }
 
         if (expandDialogOpen) {
