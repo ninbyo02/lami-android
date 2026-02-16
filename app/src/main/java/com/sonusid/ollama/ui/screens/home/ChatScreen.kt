@@ -26,7 +26,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -334,6 +334,10 @@ fun Home(
             color = MaterialTheme.colorScheme.onSurface
         )
         val overlayBase = MaterialTheme.colorScheme.background
+        val topOverlayBase = Color(0xFFFF9800)
+        val topOverlayLowAlpha = 0.15f
+        val topOverlayMidAlpha = 0.35f
+        val topOverlayHighAlpha = 0.55f
 
         Column(
             modifier = Modifier
@@ -345,7 +349,7 @@ fun Home(
                 }
                 .let { modifier ->
                     if (debugOverlayEnabled) {
-                        modifier.drawBehind {
+                        modifier.drawWithContent {
                             val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
                             val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
                             drawRect(
@@ -362,21 +366,23 @@ fun Home(
                                 size = Size(size.width, overlayHeight)
                             )
 
+                            drawContent()
+
                             val headerBottomLocalY = (headerTitleBottomY - overlayRootTopY).coerceAtLeast(0f)
-                            val topStart = headerBottomLocalY.coerceAtMost(localTop)
-                            val topHeight = (localTop - topStart).coerceAtLeast(0f)
+                            val topEnd = headerBottomLocalY.coerceAtMost(localTop)
+                            val topHeight = (localTop - topEnd).coerceAtLeast(0f)
                             if (topHeight > 0f) {
                                 drawRect(
                                     brush = Brush.verticalGradient(
                                         colorStops = arrayOf(
-                                            0.0f to overlayBase.copy(alpha = 1.0f),
-                                            0.5f to overlayBase.copy(alpha = 0.5f),
-                                            1.0f to overlayBase.copy(alpha = 0.0f)
+                                            0.0f to topOverlayBase.copy(alpha = topOverlayHighAlpha),
+                                            0.5f to topOverlayBase.copy(alpha = topOverlayMidAlpha),
+                                            1.0f to topOverlayBase.copy(alpha = topOverlayLowAlpha)
                                         ),
-                                        startY = topStart,
+                                        startY = topEnd,
                                         endY = localTop
                                     ),
-                                    topLeft = Offset(0f, topStart),
+                                    topLeft = Offset(0f, topEnd),
                                     size = Size(size.width, topHeight)
                                 )
                             }
