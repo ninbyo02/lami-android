@@ -350,8 +350,6 @@ fun Home(
                         modifier.drawWithContent {
                             val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
                             val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
-                            drawContent()
-
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colorStops = arrayOf(
@@ -365,6 +363,8 @@ fun Home(
                                 topLeft = Offset(0f, localTop),
                                 size = Size(size.width, overlayHeight)
                             )
+
+                            drawContent()
                         }
                     } else {
                         modifier
