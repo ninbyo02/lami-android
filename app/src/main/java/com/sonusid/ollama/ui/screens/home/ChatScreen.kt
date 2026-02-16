@@ -56,6 +56,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,11 +68,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Constraints
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
@@ -86,8 +90,7 @@ import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.max
-import kotlin.math.min
+import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
 private val ComposerButtonSize = 44.dp
@@ -293,11 +296,14 @@ fun Home(
                 )
             }
         }, bottomBar = {
-        val hardLines = userPrompt.count { it == '\n' } + 1
-        val softLinesEstimate = (userPrompt.length / 24) + 1
-        val effectiveLines = max(hardLines, min(softLinesEstimate, 6))
-        val composerCornerRadius = 16.dp
-        val composerShape = if (effectiveLines <= 1) RoundedCornerShape(percent = 50) else RoundedCornerShape(composerCornerRadius)
+        val textMeasurer = rememberTextMeasurer()
+        val maxComposerLines = 6
+        val composerCornerRadius = 28.dp
+        val composerTextStyle = MaterialTheme.typography.bodyLarge.copy(
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface
+        )
         val density = LocalDensity.current
         val imeBottomPx = WindowInsets.ime.getBottom(density)
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
@@ -310,18 +316,49 @@ fun Home(
                 // IME 分のみを下余白に反映し、非表示時の余白は 0dp にする
                 .padding(bottom = bottomDp)
         ) {
-            Surface(
-                shape = composerShape,
-                border = androidx.compose.foundation.BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
             ) {
-                Box(
+                // Surface 内の実幅から固定要素（Spacer/左右ボタン）と TextField 内部余白を差し引く
+                val availableTextWidthDp =
+                    maxWidth - 12.dp - ComposerButtonSize - ComposerButtonSize - (4.dp * 2)
+                val availableTextWidthPx = with(density) {
+                    availableTextWidthDp.coerceAtLeast(0.dp).toPx().roundToInt().coerceAtLeast(1)
+                }
+                val measuredLines by remember(userPrompt, availableTextWidthPx, composerTextStyle) {
+                    derivedStateOf {
+                        if (userPrompt.isEmpty()) {
+                            1
+                        } else {
+                            textMeasurer.measure(
+                                text = AnnotatedString(userPrompt),
+                                style = composerTextStyle,
+                                softWrap = true,
+                                maxLines = maxComposerLines,
+                                overflow = TextOverflow.Clip,
+                                constraints = Constraints(maxWidth = availableTextWidthPx)
+                            ).lineCount.coerceIn(1, maxComposerLines)
+                        }
+                    }
+                }
+                val composerShape = if (measuredLines <= 1) {
+                    RoundedCornerShape(percent = 50)
+                } else {
+                    RoundedCornerShape(composerCornerRadius)
+                }
+
+                Surface(
+                    shape = composerShape,
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = ComposerMinHeight),
@@ -355,8 +392,8 @@ fun Home(
                                 .align(Alignment.CenterVertically)
                                 .heightIn(min = 44.dp, max = 180.dp),
                             singleLine = false,
-                            maxLines = 6,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface),
+                            maxLines = maxComposerLines,
+                            textStyle = composerTextStyle,
                             interactionSource = interactionSource,
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             decorationBox = { innerTextField ->
@@ -440,7 +477,7 @@ fun Home(
                         Spacer(modifier = Modifier.width(12.dp))
                     }
 
-                    if (effectiveLines >= 5) {
+                    if (measuredLines >= 5) {
                         IconButton(
                             onClick = { expandDialogOpen = true },
                             modifier = Modifier
@@ -454,7 +491,7 @@ fun Home(
                         }
                     }
 
-                    DropdownMenu(
+                        DropdownMenu(
                         expanded = toolsMenuExpanded,
                         onDismissRequest = { toolsMenuExpanded = false }
                     ) {
@@ -470,6 +507,7 @@ fun Home(
                             text = { Text("Settings (placeholder)") },
                             onClick = { toolsMenuExpanded = false }
                         )
+                        }
                     }
                 }
             }
