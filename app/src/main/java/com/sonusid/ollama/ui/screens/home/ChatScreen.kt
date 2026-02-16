@@ -344,9 +344,9 @@ fun Home(
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colorStops = arrayOf(
-                                        0.0f to overlayBase.copy(alpha = 0.15f),
-                                        0.5f to overlayBase.copy(alpha = 0.35f),
-                                        1.0f to overlayBase.copy(alpha = 0.55f)
+                                        0.0f to overlayBase.copy(alpha = 0.0f),
+                                        0.5f to overlayBase.copy(alpha = 0.5f),
+                                        1.0f to overlayBase.copy(alpha = 1.0f)
                                     ),
                                     startY = localTop,
                                     endY = localTop + overlayHeight
