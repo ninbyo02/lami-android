@@ -110,7 +110,7 @@ private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
-private val TopGradientOverlayHeight = 180.dp
+private val TopGradientOverlayHeight = 60.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -750,8 +750,8 @@ fun Home(
                     .fillMaxWidth()
                     // 上部グラデーションの開始位置をステータスバーぶん下げる
                     .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置からさらに 10dp 下へ移動する
-                    .padding(top = 10.dp)
+                    // 上部グラデーション全体を既存位置からさらに 30dp 下へ移動する
+                    .padding(top = 30.dp)
             ) {
                 Box(
                     modifier = Modifier
