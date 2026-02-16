@@ -54,7 +54,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,7 +80,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
@@ -145,6 +143,7 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
+    val debugOverlayEnabled = BuildConfig.DEBUG
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -232,6 +231,19 @@ fun Home(
             )
         }
     }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (debugOverlayEnabled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        drawRect(
+                            color = Color(0xFFFF9800).copy(alpha = 0.35f)
+                        )
+                    }
+            )
+        }
 
     Scaffold(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
@@ -328,9 +340,6 @@ fun Home(
         val navBottomPx = WindowInsets.navigationBars.getBottom(density)
         val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
         val bottomDp = with(density) { imeOnlyPx.toDp() }
-        val navBarDp = with(density) { navBottomPx.toDp() }
-        val debugOverlayEnabled = BuildConfig.DEBUG
-        val overlayExtraBottomDp = ComposerBottomGapHeight + navBarDp + bottomDp
         val surfaceLuminance = MaterialTheme.colorScheme.surface.luminance()
         val frostBase = Color.White
         val frostAlphaBoost = if (surfaceLuminance < 0.4f) 1.10f else 1f
@@ -346,22 +355,7 @@ fun Home(
                 .padding(bottom = bottomDp)
         ) {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                if (debugOverlayEnabled) {
-                    Box(
-                        modifier = Modifier
-                            .width(maxWidth)
-                            .height(maxHeight)
-                            .zIndex(0f)
-                            .drawBehind {
-                                val overlayExtraBottomPx = overlayExtraBottomDp.toPx()
-                                drawRect(
-                                    color = Color(0xFFFF9800).copy(alpha = 0.35f),
-                                    size = Size(size.width, size.height + overlayExtraBottomPx)
-                                )
-                            }
-                    )
-                }
-                Box(modifier = Modifier.zIndex(1f)) {
+                Box {
                     BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -777,5 +771,6 @@ fun Home(
             }
 
         }
+    }
     }
 }
