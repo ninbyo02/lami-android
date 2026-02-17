@@ -141,19 +141,21 @@ private fun CodeBlockCard(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = lang?.takeIf { it.isNotBlank() } ?: "Code",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = lang?.takeIf { it.isNotBlank() } ?: "Code",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 IconButton(
                     onClick = { clipboardManager.setText(AnnotatedString(code)) },
                     modifier = Modifier
+                        .align(Alignment.TopEnd)
                         .minimumInteractiveComponentSize()
                         .padding(0.dp)
                 ) {
