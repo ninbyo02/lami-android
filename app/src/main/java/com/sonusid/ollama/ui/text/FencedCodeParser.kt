@@ -5,6 +5,8 @@ sealed class Segment {
     data class Code(val lang: String?, val code: String) : Segment()
 }
 
+private data class OpeningFence(val lang: String?)
+
 fun parseFencedCodeSegments(input: String): List<Segment> {
     if (input.isEmpty()) {
         return listOf(Segment.Text(input))
@@ -17,9 +19,9 @@ fun parseFencedCodeSegments(input: String): List<Segment> {
 
     while (index < lines.size) {
         val line = lines[index]
-        val startFence = parseOpeningFence(line)
+        val openingFence = parseOpeningFence(line)
 
-        if (startFence == null) {
+        if (openingFence == null) {
             appendLine(textBuffer, line)
             index++
             continue
@@ -47,18 +49,18 @@ fun parseFencedCodeSegments(input: String): List<Segment> {
         }
 
         val code = lines.subList(index + 1, closingIndex).joinToString("\n")
-        segments.add(Segment.Code(startFence, code))
+        segments.add(Segment.Code(openingFence.lang, code))
         index = closingIndex + 1
     }
 
-    if (textBuffer.isNotEmpty() || segments.isEmpty()) {
+    if (textBuffer.isNotEmpty()) {
         segments.add(Segment.Text(textBuffer.toString()))
     }
 
     return segments
 }
 
-private fun parseOpeningFence(line: String): String? {
+private fun parseOpeningFence(line: String): OpeningFence? {
     val trimmed = line.trim()
     if (!trimmed.startsWith("```")) {
         return null
@@ -67,7 +69,7 @@ private fun parseOpeningFence(line: String): String? {
     if (suffix.contains("`") || suffix.contains(' ')) {
         return null
     }
-    return suffix.ifBlank { null }
+    return OpeningFence(lang = suffix.ifBlank { null })
 }
 
 private fun isClosingFence(line: String): Boolean = line.trim() == "```"

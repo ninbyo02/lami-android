@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -35,7 +36,7 @@ fun ChatBubble(
     isSentByMe: Boolean,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
-    val segments = parseFencedCodeSegments(message)
+    val segments = remember(message) { parseFencedCodeSegments(message) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -72,7 +73,7 @@ fun PlainAssistantMessage(
     message: String,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
-    val segments = parseFencedCodeSegments(message)
+    val segments = remember(message) { parseFencedCodeSegments(message) }
 
     Column(
         modifier = Modifier
