@@ -134,36 +134,40 @@ private fun CodeBlockCard(
             shape = RoundedCornerShape(12.dp)
         )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .padding(end = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = lang?.takeIf { it.isNotBlank() } ?: "Code",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { clipboardManager.setText(AnnotatedString(code)) }) {
-                    Icon(
-                        imageVector = Icons.Filled.ContentCopy,
-                        contentDescription = "コードをコピー"
+                SelectionContainer {
+                    Text(
+                        text = code,
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
-            SelectionContainer {
-                Text(
-                    text = code,
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+            IconButton(
+                onClick = { clipboardManager.setText(AnnotatedString(code)) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ContentCopy,
+                    contentDescription = "コードをコピー",
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
