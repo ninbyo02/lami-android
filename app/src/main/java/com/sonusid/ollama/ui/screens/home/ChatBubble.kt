@@ -167,7 +167,7 @@ private fun CodeBlockCard(
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
                     contentDescription = "コードをコピー",
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(12.dp)
                 )
             }
         }
