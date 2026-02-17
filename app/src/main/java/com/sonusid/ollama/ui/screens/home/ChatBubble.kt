@@ -3,10 +3,16 @@ package com.sonusid.ollama.ui.screens.home
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -14,8 +20,11 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.ui.text.Segment
+import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 
@@ -26,6 +35,7 @@ fun ChatBubble(
     isSentByMe: Boolean,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
+    val segments = parseFencedCodeSegments(message)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -50,10 +60,7 @@ fun ChatBubble(
                     onClick = {},
                     onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
             ) {
-                MarkdownText(
-                    message,
-                    syntaxHighlightColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                MessageSegments(segments = segments)
             }
         }
     }
@@ -65,6 +72,7 @@ fun PlainAssistantMessage(
     message: String,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
+    val segments = parseFencedCodeSegments(message)
 
     Column(
         modifier = Modifier
@@ -77,10 +85,69 @@ fun PlainAssistantMessage(
                 onLongClick = { clipboardManager.setText(AnnotatedString(message)) }
             )
     ) {
-        MarkdownText(
-            message,
-            syntaxHighlightColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        MessageSegments(segments = segments)
+    }
+}
+
+@Composable
+private fun MessageSegments(segments: List<Segment>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        segments.forEach { segment ->
+            when (segment) {
+                is Segment.Text -> {
+                    if (segment.text.isNotEmpty()) {
+                        MarkdownText(
+                            segment.text,
+                            syntaxHighlightColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    }
+                }
+
+                is Segment.Code -> {
+                    CodeBlockCard(lang = segment.lang, code = segment.code)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CodeBlockCard(
+    lang: String?,
+    code: String,
+) {
+    val clipboardManager = LocalClipboardManager.current
+    Card(shape = RoundedCornerShape(12.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = lang?.takeIf { it.isNotBlank() } ?: "Code",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = { clipboardManager.setText(AnnotatedString(code)) }) {
+                    Text(text = "コードをコピーする")
+                }
+            }
+            SelectionContainer {
+                Text(
+                    text = code,
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 }
 
