@@ -434,6 +434,8 @@ private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
         "kotlin",
         "subprojects",
         "allprojects",
+        "pluginManagement",
+        "dependencyResolutionManagement",
     )
     val matchedMarkers = mutableSetOf<String>()
 
