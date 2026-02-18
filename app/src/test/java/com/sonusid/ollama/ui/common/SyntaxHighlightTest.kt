@@ -79,6 +79,31 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withGradleMarkersOnlyInsideString_doesNotHighlightImplementationAsKeyword() {
+        val code = """
+            fun setup() {
+                val gradleSnippet = "plugins {"
+                val depsSnippet = "dependencies {"
+                implementation("x:y:1.0")
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.indexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+
+        val pluginsStringStart = code.indexOf("\"plugins {\"")
+        val pluginsStringEnd = pluginsStringStart + "\"plugins {\"".length
+        assertTrue(hasStyledRangeCovering(result, pluginsStringStart, pluginsStringEnd))
+    }
+
+    @Test
     fun pythonCode_addsStylesForKeywordCommentAndNumber() {
         val code = """
             def add(a, b):

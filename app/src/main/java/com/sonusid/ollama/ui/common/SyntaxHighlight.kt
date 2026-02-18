@@ -249,7 +249,7 @@ private fun collectKeywordNumberAndFunctionTokens(
     marked: IntArray,
     tokens: MutableList<TokenRange>,
 ) {
-    val keywords = keywordsOf(language, code)
+    val keywords = keywordsOf(language, code, marked)
     var i = 0
 
     while (i < code.length) {
@@ -324,7 +324,7 @@ private fun collectKeywordTokensOnly(
     marked: IntArray,
     tokens: MutableList<TokenRange>,
 ) {
-    val keywords = keywordsOf(language, code)
+    val keywords = keywordsOf(language, code, marked)
     var i = 0
     while (i < code.length) {
         if (marked[i] != TOKEN_NONE) {
@@ -407,11 +407,11 @@ private fun findNextNonWhitespace(code: String, start: Int): Int {
     return i
 }
 
-private fun keywordsOf(language: SupportedLanguage, code: String): Set<String> {
+private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArray): Set<String> {
     return when (language) {
         SupportedLanguage.PYTHON -> pythonKeywords
         SupportedLanguage.KOTLIN -> {
-            if (isGradleDslLikeKotlinCode(code)) kotlinKeywords + kotlinGradleDslKeywords else kotlinKeywords
+            if (isGradleDslLikeKotlinCode(code, marked)) kotlinKeywords + kotlinGradleDslKeywords else kotlinKeywords
         }
         SupportedLanguage.BASH -> bashKeywords
         SupportedLanguage.JSON -> jsonKeywords
@@ -424,7 +424,7 @@ private fun keywordsOf(language: SupportedLanguage, code: String): Set<String> {
     }
 }
 
-private fun isGradleDslLikeKotlinCode(code: String): Boolean {
+private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
     val gradleDslMarkers = listOf(
         "plugins {",
         "dependencies {",
@@ -435,7 +435,25 @@ private fun isGradleDslLikeKotlinCode(code: String): Boolean {
         "subprojects {",
         "allprojects {",
     )
-    return gradleDslMarkers.any { marker -> code.contains(marker) }
+    return gradleDslMarkers.any { marker ->
+        var searchStart = 0
+        while (searchStart < code.length) {
+            val index = code.indexOf(marker, startIndex = searchStart)
+            if (index == -1) return@any false
+
+            val end = index + marker.length
+            var allNone = true
+            for (i in index until end) {
+                if (i !in marked.indices || marked[i] != TOKEN_NONE) {
+                    allNone = false
+                    break
+                }
+            }
+            if (allNone) return@any true
+            searchStart = index + 1
+        }
+        false
+    }
 }
 
 private fun supportsFunctionToken(language: SupportedLanguage): Boolean {
