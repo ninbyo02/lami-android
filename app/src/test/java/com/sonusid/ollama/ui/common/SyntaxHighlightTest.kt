@@ -106,12 +106,33 @@ class SyntaxHighlightTest {
     }
 
     @Test
-    fun kotlinCode_withSingleGradleDslBlock_doesNotEnableGradleDslKeywords() {
+    fun kotlinCode_withPluginsOnlyAndIdCall_enablesGradleDslKeywords() {
         val code = """
             plugins {
-                kotlin("jvm") version "1.9.0"
+                id("com.android.application") version "8.0.0"
             }
             fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertTrue(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withPluginsOnlyAndIdCallInsideString_doesNotEnableGradleDslKeywords() {
+        val code = """
+            plugins { }
+            fun main() {
+                val s = "id("
                 val implementation = 1
             }
         """.trimIndent()
@@ -268,6 +289,28 @@ class SyntaxHighlightTest {
             // pluginManagement {
             /* dependencyResolutionManagement { */
             fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+
+    @Test
+    fun kotlinCode_withGradleDslLikeCallsInsideFunction_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun main() {
+                plugins { }
+                dependencies { }
                 val implementation = 1
             }
         """.trimIndent()
