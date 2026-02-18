@@ -31,6 +31,39 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinGradleDslCode_highlightsFrequentDslIdentifiersAsKeywords() {
+        val code = """
+            plugins {
+                kotlin("jvm") version "1.9.0"
+                application
+            }
+            repositories { mavenCentral() }
+            dependencies {
+                implementation(kotlin("stdlib"))
+                testImplementation(kotlin("test"))
+            }
+            application { mainClass.set("com.example.MainKt") }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        assertFalse(result.spanStyles.isEmpty())
+        assertTrue(containsStyledFragment(result, "plugins"))
+        assertTrue(containsStyledFragment(result, "repositories"))
+        assertTrue(containsStyledFragment(result, "dependencies"))
+        assertTrue(containsStyledFragment(result, "application"))
+        assertTrue(containsStyledFragment(result, "implementation"))
+        assertTrue(containsStyledFragment(result, "testImplementation"))
+        assertTrue(containsStyledFragment(result, "mavenCentral"))
+        assertTrue(containsStyledFragment(result, "mainClass"))
+        assertTrue(containsStyledFragment(result, "set"))
+    }
+
+    @Test
     fun pythonCode_addsStylesForKeywordCommentAndNumber() {
         val code = """
             def add(a, b):
