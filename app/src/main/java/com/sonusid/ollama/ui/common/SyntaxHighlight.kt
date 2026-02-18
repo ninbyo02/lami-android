@@ -4,6 +4,7 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.buildAnnotatedString
 
@@ -84,7 +85,10 @@ fun buildHighlightedCodeAnnotatedString(
         append(code)
         tokens.forEach { token ->
             val style = when (token.type) {
-                TOKEN_COMMENT -> SpanStyle(color = palette.comment)
+                TOKEN_COMMENT -> SpanStyle(
+                    color = palette.comment,
+                    fontStyle = FontStyle.Italic,
+                )
                 TOKEN_STRING -> SpanStyle(color = palette.string)
                 TOKEN_KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
                 TOKEN_NUMBER -> SpanStyle(color = palette.number)
