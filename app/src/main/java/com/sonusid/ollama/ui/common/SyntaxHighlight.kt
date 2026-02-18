@@ -483,6 +483,26 @@ private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
         i++
     }
 
+    if ("plugins" in matchedMarkers && containsUnmarkedGradlePluginCall(code, marked)) {
+        return true
+    }
+
+    return false
+}
+
+private fun containsUnmarkedGradlePluginCall(code: String, marked: IntArray): Boolean {
+    var i = 0
+    while (i < code.length) {
+        if (marked[i] != TOKEN_NONE) {
+            i++
+            continue
+        }
+
+        if (code.startsWith("id(", i) || code.startsWith("kotlin(", i)) {
+            return true
+        }
+        i++
+    }
     return false
 }
 
