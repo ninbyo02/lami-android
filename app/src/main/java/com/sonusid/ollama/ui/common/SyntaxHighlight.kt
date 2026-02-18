@@ -56,8 +56,9 @@ private val kotlinKeywords = setOf(
 )
 
 private val kotlinGradleDslKeywords = setOf(
-    // Gradle Kotlin DSLの頻出語だけを最小追加して、build.gradle.ktsの可読性を改善する。
+    // Gradle Kotlin DSLの頻出語だけを最小追加して、build.gradle.kts/settings.gradle.ktsの可読性を改善する。
     "plugins", "repositories", "dependencies", "application",
+    "pluginManagement", "dependencyResolutionManagement",
     "implementation", "api", "compileOnly", "runtimeOnly",
     "testImplementation", "androidTestImplementation", "testRuntimeOnly",
     "id", "version", "kotlin", "jvm",
