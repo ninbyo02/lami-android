@@ -66,6 +66,19 @@ private val kotlinGradleDslKeywords = setOf(
     "mainClass", "set"
 )
 
+private val gradleDslDetectionMarkers = setOf(
+    "plugins",
+    "dependencies",
+    "repositories",
+    "buildscript",
+    "android",
+    "kotlin",
+    "subprojects",
+    "allprojects",
+    "pluginManagement",
+    "dependencyResolutionManagement",
+)
+
 private val bashKeywords = setOf(
     "if", "then", "else", "elif", "fi", "for", "in", "do", "done", "while", "case", "esac",
     "function", "select", "until", "time", "coproc", "local", "readonly", "export", "return"
@@ -426,18 +439,6 @@ private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArr
 }
 
 private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
-    val gradleDslMarkers = listOf(
-        "plugins",
-        "dependencies",
-        "repositories",
-        "buildscript",
-        "android",
-        "kotlin",
-        "subprojects",
-        "allprojects",
-        "pluginManagement",
-        "dependencyResolutionManagement",
-    )
     val matchedMarkers = mutableSetOf<String>()
 
     var i = 0
@@ -455,7 +456,7 @@ private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
 
             // 文字列/コメント除外は collectCommentAndStringTokens が事前に marked へ反映済み。
             if (lineStart in marked.indices && marked[lineStart] == TOKEN_NONE) {
-                for (marker in gradleDslMarkers) {
+                for (marker in gradleDslDetectionMarkers) {
                     val markerEnd = lineStart + marker.length
                     if (markerEnd > code.length || !code.startsWith(marker, lineStart)) continue
 
