@@ -380,28 +380,37 @@ private fun findKotlinNumberLiteralEnd(code: String, start: Int): Int {
     if (i + 1 < code.length && code[i] == '0') {
         when (code[i + 1]) {
             'x', 'X' -> {
-                i += 2
-                isPrefixedBase = true
-                isHex = true
-                val end = readDigitsWithUnderscore { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
-                if (end == i) return start
-                i = end
+                val hasHexDigit = i + 2 < code.length && (code[i + 2].isDigit() || code[i + 2] in 'a'..'f' || code[i + 2] in 'A'..'F')
+                if (hasHexDigit) {
+                    i += 2
+                    isPrefixedBase = true
+                    isHex = true
+                    val end = readDigitsWithUnderscore { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
+                    if (end == i) return start
+                    i = end
+                }
             }
 
             'b', 'B' -> {
-                i += 2
-                isPrefixedBase = true
-                val end = readDigitsWithUnderscore { it == '0' || it == '1' }
-                if (end == i) return start
-                i = end
+                val hasBinaryDigit = i + 2 < code.length && (code[i + 2] == '0' || code[i + 2] == '1')
+                if (hasBinaryDigit) {
+                    i += 2
+                    isPrefixedBase = true
+                    val end = readDigitsWithUnderscore { it == '0' || it == '1' }
+                    if (end == i) return start
+                    i = end
+                }
             }
 
             'o', 'O' -> {
-                i += 2
-                isPrefixedBase = true
-                val end = readDigitsWithUnderscore { it in '0'..'7' }
-                if (end == i) return start
-                i = end
+                val hasOctalDigit = i + 2 < code.length && code[i + 2] in '0'..'7'
+                if (hasOctalDigit) {
+                    i += 2
+                    isPrefixedBase = true
+                    val end = readDigitsWithUnderscore { it in '0'..'7' }
+                    if (end == i) return start
+                    i = end
+                }
             }
         }
     }
