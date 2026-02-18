@@ -184,11 +184,7 @@ class SyntaxHighlightTest {
     fun kotlinCode_withGradleMarkersOnlyInRawString_doesNotEnableGradleDslKeywords() {
         val code = """
             fun setup() {
-                val gradleSnippet = """
-                    plugins {
-                    repositories {
-                    dependencies {
-                """.trimIndent()
+                val gradleSnippet = "plugins {\nrepositories {\ndependencies {"
                 val implementation = 1
             }
         """.trimIndent()
@@ -214,25 +210,24 @@ class SyntaxHighlightTest {
 
     @Test
     fun kotlinCode_withGradleMarkersAtLineStartInsideTripleQuotedString_doesNotEnableGradleDslKeywords() {
-        val code = """
-            fun example() {
-                val script = """
-pluginManagement {
-    repositories {
-        mavenCentral()
-    }
-}
-
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-    }
-}
-""".trimIndent()
-
-                val implementation = 42
-            }
-        """.trimIndent()
+        val code = buildString {
+            appendLine("fun example() {")
+            appendLine("    val script = \"\"\"")
+            appendLine("pluginManagement {")
+            appendLine("    repositories {")
+            appendLine("        mavenCentral()")
+            appendLine("    }")
+            appendLine("}")
+            appendLine()
+            appendLine("dependencyResolutionManagement {")
+            appendLine("    repositories {")
+            appendLine("        mavenCentral()")
+            appendLine("    }")
+            appendLine("}")
+            appendLine("\"\"\".trimIndent()")
+            appendLine("    val implementation = 42")
+            appendLine("}")
+        }
 
         val result = buildHighlightedCodeAnnotatedString(
             code = code,
