@@ -53,6 +53,9 @@ private val kotlinKeywords = setOf(
     "as", "break", "class", "continue", "data", "do", "else", "false", "for", "fun", "if",
     "in", "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
     "true", "try", "typealias", "val", "var", "when", "while",
+)
+
+private val kotlinGradleDslKeywords = setOf(
     // Gradle Kotlin DSLの頻出語だけを最小追加して、build.gradle.ktsの可読性を改善する。
     "plugins", "repositories", "dependencies", "application",
     "implementation", "api", "compileOnly", "runtimeOnly",
@@ -246,7 +249,7 @@ private fun collectKeywordNumberAndFunctionTokens(
     marked: IntArray,
     tokens: MutableList<TokenRange>,
 ) {
-    val keywords = keywordsOf(language)
+    val keywords = keywordsOf(language, code)
     var i = 0
 
     while (i < code.length) {
@@ -321,7 +324,7 @@ private fun collectKeywordTokensOnly(
     marked: IntArray,
     tokens: MutableList<TokenRange>,
 ) {
-    val keywords = keywordsOf(language)
+    val keywords = keywordsOf(language, code)
     var i = 0
     while (i < code.length) {
         if (marked[i] != TOKEN_NONE) {
@@ -404,10 +407,12 @@ private fun findNextNonWhitespace(code: String, start: Int): Int {
     return i
 }
 
-private fun keywordsOf(language: SupportedLanguage): Set<String> {
+private fun keywordsOf(language: SupportedLanguage, code: String): Set<String> {
     return when (language) {
         SupportedLanguage.PYTHON -> pythonKeywords
-        SupportedLanguage.KOTLIN -> kotlinKeywords
+        SupportedLanguage.KOTLIN -> {
+            if (isGradleDslLikeKotlinCode(code)) kotlinKeywords + kotlinGradleDslKeywords else kotlinKeywords
+        }
         SupportedLanguage.BASH -> bashKeywords
         SupportedLanguage.JSON -> jsonKeywords
         SupportedLanguage.YAML -> yamlKeywords
@@ -417,6 +422,20 @@ private fun keywordsOf(language: SupportedLanguage): Set<String> {
         SupportedLanguage.TYPESCRIPT -> typescriptKeywords
         SupportedLanguage.SQL -> sqlKeywords
     }
+}
+
+private fun isGradleDslLikeKotlinCode(code: String): Boolean {
+    val gradleDslMarkers = listOf(
+        "plugins {",
+        "dependencies {",
+        "repositories {",
+        "buildscript {",
+        "android {",
+        "kotlin {",
+        "subprojects {",
+        "allprojects {",
+    )
+    return gradleDslMarkers.any { marker -> code.contains(marker) }
 }
 
 private fun supportsFunctionToken(language: SupportedLanguage): Boolean {
