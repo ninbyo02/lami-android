@@ -145,7 +145,7 @@ fun buildHighlightedCodeAnnotatedString(
                 TOKEN_STRING -> SpanStyle(color = palette.string)
                 TOKEN_KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
                 TOKEN_NUMBER -> SpanStyle(color = palette.number, fontWeight = FontWeight.Medium)
-                TOKEN_FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.Medium)
+                TOKEN_FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.SemiBold)
                 else -> null
             }
             if (style != null && token.start < token.end) {
