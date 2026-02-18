@@ -120,7 +120,7 @@ fun buildHighlightedCodeAnnotatedString(
                 )
                 TOKEN_STRING -> SpanStyle(color = palette.string)
                 TOKEN_KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
-                TOKEN_NUMBER -> SpanStyle(color = palette.number)
+                TOKEN_NUMBER -> SpanStyle(color = palette.number, fontWeight = FontWeight.Medium)
                 TOKEN_FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.Medium)
                 else -> null
             }
@@ -265,10 +265,16 @@ private fun collectKeywordNumberAndFunctionTokens(
                 }
             }
 
-            char.isDigit() -> {
+            char.isDigit() || (char == '.' && i + 1 < code.length && code[i + 1].isDigit()) -> {
                 val start = i
-                i++
+                if (code[i] == '.') {
+                    i++
+                }
                 while (i < code.length && code[i].isDigit()) i++
+                if (start == i) {
+                    i++
+                    continue
+                }
                 if (i < code.length && code[i] == '.' && i + 1 < code.length && code[i + 1].isDigit()) {
                     i++
                     while (i < code.length && code[i].isDigit()) i++
