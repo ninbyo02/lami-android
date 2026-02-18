@@ -302,7 +302,7 @@ class SyntaxHighlightTest {
     fun kotlinCode_withGradleDslLikeSnippetInTrimMarginString_doesNotEnableGradleDslKeywords() {
         val code = """
             fun example() {
-                val s = """
+                val s = ${"\"\"\""}
                     |pluginManagement {
                     |    repositories {
                     |        mavenCentral()
@@ -313,7 +313,7 @@ class SyntaxHighlightTest {
                     |        mavenCentral()
                     |    }
                     |}
-                """.trimMargin()
+                ${"\"\"\""}.trimMargin()
                 val implementation = 1
             }
         """.trimIndent()
