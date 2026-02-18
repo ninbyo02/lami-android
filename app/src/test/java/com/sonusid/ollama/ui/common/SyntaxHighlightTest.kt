@@ -283,6 +283,28 @@ class SyntaxHighlightTest {
         assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
     }
 
+
+    @Test
+    fun kotlinCode_withGradleDslLikeCallsInsideFunction_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun main() {
+                plugins { }
+                dependencies { }
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
     @Test
     fun kotlinCode_withGradleDslMarkersAtLineStartWithSpacesAndTabs_enablesGradleDslKeywords() {
         val code = "\tplugins {\n    repositories{\ndependencies\t{\n    implementation(kotlin(\"stdlib\"))\n}\n"

@@ -440,18 +440,23 @@ private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArr
 
 private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
     val matchedMarkers = mutableSetOf<String>()
+    // Kotlin通常コード内の誤検出を避けるため、トップレベル(深さ0)でのみ marker 判定する。
+    // 文字列/コメント(marked)は brace 深さ更新・marker 判定のどちらからも除外する。
+    var braceDepth = 0
 
     var i = 0
     while (i < code.length) {
-        if (i == 0 || code[i - 1] == '\n') {
+        if (marked[i] == TOKEN_NONE) {
+            when (code[i]) {
+                '{' -> braceDepth++
+                '}' -> braceDepth = (braceDepth - 1).coerceAtLeast(0)
+            }
+        }
+
+        if (braceDepth == 0 && (i == 0 || code[i - 1] == '\n')) {
             var lineStart = i
             while (lineStart < code.length && (code[lineStart] == ' ' || code[lineStart] == '\t')) {
                 lineStart++
-            }
-            val indentLen = lineStart - i
-            if (indentLen != 0) {
-                i++
-                continue
             }
 
             // 文字列/コメント除外は collectCommentAndStringTokens が事前に marked へ反映済み。
