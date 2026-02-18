@@ -426,34 +426,50 @@ private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArr
 
 private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
     val gradleDslMarkers = listOf(
-        "plugins {",
-        "dependencies {",
-        "repositories {",
-        "buildscript {",
-        "android {",
-        "kotlin {",
-        "subprojects {",
-        "allprojects {",
+        "plugins",
+        "dependencies",
+        "repositories",
+        "buildscript",
+        "android",
+        "kotlin",
+        "subprojects",
+        "allprojects",
     )
-    return gradleDslMarkers.any { marker ->
-        var searchStart = 0
-        while (searchStart < code.length) {
-            val index = code.indexOf(marker, startIndex = searchStart)
-            if (index == -1) return@any false
+    val matchedMarkers = mutableSetOf<String>()
 
-            val end = index + marker.length
-            var allNone = true
-            for (i in index until end) {
-                if (i !in marked.indices || marked[i] != TOKEN_NONE) {
-                    allNone = false
-                    break
+    var i = 0
+    while (i < code.length) {
+        if (i == 0 || code[i - 1] == '\n') {
+            var lineStart = i
+            while (lineStart < code.length && (code[lineStart] == ' ' || code[lineStart] == '\t')) {
+                lineStart++
+            }
+
+            // 文字列/コメント除外は collectCommentAndStringTokens が事前に marked へ反映済み。
+            if (lineStart in marked.indices && marked[lineStart] == TOKEN_NONE) {
+                for (marker in gradleDslMarkers) {
+                    val markerEnd = lineStart + marker.length
+                    if (markerEnd > code.length || !code.startsWith(marker, lineStart)) continue
+
+                    var cursor = markerEnd
+                    while (cursor < code.length && (code[cursor] == ' ' || code[cursor] == '\t')) {
+                        cursor++
+                    }
+
+                    if (cursor < code.length && code[cursor] == '{') {
+                        matchedMarkers += marker
+                    }
+                }
+
+                if (matchedMarkers.size >= 2) {
+                    return true
                 }
             }
-            if (allNone) return@any true
-            searchStart = index + 1
         }
-        false
+        i++
     }
+
+    return false
 }
 
 private fun supportsFunctionToken(language: SupportedLanguage): Boolean {

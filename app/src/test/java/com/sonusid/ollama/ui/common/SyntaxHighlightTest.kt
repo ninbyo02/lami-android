@@ -79,6 +79,28 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withSingleGradleDslBlock_doesNotEnableGradleDslKeywords() {
+        val code = """
+            plugins {
+                kotlin("jvm") version "1.9.0"
+            }
+            fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
     fun kotlinCode_withGradleMarkersOnlyInString_doesNotEnableGradleDslKeywords() {
         val code = """
             fun setup() {
@@ -137,6 +159,27 @@ class SyntaxHighlightTest {
         val rawStringStart = code.indexOf("plugins {")
         val rawStringEnd = rawStringStart + "plugins {".length
         assertTrue(hasStyledRangeCovering(result, rawStringStart, rawStringEnd))
+    }
+
+    @Test
+    fun kotlinCode_withGradleMarkersOnlyInComment_doesNotEnableGradleDslKeywords() {
+        val code = """
+            // plugins {
+            // dependencies {
+            fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
     }
 
     @Test
