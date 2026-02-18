@@ -52,7 +52,14 @@ private val pythonKeywords = setOf(
 private val kotlinKeywords = setOf(
     "as", "break", "class", "continue", "data", "do", "else", "false", "for", "fun", "if",
     "in", "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
-    "true", "try", "typealias", "val", "var", "when", "while"
+    "true", "try", "typealias", "val", "var", "when", "while",
+    // Gradle Kotlin DSLの頻出語だけを最小追加して、build.gradle.ktsの可読性を改善する。
+    "plugins", "repositories", "dependencies", "application",
+    "implementation", "api", "compileOnly", "runtimeOnly",
+    "testImplementation", "androidTestImplementation", "testRuntimeOnly",
+    "id", "version", "kotlin", "jvm",
+    "mavenCentral", "google",
+    "mainClass", "set"
 )
 
 private val bashKeywords = setOf(
