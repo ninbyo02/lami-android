@@ -289,6 +289,17 @@ private fun collectKeywordNumberAndFunctionTokens(
                 }
             }
 
+            language == SupportedLanguage.KOTLIN && char.isDigit() -> {
+                val start = i
+                val end = findKotlinNumberLiteralEnd(code, start)
+                if (end > start) {
+                    addTokenIfFree(start, end, TOKEN_NUMBER, marked, tokens)
+                    i = end
+                } else {
+                    i++
+                }
+            }
+
             char.isDigit() ||
                 (char == '.' && i + 1 < code.length && code[i + 1].isDigit()) ||
                 (
@@ -330,6 +341,120 @@ private fun collectKeywordNumberAndFunctionTokens(
             else -> i++
         }
     }
+}
+
+private fun findKotlinNumberLiteralEnd(code: String, start: Int): Int {
+    if (start !in code.indices || !code[start].isDigit()) return start
+
+    var i = start
+    var isPrefixedBase = false
+    var isHex = false
+
+    fun readDigitsWithUnderscore(baseDigit: (Char) -> Boolean): Int {
+        var index = i
+        var digitCount = 0
+        while (index < code.length) {
+            val current = code[index]
+            when {
+                baseDigit(current) -> {
+                    digitCount++
+                    index++
+                }
+
+                current == '_' -> {
+                    val prevIsDigit = index > i && baseDigit(code[index - 1])
+                    val nextIsDigit = index + 1 < code.length && baseDigit(code[index + 1])
+                    if (prevIsDigit && nextIsDigit) {
+                        index++
+                    } else {
+                        break
+                    }
+                }
+
+                else -> break
+            }
+        }
+        return if (digitCount > 0) index else i
+    }
+
+    if (i + 1 < code.length && code[i] == '0') {
+        when (code[i + 1]) {
+            'x', 'X' -> {
+                i += 2
+                isPrefixedBase = true
+                isHex = true
+                val end = readDigitsWithUnderscore { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
+                if (end == i) return start
+                i = end
+            }
+
+            'b', 'B' -> {
+                i += 2
+                isPrefixedBase = true
+                val end = readDigitsWithUnderscore { it == '0' || it == '1' }
+                if (end == i) return start
+                i = end
+            }
+
+            'o', 'O' -> {
+                i += 2
+                isPrefixedBase = true
+                val end = readDigitsWithUnderscore { it in '0'..'7' }
+                if (end == i) return start
+                i = end
+            }
+        }
+    }
+
+    if (!isPrefixedBase) {
+        i = readDigitsWithUnderscore { it.isDigit() }
+        if (i == start) return start
+
+        if (i < code.length && code[i] == '.' && i + 1 < code.length && code[i + 1].isDigit()) {
+            i++
+            val decimalEnd = readDigitsWithUnderscore { it.isDigit() }
+            if (decimalEnd > i) {
+                i = decimalEnd
+            }
+        }
+
+        if (i < code.length && (code[i] == 'e' || code[i] == 'E')) {
+            val expStart = i
+            var j = i + 1
+            if (j < code.length && (code[j] == '+' || code[j] == '-')) j++
+            val digitStart = j
+            i = j
+            val expEnd = readDigitsWithUnderscore { it.isDigit() }
+            i = if (expEnd > digitStart) expEnd else expStart
+        }
+    } else if (isHex) {
+        if (i < code.length && code[i] == '.' && i + 1 < code.length && (code[i + 1].isDigit() || code[i + 1] in 'a'..'f' || code[i + 1] in 'A'..'F')) {
+            i++
+            val fractionalEnd = readDigitsWithUnderscore { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
+            if (fractionalEnd > i) {
+                i = fractionalEnd
+            }
+        }
+
+        if (i < code.length && (code[i] == 'p' || code[i] == 'P')) {
+            val expStart = i
+            var j = i + 1
+            if (j < code.length && (code[j] == '+' || code[j] == '-')) j++
+            val digitStart = j
+            i = j
+            val expEnd = readDigitsWithUnderscore { it.isDigit() }
+            i = if (expEnd > digitStart) expEnd else expStart
+        }
+    }
+
+    if (i < code.length && (code[i] == 'u' || code[i] == 'U')) {
+        i++
+    }
+    if (i < code.length && (code[i] == 'l' || code[i] == 'L' || code[i] == 'f' || code[i] == 'F' || code[i] == 'd' || code[i] == 'D')) {
+        i++
+    }
+
+    return i
 }
 
 private fun collectKeywordTokensOnly(
