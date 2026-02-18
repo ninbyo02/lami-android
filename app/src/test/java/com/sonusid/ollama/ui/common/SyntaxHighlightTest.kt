@@ -284,6 +284,75 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withGradleDslMarkersAtLineStartWithSpacesAndTabs_enablesGradleDslKeywords() {
+        val code = "\tplugins {\n    repositories{\ndependencies\t{\n    implementation(kotlin(\"stdlib\"))\n}\n"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.indexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertTrue(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withGradleDslLikeSnippetInTrimMarginString_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun example() {
+                val s = ${"\"\"\""}
+                    |pluginManagement {
+                    |    repositories {
+                    |        mavenCentral()
+                    |    }
+                    |}
+                    |dependencyResolutionManagement {
+                    |    repositories {
+                    |        mavenCentral()
+                    |    }
+                    |}
+                ${"\"\"\""}.trimMargin()
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withGradleDslMarkersAtLineStartAsStringLiteral_doesNotEnableGradleDslKeywords() {
+        val code = buildString {
+            appendLine("fun example() {")
+            appendLine("    val quoted = \"pluginManagement {\"")
+            appendLine("    val raw = \"\"\"")
+            appendLine("dependencyResolutionManagement {")
+            appendLine("\"\"\".trimIndent()")
+            appendLine("    val implementation = 1")
+            appendLine("}")
+        }
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
     fun pythonCode_addsStylesForKeywordCommentAndNumber() {
         val code = """
             def add(a, b):
