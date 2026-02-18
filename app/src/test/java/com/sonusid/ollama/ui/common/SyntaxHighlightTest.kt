@@ -79,12 +79,12 @@ class SyntaxHighlightTest {
     }
 
     @Test
-    fun kotlinCode_withGradleMarkersOnlyInsideString_doesNotHighlightImplementationAsKeyword() {
+    fun kotlinCode_withGradleMarkersOnlyInString_doesNotEnableGradleDslKeywords() {
         val code = """
             fun setup() {
                 val gradleSnippet = "plugins {"
                 val depsSnippet = "dependencies {"
-                implementation("x:y:1.0")
+                val implementation = 1
             }
         """.trimIndent()
 
@@ -94,13 +94,49 @@ class SyntaxHighlightTest {
             colors = lightColorScheme(),
         )
 
-        val implementationStart = code.indexOf("implementation")
+        val implementationStart = code.lastIndexOf("implementation")
         val implementationEnd = implementationStart + "implementation".length
         assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+
+        val valStart = code.indexOf("val")
+        val valEnd = valStart + "val".length
+        assertTrue(hasStyledRangeCovering(result, valStart, valEnd))
 
         val pluginsStringStart = code.indexOf("\"plugins {\"")
         val pluginsStringEnd = pluginsStringStart + "\"plugins {\"".length
         assertTrue(hasStyledRangeCovering(result, pluginsStringStart, pluginsStringEnd))
+    }
+
+    @Test
+    fun kotlinCode_withGradleMarkersOnlyInRawString_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun setup() {
+                val gradleSnippet = """
+                    plugins {
+                    repositories {
+                    dependencies {
+                """.trimIndent()
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+
+        val valStart = code.indexOf("val")
+        val valEnd = valStart + "val".length
+        assertTrue(hasStyledRangeCovering(result, valStart, valEnd))
+
+        val rawStringStart = code.indexOf("plugins {")
+        val rawStringEnd = rawStringStart + "plugins {".length
+        assertTrue(hasStyledRangeCovering(result, rawStringStart, rawStringEnd))
     }
 
     @Test
