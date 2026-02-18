@@ -66,6 +66,22 @@ class SyntaxHighlightTest {
         assertTrue(containsStyledFragment(result, "// c"))
     }
 
+
+    @Test
+    fun javascriptCode_highlightsDotPrefixedAndDecimalNumbers() {
+        val code = "x = .3; y = 0.3; z = 12.34"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "js",
+            colors = lightColorScheme(),
+        )
+
+        assertTrue(hasStyledRangeCovering(result, code.indexOf(".3"), code.indexOf(".3") + 2))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("0.3"), code.indexOf("0.3") + 3))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("12.34"), code.indexOf("12.34") + 5))
+    }
+
     @Test
     fun typescriptCode_addsStylesForKeyword() {
         val code = "type A = string"
@@ -152,6 +168,17 @@ class SyntaxHighlightTest {
         )
 
         assertTrue(result.spanStyles.isEmpty())
+    }
+
+
+    private fun hasStyledRangeCovering(
+        annotatedString: AnnotatedString,
+        start: Int,
+        end: Int,
+    ): Boolean {
+        return annotatedString.spanStyles.any { range ->
+            range.start <= start && range.end >= end
+        }
     }
 
     private fun containsStyledFragment(
