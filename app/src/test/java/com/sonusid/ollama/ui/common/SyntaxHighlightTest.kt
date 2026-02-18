@@ -1,7 +1,9 @@
 package com.sonusid.ollama.ui.common
 
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -395,6 +397,59 @@ class SyntaxHighlightTest {
         assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
     }
 
+
+
+    @Test
+    fun kotlinCode_highlightsKotlinNumericLiterals() {
+        val colors = lightColorScheme()
+        val code = """
+            val a = 1_000_000
+            val b = 0xCA_FE
+            val c = 0b10_10
+            val d = 0o7_5_5
+            val e = 1.2e-3
+            val f = 123L
+            val g = 1f
+            val h = 1u
+            val i = 0xFFu
+            val j = 0x1.2p3
+            val r = 1..10
+            val s = "1_000_000"
+            val bad = 0x
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = colors,
+        )
+
+        listOf("1_000_000", "0xCA_FE", "0b10_10", "0o7_5_5", "1.2e-3", "123L", "1f", "1u", "0xFFu", "0x1.2p3")
+            .forEach { literal ->
+                val start = code.indexOf(literal)
+                assertTrue(hasStyledRangeCovering(result, start, start + literal.length))
+            }
+
+        val firstOneStart = code.indexOf("1..10")
+        assertTrue(hasStyledRangeCovering(result, firstOneStart, firstOneStart + 1))
+        val tenStart = code.indexOf("10", firstOneStart)
+        assertTrue(hasStyledRangeCovering(result, tenStart, tenStart + 2))
+        assertFalse(hasStyledRangeCovering(result, firstOneStart, firstOneStart + 2))
+
+        val stringNumberStart = code.indexOf("\"1_000_000\"") + 1
+        assertFalse(
+            hasNumberStyleRangeCovering(
+                annotatedString = result,
+                start = stringNumberStart,
+                end = stringNumberStart + "1_000_000".length,
+                colors = colors,
+            ),
+        )
+
+        val badStart = code.lastIndexOf("0x")
+        assertFalse(hasStyledRangeCovering(result, badStart, badStart + 2))
+    }
+
     @Test
     fun pythonCode_addsStylesForKeywordCommentAndNumber() {
         val code = """
@@ -562,6 +617,20 @@ class SyntaxHighlightTest {
     ): Boolean {
         return annotatedString.spanStyles.any { range ->
             range.start <= start && range.end >= end
+        }
+    }
+
+    private fun hasNumberStyleRangeCovering(
+        annotatedString: AnnotatedString,
+        start: Int,
+        end: Int,
+        colors: ColorScheme,
+    ): Boolean {
+        return annotatedString.spanStyles.any { range ->
+            range.start <= start &&
+                range.end >= end &&
+                range.item.color == colors.secondary &&
+                range.item.fontWeight == FontWeight.Medium
         }
     }
 
