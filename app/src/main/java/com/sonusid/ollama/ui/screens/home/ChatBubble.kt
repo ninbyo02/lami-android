@@ -156,6 +156,7 @@ private fun CodeBlockCard(
                     onClick = { clipboardManager.setText(AnnotatedString(code)) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
+                        .offset(x = 18.dp, y = (-18).dp)
                         .minimumInteractiveComponentSize()
                         .padding(0.dp)
                 ) {
