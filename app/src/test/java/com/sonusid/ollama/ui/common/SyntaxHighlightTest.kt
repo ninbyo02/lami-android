@@ -64,6 +64,21 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withoutGradleDslMarkers_doesNotHighlightImplementationAsKeyword() {
+        val code = "fun main() { val implementation = 1 }"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.indexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
     fun pythonCode_addsStylesForKeywordCommentAndNumber() {
         val code = """
             def add(a, b):
