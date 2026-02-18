@@ -63,6 +63,33 @@ class SyntaxHighlightTest {
         assertTrue(containsStyledFragment(result, "set"))
     }
 
+
+    @Test
+    fun kotlinSettingsGradleDsl_detectsWithPluginManagementAndDependencyResolutionManagement() {
+        val code = """
+            pluginManagement {
+                repositories {
+                    mavenCentral()
+                }
+            }
+
+            dependencyResolutionManagement {
+                repositories {
+                    mavenCentral()
+                }
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        assertTrue(containsStyledFragment(result, "repositories"))
+        assertTrue(containsStyledFragment(result, "mavenCentral"))
+    }
+
     @Test
     fun kotlinCode_withoutGradleDslMarkers_doesNotHighlightImplementationAsKeyword() {
         val code = "fun main() { val implementation = 1 }"
@@ -83,6 +110,30 @@ class SyntaxHighlightTest {
         val code = """
             plugins {
                 kotlin("jvm") version "1.9.0"
+            }
+            fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withSingleSettingsGradleDslBlock_doesNotEnableGradleDslKeywords() {
+        val code = """
+            pluginManagement {
+                repositories {
+                    mavenCentral()
+                }
             }
             fun main() {
                 val implementation = 1
@@ -133,11 +184,7 @@ class SyntaxHighlightTest {
     fun kotlinCode_withGradleMarkersOnlyInRawString_doesNotEnableGradleDslKeywords() {
         val code = """
             fun setup() {
-                val gradleSnippet = """
-                    plugins {
-                    repositories {
-                    dependencies {
-                """.trimIndent()
+                val gradleSnippet = "plugins {\nrepositories {\ndependencies {"
                 val implementation = 1
             }
         """.trimIndent()
@@ -162,10 +209,64 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withGradleMarkersAtLineStartInsideTripleQuotedString_doesNotEnableGradleDslKeywords() {
+        val code = buildString {
+            appendLine("fun example() {")
+            appendLine("    val script = \"\"\"")
+            appendLine("pluginManagement {")
+            appendLine("    repositories {")
+            appendLine("        mavenCentral()")
+            appendLine("    }")
+            appendLine("}")
+            appendLine()
+            appendLine("dependencyResolutionManagement {")
+            appendLine("    repositories {")
+            appendLine("        mavenCentral()")
+            appendLine("    }")
+            appendLine("}")
+            appendLine("\"\"\".trimIndent()")
+            appendLine("    val implementation = 42")
+            appendLine("}")
+        }
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        // Gradle DSL が有効になっていないことを確認（implementation がキーワード化されない）
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
     fun kotlinCode_withGradleMarkersOnlyInComment_doesNotEnableGradleDslKeywords() {
         val code = """
             // plugins {
             // dependencies {
+            fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withSettingsGradleMarkersOnlyInComments_doesNotEnableGradleDslKeywords() {
+        val code = """
+            // pluginManagement {
+            /* dependencyResolutionManagement { */
             fun main() {
                 val implementation = 1
             }
