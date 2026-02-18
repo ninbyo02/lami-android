@@ -446,7 +446,7 @@ class SyntaxHighlightTest {
             ),
         )
 
-        val badStart = code.indexOf("0x")
+        val badStart = code.lastIndexOf("0x")
         assertFalse(hasStyledRangeCovering(result, badStart, badStart + 2))
     }
 
