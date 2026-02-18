@@ -31,6 +31,115 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinGradleDslCode_highlightsFrequentDslIdentifiersAsKeywords() {
+        val code = """
+            plugins {
+                kotlin("jvm") version "1.9.0"
+                application
+            }
+            repositories { mavenCentral() }
+            dependencies {
+                implementation(kotlin("stdlib"))
+                testImplementation(kotlin("test"))
+            }
+            application { mainClass.set("com.example.MainKt") }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        assertFalse(result.spanStyles.isEmpty())
+        assertTrue(containsStyledFragment(result, "plugins"))
+        assertTrue(containsStyledFragment(result, "repositories"))
+        assertTrue(containsStyledFragment(result, "dependencies"))
+        assertTrue(containsStyledFragment(result, "application"))
+        assertTrue(containsStyledFragment(result, "implementation"))
+        assertTrue(containsStyledFragment(result, "testImplementation"))
+        assertTrue(containsStyledFragment(result, "mavenCentral"))
+        assertTrue(containsStyledFragment(result, "mainClass"))
+        assertTrue(containsStyledFragment(result, "set"))
+    }
+
+    @Test
+    fun kotlinCode_withoutGradleDslMarkers_doesNotHighlightImplementationAsKeyword() {
+        val code = "fun main() { val implementation = 1 }"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.indexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withGradleMarkersOnlyInString_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun setup() {
+                val gradleSnippet = "plugins {"
+                val depsSnippet = "dependencies {"
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+
+        val valStart = code.indexOf("val")
+        val valEnd = valStart + "val".length
+        assertTrue(hasStyledRangeCovering(result, valStart, valEnd))
+
+        val pluginsStringStart = code.indexOf("\"plugins {\"")
+        val pluginsStringEnd = pluginsStringStart + "\"plugins {\"".length
+        assertTrue(hasStyledRangeCovering(result, pluginsStringStart, pluginsStringEnd))
+    }
+
+    @Test
+    fun kotlinCode_withGradleMarkersOnlyInRawString_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun setup() {
+                val gradleSnippet = """
+                    plugins {
+                    repositories {
+                    dependencies {
+                """.trimIndent()
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+
+        val valStart = code.indexOf("val")
+        val valEnd = valStart + "val".length
+        assertTrue(hasStyledRangeCovering(result, valStart, valEnd))
+
+        val rawStringStart = code.indexOf("plugins {")
+        val rawStringEnd = rawStringStart + "plugins {".length
+        assertTrue(hasStyledRangeCovering(result, rawStringStart, rawStringEnd))
+    }
+
+    @Test
     fun pythonCode_addsStylesForKeywordCommentAndNumber() {
         val code = """
             def add(a, b):
@@ -64,6 +173,41 @@ class SyntaxHighlightTest {
         assertTrue(containsStyledFragment(result, "function"))
         assertTrue(containsStyledFragment(result, "return"))
         assertTrue(containsStyledFragment(result, "// c"))
+    }
+
+
+    @Test
+    fun javascriptCode_highlightsDotPrefixedAndDecimalNumbers() {
+        val code = "x = .3; y = 0.3; z = 12.34"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "js",
+            colors = lightColorScheme(),
+        )
+
+        assertTrue(hasStyledRangeCovering(result, code.indexOf(".3"), code.indexOf(".3") + 2))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("0.3"), code.indexOf("0.3") + 3))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("12.34"), code.indexOf("12.34") + 5))
+    }
+
+
+    @Test
+    fun javascriptCode_highlightsNegativeNumbersButNotMinusOperator() {
+        val code = "a = -200; b = -0.3; c = -.5; d = a - b"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "js",
+            colors = lightColorScheme(),
+        )
+
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("-200"), code.indexOf("-200") + 4))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("-0.3"), code.indexOf("-0.3") + 4))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("-.5"), code.indexOf("-.5") + 3))
+
+        val minusIndex = code.lastIndexOf('-')
+        assertFalse(hasStyledRangeCovering(result, minusIndex, minusIndex + 1))
     }
 
     @Test
@@ -152,6 +296,17 @@ class SyntaxHighlightTest {
         )
 
         assertTrue(result.spanStyles.isEmpty())
+    }
+
+
+    private fun hasStyledRangeCovering(
+        annotatedString: AnnotatedString,
+        start: Int,
+        end: Int,
+    ): Boolean {
+        return annotatedString.spanStyles.any { range ->
+            range.start <= start && range.end >= end
+        }
     }
 
     private fun containsStyledFragment(

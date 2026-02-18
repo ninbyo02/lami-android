@@ -52,7 +52,17 @@ private val pythonKeywords = setOf(
 private val kotlinKeywords = setOf(
     "as", "break", "class", "continue", "data", "do", "else", "false", "for", "fun", "if",
     "in", "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
-    "true", "try", "typealias", "val", "var", "when", "while"
+    "true", "try", "typealias", "val", "var", "when", "while",
+)
+
+private val kotlinGradleDslKeywords = setOf(
+    // Gradle Kotlin DSLの頻出語だけを最小追加して、build.gradle.ktsの可読性を改善する。
+    "plugins", "repositories", "dependencies", "application",
+    "implementation", "api", "compileOnly", "runtimeOnly",
+    "testImplementation", "androidTestImplementation", "testRuntimeOnly",
+    "id", "version", "kotlin", "jvm",
+    "mavenCentral", "google",
+    "mainClass", "set"
 )
 
 private val bashKeywords = setOf(
@@ -120,7 +130,7 @@ fun buildHighlightedCodeAnnotatedString(
                 )
                 TOKEN_STRING -> SpanStyle(color = palette.string)
                 TOKEN_KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
-                TOKEN_NUMBER -> SpanStyle(color = palette.number)
+                TOKEN_NUMBER -> SpanStyle(color = palette.number, fontWeight = FontWeight.Medium)
                 TOKEN_FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.Medium)
                 else -> null
             }
@@ -239,7 +249,7 @@ private fun collectKeywordNumberAndFunctionTokens(
     marked: IntArray,
     tokens: MutableList<TokenRange>,
 ) {
-    val keywords = keywordsOf(language)
+    val keywords = keywordsOf(language, code, marked)
     var i = 0
 
     while (i < code.length) {
@@ -265,10 +275,37 @@ private fun collectKeywordNumberAndFunctionTokens(
                 }
             }
 
-            char.isDigit() -> {
+            char.isDigit() ||
+                (char == '.' && i + 1 < code.length && code[i + 1].isDigit()) ||
+                (
+                    char == '-' &&
+                        (
+                            (i + 1 < code.length && code[i + 1].isDigit()) ||
+                                (i + 2 < code.length && code[i + 1] == '.' && code[i + 2].isDigit())
+                            ) &&
+                        (
+                            i == 0 ||
+                                code[i - 1].isWhitespace() ||
+                                code[i - 1] == '(' ||
+                                code[i - 1] == '=' ||
+                                code[i - 1] == ':' ||
+                                code[i - 1] == ',' ||
+                                code[i - 1] == '{' ||
+                                code[i - 1] == '['
+                            )
+                    ) -> {
                 val start = i
-                i++
+                if (code[i] == '-') {
+                    i++
+                }
+                if (code[i] == '.') {
+                    i++
+                }
                 while (i < code.length && code[i].isDigit()) i++
+                if (start == i) {
+                    i++
+                    continue
+                }
                 if (i < code.length && code[i] == '.' && i + 1 < code.length && code[i + 1].isDigit()) {
                     i++
                     while (i < code.length && code[i].isDigit()) i++
@@ -287,7 +324,7 @@ private fun collectKeywordTokensOnly(
     marked: IntArray,
     tokens: MutableList<TokenRange>,
 ) {
-    val keywords = keywordsOf(language)
+    val keywords = keywordsOf(language, code, marked)
     var i = 0
     while (i < code.length) {
         if (marked[i] != TOKEN_NONE) {
@@ -370,10 +407,12 @@ private fun findNextNonWhitespace(code: String, start: Int): Int {
     return i
 }
 
-private fun keywordsOf(language: SupportedLanguage): Set<String> {
+private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArray): Set<String> {
     return when (language) {
         SupportedLanguage.PYTHON -> pythonKeywords
-        SupportedLanguage.KOTLIN -> kotlinKeywords
+        SupportedLanguage.KOTLIN -> {
+            if (isGradleDslLikeKotlinCode(code, marked)) kotlinKeywords + kotlinGradleDslKeywords else kotlinKeywords
+        }
         SupportedLanguage.BASH -> bashKeywords
         SupportedLanguage.JSON -> jsonKeywords
         SupportedLanguage.YAML -> yamlKeywords
@@ -382,6 +421,38 @@ private fun keywordsOf(language: SupportedLanguage): Set<String> {
         SupportedLanguage.JAVASCRIPT -> javascriptKeywords
         SupportedLanguage.TYPESCRIPT -> typescriptKeywords
         SupportedLanguage.SQL -> sqlKeywords
+    }
+}
+
+private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
+    val gradleDslMarkers = listOf(
+        "plugins {",
+        "dependencies {",
+        "repositories {",
+        "buildscript {",
+        "android {",
+        "kotlin {",
+        "subprojects {",
+        "allprojects {",
+    )
+    return gradleDslMarkers.any { marker ->
+        var searchStart = 0
+        while (searchStart < code.length) {
+            val index = code.indexOf(marker, startIndex = searchStart)
+            if (index == -1) return@any false
+
+            val end = index + marker.length
+            var allNone = true
+            for (i in index until end) {
+                if (i !in marked.indices || marked[i] != TOKEN_NONE) {
+                    allNone = false
+                    break
+                }
+            }
+            if (allNone) return@any true
+            searchStart = index + 1
+        }
+        false
     }
 }
 
