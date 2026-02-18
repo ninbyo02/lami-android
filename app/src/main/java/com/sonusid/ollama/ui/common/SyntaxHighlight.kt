@@ -19,6 +19,13 @@ private enum class SupportedLanguage {
     PYTHON,
     KOTLIN,
     BASH,
+    JSON,
+    YAML,
+    HTML,
+    CSS,
+    JAVASCRIPT,
+    TYPESCRIPT,
+    SQL,
 }
 
 private data class TokenRange(
@@ -51,6 +58,28 @@ private val kotlinKeywords = setOf(
 private val bashKeywords = setOf(
     "if", "then", "else", "elif", "fi", "for", "in", "do", "done", "while", "case", "esac",
     "function", "select", "until", "time", "coproc", "local", "readonly", "export", "return"
+)
+
+private val jsonKeywords = setOf("true", "false", "null")
+
+private val yamlKeywords = setOf("true", "false", "null", "yes", "no", "on", "off")
+
+private val javascriptKeywords = setOf(
+    "function", "return", "const", "let", "var", "if", "else", "for", "while", "switch",
+    "case", "break", "continue", "class", "extends", "import", "export", "from", "try", "catch",
+    "finally", "throw", "new", "this", "super", "async", "await", "typeof", "instanceof", "in",
+    "of", "void", "yield"
+)
+
+private val typescriptKeywords = javascriptKeywords + setOf(
+    "type", "interface", "implements", "enum", "namespace", "readonly", "public", "private", "protected"
+)
+
+private val sqlKeywords = setOf(
+    "select", "from", "where", "join", "left", "right", "inner", "outer", "on", "group", "by",
+    "order", "having", "limit", "offset", "insert", "into", "values", "update", "set", "delete",
+    "create", "table", "alter", "drop", "distinct", "as", "and", "or", "not", "null", "is", "in",
+    "like", "between", "union", "all"
 )
 
 fun buildHighlightedCodeAnnotatedString(
@@ -107,6 +136,13 @@ private fun normalizeLanguage(language: String?): SupportedLanguage? {
         "python", "py" -> SupportedLanguage.PYTHON
         "kotlin", "kt", "kts" -> SupportedLanguage.KOTLIN
         "bash", "sh", "zsh", "shell" -> SupportedLanguage.BASH
+        "json" -> SupportedLanguage.JSON
+        "yaml", "yml" -> SupportedLanguage.YAML
+        "html", "htm" -> SupportedLanguage.HTML
+        "css" -> SupportedLanguage.CSS
+        "javascript", "js" -> SupportedLanguage.JAVASCRIPT
+        "typescript", "ts" -> SupportedLanguage.TYPESCRIPT
+        "sql" -> SupportedLanguage.SQL
         else -> null
     }
 }
@@ -132,7 +168,37 @@ private fun collectCommentAndStringTokens(
                 i = end
             }
 
-            (language == SupportedLanguage.PYTHON || language == SupportedLanguage.BASH) && code[i] == '#' -> {
+            (language == SupportedLanguage.JAVASCRIPT || language == SupportedLanguage.TYPESCRIPT) && code.startsWith("//", i) -> {
+                val end = findLineEnd(code, i + 2)
+                addTokenIfFree(i, end, TOKEN_COMMENT, marked, tokens)
+                i = end
+            }
+
+            (language == SupportedLanguage.JAVASCRIPT || language == SupportedLanguage.TYPESCRIPT || language == SupportedLanguage.CSS) && code.startsWith("/*", i) -> {
+                val end = findBlockCommentEnd(code, i + 2)
+                addTokenIfFree(i, end, TOKEN_COMMENT, marked, tokens)
+                i = end
+            }
+
+            language == SupportedLanguage.SQL && code.startsWith("--", i) -> {
+                val end = findLineEnd(code, i + 2)
+                addTokenIfFree(i, end, TOKEN_COMMENT, marked, tokens)
+                i = end
+            }
+
+            language == SupportedLanguage.SQL && code.startsWith("/*", i) -> {
+                val end = findBlockCommentEnd(code, i + 2)
+                addTokenIfFree(i, end, TOKEN_COMMENT, marked, tokens)
+                i = end
+            }
+
+            language == SupportedLanguage.HTML && code.startsWith("<!--", i) -> {
+                val end = findDelimitedEnd(code, i + 4, "-->")
+                addTokenIfFree(i, end, TOKEN_COMMENT, marked, tokens)
+                i = end
+            }
+
+            (language == SupportedLanguage.PYTHON || language == SupportedLanguage.BASH || language == SupportedLanguage.YAML) && code[i] == '#' -> {
                 val end = findLineEnd(code, i + 1)
                 addTokenIfFree(i, end, TOKEN_COMMENT, marked, tokens)
                 i = end
@@ -152,6 +218,12 @@ private fun collectCommentAndStringTokens(
 
             code[i] == '"' || code[i] == '\'' -> {
                 val end = findQuotedEnd(code, i, code[i])
+                addTokenIfFree(i, end, TOKEN_STRING, marked, tokens)
+                i = end
+            }
+
+            (language == SupportedLanguage.JAVASCRIPT || language == SupportedLanguage.TYPESCRIPT) && code[i] == '`' -> {
+                val end = findQuotedEnd(code, i, '`')
                 addTokenIfFree(i, end, TOKEN_STRING, marked, tokens)
                 i = end
             }
@@ -187,7 +259,7 @@ private fun collectKeywordNumberAndFunctionTokens(
                     addTokenIfFree(start, i, TOKEN_KEYWORD, marked, tokens)
                 } else {
                     val openParen = findNextNonWhitespace(code, i)
-                    if (openParen in code.indices && code[openParen] == '(') {
+                    if (supportsFunctionToken(language) && openParen in code.indices && code[openParen] == '(') {
                         addTokenIfFree(start, i, TOKEN_FUNCTION, marked, tokens)
                     }
                 }
@@ -274,6 +346,11 @@ private fun findTripleQuotedEnd(code: String, start: Int, delimiter: String): In
     return if (foundIndex == -1) code.length else foundIndex + delimiter.length
 }
 
+private fun findDelimitedEnd(code: String, start: Int, delimiter: String): Int {
+    val foundIndex = code.indexOf(delimiter, startIndex = start)
+    return if (foundIndex == -1) code.length else foundIndex + delimiter.length
+}
+
 private fun findQuotedEnd(code: String, start: Int, quote: Char): Int {
     var i = start + 1
     while (i < code.length) {
@@ -298,6 +375,31 @@ private fun keywordsOf(language: SupportedLanguage): Set<String> {
         SupportedLanguage.PYTHON -> pythonKeywords
         SupportedLanguage.KOTLIN -> kotlinKeywords
         SupportedLanguage.BASH -> bashKeywords
+        SupportedLanguage.JSON -> jsonKeywords
+        SupportedLanguage.YAML -> yamlKeywords
+        SupportedLanguage.HTML -> emptySet()
+        SupportedLanguage.CSS -> emptySet()
+        SupportedLanguage.JAVASCRIPT -> javascriptKeywords
+        SupportedLanguage.TYPESCRIPT -> typescriptKeywords
+        SupportedLanguage.SQL -> sqlKeywords
+    }
+}
+
+private fun supportsFunctionToken(language: SupportedLanguage): Boolean {
+    return when (language) {
+        SupportedLanguage.PYTHON,
+        SupportedLanguage.KOTLIN,
+        SupportedLanguage.BASH,
+        SupportedLanguage.JAVASCRIPT,
+        SupportedLanguage.TYPESCRIPT,
+        SupportedLanguage.SQL,
+        -> true
+
+        SupportedLanguage.JSON,
+        SupportedLanguage.YAML,
+        SupportedLanguage.HTML,
+        SupportedLanguage.CSS,
+        -> false
     }
 }
 
