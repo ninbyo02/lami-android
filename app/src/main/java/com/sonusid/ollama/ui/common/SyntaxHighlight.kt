@@ -265,8 +265,29 @@ private fun collectKeywordNumberAndFunctionTokens(
                 }
             }
 
-            char.isDigit() || (char == '.' && i + 1 < code.length && code[i + 1].isDigit()) -> {
+            char.isDigit() ||
+                (char == '.' && i + 1 < code.length && code[i + 1].isDigit()) ||
+                (
+                    char == '-' &&
+                        (
+                            (i + 1 < code.length && code[i + 1].isDigit()) ||
+                                (i + 2 < code.length && code[i + 1] == '.' && code[i + 2].isDigit())
+                            ) &&
+                        (
+                            i == 0 ||
+                                code[i - 1].isWhitespace() ||
+                                code[i - 1] == '(' ||
+                                code[i - 1] == '=' ||
+                                code[i - 1] == ':' ||
+                                code[i - 1] == ',' ||
+                                code[i - 1] == '{' ||
+                                code[i - 1] == '['
+                            )
+                    ) -> {
                 val start = i
+                if (code[i] == '-') {
+                    i++
+                }
                 if (code[i] == '.') {
                     i++
                 }

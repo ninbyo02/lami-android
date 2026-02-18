@@ -82,6 +82,25 @@ class SyntaxHighlightTest {
         assertTrue(hasStyledRangeCovering(result, code.indexOf("12.34"), code.indexOf("12.34") + 5))
     }
 
+
+    @Test
+    fun javascriptCode_highlightsNegativeNumbersButNotMinusOperator() {
+        val code = "a = -200; b = -0.3; c = -.5; d = a - b"
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "js",
+            colors = lightColorScheme(),
+        )
+
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("-200"), code.indexOf("-200") + 4))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("-0.3"), code.indexOf("-0.3") + 4))
+        assertTrue(hasStyledRangeCovering(result, code.indexOf("-.5"), code.indexOf("-.5") + 3))
+
+        val minusIndex = code.lastIndexOf('-')
+        assertFalse(hasStyledRangeCovering(result, minusIndex, minusIndex + 1))
+    }
+
     @Test
     fun typescriptCode_addsStylesForKeyword() {
         val code = "type A = string"
