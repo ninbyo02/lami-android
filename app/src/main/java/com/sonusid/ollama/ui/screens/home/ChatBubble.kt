@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
@@ -126,6 +127,14 @@ private fun CodeBlockCard(
     code: String,
 ) {
     val clipboardManager = LocalClipboardManager.current
+    val colorScheme = MaterialTheme.colorScheme
+    val highlightedCode = remember(code, lang, colorScheme) {
+        buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = lang,
+            colors = colorScheme,
+        )
+    }
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
@@ -156,7 +165,7 @@ private fun CodeBlockCard(
                 }
                 SelectionContainer {
                     Text(
-                        text = code,
+                        text = highlightedCode,
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.bodyMedium,
