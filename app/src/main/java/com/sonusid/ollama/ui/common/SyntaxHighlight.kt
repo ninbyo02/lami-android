@@ -131,7 +131,7 @@ fun buildHighlightedCodeAnnotatedString(
         string = colors.tertiary,
         keyword = colors.primary,
         number = colors.secondary,
-        function = colors.secondary,
+        function = colors.tertiary,
     )
 
     return buildAnnotatedString {
