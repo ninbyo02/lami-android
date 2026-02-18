@@ -213,6 +213,40 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withGradleMarkersAtLineStartInsideTripleQuotedString_doesNotEnableGradleDslKeywords() {
+        val code = """
+            fun example() {
+                val script = """
+pluginManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+""".trimIndent()
+
+                val implementation = 42
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        // Gradle DSL が有効になっていないことを確認（implementation がキーワード化されない）
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
     fun kotlinCode_withGradleMarkersOnlyInComment_doesNotEnableGradleDslKeywords() {
         val code = """
             // plugins {
