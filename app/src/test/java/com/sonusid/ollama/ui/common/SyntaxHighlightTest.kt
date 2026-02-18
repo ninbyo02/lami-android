@@ -63,6 +63,33 @@ class SyntaxHighlightTest {
         assertTrue(containsStyledFragment(result, "set"))
     }
 
+
+    @Test
+    fun kotlinSettingsGradleDsl_detectsWithPluginManagementAndDependencyResolutionManagement() {
+        val code = """
+            pluginManagement {
+                repositories {
+                    mavenCentral()
+                }
+            }
+
+            dependencyResolutionManagement {
+                repositories {
+                    mavenCentral()
+                }
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        assertTrue(containsStyledFragment(result, "repositories"))
+        assertTrue(containsStyledFragment(result, "mavenCentral"))
+    }
+
     @Test
     fun kotlinCode_withoutGradleDslMarkers_doesNotHighlightImplementationAsKeyword() {
         val code = "fun main() { val implementation = 1 }"
