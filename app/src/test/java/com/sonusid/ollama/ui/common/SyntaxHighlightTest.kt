@@ -128,6 +128,30 @@ class SyntaxHighlightTest {
     }
 
     @Test
+    fun kotlinCode_withSingleSettingsGradleDslBlock_doesNotEnableGradleDslKeywords() {
+        val code = """
+            pluginManagement {
+                repositories {
+                    mavenCentral()
+                }
+            }
+            fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
     fun kotlinCode_withGradleMarkersOnlyInString_doesNotEnableGradleDslKeywords() {
         val code = """
             fun setup() {
@@ -193,6 +217,27 @@ class SyntaxHighlightTest {
         val code = """
             // plugins {
             // dependencies {
+            fun main() {
+                val implementation = 1
+            }
+        """.trimIndent()
+
+        val result = buildHighlightedCodeAnnotatedString(
+            code = code,
+            language = "kotlin",
+            colors = lightColorScheme(),
+        )
+
+        val implementationStart = code.lastIndexOf("implementation")
+        val implementationEnd = implementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
+    }
+
+    @Test
+    fun kotlinCode_withSettingsGradleMarkersOnlyInComments_doesNotEnableGradleDslKeywords() {
+        val code = """
+            // pluginManagement {
+            /* dependencyResolutionManagement { */
             fun main() {
                 val implementation = 1
             }
