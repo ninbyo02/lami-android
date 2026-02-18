@@ -447,6 +447,11 @@ private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
             while (lineStart < code.length && (code[lineStart] == ' ' || code[lineStart] == '\t')) {
                 lineStart++
             }
+            val indentLen = lineStart - i
+            if (indentLen != 0) {
+                i++
+                continue
+            }
 
             // 文字列/コメント除外は collectCommentAndStringTokens が事前に marked へ反映済み。
             if (lineStart in marked.indices && marked[lineStart] == TOKEN_NONE) {
