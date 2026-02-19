@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
@@ -128,6 +129,11 @@ private fun CodeBlockCard(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val colorScheme = MaterialTheme.colorScheme
+    val bodyMedium = MaterialTheme.typography.bodyMedium
+    val codeTextStyle = bodyMedium.copy(
+        lineHeight = bodyMedium.lineHeight * 0.94f,
+        platformStyle = PlatformTextStyle(includeFontPadding = false)
+    )
     val highlightedCode = remember(code, lang, colorScheme) {
         buildHighlightedCodeAnnotatedString(
             code = code,
@@ -168,7 +174,7 @@ private fun CodeBlockCard(
                         text = highlightedCode,
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = codeTextStyle,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
