@@ -397,6 +397,37 @@ class SyntaxHighlightTest {
         assertFalse(hasStyledRangeCovering(result, implementationStart, implementationEnd))
     }
 
+    @Test
+    fun kotlinCode_doesNotLeakGradleDslDetectionAcrossCalls() {
+        val colors = lightColorScheme()
+        val gradleDslLikeCode = """
+            plugins { }
+            dependencyResolutionManagement { repositories { } }
+            dependencies { implementation(kotlin("stdlib")) }
+        """.trimIndent()
+
+        val gradleDslResult = buildHighlightedCodeAnnotatedString(
+            code = gradleDslLikeCode,
+            language = "kotlin",
+            colors = colors,
+        )
+
+        val firstImplementationStart = gradleDslLikeCode.indexOf("implementation")
+        val firstImplementationEnd = firstImplementationStart + "implementation".length
+        assertTrue(hasStyledRangeCovering(gradleDslResult, firstImplementationStart, firstImplementationEnd))
+
+        val plainKotlinCode = "fun main() { val implementation = 1 }"
+        val plainKotlinResult = buildHighlightedCodeAnnotatedString(
+            code = plainKotlinCode,
+            language = "kotlin",
+            colors = colors,
+        )
+
+        val secondImplementationStart = plainKotlinCode.indexOf("implementation")
+        val secondImplementationEnd = secondImplementationStart + "implementation".length
+        assertFalse(hasStyledRangeCovering(plainKotlinResult, secondImplementationStart, secondImplementationEnd))
+    }
+
 
 
     @Test
