@@ -66,18 +66,17 @@ private val kotlinGradleDslKeywords = setOf(
     "mainClass", "set"
 )
 
-private val gradleDslDetectionMarkers = setOf(
-    "plugins",
-    "dependencies",
-    "repositories",
-    "buildscript",
-    "android",
-    "kotlin",
-    "subprojects",
-    "allprojects",
-    "pluginManagement",
-    "dependencyResolutionManagement",
-)
+private val kotlinKeywordsWithGradleDsl = kotlinKeywords + kotlinGradleDslKeywords
+
+private const val MARKER_PLUGINS = "plugins"
+private const val MARKER_PLUGIN_MANAGEMENT = "pluginManagement"
+private const val MARKER_DEPENDENCIES = "dependencies"
+private const val MARKER_DEPENDENCY_RESOLUTION_MANAGEMENT = "dependencyResolutionManagement"
+
+private const val MARKER_BIT_PLUGINS = 1
+private const val MARKER_BIT_PLUGIN_MANAGEMENT = 1 shl 1
+private const val MARKER_BIT_DEPENDENCIES = 1 shl 2
+private const val MARKER_BIT_DEPENDENCY_RESOLUTION_MANAGEMENT = 1 shl 3
 
 private val bashKeywords = setOf(
     "if", "then", "else", "elif", "fi", "for", "in", "do", "done", "while", "case", "esac",
@@ -111,8 +110,8 @@ fun buildHighlightedCodeAnnotatedString(
     language: String?,
     colors: ColorScheme,
 ): AnnotatedString {
+    if (code.isEmpty()) return AnnotatedString("")
     val supportedLanguage = normalizeLanguage(language) ?: return AnnotatedString(code)
-    if (code.isEmpty()) return AnnotatedString(code)
 
     val marked = IntArray(code.length)
     val tokens = mutableListOf<TokenRange>()
@@ -559,7 +558,7 @@ private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArr
     return when (language) {
         SupportedLanguage.PYTHON -> pythonKeywords
         SupportedLanguage.KOTLIN -> {
-            if (isGradleDslLikeKotlinCode(code, marked)) kotlinKeywords + kotlinGradleDslKeywords else kotlinKeywords
+            if (isGradleDslLikeKotlinCode(code, marked)) kotlinKeywordsWithGradleDsl else kotlinKeywords
         }
         SupportedLanguage.BASH -> bashKeywords
         SupportedLanguage.JSON -> jsonKeywords
@@ -573,7 +572,7 @@ private fun keywordsOf(language: SupportedLanguage, code: String, marked: IntArr
 }
 
 private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
-    val matchedMarkers = mutableSetOf<String>()
+    var matchedMarkers = 0
     // Kotlin通常コード内の誤検出を避けるため、トップレベル(深さ0)でのみ marker 判定する。
     // 文字列/コメント(marked)は brace 深さ更新・marker 判定のどちらからも除外する。
     var braceDepth = 0
@@ -595,21 +594,35 @@ private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
 
             // 文字列/コメント除外は collectCommentAndStringTokens が事前に marked へ反映済み。
             if (lineStart in marked.indices && marked[lineStart] == TOKEN_NONE) {
-                for (marker in gradleDslDetectionMarkers) {
-                    val markerEnd = lineStart + marker.length
-                    if (markerEnd > code.length || !code.startsWith(marker, lineStart)) continue
+                val markerInfo = when (code[lineStart]) {
+                    'p' -> when {
+                        code.startsWith(MARKER_PLUGIN_MANAGEMENT, lineStart) -> MARKER_PLUGIN_MANAGEMENT to MARKER_BIT_PLUGIN_MANAGEMENT
+                        code.startsWith(MARKER_PLUGINS, lineStart) -> MARKER_PLUGINS to MARKER_BIT_PLUGINS
+                        else -> null
+                    }
 
-                    var cursor = markerEnd
+                    'd' -> when {
+                        code.startsWith(MARKER_DEPENDENCY_RESOLUTION_MANAGEMENT, lineStart) -> MARKER_DEPENDENCY_RESOLUTION_MANAGEMENT to MARKER_BIT_DEPENDENCY_RESOLUTION_MANAGEMENT
+                        code.startsWith(MARKER_DEPENDENCIES, lineStart) -> MARKER_DEPENDENCIES to MARKER_BIT_DEPENDENCIES
+                        else -> null
+                    }
+
+                    else -> null
+                }
+
+                if (markerInfo != null) {
+                    val (marker, bit) = markerInfo
+                    var cursor = lineStart + marker.length
                     while (cursor < code.length && (code[cursor] == ' ' || code[cursor] == '\t')) {
                         cursor++
                     }
 
                     if (cursor < code.length && code[cursor] == '{') {
-                        matchedMarkers += marker
+                        matchedMarkers = matchedMarkers or bit
                     }
                 }
 
-                if (matchedMarkers.size >= 2) {
+                if (Integer.bitCount(matchedMarkers) >= 2) {
                     return true
                 }
             }
@@ -617,7 +630,7 @@ private fun isGradleDslLikeKotlinCode(code: String, marked: IntArray): Boolean {
         i++
     }
 
-    if ("plugins" in matchedMarkers && containsUnmarkedGradlePluginCall(code, marked)) {
+    if ((matchedMarkers and MARKER_BIT_PLUGINS) != 0 && containsUnmarkedGradlePluginCall(code, marked)) {
         return true
     }
 
