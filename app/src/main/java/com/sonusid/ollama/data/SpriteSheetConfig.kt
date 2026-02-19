@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Parcelable
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
@@ -24,6 +25,7 @@ data class SpriteSheetConfig(
     val boxes: List<BoxPosition>,
     val insertionEnabled: Boolean = false,
 ) : Parcelable {
+    @IgnoredOnParcel
     val frameCount: Int = (rows * cols).coerceAtLeast(0)
 
     fun toJson(gson: Gson = Gson()): String = gson.toJson(this)
