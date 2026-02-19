@@ -446,7 +446,12 @@ class SyntaxHighlightTest {
             ),
         )
 
-        val badStart = code.lastIndexOf("0x")
+        val badLineStart = code.indexOf("val bad = 0x")
+        assertTrue(badLineStart >= 0)
+
+        val badStart = code.indexOf("0x", badLineStart)
+        assertTrue(badStart >= 0)
+
         assertFalse(hasStyledRangeCovering(result, badStart, badStart + 2))
     }
 
