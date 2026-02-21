@@ -240,10 +240,11 @@ private class InlineCodeChipSpan(
         bottom: Int,
         paint: Paint,
     ) {
-        val rectTop = top + verticalInsetPx - padYPx
-        var rectBottom = bottom - verticalInsetPx + padYPx
-        val adjustBottomPx = 1f * density
-        rectBottom -= adjustBottomPx
+        val baselineShift = (paint as? TextPaint)?.baselineShift ?: 0
+        val baselineY = y.toFloat() + baselineShift
+        val fm = paint.fontMetrics
+        val rectTop = baselineY + fm.ascent - verticalInsetPx - padYPx
+        val rectBottom = baselineY + fm.descent + verticalInsetPx + padYPx
         val textWidth = paint.measureText(text, start, end)
         val rectRight = x + textWidth + horizontalPaddingPx * 2f
         val previousColor = paint.color
@@ -260,8 +261,7 @@ private class InlineCodeChipSpan(
         )
 
         paint.color = textColor
-        val baselineShift = (paint as? TextPaint)?.baselineShift ?: 0
-        canvas.drawText(text, start, end, x + horizontalPaddingPx, y.toFloat() + baselineShift, paint)
+        canvas.drawText(text, start, end, x + horizontalPaddingPx, baselineY, paint)
         paint.color = previousColor
     }
 }
