@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
@@ -104,7 +105,7 @@ fun PlainAssistantMessage(
 private fun MessageSegments(segments: List<Segment>) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
-        lineHeight = bodyMedium.lineHeight * 0.885f,
+        lineHeight = bodyMedium.lineHeight * 0.885f + 1.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     )
     val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
