@@ -108,13 +108,14 @@ class MainActivity : ComponentActivity() {
                 val allowed = setOf(
                     Routes.HOME,
                     Routes.CHATS,
+                    Routes.CHAT_ROOT,
                     Routes.SETTINGS,
                     Routes.ABOUT,
                     Routes.NOTICE,
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
-                initialRoute = restored?.takeIf { it in allowed } ?: Routes.CHATS
+                initialRoute = resolveStartRoute(restored = restored, allowed = allowed)
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 val appSnackbarHostState = remember { SnackbarHostState() }
@@ -135,7 +136,7 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     NavHost(
                                         navController = navController,
-                                        startDestination = initialRoute!!
+                                        startDestination = requireNotNull(initialRoute)
                                     ) {
                                         composable(Routes.HOME) {
                                             Home(navController, viewModel)
@@ -199,4 +200,14 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+internal fun resolveStartRoute(
+    restored: String?,
+    allowed: Set<String>
+): String {
+    val isAllowedRoute = restored != null && (
+        restored in allowed || restored.startsWith("${Routes.CHAT}/")
+    )
+    return if (isAllowedRoute) restored ?: Routes.CHAT_ROOT else Routes.CHAT_ROOT
 }
