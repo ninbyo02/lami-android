@@ -24,6 +24,7 @@ import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +41,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
     var chatTitle by remember { mutableStateOf("") }
     println(allChats.value)
 
@@ -183,14 +185,19 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             onDismissRequest = { showDialog = false },
             confirmButton = {
                 TextButton(onClick = {
-                    val normalizedTitle = chatTitle.trim()
-                    if (normalizedTitle.isBlank()) {
-                        viewModel.insertChat(chat = Chat(title = "New chat", titleSource = TitleSource.TEMP))
-                    } else {
-                        viewModel.insertChat(chat = Chat(title = normalizedTitle, titleSource = TitleSource.MANUAL))
+                    coroutineScope.launch {
+                        val normalizedTitle = chatTitle.trim()
+                        val newChatId = if (normalizedTitle.isBlank()) {
+                            viewModel.insertChatAndReturnId(chat = Chat(title = "New chat", titleSource = TitleSource.TEMP))
+                        } else {
+                            viewModel.insertChatAndReturnId(chat = Chat(title = normalizedTitle, titleSource = TitleSource.MANUAL))
+                        }
+                        navController.navigate(Routes.chat(newChatId)) {
+                            launchSingleTop = true
+                        }
+                        chatTitle = ""
+                        showDialog = false
                     }
-                    chatTitle = ""
-                    showDialog = false
                 }) {
                     Text("Create")
                 }
