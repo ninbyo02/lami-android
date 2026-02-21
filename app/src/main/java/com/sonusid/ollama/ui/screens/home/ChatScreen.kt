@@ -297,7 +297,11 @@ fun Home(
                     ElevatedButton(
                         onClick = {
                             viewModel.insertChat(Chat(title = "New chat", titleSource = TitleSource.TEMP))
-                            coroutineScope.launch { drawerState.close() }
+                            coroutineScope.launch {
+                                if (drawerState.isOpen) {
+                                    drawerState.close()
+                                }
+                            }
                         },
                         modifier = Modifier.padding(top = 12.dp)
                     ) {
@@ -322,7 +326,9 @@ fun Home(
                                     effectiveChatId = chat.chatId
                                     navHostController.navigate(Routes.chat(chat.chatId))
                                     coroutineScope.launch {
-                                        drawerState.close()
+                                        if (drawerState.isOpen) {
+                                            drawerState.close()
+                                        }
                                     }
                                 },
                                 modifier = Modifier
