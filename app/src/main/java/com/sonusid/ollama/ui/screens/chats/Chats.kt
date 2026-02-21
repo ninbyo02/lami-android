@@ -17,6 +17,7 @@ import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
+import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
@@ -182,11 +183,14 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
             onDismissRequest = { showDialog = false },
             confirmButton = {
                 TextButton(onClick = {
-                    if (chatTitle.isNotBlank()) {
-                        viewModel.insertChat(chat = Chat(title = chatTitle))
-                        chatTitle = ""
-                        showDialog = false
+                    val normalizedTitle = chatTitle.trim()
+                    if (normalizedTitle.isBlank()) {
+                        viewModel.insertChat(chat = Chat(title = "New chat", titleSource = TitleSource.TEMP))
+                    } else {
+                        viewModel.insertChat(chat = Chat(title = normalizedTitle, titleSource = TitleSource.MANUAL))
                     }
+                    chatTitle = ""
+                    showDialog = false
                 }) {
                     Text("Create")
                 }

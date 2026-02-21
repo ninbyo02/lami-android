@@ -92,6 +92,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
@@ -154,7 +155,7 @@ fun Home(
 
         if (resolvedChatId == null && !isCreatingChat) {
             isCreatingChat = true
-            viewModel.insertChat(Chat(title = "New Chat"))
+            viewModel.insertChat(Chat(title = "New chat", titleSource = TitleSource.TEMP))
         }
 
         if (resolvedChatId != null) {
