@@ -105,7 +105,7 @@ fun PlainAssistantMessage(
 private fun MessageSegments(segments: List<Segment>) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
-        lineHeight = (bodyMedium.lineHeight.value * 0.885f + 1f).sp,
+        lineHeight = (bodyMedium.lineHeight.value * 0.885f + 4f).sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     )
     val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
