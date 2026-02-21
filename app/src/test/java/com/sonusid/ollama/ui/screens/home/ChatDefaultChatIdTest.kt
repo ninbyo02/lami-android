@@ -7,7 +7,7 @@ import org.junit.Test
 class ChatDefaultChatIdTest {
 
     @Test
-    fun resolveDefaultChatId_selectsMaxChatId_whenExplicitIsNull() {
+    fun resolveDefaultChatId_returnsNull_whenExplicitIsNull() {
         val chats = listOf(
             Chat(chatId = 5, title = "New chat"),
             Chat(chatId = 2, title = "Old chat"),
@@ -15,18 +15,18 @@ class ChatDefaultChatIdTest {
 
         val resolved = resolveDefaultChatId(explicitChatId = null, chats = chats)
 
-        assertEquals(5, resolved)
+        assertEquals(null, resolved)
     }
 
     @Test
-    fun resolveDefaultChatId_isOrderIndependent_whenExplicitIsNull() {
+    fun resolveDefaultChatId_returnsExplicitId_whenExplicitIsNotNull() {
         val chats = listOf(
-            Chat(chatId = 2, title = "Old chat"),
             Chat(chatId = 5, title = "New chat"),
+            Chat(chatId = 2, title = "Old chat"),
         )
 
-        val resolved = resolveDefaultChatId(explicitChatId = null, chats = chats)
+        val resolved = resolveDefaultChatId(explicitChatId = 42, chats = chats)
 
-        assertEquals(5, resolved)
+        assertEquals(42, resolved)
     }
 }
