@@ -168,7 +168,7 @@ private fun replaceInlineCodeSpans(
                     backgroundColor = backgroundColor,
                     horizontalPaddingPx = density * 4f,
                     verticalInsetPx = density * 1.5f,
-                    padYPx = density * 1f,
+                    padYPx = density * 2f,
                     cornerRadiusPx = density * 6f
                 ),
                 start,
