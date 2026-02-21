@@ -111,7 +111,7 @@ private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
-private val TopGradientOverlayHeight = 60.dp
+private val TopGradientOverlayHeight = 24.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
