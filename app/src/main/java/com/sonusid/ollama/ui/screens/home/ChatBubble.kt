@@ -1,5 +1,12 @@
 package com.sonusid.ollama.ui.screens.home
 
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.text.Spannable
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.style.ReplacementSpan
+import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,6 +45,7 @@ import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import io.noties.markwon.core.spans.CodeSpan
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -118,7 +126,16 @@ private fun MessageSegments(segments: List<Segment>) {
                         MarkdownText(
                             segment.text,
                             style = markdownTextStyle,
-                            syntaxHighlightColor = inlineCodeBg
+                            syntaxHighlightColor = inlineCodeBg,
+                            beforeSetMarkdown = { textView, spanned ->
+                                if (spanned is Spannable) {
+                                    replaceInlineCodeSpans(
+                                        textView = textView,
+                                        text = spanned,
+                                        backgroundColor = inlineCodeBg.toArgb()
+                                    )
+                                }
+                            }
                         )
                     }
                 }
@@ -128,6 +145,87 @@ private fun MessageSegments(segments: List<Segment>) {
                 }
             }
         }
+    }
+}
+
+private fun replaceInlineCodeSpans(
+    textView: TextView,
+    text: Spannable,
+    backgroundColor: Int,
+) {
+    val density = textView.resources.displayMetrics.density
+    val codeSpans = text.getSpans(0, text.length, CodeSpan::class.java)
+    codeSpans.forEach { codeSpan ->
+        val start = text.getSpanStart(codeSpan)
+        val end = text.getSpanEnd(codeSpan)
+        val flags = text.getSpanFlags(codeSpan)
+        if (start in 0 until end) {
+            text.removeSpan(codeSpan)
+            text.setSpan(
+                InlineCodeChipSpan(
+                    textColor = textView.currentTextColor,
+                    backgroundColor = backgroundColor,
+                    horizontalPaddingPx = density * 4f,
+                    verticalInsetPx = density * 1.5f,
+                    cornerRadiusPx = density * 6f
+                ),
+                start,
+                end,
+                flags
+            )
+        }
+    }
+}
+
+private class InlineCodeChipSpan(
+    private val textColor: Int,
+    private val backgroundColor: Int,
+    private val horizontalPaddingPx: Float,
+    private val verticalInsetPx: Float,
+    private val cornerRadiusPx: Float,
+) : ReplacementSpan() {
+    override fun getSize(
+        paint: Paint,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        fm: Paint.FontMetricsInt?,
+    ): Int {
+        return (paint.measureText(text, start, end) + horizontalPaddingPx * 2f).toInt()
+    }
+
+    override fun draw(
+        canvas: Canvas,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        x: Float,
+        top: Int,
+        y: Int,
+        bottom: Int,
+        paint: Paint,
+    ) {
+        val rectTop = top + verticalInsetPx
+        val rectBottom = bottom - verticalInsetPx
+        val textWidth = paint.measureText(text, start, end)
+        val rectRight = x + textWidth + horizontalPaddingPx * 2f
+        val previousColor = paint.color
+
+        paint.color = backgroundColor
+        canvas.drawRoundRect(
+            x,
+            rectTop,
+            rectRight,
+            rectBottom,
+            cornerRadiusPx,
+            cornerRadiusPx,
+            paint
+        )
+
+        paint.color = textColor
+        val baselineShift = (paint as? TextPaint)?.baselineShift ?: 0
+        canvas.drawText(text, start, end, x + horizontalPaddingPx, y.toFloat() + baselineShift, paint)
+        paint.color = previousColor
     }
 }
 
