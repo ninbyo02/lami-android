@@ -117,7 +117,11 @@ class OllamaViewModel(
 
     fun insert(message: Message) {
         viewModelScope.launch {
-            chatRepository.insert(message)
+            if (message.isSendbyMe) {
+                chatRepository.insert(message)
+            } else {
+                chatRepository.insertAssistantMessageAndAutoTitle(message)
+            }
         }
     }
 
