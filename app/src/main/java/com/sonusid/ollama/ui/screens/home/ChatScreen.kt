@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -44,6 +45,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -51,8 +54,10 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
@@ -148,6 +153,12 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var chatSearchQuery by rememberSaveable { mutableStateOf("") }
+    val sortedChats = remember(chats) { chats.sortedByDescending { it.chatId } }
+    val filteredChats = remember(sortedChats, chatSearchQuery) {
+        filterChatsByTitle(sortedChats, chatSearchQuery)
+    }
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -242,6 +253,62 @@ fun Home(
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
     val bottomDp = with(density) { imeOnlyPx.toDp() }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(text = "履歴", style = MaterialTheme.typography.titleLarge)
+                    OutlinedTextField(
+                        value = chatSearchQuery,
+                        onValueChange = { chatSearchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        singleLine = true,
+                        label = { Text("タイトル検索") }
+                    )
+                    ElevatedButton(
+                        onClick = {
+                            viewModel.insertChat(Chat(title = "New chat", titleSource = TitleSource.TEMP))
+                            coroutineScope.launch { drawerState.close() }
+                        },
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        Text("New chat")
+                    }
+                }
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(filteredChats, key = { it.chatId }) { chat ->
+                        TextButton(
+                            onClick = {
+                                effectiveChatId = chat.chatId
+                                navHostController.navigate(Routes.chat(chat.chatId))
+                                coroutineScope.launch { drawerState.close() }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = chat.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    ) {
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -305,7 +372,7 @@ fun Home(
             actions = {
                 IconButton(onClick = {
                     viewModel.onUserInteraction()
-                    navHostController.navigate(Routes.CHATS)
+                    coroutineScope.launch { drawerState.open() }
                 }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.List,
@@ -779,5 +846,18 @@ fun Home(
                 )
             }
         }
+    }
+}
+
+}
+
+
+internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
+    val normalizedQuery = query.trim()
+    if (normalizedQuery.isEmpty()) {
+        return chats
+    }
+    return chats.filter { chat ->
+        chat.title.contains(normalizedQuery, ignoreCase = true)
     }
 }
