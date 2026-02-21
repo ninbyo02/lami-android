@@ -104,10 +104,10 @@ fun PlainAssistantMessage(
 private fun MessageSegments(segments: List<Segment>) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
-        lineHeight = bodyMedium.lineHeight * 0.92f,
+        lineHeight = bodyMedium.lineHeight * 0.90f,
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     )
-    val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f)
+    val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.60f)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         segments.forEach { segment ->
