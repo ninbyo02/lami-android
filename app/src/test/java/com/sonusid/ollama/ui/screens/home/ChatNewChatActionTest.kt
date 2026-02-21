@@ -1,7 +1,7 @@
 package com.sonusid.ollama.ui.screens.home
 
-import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ChatNewChatActionTest {
