@@ -22,12 +22,28 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
         return messageDao.getLatestMessagesByChatIds(chatIds)
     }
 
-    suspend fun newChat(chat: Chat) {
-        chatDao.insertChat(chat)
+    suspend fun newChat(chat: Chat): Int {
+        return chatDao.insertChat(chat).toInt()
     }
 
     suspend fun deleteChat(chat: Chat) {
         chatDao.deleteChat(chat)
+    }
+
+
+    suspend fun deleteChatIfStillEmptyTempPlaceholder(chatId: Int): Boolean {
+        if (messageDao.countMessages(chatId) != 0) {
+            return false
+        }
+        val deletedRows = chatDao.deleteChatIfStillEmptyTempPlaceholder(
+            chatId = chatId,
+            expectedSource = TitleSource.TEMP,
+        )
+        return deletedRows == 1
+    }
+
+    suspend fun cleanupEmptyTempPlaceholderChats(): Int {
+        return chatDao.deleteEmptyTempPlaceholderChats(expectedSource = TitleSource.TEMP)
     }
 
     suspend fun insert(message: Message) {

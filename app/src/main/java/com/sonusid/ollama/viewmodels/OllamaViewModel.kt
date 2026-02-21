@@ -11,6 +11,7 @@ import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.dao.ChatLatestMessage
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.screens.settings.ErrorCause
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
@@ -99,6 +101,9 @@ class OllamaViewModel(
                 _chats.value = it
             }
         }
+        viewModelScope.launch {
+            chatRepository.cleanupEmptyTempPlaceholderChats()
+        }
         if (shouldAutoLoadModels) {
             viewModelScope.launch {
                 baseUrl.collectLatest {
@@ -131,8 +136,23 @@ class OllamaViewModel(
 
     fun insertChat(chat: Chat) {
         viewModelScope.launch {
-            chatRepository.newChat(chat)
+            val chatId = chatRepository.newChat(chat)
+            if (chat.titleSource == TitleSource.TEMP && isPlaceholderTitle(chat.title) && chatId > 0) {
+                scheduleAutoDeleteForEmptyTempChat(chatId)
+            }
         }
+    }
+
+    private fun scheduleAutoDeleteForEmptyTempChat(chatId: Int) {
+        viewModelScope.launch {
+            delay(AUTO_DELETE_DELAY_MS)
+            chatRepository.deleteChatIfStillEmptyTempPlaceholder(chatId)
+        }
+    }
+
+    private fun isPlaceholderTitle(title: String): Boolean {
+        val normalizedTitle = title.trim().lowercase()
+        return normalizedTitle.isEmpty() || normalizedTitle == "new chat" || normalizedTitle == "newchat"
     }
 
     fun resetUiState() {
@@ -328,4 +348,9 @@ class OllamaViewModel(
             }
         }
     }
+
+    companion object {
+        private const val AUTO_DELETE_DELAY_MS = 10 * 60 * 1000L
+    }
+
 }
