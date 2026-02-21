@@ -168,6 +168,7 @@ private fun replaceInlineCodeSpans(
                     backgroundColor = backgroundColor,
                     horizontalPaddingPx = density * 4f,
                     verticalInsetPx = density * 1.5f,
+                    padYPx = density * 1f,
                     cornerRadiusPx = density * 6f
                 ),
                 start,
@@ -207,6 +208,7 @@ private class InlineCodeChipSpan(
     private val backgroundColor: Int,
     private val horizontalPaddingPx: Float,
     private val verticalInsetPx: Float,
+    private val padYPx: Float,
     private val cornerRadiusPx: Float,
 ) : ReplacementSpan() {
     override fun getSize(
@@ -216,6 +218,12 @@ private class InlineCodeChipSpan(
         end: Int,
         fm: Paint.FontMetricsInt?,
     ): Int {
+        fm?.let {
+            it.ascent = (it.ascent - padYPx).toInt()
+            it.top = (it.top - padYPx).toInt()
+            it.descent = (it.descent + padYPx).toInt()
+            it.bottom = (it.bottom + padYPx).toInt()
+        }
         return (paint.measureText(text, start, end) + horizontalPaddingPx * 2f).toInt()
     }
 
@@ -230,8 +238,8 @@ private class InlineCodeChipSpan(
         bottom: Int,
         paint: Paint,
     ) {
-        val rectTop = top + verticalInsetPx
-        val rectBottom = bottom - verticalInsetPx
+        val rectTop = top + verticalInsetPx - padYPx
+        val rectBottom = bottom - verticalInsetPx + padYPx
         val textWidth = paint.measureText(text, start, end)
         val rectRight = x + textWidth + horizontalPaddingPx * 2f
         val previousColor = paint.color
