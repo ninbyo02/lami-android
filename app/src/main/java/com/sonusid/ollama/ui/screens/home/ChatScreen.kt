@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -167,13 +168,22 @@ fun Home(
 
         if (resolvedChatId == null && !isCreatingChat) {
             isCreatingChat = true
-            val newChatId = viewModel.insertChatAndReturnId(
-                Chat(title = "New chat", titleSource = TitleSource.TEMP)
+            createAndNavigateToNewChat(
+                createNewChat = {
+                    viewModel.insertChatAndReturnId(
+                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                    )
+                },
+                onChatResolved = { newChatId ->
+                    effectiveChatId = newChatId
+                },
+                navigateToChat = { newChatId ->
+                    navHostController.navigate(Routes.chat(newChatId)) {
+                        launchSingleTop = true
+                    }
+                },
+                closeDrawer = {}
             )
-            effectiveChatId = newChatId
-            navHostController.navigate(Routes.chat(newChatId)) {
-                launchSingleTop = true
-            }
         }
 
         if (resolvedChatId != null) {
@@ -271,6 +281,29 @@ fun Home(
     val imeOnlyPx = (imeBottomPx - navBottomPx).coerceAtLeast(0)
     val bottomDp = with(density) { imeOnlyPx.toDp() }
 
+    val createNewChatAndNavigate: () -> Unit = {
+        coroutineScope.launch {
+            createAndNavigateToNewChat(
+                createNewChat = {
+                    viewModel.insertChatAndReturnId(
+                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                    )
+                },
+                onChatResolved = { newChatId ->
+                    effectiveChatId = newChatId
+                },
+                navigateToChat = { newChatId ->
+                    navHostController.navigate(Routes.chat(newChatId)) {
+                        launchSingleTop = true
+                    }
+                },
+                closeDrawer = {
+                    closeDrawerSafely(drawerState)
+                }
+            )
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -301,20 +334,7 @@ fun Home(
                         }
                     )
                     ElevatedButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                val newChatId = viewModel.insertChatAndReturnId(
-                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
-                                )
-                                effectiveChatId = newChatId
-                                navHostController.navigate(Routes.chat(newChatId)) {
-                                    launchSingleTop = true
-                                }
-                                if (drawerState.isOpen) {
-                                    drawerState.close()
-                                }
-                            }
-                        },
+                        onClick = createNewChatAndNavigate,
                         modifier = Modifier.padding(top = 12.dp)
                     ) {
                         Text("New chat")
@@ -948,4 +968,27 @@ internal fun formatChatPreview(message: String?): String {
 
 internal fun resolveDefaultChatId(explicitChatId: Int?, chats: List<Chat>): Int? {
     return explicitChatId
+}
+
+internal suspend fun createAndNavigateToNewChat(
+    createNewChat: suspend () -> Int,
+    onChatResolved: (Int) -> Unit,
+    navigateToChat: (Int) -> Unit,
+    closeDrawer: suspend () -> Unit,
+) {
+    val newChatId = createNewChat()
+    onChatResolved(newChatId)
+    navigateToChat(newChatId)
+    runCatching {
+        closeDrawer()
+    }
+}
+
+private suspend fun closeDrawerSafely(drawerState: DrawerState) {
+    if (!drawerState.isOpen) {
+        return
+    }
+    runCatching {
+        drawerState.close()
+    }
 }
