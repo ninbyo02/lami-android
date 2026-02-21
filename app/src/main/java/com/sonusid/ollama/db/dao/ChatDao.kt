@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 interface ChatDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertChat(chat: Chat)
+    suspend fun insertChat(chat: Chat): Long
 
     @Query("SELECT * FROM user_table")
     fun getAllChats(): Flow<List<Chat>>
@@ -30,6 +30,35 @@ interface ChatDao {
         """
     )
     suspend fun updateChatTitle(chatId: Int, title: String, newSource: String, expectedSource: String): Int
+
+    @Query(
+        """
+        DELETE FROM user_table
+        WHERE chatId = :chatId
+          AND titleSource = :expectedSource
+          AND (TRIM(title) = '' OR LOWER(TRIM(title)) IN ('new chat', 'newchat'))
+          AND NOT EXISTS (
+              SELECT 1
+              FROM chat_table
+              WHERE chat_table.chatId = :chatId
+          )
+        """
+    )
+    suspend fun deleteChatIfStillEmptyTempPlaceholder(chatId: Int, expectedSource: String): Int
+
+    @Query(
+        """
+        DELETE FROM user_table
+        WHERE titleSource = :expectedSource
+          AND (TRIM(title) = '' OR LOWER(TRIM(title)) IN ('new chat', 'newchat'))
+          AND NOT EXISTS (
+              SELECT 1
+              FROM chat_table
+              WHERE chat_table.chatId = user_table.chatId
+          )
+        """
+    )
+    suspend fun deleteEmptyTempPlaceholderChats(expectedSource: String): Int
 
     @Delete
     suspend fun deleteChat(chat: Chat)

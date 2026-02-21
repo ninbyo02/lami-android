@@ -85,9 +85,10 @@ private class FakeChatDao(initialChat: Chat) : ChatDao {
 
     private val tempTitleAliases = setOf("new chat", "newchat")
 
-    override suspend fun insertChat(chat: Chat) {
+    override suspend fun insertChat(chat: Chat): Long {
         chats[chat.chatId] = chat
         flow.value = chats.values.toList()
+        return chat.chatId.toLong()
     }
 
     override fun getAllChats(): Flow<List<Chat>> = flow
@@ -116,6 +117,28 @@ private class FakeChatDao(initialChat: Chat) : ChatDao {
     override suspend fun deleteChat(chat: Chat) {
         chats.remove(chat.chatId)
         flow.value = chats.values.toList()
+    }
+
+    override suspend fun deleteChatIfStillEmptyTempPlaceholder(chatId: Int, expectedSource: String): Int {
+        val target = chats[chatId] ?: return 0
+        val isPlaceholderTitle = target.title.trim().isEmpty() || target.title.trim().lowercase() in tempTitleAliases
+        if (target.titleSource != expectedSource || !isPlaceholderTitle) {
+            return 0
+        }
+        chats.remove(chatId)
+        flow.value = chats.values.toList()
+        return 1
+    }
+
+    override suspend fun deleteEmptyTempPlaceholderChats(expectedSource: String): Int {
+        val targets = chats.values.filter {
+            val normalizedTitle = it.title.trim().lowercase()
+            val isPlaceholderTitle = normalizedTitle.isEmpty() || normalizedTitle in tempTitleAliases
+            it.titleSource == expectedSource && isPlaceholderTitle
+        }.map { it.chatId }
+        targets.forEach { chats.remove(it) }
+        flow.value = chats.values.toList()
+        return targets.size
     }
 }
 
@@ -148,6 +171,10 @@ private class FakeMessageDao(seed: List<Message>) : MessageDao {
 
             latest?.let { ChatLatestMessage(chatId = it.chatId, message = it.message) }
         }
+    }
+
+    override suspend fun countMessages(chatId: Int): Int {
+        return messages.count { it.chatId == chatId }
     }
 
     override suspend fun deleteMessage(message: Message) {

@@ -16,6 +16,10 @@ interface MessageDao {
     @Query("SELECT * FROM chat_table WHERE chatId = :chatId ")
     fun getAllMessages(chatId: Int): Flow<List<Message>>
 
+
+    @Query("SELECT COUNT(*) FROM chat_table WHERE chatId = :chatId")
+    suspend fun countMessages(chatId: Int): Int
+
     @Query("SELECT * FROM chat_table WHERE chatId = :chatId AND isSendbyMe = 1 AND TRIM(message) != '' ORDER BY messageID ASC LIMIT 1")
     suspend fun getFirstUserMessage(chatId: Int): Message?
 
