@@ -358,11 +358,11 @@ fun Home(
                             TextButton(
                                 onClick = {
                                     effectiveChatId = chat.chatId
+                                    navHostController.navigate(Routes.chat(chat.chatId)) {
+                                        launchSingleTop = true
+                                    }
                                     coroutineScope.launch {
                                         closeDrawerSafely(drawerState)
-                                        navHostController.navigate(Routes.chat(chat.chatId)) {
-                                            launchSingleTop = true
-                                        }
                                     }
                                 },
                                 modifier = Modifier
