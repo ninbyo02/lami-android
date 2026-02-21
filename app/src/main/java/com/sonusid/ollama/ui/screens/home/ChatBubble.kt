@@ -39,13 +39,13 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
-import io.noties.markwon.core.spans.CodeSpan
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -154,7 +154,8 @@ private fun replaceInlineCodeSpans(
     backgroundColor: Int,
 ) {
     val density = textView.resources.displayMetrics.density
-    val codeSpans = text.getSpans(0, text.length, CodeSpan::class.java)
+    val spanned: Spanned = text as? Spanned ?: return
+    val codeSpans: Array<CodeSpan> = spanned.getSpans(0, text.length, CodeSpan::class.java)
     codeSpans.forEach { codeSpan ->
         val start = text.getSpanStart(codeSpan)
         val end = text.getSpanEnd(codeSpan)
@@ -174,6 +175,30 @@ private fun replaceInlineCodeSpans(
                 flags
             )
         }
+    }
+}
+
+private class CodeSpan : ReplacementSpan() {
+    override fun getSize(
+        paint: Paint,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        fm: Paint.FontMetricsInt?,
+    ): Int = paint.measureText(text, start, end).toInt()
+
+    override fun draw(
+        canvas: Canvas,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        x: Float,
+        top: Int,
+        y: Int,
+        bottom: Int,
+        paint: Paint,
+    ) {
+        canvas.drawText(text, start, end, x, y.toFloat(), paint)
     }
 }
 
