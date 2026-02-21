@@ -7,6 +7,39 @@ import org.junit.Test
 class ChatNewChatActionTest {
 
     @Test
+    fun closeThenNavigate_executesCloseBeforeNavigate() = runTest {
+        val events = mutableListOf<String>()
+
+        closeThenNavigate(
+            closeDrawer = {
+                events += "close"
+            },
+            navigate = {
+                events += "navigate"
+            }
+        )
+
+        assertEquals(listOf("close", "navigate"), events)
+    }
+
+    @Test
+    fun closeThenNavigate_keepsNavigation_whenCloseFails() = runTest {
+        val events = mutableListOf<String>()
+
+        closeThenNavigate(
+            closeDrawer = {
+                events += "close"
+                error("close failed")
+            },
+            navigate = {
+                events += "navigate"
+            }
+        )
+
+        assertEquals(listOf("close", "navigate"), events)
+    }
+
+    @Test
     fun createAndNavigateToNewChat_executesInOrder_andClosesDrawer() = runTest {
         val events = mutableListOf<String>()
         var resolvedChatId: Int? = null
@@ -30,7 +63,7 @@ class ChatNewChatActionTest {
 
         assertEquals(101, resolvedChatId)
         assertEquals(
-            listOf("create", "resolved:101", "navigate:101", "close"),
+            listOf("create", "resolved:101", "close", "navigate:101"),
             events
         )
     }
@@ -57,7 +90,7 @@ class ChatNewChatActionTest {
         )
 
         assertEquals(
-            listOf("create", "resolved:202", "navigate:202", "close"),
+            listOf("create", "resolved:202", "close", "navigate:202"),
             events
         )
     }
