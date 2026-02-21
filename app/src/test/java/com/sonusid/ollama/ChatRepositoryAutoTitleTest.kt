@@ -1,6 +1,7 @@
 package com.sonusid.ollama
 
 import com.sonusid.ollama.db.dao.ChatDao
+import com.sonusid.ollama.db.dao.ChatLatestMessage
 import com.sonusid.ollama.db.dao.MessageDao
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
@@ -135,6 +136,18 @@ private class FakeMessageDao(seed: List<Message>) : MessageDao {
 
     override suspend fun getFirstNonEmptyMessage(chatId: Int): Message? {
         return messages.firstOrNull { it.chatId == chatId && it.message.trim().isNotEmpty() }
+    }
+
+    override suspend fun getLatestMessagesByChatIds(chatIds: List<Int>): List<ChatLatestMessage> {
+        return chatIds.mapNotNull { chatId ->
+            val latest = messages
+                .withIndex()
+                .filter { it.value.chatId == chatId }
+                .maxWithOrNull(compareBy<IndexedValue<Message>> { it.value.messageID }.thenBy { it.index })
+                ?.value
+
+            latest?.let { ChatLatestMessage(chatId = it.chatId, message = it.message) }
+        }
     }
 
     override suspend fun deleteMessage(message: Message) {

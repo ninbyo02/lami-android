@@ -159,6 +159,7 @@ fun Home(
     val filteredChats = remember(sortedChats, chatSearchQuery) {
         filterChatsByTitle(sortedChats, chatSearchQuery)
     }
+    var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
@@ -171,6 +172,17 @@ fun Home(
 
         if (resolvedChatId != null) {
             isCreatingChat = false
+        }
+    }
+
+    LaunchedEffect(sortedChats) {
+        if (sortedChats.isEmpty()) {
+            latestMessagePreviewByChatId = emptyMap()
+            return@LaunchedEffect
+        }
+        val latestMessages = viewModel.getLatestMessagesByChatIds(sortedChats.map { it.chatId })
+        latestMessagePreviewByChatId = latestMessages.associate { latestMessage ->
+            latestMessage.chatId to formatChatPreview(latestMessage.message)
         }
     }
 
@@ -270,7 +282,17 @@ fun Home(
                             .fillMaxWidth()
                             .padding(top = 12.dp),
                         singleLine = true,
-                        label = { Text("タイトル検索") }
+                        label = { Text("タイトル検索") },
+                        trailingIcon = {
+                            if (chatSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { chatSearchQuery = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "検索をクリア"
+                                    )
+                                }
+                            }
+                        }
                     )
                     ElevatedButton(
                         onClick = {
@@ -282,27 +304,50 @@ fun Home(
                         Text("New chat")
                     }
                 }
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = 12.dp)
-                ) {
-                    items(filteredChats, key = { it.chatId }) { chat ->
-                        TextButton(
-                            onClick = {
-                                effectiveChatId = chat.chatId
-                                navHostController.navigate(Routes.chat(chat.chatId))
-                                coroutineScope.launch { drawerState.close() }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            Text(
-                                text = chat.title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                if (filteredChats.isEmpty()) {
+                    Text(
+                        text = "該当なし",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = 12.dp)
+                    ) {
+                        items(filteredChats, key = { it.chatId }) { chat ->
+                            val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
+                            TextButton(
+                                onClick = {
+                                    effectiveChatId = chat.chatId
+                                    navHostController.navigate(Routes.chat(chat.chatId))
+                                    coroutineScope.launch {
+                                        drawerState.close()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = chat.title,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    if (previewText.isNotEmpty()) {
+                                        Text(
+                                            text = previewText,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -859,5 +904,25 @@ internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
     }
     return chats.filter { chat ->
         chat.title.contains(normalizedQuery, ignoreCase = true)
+    }
+}
+
+
+internal fun formatChatPreview(message: String?): String {
+    if (message.isNullOrBlank()) {
+        return ""
+    }
+    val oneLineMessage = message
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .trim()
+    if (oneLineMessage.isEmpty()) {
+        return ""
+    }
+    val maxLength = 80
+    return if (oneLineMessage.length > maxLength) {
+        oneLineMessage.take(maxLength) + "…"
+    } else {
+        oneLineMessage
     }
 }
