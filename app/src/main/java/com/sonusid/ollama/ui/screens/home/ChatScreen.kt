@@ -357,18 +357,12 @@ fun Home(
                             val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
                             TextButton(
                                 onClick = {
+                                    effectiveChatId = chat.chatId
                                     coroutineScope.launch {
-                                        closeThenNavigate(
-                                            closeDrawer = {
-                                                closeDrawerSafely(drawerState)
-                                            },
-                                            navigate = {
-                                                effectiveChatId = chat.chatId
-                                                navHostController.navigate(Routes.chat(chat.chatId)) {
-                                                    launchSingleTop = true
-                                                }
-                                            }
-                                        )
+                                        closeDrawerSafely(drawerState)
+                                        navHostController.navigate(Routes.chat(chat.chatId)) {
+                                            launchSingleTop = true
+                                        }
                                     }
                                 },
                                 modifier = Modifier
