@@ -4,8 +4,11 @@ object Routes {
     const val HOME = "home"
     const val CHATS = "chats"
     const val CHAT = "chat"
+    const val CHAT_ROOT = CHAT
     const val CHAT_ID_ARG = "chatID"
     const val CHAT_WITH_ID = "$CHAT/{$CHAT_ID_ARG}"
+    const val CHAT_ID_ARG_ROUTE = "chatId"
+    const val CHAT_WITH_ID_ROUTE = "$CHAT/{$CHAT_ID_ARG_ROUTE}"
     const val SETTINGS = "setting"
     const val ABOUT = "about"
     const val NOTICE = "notice"
@@ -13,6 +16,10 @@ object Routes {
     const val SPRITE_EDITOR = "settings/sprite_editor"
 
     fun chat(chatId: Int): String = "$CHAT/$chatId"
+
+    fun chatNew(): String = CHAT_ROOT
+
+    fun chatRoutePattern(): String = CHAT_WITH_ID_ROUTE
 }
 
 sealed interface SettingsRoute {

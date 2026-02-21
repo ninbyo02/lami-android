@@ -143,11 +143,14 @@ class MainActivity : ComponentActivity() {
                                         composable(Routes.CHATS) {
                                             Chats(navController, viewModel)
                                         }
+                                        composable(route = Routes.CHAT_ROOT) {
+                                            Home(navController, viewModel, chatId = null)
+                                        }
                                         composable(
-                                            route = Routes.CHAT_WITH_ID,
-                                            arguments = listOf(navArgument(Routes.CHAT_ID_ARG) { type = NavType.IntType })
+                                            route = Routes.CHAT_WITH_ID_ROUTE,
+                                            arguments = listOf(navArgument(Routes.CHAT_ID_ARG_ROUTE) { type = NavType.IntType })
                                         ) { backStackEntry ->
-                                            val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG)?.takeIf { it != 0 }
+                                            val chatId = backStackEntry.arguments?.getInt(Routes.CHAT_ID_ARG_ROUTE)
                                             Home(navController, viewModel, chatId)
                                         }
                                         composable(Routes.SETTINGS) {
