@@ -1,6 +1,7 @@
 package com.sonusid.ollama.db.repository
 
 import com.sonusid.ollama.db.dao.ChatDao
+import com.sonusid.ollama.db.dao.ChatLatestMessage
 import com.sonusid.ollama.db.dao.MessageDao
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
@@ -13,6 +14,13 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
     val allChats: Flow<List<Chat>> = chatDao.getAllChats()
 
     fun getMessages(chatId: Int) = messageDao.getAllMessages(chatId)
+
+    suspend fun getLatestMessagesByChatIds(chatIds: List<Int>): List<ChatLatestMessage> {
+        if (chatIds.isEmpty()) {
+            return emptyList()
+        }
+        return messageDao.getLatestMessagesByChatIds(chatIds)
+    }
 
     suspend fun newChat(chat: Chat) {
         chatDao.insertChat(chat)

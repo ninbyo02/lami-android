@@ -22,6 +22,26 @@ interface MessageDao {
     @Query("SELECT * FROM chat_table WHERE chatId = :chatId AND TRIM(message) != '' ORDER BY messageID ASC LIMIT 1")
     suspend fun getFirstNonEmptyMessage(chatId: Int): Message?
 
+    @Query(
+        """
+        SELECT m.chatId AS chatId, m.message AS message
+        FROM chat_table AS m
+        INNER JOIN (
+            SELECT chatId, MAX(messageID) AS latestMessageId
+            FROM chat_table
+            WHERE chatId IN (:chatIds)
+            GROUP BY chatId
+        ) AS latest
+        ON m.chatId = latest.chatId AND m.messageID = latest.latestMessageId
+        """
+    )
+    suspend fun getLatestMessagesByChatIds(chatIds: List<Int>): List<ChatLatestMessage>
+
     @Delete
     suspend fun deleteMessage(message: Message)
 }
+
+data class ChatLatestMessage(
+    val chatId: Int,
+    val message: String,
+)

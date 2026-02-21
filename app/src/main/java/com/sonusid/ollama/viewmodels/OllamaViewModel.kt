@@ -8,6 +8,7 @@ import com.sonusid.ollama.UiState
 import com.sonusid.ollama.api.OllamaRequest
 import com.sonusid.ollama.api.OllamaResponse
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.db.dao.ChatLatestMessage
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.repository.ChatRepository
@@ -114,6 +115,9 @@ class OllamaViewModel(
     }
 
     fun allMessages(chatId: Int): Flow<List<Message>> = chatRepository.getMessages(chatId)
+
+    suspend fun getLatestMessagesByChatIds(chatIds: List<Int>): List<ChatLatestMessage> =
+        chatRepository.getLatestMessagesByChatIds(chatIds)
 
     fun insert(message: Message) {
         viewModelScope.launch {
