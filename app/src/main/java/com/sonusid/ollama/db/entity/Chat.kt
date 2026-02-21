@@ -7,4 +7,5 @@ import androidx.room.PrimaryKey
 data class Chat(
     @PrimaryKey(autoGenerate = true) val chatId: Int = 0,
     val title: String,
+    val titleSource: String = TitleSource.MANUAL,
 )
