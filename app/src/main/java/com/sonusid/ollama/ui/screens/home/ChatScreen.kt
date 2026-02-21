@@ -111,7 +111,7 @@ private val ComposerButtonVisualSize = ComposerButtonSize - 8.dp
 private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
-private val TopGradientOverlayHeight = 60.dp
+private val TopGradientOverlayHeight = 24.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -770,7 +770,7 @@ fun Home(
                             brush = Brush.verticalGradient(
                                 colorStops = arrayOf(
                                     0.0f to overlayBase.copy(alpha = 1.0f),
-                                    0.5f to overlayBase.copy(alpha = 0.6f),
+                                    0.5f to overlayBase.copy(alpha = 0.40f),
                                     1.0f to overlayBase.copy(alpha = 0.0f)
                                 )
                             )

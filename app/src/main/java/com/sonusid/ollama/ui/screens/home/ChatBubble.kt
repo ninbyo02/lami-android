@@ -1,5 +1,12 @@
 package com.sonusid.ollama.ui.screens.home
 
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.text.Spannable
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.style.ReplacementSpan
+import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,10 +35,13 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
@@ -101,6 +111,13 @@ fun PlainAssistantMessage(
 
 @Composable
 private fun MessageSegments(segments: List<Segment>) {
+    val bodyMedium = MaterialTheme.typography.bodyMedium
+    val markdownTextStyle = bodyMedium.copy(
+        lineHeight = (bodyMedium.lineHeight.value * 0.895f + 4f).sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false)
+    )
+    val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         segments.forEach { segment ->
             when (segment) {
@@ -108,7 +125,17 @@ private fun MessageSegments(segments: List<Segment>) {
                     if (segment.text.isNotEmpty()) {
                         MarkdownText(
                             segment.text,
-                            syntaxHighlightColor = MaterialTheme.colorScheme.primaryContainer
+                            style = markdownTextStyle,
+                            syntaxHighlightColor = inlineCodeBg,
+                            beforeSetMarkdown = { textView, spanned ->
+                                if (spanned is Spannable) {
+                                    replaceInlineCodeSpans(
+                                        textView = textView,
+                                        text = spanned,
+                                        backgroundColor = inlineCodeBg.toArgb()
+                                    )
+                                }
+                            }
                         )
                     }
                 }
@@ -121,6 +148,124 @@ private fun MessageSegments(segments: List<Segment>) {
     }
 }
 
+private fun replaceInlineCodeSpans(
+    textView: TextView,
+    text: Spannable,
+    backgroundColor: Int,
+) {
+    val density = textView.resources.displayMetrics.density
+    val spanned: Spanned = text as? Spanned ?: return
+    val codeSpans: Array<CodeSpan> = spanned.getSpans(0, text.length, CodeSpan::class.java)
+    codeSpans.forEach { codeSpan ->
+        val start = text.getSpanStart(codeSpan)
+        val end = text.getSpanEnd(codeSpan)
+        val flags = text.getSpanFlags(codeSpan)
+        if (start in 0 until end) {
+            text.removeSpan(codeSpan)
+            text.setSpan(
+                InlineCodeChipSpan(
+                    textColor = textView.currentTextColor,
+                    backgroundColor = backgroundColor,
+                    density = density,
+                    horizontalPaddingPx = density * 4f,
+                    verticalInsetPx = density * 1.5f,
+                    padYPx = density * 2f,
+                    cornerRadiusPx = density * 6f
+                ),
+                start,
+                end,
+                flags
+            )
+        }
+    }
+}
+
+private class CodeSpan : ReplacementSpan() {
+    override fun getSize(
+        paint: Paint,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        fm: Paint.FontMetricsInt?,
+    ): Int = paint.measureText(text, start, end).toInt()
+
+    override fun draw(
+        canvas: Canvas,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        x: Float,
+        top: Int,
+        y: Int,
+        bottom: Int,
+        paint: Paint,
+    ) {
+        canvas.drawText(text, start, end, x, y.toFloat(), paint)
+    }
+}
+
+private class InlineCodeChipSpan(
+    private val textColor: Int,
+    private val backgroundColor: Int,
+    private val density: Float,
+    private val horizontalPaddingPx: Float,
+    private val verticalInsetPx: Float,
+    private val padYPx: Float,
+    private val cornerRadiusPx: Float,
+) : ReplacementSpan() {
+    override fun getSize(
+        paint: Paint,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        fm: Paint.FontMetricsInt?,
+    ): Int {
+        fm?.let {
+            it.ascent = (it.ascent - padYPx).toInt()
+            it.top = (it.top - padYPx).toInt()
+            it.descent = (it.descent + padYPx).toInt()
+            it.bottom = (it.bottom + padYPx).toInt()
+        }
+        return (paint.measureText(text, start, end) + horizontalPaddingPx * 2f).toInt()
+    }
+
+    override fun draw(
+        canvas: Canvas,
+        text: CharSequence,
+        start: Int,
+        end: Int,
+        x: Float,
+        top: Int,
+        y: Int,
+        bottom: Int,
+        paint: Paint,
+    ) {
+        val baselineShift = (paint as? TextPaint)?.baselineShift ?: 0
+        val baselineY = y.toFloat() + baselineShift
+        val fm = paint.fontMetrics
+        val rectTop = baselineY + fm.ascent - verticalInsetPx - padYPx
+        val rectBottom = baselineY + fm.descent + verticalInsetPx + padYPx
+        val textWidth = paint.measureText(text, start, end)
+        val rectRight = x + textWidth + horizontalPaddingPx * 2f
+        val previousColor = paint.color
+
+        paint.color = backgroundColor
+        canvas.drawRoundRect(
+            x,
+            rectTop,
+            rectRight,
+            rectBottom,
+            cornerRadiusPx,
+            cornerRadiusPx,
+            paint
+        )
+
+        paint.color = textColor
+        canvas.drawText(text, start, end, x + horizontalPaddingPx, baselineY, paint)
+        paint.color = previousColor
+    }
+}
+
 @Composable
 private fun CodeBlockCard(
     lang: String?,
@@ -128,6 +273,11 @@ private fun CodeBlockCard(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val colorScheme = MaterialTheme.colorScheme
+    val bodyMedium = MaterialTheme.typography.bodyMedium
+    val codeTextStyle = bodyMedium.copy(
+        lineHeight = bodyMedium.lineHeight * 0.94f,
+        platformStyle = PlatformTextStyle(includeFontPadding = false)
+    )
     val highlightedCode = remember(code, lang, colorScheme) {
         buildHighlightedCodeAnnotatedString(
             code = code,
@@ -168,7 +318,7 @@ private fun CodeBlockCard(
                         text = highlightedCode,
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = codeTextStyle,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
