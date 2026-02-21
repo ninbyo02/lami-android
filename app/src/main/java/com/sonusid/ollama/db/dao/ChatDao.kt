@@ -20,8 +20,16 @@ interface ChatDao {
     @Query("SELECT * FROM user_table WHERE chatId = :chatId LIMIT 1")
     suspend fun getChatById(chatId: Int): Chat?
 
-    @Query("UPDATE user_table SET title = :title, titleSource = :titleSource WHERE chatId = :chatId")
-    suspend fun updateChatTitle(chatId: Int, title: String, titleSource: String)
+    @Query(
+        """
+        UPDATE user_table
+        SET title = :title, titleSource = :newSource
+        WHERE chatId = :chatId
+          AND titleSource = :expectedSource
+          AND (TRIM(title) = '' OR LOWER(TRIM(title)) IN ('new chat', 'newchat'))
+        """
+    )
+    suspend fun updateChatTitle(chatId: Int, title: String, newSource: String, expectedSource: String): Int
 
     @Delete
     suspend fun deleteChat(chat: Chat)

@@ -31,6 +31,7 @@ class ChatRepositoryAutoTitleTest {
         val updated = chatDao.getChatById(1)
         assertEquals("最初のユーザーメッセージです", updated?.title)
         assertEquals(TitleSource.AUTO, updated?.titleSource)
+        assertEquals(1, chatDao.lastUpdateRows)
     }
 
     @Test
@@ -50,12 +51,38 @@ class ChatRepositoryAutoTitleTest {
         val updated = chatDao.getChatById(1)
         assertEquals("手動タイトル", updated?.title)
         assertEquals(TitleSource.MANUAL, updated?.titleSource)
+        assertEquals(-1, chatDao.lastUpdateRows)
     }
+
+    @Test
+    fun tempSourceButNonPlaceholderTitleIsNotUpdated() = runTest {
+        val chatDao = FakeChatDao(
+            Chat(chatId = 1, title = "My Title", titleSource = TitleSource.TEMP)
+        )
+        val messageDao = FakeMessageDao(
+            seed = listOf(Message(chatId = 1, message = "ユーザー文", isSendbyMe = true))
+        )
+        val repository = ChatRepository(messageDao, chatDao)
+
+        repository.insertAssistantMessageAndAutoTitle(
+            Message(chatId = 1, message = "assistant response", isSendbyMe = false)
+        )
+
+        val updated = chatDao.getChatById(1)
+        assertEquals("My Title", updated?.title)
+        assertEquals(TitleSource.TEMP, updated?.titleSource)
+        assertEquals(0, chatDao.lastUpdateRows)
+    }
+
 }
 
 private class FakeChatDao(initialChat: Chat) : ChatDao {
     private val chats = mutableMapOf(initialChat.chatId to initialChat)
     private val flow = MutableStateFlow(chats.values.toList())
+    var lastUpdateRows: Int = -1
+        private set
+
+    private val tempTitleAliases = setOf("new chat", "newchat")
 
     override suspend fun insertChat(chat: Chat) {
         chats[chat.chatId] = chat
@@ -66,10 +93,23 @@ private class FakeChatDao(initialChat: Chat) : ChatDao {
 
     override suspend fun getChatById(chatId: Int): Chat? = chats[chatId]
 
-    override suspend fun updateChatTitle(chatId: Int, title: String, titleSource: String) {
-        val target = chats[chatId] ?: return
-        chats[chatId] = target.copy(title = title, titleSource = titleSource)
+    override suspend fun updateChatTitle(chatId: Int, title: String, newSource: String, expectedSource: String): Int {
+        val target = chats[chatId]
+        if (target == null) {
+            lastUpdateRows = 0
+            return 0
+        }
+
+        val isPlaceholderTitle = target.title.trim().isEmpty() || target.title.trim().lowercase() in tempTitleAliases
+        if (target.titleSource != expectedSource || !isPlaceholderTitle) {
+            lastUpdateRows = 0
+            return 0
+        }
+
+        chats[chatId] = target.copy(title = title, titleSource = newSource)
         flow.value = chats.values.toList()
+        lastUpdateRows = 1
+        return 1
     }
 
     override suspend fun deleteChat(chat: Chat) {
