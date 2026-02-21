@@ -162,12 +162,18 @@ fun Home(
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
     LaunchedEffect(chatId, chats) {
-        val resolvedChatId = chatId ?: chats.lastOrNull()?.chatId
+        val resolvedChatId = resolveDefaultChatId(chatId, chats)
         effectiveChatId = resolvedChatId
 
         if (resolvedChatId == null && !isCreatingChat) {
             isCreatingChat = true
-            viewModel.insertChat(Chat(title = "New chat", titleSource = TitleSource.TEMP))
+            val newChatId = viewModel.insertChatAndReturnId(
+                Chat(title = "New chat", titleSource = TitleSource.TEMP)
+            )
+            effectiveChatId = newChatId
+            navHostController.navigate(Routes.chat(newChatId)) {
+                launchSingleTop = true
+            }
         }
 
         if (resolvedChatId != null) {
@@ -296,8 +302,14 @@ fun Home(
                     )
                     ElevatedButton(
                         onClick = {
-                            viewModel.insertChat(Chat(title = "New chat", titleSource = TitleSource.TEMP))
                             coroutineScope.launch {
+                                val newChatId = viewModel.insertChatAndReturnId(
+                                    Chat(title = "New chat", titleSource = TitleSource.TEMP)
+                                )
+                                effectiveChatId = newChatId
+                                navHostController.navigate(Routes.chat(newChatId)) {
+                                    launchSingleTop = true
+                                }
                                 if (drawerState.isOpen) {
                                     drawerState.close()
                                 }
@@ -931,4 +943,9 @@ internal fun formatChatPreview(message: String?): String {
     } else {
         oneLineMessage
     }
+}
+
+
+internal fun resolveDefaultChatId(explicitChatId: Int?, chats: List<Chat>): Int? {
+    return explicitChatId ?: chats.maxByOrNull { it.chatId }?.chatId
 }

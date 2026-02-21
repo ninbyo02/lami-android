@@ -136,11 +136,16 @@ class OllamaViewModel(
 
     fun insertChat(chat: Chat) {
         viewModelScope.launch {
-            val chatId = chatRepository.newChat(chat)
-            if (chat.titleSource == TitleSource.TEMP && isPlaceholderTitle(chat.title) && chatId > 0) {
-                scheduleAutoDeleteForEmptyTempChat(chatId)
-            }
+            insertChatAndReturnId(chat)
         }
+    }
+
+    suspend fun insertChatAndReturnId(chat: Chat): Int {
+        val chatId = chatRepository.newChat(chat)
+        if (chat.titleSource == TitleSource.TEMP && isPlaceholderTitle(chat.title) && chatId > 0) {
+            scheduleAutoDeleteForEmptyTempChat(chatId)
+        }
+        return chatId
     }
 
     private fun scheduleAutoDeleteForEmptyTempChat(chatId: Int) {
