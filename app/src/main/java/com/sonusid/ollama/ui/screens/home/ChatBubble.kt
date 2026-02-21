@@ -166,6 +166,7 @@ private fun replaceInlineCodeSpans(
                 InlineCodeChipSpan(
                     textColor = textView.currentTextColor,
                     backgroundColor = backgroundColor,
+                    density = density,
                     horizontalPaddingPx = density * 4f,
                     verticalInsetPx = density * 1.5f,
                     padYPx = density * 2f,
@@ -206,6 +207,7 @@ private class CodeSpan : ReplacementSpan() {
 private class InlineCodeChipSpan(
     private val textColor: Int,
     private val backgroundColor: Int,
+    private val density: Float,
     private val horizontalPaddingPx: Float,
     private val verticalInsetPx: Float,
     private val padYPx: Float,
@@ -239,7 +241,9 @@ private class InlineCodeChipSpan(
         paint: Paint,
     ) {
         val rectTop = top + verticalInsetPx - padYPx
-        val rectBottom = bottom - verticalInsetPx + padYPx
+        var rectBottom = bottom - verticalInsetPx + padYPx
+        val adjustBottomPx = 1f * density
+        rectBottom -= adjustBottomPx
         val textWidth = paint.measureText(text, start, end)
         val rectRight = x + textWidth + horizontalPaddingPx * 2f
         val previousColor = paint.color
