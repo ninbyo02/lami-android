@@ -182,7 +182,9 @@ fun Home(
                         launchSingleTop = true
                     }
                 },
-                closeDrawer = {}
+                closeDrawer = {
+                    closeDrawerSafely(drawerState)
+                }
             )
         }
 
@@ -355,12 +357,18 @@ fun Home(
                             val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
                             TextButton(
                                 onClick = {
-                                    effectiveChatId = chat.chatId
-                                    navHostController.navigate(Routes.chat(chat.chatId))
                                     coroutineScope.launch {
-                                        if (drawerState.isOpen) {
-                                            drawerState.close()
-                                        }
+                                        closeThenNavigate(
+                                            closeDrawer = {
+                                                closeDrawerSafely(drawerState)
+                                            },
+                                            navigate = {
+                                                effectiveChatId = chat.chatId
+                                                navHostController.navigate(Routes.chat(chat.chatId)) {
+                                                    launchSingleTop = true
+                                                }
+                                            }
+                                        )
                                     }
                                 },
                                 modifier = Modifier
@@ -978,10 +986,22 @@ internal suspend fun createAndNavigateToNewChat(
 ) {
     val newChatId = createNewChat()
     onChatResolved(newChatId)
-    navigateToChat(newChatId)
+    closeThenNavigate(
+        closeDrawer = closeDrawer,
+        navigate = {
+            navigateToChat(newChatId)
+        }
+    )
+}
+
+internal suspend fun closeThenNavigate(
+    closeDrawer: suspend () -> Unit,
+    navigate: () -> Unit,
+) {
     runCatching {
         closeDrawer()
     }
+    navigate()
 }
 
 private suspend fun closeDrawerSafely(drawerState: DrawerState) {
