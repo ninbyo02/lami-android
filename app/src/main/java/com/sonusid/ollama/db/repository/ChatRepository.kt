@@ -8,8 +8,6 @@ import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.utils.AutoTitleGenerator
 import kotlinx.coroutines.flow.Flow
 
-private val TEMP_TITLE_ALIASES = setOf("new chat", "newchat")
-
 class ChatRepository(private val messageDao: MessageDao, private val chatDao: ChatDao) {
 
     val allChats: Flow<List<Chat>> = chatDao.getAllChats()
@@ -35,7 +33,7 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
         }
 
         val chat = chatDao.getChatById(message.chatId) ?: return
-        if (chat.titleSource != TitleSource.TEMP || !isTempTitle(chat.title)) {
+        if (chat.titleSource != TitleSource.TEMP) {
             return
         }
 
@@ -46,7 +44,8 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
         chatDao.updateChatTitle(
             chatId = message.chatId,
             title = generatedTitle,
-            titleSource = TitleSource.AUTO
+            newSource = TitleSource.AUTO,
+            expectedSource = TitleSource.TEMP
         )
     }
 
@@ -54,8 +53,4 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
         messageDao.deleteMessage(message)
     }
 
-    private fun isTempTitle(title: String): Boolean {
-        val normalized = title.trim().lowercase()
-        return normalized.isEmpty() || normalized in TEMP_TITLE_ALIASES
-    }
 }
