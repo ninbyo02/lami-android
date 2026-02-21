@@ -770,7 +770,7 @@ fun Home(
                             brush = Brush.verticalGradient(
                                 colorStops = arrayOf(
                                     0.0f to overlayBase.copy(alpha = 1.0f),
-                                    0.5f to overlayBase.copy(alpha = 0.6f),
+                                    0.5f to overlayBase.copy(alpha = 0.45f),
                                     1.0f to overlayBase.copy(alpha = 0.0f)
                                 )
                             )
