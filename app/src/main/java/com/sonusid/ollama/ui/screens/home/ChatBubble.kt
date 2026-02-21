@@ -103,11 +103,11 @@ fun PlainAssistantMessage(
 @Composable
 private fun MessageSegments(segments: List<Segment>) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
-    val markdownStyle = bodyMedium.copy(
-        lineHeight = bodyMedium.lineHeight * 0.94f,
+    val markdownTextStyle = bodyMedium.copy(
+        lineHeight = bodyMedium.lineHeight * 0.92f,
         platformStyle = PlatformTextStyle(includeFontPadding = false)
     )
-    val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f)
+    val inlineCodeBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         segments.forEach { segment ->
@@ -116,7 +116,7 @@ private fun MessageSegments(segments: List<Segment>) {
                     if (segment.text.isNotEmpty()) {
                         MarkdownText(
                             segment.text,
-                            style = markdownStyle,
+                            style = markdownTextStyle,
                             syntaxHighlightColor = inlineCodeBg
                         )
                     }
