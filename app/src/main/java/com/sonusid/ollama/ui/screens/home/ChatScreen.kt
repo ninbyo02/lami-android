@@ -947,5 +947,5 @@ internal fun formatChatPreview(message: String?): String {
 
 
 internal fun resolveDefaultChatId(explicitChatId: Int?, chats: List<Chat>): Int? {
-    return explicitChatId ?: chats.maxByOrNull { it.chatId }?.chatId
+    return explicitChatId
 }
