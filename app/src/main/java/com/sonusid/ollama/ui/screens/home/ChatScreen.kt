@@ -133,6 +133,7 @@ fun Home(
     var effectiveChatId by rememberSaveable { mutableStateOf<Int?>(chatId) }
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
+    var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by remember { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
@@ -166,6 +167,13 @@ fun Home(
     LaunchedEffect(chatId) {
         if (chatId != null) {
             suppressAutoNewChat = false
+            suppressChatContentWhileClosingDrawer = false
+        }
+    }
+
+    LaunchedEffect(drawerState.isOpen) {
+        if (!drawerState.isOpen) {
+            suppressChatContentWhileClosingDrawer = false
         }
     }
 
@@ -365,6 +373,7 @@ fun Home(
                             val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
                             TextButton(
                                 onClick = {
+                                    suppressChatContentWhileClosingDrawer = true
                                     suppressAutoNewChat = true
                                     effectiveChatId = chat.chatId
                                     coroutineScope.launch {
@@ -407,9 +416,12 @@ fun Home(
             }
         }
     ) {
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    if (suppressChatContentWhileClosingDrawer) {
+        Box(modifier = Modifier.fillMaxSize())
+    } else {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
     Scaffold(
         // 上部の自動 Insets を無効化し、TopAppBar 側でのみ安全領域を制御する
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
@@ -945,6 +957,8 @@ fun Home(
             }
         }
     }
+}
+
 }
 
 }
