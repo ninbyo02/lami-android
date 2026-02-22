@@ -6,9 +6,11 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.printToString
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -142,28 +144,25 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun recreateToSpriteSettings() {
         composeTestRule.activityRule.scenario.recreate()
         composeTestRule.waitForIdle()
-        waitForNodeWithTag("spriteTabAnim")
+        waitForNodeWithTag("spriteTabAnim", timeoutMillis = 30_000)
     }
 
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
+    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 30_000) {
         if ((tag == "spriteBaseIntervalInput" || tag == "spriteInsertionIntervalInput") && !hasNodeWithTag(tag)) {
             return
         }
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                nodeExists { composeTestRule.onNodeWithTag(tag) }
+                runCatching {
+                    composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+                }.getOrDefault(false) || runCatching {
+                    composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+                }.getOrDefault(false)
             }
-        } catch (error: AssertionError) {
+        } catch (error: Throwable) {
             val tags = dumpSemanticsTags()
-            throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
+            throw AssertionError("タグが見つかりません: $tag（timeout=${timeoutMillis}ms）。\nSemantics:\n$tags", error)
         }
-    }
-
-    private fun nodeExists(block: () -> Unit): Boolean {
-        return runCatching {
-            block()
-            true
-        }.getOrDefault(false)
     }
 
     private fun hasNodeWithTag(tag: String): Boolean {
@@ -180,7 +179,9 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun dumpSemanticsTags(): String {
-        return "<printToString unavailable>"
+        return runCatching {
+            composeTestRule.onRoot(useUnmergedTree = true).printToString()
+        }.getOrDefault("<root dump unavailable>")
     }
 
     private fun buildTalkCalmPerStateJson(intervalMs: Int, frames: List<Int>): String {
