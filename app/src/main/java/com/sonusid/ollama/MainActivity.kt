@@ -52,6 +52,7 @@ import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.common.TopAppBarHeight
 import com.sonusid.ollama.ui.theme.OllamaTheme
+import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
 import kotlinx.coroutines.flow.first
@@ -99,13 +100,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
-            var initialRoute by rememberSaveable { mutableStateOf<String?>(null) }
-            // Initialise navigation
-            val navController = rememberNavController()
-            LaunchedEffect(Unit) {
-                // 起動時1回だけ復元して初期ルートを固定し、NavHost再生成防止を徹底する
-                val restored = settingsPreferences.lastRoute.first()
-                val allowed = setOf(
+            val allowedRoutes = remember {
+                setOf(
                     Routes.HOME,
                     Routes.CHATS,
                     Routes.CHAT_ROOT,
@@ -115,7 +111,27 @@ class MainActivity : ComponentActivity() {
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
-                initialRoute = resolveStartRoute(restored = restored, allowed = allowed)
+            }
+            var initialRoute by rememberSaveable {
+                mutableStateOf(
+                    if (RuntimeFlags.isUiTestRuntime()) {
+                        // UIテスト時は起動直後からNavHostを同期的に構築し、
+                        // teardown時にINITIALIZEDのentryが破棄される競合を回避する
+                        Routes.CHAT_ROOT
+                    } else {
+                        null
+                    }
+                )
+            }
+            // Initialise navigation
+            val navController = rememberNavController()
+            LaunchedEffect(Unit) {
+                if (RuntimeFlags.isUiTestRuntime()) {
+                    return@LaunchedEffect
+                }
+                // 起動時1回だけ復元して初期ルートを固定し、NavHost再生成防止を徹底する
+                val restored = settingsPreferences.lastRoute.first()
+                initialRoute = resolveStartRoute(restored = restored, allowed = allowedRoutes)
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 val appSnackbarHostState = remember { SnackbarHostState() }
