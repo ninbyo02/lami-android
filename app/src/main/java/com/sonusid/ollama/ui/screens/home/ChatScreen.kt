@@ -79,6 +79,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -167,6 +168,9 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
+    var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
+    val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
+    val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -828,7 +832,7 @@ fun Home(
             } else {
                 val messagesForList: List<Message> = allChatsOrNull
                 val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                    topGradientBottomDp
+                    effectiveTopGradientBottomDp
                 } else {
                     chatListTopPaddingDp
                 }
@@ -921,6 +925,9 @@ fun Home(
                         .fillMaxWidth()
                         // IME の表示有無に関係なく上部グラデの高さを固定する
                         .height(TopGradientOverlayHeight)
+                        .onGloballyPositioned { coordinates ->
+                            measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
+                        }
                         .clipToBounds()
                         .background(
                             brush = Brush.verticalGradient(
