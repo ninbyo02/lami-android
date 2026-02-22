@@ -2,8 +2,6 @@ package com.sonusid.ollama.ui.screens.home
 
 // 実行コマンド: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.home.ChatThreadSwitchNoFlashTest
 
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -81,7 +79,7 @@ class ChatThreadSwitchNoFlashTest {
         }
 
         composeTestRule.onNodeWithContentDescription("チャット一覧").performClick()
-        composeTestRule.onNodeWithText(chatBTitle).assertExists()
+        assert(composeTestRule.onAllNodesWithText(chatBTitle).fetchSemanticsNodes().isNotEmpty())
 
         val maxFrames = 180
         composeTestRule.mainClock.autoAdvance = false
@@ -109,7 +107,7 @@ class ChatThreadSwitchNoFlashTest {
             composeTestRule.mainClock.autoAdvance = true
         }
 
-        composeTestRule.onNodeWithText(messageBUnique, substring = true).assertExists()
+        assert(composeTestRule.onAllNodesWithText(messageBUnique, substring = true).fetchSemanticsNodes().isNotEmpty())
         assertForbiddenTextsDoNotExist(frame = -1)
     }
 

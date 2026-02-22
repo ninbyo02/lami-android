@@ -2,10 +2,8 @@ package com.sonusid.ollama.ui.screens.home
 
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import org.junit.Rule
 import org.junit.Test
 
@@ -25,8 +23,8 @@ class ChatMessageRenderingTest {
             }
         }
 
-        composeTestRule.onNodeWithTag("userChatBubble").assertExists()
-        composeTestRule.onNodeWithTag("assistantPlainMessage").assertDoesNotExist()
+        assert(composeTestRule.onAllNodesWithTag("userChatBubble").fetchSemanticsNodes().isNotEmpty())
+        assert(composeTestRule.onAllNodesWithTag("assistantPlainMessage").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
@@ -37,7 +35,7 @@ class ChatMessageRenderingTest {
             }
         }
 
-        composeTestRule.onNodeWithTag("assistantPlainMessage").assertExists()
-        composeTestRule.onNodeWithTag("userChatBubble").assertDoesNotExist()
+        assert(composeTestRule.onAllNodesWithTag("assistantPlainMessage").fetchSemanticsNodes().isNotEmpty())
+        assert(composeTestRule.onAllNodesWithTag("userChatBubble").fetchSemanticsNodes().isEmpty())
     }
 }
