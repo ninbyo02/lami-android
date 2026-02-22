@@ -169,7 +169,8 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
-    val userBubbleExtraTopOffsetDp = 20.dp // DEBUG: move first bubble down
+    val userBubbleExtraTopOffsetDp =
+        if (messages.isNotEmpty()) 20.dp else 0.dp // messages があるときのみ先頭バブルを下げる
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
