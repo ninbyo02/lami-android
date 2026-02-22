@@ -843,20 +843,10 @@ fun Home(
                     ) {
                         if (messagesForList.isEmpty()) {
                             item(key = "empty-state") {
-                                val topPadding = 0.dp
-                                Box(modifier = Modifier.padding(top = topPadding)) {
-                                    Column(
-                                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = "ラミィにお願い…",
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            text = "メッセージを入力するか、マイクで話しかけてください。",
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
+                                Box(modifier = Modifier.padding(top = 0.dp)) {
+                                    PlainAssistantMessage(
+                                        "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。"
+                                    )
                                 }
                             }
                         } else {
@@ -864,7 +854,9 @@ fun Home(
                                 items = messagesForList,
                                 key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                             ) { index, message ->
-                                val topPadding = if (index == 0) 0.dp else 8.dp
+                                val baseTopPadding = if (index == 0) 0.dp else 8.dp
+                                val firstUserExtraTopPadding = if (index == 0 && message.isSendbyMe) 10.dp else 0.dp
+                                val topPadding = baseTopPadding + firstUserExtraTopPadding
                                 Box(modifier = Modifier.padding(top = topPadding)) {
                                     if (message.isSendbyMe) {
                                         ChatBubble(message.message, message.isSendbyMe)
