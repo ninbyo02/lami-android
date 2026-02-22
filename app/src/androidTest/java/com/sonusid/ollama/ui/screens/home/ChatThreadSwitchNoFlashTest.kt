@@ -16,6 +16,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.util.RuntimeFlags
+import android.os.SystemClock
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -93,8 +94,6 @@ class ChatThreadSwitchNoFlashTest {
         // 遷移完了後、短い監視窓で placeholder が出ていないことを保証
         composeTestRule.assertNeverShownWithinWindow(placeholders, windowMs = 1_500L, stepMs = 50L)
 
-        // teardown前に compose を落ち着かせる
-        composeTestRule.waitForIdle()
     }
 
     private fun ComposeTestRule.waitUntilAtLeastOneExistsByText(
@@ -112,17 +111,18 @@ class ChatThreadSwitchNoFlashTest {
         windowMs: Long,
         stepMs: Long,
     ) {
-        var elapsed = 0L
-        while (elapsed <= windowMs) {
-            runOnIdle {
-                texts.forEach { text ->
-                    val found = onAllNodesWithText(text, substring = false).fetchSemanticsNodes().isNotEmpty()
-                    check(!found) { "placeholder was shown: $text" }
+        val startAt = SystemClock.uptimeMillis()
+        val deadline = startAt + windowMs
+
+        while (SystemClock.uptimeMillis() <= deadline) {
+            texts.forEach { text ->
+                val found = onAllNodesWithText(text, substring = false).fetchSemanticsNodes().isNotEmpty()
+                if (found) {
+                    val elapsedMs = SystemClock.uptimeMillis() - startAt
+                    throw AssertionError("placeholder was shown: text=$text elapsedMs=$elapsedMs windowMs=$windowMs")
                 }
             }
-            waitForIdle()
             Thread.sleep(stepMs)
-            elapsed += stepMs
         }
     }
 }
