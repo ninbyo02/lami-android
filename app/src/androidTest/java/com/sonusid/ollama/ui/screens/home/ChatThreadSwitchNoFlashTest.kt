@@ -1,5 +1,7 @@
 package com.sonusid.ollama.ui.screens.home
 
+// 実行コマンド: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.home.ChatThreadSwitchNoFlashTest
+
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -25,7 +27,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ChatThreadSwitchNoFlashTest {
 
-        private val composeTestRule = createAndroidComposeRule<MainActivity>()
+    private val composeTestRule = createAndroidComposeRule<MainActivity>()
 
     private val seedRule = object : ExternalResource() {
         override fun before() {
@@ -78,32 +80,51 @@ class ChatThreadSwitchNoFlashTest {
         }
 
         composeTestRule.onNodeWithContentDescription("チャット一覧").performClick()
-        composeTestRule.onNodeWithText(chatBTitle).assertExists().performClick()
+        composeTestRule.onNodeWithText(chatBTitle).assertExists()
 
+        val maxFrames = 180
         composeTestRule.mainClock.autoAdvance = false
         try {
-            repeat(16) {
-                assertForbiddenTextsDoNotExist()
+            composeTestRule.onNodeWithText(chatBTitle).performClick()
+
+            var switchedToB = false
+            for (frame in 0..maxFrames) {
+                assertForbiddenTextsDoNotExist(frame)
+
+                if (isThreadBVisible()) {
+                    switchedToB = true
+                    break
+                }
+
                 composeTestRule.mainClock.advanceTimeByFrame()
                 composeTestRule.waitForIdle()
             }
+
+            assertTrue(
+                "Thread B への切替が ${maxFrames} フレーム以内に完了しませんでした。",
+                switchedToB
+            )
         } finally {
             composeTestRule.mainClock.autoAdvance = true
         }
 
-        composeTestRule.waitUntil(timeoutMillis = 10_000) {
-            composeTestRule.onAllNodesWithText(messageBUnique, substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
-        }
-
         composeTestRule.onNodeWithText(messageBUnique, substring = true).assertExists()
-        assertForbiddenTextsDoNotExist()
+        assertForbiddenTextsDoNotExist(frame = -1)
     }
 
-    private fun assertForbiddenTextsDoNotExist() {
+    private fun isThreadBVisible(): Boolean {
+        return composeTestRule.onAllNodesWithText(messageBUnique, substring = true)
+            .fetchSemanticsNodes().isNotEmpty()
+    }
+
+    private fun assertForbiddenTextsDoNotExist(frame: Int) {
         forbiddenTexts.forEach { forbiddenText ->
-            val nodes = composeTestRule.onAllNodesWithText(forbiddenText).fetchSemanticsNodes()
-            assertTrue("forbidden text should not be shown: $forbiddenText", nodes.isEmpty())
+            val nodes = composeTestRule.onAllNodesWithText(forbiddenText)
+                .fetchSemanticsNodes()
+            assertTrue(
+                "forbidden text was shown at frame=$frame: '$forbiddenText' (count=${nodes.size})",
+                nodes.isEmpty()
+            )
         }
     }
 }
