@@ -58,7 +58,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun back_withoutDirty_doesNotShowDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
 
         openDiscardDialogByTopBack()
@@ -67,7 +67,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun back_dirty_adjust_boxSize_unsaved_showsDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
         switchToAdjustTab()
         makeAdjustDirty()
@@ -78,7 +78,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun back_dirty_baseInterval_saved_doesNotShowDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
 
@@ -92,7 +92,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun save_updates_perStateJson_meta_userModified() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
 
@@ -124,7 +124,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun back_dirty_baseInterval_switchToAdjust_unsaved_showsDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
         makeAnimDirtyByChangingInterval()
 
@@ -143,7 +143,7 @@ class SpriteSettingsScreenDiscardDialogTest {
     // 状態更新とナビゲーションの責務分解を行い、再設計後に復帰させる。
     @Test
         fun back_dirty_baseInterval_switchToAdjust_saved_doesNotShowDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
 
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -171,7 +171,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun pressBack_imeFocused_withoutDirty_doesNotShowDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
 
         focusIntervalInput()
@@ -181,35 +181,13 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     @Test
     fun pressBack_dirty_adjust_boxSize_showsDiscardDialog() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         waitForIntervalInput()
         switchToAdjustTab()
         makeAdjustDirty()
 
         openDiscardDialogBySystemBack()
         assertDiscardDialogShown()
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.setContent {
-            TestAppWrapper {
-                OllamaTheme {
-                    val navController = rememberNavController()
-                    NavHost(
-                        navController = navController,
-                        startDestination = SettingsRoute.SpriteSettings.route
-                    ) {
-                        composable(SettingsRoute.SpriteSettings.route) {
-                            SpriteSettingsScreen(navController)
-                        }
-                        composable(Routes.SETTINGS) {
-                            Text("Settings", modifier = Modifier.testTag("settingsScreenRoot"))
-                        }
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
     }
 
     private fun waitForIntervalInput() {

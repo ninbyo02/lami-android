@@ -46,7 +46,7 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
 
     @Test
     fun focusingInputs_updatesFocusedFieldAndDoesNotCrashBringIntoView() {
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         ensureAnimTabSelected()
 
         scrollToTestTag("spriteBaseFramesInput")
@@ -86,30 +86,6 @@ class SpriteSettingsImeBringIntoViewSmokeTest {
                 block()
             }
         }
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
-            activity.setContent {
-                TestAppWrapper {
-                    val navController = rememberNavController()
-                    OllamaTheme(dynamicColor = false) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = SettingsRoute.SpriteSettings.route
-                        ) {
-                            composable(SettingsRoute.SpriteSettings.route) {
-                                SpriteSettingsScreen(navController)
-                            }
-                            composable(Routes.SETTINGS) {
-                                Settings(navController)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
     }
 
     private fun ensureAnimTabSelected() {

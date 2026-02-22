@@ -1,29 +1,20 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
-import androidx.activity.compose.setContent
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.test.printToString
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import com.sonusid.ollama.MainActivity
-import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.TestAppWrapper
-import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -84,14 +75,14 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         composeTestRule.selectAnimationTypeByAnchor(
             label = label,
             ensureAnimTabSelected = { ensureAnimTabSelected() },
-            waitForNodeWithTag = { tag, timeout -> waitForNodeWithTag(tag, timeout) },
+            waitForNodeWithTag = { tag, timeout -> composeTestRule.awaitNodeWithTag(tag, timeout) },
             scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
         )
         composeTestRule.waitForIdle()
     }
 
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
-        waitForNodeWithTag("spriteAnimList")
+        composeTestRule.awaitNodeWithTag("spriteAnimList")
         val scrolled = runCatching {
             composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
                 .performScrollToNode(hasTestTag(anchorTag))
@@ -106,7 +97,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         for (index in 0..maxIndex) {
             runCatching { listNode.performScrollToIndex(index) }
             composeTestRule.waitForIdle()
-            if (hasNodeWithTag(anchorTag)) {
+            if (composeTestRule.hasNodeWithTag(anchorTag)) {
                 return
             }
             if (System.currentTimeMillis() - startTime > 10_000) {
@@ -116,7 +107,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun ensureAnimTabSelected() {
-        waitForNodeWithTag("spriteTabAnim")
+        composeTestRule.awaitNodeWithTag("spriteTabAnim")
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
         val isSelected = runCatching { tabNode.fetchSemanticsNode() }
             .map { node ->
@@ -149,72 +140,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     }
 
     private fun recreateToSpriteSettings() {
-        composeTestRule.activityRule.scenario.recreate()
-        composeTestRule.waitForIdle()
-        setSpriteSettingsContent()
+        composeTestRule.recreateAndAwaitTag("spriteTabAnim")
         ensureAnimTabSelected()
-        waitForNodeWithTag("spriteTabAnim", timeoutMillis = 30_000)
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
-            activity.setContent {
-                TestAppWrapper {
-                    val navController = rememberNavController()
-                    OllamaTheme(dynamicColor = false) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = SettingsRoute.SpriteSettings.route
-                        ) {
-                            composable(SettingsRoute.SpriteSettings.route) {
-                                SpriteSettingsScreen(navController)
-                            }
-                            composable(Routes.SETTINGS) {
-                                Settings(navController)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
-    }
-
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 30_000) {
-        if ((tag == "spriteBaseIntervalInput" || tag == "spriteInsertionIntervalInput") && !hasNodeWithTag(tag)) {
-            return
-        }
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                runCatching {
-                    composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-                }.getOrDefault(false) || runCatching {
-                    composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-                }.getOrDefault(false)
-            }
-        } catch (error: Throwable) {
-            val tags = dumpSemanticsTags()
-            throw AssertionError("タグが見つかりません: $tag（timeout=${timeoutMillis}ms）。\nSemantics:\n$tags", error)
-        }
-    }
-
-    private fun hasNodeWithTag(tag: String): Boolean {
-        val unmergedCount = runCatching {
-            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
-        }.getOrDefault(0)
-        if (unmergedCount > 0) {
-            return true
-        }
-        val mergedCount = runCatching {
-            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
-        }.getOrDefault(0)
-        return mergedCount > 0
-    }
-
-    private fun dumpSemanticsTags(): String {
-        return runCatching {
-            composeTestRule.onRoot(useUnmergedTree = true).printToString()
-        }.getOrDefault("<root dump unavailable>")
     }
 
     private fun buildTalkCalmPerStateJson(intervalMs: Int, frames: List<Int>): String {
