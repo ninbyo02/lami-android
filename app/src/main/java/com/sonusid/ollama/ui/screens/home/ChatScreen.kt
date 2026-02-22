@@ -171,12 +171,6 @@ fun Home(
         }
     }
 
-    LaunchedEffect(drawerState.isOpen) {
-        if (!drawerState.isOpen) {
-            suppressChatContentWhileClosingDrawer = false
-        }
-    }
-
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
         effectiveChatId = resolvedChatId
@@ -377,14 +371,18 @@ fun Home(
                                     suppressAutoNewChat = true
                                     effectiveChatId = chat.chatId
                                     coroutineScope.launch {
-                                        closeThenNavigate(
-                                            closeDrawer = { closeDrawerSafely(drawerState) },
-                                            navigate = {
-                                                navHostController.navigate(Routes.chat(chat.chatId)) {
-                                                    launchSingleTop = true
+                                        try {
+                                            closeThenNavigate(
+                                                closeDrawer = { closeDrawerSafely(drawerState) },
+                                                navigate = {
+                                                    navHostController.navigate(Routes.chat(chat.chatId)) {
+                                                        launchSingleTop = true
+                                                    }
                                                 }
-                                            }
-                                        )
+                                            )
+                                        } finally {
+                                            suppressChatContentWhileClosingDrawer = false
+                                        }
                                     }
                                 },
                                 modifier = Modifier
