@@ -16,6 +16,7 @@ import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.util.RuntimeFlags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +80,9 @@ class OllamaViewModel(
                 .map { it.state }
                 .distinctUntilChanged()
                 .collect {
-                    _animationEpochMs.value = SystemClock.uptimeMillis()
+                    if (!RuntimeFlags.shouldDisableContinuousAnimations()) {
+                        _animationEpochMs.value = SystemClock.uptimeMillis()
+                    }
                 }
         }
         viewModelScope.launch {
@@ -90,7 +93,7 @@ class OllamaViewModel(
                     selectedModel = selectedModel,
                 )
             }.collect { mappedStatus ->
-                if (mappedStatus != _lamiAnimationStatus.value) {
+                if (mappedStatus != _lamiAnimationStatus.value && !RuntimeFlags.shouldDisableContinuousAnimations()) {
                     _animationEpochMs.value = SystemClock.uptimeMillis()
                 }
                 _lamiAnimationStatus.value = mappedStatus
