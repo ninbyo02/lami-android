@@ -124,6 +124,8 @@ private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
 private val TopGradientOverlayHeight = 24.dp
 private val TopGradientOverlayTopOffset = 34.dp
+// DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
+private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -165,7 +167,8 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
-    val topGradientHeightDp = TopGradientOverlayTopOffset + TopGradientOverlayHeight
+    val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
+    val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -865,7 +868,7 @@ fun Home(
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
                             // 先頭バブルの開始位置を上部グラデーション下端 + 4dp に固定する
-                            top = topGradientHeightDp + ChatListTopGapFromGradientBottom,
+                            top = chatListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
                             bottom = 0.dp
@@ -930,7 +933,7 @@ fun Home(
                     // 上部グラデーション全体を既存位置へ配置
                     .padding(top = TopGradientOverlayTopOffset)
                     // 上部グラデーションの開始位置を 4dp 上へ戻す
-                    .offset(y = (-4).dp)
+                    .offset(y = TopGradientOverlayYOffset)
             ) {
                 Box(
                     modifier = Modifier
