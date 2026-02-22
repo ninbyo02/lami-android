@@ -862,9 +862,15 @@ fun Home(
                                 items = messagesForList,
                                 key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                             ) { index, message ->
-                                val baseTopPadding = if (index == 0) 0.dp else 8.dp
-                                val firstUserExtraTopPadding = if (index == 0 && message.isSendbyMe) 10.dp else 0.dp
-                                val topPadding = baseTopPadding + firstUserExtraTopPadding
+                                val isFirst = index == 0
+                                val isFirstUserBubble = isFirst && message.isSendbyMe
+                                val topPadding = when {
+                                    // 最初のユーザーバブルだけは先頭余白を追加しない
+                                    isFirstUserBubble -> 0.dp
+                                    // 先頭メッセージ（assistant 含む）は従来どおり 0dp
+                                    isFirst -> 0.dp
+                                    else -> 8.dp
+                                }
                                 Box(modifier = Modifier.padding(top = topPadding)) {
                                     if (message.isSendbyMe) {
                                         ChatBubble(message.message, message.isSendbyMe)
