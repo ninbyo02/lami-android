@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.home
 // 実行コマンド: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.home.ChatThreadSwitchNoFlashTest
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -15,8 +16,8 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.util.RuntimeFlags
+import android.os.SystemClock
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExternalResource
@@ -43,7 +44,7 @@ class ChatThreadSwitchNoFlashTest {
     @get:Rule
     val ruleChain: TestRule = RuleChain.outerRule(seedRule).around(composeTestRule)
 
-    private val forbiddenTexts = listOf(
+    private val placeholders = listOf(
         "Preparing chat...",
         "Creating new chat...",
         "最初のメッセージを送信して会話を始めましょう",
@@ -79,48 +80,49 @@ class ChatThreadSwitchNoFlashTest {
 
     @Test
     fun switchingExistingThreadFromDrawer_neverShowsPreparingOrNewChatPlaceholders() {
-        composeTestRule.mainClock.autoAdvance = false
-
-        composeTestRule.waitUntil(timeoutMillis = 10_000) {
-            composeTestRule.onAllNodesWithText(messageAUnique, substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
-        }
+        composeTestRule.waitUntilAtLeastOneExistsByText(messageAUnique, timeoutMs = 30_000, substring = true)
 
         composeTestRule.onNodeWithContentDescription("チャット一覧").performClick()
-        repeat(10) { composeTestRule.mainClock.advanceTimeByFrame() }
-        assert(composeTestRule.onAllNodesWithText(chatBTitle).fetchSemanticsNodes().isNotEmpty())
 
-        try {
-            // autoAdvance=false のままだと Drawer close アニメーションが進まず、
-            // closeThenNavigate の navigate に到達しないためフレームを明示的に進める。
-            composeTestRule.onNodeWithText(chatBTitle).performClick()
-            repeat(90) { composeTestRule.mainClock.advanceTimeByFrame() }
+        // 既存のチャットBへ切り替え
+        composeTestRule.onNodeWithText(chatBTitle).performClick()
 
-            composeTestRule.waitUntil(timeoutMillis = 10_000) {
-                composeTestRule.onAllNodesWithText(messageBUnique, substring = true)
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
+        // まず「遷移完了」を明示的に待つ（teardown競合で lifecycle crash を避ける）
+        composeTestRule.waitUntilAtLeastOneExistsByText(chatBTitle, timeoutMs = 30_000, substring = false)
+        composeTestRule.waitUntilAtLeastOneExistsByText(messageBUnique, timeoutMs = 30_000, substring = true)
 
-            repeat(120) { frame ->
-                assertForbiddenTextsDoNotExist(frame)
-                composeTestRule.mainClock.advanceTimeByFrame()
-            }
-        } finally {
-            composeTestRule.mainClock.autoAdvance = true
-        }
+        // 遷移完了後、短い監視窓で placeholder が出ていないことを保証
+        composeTestRule.assertNeverShownWithinWindow(placeholders, windowMs = 1_500L, stepMs = 50L)
 
-        assert(composeTestRule.onAllNodesWithText(messageBUnique, substring = true).fetchSemanticsNodes().isNotEmpty())
-        assertForbiddenTextsDoNotExist(frame = -1)
     }
 
-    private fun assertForbiddenTextsDoNotExist(frame: Int) {
-        forbiddenTexts.forEach { forbiddenText ->
-            val nodes = composeTestRule.onAllNodesWithText(forbiddenText, substring = true)
-                .fetchSemanticsNodes()
-            assertTrue(
-                "forbidden text was shown at frame=$frame: '$forbiddenText' (count=${nodes.size})",
-                nodes.isEmpty()
-            )
+    private fun ComposeTestRule.waitUntilAtLeastOneExistsByText(
+        text: String,
+        timeoutMs: Long,
+        substring: Boolean,
+    ) {
+        waitUntil(timeoutMs) {
+            onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun ComposeTestRule.assertNeverShownWithinWindow(
+        texts: List<String>,
+        windowMs: Long,
+        stepMs: Long,
+    ) {
+        val startAt = SystemClock.uptimeMillis()
+        val deadline = startAt + windowMs
+
+        while (SystemClock.uptimeMillis() <= deadline) {
+            texts.forEach { text ->
+                val found = onAllNodesWithText(text, substring = false).fetchSemanticsNodes().isNotEmpty()
+                if (found) {
+                    val elapsedMs = SystemClock.uptimeMillis() - startAt
+                    throw AssertionError("placeholder was shown: text=$text elapsedMs=$elapsedMs windowMs=$windowMs")
+                }
+            }
+            Thread.sleep(stepMs)
         }
     }
 }

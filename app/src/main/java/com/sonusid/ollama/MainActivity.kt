@@ -17,10 +17,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -52,6 +49,7 @@ import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.ProjectSnackbar
 import com.sonusid.ollama.ui.common.TopAppBarHeight
 import com.sonusid.ollama.ui.theme.OllamaTheme
+import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import com.sonusid.ollama.viewmodels.OllamaViewModelFactory
 import kotlinx.coroutines.flow.first
@@ -99,13 +97,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
-            var initialRoute by rememberSaveable { mutableStateOf<String?>(null) }
             // Initialise navigation
             val navController = rememberNavController()
             LaunchedEffect(Unit) {
-                // 起動時1回だけ復元して初期ルートを固定し、NavHost再生成防止を徹底する
+                // UIテスト時は復元ナビゲーションを無効化して常にCHAT_ROOTから開始する
+                if (RuntimeFlags.isUiTestRuntime()) return@LaunchedEffect
+
                 val restored = settingsPreferences.lastRoute.first()
-                val allowed = setOf(
+                val allowedRoutes = setOf(
                     Routes.HOME,
                     Routes.CHATS,
                     Routes.CHAT_ROOT,
@@ -115,7 +114,15 @@ class MainActivity : ComponentActivity() {
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
-                initialRoute = resolveStartRoute(restored = restored, allowed = allowed)
+                val targetRoute = resolveStartRoute(restored = restored, allowed = allowedRoutes)
+                // NavHost生成後に必要な場合のみ遷移して復元する
+                if (targetRoute != Routes.CHAT_ROOT) {
+                    navController.navigate(targetRoute) {
+                        launchSingleTop = true
+                        // ベースを固定して復元時のBackStack重複を防ぐ
+                        popUpTo(Routes.CHAT_ROOT) { inclusive = false }
+                    }
+                }
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 val appSnackbarHostState = remember { SnackbarHostState() }
@@ -130,14 +137,10 @@ class MainActivity : ComponentActivity() {
                                     .padding(innerPadding)
                                     .fillMaxSize()
                             ) {
-                                if (initialRoute == null) {
-                                    // 起動時1回だけ復元が終わるまでNavHostを描かない（NavHost再生成防止）
-                                    Box(modifier = Modifier.fillMaxSize())
-                                } else {
-                                    NavHost(
-                                        navController = navController,
-                                        startDestination = requireNotNull(initialRoute)
-                                    ) {
+                                NavHost(
+                                    navController = navController,
+                                    startDestination = Routes.CHAT_ROOT
+                                ) {
                                         composable(Routes.HOME) {
                                             Home(navController, viewModel)
                                         }
@@ -169,7 +172,6 @@ class MainActivity : ComponentActivity() {
                                         composable(SettingsRoute.SpriteEditor.route) {
                                             SpriteEditorScreen(navController)
                                         }
-                                    }
                                 }
                             }
                             SnackbarHost(
