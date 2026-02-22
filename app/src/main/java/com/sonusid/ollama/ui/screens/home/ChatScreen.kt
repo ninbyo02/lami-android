@@ -105,6 +105,7 @@ import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
+import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
@@ -375,17 +376,12 @@ fun Home(
                                 onClick = {
                                     suppressChatContentWhileClosingDrawer = true
                                     suppressAutoNewChat = true
-                                    effectiveChatId = chat.chatId
                                     coroutineScope.launch {
                                         try {
-                                            closeThenNavigate(
-                                                closeDrawer = { closeDrawerSafely(drawerState) },
-                                                navigate = {
-                                                    navHostController.navigate(Routes.chat(chat.chatId)) {
-                                                        launchSingleTop = true
-                                                    }
-                                                }
-                                            )
+                                            closeDrawerForNavigation(drawerState)
+                                            navHostController.navigate(Routes.chat(chat.chatId)) {
+                                                launchSingleTop = true
+                                            }
                                         } finally {
                                             suppressChatContentWhileClosingDrawer = false
                                         }
@@ -1025,9 +1021,8 @@ internal suspend fun closeThenNavigate(
     closeDrawer: suspend () -> Unit,
     navigate: () -> Unit,
 ) {
-    runCatching {
-        closeDrawer()
-    }
+    // close の失敗は吸収し、navigate は必ず実行する
+    runCatching { closeDrawer() }
     navigate()
 }
 
@@ -1035,8 +1030,15 @@ private suspend fun closeDrawerSafely(drawerState: DrawerState) {
     if (!drawerState.isOpen) {
         return
     }
-    runCatching {
-        drawerState.close()
+    runCatching { drawerState.close() }
+}
+
+private suspend fun closeDrawerForNavigation(drawerState: DrawerState) {
+    if (!drawerState.isOpen) return
+    if (RuntimeFlags.isUiTestRuntime()) {
+        runCatching { drawerState.snapTo(DrawerValue.Closed) }
+    } else {
+        runCatching { drawerState.close() }
     }
 }
 
