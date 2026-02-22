@@ -107,6 +107,7 @@ import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -137,8 +138,12 @@ fun Home(
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by remember { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
-    val allChatsState = effectiveChatId?.let { viewModel.allMessages(it).collectAsState(initial = emptyList()) }
-    val allChats = allChatsState?.value.orEmpty()
+    val allChatsState = effectiveChatId?.let {
+        viewModel.allMessages(it)
+            .map { messages -> messages as List<Message>? }
+            .collectAsState(initial = null)
+    }
+    val allChatsOrNull = allChatsState?.value
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
     var toolsMenuExpanded by remember { mutableStateOf(false) }
@@ -214,7 +219,8 @@ fun Home(
         }
     }
 
-    LaunchedEffect(allChats.size) {
+    LaunchedEffect(allChatsOrNull?.size) {
+        val allChats = allChatsOrNull ?: return@LaunchedEffect
         if (allChats.isNotEmpty()) {
             listState.animateScrollToItem(allChats.size - 1)
         }
@@ -831,7 +837,9 @@ fun Home(
                 ) {
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
-            } else if (allChats.isEmpty()) {
+            } else if (allChatsOrNull == null) {
+                Box(modifier = contentModifier)
+            } else if (allChatsOrNull.isEmpty()) {
                 Column(
                     modifier = contentModifier,
                     verticalArrangement = Arrangement.Top,
@@ -882,7 +890,7 @@ fun Home(
                         state = listState,
                     ) {
                         itemsIndexed(
-                            items = allChats,
+                            items = allChatsOrNull,
                             key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                         ) { index, message ->
                             val topPadding = if (index == 0) 0.dp else 8.dp
