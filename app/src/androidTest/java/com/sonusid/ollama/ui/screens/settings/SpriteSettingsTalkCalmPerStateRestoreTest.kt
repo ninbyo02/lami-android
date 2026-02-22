@@ -97,7 +97,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         for (index in 0..maxIndex) {
             runCatching { listNode.performScrollToIndex(index) }
             composeTestRule.waitForIdle()
-            if (hasNodeWithTag(anchorTag)) {
+            if (composeTestRule.hasNodeWithTag(anchorTag)) {
                 return
             }
             if (System.currentTimeMillis() - startTime > 10_000) {
