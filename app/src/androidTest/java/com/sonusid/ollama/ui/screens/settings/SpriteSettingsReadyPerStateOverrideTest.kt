@@ -89,7 +89,7 @@ class SpriteSettingsReadyPerStateOverrideTest {
     }
 
     private fun ensureAnimTabSelected() {
-        waitForNodeWithTag("spriteTabAnim")
+        composeTestRule.awaitNodeWithTag("spriteTabAnim")
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim").fetchSemanticsNode()
         val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
             tabNode.config[SemanticsProperties.Selected] == true
@@ -118,48 +118,11 @@ class SpriteSettingsReadyPerStateOverrideTest {
     }
 
     private fun recreateToSpriteSettings() {
-        composeTestRule.activityRule.scenario.recreate()
-        setSpriteSettingsContent()
-        waitForNodeWithTag("spriteTabAnim")
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
-            activity.setContent {
-                TestAppWrapper {
-                    val navController = rememberNavController()
-                    OllamaTheme(dynamicColor = false) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = SettingsRoute.SpriteSettings.route
-                        ) {
-                            composable(SettingsRoute.SpriteSettings.route) {
-                                SpriteSettingsScreen(navController)
-                            }
-                            composable(Routes.SETTINGS) {
-                                Settings(navController)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
-    }
-
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-            }
-        } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
-            throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
-        }
+        composeTestRule.recreateAndAwaitTag("spriteTabAnim")
     }
 
     private fun waitForEditableText(tag: String, expected: String, timeoutMillis: Long = 20_000) {
-        waitForNodeWithTag(tag, timeoutMillis)
+        composeTestRule.awaitNodeWithTag(tag, timeoutMillis)
         composeTestRule.waitForIdle()
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
@@ -167,7 +130,7 @@ class SpriteSettingsReadyPerStateOverrideTest {
             }
         } catch (error: AssertionError) {
             val actual = currentEditableText(tag).trim()
-            val tags = dumpSemanticsTags()
+            val tags = composeTestRule.dumpSemanticsTree()
             throw AssertionError(
                 "入力値が一致しません: tag=$tag expected=$expected actual=$actual。現在のタグ一覧: $tags",
                 error
@@ -209,41 +172,10 @@ class SpriteSettingsReadyPerStateOverrideTest {
     }
 
     private fun scrollToTestTag(tag: String) {
-        waitForNodeWithTag("spriteAnimList")
+        composeTestRule.awaitNodeWithTag("spriteAnimList")
         runCatching {
             composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
                 .performScrollToNode(hasTestTag(tag))
-        }
-    }
-
-    private fun dumpSemanticsTags(): String {
-        val rootNodes: List<SemanticsNode> = composeTestRule
-            .onAllNodes(isRoot(), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-        val tags: MutableSet<String> = mutableSetOf()
-        rootNodes.forEach { node: SemanticsNode ->
-            collectTestTags(node, tags)
-        }
-        val sortedTags = tags.toList().sorted()
-        return if (sortedTags.isEmpty()) {
-            "<none>"
-        } else {
-            sortedTags.joinToString()
-        }
-    }
-
-    private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
-        val config: SemanticsConfiguration = node.config
-        val tag: String? = if (config.contains(SemanticsProperties.TestTag)) {
-            config[SemanticsProperties.TestTag]
-        } else {
-            null
-        }
-        if (tag != null) {
-            tags.add(tag)
-        }
-        node.children.forEach { child: SemanticsNode ->
-            collectTestTags(child, tags)
         }
     }
 

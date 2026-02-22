@@ -88,14 +88,14 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
         composeTestRule.selectAnimationTypeByAnchor(
             label = label,
             ensureAnimTabSelected = { ensureAnimTabSelected() },
-            waitForNodeWithTag = { tag, timeout -> waitForNodeWithTag(tag, timeout) },
+            waitForNodeWithTag = { tag, timeout -> composeTestRule.awaitNodeWithTag(tag, timeout) },
             scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
         )
         composeTestRule.waitForIdle()
     }
 
     private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
-        waitForNodeWithTag("spriteAnimList")
+        composeTestRule.awaitNodeWithTag("spriteAnimList")
         val scrolled = runCatching {
             composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
                 .performScrollToNode(hasTestTag(anchorTag))
@@ -120,7 +120,7 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     }
 
     private fun ensureAnimTabSelected() {
-        waitForNodeWithTag("spriteTabAnim")
+        composeTestRule.awaitNodeWithTag("spriteTabAnim")
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
             .fetchSemanticsNode()
         val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
@@ -150,63 +150,7 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
     }
 
     private fun recreateToSpriteSettings() {
-        composeTestRule.activityRule.scenario.recreate()
-        setSpriteSettingsContent()
-        waitForNodeWithTag("spriteTabAnim")
-    }
-
-    private fun setSpriteSettingsContent() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
-            activity.setContent {
-                TestAppWrapper {
-                    val navController = rememberNavController()
-                    OllamaTheme(dynamicColor = false) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = SettingsRoute.SpriteSettings.route
-                        ) {
-                            composable(SettingsRoute.SpriteSettings.route) {
-                                SpriteSettingsScreen(navController)
-                            }
-                            composable(Routes.SETTINGS) {
-                                Settings(navController)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
-    }
-
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 5_000) {
-        if ((tag == "spriteBaseIntervalInput" || tag == "spriteInsertionIntervalInput") && !hasNodeWithTag(tag)) {
-            return
-        }
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                hasNodeWithTag(tag)
-            }
-        } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
-            throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
-        }
-    }
-
-    private fun dumpSemanticsTags(): String {
-        val rootNodes: List<SemanticsNode> = composeTestRule
-            .onAllNodes(isRoot(), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-        val tags: MutableSet<String> = mutableSetOf()
-        rootNodes.forEach { node: SemanticsNode ->
-            collectTestTags(node, tags)
-        }
-        val sortedTags = tags.toList().sorted()
-        return if (sortedTags.isEmpty()) {
-            "<none>"
-        } else {
-            sortedTags.joinToString()
-        }
+        composeTestRule.recreateAndAwaitTag("spriteTabAnim")
     }
 
     private fun hasNodeWithTag(tag: String): Boolean {
@@ -220,21 +164,6 @@ class SpriteSettingsTalkLongPerStateRestoreTest {
             composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
         }.getOrDefault(0)
         return mergedCount > 0
-    }
-
-    private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
-        val config: SemanticsConfiguration = node.config
-        val tag: String? = if (config.contains(SemanticsProperties.TestTag)) {
-            config[SemanticsProperties.TestTag]
-        } else {
-            null
-        }
-        if (tag != null) {
-            tags.add(tag)
-        }
-        node.children.forEach { child: SemanticsNode ->
-            collectTestTags(child, tags)
-        }
     }
 
     private fun buildTalkLongPerStateJson(intervalMs: Int, frames: List<Int>): String {
