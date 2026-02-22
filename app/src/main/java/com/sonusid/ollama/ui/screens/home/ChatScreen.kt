@@ -126,7 +126,7 @@ private val TopGradientOverlayHeight = 24.dp
 private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
 private val TopGradientOverlayYOffset = (-4).dp
-private val ChatListTopGapFromGradientBottom = 4.dp
+private val ChatListTopGapFromGradientBottom = 0.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,8 +169,6 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
-    val userBubbleExtraTopOffsetDp =
-        if (!allChatsOrNull.isNullOrEmpty()) 20.dp else 0.dp // メッセージがあるときのみ先頭バブルを下げる
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -869,8 +867,8 @@ fun Home(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
-                            // 先頭バブルの開始位置を上部グラデーション下端 + 4dp に固定する
-                            top = chatListTopPaddingDp + userBubbleExtraTopOffsetDp,
+                            // 先頭バブルの開始位置を上部グラデーション下端 + 0dp に固定する
+                            top = chatListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
                             bottom = 0.dp
