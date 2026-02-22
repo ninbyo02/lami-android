@@ -11,6 +11,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.printToString
 import androidx.navigation.compose.NavHost
+import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.sonusid.ollama.MainActivity
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.navigation.Routes
@@ -18,8 +20,8 @@ import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.TestAppWrapper
 import com.sonusid.ollama.ui.theme.OllamaTheme
 
-private fun ComposeTestRule.asAndroidRule(): AndroidComposeTestRule<*, *> =
-    this as AndroidComposeTestRule<*, *>
+private fun ComposeTestRule.asAndroidRule(): AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity> =
+    this as AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
 
 fun ComposeTestRule.setSpriteSettingsContentForTest() {
     asAndroidRule().activityRule.scenario.onActivity { activity ->
@@ -77,6 +79,20 @@ fun ComposeTestRule.awaitNodeWithTag(tag: String, timeoutMillis: Long = 30_000) 
             error,
         )
     }
+}
+
+fun ComposeTestRule.hasNodeWithTag(tag: String): Boolean {
+    val unmerged = runCatching {
+        onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+    }.getOrDefault(false)
+
+    if (unmerged) return true
+
+    val merged = runCatching {
+        onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    }.getOrDefault(false)
+
+    return merged
 }
 
 fun ComposeTestRule.dumpSemanticsTree(maxChars: Int = 20_000): String {
