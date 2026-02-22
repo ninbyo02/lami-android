@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -917,15 +918,19 @@ fun Home(
     }
 
         if (debugOverlayEnabled) {
-            val overlayBase = MaterialTheme.colorScheme.background
+            // DEBUG: 上部グラデーションの視認確認のためオレンジ固定
+            // TODO: デバッグ完了後に MaterialTheme.colorScheme.background ベースのグラデーションへ戻す
+            val debugOrange = Color(0xFFFF8C00)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     // 上部グラデーションの開始位置をステータスバーぶん下げる
                     .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置からさらに下へ移動する
+                    // 上部グラデーション全体を既存位置へ配置
                     .padding(top = TopGradientOverlayTopOffset)
+                    // 上部グラデーションの開始位置を 4dp 上へ戻す
+                    .offset(y = (-4).dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -936,9 +941,9 @@ fun Home(
                         .background(
                             brush = Brush.verticalGradient(
                                 colorStops = arrayOf(
-                                    0.0f to overlayBase.copy(alpha = 1.0f),
-                                    0.5f to overlayBase.copy(alpha = 0.40f),
-                                    1.0f to overlayBase.copy(alpha = 0.0f)
+                                    0.0f to debugOrange.copy(alpha = 0.90f),
+                                    0.5f to debugOrange.copy(alpha = 0.45f),
+                                    1.0f to debugOrange.copy(alpha = 0.0f)
                                 )
                             )
                         )
