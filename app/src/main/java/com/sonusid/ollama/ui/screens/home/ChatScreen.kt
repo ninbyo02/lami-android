@@ -104,8 +104,6 @@ import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
-import com.sonusid.ollama.ui.components.LamiSprite
-import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -126,7 +124,7 @@ private val TopGradientOverlayHeight = 24.dp
 private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
 private val TopGradientOverlayYOffset = (-4).dp
-private val ChatListTopGapFromGradientBottom = 0.dp
+private val ChatListTopGapFromGradientBottom = 24.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -827,47 +825,14 @@ fun Home(
                 }
             } else if (allChatsOrNull == null) {
                 Box(modifier = contentModifier)
-            } else if (allChatsOrNull.isEmpty()) {
-                Column(
-                    modifier = contentModifier,
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    BoxWithConstraints {
-                        val baseSpriteSize = 100.dp
-                        val targetSize = baseSpriteSize * 2f
-                        val maxSizeByWidth = maxWidth * 0.92f
-                        val maxSizeByHeight = maxHeight * 0.45f
-                        val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
-                        LamiSprite(
-                            state = lamiUiState.state,
-                            lamiStatus = lamiAnimationStatus,
-                            sizeDp = finalSize,
-                            shape = CircleShape,
-                            backgroundColor = rememberLamiCharacterBackdropColor(),
-                            contentPadding = 0.dp,
-                            animationsEnabled = true,
-                            replacementEnabled = true,
-                            blinkEffectEnabled = true,
-                            contentOffsetYDp = 2.dp,
-                            tightContainer = true,
-                            maxStatusSpriteSizeDp = finalSize,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                        )
-                    }
-                    Text(
-                        text = "最初のメッセージを送信して会話を始めましょう",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
             } else {
+                val messagesForList: List<Message> = allChatsOrNull
                 Column(modifier = contentModifier) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
-                            // 先頭バブルの開始位置を上部グラデーション下端 + 0dp に固定する
+                            // 先頭バブルの開始位置を上部グラデーション下端 + 24dp に固定する
                             top = chatListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
@@ -876,16 +841,31 @@ fun Home(
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                         state = listState,
                     ) {
-                        itemsIndexed(
-                            items = allChatsOrNull,
-                            key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                        ) { index, message ->
-                            val topPadding = if (index == 0) 0.dp else 8.dp
-                            Box(modifier = Modifier.padding(top = topPadding)) {
-                                if (message.isSendbyMe) {
-                                    ChatBubble(message.message, message.isSendbyMe)
-                                } else {
-                                    PlainAssistantMessage(message.message)
+                        if (messagesForList.isEmpty()) {
+                            item(key = "empty-state") {
+                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    Text(
+                                        text = "ラミィにお願い…",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = "メッセージを入力するか、マイクで話しかけてください。",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        } else {
+                            itemsIndexed(
+                                items = messagesForList,
+                                key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                            ) { index, message ->
+                                val topPadding = if (index == 0) 0.dp else 8.dp
+                                Box(modifier = Modifier.padding(top = topPadding)) {
+                                    if (message.isSendbyMe) {
+                                        ChatBubble(message.message, message.isSendbyMe)
+                                    } else {
+                                        PlainAssistantMessage(message.message)
+                                    }
                                 }
                             }
                         }
