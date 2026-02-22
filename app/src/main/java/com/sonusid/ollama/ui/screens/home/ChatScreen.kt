@@ -843,15 +843,18 @@ fun Home(
                     ) {
                         if (messagesForList.isEmpty()) {
                             item(key = "empty-state") {
-                                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                    Text(
-                                        text = "ラミィにお願い…",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        text = "メッセージを入力するか、マイクで話しかけてください。",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                                val topPadding = 0.dp
+                                Box(modifier = Modifier.padding(top = topPadding)) {
+                                    Column {
+                                        Text(
+                                            text = "ラミィにお願い…",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = "メッセージを入力するか、マイクで話しかけてください。",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
                                 }
                             }
                         } else {
