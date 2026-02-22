@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.activity.compose.setContent
+import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -12,7 +13,6 @@ import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.printToString
 import androidx.navigation.compose.NavHost
 import androidx.test.ext.junit.rules.ActivityScenarioRule
-import com.sonusid.ollama.MainActivity
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.sonusid.ollama.navigation.Routes
@@ -20,8 +20,8 @@ import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.ui.TestAppWrapper
 import com.sonusid.ollama.ui.theme.OllamaTheme
 
-private fun ComposeTestRule.asAndroidRule(): AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity> =
-    this as AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
+private fun ComposeTestRule.asAndroidRule(): AndroidComposeTestRule<ActivityScenarioRule<out ComponentActivity>, out ComponentActivity> =
+    this as AndroidComposeTestRule<ActivityScenarioRule<out ComponentActivity>, out ComponentActivity>
 
 fun ComposeTestRule.setSpriteSettingsContentForTest() {
     asAndroidRule().activityRule.scenario.onActivity { activity ->
