@@ -132,6 +132,7 @@ fun Home(
     val chats by viewModel.chats.collectAsState()
     var effectiveChatId by rememberSaveable { mutableStateOf<Int?>(chatId) }
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
+    var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by remember { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
@@ -162,11 +163,17 @@ fun Home(
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
+    LaunchedEffect(chatId) {
+        if (chatId != null) {
+            suppressAutoNewChat = false
+        }
+    }
+
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
         effectiveChatId = resolvedChatId
 
-        if (resolvedChatId == null && !isCreatingChat) {
+        if (shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)) {
             isCreatingChat = true
             createAndNavigateToNewChat(
                 createNewChat = {
@@ -190,6 +197,7 @@ fun Home(
 
         if (resolvedChatId != null) {
             isCreatingChat = false
+            suppressAutoNewChat = false
         }
     }
 
@@ -357,6 +365,7 @@ fun Home(
                             val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
                             TextButton(
                                 onClick = {
+                                    suppressAutoNewChat = true
                                     effectiveChatId = chat.chatId
                                     navHostController.navigate(Routes.chat(chat.chatId)) {
                                         launchSingleTop = true
@@ -1005,4 +1014,12 @@ private suspend fun closeDrawerSafely(drawerState: DrawerState) {
     runCatching {
         drawerState.close()
     }
+}
+
+internal fun shouldAutoCreateNewChat(
+    suppressAutoNewChat: Boolean,
+    resolvedChatId: Int?,
+    isCreatingChat: Boolean,
+): Boolean {
+    return !suppressAutoNewChat && resolvedChatId == null && !isCreatingChat
 }
