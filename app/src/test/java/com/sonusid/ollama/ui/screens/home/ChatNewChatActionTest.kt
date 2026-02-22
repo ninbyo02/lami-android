@@ -7,6 +7,28 @@ import org.junit.Test
 class ChatNewChatActionTest {
 
     @Test
+    fun shouldAutoCreateNewChat_returnsFalse_whenSuppressedEvenIfUnresolved() {
+        val shouldCreate = shouldAutoCreateNewChat(
+            suppressAutoNewChat = true,
+            resolvedChatId = null,
+            isCreatingChat = false
+        )
+
+        assertEquals(false, shouldCreate)
+    }
+
+    @Test
+    fun shouldAutoCreateNewChat_returnsTrue_whenNotSuppressedAndUnresolved() {
+        val shouldCreate = shouldAutoCreateNewChat(
+            suppressAutoNewChat = false,
+            resolvedChatId = null,
+            isCreatingChat = false
+        )
+
+        assertEquals(true, shouldCreate)
+    }
+
+    @Test
     fun closeThenNavigate_executesCloseBeforeNavigate() = runTest {
         val events = mutableListOf<String>()
 
