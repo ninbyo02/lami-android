@@ -831,7 +831,10 @@ fun Home(
                 Box(modifier = contentModifier)
             } else {
                 val messagesForList: List<Message> = allChatsOrNull
-                val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
+                val hasAnyAssistantMessage = messagesForList.any { !it.isSendbyMe }
+                val hasAnyUserMessage = messagesForList.any { it.isSendbyMe }
+                val isOnlyUserConversation = hasAnyUserMessage && !hasAnyAssistantMessage
+                val messageListTopPaddingDp = if (messagesForList.isEmpty() || isOnlyUserConversation) {
                     effectiveTopGradientBottomDp
                 } else {
                     chatListTopPaddingDp
@@ -841,7 +844,7 @@ fun Home(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
-                            // empty-state は上部グラデーション下端、通常メッセージは従来の safe gap を維持する
+                            // empty-state / ユーザー発言のみ会話は上部グラデーション下端、それ以外は従来の safe gap を維持する
                             top = messageListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
