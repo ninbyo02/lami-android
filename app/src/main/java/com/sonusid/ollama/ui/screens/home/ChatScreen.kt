@@ -127,6 +127,11 @@ private val TopGradientOverlayTopOffset = 34.dp
 private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
 
+private enum class TopPaddingMode {
+    NewConversation,
+    ExistingConversation,
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Home(
@@ -171,6 +176,7 @@ fun Home(
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
+    val topPaddingMode = remember(effectiveChatId) { mutableStateOf<TopPaddingMode?>(null) }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -831,20 +837,31 @@ fun Home(
                 Box(modifier = contentModifier)
             } else {
                 val messagesForList: List<Message> = allChatsOrNull
-                val hasAnyAssistantMessage = messagesForList.any { !it.isSendbyMe }
-                val hasAnyUserMessage = messagesForList.any { it.isSendbyMe }
-                val isOnlyUserConversation = hasAnyUserMessage && !hasAnyAssistantMessage
-                val messageListTopPaddingDp = if (messagesForList.isEmpty() || isOnlyUserConversation) {
+                LaunchedEffect(effectiveChatId, messagesForList) {
+                    // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
+                    // チャットを開いた瞬間の空/非空だけで top padding モードを 1 回だけ確定して固定する。
+                    if (topPaddingMode.value == null) {
+                        topPaddingMode.value = if (messagesForList.isEmpty()) {
+                            TopPaddingMode.NewConversation
+                        } else {
+                            TopPaddingMode.ExistingConversation
+                        }
+                    }
+                }
+                val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
                     effectiveTopGradientBottomDp
                 } else {
-                    chatListTopPaddingDp
+                    when (topPaddingMode.value ?: TopPaddingMode.ExistingConversation) {
+                        TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
+                        TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
+                    }
                 }
                 Column(modifier = contentModifier) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
-                            // empty-state / ユーザー発言のみ会話は上部グラデーション下端、それ以外は従来の safe gap を維持する
+                            // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
                             top = messageListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
@@ -865,15 +882,7 @@ fun Home(
                                 items = messagesForList,
                                 key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                             ) { index, message ->
-                                val isFirst = index == 0
-                                val isFirstUserBubble = isFirst && message.isSendbyMe
-                                val topPadding = when {
-                                    // 最初のユーザーバブルだけは先頭余白を追加しない
-                                    isFirstUserBubble -> 0.dp
-                                    // 先頭メッセージ（assistant 含む）は従来どおり 0dp
-                                    isFirst -> 0.dp
-                                    else -> 8.dp
-                                }
+                                val topPadding = if (index == 0) 0.dp else 8.dp
                                 Box(modifier = Modifier.padding(top = topPadding)) {
                                     if (message.isSendbyMe) {
                                         ChatBubble(message.message, message.isSendbyMe)
