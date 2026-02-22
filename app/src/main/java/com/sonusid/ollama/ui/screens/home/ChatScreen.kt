@@ -170,7 +170,7 @@ fun Home(
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     val userBubbleExtraTopOffsetDp =
-        if (messages.isNotEmpty()) 20.dp else 0.dp // messages があるときのみ先頭バブルを下げる
+        if (!allChatsOrNull.isNullOrEmpty()) 20.dp else 0.dp // メッセージがあるときのみ先頭バブルを下げる
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
