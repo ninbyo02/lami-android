@@ -14,6 +14,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import com.sonusid.ollama.util.RuntimeFlags
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -30,7 +31,12 @@ class ChatThreadSwitchNoFlashTest {
 
     private val seedRule = object : ExternalResource() {
         override fun before() {
+            RuntimeFlags.isUiTest = true
             seedChatsAndMessages()
+        }
+
+        override fun after() {
+            RuntimeFlags.isUiTest = false
         }
     }
 

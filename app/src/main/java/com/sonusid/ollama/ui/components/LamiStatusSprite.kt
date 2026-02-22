@@ -39,6 +39,7 @@ import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.screens.settings.effectiveInsertionIntervalMs
 import com.sonusid.ollama.ui.screens.settings.SpriteState
 import com.sonusid.ollama.ui.screens.settings.shouldAttemptInsertion
+import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.LamiAnimationStatus
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
@@ -507,6 +508,9 @@ fun LamiStatusSprite(
     }
     var syncTimeMs by remember(syncEpochMs) { mutableStateOf(SystemClock.uptimeMillis()) }
     LaunchedEffect(syncEpochMs, animationsEnabled, useSyncMode) {
+        if (RuntimeFlags.shouldDisableContinuousAnimations()) {
+            return@LaunchedEffect
+        }
         if (!useSyncMode || !animationsEnabled) {
             syncTimeMs = SystemClock.uptimeMillis()
             return@LaunchedEffect
@@ -766,6 +770,9 @@ fun LamiStatusSprite(
 
     if (!useSyncMode) {
         LaunchedEffect(resolvedStatus, animationsEnabled, animSpec, insertionKey) {
+            if (RuntimeFlags.shouldDisableContinuousAnimations()) {
+                return@LaunchedEffect
+            }
             loopCountState.value = 0
             lastInsertionLoopState.value = null
             lastInsertionPatternIndex = null
