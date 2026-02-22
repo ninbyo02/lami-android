@@ -17,10 +17,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -100,8 +97,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
-            val allowedRoutes = remember {
-                setOf(
+            // Initialise navigation
+            val navController = rememberNavController()
+            LaunchedEffect(Unit) {
+                // UIテスト時は復元ナビゲーションを無効化して常にCHAT_ROOTから開始する
+                if (RuntimeFlags.isUiTestRuntime()) return@LaunchedEffect
+
+                val restored = settingsPreferences.lastRoute.first()
+                val allowedRoutes = setOf(
                     Routes.HOME,
                     Routes.CHATS,
                     Routes.CHAT_ROOT,
@@ -111,27 +114,15 @@ class MainActivity : ComponentActivity() {
                     SettingsRoute.SpriteSettings.route,
                     SettingsRoute.SpriteEditor.route
                 )
-            }
-            var initialRoute by rememberSaveable {
-                mutableStateOf(
-                    if (RuntimeFlags.isUiTestRuntime()) {
-                        // UIテスト時は起動直後からNavHostを同期的に構築し、
-                        // teardown時にINITIALIZEDのentryが破棄される競合を回避する
-                        Routes.CHAT_ROOT
-                    } else {
-                        null
+                val targetRoute = resolveStartRoute(restored = restored, allowed = allowedRoutes)
+                // NavHost生成後に必要な場合のみ遷移して復元する
+                if (targetRoute != Routes.CHAT_ROOT) {
+                    navController.navigate(targetRoute) {
+                        launchSingleTop = true
+                        // ベースを固定して復元時のBackStack重複を防ぐ
+                        popUpTo(Routes.CHAT_ROOT) { inclusive = false }
                     }
-                )
-            }
-            // Initialise navigation
-            val navController = rememberNavController()
-            LaunchedEffect(Unit) {
-                if (RuntimeFlags.isUiTestRuntime()) {
-                    return@LaunchedEffect
                 }
-                // 起動時1回だけ復元して初期ルートを固定し、NavHost再生成防止を徹底する
-                val restored = settingsPreferences.lastRoute.first()
-                initialRoute = resolveStartRoute(restored = restored, allowed = allowedRoutes)
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
                 val appSnackbarHostState = remember { SnackbarHostState() }
@@ -146,14 +137,10 @@ class MainActivity : ComponentActivity() {
                                     .padding(innerPadding)
                                     .fillMaxSize()
                             ) {
-                                if (initialRoute == null) {
-                                    // 起動時1回だけ復元が終わるまでNavHostを描かない（NavHost再生成防止）
-                                    Box(modifier = Modifier.fillMaxSize())
-                                } else {
-                                    NavHost(
-                                        navController = navController,
-                                        startDestination = requireNotNull(initialRoute)
-                                    ) {
+                                NavHost(
+                                    navController = navController,
+                                    startDestination = Routes.CHAT_ROOT
+                                ) {
                                         composable(Routes.HOME) {
                                             Home(navController, viewModel)
                                         }
@@ -185,7 +172,6 @@ class MainActivity : ComponentActivity() {
                                         composable(SettingsRoute.SpriteEditor.route) {
                                             SpriteEditorScreen(navController)
                                         }
-                                    }
                                 }
                             }
                             SnackbarHost(
