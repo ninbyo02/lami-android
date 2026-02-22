@@ -845,7 +845,9 @@ fun Home(
                             item(key = "empty-state") {
                                 val topPadding = 0.dp
                                 Box(modifier = Modifier.padding(top = topPadding)) {
-                                    Column {
+                                    Column(
+                                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                                    ) {
                                         Text(
                                             text = "ラミィにお願い…",
                                             style = MaterialTheme.typography.bodyMedium
