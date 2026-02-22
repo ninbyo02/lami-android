@@ -169,6 +169,7 @@ fun Home(
     val debugOverlayEnabled = BuildConfig.DEBUG
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
+    val userBubbleExtraTopOffsetDp = 20.dp // DEBUG: move first bubble down
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -868,7 +869,7 @@ fun Home(
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
                             // 先頭バブルの開始位置を上部グラデーション下端 + 4dp に固定する
-                            top = chatListTopPaddingDp,
+                            top = chatListTopPaddingDp + userBubbleExtraTopOffsetDp,
                             start = 0.dp,
                             end = 0.dp,
                             bottom = 0.dp
