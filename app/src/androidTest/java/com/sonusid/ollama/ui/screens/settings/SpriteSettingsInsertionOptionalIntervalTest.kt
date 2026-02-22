@@ -71,7 +71,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
             prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
 
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         ensureAnimTabSelected()
         scrollToTestTag("spriteInsertionIntervalInput")
         composeTestRule.waitForIdle()
@@ -105,7 +105,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
             prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
         }
 
-        setSpriteSettingsContent()
+        composeTestRule.setSpriteSettingsContentForTest()
         ensureAnimTabSelected()
         scrollToTestTag("spriteInsertionIntervalInput")
         composeTestRule.waitForIdle()
@@ -162,32 +162,8 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         return getter.invoke(null, context) as DataStore<Preferences>
     }
 
-    private fun setSpriteSettingsContent() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
-            activity.setContent {
-                TestAppWrapper {
-                    val navController = rememberNavController()
-                    OllamaTheme(dynamicColor = false) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = SettingsRoute.SpriteSettings.route
-                        ) {
-                            composable(SettingsRoute.SpriteSettings.route) {
-                                SpriteSettingsScreen(navController)
-                            }
-                            composable(Routes.SETTINGS) {
-                                Settings(navController)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        composeTestRule.waitForIdle()
-    }
-
     private fun ensureAnimTabSelected() {
-        waitForNodeWithTag("spriteTabAnim")
+        composeTestRule.awaitNodeWithTag("spriteTabAnim")
         val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
             .fetchSemanticsNode()
         val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
@@ -198,24 +174,13 @@ class SpriteSettingsInsertionOptionalIntervalTest {
         }
     }
 
-    private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 20_000) {
-        try {
-            composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
-                composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
-            }
-        } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
-            throw AssertionError("タグが見つかりません: $tag。現在のタグ一覧: $tags", error)
-        }
-    }
-
     private fun waitForText(text: String, timeoutMillis: Long = 20_000) {
         try {
             composeTestRule.waitUntil(timeoutMillis = timeoutMillis) {
                 composeTestRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
             }
         } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
+            val tags = composeTestRule.dumpSemanticsTree()
             throw AssertionError("テキストが見つかりません: $text。現在のタグ一覧: $tags", error)
         }
     }
@@ -228,7 +193,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
                 }.isSuccess
             }
         } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
+            val tags = composeTestRule.dumpSemanticsTree()
             throw AssertionError("保存ボタンが表示されません。現在のタグ一覧: $tags", error)
         }
     }
@@ -243,7 +208,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
                 runCatching { assertIntervalMsOmitted(context, state) }.isSuccess
             }
         } catch (error: AssertionError) {
-            val tags = dumpSemanticsTags()
+            val tags = composeTestRule.dumpSemanticsTree()
             val latestJson = readPerStateJson(context, state)
             throw AssertionError(
                 "insertion.intervalMs の省略反映待ちでタイムアウトしました。state=$state json=$latestJson tags=$tags",
@@ -266,41 +231,10 @@ class SpriteSettingsInsertionOptionalIntervalTest {
     }
 
     private fun scrollToTestTag(tag: String) {
-        waitForNodeWithTag("spriteAnimList")
+        composeTestRule.awaitNodeWithTag("spriteAnimList")
         runCatching {
             composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
                 .performScrollToNode(hasTestTag(tag))
-        }
-    }
-
-    private fun dumpSemanticsTags(): String {
-        val rootNodes: List<SemanticsNode> = composeTestRule
-            .onAllNodes(isRoot(), useUnmergedTree = true)
-            .fetchSemanticsNodes()
-        val tags: MutableSet<String> = mutableSetOf()
-        rootNodes.forEach { node: SemanticsNode ->
-            collectTestTags(node, tags)
-        }
-        val sortedTags = tags.toList().sorted()
-        return if (sortedTags.isEmpty()) {
-            "<none>"
-        } else {
-            sortedTags.joinToString()
-        }
-    }
-
-    private fun collectTestTags(node: SemanticsNode, tags: MutableSet<String>) {
-        val config: SemanticsConfiguration = node.config
-        val tag: String? = if (config.contains(SemanticsProperties.TestTag)) {
-            config[SemanticsProperties.TestTag]
-        } else {
-            null
-        }
-        if (tag != null) {
-            tags.add(tag)
-        }
-        node.children.forEach { child: SemanticsNode ->
-            collectTestTags(child, tags)
         }
     }
 
