@@ -144,6 +144,8 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     private fun recreateToSpriteSettings() {
         composeTestRule.activityRule.scenario.recreate()
         composeTestRule.waitForIdle()
+        setSpriteSettingsContent()
+        ensureAnimTabSelected()
         waitForNodeWithTag("spriteTabAnim", timeoutMillis = 30_000)
     }
 
