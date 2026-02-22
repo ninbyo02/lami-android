@@ -3,6 +3,7 @@ package com.sonusid.ollama.ui.screens.home
 // 実行コマンド: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.home.ChatThreadSwitchNoFlashTest
 
 import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
