@@ -122,6 +122,8 @@ private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
 private val TopGradientOverlayHeight = 24.dp
+private val TopGradientOverlayTopOffset = 34.dp
+private val ChatListTopGapFromGradientBottom = 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,6 +164,7 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
+    val topGradientHeightDp = TopGradientOverlayTopOffset + TopGradientOverlayHeight
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -856,13 +859,12 @@ fun Home(
                 }
             } else {
                 Column(modifier = contentModifier) {
-                    // ヘッダー直下の余白をスクロールに依存せず常に表示する
-                    Spacer(modifier = Modifier.height(3.dp))
-
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
+                            // 先頭バブルの開始位置を上部グラデーション下端 + 4dp に固定する
+                            top = topGradientHeightDp + ChatListTopGapFromGradientBottom,
                             start = 0.dp,
                             end = 0.dp,
                             bottom = 0.dp
@@ -922,8 +924,8 @@ fun Home(
                     .fillMaxWidth()
                     // 上部グラデーションの開始位置をステータスバーぶん下げる
                     .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置からさらに 34dp 下へ移動する
-                    .padding(top = 34.dp)
+                    // 上部グラデーション全体を既存位置からさらに下へ移動する
+                    .padding(top = TopGradientOverlayTopOffset)
             ) {
                 Box(
                     modifier = Modifier
