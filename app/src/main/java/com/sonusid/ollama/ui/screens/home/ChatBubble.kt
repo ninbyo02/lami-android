@@ -90,6 +90,7 @@ fun ChatBubble(
 @Composable
 fun PlainAssistantMessage(
     message: String,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
@@ -97,7 +98,7 @@ fun PlainAssistantMessage(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(contentPadding)
             .testTag("assistantPlainMessage")
             .combinedClickable(
                 enabled = true,

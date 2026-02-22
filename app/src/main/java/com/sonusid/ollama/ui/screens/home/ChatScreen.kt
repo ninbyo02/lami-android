@@ -848,11 +848,10 @@ fun Home(
                     ) {
                         if (messagesForList.isEmpty()) {
                             item(key = "empty-state") {
-                                Box(modifier = Modifier.padding(top = 0.dp)) {
-                                    PlainAssistantMessage(
-                                        "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。"
-                                    )
-                                }
+                                PlainAssistantMessage(
+                                    message = "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。",
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                )
                             }
                         } else {
                             itemsIndexed(
