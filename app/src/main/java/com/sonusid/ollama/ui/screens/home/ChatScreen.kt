@@ -110,6 +110,7 @@ import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -136,6 +137,7 @@ fun Home(
     var isCreatingChat by rememberSaveable { mutableStateOf(false) }
     var suppressAutoNewChat by rememberSaveable { mutableStateOf(false) }
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
+    var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
     var userPrompt: String by remember { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
@@ -177,30 +179,35 @@ fun Home(
         }
     }
 
+    LaunchedEffect(pendingNavigateChatId) {
+        val targetChatId = pendingNavigateChatId ?: return@LaunchedEffect
+        try {
+            if (drawerState.isOpen) {
+                runCatching { drawerState.close() }
+            }
+            if (RuntimeFlags.isUiTestRuntime()) {
+                yield()
+            }
+            navHostController.navigate(Routes.chat(targetChatId)) {
+                launchSingleTop = true
+            }
+        } finally {
+            pendingNavigateChatId = null
+            suppressChatContentWhileClosingDrawer = false
+        }
+    }
+
     LaunchedEffect(chatId, chats) {
         val resolvedChatId = resolveDefaultChatId(chatId, chats)
         effectiveChatId = resolvedChatId
 
         if (shouldAutoCreateNewChat(suppressAutoNewChat, resolvedChatId, isCreatingChat)) {
             isCreatingChat = true
-            createAndNavigateToNewChat(
-                createNewChat = {
-                    viewModel.insertChatAndReturnId(
-                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
-                    )
-                },
-                onChatResolved = { newChatId ->
-                    effectiveChatId = newChatId
-                },
-                navigateToChat = { newChatId ->
-                    navHostController.navigate(Routes.chat(newChatId)) {
-                        launchSingleTop = true
-                    }
-                },
-                closeDrawer = {
-                    closeDrawerSafely(drawerState)
-                }
+            val newChatId = viewModel.insertChatAndReturnId(
+                Chat(title = "New chat", titleSource = TitleSource.TEMP)
             )
+            effectiveChatId = newChatId
+            pendingNavigateChatId = newChatId
         }
 
         if (resolvedChatId != null) {
@@ -302,24 +309,11 @@ fun Home(
 
     val createNewChatAndNavigate: () -> Unit = {
         coroutineScope.launch {
-            createAndNavigateToNewChat(
-                createNewChat = {
-                    viewModel.insertChatAndReturnId(
-                        Chat(title = "New chat", titleSource = TitleSource.TEMP)
-                    )
-                },
-                onChatResolved = { newChatId ->
-                    effectiveChatId = newChatId
-                },
-                navigateToChat = { newChatId ->
-                    navHostController.navigate(Routes.chat(newChatId)) {
-                        launchSingleTop = true
-                    }
-                },
-                closeDrawer = {
-                    closeDrawerSafely(drawerState)
-                }
+            val newChatId = viewModel.insertChatAndReturnId(
+                Chat(title = "New chat", titleSource = TitleSource.TEMP)
             )
+            effectiveChatId = newChatId
+            pendingNavigateChatId = newChatId
         }
     }
 
@@ -376,16 +370,7 @@ fun Home(
                                 onClick = {
                                     suppressChatContentWhileClosingDrawer = true
                                     suppressAutoNewChat = true
-                                    coroutineScope.launch {
-                                        try {
-                                            closeDrawerForNavigation(drawerState)
-                                            navHostController.navigate(Routes.chat(chat.chatId)) {
-                                                launchSingleTop = true
-                                            }
-                                        } finally {
-                                            suppressChatContentWhileClosingDrawer = false
-                                        }
-                                    }
+                                    pendingNavigateChatId = chat.chatId
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
