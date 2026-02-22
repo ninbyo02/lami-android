@@ -827,13 +827,18 @@ fun Home(
                 Box(modifier = contentModifier)
             } else {
                 val messagesForList: List<Message> = allChatsOrNull
+                val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
+                    topGradientBottomDp
+                } else {
+                    chatListTopPaddingDp
+                }
                 Column(modifier = contentModifier) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
-                            // 先頭バブルの開始位置を上部グラデーション下端 + 24dp に固定する
-                            top = chatListTopPaddingDp,
+                            // empty-state は上部グラデーション下端、通常メッセージは従来の safe gap を維持する
+                            top = messageListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
                             bottom = 0.dp
