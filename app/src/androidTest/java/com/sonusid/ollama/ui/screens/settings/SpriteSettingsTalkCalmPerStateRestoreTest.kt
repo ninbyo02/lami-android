@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import android.content.Context
+import androidx.activity.compose.setContent
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -14,9 +15,15 @@ import androidx.compose.ui.test.printToString
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
 import com.sonusid.ollama.MainActivity
+import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
+import com.sonusid.ollama.ui.TestAppWrapper
+import com.sonusid.ollama.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -147,6 +154,30 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
         setSpriteSettingsContent()
         ensureAnimTabSelected()
         waitForNodeWithTag("spriteTabAnim", timeoutMillis = 30_000)
+    }
+
+    private fun setSpriteSettingsContent() {
+        composeTestRule.activityRule.scenario.onActivity { activity ->
+            activity.setContent {
+                TestAppWrapper {
+                    val navController = rememberNavController()
+                    OllamaTheme(dynamicColor = false) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = SettingsRoute.SpriteSettings.route
+                        ) {
+                            composable(SettingsRoute.SpriteSettings.route) {
+                                SpriteSettingsScreen(navController)
+                            }
+                            composable(Routes.SETTINGS) {
+                                Settings(navController)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        composeTestRule.waitForIdle()
     }
 
     private fun waitForNodeWithTag(tag: String, timeoutMillis: Long = 30_000) {
