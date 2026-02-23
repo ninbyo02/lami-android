@@ -839,9 +839,10 @@ fun Home(
                 val messagesForList: List<Message> = allChatsOrNull
                 LaunchedEffect(effectiveChatId, messagesForList) {
                     // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
-                    // チャットを開いた瞬間の空/非空だけで top padding モードを 1 回だけ確定して固定する。
+                    // チャットを開いた瞬間に assistant 有無で top padding モードを 1 回だけ確定して固定する。
                     if (topPaddingMode.value == null) {
-                        topPaddingMode.value = if (messagesForList.isEmpty()) {
+                        val hasAssistant = messagesForList.any { !it.isSendbyMe }
+                        topPaddingMode.value = if (!hasAssistant) {
                             TopPaddingMode.NewConversation
                         } else {
                             TopPaddingMode.ExistingConversation
@@ -878,11 +879,21 @@ fun Home(
                                 )
                             }
                         } else {
+                            val firstAssistantIndex = messagesForList.indexOfFirst { !it.isSendbyMe }
                             itemsIndexed(
                                 items = messagesForList,
                                 key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                             ) { index, message ->
-                                val topPadding = if (index == 0) 0.dp else 8.dp
+                                val safeGapForFirstAssistant = if (
+                                    topPaddingMode.value == TopPaddingMode.NewConversation &&
+                                    firstAssistantIndex >= 0 &&
+                                    index == firstAssistantIndex
+                                ) {
+                                    ChatListTopGapFromGradientBottom
+                                } else {
+                                    0.dp
+                                }
+                                val topPadding = (if (index == 0) 0.dp else 8.dp) + safeGapForFirstAssistant
                                 Box(modifier = Modifier.padding(top = topPadding)) {
                                     if (message.isSendbyMe) {
                                         ChatBubble(message.message, message.isSendbyMe)
