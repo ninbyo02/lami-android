@@ -176,6 +176,7 @@ fun Home(
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
+    val topPaddingMode = remember(effectiveChatId) { mutableStateOf<TopPaddingMode?>(null) }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -836,14 +837,21 @@ fun Home(
                 Box(modifier = contentModifier)
             } else {
                 val messagesForList: List<Message> = allChatsOrNull
-                val resolvedTopPaddingMode = remember(effectiveChatId) {
-                    if (messagesForList.isEmpty()) TopPaddingMode.NewConversation
-                    else TopPaddingMode.ExistingConversation
+                LaunchedEffect(effectiveChatId, messagesForList) {
+                    // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
+                    // チャットを開いた瞬間の空/非空だけで top padding モードを 1 回だけ確定して固定する。
+                    if (topPaddingMode.value == null) {
+                        topPaddingMode.value = if (messagesForList.isEmpty()) {
+                            TopPaddingMode.NewConversation
+                        } else {
+                            TopPaddingMode.ExistingConversation
+                        }
+                    }
                 }
                 val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
                     effectiveTopGradientBottomDp
                 } else {
-                    when (resolvedTopPaddingMode) {
+                    when (topPaddingMode.value ?: TopPaddingMode.ExistingConversation) {
                         TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
                         TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                     }
