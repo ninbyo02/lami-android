@@ -827,7 +827,7 @@ fun Home(
 
             if (effectiveChatId == null) {
                 Column(
-                    modifier = contentModifier,
+                    modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
