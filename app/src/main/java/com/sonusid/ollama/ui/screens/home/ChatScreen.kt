@@ -571,13 +571,6 @@ fun Home(
                     }
                 }
         ) {
-            if (selectedImageUri != null) {
-                AttachmentPreviewRow(
-                    uri = selectedImageUri,
-                    onRemove = { selectedImageUriString = null },
-                )
-            }
-
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 Box {
                     BoxWithConstraints(
@@ -623,150 +616,162 @@ fun Home(
                             }
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = ComposerMinHeight),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            // 左ボタンを外側へ寄せるための最小余白
-                            Spacer(modifier = Modifier.width(0.dp))
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                if (selectedImageUri != null) {
+                                    AttachmentPreviewRow(
+                                        uri = selectedImageUri,
+                                        onRemove = { selectedImageUriString = null },
+                                        inComposer = true,
+                                    )
+                                    // サムネイルと入力行を視認分離する最小限の余白
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                }
 
-                            IconButton(
-                                onClick = { attachSheetOpen = true },
-                                modifier = Modifier
-                                    .size(ComposerButtonSize)
-                                    .align(Alignment.Bottom)
-                                    .clip(CircleShape)
-                            ) {
-                                Box(
+                                Row(
                                     modifier = Modifier
-                                        .size(ComposerButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(Color.LightGray.copy(alpha = 0.25f)),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .heightIn(min = ComposerMinHeight),
+                                    verticalAlignment = Alignment.Bottom
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Add,
-                                        contentDescription = "Tools",
-                                        modifier = Modifier.size(ComposerButtonIconVisualSize)
-                                    )
-                                }
-                            }
+                                    // 左ボタンを外側へ寄せるための最小余白
+                                    Spacer(modifier = Modifier.width(0.dp))
 
-                            BasicTextField(
-                                value = userPrompt,
-                                onValueChange = { newValue ->
-                                    userPrompt = newValue
-                                    viewModel.onUserInteraction()
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .align(Alignment.CenterVertically)
-                                    .heightIn(min = 44.dp, max = 180.dp),
-                                singleLine = false,
-                                maxLines = maxComposerLines,
-                                textStyle = composerTextStyle,
-                                interactionSource = interactionSource,
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                decorationBox = { innerTextField ->
-                                    OutlinedTextFieldDefaults.DecorationBox(
-                                        value = userPrompt,
-                                        innerTextField = innerTextField,
-                                        enabled = true,
-                                        singleLine = false,
-                                        visualTransformation = VisualTransformation.None,
-                                        interactionSource = interactionSource,
-                                        placeholder = {
-                                            Text(
-                                                placeholder,
-                                                fontSize = 15.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        },
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            unfocusedBorderColor = Color.Transparent,
-                                            focusedBorderColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            focusedContainerColor = Color.Transparent
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
-                                    )
-                                }
-                            )
-
-                            IconButton(
-                                enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUri != null),
-                                onClick = {
-                                    viewModel.onUserInteraction()
-                                    if (selectedModel.isNullOrBlank()) {
-                                        coroutineScope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar(
-                                                message = "モデルを選択してください",
-                                                duration = SnackbarDuration.Short
+                                    IconButton(
+                                        onClick = { attachSheetOpen = true },
+                                        modifier = Modifier
+                                            .size(ComposerButtonSize)
+                                            .align(Alignment.Bottom)
+                                            .clip(CircleShape)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(ComposerButtonVisualSize)
+                                                .clip(CircleShape)
+                                                .background(Color.LightGray.copy(alpha = 0.25f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Add,
+                                                contentDescription = "Tools",
+                                                modifier = Modifier.size(ComposerButtonIconVisualSize)
                                             )
                                         }
-                                        return@IconButton
                                     }
 
-                                    val currentChatId = effectiveChatId
-                                    if (currentChatId != null) {
-                                        val requestPrompt = userPrompt
-                                        val requestAttachmentUri = selectedImageUri
-                                        if (requestPrompt.isNotEmpty() || requestAttachmentUri != null) {
-                                            placeholder = "I'm thinking ... "
-                                            toggle = true
+                                    BasicTextField(
+                                        value = userPrompt,
+                                        onValueChange = { newValue ->
+                                            userPrompt = newValue
+                                            viewModel.onUserInteraction()
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .align(Alignment.CenterVertically)
+                                            .heightIn(min = 44.dp, max = 180.dp),
+                                        singleLine = false,
+                                        maxLines = maxComposerLines,
+                                        textStyle = composerTextStyle,
+                                        interactionSource = interactionSource,
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                        decorationBox = { innerTextField ->
+                                            OutlinedTextFieldDefaults.DecorationBox(
+                                                value = userPrompt,
+                                                innerTextField = innerTextField,
+                                                enabled = true,
+                                                singleLine = false,
+                                                visualTransformation = VisualTransformation.None,
+                                                interactionSource = interactionSource,
+                                                placeholder = {
+                                                    Text(
+                                                        placeholder,
+                                                        fontSize = 15.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    unfocusedBorderColor = Color.Transparent,
+                                                    focusedBorderColor = Color.Transparent,
+                                                    unfocusedContainerColor = Color.Transparent,
+                                                    focusedContainerColor = Color.Transparent
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+                                            )
                                         }
-                                        prompt = requestPrompt
-                                        viewModel.sendPrompt(
-                                            prompt = requestPrompt,
-                                            model = selectedModel,
-                                            attachmentUri = requestAttachmentUri,
-                                            context = context.applicationContext,
-                                            onAttachmentPrepared = { savedAttachmentUriString ->
-                                                if (requestPrompt.isNotEmpty() || savedAttachmentUriString != null) {
-                                                    viewModel.insert(
-                                                        Message(
-                                                            chatId = currentChatId,
-                                                            message = requestPrompt,
-                                                            isSendbyMe = true,
-                                                            attachmentUriString = savedAttachmentUriString,
-                                                        )
+                                    )
+
+                                    IconButton(
+                                        enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUri != null),
+                                        onClick = {
+                                            viewModel.onUserInteraction()
+                                            if (selectedModel.isNullOrBlank()) {
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "モデルを選択してください",
+                                                        duration = SnackbarDuration.Short
                                                     )
                                                 }
-                                            },
-                                        )
-                                        prompt = ""
-                                        userPrompt = ""
-                                        selectedImageUriString = null
-                                    } else {
-                                        placeholder = "Setting up a new chat ..."
+                                                return@IconButton
+                                            }
+
+                                            val currentChatId = effectiveChatId
+                                            if (currentChatId != null) {
+                                                val requestPrompt = userPrompt
+                                                val requestAttachmentUri = selectedImageUri
+                                                if (requestPrompt.isNotEmpty() || requestAttachmentUri != null) {
+                                                    placeholder = "I'm thinking ... "
+                                                    toggle = true
+                                                }
+                                                prompt = requestPrompt
+                                                viewModel.sendPrompt(
+                                                    prompt = requestPrompt,
+                                                    model = selectedModel,
+                                                    attachmentUri = requestAttachmentUri,
+                                                    context = context.applicationContext,
+                                                    onAttachmentPrepared = { savedAttachmentUriString ->
+                                                        if (requestPrompt.isNotEmpty() || savedAttachmentUriString != null) {
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = currentChatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                    attachmentUriString = savedAttachmentUriString,
+                                                                )
+                                                            )
+                                                        }
+                                                    },
+                                                )
+                                                prompt = ""
+                                                userPrompt = ""
+                                                selectedImageUriString = null
+                                            } else {
+                                                placeholder = "Setting up a new chat ..."
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(ComposerButtonSize)
+                                            .align(Alignment.Bottom)
+                                            .clip(CircleShape)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(ComposerButtonVisualSize)
+                                                .clip(CircleShape)
+                                                .background(Color.LightGray.copy(alpha = 0.25f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowUpward,
+                                                contentDescription = "Send Button",
+                                                modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                            )
+                                        }
                                     }
-                                },
-                                modifier = Modifier
-                                    .size(ComposerButtonSize)
-                                    .align(Alignment.Bottom)
-                                    .clip(CircleShape)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(ComposerButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(Color.LightGray.copy(alpha = 0.25f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ArrowUpward,
-                                        contentDescription = "Send Button",
-                                        modifier = Modifier.size(ComposerButtonIconVisualSize)
-                                    )
+
+                                    // 右ボタンを外側へ寄せるための最小余白
+                                    Spacer(modifier = Modifier.width(0.dp))
                                 }
                             }
-
-                            // 右ボタンを外側へ寄せるための最小余白
-                            Spacer(modifier = Modifier.width(0.dp))
-                        }
 
                         if (measuredLines >= 5) {
                             IconButton(
@@ -1081,12 +1086,17 @@ fun Home(
 private fun AttachmentPreviewRow(
     uri: Uri,
     onRemove: () -> Unit,
+    inComposer: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             // 入力欄との視認分離に必要な最小限の余白
-            .padding(horizontal = 17.dp, vertical = 6.dp),
+            .padding(
+                horizontal = if (inComposer) 12.dp else 17.dp,
+                // 入力欄内表示時は既存余白を維持するため縦余白を最小化
+                vertical = if (inComposer) 0.dp else 6.dp,
+            ),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Top,
     ) {
