@@ -187,6 +187,12 @@ fun Home(
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
 
+    LaunchedEffect(effectiveChatId) {
+        // チャット切替直後（allChatsOrNull が null のフレーム）でも、
+        // 前チャットのスクロール位置を持ち越さない
+        listState.scrollToItem(0)
+    }
+
     LaunchedEffect(chatId) {
         if (chatId != null) {
             suppressAutoNewChat = false
