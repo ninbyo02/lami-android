@@ -1129,6 +1129,9 @@ fun Home(
     }
 }
 
+}
+}
+
 @Composable
 private fun AttachmentPreviewRow(
     uris: List<Uri>,
