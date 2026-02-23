@@ -127,6 +127,8 @@ private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
 private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
+// メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
+private val ChatMessageVerticalGap = 8.dp
 
 private enum class TopPaddingMode {
     NewConversation,
@@ -934,21 +936,12 @@ fun Home(
                                         )
                                     }
                                 } else {
-                                    val firstAssistantIndex = messagesForList.indexOfFirst { !it.isSendbyMe }
                                     itemsIndexed(
                                         items = messagesForList,
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                                     ) { index, message ->
-                                        val safeGapForFirstAssistant = if (
-                                            mode == TopPaddingMode.NewConversation &&
-                                            firstAssistantIndex >= 0 &&
-                                            index == firstAssistantIndex
-                                        ) {
-                                            ChatListTopGapFromGradientBottom
-                                        } else {
-                                            0.dp
-                                        }
-                                        val topPadding = (if (index == 0) 0.dp else 8.dp) + safeGapForFirstAssistant
+                                        // 先頭メッセージのみ 0dp、それ以外は常に同じ縦余白で揃える
+                                        val topPadding = if (index == 0) 0.dp else ChatMessageVerticalGap
                                         Box(modifier = Modifier.padding(top = topPadding)) {
                                             if (message.isSendbyMe) {
                                                 ChatBubble(message.message, message.isSendbyMe)
