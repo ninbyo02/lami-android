@@ -68,6 +68,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -176,7 +177,9 @@ fun Home(
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
-    val topPaddingMode = remember(effectiveChatId) { mutableStateOf<TopPaddingMode?>(null) }
+    val topPaddingModeMap = rememberSaveable {
+        mutableStateMapOf<Int, TopPaddingMode>()
+    }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -846,25 +849,32 @@ fun Home(
 
                     LaunchedEffect(effectiveChatId, messagesForList) {
                         val currentChatId = effectiveChatId ?: return@LaunchedEffect
-                        val isListForCurrentChat = messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId }
+
+                        val isListForCurrentChat =
+                            messagesForList.isEmpty() ||
+                                messagesForList.all { it.chatId == currentChatId }
+
                         if (!isListForCurrentChat) return@LaunchedEffect
                         if (messagesForList.isEmpty()) return@LaunchedEffect
 
-                        // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
-                        // チャットを開いた瞬間に先頭メッセージ種別で top padding モードを 1 回だけ確定して固定する。
-                        if (topPaddingMode.value == null) {
-                            val firstIsUser = messagesForList.firstOrNull()?.isSendbyMe == true
-                            topPaddingMode.value = if (firstIsUser) {
-                                TopPaddingMode.NewConversation
-                            } else {
-                                TopPaddingMode.ExistingConversation
-                            }
+                        if (!topPaddingModeMap.containsKey(currentChatId)) {
+                            val firstIsUser =
+                                messagesForList.firstOrNull()?.isSendbyMe == true
+
+                            topPaddingModeMap[currentChatId] =
+                                if (firstIsUser) {
+                                    TopPaddingMode.NewConversation
+                                } else {
+                                    TopPaddingMode.ExistingConversation
+                                }
                         }
                     }
+                    val mode = topPaddingModeMap[effectiveChatId]
+                        ?: TopPaddingMode.ExistingConversation
                     val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
                         effectiveTopGradientBottomDp
                     } else {
-                        when (topPaddingMode.value ?: TopPaddingMode.ExistingConversation) {
+                        when (mode) {
                             TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
                             TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                         }
@@ -897,7 +907,7 @@ fun Home(
                                     key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                                 ) { index, message ->
                                     val safeGapForFirstAssistant = if (
-                                        topPaddingMode.value == TopPaddingMode.NewConversation &&
+                                        mode == TopPaddingMode.NewConversation &&
                                         firstAssistantIndex >= 0 &&
                                         index == firstAssistantIndex
                                     ) {
