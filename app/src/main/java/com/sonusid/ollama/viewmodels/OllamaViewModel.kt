@@ -1,4 +1,5 @@
 package com.sonusid.ollama.viewmodels
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.VisibleForTesting
@@ -195,8 +196,11 @@ class OllamaViewModel(
         }
     }
 
-    fun sendPrompt(prompt: String, model: String?) {
+    fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null) {
         viewModelScope.launch {
+            if (attachmentUri != null) {
+                Log.d("ChatAttachment", "Attachment selected: $attachmentUri")
+            }
             onPromptSubmitted()
             _uiState.value = UiState.Loading
 
