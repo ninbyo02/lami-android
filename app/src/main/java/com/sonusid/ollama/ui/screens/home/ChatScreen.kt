@@ -242,10 +242,12 @@ fun Home(
         }
     }
 
-    LaunchedEffect(allChatsOrNull?.size) {
+    LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
         val allChats = allChatsOrNull ?: return@LaunchedEffect
         if (allChats.isNotEmpty()) {
             listState.animateScrollToItem(allChats.size - 1)
+        } else {
+            listState.scrollToItem(0)
         }
     }
 
