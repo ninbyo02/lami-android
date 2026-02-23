@@ -15,6 +15,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -34,15 +37,20 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -118,6 +126,19 @@ fun ChatBubble(
                     )
 
                     if (isAttachmentViewerOpen) {
+                        var scale by remember { mutableFloatStateOf(1f) }
+                        var offset by remember { mutableStateOf(Offset.Zero) }
+                        val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+                            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+                            if (newScale <= 1.01f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                            } else {
+                                scale = newScale
+                                offset += panChange
+                            }
+                        }
+
                         Dialog(onDismissRequest = { isAttachmentViewerOpen = false }) {
                             Box(
                                 modifier = Modifier
@@ -125,24 +146,50 @@ fun ChatBubble(
                                     .background(Color.Black.copy(alpha = 0.92f))
                                     .clickable { isAttachmentViewerOpen = false }
                             ) {
-                                AndroidView(
-                                    factory = { context ->
-                                        ImageView(context).apply {
-                                            scaleType = ImageView.ScaleType.FIT_CENTER
-                                            adjustViewBounds = true
-                                            layoutParams = ViewGroup.LayoutParams(
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                            )
-                                        }
-                                    },
-                                    update = { imageView ->
-                                        imageView.setImageURI(attachmentUri)
-                                    },
+                                Box(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .clipToBounds()
+                                        .transformable(state = transformState)
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onDoubleTap = {
+                                                    if (scale > 1f) {
+                                                        scale = 1f
+                                                        offset = Offset.Zero
+                                                    } else {
+                                                        scale = 2f
+                                                        offset = Offset.Zero
+                                                    }
+                                                }
+                                            )
+                                        }
                                         .clickable { }
-                                )
+                                ) {
+                                    AndroidView(
+                                        factory = { context ->
+                                            ImageView(context).apply {
+                                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                                adjustViewBounds = true
+                                                layoutParams = ViewGroup.LayoutParams(
+                                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                                )
+                                            }
+                                        },
+                                        update = { imageView ->
+                                            imageView.setImageURI(attachmentUri)
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .graphicsLayer {
+                                                scaleX = scale
+                                                scaleY = scale
+                                                translationX = offset.x
+                                                translationY = offset.y
+                                            }
+                                    )
+                                }
 
                                 IconButton(
                                     onClick = { isAttachmentViewerOpen = false },
