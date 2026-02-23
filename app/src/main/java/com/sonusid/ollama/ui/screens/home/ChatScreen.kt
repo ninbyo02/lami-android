@@ -725,6 +725,7 @@ fun Home(
                                             prompt = requestPrompt,
                                             model = selectedModel,
                                             attachmentUri = selectedImageUri,
+                                            context = context.applicationContext,
                                         )
                                         prompt = ""
                                         userPrompt = ""
