@@ -1032,11 +1032,6 @@ fun Home(
     }
 }
 
-}
-
-}
-
-
 internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
     val normalizedQuery = query.trim()
     if (normalizedQuery.isEmpty()) {
