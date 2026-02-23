@@ -10,7 +10,8 @@ import retrofit2.http.GET
 data class OllamaRequest(
     val model: String,
     val prompt: String,
-    val stream: Boolean = false
+    val stream: Boolean = false,
+    val images: List<String>? = null,
 )
 
 // Define the response model
@@ -27,4 +28,3 @@ interface OllamaApiService {
     @GET("/api/tags") // Adjust the path as needed
     fun getModels(): Call<List<String>> // Returns a list of strings
 }
-

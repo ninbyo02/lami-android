@@ -1,6 +1,9 @@
 package com.sonusid.ollama.viewmodels
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.SystemClock
+import android.util.Base64
 import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
@@ -196,15 +199,30 @@ class OllamaViewModel(
         }
     }
 
-    fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null) {
+    fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null, context: Context? = null) {
         viewModelScope.launch {
+            var encodedImage: String? = null
             if (attachmentUri != null) {
                 Log.d("ChatAttachment", "Attachment selected: $attachmentUri")
+                if (context == null) {
+                    updateErrorState("Attachment context missing")
+                    return@launch
+                }
+                encodedImage = encodeAttachmentImageToBase64(context, attachmentUri) ?: return@launch
             }
             onPromptSubmitted()
             _uiState.value = UiState.Loading
 
-            val request = OllamaRequest(model = model.toString(), prompt = prompt)
+            val effectivePrompt = if (prompt.isBlank() && attachmentUri != null) {
+                "この画像について説明して。"
+            } else {
+                prompt
+            }
+            val request = OllamaRequest(
+                model = model.toString(),
+                prompt = effectivePrompt,
+                images = encodedImage?.let { listOf(it) },
+            )
 
             if (model != null) {
                 RetrofitClient.instance.generateText(request)
@@ -326,6 +344,49 @@ class OllamaViewModel(
 
             else -> {
                 clearSelectedModelForBaseUrl(baseUrl)
+            }
+        }
+    }
+
+    private suspend fun encodeAttachmentImageToBase64(context: Context, attachmentUri: Uri): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val bytes = context.contentResolver.openInputStream(attachmentUri)?.use { input ->
+                    input.readBytes()
+                } ?: run {
+                    updateErrorState("Failed to read attachment image")
+                    return@withContext null
+                }
+
+                val boundsOptions = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
+
+                val maxLongEdgePx = 1280
+                var sampleSize = 1
+                val longEdge = maxOf(boundsOptions.outWidth, boundsOptions.outHeight)
+                while (longEdge / sampleSize > maxLongEdgePx) {
+                    sampleSize *= 2
+                }
+
+                val bitmapOptions = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                }
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bitmapOptions) ?: run {
+                    updateErrorState("Failed to read attachment image")
+                    return@withContext null
+                }
+
+                val outputStream = java.io.ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outputStream)
+                bitmap.recycle()
+
+                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+            } catch (e: Exception) {
+                Log.e("ChatAttachment", "Failed to encode attachment", e)
+                updateErrorState("Failed to read attachment image")
+                null
             }
         }
     }
