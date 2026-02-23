@@ -925,7 +925,7 @@ fun Home(
                                     end = 0.dp,
                                     bottom = 0.dp
                                 ),
-                                verticalArrangement = Arrangement.spacedBy(0.dp),
+                                verticalArrangement = Arrangement.spacedBy(ChatMessageVerticalGap),
                                 state = listState,
                             ) {
                                 if (messagesForList.isEmpty()) {
@@ -940,13 +940,10 @@ fun Home(
                                         items = messagesForList,
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                                     ) { _, message ->
-                                        // 初回メッセージを含め、全メッセージ間の縦余白を同一ルールへ統一する
-                                        Box(modifier = Modifier.padding(top = ChatMessageVerticalGap)) {
-                                            if (message.isSendbyMe) {
-                                                ChatBubble(message.message, message.isSendbyMe)
-                                            } else {
-                                                PlainAssistantMessage(message.message)
-                                            }
+                                        if (message.isSendbyMe) {
+                                            ChatBubble(message.message, message.isSendbyMe)
+                                        } else {
+                                            PlainAssistantMessage(message.message)
                                         }
                                     }
                                 }
