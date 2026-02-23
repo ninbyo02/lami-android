@@ -97,7 +97,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
@@ -171,7 +170,7 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
-    val debugOverlayEnabled = BuildConfig.DEBUG
+    val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
@@ -992,41 +991,37 @@ fun Home(
 
         }
 
-        if (debugOverlayEnabled) {
-            // DEBUG: 上部グラデーションの視認確認のためオレンジ固定
-            // TODO: デバッグ完了後に MaterialTheme.colorScheme.background ベースのグラデーションへ戻す
-            val debugOrange = Color(0xFFFF8C00)
+        val topColor = MaterialTheme.colorScheme.background
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                // 上部グラデーションの開始位置をステータスバーぶん下げる
+                .statusBarsPadding()
+                // 上部グラデーション全体を既存位置へ配置
+                .padding(top = TopGradientOverlayTopOffset)
+                // 上部グラデーションの開始位置を 4dp 上へ戻す
+                .offset(y = TopGradientOverlayYOffset)
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    // 上部グラデーションの開始位置をステータスバーぶん下げる
-                    .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置へ配置
-                    .padding(top = TopGradientOverlayTopOffset)
-                    // 上部グラデーションの開始位置を 4dp 上へ戻す
-                    .offset(y = TopGradientOverlayYOffset)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // IME の表示有無に関係なく上部グラデの高さを固定する
-                        .height(TopGradientOverlayHeight)
-                        .onGloballyPositioned { coordinates ->
-                            measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
-                        }
-                        .clipToBounds()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to debugOrange.copy(alpha = 0.90f),
-                                    0.5f to debugOrange.copy(alpha = 0.45f),
-                                    1.0f to debugOrange.copy(alpha = 0.0f)
-                                )
+                    // IME の表示有無に関係なく上部グラデの高さを固定する
+                    .height(TopGradientOverlayHeight)
+                    .onGloballyPositioned { coordinates ->
+                        measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
+                    }
+                    .clipToBounds()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to topColor.copy(alpha = 1.0f),
+                                0.5f to topColor.copy(alpha = 0.6f),
+                                1.0f to topColor.copy(alpha = 0.0f)
                             )
                         )
-                )
-            }
+                    )
+            )
         }
     }
 }
