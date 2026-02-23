@@ -180,9 +180,6 @@ fun Home(
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
-    val lastUserAnchorIndexByChatId = remember {
-        mutableStateMapOf<Int, Int>()
-    }
     val lastUserMessageCountByChatId = remember {
         mutableStateMapOf<Int, Int>()
     }
@@ -843,14 +840,7 @@ fun Home(
                     } else {
                         0
                     }
-                    val anchor = if (currentChatId != null) {
-                        lastUserAnchorIndexByChatId[currentChatId] ?: computedAnchor
-                    } else {
-                        0
-                    }
-                    if (currentChatId != null) {
-                        lastUserAnchorIndexByChatId.putIfAbsent(currentChatId, anchor)
-                    }
+                    val anchor = computedAnchor
                     // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
                     val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
 
@@ -873,8 +863,6 @@ fun Home(
 
                         // 初回表示時は記録のみ（スクロールしない）
                         if (previousUserCount == null) {
-                            lastUserAnchorIndexByChatId[currentChatId] =
-                                allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
                             lastUserMessageCountByChatId[currentChatId] = userCount
                             return@LaunchedEffect
                         }
@@ -882,7 +870,6 @@ fun Home(
                         // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
                         if (userCount > previousUserCount) {
                             val newAnchor = allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
-                            lastUserAnchorIndexByChatId[currentChatId] = newAnchor
                             listState.scrollToItem(newAnchor)
                         }
 
