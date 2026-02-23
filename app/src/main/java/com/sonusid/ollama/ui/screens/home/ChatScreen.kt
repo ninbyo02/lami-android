@@ -829,145 +829,146 @@ fun Home(
             } else if (allChatsOrNull == null) {
                 Box(modifier = contentModifier)
             } else {
-                key(effectiveChatId) {
-                    val messagesForList: List<Message> = allChatsOrNull
-                    val currentChatId = effectiveChatId
-                    val isListForCurrentChat =
-                        currentChatId != null &&
-                            (messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId })
-                    val computedAnchor = if (isListForCurrentChat) {
-                        messagesForList.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
-                    } else {
-                        0
-                    }
-                    val anchor = computedAnchor
-                    // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
-                    val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+                val currentChatId = effectiveChatId
+                val messagesForList: List<Message> = allChatsOrNull
+                val isListForCurrentChatForUi =
+                    currentChatId != null &&
+                        (messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId })
 
-                    LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
-                        val currentChatId = effectiveChatId ?: return@LaunchedEffect
-                        val allChats = allChatsOrNull ?: return@LaunchedEffect
-                        val isListForCurrentChat =
-                            allChats.isEmpty() ||
-                                allChats.all { it.chatId == currentChatId }
+                if (!isListForCurrentChatForUi) {
+                    Box(modifier = contentModifier)
+                } else {
+                    key(effectiveChatId) {
+                        val anchor = messagesForList.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                        // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
+                        val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
 
-                        if (!isListForCurrentChat) return@LaunchedEffect
+                        LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
+                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                            val allChats = allChatsOrNull ?: return@LaunchedEffect
+                            val isListForCurrentChat =
+                                allChats.isEmpty() ||
+                                    allChats.all { it.chatId == currentChatId }
 
-                        if (allChats.isEmpty()) {
-                            lastUserMessageCountByChatId[currentChatId] = 0
-                            return@LaunchedEffect
-                        }
+                            if (!isListForCurrentChat) return@LaunchedEffect
 
-                        val userCount = allChats.count { it.isSendbyMe }
-                        val previousUserCount = lastUserMessageCountByChatId[currentChatId]
+                            if (allChats.isEmpty()) {
+                                lastUserMessageCountByChatId[currentChatId] = 0
+                                return@LaunchedEffect
+                            }
 
-                        // 初回表示時は記録のみ（スクロールしない）
-                        if (previousUserCount == null) {
+                            val userCount = allChats.count { it.isSendbyMe }
+                            val previousUserCount = lastUserMessageCountByChatId[currentChatId]
+
+                            // 初回表示時は記録のみ（スクロールしない）
+                            if (previousUserCount == null) {
+                                lastUserMessageCountByChatId[currentChatId] = userCount
+                                return@LaunchedEffect
+                            }
+
+                            // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
+                            if (userCount > previousUserCount) {
+                                val newAnchor = allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                                listState.scrollToItem(newAnchor)
+                            }
+
                             lastUserMessageCountByChatId[currentChatId] = userCount
-                            return@LaunchedEffect
                         }
 
-                        // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
-                        if (userCount > previousUserCount) {
-                            val newAnchor = allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
-                            listState.scrollToItem(newAnchor)
+                        LaunchedEffect(listState.isScrollInProgress) {
+                            if (listState.isScrollInProgress) {
+                                viewModel.onUserInteraction()
+                            }
                         }
 
-                        lastUserMessageCountByChatId[currentChatId] = userCount
-                    }
+                        LaunchedEffect(effectiveChatId, messagesForList) {
+                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
 
-                    LaunchedEffect(listState.isScrollInProgress) {
-                        if (listState.isScrollInProgress) {
-                            viewModel.onUserInteraction()
-                        }
-                    }
+                            val isListForCurrentChat =
+                                messagesForList.isEmpty() ||
+                                    messagesForList.all { it.chatId == currentChatId }
 
-                    LaunchedEffect(effectiveChatId, messagesForList) {
-                        val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                            if (!isListForCurrentChat) return@LaunchedEffect
+                            if (messagesForList.isEmpty()) return@LaunchedEffect
 
-                        val isListForCurrentChat =
-                            messagesForList.isEmpty() ||
-                                messagesForList.all { it.chatId == currentChatId }
+                            if (!topPaddingModeMap.containsKey(currentChatId)) {
+                                val firstIsUser =
+                                    messagesForList.firstOrNull()?.isSendbyMe == true
 
-                        if (!isListForCurrentChat) return@LaunchedEffect
-                        if (messagesForList.isEmpty()) return@LaunchedEffect
-
-                        if (!topPaddingModeMap.containsKey(currentChatId)) {
-                            val firstIsUser =
-                                messagesForList.firstOrNull()?.isSendbyMe == true
-
-                            topPaddingModeMap[currentChatId] =
-                                if (firstIsUser) {
-                                    TopPaddingMode.NewConversation
-                                } else {
-                                    TopPaddingMode.ExistingConversation
-                                }
-                        }
-                    }
-                    val mode = topPaddingModeMap[effectiveChatId]
-                        ?: TopPaddingMode.ExistingConversation
-                    val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                        effectiveTopGradientBottomDp
-                    } else {
-                        when (mode) {
-                            TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
-                            TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
-                        }
-                    }
-                    Column(modifier = contentModifier) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
-                            contentPadding = PaddingValues(
-                                // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
-                                top = messageListTopPaddingDp,
-                                start = 0.dp,
-                                end = 0.dp,
-                                bottom = 0.dp
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(0.dp),
-                            state = listState,
-                        ) {
-                            if (messagesForList.isEmpty()) {
-                                item(key = "empty-state") {
-                                    PlainAssistantMessage(
-                                        message = "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。",
-                                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
-                                    )
-                                }
-                            } else {
-                                val firstAssistantIndex = messagesForList.indexOfFirst { !it.isSendbyMe }
-                                itemsIndexed(
-                                    items = messagesForList,
-                                    key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                                ) { index, message ->
-                                    val safeGapForFirstAssistant = if (
-                                        mode == TopPaddingMode.NewConversation &&
-                                        firstAssistantIndex >= 0 &&
-                                        index == firstAssistantIndex
-                                    ) {
-                                        ChatListTopGapFromGradientBottom
+                                topPaddingModeMap[currentChatId] =
+                                    if (firstIsUser) {
+                                        TopPaddingMode.NewConversation
                                     } else {
-                                        0.dp
+                                        TopPaddingMode.ExistingConversation
                                     }
-                                    val topPadding = (if (index == 0) 0.dp else 8.dp) + safeGapForFirstAssistant
-                                    Box(modifier = Modifier.padding(top = topPadding)) {
-                                        if (message.isSendbyMe) {
-                                            ChatBubble(message.message, message.isSendbyMe)
+                            }
+                        }
+                        val mode = topPaddingModeMap[effectiveChatId]
+                            ?: TopPaddingMode.ExistingConversation
+                        val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
+                            effectiveTopGradientBottomDp
+                        } else {
+                            when (mode) {
+                                TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
+                                TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
+                            }
+                        }
+                        Column(modifier = contentModifier) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
+                                contentPadding = PaddingValues(
+                                    // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
+                                    top = messageListTopPaddingDp,
+                                    start = 0.dp,
+                                    end = 0.dp,
+                                    bottom = 0.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(0.dp),
+                                state = listState,
+                            ) {
+                                if (messagesForList.isEmpty()) {
+                                    item(key = "empty-state") {
+                                        PlainAssistantMessage(
+                                            message = "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。",
+                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                } else {
+                                    val firstAssistantIndex = messagesForList.indexOfFirst { !it.isSendbyMe }
+                                    itemsIndexed(
+                                        items = messagesForList,
+                                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                                    ) { index, message ->
+                                        val safeGapForFirstAssistant = if (
+                                            mode == TopPaddingMode.NewConversation &&
+                                            firstAssistantIndex >= 0 &&
+                                            index == firstAssistantIndex
+                                        ) {
+                                            ChatListTopGapFromGradientBottom
                                         } else {
-                                            PlainAssistantMessage(message.message)
+                                            0.dp
+                                        }
+                                        val topPadding = (if (index == 0) 0.dp else 8.dp) + safeGapForFirstAssistant
+                                        Box(modifier = Modifier.padding(top = topPadding)) {
+                                            if (message.isSendbyMe) {
+                                                ChatBubble(message.message, message.isSendbyMe)
+                                            } else {
+                                                PlainAssistantMessage(message.message)
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            item(key = "composer_spacer") {
-                                // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
-                                Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                item(key = "composer_spacer") {
+                                    // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
+                                    Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                }
                             }
                         }
                     }
                 }
             }
+        }
 
             if (errorMessage != null) {
                 Column(
