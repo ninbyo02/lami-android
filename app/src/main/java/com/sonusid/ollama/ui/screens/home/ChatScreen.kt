@@ -854,10 +854,10 @@ fun Home(
                     if (!isListForCurrentChat) return@LaunchedEffect
 
                     // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
-                    // チャットを開いた瞬間に assistant 有無で top padding モードを 1 回だけ確定して固定する。
+                    // チャットを開いた瞬間に先頭メッセージ種別で top padding モードを 1 回だけ確定して固定する。
                     if (topPaddingMode.value == null) {
-                        val hasAssistant = messagesForList.any { !it.isSendbyMe }
-                        topPaddingMode.value = if (!hasAssistant) {
+                        val firstIsUser = messagesForList.firstOrNull()?.isSendbyMe == true
+                        topPaddingMode.value = if (firstIsUser) {
                             TopPaddingMode.NewConversation
                         } else {
                             TopPaddingMode.ExistingConversation
