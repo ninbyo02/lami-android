@@ -90,7 +90,7 @@ fun ChatBubble(
                     AndroidView(
                         factory = { context ->
                             ImageView(context).apply {
-                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                scaleType = ImageView.ScaleType.CENTER_CROP
                                 adjustViewBounds = true
                             }
                         },
