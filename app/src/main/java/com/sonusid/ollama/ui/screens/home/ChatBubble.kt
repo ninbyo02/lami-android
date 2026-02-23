@@ -101,6 +101,7 @@ fun ChatBubble(
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
+    val attachmentUris = remember(attachmentUriStrings) { attachmentUriStrings.map(Uri::parse) }
     var selectedAttachmentIndex by remember { mutableStateOf<Int?>(null) }
     Row(
         modifier = Modifier
@@ -127,13 +128,13 @@ fun ChatBubble(
                     onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
             ) {
                 AttachmentGallery(
-                    attachmentUriStrings = attachmentUriStrings,
+                    attachmentUris = attachmentUris,
                     onAttachmentClick = { index -> selectedAttachmentIndex = index },
                 )
 
                 selectedAttachmentIndex?.let { initialIndex ->
                     AttachmentFullscreenViewer(
-                        attachmentUriStrings = attachmentUriStrings,
+                        attachmentUris = attachmentUris,
                         initialIndex = initialIndex,
                         onDismiss = { selectedAttachmentIndex = null },
                     )
@@ -149,18 +150,17 @@ fun ChatBubble(
 
 @Composable
 private fun AttachmentGallery(
-    attachmentUriStrings: List<String>,
+    attachmentUris: List<Uri>,
     onAttachmentClick: (Int) -> Unit,
 ) {
-    if (attachmentUriStrings.isEmpty()) {
+    if (attachmentUris.isEmpty()) {
         return
     }
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        itemsIndexed(attachmentUriStrings) { index, uriString ->
-            val attachmentUri = remember(uriString) { Uri.parse(uriString) }
+        itemsIndexed(attachmentUris) { index, attachmentUri ->
             AndroidView(
                 factory = { context ->
                     ImageView(context).apply {
@@ -191,13 +191,15 @@ private fun AttachmentGallery(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AttachmentFullscreenViewer(
-    attachmentUriStrings: List<String>,
+    attachmentUris: List<Uri>,
     initialIndex: Int,
     onDismiss: () -> Unit,
 ) {
+    if (attachmentUris.isEmpty()) return
+
     val pagerState = rememberPagerState(
-        initialPage = initialIndex.coerceIn(0, attachmentUriStrings.lastIndex),
-        pageCount = { attachmentUriStrings.size },
+        initialPage = initialIndex.coerceIn(0, attachmentUris.lastIndex),
+        pageCount = { attachmentUris.size },
     )
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -209,8 +211,23 @@ private fun AttachmentFullscreenViewer(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
             ) { page ->
-                ZoomableAttachmentPage(uriString = attachmentUriStrings[page])
+                ZoomableAttachmentPage(
+                    attachmentUri = attachmentUris[page],
+                    resetToken = pagerState.currentPage,
+                )
             }
+
+            Text(
+                text = "${pagerState.currentPage + 1} / ${attachmentUris.size}",
+                color = Color.White.copy(alpha = 0.82f),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 14.dp)
+                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            )
 
             IconButton(
                 onClick = onDismiss,
@@ -232,10 +249,12 @@ private fun AttachmentFullscreenViewer(
 }
 
 @Composable
-private fun ZoomableAttachmentPage(uriString: String) {
-    val attachmentUri = remember(uriString) { Uri.parse(uriString) }
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+private fun ZoomableAttachmentPage(
+    attachmentUri: Uri,
+    resetToken: Int,
+) {
+    var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
+    var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
@@ -266,7 +285,7 @@ private fun ZoomableAttachmentPage(uriString: String) {
                 .fillMaxSize()
                 .clipToBounds()
                 .transformable(state = transformState)
-                .pointerInput(uriString) {
+                .pointerInput(attachmentUri, resetToken) {
                     detectTapGestures(
                         onDoubleTap = {
                             if (scale > 1f) {
