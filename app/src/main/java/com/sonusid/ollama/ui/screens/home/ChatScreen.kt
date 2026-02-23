@@ -838,6 +838,10 @@ fun Home(
             } else {
                 val messagesForList: List<Message> = allChatsOrNull
                 LaunchedEffect(effectiveChatId, messagesForList) {
+                    val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                    val isListForCurrentChat = messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId }
+                    if (!isListForCurrentChat) return@LaunchedEffect
+
                     // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
                     // チャットを開いた瞬間に assistant 有無で top padding モードを 1 回だけ確定して固定する。
                     if (topPaddingMode.value == null) {
