@@ -7,6 +7,7 @@ import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ReplacementSpan
 import android.net.Uri
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -91,7 +92,11 @@ fun ChatBubble(
                         factory = { context ->
                             ImageView(context).apply {
                                 scaleType = ImageView.ScaleType.CENTER_CROP
-                                adjustViewBounds = true
+                                adjustViewBounds = false
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
                             }
                         },
                         update = { imageView ->
@@ -99,7 +104,7 @@ fun ChatBubble(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 240.dp)
+                            .height(220.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                     )
