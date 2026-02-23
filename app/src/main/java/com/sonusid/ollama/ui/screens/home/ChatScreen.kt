@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -137,6 +138,7 @@ private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
+private const val MaxComposerAttachments = 10
 
 private enum class TopPaddingMode {
     NewConversation,
@@ -179,16 +181,18 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    var selectedImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
-    val selectedImageUri = selectedImageUriString?.let(Uri::parse)
+    var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var composerViewerUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    val selectedImageUri = selectedImageUris.firstOrNull()
     val pickImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val mimeType = context.contentResolver.getType(uri)
-        if (mimeType?.startsWith("image/") == true) {
-            selectedImageUriString = uri.toString()
-        } else {
+        contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        val imageUris = uris.filter { uri ->
+            context.contentResolver.getType(uri)?.startsWith("image/") == true
+        }
+        if (imageUris.size != uris.size) {
             coroutineScope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
@@ -197,6 +201,9 @@ fun Home(
                 )
             }
         }
+        selectedImageUriStrings = (selectedImageUriStrings + imageUris.map(Uri::toString))
+            .distinct()
+            .take(MaxComposerAttachments)
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
@@ -617,10 +624,15 @@ fun Home(
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                if (selectedImageUri != null) {
+                                if (selectedImageUris.isNotEmpty()) {
                                     AttachmentPreviewRow(
-                                        uri = selectedImageUri,
-                                        onRemove = { selectedImageUriString = null },
+                                        uris = selectedImageUris,
+                                        onOpen = { uri -> composerViewerUriString = uri.toString() },
+                                        onRemoveAt = { removeIndex ->
+                                            selectedImageUriStrings = selectedImageUriStrings.filterIndexed { index, _ ->
+                                                index != removeIndex
+                                            }
+                                        },
                                         inComposer = true,
                                     )
                                     // サムネイルと入力行を視認分離する最小限の余白
@@ -700,7 +712,7 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUri != null),
+                                        enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()),
                                         onClick = {
                                             viewModel.onUserInteraction()
                                             if (selectedModel.isNullOrBlank()) {
@@ -743,7 +755,7 @@ fun Home(
                                                 )
                                                 prompt = ""
                                                 userPrompt = ""
-                                                selectedImageUriString = null
+                                                selectedImageUriStrings = emptyList()
                                             } else {
                                                 placeholder = "Setting up a new chat ..."
                                             }
@@ -1077,18 +1089,54 @@ fun Home(
             )
         }
     }
-}
 
-}
+    composerViewerUriString?.let { uriString ->
+        Dialog(onDismissRequest = { composerViewerUriString = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.92f))
+            ) {
+                val attachmentUri = remember(uriString) { Uri.parse(uriString) }
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                        }
+                    },
+                    update = { imageView ->
+                        imageView.setImageURI(attachmentUri)
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                IconButton(
+                    onClick = { composerViewerUriString = null },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(12.dp)
+                        .size(40.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "閉じる",
+                        tint = Color.White,
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
 private fun AttachmentPreviewRow(
-    uri: Uri,
-    onRemove: () -> Unit,
+    uris: List<Uri>,
+    onOpen: (Uri) -> Unit,
+    onRemoveAt: (Int) -> Unit,
     inComposer: Boolean = false,
 ) {
-    Row(
+    LazyRow(
         modifier = Modifier
             .fillMaxWidth()
             // 入力欄との視認分離に必要な最小限の余白
@@ -1097,40 +1145,42 @@ private fun AttachmentPreviewRow(
                 // 入力欄内表示時は既存余白を維持するため縦余白を最小化
                 vertical = if (inComposer) 0.dp else 6.dp,
             ),
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box {
-            AndroidView(
-                factory = { context ->
-                    ImageView(context).apply {
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                    }
-                },
-                update = { imageView ->
-                    imageView.setImageURI(uri)
-                },
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
-
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(24.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        shape = CircleShape,
-                    ),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Remove attachment",
-                    modifier = Modifier.size(14.dp),
+        itemsIndexed(uris) { index, uri ->
+            Box {
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                        }
+                    },
+                    update = { imageView ->
+                        imageView.setImageURI(uri)
+                    },
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onOpen(uri) },
                 )
+
+                IconButton(
+                    onClick = { onRemoveAt(index) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(24.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                            shape = CircleShape,
+                        ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Remove attachment",
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
         }
     }
