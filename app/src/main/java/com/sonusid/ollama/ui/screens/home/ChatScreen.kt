@@ -713,19 +713,29 @@ fun Home(
                                     val currentChatId = effectiveChatId
                                     if (currentChatId != null) {
                                         val requestPrompt = userPrompt
-                                        if (requestPrompt.isNotEmpty()) {
+                                        val requestAttachmentUri = selectedImageUri
+                                        if (requestPrompt.isNotEmpty() || requestAttachmentUri != null) {
                                             placeholder = "I'm thinking ... "
-                                            viewModel.insert(
-                                                Message(chatId = currentChatId, message = requestPrompt, isSendbyMe = true)
-                                            )
                                             toggle = true
                                         }
                                         prompt = requestPrompt
                                         viewModel.sendPrompt(
                                             prompt = requestPrompt,
                                             model = selectedModel,
-                                            attachmentUri = selectedImageUri,
+                                            attachmentUri = requestAttachmentUri,
                                             context = context.applicationContext,
+                                            onAttachmentPrepared = { savedAttachmentUriString ->
+                                                if (requestPrompt.isNotEmpty() || savedAttachmentUriString != null) {
+                                                    viewModel.insert(
+                                                        Message(
+                                                            chatId = currentChatId,
+                                                            message = requestPrompt,
+                                                            isSendbyMe = true,
+                                                            attachmentUriString = savedAttachmentUriString,
+                                                        )
+                                                    )
+                                                }
+                                            },
                                         )
                                         prompt = ""
                                         userPrompt = ""
@@ -966,7 +976,7 @@ fun Home(
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                                     ) { _, message ->
                                         if (message.isSendbyMe) {
-                                            ChatBubble(message.message, message.isSendbyMe)
+                                            ChatBubble(message.message, message.isSendbyMe, message.attachmentUriString)
                                         } else {
                                             PlainAssistantMessage(message.message)
                                         }

@@ -6,6 +6,8 @@ import android.text.Spannable
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ReplacementSpan
+import android.net.Uri
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -40,6 +42,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
@@ -53,6 +56,7 @@ import dev.jeziellago.compose.markdowntext.MarkdownText
 fun ChatBubble(
     message: String,
     isSentByMe: Boolean,
+    attachmentUriString: String? = null,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
@@ -80,7 +84,30 @@ fun ChatBubble(
                     onClick = {},
                     onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
             ) {
-                MessageSegments(segments = segments)
+                if (!attachmentUriString.isNullOrBlank()) {
+                    val attachmentUri = remember(attachmentUriString) { Uri.parse(attachmentUriString) }
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply {
+                                scaleType = ImageView.ScaleType.CENTER_CROP
+                            }
+                        },
+                        update = { imageView ->
+                            imageView.setImageURI(attachmentUri)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    )
+                    if (message.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                if (message.isNotBlank()) {
+                    MessageSegments(segments = segments)
+                }
             }
         }
     }
