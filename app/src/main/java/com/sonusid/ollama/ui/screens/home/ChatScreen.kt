@@ -839,7 +839,7 @@ fun Home(
                     Box(modifier = contentModifier)
                 } else {
                     key(effectiveChatId) {
-                        val anchor = messagesForList.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                        val anchor = computeLatestUserAnchor(messagesForList)
                         // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
                         val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
 
@@ -868,7 +868,7 @@ fun Home(
 
                             // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
                             if (userCount > previousUserCount) {
-                                val newAnchor = allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                                val newAnchor = computeLatestUserAnchor(allChats)
                                 listState.scrollToItem(newAnchor)
                             }
 
@@ -1117,4 +1117,16 @@ internal fun shouldAutoCreateNewChat(
     isCreatingChat: Boolean,
 ): Boolean {
     return !suppressAutoNewChat && resolvedChatId == null && !isCreatingChat
+}
+
+private fun computeLatestUserAnchor(messages: List<Message>): Int {
+    if (messages.isEmpty()) {
+        return 0
+    }
+    val lastUser = messages.indexOfLast { it.isSendbyMe }
+    return if (lastUser >= 0) {
+        lastUser
+    } else {
+        messages.lastIndex
+    }
 }
