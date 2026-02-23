@@ -180,7 +180,10 @@ fun Home(
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
-    val lastMessageCountByChatId = remember {
+    val lastUserAnchorIndexByChatId = remember {
+        mutableStateMapOf<Int, Int>()
+    }
+    val lastUserMessageCountByChatId = remember {
         mutableStateMapOf<Int, Int>()
     }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
@@ -830,8 +833,26 @@ fun Home(
                 Box(modifier = contentModifier)
             } else {
                 key(effectiveChatId) {
-                    val listState = rememberLazyListState()
                     val messagesForList: List<Message> = allChatsOrNull
+                    val currentChatId = effectiveChatId
+                    val isListForCurrentChat =
+                        currentChatId != null &&
+                            (messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId })
+                    val computedAnchor = if (isListForCurrentChat) {
+                        messagesForList.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                    } else {
+                        0
+                    }
+                    val anchor = if (currentChatId != null) {
+                        lastUserAnchorIndexByChatId[currentChatId] ?: computedAnchor
+                    } else {
+                        0
+                    }
+                    if (currentChatId != null) {
+                        lastUserAnchorIndexByChatId.putIfAbsent(currentChatId, anchor)
+                    }
+                    // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
+                    val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
 
                     LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
                         val currentChatId = effectiveChatId ?: return@LaunchedEffect
@@ -842,21 +863,30 @@ fun Home(
 
                         if (!isListForCurrentChat) return@LaunchedEffect
 
-                        val currentSize = allChats.size
-                        val previousSize = lastMessageCountByChatId[currentChatId]
-
-                        // 初回表示時はサイズ保存のみ（スクロールしない）
-                        if (previousSize == null) {
-                            lastMessageCountByChatId[currentChatId] = currentSize
+                        if (allChats.isEmpty()) {
+                            lastUserMessageCountByChatId[currentChatId] = 0
                             return@LaunchedEffect
                         }
 
-                        // メッセージが増えたときだけ auto-scroll
-                        if (currentSize > previousSize) {
-                            listState.scrollToItem(currentSize - 1)
+                        val userCount = allChats.count { it.isSendbyMe }
+                        val previousUserCount = lastUserMessageCountByChatId[currentChatId]
+
+                        // 初回表示時は記録のみ（スクロールしない）
+                        if (previousUserCount == null) {
+                            lastUserAnchorIndexByChatId[currentChatId] =
+                                allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                            lastUserMessageCountByChatId[currentChatId] = userCount
+                            return@LaunchedEffect
                         }
 
-                        lastMessageCountByChatId[currentChatId] = currentSize
+                        // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
+                        if (userCount > previousUserCount) {
+                            val newAnchor = allChats.indexOfLast { it.isSendbyMe }.coerceAtLeast(0)
+                            lastUserAnchorIndexByChatId[currentChatId] = newAnchor
+                            listState.scrollToItem(newAnchor)
+                        }
+
+                        lastUserMessageCountByChatId[currentChatId] = userCount
                     }
 
                     LaunchedEffect(listState.isScrollInProgress) {
