@@ -8,5 +8,6 @@ data class Message(
     @PrimaryKey(autoGenerate = true) val messageID: Int = 0,
     val chatId: Int,
     val message: String,
-    val isSendbyMe: Boolean
+    val isSendbyMe: Boolean,
+    val attachmentUriString: String? = null,
 )

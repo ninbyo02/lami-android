@@ -38,6 +38,7 @@ import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 data class ModelInfo(val name: String)
@@ -199,17 +200,21 @@ class OllamaViewModel(
         }
     }
 
-    fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null, context: Context? = null) {
+    fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null, context: Context? = null, onAttachmentPrepared: ((String?) -> Unit)? = null) {
         viewModelScope.launch {
             var encodedImage: String? = null
+            var savedAttachmentUriString: String? = null
             if (attachmentUri != null) {
                 Log.d("ChatAttachment", "Attachment selected: $attachmentUri")
                 if (context == null) {
                     updateErrorState("Attachment context missing")
                     return@launch
                 }
-                encodedImage = encodeAttachmentImageToBase64(context, attachmentUri) ?: return@launch
+                val encodedAttachment = encodeAttachmentImageToBase64(context, attachmentUri) ?: return@launch
+                encodedImage = encodedAttachment.base64
+                savedAttachmentUriString = encodedAttachment.savedUriString
             }
+            onAttachmentPrepared?.invoke(savedAttachmentUriString)
             onPromptSubmitted()
             _uiState.value = UiState.Loading
 
@@ -348,7 +353,7 @@ class OllamaViewModel(
         }
     }
 
-    private suspend fun encodeAttachmentImageToBase64(context: Context, attachmentUri: Uri): String? {
+    private suspend fun encodeAttachmentImageToBase64(context: Context, attachmentUri: Uri): EncodedAttachment? {
         return withContext(Dispatchers.IO) {
             try {
                 val bytes = context.contentResolver.openInputStream(attachmentUri)?.use { input ->
@@ -382,7 +387,15 @@ class OllamaViewModel(
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outputStream)
                 bitmap.recycle()
 
-                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+                val jpegBytes = outputStream.toByteArray()
+                val attachmentsDir = File(context.cacheDir, "attachments").apply { mkdirs() }
+                val attachmentFile = File(attachmentsDir, "att_${System.currentTimeMillis()}.jpg")
+                attachmentFile.writeBytes(jpegBytes)
+
+                EncodedAttachment(
+                    base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP),
+                    savedUriString = attachmentFile.toURI().toString(),
+                )
             } catch (e: Exception) {
                 Log.e("ChatAttachment", "Failed to encode attachment", e)
                 updateErrorState("Failed to read attachment image")
@@ -421,6 +434,11 @@ class OllamaViewModel(
             }
         }
     }
+
+    private data class EncodedAttachment(
+        val base64: String,
+        val savedUriString: String,
+    )
 
     companion object {
         private const val AUTO_DELETE_DELAY_MS = 10 * 60 * 1000L
