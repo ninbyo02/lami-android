@@ -991,7 +991,6 @@ fun Home(
             }
 
         }
-    }
 
         if (debugOverlayEnabled) {
             // DEBUG: 上部グラデーションの視認確認のためオレンジ固定
@@ -1030,6 +1029,10 @@ fun Home(
             }
         }
     }
+}
+
+}
+
 }
 
 internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
