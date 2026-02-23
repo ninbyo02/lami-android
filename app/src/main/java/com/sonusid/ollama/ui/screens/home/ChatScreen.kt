@@ -180,7 +180,7 @@ fun Home(
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
-    val lastMessageCountMap = remember {
+    val lastMessageCountByChatId = remember {
         mutableStateMapOf<Int, Int>()
     }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
@@ -836,22 +836,27 @@ fun Home(
                     LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
                         val currentChatId = effectiveChatId ?: return@LaunchedEffect
                         val allChats = allChatsOrNull ?: return@LaunchedEffect
+                        val isListForCurrentChat =
+                            allChats.isEmpty() ||
+                                allChats.all { it.chatId == currentChatId }
+
+                        if (!isListForCurrentChat) return@LaunchedEffect
 
                         val currentSize = allChats.size
-                        val previousSize = lastMessageCountMap[currentChatId]
+                        val previousSize = lastMessageCountByChatId[currentChatId]
 
                         // 初回表示時はサイズ保存のみ（スクロールしない）
                         if (previousSize == null) {
-                            lastMessageCountMap[currentChatId] = currentSize
+                            lastMessageCountByChatId[currentChatId] = currentSize
                             return@LaunchedEffect
                         }
 
                         // メッセージが増えたときだけ auto-scroll
                         if (currentSize > previousSize) {
-                            listState.animateScrollToItem(currentSize - 1)
+                            listState.scrollToItem(currentSize - 1)
                         }
 
-                        lastMessageCountMap[currentChatId] = currentSize
+                        lastMessageCountByChatId[currentChatId] = currentSize
                     }
 
                     LaunchedEffect(listState.isScrollInProgress) {
