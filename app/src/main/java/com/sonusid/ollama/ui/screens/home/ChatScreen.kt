@@ -1,5 +1,10 @@
 package com.sonusid.ollama.ui.screens.home
 
+import android.net.Uri
+import android.widget.ImageView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,14 +44,14 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
@@ -83,6 +88,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -96,6 +102,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
@@ -161,7 +168,7 @@ fun Home(
     val allChatsOrNull = allChatsState?.value
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
-    var toolsMenuExpanded by remember { mutableStateOf(false) }
+    var attachSheetOpen by remember { mutableStateOf(false) }
     var expandDialogOpen by remember { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
@@ -170,6 +177,26 @@ fun Home(
     val baseUrl by viewModel.baseUrl.collectAsState()
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var selectedImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedImageUri = selectedImageUriString?.let(Uri::parse)
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val mimeType = context.contentResolver.getType(uri)
+        if (mimeType?.startsWith("image/") == true) {
+            selectedImageUriString = uri.toString()
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "画像のみ添付できます",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+    }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = false
@@ -543,6 +570,13 @@ fun Home(
                     }
                 }
         ) {
+            if (selectedImageUri != null) {
+                AttachmentPreviewRow(
+                    uri = selectedImageUri,
+                    onRemove = { selectedImageUriString = null },
+                )
+            }
+
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 Box {
                     BoxWithConstraints(
@@ -598,7 +632,7 @@ fun Home(
                             Spacer(modifier = Modifier.width(0.dp))
 
                             IconButton(
-                                onClick = { toolsMenuExpanded = true },
+                                onClick = { attachSheetOpen = true },
                                 modifier = Modifier
                                     .size(ComposerButtonSize)
                                     .align(Alignment.Bottom)
@@ -661,7 +695,7 @@ fun Home(
                             )
 
                             IconButton(
-                                enabled = !selectedModel.isNullOrBlank(),
+                                enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUri != null),
                                 onClick = {
                                     viewModel.onUserInteraction()
                                     if (selectedModel.isNullOrBlank()) {
@@ -677,17 +711,23 @@ fun Home(
 
                                     val currentChatId = effectiveChatId
                                     if (currentChatId != null) {
-                                        if (userPrompt.isNotEmpty()) {
+                                        val requestPrompt = userPrompt
+                                        if (requestPrompt.isNotEmpty()) {
                                             placeholder = "I'm thinking ... "
                                             viewModel.insert(
-                                                Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
+                                                Message(chatId = currentChatId, message = requestPrompt, isSendbyMe = true)
                                             )
                                             toggle = true
-                                            prompt = userPrompt
-                                            userPrompt = ""
-                                            viewModel.sendPrompt(prompt, selectedModel)
-                                            prompt = ""
                                         }
+                                        prompt = requestPrompt
+                                        viewModel.sendPrompt(
+                                            prompt = requestPrompt,
+                                            model = selectedModel,
+                                            attachmentUri = selectedImageUri,
+                                        )
+                                        prompt = ""
+                                        userPrompt = ""
+                                        selectedImageUriString = null
                                     } else {
                                         placeholder = "Setting up a new chat ..."
                                     }
@@ -730,23 +770,6 @@ fun Home(
                             }
                         }
 
-                            DropdownMenu(
-                            expanded = toolsMenuExpanded,
-                            onDismissRequest = { toolsMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Attach image (placeholder)") },
-                                onClick = { toolsMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Paste from clipboard (placeholder)") },
-                                onClick = { toolsMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Settings (placeholder)") },
-                                onClick = { toolsMenuExpanded = false }
-                            )
-                            }
                         }
                     }
                 }
@@ -1013,10 +1036,79 @@ fun Home(
             )
         }
     }
+
+    if (attachSheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { attachSheetOpen = false },
+        ) {
+            ListItem(
+                headlineContent = { Text("Attach image") },
+                onClick = {
+                    attachSheetOpen = false
+                    pickImageLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Paste from clipboard") },
+                onClick = { attachSheetOpen = false },
+            )
+            ListItem(
+                headlineContent = { Text("Settings") },
+                onClick = { attachSheetOpen = false },
+            )
+        }
+    }
 }
 
-}
+@Composable
+private fun AttachmentPreviewRow(
+    uri: Uri,
+    onRemove: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            // 入力欄との視認分離に必要な最小限の余白
+            .padding(horizontal = 17.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box {
+            AndroidView(
+                factory = { context ->
+                    ImageView(context).apply {
+                        scaleType = ImageView.ScaleType.CENTER_CROP
+                    }
+                },
+                update = { imageView ->
+                    imageView.setImageURI(uri)
+                },
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            )
 
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(24.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        shape = CircleShape,
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Remove attachment",
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+    }
 }
 
 internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
