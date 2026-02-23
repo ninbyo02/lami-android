@@ -90,7 +90,8 @@ fun ChatBubble(
                     AndroidView(
                         factory = { context ->
                             ImageView(context).apply {
-                                scaleType = ImageView.ScaleType.CENTER_CROP
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                adjustViewBounds = true
                             }
                         },
                         update = { imageView ->
@@ -98,7 +99,7 @@ fun ChatBubble(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(120.dp)
+                            .heightIn(max = 240.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                     )
