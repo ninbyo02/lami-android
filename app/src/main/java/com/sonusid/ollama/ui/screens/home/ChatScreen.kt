@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -78,6 +79,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -103,8 +105,6 @@ import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
-import com.sonusid.ollama.ui.components.LamiSprite
-import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -122,6 +122,15 @@ private val ComposerButtonIconSize = 20.dp
 private val ComposerButtonIconVisualSize = ComposerButtonIconSize - 4.dp
 private val ComposerBottomGapHeight = 8.dp
 private val TopGradientOverlayHeight = 24.dp
+private val TopGradientOverlayTopOffset = 34.dp
+// DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
+private val TopGradientOverlayYOffset = (-4).dp
+private val ChatListTopGapFromGradientBottom = 24.dp
+
+private enum class TopPaddingMode {
+    NewConversation,
+    ExistingConversation,
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,6 +171,12 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = BuildConfig.DEBUG
+    val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
+    val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
+    var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
+    val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
+    val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
+    val topPaddingMode = remember(effectiveChatId) { mutableStateOf<TopPaddingMode?>(null) }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -171,6 +186,12 @@ fun Home(
         filterChatsByTitle(sortedChats, chatSearchQuery)
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+
+    LaunchedEffect(effectiveChatId) {
+        // チャット切替直後（allChatsOrNull が null のフレーム）でも、
+        // 前チャットのスクロール位置を持ち越さない
+        listState.scrollToItem(0)
+    }
 
     LaunchedEffect(chatId) {
         if (chatId != null) {
@@ -227,10 +248,15 @@ fun Home(
         }
     }
 
-    LaunchedEffect(allChatsOrNull?.size) {
+    LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
+        val currentChatId = effectiveChatId
         val allChats = allChatsOrNull ?: return@LaunchedEffect
         if (allChats.isNotEmpty()) {
+            val isListForCurrentChat = currentChatId != null && allChats.all { it.chatId == currentChatId }
+            if (!isListForCurrentChat) return@LaunchedEffect
             listState.animateScrollToItem(allChats.size - 1)
+        } else {
+            listState.scrollToItem(0)
         }
     }
 
@@ -812,7 +838,7 @@ fun Home(
 
             if (effectiveChatId == null) {
                 Column(
-                    modifier = contentModifier,
+                    modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -820,49 +846,40 @@ fun Home(
                 }
             } else if (allChatsOrNull == null) {
                 Box(modifier = contentModifier)
-            } else if (allChatsOrNull.isEmpty()) {
-                Column(
-                    modifier = contentModifier,
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    BoxWithConstraints {
-                        val baseSpriteSize = 100.dp
-                        val targetSize = baseSpriteSize * 2f
-                        val maxSizeByWidth = maxWidth * 0.92f
-                        val maxSizeByHeight = maxHeight * 0.45f
-                        val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
-                        LamiSprite(
-                            state = lamiUiState.state,
-                            lamiStatus = lamiAnimationStatus,
-                            sizeDp = finalSize,
-                            shape = CircleShape,
-                            backgroundColor = rememberLamiCharacterBackdropColor(),
-                            contentPadding = 0.dp,
-                            animationsEnabled = true,
-                            replacementEnabled = true,
-                            blinkEffectEnabled = true,
-                            contentOffsetYDp = 2.dp,
-                            tightContainer = true,
-                            maxStatusSpriteSizeDp = finalSize,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                        )
-                    }
-                    Text(
-                        text = "最初のメッセージを送信して会話を始めましょう",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
             } else {
-                Column(modifier = contentModifier) {
-                    // ヘッダー直下の余白をスクロールに依存せず常に表示する
-                    Spacer(modifier = Modifier.height(3.dp))
+                val messagesForList: List<Message> = allChatsOrNull
+                LaunchedEffect(effectiveChatId, messagesForList) {
+                    val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                    val isListForCurrentChat = messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId }
+                    if (!isListForCurrentChat) return@LaunchedEffect
+                    if (messagesForList.isEmpty()) return@LaunchedEffect
 
+                    // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
+                    // チャットを開いた瞬間に先頭メッセージ種別で top padding モードを 1 回だけ確定して固定する。
+                    if (topPaddingMode.value == null) {
+                        val firstIsUser = messagesForList.firstOrNull()?.isSendbyMe == true
+                        topPaddingMode.value = if (firstIsUser) {
+                            TopPaddingMode.NewConversation
+                        } else {
+                            TopPaddingMode.ExistingConversation
+                        }
+                    }
+                }
+                val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
+                    effectiveTopGradientBottomDp
+                } else {
+                    when (topPaddingMode.value ?: TopPaddingMode.ExistingConversation) {
+                        TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
+                        TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
+                    }
+                }
+                Column(modifier = contentModifier) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                         contentPadding = PaddingValues(
+                            // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
+                            top = messageListTopPaddingDp,
                             start = 0.dp,
                             end = 0.dp,
                             bottom = 0.dp
@@ -870,16 +887,35 @@ fun Home(
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                         state = listState,
                     ) {
-                        itemsIndexed(
-                            items = allChatsOrNull,
-                            key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                        ) { index, message ->
-                            val topPadding = if (index == 0) 0.dp else 8.dp
-                            Box(modifier = Modifier.padding(top = topPadding)) {
-                                if (message.isSendbyMe) {
-                                    ChatBubble(message.message, message.isSendbyMe)
+                        if (messagesForList.isEmpty()) {
+                            item(key = "empty-state") {
+                                PlainAssistantMessage(
+                                    message = "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。",
+                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                )
+                            }
+                        } else {
+                            val firstAssistantIndex = messagesForList.indexOfFirst { !it.isSendbyMe }
+                            itemsIndexed(
+                                items = messagesForList,
+                                key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                            ) { index, message ->
+                                val safeGapForFirstAssistant = if (
+                                    topPaddingMode.value == TopPaddingMode.NewConversation &&
+                                    firstAssistantIndex >= 0 &&
+                                    index == firstAssistantIndex
+                                ) {
+                                    ChatListTopGapFromGradientBottom
                                 } else {
-                                    PlainAssistantMessage(message.message)
+                                    0.dp
+                                }
+                                val topPadding = (if (index == 0) 0.dp else 8.dp) + safeGapForFirstAssistant
+                                Box(modifier = Modifier.padding(top = topPadding)) {
+                                    if (message.isSendbyMe) {
+                                        ChatBubble(message.message, message.isSendbyMe)
+                                    } else {
+                                        PlainAssistantMessage(message.message)
+                                    }
                                 }
                             }
                         }
@@ -915,28 +951,35 @@ fun Home(
     }
 
         if (debugOverlayEnabled) {
-            val overlayBase = MaterialTheme.colorScheme.background
+            // DEBUG: 上部グラデーションの視認確認のためオレンジ固定
+            // TODO: デバッグ完了後に MaterialTheme.colorScheme.background ベースのグラデーションへ戻す
+            val debugOrange = Color(0xFFFF8C00)
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     // 上部グラデーションの開始位置をステータスバーぶん下げる
                     .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置からさらに 34dp 下へ移動する
-                    .padding(top = 34.dp)
+                    // 上部グラデーション全体を既存位置へ配置
+                    .padding(top = TopGradientOverlayTopOffset)
+                    // 上部グラデーションの開始位置を 4dp 上へ戻す
+                    .offset(y = TopGradientOverlayYOffset)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         // IME の表示有無に関係なく上部グラデの高さを固定する
                         .height(TopGradientOverlayHeight)
+                        .onGloballyPositioned { coordinates ->
+                            measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
+                        }
                         .clipToBounds()
                         .background(
                             brush = Brush.verticalGradient(
                                 colorStops = arrayOf(
-                                    0.0f to overlayBase.copy(alpha = 1.0f),
-                                    0.5f to overlayBase.copy(alpha = 0.40f),
-                                    1.0f to overlayBase.copy(alpha = 0.0f)
+                                    0.0f to debugOrange.copy(alpha = 0.90f),
+                                    0.5f to debugOrange.copy(alpha = 0.45f),
+                                    1.0f to debugOrange.copy(alpha = 0.0f)
                                 )
                             )
                         )
