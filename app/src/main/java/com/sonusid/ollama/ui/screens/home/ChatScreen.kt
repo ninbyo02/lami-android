@@ -120,6 +120,7 @@ import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import kotlinx.coroutines.yield
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -184,7 +185,6 @@ fun Home(
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var composerViewerUriString by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
-    val selectedImageUri = selectedImageUris.firstOrNull()
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
     ) { uris ->
@@ -729,8 +729,8 @@ fun Home(
                                             val currentChatId = effectiveChatId
                                             if (currentChatId != null) {
                                                 val requestPrompt = userPrompt
-                                                val requestAttachmentUri = selectedImageUri
-                                                if (requestPrompt.isNotEmpty() || requestAttachmentUri != null) {
+                                                val requestAttachmentUris = selectedImageUris
+                                                if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
                                                     placeholder = "I'm thinking ... "
                                                     toggle = true
                                                 }
@@ -738,16 +738,20 @@ fun Home(
                                                 viewModel.sendPrompt(
                                                     prompt = requestPrompt,
                                                     model = selectedModel,
-                                                    attachmentUri = requestAttachmentUri,
+                                                    attachmentUris = requestAttachmentUris,
                                                     context = context.applicationContext,
-                                                    onAttachmentPrepared = { savedAttachmentUriString ->
-                                                        if (requestPrompt.isNotEmpty() || savedAttachmentUriString != null) {
+                                                    onAttachmentPrepared = { savedAttachmentUriStrings ->
+                                                        if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
+                                                            val attachmentJson = savedAttachmentUriStrings
+                                                                ?.takeIf { it.isNotEmpty() }
+                                                                ?.toAttachmentUriStringsJson()
                                                             viewModel.insert(
                                                                 Message(
                                                                     chatId = currentChatId,
                                                                     message = requestPrompt,
                                                                     isSendbyMe = true,
-                                                                    attachmentUriString = savedAttachmentUriString,
+                                                                    attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
+                                                                    attachmentUriStringsJson = attachmentJson,
                                                                 )
                                                             )
                                                         }
@@ -993,7 +997,12 @@ fun Home(
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                                     ) { _, message ->
                                         if (message.isSendbyMe) {
-                                            ChatBubble(message.message, message.isSendbyMe, message.attachmentUriString)
+                                            ChatBubble(
+                                                message = message.message,
+                                                isSentByMe = message.isSendbyMe,
+                                                attachmentUriString = message.attachmentUriString,
+                                                attachmentUriStringsJson = message.attachmentUriStringsJson,
+                                            )
                                         } else {
                                             PlainAssistantMessage(message.message)
                                         }
@@ -1284,3 +1293,7 @@ private fun computeLatestUserAnchor(messages: List<Message>): Int {
         messages.lastIndex
     }
 }
+
+
+private fun List<String>.toAttachmentUriStringsJson(): String =
+    JSONArray().apply { forEach { uri -> put(uri) } }.toString()

@@ -22,6 +22,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -69,6 +71,7 @@ import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import org.json.JSONArray
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -77,11 +80,15 @@ fun ChatBubble(
     message: String,
     isSentByMe: Boolean,
     attachmentUriString: String? = null,
+    attachmentUriStringsJson: String? = null,
 ) {
+    val resolvedAttachmentUriStrings = remember(attachmentUriString, attachmentUriStringsJson) {
+        decodeAttachmentUriStrings(attachmentUriStringsJson).ifEmpty { listOfNotNull(attachmentUriString) }
+    }
     ChatBubble(
         message = message,
         isSentByMe = isSentByMe,
-        attachmentUriStrings = listOfNotNull(attachmentUriString),
+        attachmentUriStrings = resolvedAttachmentUriStrings,
     )
 }
 
@@ -94,7 +101,7 @@ fun ChatBubble(
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
-    var selectedAttachmentUriString by remember { mutableStateOf<String?>(null) }
+    var selectedAttachmentIndex by remember { mutableStateOf<Int?>(null) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -121,104 +128,15 @@ fun ChatBubble(
             ) {
                 AttachmentGallery(
                     attachmentUriStrings = attachmentUriStrings,
-                    onAttachmentClick = { uriString -> selectedAttachmentUriString = uriString },
+                    onAttachmentClick = { index -> selectedAttachmentIndex = index },
                 )
 
-                selectedAttachmentUriString?.let { selectedUriString ->
-                    val attachmentUri = remember(selectedUriString) { Uri.parse(selectedUriString) }
-                    var scale by remember { mutableFloatStateOf(1f) }
-                    var offset by remember { mutableStateOf(Offset.Zero) }
-
-                    Dialog(onDismissRequest = { selectedAttachmentUriString = null }) {
-                        BoxWithConstraints(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.92f))
-                                .clickable { selectedAttachmentUriString = null }
-                        ) {
-                            val density = LocalDensity.current
-                            val containerW = with(density) { maxWidth.toPx() }
-                            val containerH = with(density) { maxHeight.toPx() }
-
-                            fun clampOffset(raw: Offset, currentScale: Float): Offset {
-                                if (currentScale <= 1.01f) return Offset.Zero
-                                val maxX = ((containerW * currentScale) - containerW) / 2f
-                                val maxY = ((containerH * currentScale) - containerH) / 2f
-                                return Offset(
-                                    x = raw.x.coerceIn(-maxX, maxX),
-                                    y = raw.y.coerceIn(-maxY, maxY)
-                                )
-                            }
-
-                            val transformState = rememberTransformableState { zoomChange, panChange, _ ->
-                                val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-                                val candidateOffset = offset + panChange
-                                scale = if (newScale <= 1.01f) 1f else newScale
-                                offset = clampOffset(candidateOffset, scale)
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clipToBounds()
-                                    .transformable(state = transformState)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onDoubleTap = {
-                                                if (scale > 1f) {
-                                                    scale = 1f
-                                                    offset = Offset.Zero
-                                                } else {
-                                                    scale = 2f
-                                                    offset = Offset.Zero
-                                                }
-                                            }
-                                        )
-                                    }
-                                    .clickable { }
-                            ) {
-                                AndroidView(
-                                    factory = { context ->
-                                        ImageView(context).apply {
-                                            scaleType = ImageView.ScaleType.FIT_CENTER
-                                            adjustViewBounds = true
-                                            layoutParams = ViewGroup.LayoutParams(
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                            )
-                                        }
-                                    },
-                                    update = { imageView ->
-                                        imageView.setImageURI(attachmentUri)
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer {
-                                            scaleX = scale
-                                            scaleY = scale
-                                            translationX = offset.x
-                                            translationY = offset.y
-                                        }
-                                )
-                            }
-
-                            IconButton(
-                                onClick = { selectedAttachmentUriString = null },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .statusBarsPadding()
-                                    .padding(12.dp)
-                                    .size(40.dp)
-                                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "閉じる",
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                    }
+                selectedAttachmentIndex?.let { initialIndex ->
+                    AttachmentFullscreenViewer(
+                        attachmentUriStrings = attachmentUriStrings,
+                        initialIndex = initialIndex,
+                        onDismiss = { selectedAttachmentIndex = null },
+                    )
                 }
 
                 if (message.isNotBlank()) {
@@ -232,7 +150,7 @@ fun ChatBubble(
 @Composable
 private fun AttachmentGallery(
     attachmentUriStrings: List<String>,
-    onAttachmentClick: (String) -> Unit,
+    onAttachmentClick: (Int) -> Unit,
 ) {
     if (attachmentUriStrings.isEmpty()) {
         return
@@ -241,7 +159,7 @@ private fun AttachmentGallery(
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        itemsIndexed(attachmentUriStrings) { _, uriString ->
+        itemsIndexed(attachmentUriStrings) { index, uriString ->
             val attachmentUri = remember(uriString) { Uri.parse(uriString) }
             AndroidView(
                 factory = { context ->
@@ -262,13 +180,140 @@ private fun AttachmentGallery(
                     .height(220.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onAttachmentClick(uriString) },
+                    .clickable { onAttachmentClick(index) },
             )
         }
     }
 
     Spacer(modifier = Modifier.height(8.dp))
 }
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AttachmentFullscreenViewer(
+    attachmentUriStrings: List<String>,
+    initialIndex: Int,
+    onDismiss: () -> Unit,
+) {
+    val pagerState = rememberPagerState(
+        initialPage = initialIndex.coerceIn(0, attachmentUriStrings.lastIndex),
+        pageCount = { attachmentUriStrings.size },
+    )
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                ZoomableAttachmentPage(uriString = attachmentUriStrings[page])
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(12.dp)
+                    .size(40.dp)
+                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "閉じる",
+                    tint = Color.White,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoomableAttachmentPage(uriString: String) {
+    val attachmentUri = remember(uriString) { Uri.parse(uriString) }
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        val density = LocalDensity.current
+        val containerW = with(density) { maxWidth.toPx() }
+        val containerH = with(density) { maxHeight.toPx() }
+
+        fun clampOffset(raw: Offset, currentScale: Float): Offset {
+            if (currentScale <= 1.01f) return Offset.Zero
+            val maxX = ((containerW * currentScale) - containerW) / 2f
+            val maxY = ((containerH * currentScale) - containerH) / 2f
+            return Offset(
+                x = raw.x.coerceIn(-maxX, maxX),
+                y = raw.y.coerceIn(-maxY, maxY),
+            )
+        }
+
+        val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+            val candidateOffset = offset + panChange
+            scale = if (newScale <= 1.01f) 1f else newScale
+            offset = clampOffset(candidateOffset, scale)
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds()
+                .transformable(state = transformState)
+                .pointerInput(uriString) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (scale > 1f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                            } else {
+                                scale = 2f
+                                offset = Offset.Zero
+                            }
+                        },
+                    )
+                }
+        ) {
+            AndroidView(
+                factory = { context ->
+                    ImageView(context).apply {
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        adjustViewBounds = true
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                    }
+                },
+                update = { imageView -> imageView.setImageURI(attachmentUri) },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    }
+            )
+        }
+    }
+}
+
+private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<String> {
+    if (attachmentUriStringsJson.isNullOrBlank()) return emptyList()
+    return runCatching {
+        val jsonArray = JSONArray(attachmentUriStringsJson)
+        List(jsonArray.length()) { index -> jsonArray.optString(index) }
+            .filter { it.isNotBlank() }
+    }.getOrDefault(emptyList())
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlainAssistantMessage(

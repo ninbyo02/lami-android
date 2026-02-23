@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import org.json.JSONObject
+import kotlin.math.min
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -201,24 +202,40 @@ class OllamaViewModel(
     }
 
     fun sendPrompt(prompt: String, model: String?, attachmentUri: Uri? = null, context: Context? = null, onAttachmentPrepared: ((String?) -> Unit)? = null) {
+        sendPrompt(
+            prompt = prompt,
+            model = model,
+            attachmentUris = listOfNotNull(attachmentUri),
+            context = context,
+            onAttachmentPrepared = { prepared -> onAttachmentPrepared?.invoke(prepared?.firstOrNull()) },
+        )
+    }
+
+    fun sendPrompt(
+        prompt: String,
+        model: String?,
+        attachmentUris: List<Uri> = emptyList(),
+        context: Context? = null,
+        onAttachmentPrepared: ((List<String>?) -> Unit)? = null,
+    ) {
         viewModelScope.launch {
-            var encodedImage: String? = null
-            var savedAttachmentUriString: String? = null
-            if (attachmentUri != null) {
-                Log.d("ChatAttachment", "Attachment selected: $attachmentUri")
+            var encodedImages: List<String> = emptyList()
+            var savedAttachmentUriStrings: List<String> = emptyList()
+            if (attachmentUris.isNotEmpty()) {
+                Log.d("ChatAttachment", "Attachment selected count: ${attachmentUris.size}")
                 if (context == null) {
                     updateErrorState("Attachment context missing")
                     return@launch
                 }
-                val encodedAttachment = encodeAttachmentImageToBase64(context, attachmentUri) ?: return@launch
-                encodedImage = encodedAttachment.base64
-                savedAttachmentUriString = encodedAttachment.savedUriString
+                val encodedAttachments = encodeAttachmentImagesToBase64(context, attachmentUris) ?: return@launch
+                encodedImages = encodedAttachments.base64Images
+                savedAttachmentUriStrings = encodedAttachments.savedUriStrings
             }
-            onAttachmentPrepared?.invoke(savedAttachmentUriString)
+            onAttachmentPrepared?.invoke(savedAttachmentUriStrings.takeIf { it.isNotEmpty() })
             onPromptSubmitted()
             _uiState.value = UiState.Loading
 
-            val effectivePrompt = if (prompt.isBlank() && attachmentUri != null) {
+            val effectivePrompt = if (prompt.isBlank() && attachmentUris.isNotEmpty()) {
                 "この画像について説明して。"
             } else {
                 prompt
@@ -226,7 +243,7 @@ class OllamaViewModel(
             val request = OllamaRequest(
                 model = model.toString(),
                 prompt = effectivePrompt,
-                images = encodedImage?.let { listOf(it) },
+                images = encodedImages.ifEmpty { null },
             )
 
             if (model != null) {
@@ -353,48 +370,55 @@ class OllamaViewModel(
         }
     }
 
-    private suspend fun encodeAttachmentImageToBase64(context: Context, attachmentUri: Uri): EncodedAttachment? {
+    private suspend fun encodeAttachmentImagesToBase64(context: Context, attachmentUris: List<Uri>): EncodedAttachments? {
         return withContext(Dispatchers.IO) {
             try {
-                val bytes = context.contentResolver.openInputStream(attachmentUri)?.use { input ->
-                    input.readBytes()
-                } ?: run {
-                    updateErrorState("Failed to read attachment image")
-                    return@withContext null
-                }
-
-                val boundsOptions = BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
-
-                val maxLongEdgePx = 1280
-                var sampleSize = 1
-                val longEdge = maxOf(boundsOptions.outWidth, boundsOptions.outHeight)
-                while (longEdge / sampleSize > maxLongEdgePx) {
-                    sampleSize *= 2
-                }
-
-                val bitmapOptions = BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize
-                }
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bitmapOptions) ?: run {
-                    updateErrorState("Failed to read attachment image")
-                    return@withContext null
-                }
-
-                val outputStream = java.io.ByteArrayOutputStream()
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outputStream)
-                bitmap.recycle()
-
-                val jpegBytes = outputStream.toByteArray()
+                val base64Images = mutableListOf<String>()
+                val savedUriStrings = mutableListOf<String>()
                 val attachmentsDir = File(context.cacheDir, "attachments").apply { mkdirs() }
-                val attachmentFile = File(attachmentsDir, "att_${System.currentTimeMillis()}.jpg")
-                attachmentFile.writeBytes(jpegBytes)
+                val targetUris = attachmentUris.take(min(attachmentUris.size, MAX_COMPOSER_ATTACHMENTS))
+                targetUris.forEachIndexed { index, attachmentUri ->
+                    val bytes = context.contentResolver.openInputStream(attachmentUri)?.use { input ->
+                        input.readBytes()
+                    } ?: run {
+                        updateErrorState("Failed to read attachment image")
+                        return@withContext null
+                    }
 
-                EncodedAttachment(
-                    base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP),
-                    savedUriString = attachmentFile.toURI().toString(),
+                    val boundsOptions = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOptions)
+
+                    val maxLongEdgePx = 1280
+                    var sampleSize = 1
+                    val longEdge = maxOf(boundsOptions.outWidth, boundsOptions.outHeight)
+                    while (longEdge / sampleSize > maxLongEdgePx) {
+                        sampleSize *= 2
+                    }
+
+                    val bitmapOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                    }
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bitmapOptions) ?: run {
+                        updateErrorState("Failed to read attachment image")
+                        return@withContext null
+                    }
+
+                    val outputStream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, outputStream)
+                    bitmap.recycle()
+
+                    val jpegBytes = outputStream.toByteArray()
+                    val attachmentFile = File(attachmentsDir, "att_${System.currentTimeMillis()}_${index}.jpg")
+                    attachmentFile.writeBytes(jpegBytes)
+                    base64Images += Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
+                    savedUriStrings += attachmentFile.toURI().toString()
+                }
+
+                EncodedAttachments(
+                    base64Images = base64Images,
+                    savedUriStrings = savedUriStrings,
                 )
             } catch (e: Exception) {
                 Log.e("ChatAttachment", "Failed to encode attachment", e)
@@ -435,13 +459,14 @@ class OllamaViewModel(
         }
     }
 
-    private data class EncodedAttachment(
-        val base64: String,
-        val savedUriString: String,
+    private data class EncodedAttachments(
+        val base64Images: List<String>,
+        val savedUriStrings: List<String>,
     )
 
     companion object {
         private const val AUTO_DELETE_DELAY_MS = 10 * 60 * 1000L
+        private const val MAX_COMPOSER_ATTACHMENTS = 10
     }
 
 }
