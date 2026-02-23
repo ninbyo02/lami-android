@@ -177,7 +177,7 @@ fun Home(
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
-    val topPaddingModeMap = rememberSaveable {
+    val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
