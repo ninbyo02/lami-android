@@ -1281,3 +1281,5 @@ private fun computeLatestUserAnchor(messages: List<Message>): Int {
         messages.lastIndex
     }
 }
+}
+}
