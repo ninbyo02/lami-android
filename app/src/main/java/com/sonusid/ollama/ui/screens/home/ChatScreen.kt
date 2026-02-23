@@ -249,8 +249,11 @@ fun Home(
     }
 
     LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
+        val currentChatId = effectiveChatId
         val allChats = allChatsOrNull ?: return@LaunchedEffect
         if (allChats.isNotEmpty()) {
+            val isListForCurrentChat = currentChatId != null && allChats.all { it.chatId == currentChatId }
+            if (!isListForCurrentChat) return@LaunchedEffect
             listState.animateScrollToItem(allChats.size - 1)
         } else {
             listState.scrollToItem(0)
