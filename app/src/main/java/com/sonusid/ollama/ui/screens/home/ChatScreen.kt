@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1042,24 +1043,27 @@ fun Home(
             onDismissRequest = { attachSheetOpen = false },
         ) {
             ListItem(
-                headlineContent = { Text("Attach image") },
-                onClick = {
+                modifier = Modifier.clickable {
                     attachSheetOpen = false
                     pickImageLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
                 },
+                headlineContent = { Text("Attach image") },
             )
             ListItem(
+                modifier = Modifier.clickable { attachSheetOpen = false },
                 headlineContent = { Text("Paste from clipboard") },
-                onClick = { attachSheetOpen = false },
             )
             ListItem(
+                modifier = Modifier.clickable { attachSheetOpen = false },
                 headlineContent = { Text("Settings") },
-                onClick = { attachSheetOpen = false },
             )
         }
     }
+}
+
+}
 }
 
 @Composable
