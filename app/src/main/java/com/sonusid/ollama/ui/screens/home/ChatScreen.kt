@@ -939,10 +939,9 @@ fun Home(
                                     itemsIndexed(
                                         items = messagesForList,
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                                    ) { index, message ->
-                                        // 先頭メッセージのみ 0dp、それ以外は常に同じ縦余白で揃える
-                                        val topPadding = if (index == 0) 0.dp else ChatMessageVerticalGap
-                                        Box(modifier = Modifier.padding(top = topPadding)) {
+                                    ) { _, message ->
+                                        // 初回メッセージを含め、全メッセージ間の縦余白を同一ルールへ統一する
+                                        Box(modifier = Modifier.padding(top = ChatMessageVerticalGap)) {
                                             if (message.isSendbyMe) {
                                                 ChatBubble(message.message, message.isSendbyMe)
                                             } else {
