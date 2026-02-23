@@ -180,6 +180,9 @@ fun Home(
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
+    val lastMessageCountMap = remember {
+        mutableStateMapOf<Int, Int>()
+    }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -830,15 +833,25 @@ fun Home(
                     val listState = rememberLazyListState()
                     val messagesForList: List<Message> = allChatsOrNull
 
-                    LaunchedEffect(effectiveChatId, allChatsOrNull.size) {
-                        val currentChatId = effectiveChatId
-                        if (allChatsOrNull.isNotEmpty()) {
-                            val isListForCurrentChat = currentChatId != null && allChatsOrNull.all { it.chatId == currentChatId }
-                            if (!isListForCurrentChat) return@LaunchedEffect
-                            listState.animateScrollToItem(allChatsOrNull.size - 1)
-                        } else {
-                            listState.scrollToItem(0)
+                    LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
+                        val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                        val allChats = allChatsOrNull ?: return@LaunchedEffect
+
+                        val currentSize = allChats.size
+                        val previousSize = lastMessageCountMap[currentChatId]
+
+                        // 初回表示時はサイズ保存のみ（スクロールしない）
+                        if (previousSize == null) {
+                            lastMessageCountMap[currentChatId] = currentSize
+                            return@LaunchedEffect
                         }
+
+                        // メッセージが増えたときだけ auto-scroll
+                        if (currentSize > previousSize) {
+                            listState.animateScrollToItem(currentSize - 1)
+                        }
+
+                        lastMessageCountMap[currentChatId] = currentSize
                     }
 
                     LaunchedEffect(listState.isScrollInProgress) {
