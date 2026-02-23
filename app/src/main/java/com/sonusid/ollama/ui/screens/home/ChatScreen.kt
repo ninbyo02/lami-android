@@ -67,6 +67,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -95,7 +97,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
-import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
@@ -126,6 +127,8 @@ private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
 private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
+// メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
+private val ChatMessageVerticalGap = 8.dp
 
 private enum class TopPaddingMode {
     NewConversation,
@@ -165,18 +168,22 @@ fun Home(
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
     val animationEpochMs by viewModel.animationEpochMs.collectAsState()
     val baseUrl by viewModel.baseUrl.collectAsState()
-    val listState = rememberLazyListState()
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
-    val debugOverlayEnabled = BuildConfig.DEBUG
+    val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
-    val topPaddingMode = remember(effectiveChatId) { mutableStateOf<TopPaddingMode?>(null) }
+    val topPaddingModeMap = remember {
+        mutableStateMapOf<Int, TopPaddingMode>()
+    }
+    val lastUserMessageCountByChatId = remember {
+        mutableStateMapOf<Int, Int>()
+    }
     var measuredComposerTopY by remember { mutableStateOf(0f) }
     var overlayRootTopY by remember { mutableStateOf(0f) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -186,12 +193,6 @@ fun Home(
         filterChatsByTitle(sortedChats, chatSearchQuery)
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
-
-    LaunchedEffect(effectiveChatId) {
-        // チャット切替直後（allChatsOrNull が null のフレーム）でも、
-        // 前チャットのスクロール位置を持ち越さない
-        listState.scrollToItem(0)
-    }
 
     LaunchedEffect(chatId) {
         if (chatId != null) {
@@ -248,18 +249,6 @@ fun Home(
         }
     }
 
-    LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
-        val currentChatId = effectiveChatId
-        val allChats = allChatsOrNull ?: return@LaunchedEffect
-        if (allChats.isNotEmpty()) {
-            val isListForCurrentChat = currentChatId != null && allChats.all { it.chatId == currentChatId }
-            if (!isListForCurrentChat) return@LaunchedEffect
-            listState.animateScrollToItem(allChats.size - 1)
-        } else {
-            listState.scrollToItem(0)
-        }
-    }
-
     LaunchedEffect(availableModels, selectedModel) {
         if (availableModels.size == 1) {
             val singleModelName = availableModels.first().name
@@ -309,12 +298,6 @@ fun Home(
         val idleTimeoutMs = 6_000L
         delay(idleTimeoutMs)
         viewModel.moveToIdleIfStale(referenceTime, idleTimeoutMs)
-    }
-
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress) {
-            viewModel.onUserInteraction()
-        }
     }
 
     LaunchedEffect(errorMessage) {
@@ -847,85 +830,133 @@ fun Home(
             } else if (allChatsOrNull == null) {
                 Box(modifier = contentModifier)
             } else {
+                val currentChatId = effectiveChatId
                 val messagesForList: List<Message> = allChatsOrNull
-                LaunchedEffect(effectiveChatId, messagesForList) {
-                    val currentChatId = effectiveChatId ?: return@LaunchedEffect
-                    val isListForCurrentChat = messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId }
-                    if (!isListForCurrentChat) return@LaunchedEffect
-                    if (messagesForList.isEmpty()) return@LaunchedEffect
+                val isListForCurrentChatForUi =
+                    currentChatId != null &&
+                        (messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId })
 
-                    // 会話途中で contentPadding.top が切り替わるとリスト全体がジャンプするため、
-                    // チャットを開いた瞬間に先頭メッセージ種別で top padding モードを 1 回だけ確定して固定する。
-                    if (topPaddingMode.value == null) {
-                        val firstIsUser = messagesForList.firstOrNull()?.isSendbyMe == true
-                        topPaddingMode.value = if (firstIsUser) {
-                            TopPaddingMode.NewConversation
-                        } else {
-                            TopPaddingMode.ExistingConversation
-                        }
-                    }
-                }
-                val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                    effectiveTopGradientBottomDp
+                if (!isListForCurrentChatForUi) {
+                    Box(modifier = contentModifier)
                 } else {
-                    when (topPaddingMode.value ?: TopPaddingMode.ExistingConversation) {
-                        TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
-                        TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
-                    }
-                }
-                Column(modifier = contentModifier) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
-                        contentPadding = PaddingValues(
-                            // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
-                            top = messageListTopPaddingDp,
-                            start = 0.dp,
-                            end = 0.dp,
-                            bottom = 0.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
-                        state = listState,
-                    ) {
-                        if (messagesForList.isEmpty()) {
-                            item(key = "empty-state") {
-                                PlainAssistantMessage(
-                                    message = "ラミィにお願い…\nメッセージを入力するか、マイクで話しかけてください。",
-                                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
-                                )
+                    key(effectiveChatId) {
+                        val anchor = computeLatestUserAnchor(messagesForList)
+                        // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
+                        val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+
+                        LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
+                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                            val allChats = allChatsOrNull ?: return@LaunchedEffect
+                            val isListForCurrentChat =
+                                allChats.isEmpty() ||
+                                    allChats.all { it.chatId == currentChatId }
+
+                            if (!isListForCurrentChat) return@LaunchedEffect
+
+                            if (allChats.isEmpty()) {
+                                lastUserMessageCountByChatId[currentChatId] = 0
+                                return@LaunchedEffect
                             }
-                        } else {
-                            val firstAssistantIndex = messagesForList.indexOfFirst { !it.isSendbyMe }
-                            itemsIndexed(
-                                items = messagesForList,
-                                key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                            ) { index, message ->
-                                val safeGapForFirstAssistant = if (
-                                    topPaddingMode.value == TopPaddingMode.NewConversation &&
-                                    firstAssistantIndex >= 0 &&
-                                    index == firstAssistantIndex
-                                ) {
-                                    ChatListTopGapFromGradientBottom
-                                } else {
-                                    0.dp
-                                }
-                                val topPadding = (if (index == 0) 0.dp else 8.dp) + safeGapForFirstAssistant
-                                Box(modifier = Modifier.padding(top = topPadding)) {
-                                    if (message.isSendbyMe) {
-                                        ChatBubble(message.message, message.isSendbyMe)
+
+                            val userCount = allChats.count { it.isSendbyMe }
+                            val previousUserCount = lastUserMessageCountByChatId[currentChatId]
+
+                            // 初回表示時は記録のみ（スクロールしない）
+                            if (previousUserCount == null) {
+                                lastUserMessageCountByChatId[currentChatId] = userCount
+                                return@LaunchedEffect
+                            }
+
+                            // 仕上げチェック: scrollToItem はユーザー送信が増えた時のみ実行
+                            if (userCount > previousUserCount) {
+                                val newAnchor = computeLatestUserAnchor(allChats)
+                                listState.scrollToItem(newAnchor)
+                            }
+
+                            lastUserMessageCountByChatId[currentChatId] = userCount
+                        }
+
+                        LaunchedEffect(listState.isScrollInProgress) {
+                            if (listState.isScrollInProgress) {
+                                viewModel.onUserInteraction()
+                            }
+                        }
+
+                        LaunchedEffect(effectiveChatId, messagesForList) {
+                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
+
+                            val isListForCurrentChat =
+                                messagesForList.isEmpty() ||
+                                    messagesForList.all { it.chatId == currentChatId }
+
+                            if (!isListForCurrentChat) return@LaunchedEffect
+                            if (messagesForList.isEmpty()) return@LaunchedEffect
+
+                            if (!topPaddingModeMap.containsKey(currentChatId)) {
+                                val firstIsUser =
+                                    messagesForList.firstOrNull()?.isSendbyMe == true
+
+                                topPaddingModeMap[currentChatId] =
+                                    if (firstIsUser) {
+                                        TopPaddingMode.NewConversation
                                     } else {
-                                        PlainAssistantMessage(message.message)
+                                        TopPaddingMode.ExistingConversation
+                                    }
+                            }
+                        }
+                        val mode = topPaddingModeMap[effectiveChatId]
+                            ?: TopPaddingMode.ExistingConversation
+                        val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
+                            effectiveTopGradientBottomDp
+                        } else {
+                            when (mode) {
+                                TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
+                                TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
+                            }
+                        }
+                        Column(modifier = contentModifier) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
+                                contentPadding = PaddingValues(
+                                    // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
+                                    top = messageListTopPaddingDp,
+                                    start = 0.dp,
+                                    end = 0.dp,
+                                    bottom = 0.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(ChatMessageVerticalGap),
+                                state = listState,
+                            ) {
+                                if (messagesForList.isEmpty()) {
+                                    item(key = "empty-state") {
+                                        PlainAssistantMessage(
+                                            message = "ラミィがお手伝いします。\n今日は何をしますか？",
+                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                } else {
+                                    itemsIndexed(
+                                        items = messagesForList,
+                                        key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
+                                    ) { _, message ->
+                                        if (message.isSendbyMe) {
+                                            ChatBubble(message.message, message.isSendbyMe)
+                                        } else {
+                                            PlainAssistantMessage(message.message)
+                                        }
                                     }
                                 }
+                                item(key = "composer_spacer") {
+                                    // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
+                                    Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                }
                             }
-                        }
-                        item(key = "composer_spacer") {
-                            // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
-                            Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
                         }
                     }
                 }
             }
+        }
 
             if (errorMessage != null) {
                 Column(
@@ -948,43 +979,38 @@ fun Home(
             }
 
         }
-    }
 
-        if (debugOverlayEnabled) {
-            // DEBUG: 上部グラデーションの視認確認のためオレンジ固定
-            // TODO: デバッグ完了後に MaterialTheme.colorScheme.background ベースのグラデーションへ戻す
-            val debugOrange = Color(0xFFFF8C00)
+        val topColor = MaterialTheme.colorScheme.background
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                // 上部グラデーションの開始位置をステータスバーぶん下げる
+                .statusBarsPadding()
+                // 上部グラデーション全体を既存位置へ配置
+                .padding(top = TopGradientOverlayTopOffset)
+                // 上部グラデーションの開始位置を 4dp 上へ戻す
+                .offset(y = TopGradientOverlayYOffset)
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    // 上部グラデーションの開始位置をステータスバーぶん下げる
-                    .statusBarsPadding()
-                    // 上部グラデーション全体を既存位置へ配置
-                    .padding(top = TopGradientOverlayTopOffset)
-                    // 上部グラデーションの開始位置を 4dp 上へ戻す
-                    .offset(y = TopGradientOverlayYOffset)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // IME の表示有無に関係なく上部グラデの高さを固定する
-                        .height(TopGradientOverlayHeight)
-                        .onGloballyPositioned { coordinates ->
-                            measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
-                        }
-                        .clipToBounds()
-                        .background(
-                            brush = Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to debugOrange.copy(alpha = 0.90f),
-                                    0.5f to debugOrange.copy(alpha = 0.45f),
-                                    1.0f to debugOrange.copy(alpha = 0.0f)
-                                )
+                    // IME の表示有無に関係なく上部グラデの高さを固定する
+                    .height(TopGradientOverlayHeight)
+                    .onGloballyPositioned { coordinates ->
+                        measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
+                    }
+                    .clipToBounds()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to topColor.copy(alpha = 1.0f),
+                                0.5f to topColor.copy(alpha = 0.6f),
+                                1.0f to topColor.copy(alpha = 0.0f)
                             )
                         )
-                )
-            }
+                    )
+            )
         }
     }
 }
@@ -992,7 +1018,6 @@ fun Home(
 }
 
 }
-
 
 internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
     val normalizedQuery = query.trim()
@@ -1076,4 +1101,16 @@ internal fun shouldAutoCreateNewChat(
     isCreatingChat: Boolean,
 ): Boolean {
     return !suppressAutoNewChat && resolvedChatId == null && !isCreatingChat
+}
+
+private fun computeLatestUserAnchor(messages: List<Message>): Int {
+    if (messages.isEmpty()) {
+        return 0
+    }
+    val lastUser = messages.indexOfLast { it.isSendbyMe }
+    return if (lastUser >= 0) {
+        lastUser
+    } else {
+        messages.lastIndex
+    }
 }
