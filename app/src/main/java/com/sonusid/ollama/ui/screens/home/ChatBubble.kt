@@ -21,6 +21,7 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -49,6 +50,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
@@ -128,24 +130,35 @@ fun ChatBubble(
                     if (isAttachmentViewerOpen) {
                         var scale by remember { mutableFloatStateOf(1f) }
                         var offset by remember { mutableStateOf(Offset.Zero) }
-                        val transformState = rememberTransformableState { zoomChange, panChange, _ ->
-                            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-                            if (newScale <= 1.01f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                            } else {
-                                scale = newScale
-                                offset += panChange
-                            }
-                        }
 
                         Dialog(onDismissRequest = { isAttachmentViewerOpen = false }) {
-                            Box(
+                            BoxWithConstraints(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(Color.Black.copy(alpha = 0.92f))
                                     .clickable { isAttachmentViewerOpen = false }
                             ) {
+                                val density = LocalDensity.current
+                                val containerW = with(density) { maxWidth.toPx() }
+                                val containerH = with(density) { maxHeight.toPx() }
+
+                                fun clampOffset(raw: Offset, currentScale: Float): Offset {
+                                    if (currentScale <= 1.01f) return Offset.Zero
+                                    val maxX = ((containerW * currentScale) - containerW) / 2f
+                                    val maxY = ((containerH * currentScale) - containerH) / 2f
+                                    return Offset(
+                                        x = raw.x.coerceIn(-maxX, maxX),
+                                        y = raw.y.coerceIn(-maxY, maxY)
+                                    )
+                                }
+
+                                val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+                                    val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+                                    val candidateOffset = offset + panChange
+                                    scale = if (newScale <= 1.01f) 1f else newScale
+                                    offset = clampOffset(candidateOffset, scale)
+                                }
+
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -193,7 +206,12 @@ fun ChatBubble(
 
                                 IconButton(
                                     onClick = { isAttachmentViewerOpen = false },
-                                    modifier = Modifier.align(Alignment.TopEnd)
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .statusBarsPadding()
+                                        .padding(12.dp)
+                                        .size(40.dp)
+                                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
