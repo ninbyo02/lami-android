@@ -10,4 +10,5 @@ data class Message(
     val message: String,
     val isSendbyMe: Boolean,
     val attachmentUriString: String? = null,
+    val attachmentUriStringsJson: String? = null,
 )
