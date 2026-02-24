@@ -918,6 +918,13 @@ fun Home(
                         var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
                         var previousMessageCount by remember(effectiveChatId) { mutableStateOf(messagesForList.size) }
                         var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
+                        var suppressFollowOnce by remember(effectiveChatId) { mutableStateOf(false) }
+
+                        LaunchedEffect(effectiveChatId) {
+                            previousMessageCount = messagesForList.size
+                            lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
+                            suppressFollowOnce = true
+                        }
 
                         LaunchedEffect(listState) {
                             snapshotFlow { isNearBottom }
@@ -965,43 +972,48 @@ fun Home(
                         }
 
                         LaunchedEffect(effectiveChatId, messagesForList) {
-                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                            try {
+                                val currentChatId = effectiveChatId ?: return@LaunchedEffect
 
-                            val isListForCurrentChat =
-                                messagesForList.isEmpty() ||
-                                    messagesForList.all { it.chatId == currentChatId }
+                                val isListForCurrentChat =
+                                    messagesForList.isEmpty() ||
+                                        messagesForList.all { it.chatId == currentChatId }
 
-                            if (!isListForCurrentChat) return@LaunchedEffect
-                            val currentMessageCount = messagesForList.size
-                            val appended = currentMessageCount > previousMessageCount
-                            val currentAnchor = computeLatestUserAnchor(messagesForList)
-                            val followSuppressedByAnchorUpdate = currentAnchor != lastAppliedAnchor
+                                if (!isListForCurrentChat) return@LaunchedEffect
+                                val currentMessageCount = messagesForList.size
+                                val appended = currentMessageCount > previousMessageCount
+                                val currentAnchor = computeLatestUserAnchor(messagesForList)
+                                val followSuppressedByAnchorUpdate = currentAnchor != lastAppliedAnchor
 
-                            if (followSuppressedByAnchorUpdate) {
-                                lastAppliedAnchor = currentAnchor
-                            }
-
-                            if (messagesForList.isNotEmpty()) {
-                                val lastIndex = messagesForList.lastIndex
-                                if (appended && isNearBottomSnapshot && !followSuppressedByAnchorUpdate && lastIndex >= 0) {
-                                    listState.scrollToItem(lastIndex)
+                                if (followSuppressedByAnchorUpdate) {
+                                    lastAppliedAnchor = currentAnchor
+                                    suppressFollowOnce = true
                                 }
-                            }
 
-                            previousMessageCount = currentMessageCount
-
-                            if (messagesForList.isEmpty()) return@LaunchedEffect
-
-                            if (!topPaddingModeMap.containsKey(currentChatId)) {
-                                val firstIsUser =
-                                    messagesForList.firstOrNull()?.isSendbyMe == true
-
-                                topPaddingModeMap[currentChatId] =
-                                    if (firstIsUser) {
-                                        TopPaddingMode.NewConversation
-                                    } else {
-                                        TopPaddingMode.ExistingConversation
+                                if (messagesForList.isNotEmpty()) {
+                                    val lastIndex = messagesForList.lastIndex
+                                    if (appended && isNearBottomSnapshot && !suppressFollowOnce && lastIndex >= 0) {
+                                        listState.scrollToItem(lastIndex)
                                     }
+                                }
+
+                                previousMessageCount = currentMessageCount
+
+                                if (messagesForList.isEmpty()) return@LaunchedEffect
+
+                                if (!topPaddingModeMap.containsKey(currentChatId)) {
+                                    val firstIsUser =
+                                        messagesForList.firstOrNull()?.isSendbyMe == true
+
+                                    topPaddingModeMap[currentChatId] =
+                                        if (firstIsUser) {
+                                            TopPaddingMode.NewConversation
+                                        } else {
+                                            TopPaddingMode.ExistingConversation
+                                        }
+                                }
+                            } finally {
+                                suppressFollowOnce = false
                             }
                         }
                         val mode = topPaddingModeMap[effectiveChatId]
