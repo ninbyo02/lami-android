@@ -543,6 +543,7 @@ fun Home(
             color = MaterialTheme.colorScheme.onSurface
         )
         val overlayBase = MaterialTheme.colorScheme.background
+        val composerBottomGradientEnabled = true
 
         Column(
             modifier = Modifier
@@ -553,7 +554,7 @@ fun Home(
                     overlayRootTopY = coordinates.positionInRoot().y
                 }
                 .let { modifier ->
-                    if (debugOverlayEnabled) {
+                    if (composerBottomGradientEnabled) {
                         modifier.drawWithContent {
                             val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
                             val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
