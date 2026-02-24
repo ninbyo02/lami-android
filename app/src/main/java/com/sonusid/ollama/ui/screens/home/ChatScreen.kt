@@ -916,7 +916,7 @@ fun Home(
                             }
                         }
                         var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
-                        var previousMessageCount by remember(effectiveChatId) { mutableStateOf(messagesForList.size) }
+                        var previousMessageCount by remember(effectiveChatId) { mutableStateOf(-1) }
                         var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
                         var suppressFollowOnce by remember(effectiveChatId) { mutableStateOf(false) }
 
@@ -974,6 +974,13 @@ fun Home(
                         LaunchedEffect(effectiveChatId, messagesForList) {
                             try {
                                 val currentChatId = effectiveChatId ?: return@LaunchedEffect
+
+                                // 初期同期ガード
+                                if (previousMessageCount == -1) {
+                                    previousMessageCount = messagesForList.size
+                                    lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
+                                    return@LaunchedEffect
+                                }
 
                                 val isListForCurrentChat =
                                     messagesForList.isEmpty() ||
