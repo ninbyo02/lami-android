@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
@@ -59,6 +60,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,6 +82,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -900,6 +903,28 @@ fun Home(
                         val anchor = computeLatestUserAnchor(messagesForList)
                         // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
                         val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+                        val isNearBottom by remember(listState) {
+                            derivedStateOf {
+                                val layoutInfo = listState.layoutInfo
+                                val totalItems = layoutInfo.totalItemsCount
+                                if (totalItems == 0) {
+                                    true
+                                } else {
+                                    val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                                    lastVisibleIndex >= totalItems - 2
+                                }
+                            }
+                        }
+                        var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
+                        var previousMessageCount by remember(effectiveChatId) { mutableStateOf(messagesForList.size) }
+                        var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
+
+                        LaunchedEffect(listState) {
+                            snapshotFlow { isNearBottom }
+                                .collect { nearBottom ->
+                                    isNearBottomSnapshot = nearBottom
+                                }
+                        }
 
                         LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
                             val currentChatId = effectiveChatId ?: return@LaunchedEffect
@@ -947,6 +972,24 @@ fun Home(
                                     messagesForList.all { it.chatId == currentChatId }
 
                             if (!isListForCurrentChat) return@LaunchedEffect
+                            val currentMessageCount = messagesForList.size
+                            val appended = currentMessageCount > previousMessageCount
+                            val currentAnchor = computeLatestUserAnchor(messagesForList)
+                            val followSuppressedByAnchorUpdate = currentAnchor != lastAppliedAnchor
+
+                            if (followSuppressedByAnchorUpdate) {
+                                lastAppliedAnchor = currentAnchor
+                            }
+
+                            if (messagesForList.isNotEmpty()) {
+                                val lastIndex = messagesForList.lastIndex
+                                if (appended && isNearBottomSnapshot && !followSuppressedByAnchorUpdate && lastIndex >= 0) {
+                                    listState.scrollToItem(lastIndex)
+                                }
+                            }
+
+                            previousMessageCount = currentMessageCount
+
                             if (messagesForList.isEmpty()) return@LaunchedEffect
 
                             if (!topPaddingModeMap.containsKey(currentChatId)) {
@@ -971,7 +1014,7 @@ fun Home(
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
-                        Column(modifier = contentModifier) {
+                        Box(modifier = contentModifier) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
@@ -1012,6 +1055,28 @@ fun Home(
                                 item(key = "composer_spacer") {
                                     // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
                                     Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                }
+                            }
+
+                            if (!isNearBottom && messagesForList.isNotEmpty()) {
+                                SmallFloatingActionButton(
+                                    onClick = {
+                                        val lastIndex = messagesForList.lastIndex
+                                        if (lastIndex >= 0) {
+                                            coroutineScope.launch {
+                                                listState.animateScrollToItem(lastIndex)
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        // 入力欄と下部グラデーションの上に重ねるため、末尾ガターより上へ配置する
+                                        .padding(end = 16.dp, bottom = ComposerMinHeight + ComposerBottomGapHeight + bottomDp + 16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDownward,
+                                        contentDescription = "最新へ"
+                                    )
                                 }
                             }
                         }
