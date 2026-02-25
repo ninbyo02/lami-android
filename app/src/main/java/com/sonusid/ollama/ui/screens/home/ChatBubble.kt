@@ -231,7 +231,7 @@ private fun AttachmentFullscreenViewer(
     val coroutineScope = rememberCoroutineScope()
     var isZoomed by remember { mutableStateOf(false) }
     val repeatInitialDelayMs = 250L
-    val repeatIntervalMs = 140L
+    val repeatIntervalMs = 20L
     val overlayButtonSize = 36.dp
     val overlayButtonAlpha = 0.55f
     val overlayButtonModifier = Modifier
@@ -241,7 +241,7 @@ private fun AttachmentFullscreenViewer(
     suspend fun movePageBy(delta: Int): Boolean {
         val targetPage = (pagerState.currentPage + delta).coerceIn(0, attachmentUris.lastIndex)
         if (targetPage == pagerState.currentPage) return false
-        pagerState.scrollToPage(targetPage)
+        pagerState.animateScrollToPage(targetPage)
         return true
     }
 
@@ -280,15 +280,14 @@ private fun AttachmentFullscreenViewer(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
+                                    if (!movePageBy(-1)) return@detectTapGestures
                                     val repeatJob = coroutineScope.launch {
-                                        val immediateTarget = (pagerState.currentPage - 1)
-                                            .coerceIn(0, attachmentUris.lastIndex)
-                                        if (immediateTarget == pagerState.currentPage) return@launch
-                                        pagerState.animateScrollToPage(immediateTarget)
                                         delay(repeatInitialDelayMs)
                                         while (true) {
                                             if (!movePageBy(-1)) break
-                                            delay(repeatIntervalMs)
+                                            if (repeatIntervalMs > 0) {
+                                                delay(repeatIntervalMs)
+                                            }
                                         }
                                     }
                                     try {
@@ -318,15 +317,14 @@ private fun AttachmentFullscreenViewer(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
+                                    if (!movePageBy(1)) return@detectTapGestures
                                     val repeatJob = coroutineScope.launch {
-                                        val immediateTarget = (pagerState.currentPage + 1)
-                                            .coerceIn(0, attachmentUris.lastIndex)
-                                        if (immediateTarget == pagerState.currentPage) return@launch
-                                        pagerState.animateScrollToPage(immediateTarget)
                                         delay(repeatInitialDelayMs)
                                         while (true) {
                                             if (!movePageBy(1)) break
-                                            delay(repeatIntervalMs)
+                                            if (repeatIntervalMs > 0) {
+                                                delay(repeatIntervalMs)
+                                            }
                                         }
                                     }
                                     try {
