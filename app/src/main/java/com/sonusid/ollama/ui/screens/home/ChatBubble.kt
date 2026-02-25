@@ -244,6 +244,7 @@ private fun AttachmentFullscreenViewer(
         val targetPage = (pagerState.currentPage + delta).coerceIn(0, attachmentUris.lastIndex)
         if (targetPage == pagerState.currentPage) return false
         pagerState.animateScrollToPage(targetPage)
+        pagerState.scrollToPage(targetPage)
         return true
     }
 
@@ -297,6 +298,7 @@ private fun AttachmentFullscreenViewer(
                                         tryAwaitRelease()
                                     } finally {
                                         keepRepeating = false
+                                        repeatJob.cancel()
                                         repeatJob.join()
                                     }
                                 }
@@ -336,6 +338,7 @@ private fun AttachmentFullscreenViewer(
                                         tryAwaitRelease()
                                     } finally {
                                         keepRepeating = false
+                                        repeatJob.cancel()
                                         repeatJob.join()
                                     }
                                 }
