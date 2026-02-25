@@ -20,8 +20,6 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +27,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.CardDefaults
@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -72,6 +73,7 @@ import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -157,10 +159,46 @@ private fun AttachmentGallery(
         return
     }
 
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        itemsIndexed(attachmentUris) { index, attachmentUri ->
+    if (attachmentUris.size == 1) {
+        AndroidView(
+            factory = { context ->
+                ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    adjustViewBounds = false
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                }
+            },
+            update = { imageView ->
+                imageView.setImageURI(attachmentUris.first())
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { onAttachmentClick(0) },
+        )
+    } else {
+        val pagerState = rememberPagerState(
+            initialPage = 0,
+            pageCount = { attachmentUris.size },
+        )
+        val coroutineScope = rememberCoroutineScope()
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+            ) { page ->
             AndroidView(
                 factory = { context ->
                     ImageView(context).apply {
@@ -173,15 +211,56 @@ private fun AttachmentGallery(
                     }
                 },
                 update = { imageView ->
-                    imageView.setImageURI(attachmentUri)
+                    imageView.setImageURI(attachmentUris[page])
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onAttachmentClick(index) },
+                    .clickable { onAttachmentClick(page) },
             )
+            }
+
+            if (pagerState.currentPage > 0) {
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "前の画像",
+                        tint = Color.White,
+                    )
+                }
+            }
+
+            if (pagerState.currentPage < attachmentUris.lastIndex) {
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .background(Color.Black.copy(alpha = 0.4f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "次の画像",
+                        tint = Color.White,
+                    )
+                }
+            }
         }
     }
 
