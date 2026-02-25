@@ -59,10 +59,7 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.input.pointer.awaitEachGesture
-import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.waitForUpOrCancellation
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -78,8 +75,6 @@ import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -237,8 +232,6 @@ private fun AttachmentFullscreenViewer(
     val coroutineScope = rememberCoroutineScope()
     val overlayButtonSize = 36.dp
     val overlayButtonAlpha = 0.55f
-    val repeatInitialDelayMs = 250L
-    val repeatIntervalMs = 140L
     val overlayButtonModifier = Modifier
         .size(overlayButtonSize)
         .background(Color.Black.copy(alpha = overlayButtonAlpha), CircleShape)
@@ -266,27 +259,18 @@ private fun AttachmentFullscreenViewer(
                         .padding(start = 8.dp)
                         .then(overlayButtonModifier)
                         .pointerInput(pagerState.currentPage) {
-                            awaitEachGesture {
-                                awaitFirstDown(requireUnconsumed = false)
-                                val repeatJob = coroutineScope.launch {
-                                    pagerState.scrollToPage(
-                                        (pagerState.currentPage - 1).coerceIn(0, attachmentUris.lastIndex)
-                                    )
-                                    delay(repeatInitialDelayMs)
-                                    while (true) {
-                                        val targetPage = (pagerState.currentPage - 1)
-                                            .coerceIn(0, attachmentUris.lastIndex)
-                                        if (targetPage == pagerState.currentPage) break
-                                        pagerState.scrollToPage(targetPage)
-                                        delay(repeatIntervalMs)
+                            detectTapGestures(
+                                onPress = {
+                                    val targetPage = (pagerState.currentPage - 1)
+                                        .coerceIn(0, attachmentUris.lastIndex)
+                                    if (targetPage != pagerState.currentPage) {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(targetPage)
+                                        }
                                     }
+                                    tryAwaitRelease()
                                 }
-                                try {
-                                    waitForUpOrCancellation()
-                                } finally {
-                                    repeatJob.cancelAndJoin()
-                                }
-                            }
+                            )
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -305,27 +289,18 @@ private fun AttachmentFullscreenViewer(
                         .padding(end = 8.dp)
                         .then(overlayButtonModifier)
                         .pointerInput(pagerState.currentPage) {
-                            awaitEachGesture {
-                                awaitFirstDown(requireUnconsumed = false)
-                                val repeatJob = coroutineScope.launch {
-                                    pagerState.scrollToPage(
-                                        (pagerState.currentPage + 1).coerceIn(0, attachmentUris.lastIndex)
-                                    )
-                                    delay(repeatInitialDelayMs)
-                                    while (true) {
-                                        val targetPage = (pagerState.currentPage + 1)
-                                            .coerceIn(0, attachmentUris.lastIndex)
-                                        if (targetPage == pagerState.currentPage) break
-                                        pagerState.scrollToPage(targetPage)
-                                        delay(repeatIntervalMs)
+                            detectTapGestures(
+                                onPress = {
+                                    val targetPage = (pagerState.currentPage + 1)
+                                        .coerceIn(0, attachmentUris.lastIndex)
+                                    if (targetPage != pagerState.currentPage) {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(targetPage)
+                                        }
                                     }
+                                    tryAwaitRelease()
                                 }
-                                try {
-                                    waitForUpOrCancellation()
-                                } finally {
-                                    repeatJob.cancelAndJoin()
-                                }
-                            }
+                            )
                         },
                     contentAlignment = Alignment.Center,
                 ) {
