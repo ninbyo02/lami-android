@@ -59,7 +59,10 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.awaitEachGesture
+import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.waitForUpOrCancellation
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -75,6 +78,8 @@ import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -232,6 +237,8 @@ private fun AttachmentFullscreenViewer(
     val coroutineScope = rememberCoroutineScope()
     val overlayButtonSize = 36.dp
     val overlayButtonAlpha = 0.55f
+    val repeatInitialDelayMs = 250L
+    val repeatIntervalMs = 140L
     val overlayButtonModifier = Modifier
         .size(overlayButtonSize)
         .background(Color.Black.copy(alpha = overlayButtonAlpha), CircleShape)
@@ -259,16 +266,27 @@ private fun AttachmentFullscreenViewer(
                         .padding(start = 8.dp)
                         .then(overlayButtonModifier)
                         .pointerInput(pagerState.currentPage) {
-                            detectTapGestures(
-                                onPress = {
-                                    val targetPage = (pagerState.currentPage - 1)
-                                        .coerceIn(0, attachmentUris.lastIndex)
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(targetPage)
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                val repeatJob = coroutineScope.launch {
+                                    pagerState.scrollToPage(
+                                        (pagerState.currentPage - 1).coerceIn(0, attachmentUris.lastIndex)
+                                    )
+                                    delay(repeatInitialDelayMs)
+                                    while (true) {
+                                        val targetPage = (pagerState.currentPage - 1)
+                                            .coerceIn(0, attachmentUris.lastIndex)
+                                        if (targetPage == pagerState.currentPage) break
+                                        pagerState.scrollToPage(targetPage)
+                                        delay(repeatIntervalMs)
                                     }
-                                    tryAwaitRelease()
                                 }
-                            )
+                                try {
+                                    waitForUpOrCancellation()
+                                } finally {
+                                    repeatJob.cancelAndJoin()
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -287,16 +305,27 @@ private fun AttachmentFullscreenViewer(
                         .padding(end = 8.dp)
                         .then(overlayButtonModifier)
                         .pointerInput(pagerState.currentPage) {
-                            detectTapGestures(
-                                onPress = {
-                                    val targetPage = (pagerState.currentPage + 1)
-                                        .coerceIn(0, attachmentUris.lastIndex)
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(targetPage)
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                val repeatJob = coroutineScope.launch {
+                                    pagerState.scrollToPage(
+                                        (pagerState.currentPage + 1).coerceIn(0, attachmentUris.lastIndex)
+                                    )
+                                    delay(repeatInitialDelayMs)
+                                    while (true) {
+                                        val targetPage = (pagerState.currentPage + 1)
+                                            .coerceIn(0, attachmentUris.lastIndex)
+                                        if (targetPage == pagerState.currentPage) break
+                                        pagerState.scrollToPage(targetPage)
+                                        delay(repeatIntervalMs)
                                     }
-                                    tryAwaitRelease()
                                 }
-                            )
+                                try {
+                                    waitForUpOrCancellation()
+                                } finally {
+                                    repeatJob.cancelAndJoin()
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -320,13 +349,16 @@ private fun AttachmentFullscreenViewer(
                     .padding(horizontal = 10.dp, vertical = 4.dp),
             )
 
-            IconButton(
-                onClick = onDismiss,
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(12.dp)
                     .then(overlayButtonModifier)
+                    .pointerInput(onDismiss) {
+                        detectTapGestures(onTap = { onDismiss() })
+                    },
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
