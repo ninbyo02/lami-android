@@ -15,7 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -74,6 +75,7 @@ import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 
@@ -281,9 +283,10 @@ private fun AttachmentFullscreenViewer(
                             detectTapGestures(
                                 onPress = {
                                     if (!movePageBy(-1)) return@detectTapGestures
+                                    var keepRepeating = true
                                     val repeatJob = coroutineScope.launch {
                                         delay(repeatInitialDelayMs)
-                                        while (true) {
+                                        while (keepRepeating && isActive) {
                                             if (!movePageBy(-1)) break
                                             if (repeatIntervalMs > 0) {
                                                 delay(repeatIntervalMs)
@@ -293,7 +296,8 @@ private fun AttachmentFullscreenViewer(
                                     try {
                                         tryAwaitRelease()
                                     } finally {
-                                        repeatJob.cancel()
+                                        keepRepeating = false
+                                        repeatJob.join()
                                     }
                                 }
                             )
@@ -318,9 +322,10 @@ private fun AttachmentFullscreenViewer(
                             detectTapGestures(
                                 onPress = {
                                     if (!movePageBy(1)) return@detectTapGestures
+                                    var keepRepeating = true
                                     val repeatJob = coroutineScope.launch {
                                         delay(repeatInitialDelayMs)
-                                        while (true) {
+                                        while (keepRepeating && isActive) {
                                             if (!movePageBy(1)) break
                                             if (repeatIntervalMs > 0) {
                                                 delay(repeatIntervalMs)
@@ -330,7 +335,8 @@ private fun AttachmentFullscreenViewer(
                                     try {
                                         tryAwaitRelease()
                                     } finally {
-                                        repeatJob.cancel()
+                                        keepRepeating = false
+                                        repeatJob.join()
                                     }
                                 }
                             )
@@ -415,36 +421,27 @@ private fun ZoomableAttachmentPage(
             )
         }
 
+        val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
+            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+            scale = if (newScale <= 1.01f) 1f else newScale
+
+            if (scale > 1.01f) {
+                offset = clampOffset(offset + panChange, scale)
+                onZoomChanged(true)
+            } else {
+                offset = Offset.Zero
+                onZoomChanged(false)
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(attachmentUri, resetToken) {
-                    detectTransformGestures { _, panChange, zoomChange, _ ->
-                        val zoomThreshold = 0.01f
-                        val hasZoomChange = kotlin.math.abs(zoomChange - 1f) > zoomThreshold
-                        val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-                        val normalizedScale = if (newScale <= 1.01f) 1f else newScale
-
-                        if (hasZoomChange) {
-                            scale = normalizedScale
-                            if (scale <= 1.01f) {
-                                offset = Offset.Zero
-                            } else {
-                                offset = clampOffset(offset, scale)
-                            }
-                            onZoomChanged(scale > 1.01f)
-                        }
-
-                        if (scale > 1.01f && panChange != Offset.Zero) {
-                            offset = clampOffset(offset + panChange, scale)
-                            onZoomChanged(true)
-                        } else if (scale <= 1.01f) {
-                            offset = Offset.Zero
-                            onZoomChanged(false)
-                        }
-                    }
-                }
+                .transformable(
+                    state = transformableState,
+                    enabled = scale > 1.01f,
+                )
                 .pointerInput(attachmentUri, resetToken) {
                     detectTapGestures(
                         onDoubleTap = {
