@@ -735,13 +735,12 @@ private fun CodeBlockCard(
                     )
                 }
             }
-            IconButton(
-                onClick = { clipboardManager.setText(AnnotatedString(code)) },
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 18.dp, y = (-18).dp)
-                    .minimumInteractiveComponentSize()
                     .padding(0.dp)
+                    .clickable { clipboardManager.setText(AnnotatedString(code)) }
             ) {
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
