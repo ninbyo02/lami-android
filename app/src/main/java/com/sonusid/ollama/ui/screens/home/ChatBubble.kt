@@ -230,6 +230,12 @@ private fun AttachmentFullscreenViewer(
         pageCount = { attachmentUris.size },
     )
     val coroutineScope = rememberCoroutineScope()
+    val overlayButtonSize = 36.dp
+    val overlayButtonAlpha = 0.55f
+    val overlayButtonModifier = Modifier
+        .size(overlayButtonSize)
+        .background(Color.Black.copy(alpha = overlayButtonAlpha), CircleShape)
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -247,17 +253,24 @@ private fun AttachmentFullscreenViewer(
             }
 
             if (pagerState.currentPage > 0) {
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                        }
-                    },
+                Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .padding(start = 8.dp)
-                        .size(40.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                        .then(overlayButtonModifier)
+                        .pointerInput(pagerState.currentPage) {
+                            detectTapGestures(
+                                onPress = {
+                                    val targetPage = (pagerState.currentPage - 1)
+                                        .coerceIn(0, attachmentUris.lastIndex)
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(targetPage)
+                                    }
+                                    tryAwaitRelease()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -268,17 +281,24 @@ private fun AttachmentFullscreenViewer(
             }
 
             if (pagerState.currentPage < attachmentUris.lastIndex) {
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                        }
-                    },
+                Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .padding(end = 8.dp)
-                        .size(40.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                        .then(overlayButtonModifier)
+                        .pointerInput(pagerState.currentPage) {
+                            detectTapGestures(
+                                onPress = {
+                                    val targetPage = (pagerState.currentPage + 1)
+                                        .coerceIn(0, attachmentUris.lastIndex)
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(targetPage)
+                                    }
+                                    tryAwaitRelease()
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -306,8 +326,7 @@ private fun AttachmentFullscreenViewer(
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(12.dp)
-                    .size(40.dp)
-                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                    .then(overlayButtonModifier)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
