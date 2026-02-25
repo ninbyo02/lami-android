@@ -15,9 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,12 +35,10 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -280,11 +277,14 @@ private fun AttachmentFullscreenViewer(
                         .align(Alignment.CenterStart)
                         .padding(start = 8.dp)
                         .then(overlayButtonModifier)
-                        .pointerInput(pagerState.currentPage) {
+                        .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
                                     val repeatJob = coroutineScope.launch {
-                                        if (!movePageBy(-1)) return@launch
+                                        val immediateTarget = (pagerState.currentPage - 1)
+                                            .coerceIn(0, attachmentUris.lastIndex)
+                                        if (immediateTarget == pagerState.currentPage) return@launch
+                                        pagerState.animateScrollToPage(immediateTarget)
                                         delay(repeatInitialDelayMs)
                                         while (true) {
                                             if (!movePageBy(-1)) break
@@ -315,11 +315,14 @@ private fun AttachmentFullscreenViewer(
                         .align(Alignment.CenterEnd)
                         .padding(end = 8.dp)
                         .then(overlayButtonModifier)
-                        .pointerInput(pagerState.currentPage) {
+                        .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
                                     val repeatJob = coroutineScope.launch {
-                                        if (!movePageBy(1)) return@launch
+                                        val immediateTarget = (pagerState.currentPage + 1)
+                                            .coerceIn(0, attachmentUris.lastIndex)
+                                        if (immediateTarget == pagerState.currentPage) return@launch
+                                        pagerState.animateScrollToPage(immediateTarget)
                                         delay(repeatInitialDelayMs)
                                         while (true) {
                                             if (!movePageBy(1)) break
@@ -362,7 +365,7 @@ private fun AttachmentFullscreenViewer(
                     .statusBarsPadding()
                     .padding(12.dp)
                     .then(overlayButtonModifier)
-                    .pointerInput(onDismiss) {
+                    .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
                                 onDismiss()
@@ -392,6 +395,8 @@ private fun ZoomableAttachmentPage(
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(attachmentUri, resetToken) {
+        scale = 1f
+        offset = Offset.Zero
         onZoomChanged(false)
     }
 
@@ -412,30 +417,48 @@ private fun ZoomableAttachmentPage(
             )
         }
 
-        val transformState = rememberTransformableState { zoomChange, panChange, _ ->
-            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-            val candidateOffset = offset + panChange
-            scale = if (newScale <= 1.01f) 1f else newScale
-            offset = clampOffset(candidateOffset, scale)
-            onZoomChanged(scale > 1.01f)
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .transformable(state = transformState)
+                .pointerInput(attachmentUri, resetToken) {
+                    detectTransformGestures { _, panChange, zoomChange, _ ->
+                        val zoomThreshold = 0.01f
+                        val hasZoomChange = kotlin.math.abs(zoomChange - 1f) > zoomThreshold
+                        val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+                        val normalizedScale = if (newScale <= 1.01f) 1f else newScale
+
+                        if (hasZoomChange) {
+                            scale = normalizedScale
+                            if (scale <= 1.01f) {
+                                offset = Offset.Zero
+                            } else {
+                                offset = clampOffset(offset, scale)
+                            }
+                            onZoomChanged(scale > 1.01f)
+                        }
+
+                        if (scale > 1.01f && panChange != Offset.Zero) {
+                            offset = clampOffset(offset + panChange, scale)
+                            onZoomChanged(true)
+                        } else if (scale <= 1.01f) {
+                            offset = Offset.Zero
+                            onZoomChanged(false)
+                        }
+                    }
+                }
                 .pointerInput(attachmentUri, resetToken) {
                     detectTapGestures(
                         onDoubleTap = {
                             if (scale > 1f) {
                                 scale = 1f
                                 offset = Offset.Zero
+                                onZoomChanged(false)
                             } else {
                                 scale = 2f
                                 offset = Offset.Zero
+                                onZoomChanged(true)
                             }
-                            onZoomChanged(scale > 1.01f)
                         },
                     )
                 }
