@@ -20,6 +20,8 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -182,84 +184,31 @@ private fun AttachmentGallery(
                 .clickable { onAttachmentClick(0) },
         )
     } else {
-        val pagerState = rememberPagerState(
-            initialPage = 0,
-            pageCount = { attachmentUris.size },
-        )
-        val coroutineScope = rememberCoroutineScope()
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp),
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-            ) { page ->
-            AndroidView(
-                factory = { context ->
-                    ImageView(context).apply {
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        adjustViewBounds = false
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                        )
-                    }
-                },
-                update = { imageView ->
-                    imageView.setImageURI(attachmentUris[page])
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onAttachmentClick(page) },
-            )
-            }
-
-            if (pagerState.currentPage > 0) {
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+            itemsIndexed(attachmentUris) { index, attachmentUri ->
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            adjustViewBounds = false
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
                         }
                     },
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 8.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "前の画像",
-                        tint = Color.White,
-                    )
-                }
-            }
-
-            if (pagerState.currentPage < attachmentUris.lastIndex) {
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                        }
+                    update = { imageView ->
+                        imageView.setImageURI(attachmentUri)
                     },
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), CircleShape),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "次の画像",
-                        tint = Color.White,
-                    )
-                }
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onAttachmentClick(index) },
+                )
             }
         }
     }
@@ -280,6 +229,7 @@ private fun AttachmentFullscreenViewer(
         initialPage = initialIndex.coerceIn(0, attachmentUris.lastIndex),
         pageCount = { attachmentUris.size },
     )
+    val coroutineScope = rememberCoroutineScope()
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -294,6 +244,48 @@ private fun AttachmentFullscreenViewer(
                     attachmentUri = attachmentUris[page],
                     resetToken = pagerState.currentPage,
                 )
+            }
+
+            if (pagerState.currentPage > 0) {
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp)
+                        .size(40.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "前の画像",
+                        tint = Color.White,
+                    )
+                }
+            }
+
+            if (pagerState.currentPage < attachmentUris.lastIndex) {
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .size(40.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "次の画像",
+                        tint = Color.White,
+                    )
+                }
             }
 
             Text(
