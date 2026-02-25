@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +76,7 @@ import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -230,11 +232,25 @@ private fun AttachmentFullscreenViewer(
         pageCount = { attachmentUris.size },
     )
     val coroutineScope = rememberCoroutineScope()
+    var isZoomed by remember { mutableStateOf(false) }
+    val repeatInitialDelayMs = 250L
+    val repeatIntervalMs = 140L
     val overlayButtonSize = 36.dp
     val overlayButtonAlpha = 0.55f
     val overlayButtonModifier = Modifier
         .size(overlayButtonSize)
         .background(Color.Black.copy(alpha = overlayButtonAlpha), CircleShape)
+
+    suspend fun movePageBy(delta: Int): Boolean {
+        val targetPage = (pagerState.currentPage + delta).coerceIn(0, attachmentUris.lastIndex)
+        if (targetPage == pagerState.currentPage) return false
+        pagerState.scrollToPage(targetPage)
+        return true
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        isZoomed = false
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
@@ -245,10 +261,16 @@ private fun AttachmentFullscreenViewer(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = !isZoomed,
             ) { page ->
                 ZoomableAttachmentPage(
                     attachmentUri = attachmentUris[page],
                     resetToken = pagerState.currentPage,
+                    onZoomChanged = { zoomed ->
+                        if (page == pagerState.currentPage) {
+                            isZoomed = zoomed
+                        }
+                    },
                 )
             }
 
@@ -261,14 +283,19 @@ private fun AttachmentFullscreenViewer(
                         .pointerInput(pagerState.currentPage) {
                             detectTapGestures(
                                 onPress = {
-                                    val targetPage = (pagerState.currentPage - 1)
-                                        .coerceIn(0, attachmentUris.lastIndex)
-                                    if (targetPage != pagerState.currentPage) {
-                                        coroutineScope.launch {
-                                            pagerState.animateScrollToPage(targetPage)
+                                    val repeatJob = coroutineScope.launch {
+                                        if (!movePageBy(-1)) return@launch
+                                        delay(repeatInitialDelayMs)
+                                        while (true) {
+                                            if (!movePageBy(-1)) break
+                                            delay(repeatIntervalMs)
                                         }
                                     }
-                                    tryAwaitRelease()
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        repeatJob.cancel()
+                                    }
                                 }
                             )
                         },
@@ -291,14 +318,19 @@ private fun AttachmentFullscreenViewer(
                         .pointerInput(pagerState.currentPage) {
                             detectTapGestures(
                                 onPress = {
-                                    val targetPage = (pagerState.currentPage + 1)
-                                        .coerceIn(0, attachmentUris.lastIndex)
-                                    if (targetPage != pagerState.currentPage) {
-                                        coroutineScope.launch {
-                                            pagerState.animateScrollToPage(targetPage)
+                                    val repeatJob = coroutineScope.launch {
+                                        if (!movePageBy(1)) return@launch
+                                        delay(repeatInitialDelayMs)
+                                        while (true) {
+                                            if (!movePageBy(1)) break
+                                            delay(repeatIntervalMs)
                                         }
                                     }
-                                    tryAwaitRelease()
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        repeatJob.cancel()
+                                    }
                                 }
                             )
                         },
@@ -331,7 +363,12 @@ private fun AttachmentFullscreenViewer(
                     .padding(12.dp)
                     .then(overlayButtonModifier)
                     .pointerInput(onDismiss) {
-                        detectTapGestures(onTap = { onDismiss() })
+                        detectTapGestures(
+                            onPress = {
+                                onDismiss()
+                                tryAwaitRelease()
+                            }
+                        )
                     },
                 contentAlignment = Alignment.Center,
             ) {
@@ -349,9 +386,14 @@ private fun AttachmentFullscreenViewer(
 private fun ZoomableAttachmentPage(
     attachmentUri: Uri,
     resetToken: Int,
+    onZoomChanged: (Boolean) -> Unit,
 ) {
     var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
+
+    LaunchedEffect(attachmentUri, resetToken) {
+        onZoomChanged(false)
+    }
 
     BoxWithConstraints(
         modifier = Modifier.fillMaxSize()
@@ -375,6 +417,7 @@ private fun ZoomableAttachmentPage(
             val candidateOffset = offset + panChange
             scale = if (newScale <= 1.01f) 1f else newScale
             offset = clampOffset(candidateOffset, scale)
+            onZoomChanged(scale > 1.01f)
         }
 
         Box(
@@ -392,6 +435,7 @@ private fun ZoomableAttachmentPage(
                                 scale = 2f
                                 offset = Offset.Zero
                             }
+                            onZoomChanged(scale > 1.01f)
                         },
                     )
                 }
