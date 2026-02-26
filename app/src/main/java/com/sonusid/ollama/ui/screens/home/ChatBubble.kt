@@ -78,6 +78,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 
@@ -233,6 +235,7 @@ private fun AttachmentFullscreenViewer(
         pageCount = { attachmentUris.size },
     )
     val coroutineScope = rememberCoroutineScope()
+    val pageMoveMutex = remember { Mutex() }
     var isZoomed by remember { mutableStateOf(false) }
     val repeatInitialDelayMs = 250L
     val repeatIntervalMs = 20L
@@ -245,11 +248,13 @@ private fun AttachmentFullscreenViewer(
     suspend fun movePageBy(delta: Int): Boolean {
         val targetPage = (pagerState.currentPage + delta).coerceIn(0, attachmentUris.lastIndex)
         if (targetPage == pagerState.currentPage) return false
-        try {
-            pagerState.animateScrollToPage(targetPage)
-        } finally {
-            withContext(NonCancellable) {
-                pagerState.scrollToPage(targetPage)
+        pageMoveMutex.withLock {
+            try {
+                pagerState.animateScrollToPage(targetPage)
+            } finally {
+                withContext(NonCancellable) {
+                    pagerState.scrollToPage(targetPage)
+                }
             }
         }
         return true
