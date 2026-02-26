@@ -246,9 +246,10 @@ private fun AttachmentFullscreenViewer(
         .background(Color.Black.copy(alpha = overlayButtonAlpha), CircleShape)
 
     suspend fun movePageBy(delta: Int): Boolean {
-        val targetPage = (pagerState.currentPage + delta).coerceIn(0, attachmentUris.lastIndex)
-        if (targetPage == pagerState.currentPage) return false
-        pageMoveMutex.withLock {
+        return pageMoveMutex.withLock {
+            val basePage = pagerState.currentPage
+            val targetPage = (basePage + delta).coerceIn(0, attachmentUris.lastIndex)
+            if (targetPage == basePage) return@withLock false
             try {
                 pagerState.animateScrollToPage(targetPage)
             } finally {
@@ -256,8 +257,8 @@ private fun AttachmentFullscreenViewer(
                     pagerState.scrollToPage(targetPage)
                 }
             }
+            true
         }
-        return true
     }
 
     LaunchedEffect(pagerState.currentPage) {
