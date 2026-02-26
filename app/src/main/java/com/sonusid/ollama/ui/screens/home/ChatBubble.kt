@@ -74,9 +74,11 @@ import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -243,8 +245,13 @@ private fun AttachmentFullscreenViewer(
     suspend fun movePageBy(delta: Int): Boolean {
         val targetPage = (pagerState.currentPage + delta).coerceIn(0, attachmentUris.lastIndex)
         if (targetPage == pagerState.currentPage) return false
-        pagerState.animateScrollToPage(targetPage)
-        pagerState.scrollToPage(targetPage)
+        try {
+            pagerState.animateScrollToPage(targetPage)
+        } finally {
+            withContext(NonCancellable) {
+                pagerState.scrollToPage(targetPage)
+            }
+        }
         return true
     }
 
@@ -298,7 +305,6 @@ private fun AttachmentFullscreenViewer(
                                         tryAwaitRelease()
                                     } finally {
                                         keepRepeating = false
-                                        repeatJob.cancel()
                                         repeatJob.join()
                                     }
                                 }
@@ -338,7 +344,6 @@ private fun AttachmentFullscreenViewer(
                                         tryAwaitRelease()
                                     } finally {
                                         keepRepeating = false
-                                        repeatJob.cancel()
                                         repeatJob.join()
                                     }
                                 }
