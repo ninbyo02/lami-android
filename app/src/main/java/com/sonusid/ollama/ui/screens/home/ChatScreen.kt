@@ -1285,7 +1285,7 @@ private fun AttachmentPreviewRow(
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
                             shape = CircleShape,
                         )
                         .clickable { onRemoveAt(index) }
@@ -1295,7 +1295,7 @@ private fun AttachmentPreviewRow(
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = "Remove attachment",
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(15.dp),
                     )
                 }
             }
