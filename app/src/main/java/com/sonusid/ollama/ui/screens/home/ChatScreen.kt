@@ -1284,19 +1284,23 @@ private fun AttachmentPreviewRow(
                         .align(Alignment.TopEnd)
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
-                            shape = CircleShape,
-                        )
                         .clickable { onRemoveAt(index) }
                         .testTag("attachment_remove_$index"),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Remove attachment",
-                        modifier = Modifier.size(15.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Remove attachment",
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
                 }
             }
         }
