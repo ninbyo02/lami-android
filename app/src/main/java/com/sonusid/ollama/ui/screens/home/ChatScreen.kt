@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -1254,7 +1255,13 @@ private fun AttachmentPreviewRow(
             ) {
                 Box(
                     modifier = Modifier
-                        .matchParentSize().clip(RoundedCornerShape(12.dp)),
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(12.dp),
+                        ),
                 ) {
                     AndroidView(
                         factory = { context ->
