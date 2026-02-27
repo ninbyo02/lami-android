@@ -1270,7 +1270,7 @@ private fun AttachmentPreviewRow(
                     onClick = { onRemoveAt(index) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 2.dp, y = (-2).dp)
+                        .offset(x = 4.dp, y = (-4).dp)
                         .padding(0.dp)
                         .size(36.dp)
                         .testTag("attachment_remove_$index"),
