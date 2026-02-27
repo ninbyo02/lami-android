@@ -1293,7 +1293,12 @@ private fun AttachmentPreviewRow(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)),
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = CircleShape,
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
