@@ -1282,6 +1282,7 @@ private fun AttachmentPreviewRow(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
+                        .padding(top = 2.dp, end = 2.dp)
                         .size(28.dp)
                         .clip(CircleShape)
                         .clickable { onRemoveAt(index) }
