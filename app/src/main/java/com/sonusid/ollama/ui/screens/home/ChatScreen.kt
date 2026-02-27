@@ -1234,6 +1234,8 @@ private fun AttachmentPreviewRow(
     onRemoveAt: (Int) -> Unit,
     inComposer: Boolean = false,
 ) {
+    val attachmentPreviewSize = 72.dp
+
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -1248,47 +1250,46 @@ private fun AttachmentPreviewRow(
         itemsIndexed(uris) { index, uri ->
             Box(
                 modifier = Modifier
-                    // 削除ボタンの位置調整は offset ではなくレイアウト余白で行う
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .size(attachmentPreviewSize),
             ) {
-                AndroidView(
-                    factory = { context ->
-                        ImageView(context).apply {
-                            scaleType = ImageView.ScaleType.CENTER_CROP
-                        }
-                    },
-                    update = { imageView ->
-                        imageView.setImageURI(uri)
-                    },
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onOpen(uri) },
-                )
+                        .matchParentSize().clip(RoundedCornerShape(12.dp)),
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply {
+                                scaleType = ImageView.ScaleType.CENTER_CROP
+                            }
+                        },
+                        update = { imageView ->
+                            imageView.setImageURI(uri)
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onOpen(uri) },
+                    )
+                }
 
-                IconButton(
-                    onClick = { onRemoveAt(index) },
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(36.dp)
-                        .testTag("attachment_remove_$index"),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                shape = CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Remove attachment",
-                            modifier = Modifier.size(16.dp),
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                            shape = CircleShape,
                         )
-                    }
+                        .clickable { onRemoveAt(index) }
+                        .testTag("attachment_remove_$index"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Remove attachment",
+                        modifier = Modifier.size(16.dp),
+                    )
                 }
             }
         }
