@@ -1243,8 +1243,8 @@ private fun AttachmentPreviewRow(
             // 入力欄との視認分離に必要な最小限の余白
             .padding(
                 horizontal = if (inComposer) 12.dp else 17.dp,
-                // 入力欄内表示時は既存余白を維持するため縦余白を最小化
-                vertical = if (inComposer) 0.dp else 6.dp,
+                // 入力欄内表示時の上側余白を +2dp 調整して縁との距離を確保
+                vertical = if (inComposer) 2.dp else 8.dp,
             ),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
