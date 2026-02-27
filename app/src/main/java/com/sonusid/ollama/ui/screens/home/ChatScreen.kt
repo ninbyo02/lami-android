@@ -1249,7 +1249,7 @@ private fun AttachmentPreviewRow(
             Box(
                 modifier = Modifier
                     // 削除ボタンの位置調整は offset ではなくレイアウト余白で行う
-                    .padding(top = 4.dp, end = 4.dp)
+                    .padding(top = 1.dp, end = 1.dp)
                     .size(72.dp)
                     .clip(RoundedCornerShape(12.dp)),
             ) {
