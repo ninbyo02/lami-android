@@ -95,6 +95,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -1245,7 +1246,11 @@ private fun AttachmentPreviewRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         itemsIndexed(uris) { index, uri ->
-            Box {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+            ) {
                 AndroidView(
                     factory = { context ->
                         ImageView(context).apply {
@@ -1256,8 +1261,7 @@ private fun AttachmentPreviewRow(
                         imageView.setImageURI(uri)
                     },
                     modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { onOpen(uri) },
                 )
@@ -1266,17 +1270,25 @@ private fun AttachmentPreviewRow(
                     onClick = { onRemoveAt(index) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(24.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                            shape = CircleShape,
-                        ),
+                        .padding(4.dp)
+                        .size(36.dp)
+                        .testTag("attachment_remove_$index"),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = "Remove attachment",
-                        modifier = Modifier.size(14.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                shape = CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Remove attachment",
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 }
             }
         }
