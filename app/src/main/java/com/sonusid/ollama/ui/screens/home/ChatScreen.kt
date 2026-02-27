@@ -1244,7 +1244,7 @@ private fun AttachmentPreviewRow(
             .padding(
                 horizontal = if (inComposer) 12.dp else 17.dp,
                 // 入力欄内表示時の上側余白を +2dp 調整して縁との距離を確保
-                vertical = if (inComposer) 4.dp else 8.dp,
+                vertical = if (inComposer) 3.dp else 8.dp,
             ),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
