@@ -1248,6 +1248,8 @@ private fun AttachmentPreviewRow(
         itemsIndexed(uris) { index, uri ->
             Box(
                 modifier = Modifier
+                    // 削除ボタンの位置調整は offset ではなくレイアウト余白で行う
+                    .padding(top = 4.dp, end = 4.dp)
                     .size(72.dp)
                     .clip(RoundedCornerShape(12.dp)),
             ) {
@@ -1270,8 +1272,6 @@ private fun AttachmentPreviewRow(
                     onClick = { onRemoveAt(index) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .offset(x = 4.dp, y = (-4).dp)
-                        .padding(0.dp)
                         .size(36.dp)
                         .testTag("attachment_remove_$index"),
                 ) {
