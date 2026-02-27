@@ -1243,7 +1243,7 @@ private fun AttachmentPreviewRow(
                 // 入力欄内表示時は既存余白を維持するため縦余白を最小化
                 vertical = if (inComposer) 0.dp else 6.dp,
             ),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         itemsIndexed(uris) { index, uri ->
             Box(
@@ -1270,7 +1270,7 @@ private fun AttachmentPreviewRow(
                     onClick = { onRemoveAt(index) },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
+                        .padding(1.dp)
                         .size(36.dp)
                         .testTag("attachment_remove_$index"),
                 ) {
