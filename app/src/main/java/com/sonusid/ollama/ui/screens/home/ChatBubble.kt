@@ -443,6 +443,7 @@ private fun ZoomableAttachmentPage(
         val density = LocalDensity.current
         val containerW = with(density) { maxWidth.toPx() }
         val containerH = with(density) { maxHeight.toPx() }
+        val centerScreen = Offset(containerW / 2f, containerH / 2f)
 
         fun clampOffset(raw: Offset, currentScale: Float): Offset {
             if (currentScale <= ZOOM_EPS) return Offset.Zero
@@ -516,6 +517,7 @@ private fun ZoomableAttachmentPage(
                             var prevPos2: Offset
                             var pointerId1: PointerId
                             var pointerId2: PointerId
+                            var anchorStart = Offset.Zero
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
                                 val pressedChanges = event.changes.filter { it.pressed }
@@ -530,6 +532,7 @@ private fun ZoomableAttachmentPage(
                                 pointerId2 = secondChange.id
                                 prevPos1 = firstChange.position
                                 prevPos2 = secondChange.position
+                                anchorStart = (prevPos1 + prevPos2) / 2f
                                 event.changes.forEach { it.consume() }
                                 break
                             }
@@ -569,7 +572,10 @@ private fun ZoomableAttachmentPage(
                                     offset = Offset.Zero
                                     onZoomChanged(false)
                                 } else {
-                                    offset = clampOffset(offset, newScale)
+                                    val zoom = newScale / oldScale
+                                    val anchorRel = anchorStart - centerScreen
+                                    val nextOffset = offset + (anchorRel - offset) * (1f - zoom)
+                                    offset = clampOffset(nextOffset, newScale)
                                     scale = newScale
                                     onZoomChanged(true)
                                 }
