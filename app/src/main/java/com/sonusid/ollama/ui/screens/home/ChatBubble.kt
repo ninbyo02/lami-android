@@ -15,9 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -436,19 +435,6 @@ private fun ZoomableAttachmentPage(
             )
         }
 
-        val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
-            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-            scale = if (newScale <= 1.01f) 1f else newScale
-
-            if (scale > 1.01f) {
-                offset = clampOffset(offset + panChange, scale)
-                onZoomChanged(true)
-            } else {
-                offset = Offset.Zero
-                onZoomChanged(false)
-            }
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -456,38 +442,37 @@ private fun ZoomableAttachmentPage(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = {
-                            if (scale > 1.01f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                                onZoomChanged(false)
-                            }
+                            scale = 1f
+                            offset = Offset.Zero
+                            onZoomChanged(false)
                         }
                     )
                 }
                 .pointerInput(attachmentUri, resetToken) {
                     detectTransformGestures { centroid, pan, zoom, _ ->
-                        if (zoom != 1f) {
-                            val oldScale = scale
-                            val newScale = (oldScale * zoom).coerceIn(1f, 5f)
+                        val oldScale = scale
+                        val newScale = (oldScale * zoom).coerceIn(1f, 5f)
+
+                        if (newScale <= 1.01f) {
+                            scale = 1f
+                            offset = Offset.Zero
+                            onZoomChanged(false)
+                        } else {
                             val zoomFactor = newScale / oldScale
                             val nextOffset = offset + pan + (centroid - offset) * (1f - zoomFactor)
-
+                            scale = newScale
                             offset = clampOffset(nextOffset, newScale)
-                            scale = if (newScale <= 1.01f) 1f else newScale
-
-                            if (scale > 1.01f) {
-                                onZoomChanged(true)
-                            } else {
-                                offset = Offset.Zero
-                                onZoomChanged(false)
-                            }
+                            onZoomChanged(true)
                         }
                     }
                 }
-                .transformable(
-                    state = transformableState,
-                    enabled = scale > 1.01f,
-                )
+                .pointerInput(attachmentUri, resetToken) {
+                    detectDragGestures { _, dragAmount ->
+                        if (scale > 1.01f) {
+                            offset = clampOffset(offset + dragAmount, scale)
+                        }
+                    }
+                }
         ) {
             AndroidView(
                 factory = { context ->
