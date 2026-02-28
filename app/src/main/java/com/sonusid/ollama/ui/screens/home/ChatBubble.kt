@@ -228,7 +228,7 @@ private fun AttachmentGallery(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AttachmentFullscreenViewer(
+internal fun AttachmentFullscreenViewer(
     attachmentUris: List<Uri>,
     initialIndex: Int,
     onDismiss: () -> Unit,

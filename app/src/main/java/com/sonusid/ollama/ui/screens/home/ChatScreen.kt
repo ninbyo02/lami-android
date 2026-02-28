@@ -1187,41 +1187,12 @@ fun Home(
     }
 
     composerViewerUriString?.let { uriString ->
-        Dialog(onDismissRequest = { composerViewerUriString = null }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.92f))
-            ) {
-                val attachmentUri = remember(uriString) { Uri.parse(uriString) }
-                AndroidView(
-                    factory = { context ->
-                        ImageView(context).apply {
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                        }
-                    },
-                    update = { imageView ->
-                        imageView.setImageURI(attachmentUri)
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-                IconButton(
-                    onClick = { composerViewerUriString = null },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(12.dp)
-                        .size(40.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "閉じる",
-                        tint = Color.White,
-                    )
-                }
-            }
-        }
+        val attachmentUri = remember(uriString) { Uri.parse(uriString) }
+        AttachmentFullscreenViewer(
+            attachmentUris = listOf(attachmentUri),
+            initialIndex = 0,
+            onDismiss = { composerViewerUriString = null },
+        )
     }
 }
 
