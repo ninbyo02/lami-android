@@ -475,6 +475,7 @@ private fun ZoomableAttachmentPage(
                             var prevPos2: Offset
                             var pointerId1: PointerId
                             var pointerId2: PointerId
+                            var anchorCentroid: Offset? = null
 
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
@@ -490,6 +491,7 @@ private fun ZoomableAttachmentPage(
                                 pointerId2 = secondChange.id
                                 prevPos1 = firstChange.position
                                 prevPos2 = secondChange.position
+                                anchorCentroid = (prevPos1 + prevPos2) / 2f
                                 event.changes.forEach { it.consume() }
                                 break
                             }
@@ -502,6 +504,7 @@ private fun ZoomableAttachmentPage(
                                     ?: break
 
                                 if (!firstChange.pressed || !secondChange.pressed) {
+                                    anchorCentroid = null
                                     event.changes.forEach { it.consume() }
                                     break
                                 }
@@ -526,11 +529,13 @@ private fun ZoomableAttachmentPage(
                                 if (newScale <= 1.005f) {
                                     scale = 1f
                                     offset = Offset.Zero
+                                    anchorCentroid = null
                                     onZoomChanged(false)
                                 } else {
                                     val zoom = newScale / oldScale
                                     val shiftedOffset = offset + pan
-                                    val nextOffset = shiftedOffset + (currCentroid - shiftedOffset) * (1f - zoom)
+                                    val anchor = anchorCentroid ?: currCentroid
+                                    val nextOffset = shiftedOffset + (anchor - shiftedOffset) * (1f - zoom)
                                     offset = clampOffset(nextOffset, newScale)
                                     scale = newScale
                                     onZoomChanged(true)
