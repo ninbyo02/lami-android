@@ -483,6 +483,7 @@ private fun ZoomableAttachmentPage(
                             var prevPos2: Offset
                             var pointerId1: PointerId
                             var pointerId2: PointerId
+                            var filteredPan = Offset.Zero
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
                                 val pressedChanges = event.changes.filter { it.pressed }
@@ -497,7 +498,8 @@ private fun ZoomableAttachmentPage(
                                 pointerId2 = secondChange.id
                                 prevPos1 = firstChange.position
                                 prevPos2 = secondChange.position
-                                val anchorS = centerScreen
+                                filteredPan = Offset.Zero
+                                val anchorS = centerScreen + offset
                                 anchorScreen = anchorS
                                 anchorContent = (anchorS - offset) / scale
                                 event.changes.forEach { it.consume() }
@@ -507,11 +509,22 @@ private fun ZoomableAttachmentPage(
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
                                 val firstChange = event.changes.firstOrNull { it.id == pointerId1 }
-                                    ?: break
+                                if (firstChange == null) {
+                                    filteredPan = Offset.Zero
+                                    anchorScreen = null
+                                    anchorContent = null
+                                    break
+                                }
                                 val secondChange = event.changes.firstOrNull { it.id == pointerId2 }
-                                    ?: break
+                                if (secondChange == null) {
+                                    filteredPan = Offset.Zero
+                                    anchorScreen = null
+                                    anchorContent = null
+                                    break
+                                }
 
                                 if (!firstChange.pressed || !secondChange.pressed) {
+                                    filteredPan = Offset.Zero
                                     anchorScreen = null
                                     anchorContent = null
                                     event.changes.forEach { it.consume() }
@@ -544,7 +557,9 @@ private fun ZoomableAttachmentPage(
                                     onZoomChanged(false)
                                 } else {
                                     val nextOffset = if (abs(zoomFactor - 1f) < epsZoom) {
-                                        clampOffset(offset + pan, oldScale)
+                                        val alpha = 0.45f
+                                        filteredPan = filteredPan * (1f - alpha) + pan * alpha
+                                        clampOffset(offset + filteredPan, oldScale)
                                     } else {
                                         val zoom = newScale / oldScale
                                         val shiftedOffset = offset + pan
