@@ -501,7 +501,7 @@ private fun ZoomableAttachmentPage(
                                 filteredPan = Offset.Zero
                                 val anchorS = centerScreen + offset
                                 anchorScreen = anchorS
-                                anchorContent = (anchorS - offset) / scale
+                                anchorContent = (anchorS - (centerScreen + offset)) / scale
                                 event.changes.forEach { it.consume() }
                                 break
                             }
@@ -566,8 +566,8 @@ private fun ZoomableAttachmentPage(
                                         val anchorS = anchorScreen
                                         val contentA = anchorContent
                                         val anchor = anchorS ?: currCentroid
-                                        val nextOffsetFromAnchor = contentA?.let {
-                                            anchor - it * newScale
+                                        val nextOffsetFromAnchor = contentA?.let { content ->
+                                            (anchor - centerScreen) - content * newScale
                                         }
                                         if (nextOffsetFromAnchor != null) {
                                             clampOffset(nextOffsetFromAnchor + pan, newScale)
