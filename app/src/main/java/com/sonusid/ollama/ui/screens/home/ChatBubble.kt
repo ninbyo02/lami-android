@@ -454,23 +454,7 @@ private fun ZoomableAttachmentPage(
                 .clipToBounds()
                 .transformable(
                     state = transformableState,
-                    enabled = scale > 1.01f,
                 )
-                .pointerInput(attachmentUri, resetToken) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            if (scale > 1f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                                onZoomChanged(false)
-                            } else {
-                                scale = 2f
-                                offset = Offset.Zero
-                                onZoomChanged(true)
-                            }
-                        },
-                    )
-                }
         ) {
             AndroidView(
                 factory = { context ->
