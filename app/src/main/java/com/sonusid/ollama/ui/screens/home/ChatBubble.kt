@@ -12,6 +12,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -485,10 +486,25 @@ private fun ZoomableAttachmentPage(
 
                             var pointerId = down.id
                             var lastPosition = down.position
-                            down.consume()
+
+                            val drag = awaitTouchSlopOrCancellation(pointerId) { change, over ->
+                                if (over != Offset.Zero) {
+                                    offset = clampOffset(offset + over, scale)
+                                }
+                                lastPosition = change.position
+                                change.consume()
+                            }
+
+                            if (drag == null) return@awaitEachGesture
+
+                            pointerId = drag.id
+                            lastPosition = drag.position
 
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val pressedCount = event.changes.count { it.pressed }
+                                if (pressedCount >= 2) break
+
                                 val change = event.changes.firstOrNull { it.id == pointerId } ?: break
                                 if (!change.pressed) break
 
