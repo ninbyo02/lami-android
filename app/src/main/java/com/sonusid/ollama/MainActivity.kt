@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity() {
             settingsPreferences.ensurePerStateAnimationJsonsInitialized()
         }
 
+        val shouldRestoreLastRoute = savedInstanceState == null
+
         setContent {
             val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
             // Initialise navigation
@@ -102,6 +104,9 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 // UIテスト時は復元ナビゲーションを無効化して常にCHAT_ROOTから開始する
                 if (RuntimeFlags.isUiTestRuntime()) return@LaunchedEffect
+                // 回転などでActivity再生成時にlastRouteがSettingsだと意図せずSettingsへ遷移するため、
+                // savedInstanceStateがある場合は復元ナビゲーションをスキップして現在画面の復元を優先する
+                if (!shouldRestoreLastRoute) return@LaunchedEffect
 
                 val restored = settingsPreferences.lastRoute.first()
                 val allowedRoutes = setOf(
