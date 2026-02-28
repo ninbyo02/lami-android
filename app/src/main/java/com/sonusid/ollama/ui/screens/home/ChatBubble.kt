@@ -15,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -442,9 +441,11 @@ private fun ZoomableAttachmentPage(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = {
-                            scale = 1f
-                            offset = Offset.Zero
-                            onZoomChanged(false)
+                            if (scale > 1.01f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                                onZoomChanged(false)
+                            }
                         }
                     )
                 }
@@ -457,19 +458,13 @@ private fun ZoomableAttachmentPage(
                             scale = 1f
                             offset = Offset.Zero
                             onZoomChanged(false)
+                            return@detectTransformGestures
                         } else {
                             val zoomFactor = newScale / oldScale
                             val nextOffset = offset + pan + (centroid - offset) * (1f - zoomFactor)
                             scale = newScale
                             offset = clampOffset(nextOffset, newScale)
                             onZoomChanged(true)
-                        }
-                    }
-                }
-                .pointerInput(attachmentUri, resetToken) {
-                    detectDragGestures { _, dragAmount ->
-                        if (scale > 1.01f) {
-                            offset = clampOffset(offset + dragAmount, scale)
                         }
                     }
                 }
