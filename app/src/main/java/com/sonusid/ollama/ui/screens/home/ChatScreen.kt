@@ -188,8 +188,10 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
-    var composerViewerUris by remember { mutableStateOf<List<Uri>?>(null) }
-    var composerViewerInitialIndex by remember { mutableStateOf(0) }
+    // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
+    // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
+    var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
@@ -635,7 +637,7 @@ fun Home(
                                     AttachmentPreviewRow(
                                         uris = selectedImageUris,
                                         onOpen = { index ->
-                                            composerViewerUris = selectedImageUris.toList()
+                                            composerViewerUriStrings = selectedImageUriStrings.toList()
                                             composerViewerInitialIndex = index
                                         },
                                         onRemoveAt = { removeIndex ->
@@ -1190,17 +1192,18 @@ fun Home(
         }
     }
 
-    composerViewerUris?.let { attachmentUris ->
-        if (attachmentUris.isEmpty()) {
-            composerViewerUris = null
+    composerViewerUriStrings?.let { uriStrings ->
+        if (uriStrings.isEmpty()) {
+            composerViewerUriStrings = null
             composerViewerInitialIndex = 0
         } else {
-            val safeIndex = composerViewerInitialIndex.coerceIn(0, (attachmentUris.lastIndex).coerceAtLeast(0))
+            val attachmentUris = uriStrings.map(Uri::parse)
+            val safeIndex = composerViewerInitialIndex.coerceIn(0, attachmentUris.lastIndex.coerceAtLeast(0))
             AttachmentFullscreenViewer(
                 attachmentUris = attachmentUris,
                 initialIndex = safeIndex,
                 onDismiss = {
-                    composerViewerUris = null
+                    composerViewerUriStrings = null
                     composerViewerInitialIndex = 0
                 },
             )
