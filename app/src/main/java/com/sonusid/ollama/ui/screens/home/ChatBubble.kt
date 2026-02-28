@@ -86,6 +86,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
 
+private const val ZOOM_EPS = 1.01f
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -417,7 +418,7 @@ private fun ZoomableAttachmentPage(
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
 
     fun resetZoomIfNeeded() {
-        if (scale > 1.01f) {
+        if (scale > ZOOM_EPS) {
             scale = 1f
             offset = Offset.Zero
             onZoomChanged(false)
@@ -444,7 +445,7 @@ private fun ZoomableAttachmentPage(
         val containerH = with(density) { maxHeight.toPx() }
 
         fun clampOffset(raw: Offset, currentScale: Float): Offset {
-            if (currentScale <= 1.01f) return Offset.Zero
+            if (currentScale <= ZOOM_EPS) return Offset.Zero
             val maxX = ((containerW * currentScale) - containerW) / 2f
             val maxY = ((containerH * currentScale) - containerH) / 2f
             return Offset(
@@ -474,7 +475,7 @@ private fun ZoomableAttachmentPage(
                     .pointerInput(attachmentUri, resetToken) {
                         awaitEachGesture {
                             val down = awaitFirstDown(pass = PointerEventPass.Main)
-                            if (scale <= 1.01f) return@awaitEachGesture
+                            if (scale <= ZOOM_EPS) return@awaitEachGesture
 
                             var pointerId = down.id
                             var lastPosition = down.position
@@ -563,7 +564,7 @@ private fun ZoomableAttachmentPage(
 
                                 val oldScale = scale
                                 val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
-                                if (newScale <= 1.005f) {
+                                if (newScale <= ZOOM_EPS) {
                                     scale = 1f
                                     offset = Offset.Zero
                                     onZoomChanged(false)
