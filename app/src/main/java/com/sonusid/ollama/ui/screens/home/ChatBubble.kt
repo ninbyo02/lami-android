@@ -84,7 +84,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
 import kotlin.math.hypot
 
 
@@ -416,15 +415,11 @@ private fun ZoomableAttachmentPage(
 ) {
     var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
-    var anchorScreen by remember(attachmentUri, resetToken) { mutableStateOf<Offset?>(null) }
-    var anchorContent by remember(attachmentUri, resetToken) { mutableStateOf<Offset?>(null) }
 
     fun resetZoomIfNeeded() {
         if (scale > 1.01f) {
             scale = 1f
             offset = Offset.Zero
-            anchorScreen = null
-            anchorContent = null
             onZoomChanged(false)
         }
     }
@@ -432,8 +427,6 @@ private fun ZoomableAttachmentPage(
     LaunchedEffect(attachmentUri, resetToken) {
         scale = 1f
         offset = Offset.Zero
-        anchorScreen = null
-        anchorContent = null
         onZoomChanged(false)
     }
 
@@ -449,7 +442,6 @@ private fun ZoomableAttachmentPage(
         val density = LocalDensity.current
         val containerW = with(density) { maxWidth.toPx() }
         val containerH = with(density) { maxHeight.toPx() }
-        val centerScreen = Offset(containerW / 2f, containerH / 2f)
 
         fun clampOffset(raw: Offset, currentScale: Float): Offset {
             if (currentScale <= 1.01f) return Offset.Zero
@@ -537,9 +529,6 @@ private fun ZoomableAttachmentPage(
                                 pointerId2 = secondChange.id
                                 prevPos1 = firstChange.position
                                 prevPos2 = secondChange.position
-                                val anchorS = centerScreen + offset
-                                anchorScreen = anchorS
-                                anchorContent = (anchorS - (centerScreen + offset)) / scale
                                 event.changes.forEach { it.consume() }
                                 break
                             }
@@ -548,20 +537,14 @@ private fun ZoomableAttachmentPage(
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
                                 val firstChange = event.changes.firstOrNull { it.id == pointerId1 }
                                 if (firstChange == null) {
-                                    anchorScreen = null
-                                    anchorContent = null
                                     break
                                 }
                                 val secondChange = event.changes.firstOrNull { it.id == pointerId2 }
                                 if (secondChange == null) {
-                                    anchorScreen = null
-                                    anchorContent = null
                                     break
                                 }
 
                                 if (!firstChange.pressed || !secondChange.pressed) {
-                                    anchorScreen = null
-                                    anchorContent = null
                                     event.changes.forEach { it.consume() }
                                     break
                                 }
@@ -583,8 +566,6 @@ private fun ZoomableAttachmentPage(
                                 if (newScale <= 1.005f) {
                                     scale = 1f
                                     offset = Offset.Zero
-                                    anchorScreen = null
-                                    anchorContent = null
                                     onZoomChanged(false)
                                 } else {
                                     offset = clampOffset(offset, newScale)
