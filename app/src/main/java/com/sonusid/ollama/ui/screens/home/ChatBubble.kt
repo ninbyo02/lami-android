@@ -7,7 +7,6 @@ import android.text.Spannable
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ReplacementSpan
-import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
@@ -16,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -49,17 +49,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -405,7 +405,6 @@ private fun AttachmentFullscreenViewer(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun ZoomableAttachmentPage(
     attachmentUri: Uri,
@@ -414,8 +413,6 @@ private fun ZoomableAttachmentPage(
 ) {
     var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
-    var isTwoFingerGestureActive by remember(attachmentUri, resetToken) { mutableStateOf(false) }
-    var prevFocus by remember(attachmentUri, resetToken) { mutableStateOf<Offset?>(null) }
 
     fun resetZoomIfNeeded() {
         if (scale > 1.01f) {
@@ -454,44 +451,6 @@ private fun ZoomableAttachmentPage(
             )
         }
 
-        val context = androidx.compose.ui.platform.LocalContext.current
-        val scaleGestureDetector = remember(attachmentUri, resetToken) {
-            android.view.ScaleGestureDetector(
-                context,
-                object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                    override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
-                        val oldScale = scale
-                        val newScale = (oldScale * detector.scaleFactor).coerceIn(1f, 5f)
-                        if (newScale <= 1.005f) {
-                            scale = 1f
-                            offset = Offset.Zero
-                            onZoomChanged(false)
-                            return true
-                        }
-
-                        val zoom = newScale / oldScale
-                        val focus = Offset(detector.focusX, detector.focusY)
-                        val nextOffset = offset + (focus - offset) * (1f - zoom)
-                        scale = newScale
-                        offset = clampOffset(nextOffset, newScale)
-                        onZoomChanged(true)
-                        return true
-                    }
-                }
-            )
-        }
-
-        fun currentTwoFingerFocus(event: MotionEvent): Offset {
-            return if (event.pointerCount >= 2) {
-                Offset(
-                    x = (event.getX(0) + event.getX(1)) / 2f,
-                    y = (event.getY(0) + event.getY(1)) / 2f,
-                )
-            } else {
-                Offset.Zero
-            }
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -510,84 +469,77 @@ private fun ZoomableAttachmentPage(
                 },
                 update = { imageView -> imageView.setImageURI(attachmentUri) },
                 modifier = Modifier
-                    .pointerInput(resetToken) {
-                        detectTapGestures(onDoubleTap = { resetZoomIfNeeded() })
-                    }
-                    .pointerInteropFilter { event ->
-                        when (event.actionMasked) {
-                            MotionEvent.ACTION_DOWN -> {
-                                isTwoFingerGestureActive = false
-                                prevFocus = null
-                                false
+                    .pointerInput(attachmentUri, resetToken) {
+                        awaitEachGesture {
+                            var prevPos1: Offset
+                            var prevPos2: Offset
+                            var pointerId1: PointerId
+                            var pointerId2: PointerId
+
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val pressedChanges = event.changes.filter { it.pressed }
+                                if (pressedChanges.size < 2) {
+                                    if (pressedChanges.isEmpty()) return@awaitEachGesture
+                                    continue
+                                }
+
+                                val firstChange = pressedChanges[0]
+                                val secondChange = pressedChanges[1]
+                                pointerId1 = firstChange.id
+                                pointerId2 = secondChange.id
+                                prevPos1 = firstChange.position
+                                prevPos2 = secondChange.position
+                                event.changes.forEach { it.consume() }
+                                break
                             }
 
-                            MotionEvent.ACTION_POINTER_DOWN -> {
-                                if (event.pointerCount >= 2) {
-                                    isTwoFingerGestureActive = true
-                                    prevFocus = currentTwoFingerFocus(event)
-                                    scaleGestureDetector.onTouchEvent(event)
-                                    true
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val firstChange = event.changes.firstOrNull { it.id == pointerId1 }
+                                    ?: break
+                                val secondChange = event.changes.firstOrNull { it.id == pointerId2 }
+                                    ?: break
+
+                                if (!firstChange.pressed || !secondChange.pressed) {
+                                    event.changes.forEach { it.consume() }
+                                    break
+                                }
+
+                                val currPos1 = firstChange.position
+                                val currPos2 = secondChange.position
+                                val prevCentroid = (prevPos1 + prevPos2) / 2f
+                                val currCentroid = (currPos1 + currPos2) / 2f
+                                val pan = currCentroid - prevCentroid
+                                val prevDist = hypot(
+                                    (prevPos1.x - prevPos2.x).toDouble(),
+                                    (prevPos1.y - prevPos2.y).toDouble(),
+                                ).toFloat()
+                                val currDist = hypot(
+                                    (currPos1.x - currPos2.x).toDouble(),
+                                    (currPos1.y - currPos2.y).toDouble(),
+                                ).toFloat()
+                                val zoomFactor = if (prevDist > 0f) currDist / prevDist else 1f
+
+                                val oldScale = scale
+                                val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
+                                if (newScale <= 1.005f) {
+                                    scale = 1f
+                                    offset = Offset.Zero
+                                    onZoomChanged(false)
                                 } else {
-                                    false
+                                    val zoom = newScale / oldScale
+                                    val shiftedOffset = offset + pan
+                                    val nextOffset = shiftedOffset + (currCentroid - shiftedOffset) * (1f - zoom)
+                                    offset = clampOffset(nextOffset, newScale)
+                                    scale = newScale
+                                    onZoomChanged(true)
                                 }
+
+                                prevPos1 = currPos1
+                                prevPos2 = currPos2
+                                event.changes.forEach { it.consume() }
                             }
-
-                            MotionEvent.ACTION_MOVE -> {
-                                if (!isTwoFingerGestureActive || event.pointerCount < 2) {
-                                    return@pointerInteropFilter false
-                                }
-
-                                scaleGestureDetector.onTouchEvent(event)
-                                val currentFocus = currentTwoFingerFocus(event)
-                                prevFocus?.let { previousFocus ->
-                                    val pan = currentFocus - previousFocus
-                                    if (scale > 1.005f) {
-                                        offset = clampOffset(offset + pan, scale)
-                                        onZoomChanged(true)
-                                    }
-                                }
-                                prevFocus = currentFocus
-                                true
-                            }
-
-                            MotionEvent.ACTION_POINTER_UP -> {
-                                if (!isTwoFingerGestureActive) {
-                                    return@pointerInteropFilter false
-                                }
-
-                                if (event.pointerCount - 1 >= 2) {
-                                    scaleGestureDetector.onTouchEvent(event)
-                                    val upIndex = event.actionIndex
-                                    val remainingIndices = (0 until event.pointerCount)
-                                        .filter { it != upIndex }
-                                        .take(2)
-                                    if (remainingIndices.size == 2) {
-                                        prevFocus = Offset(
-                                            x = (event.getX(remainingIndices[0]) + event.getX(remainingIndices[1])) / 2f,
-                                            y = (event.getY(remainingIndices[0]) + event.getY(remainingIndices[1])) / 2f,
-                                        )
-                                    }
-                                    true
-                                } else {
-                                    isTwoFingerGestureActive = false
-                                    prevFocus = null
-                                    if (scale <= 1.005f) {
-                                        scale = 1f
-                                        offset = Offset.Zero
-                                        onZoomChanged(false)
-                                    }
-                                    true
-                                }
-                            }
-
-                            MotionEvent.ACTION_UP,
-                            MotionEvent.ACTION_CANCEL -> {
-                                isTwoFingerGestureActive = false
-                                prevFocus = null
-                                false
-                            }
-
-                            else -> isTwoFingerGestureActive
                         }
                     }
                     .fillMaxSize()
