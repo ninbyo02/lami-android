@@ -415,10 +415,7 @@ private fun ZoomableAttachmentPage(
     var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
     var isTwoFingerGestureActive by remember(attachmentUri, resetToken) { mutableStateOf(false) }
-    var activePointerId1 by remember(attachmentUri, resetToken) { mutableStateOf(-1) }
-    var activePointerId2 by remember(attachmentUri, resetToken) { mutableStateOf(-1) }
-    var prevPointer1 by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
-    var prevPointer2 by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
+    var prevFocus by remember(attachmentUri, resetToken) { mutableStateOf<Offset?>(null) }
 
     fun resetZoomIfNeeded() {
         if (scale > 1.01f) {
@@ -457,6 +454,44 @@ private fun ZoomableAttachmentPage(
             )
         }
 
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val scaleGestureDetector = remember(attachmentUri, resetToken) {
+            android.view.ScaleGestureDetector(
+                context,
+                object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+                        val oldScale = scale
+                        val newScale = (oldScale * detector.scaleFactor).coerceIn(1f, 5f)
+                        if (newScale <= 1.005f) {
+                            scale = 1f
+                            offset = Offset.Zero
+                            onZoomChanged(false)
+                            return true
+                        }
+
+                        val zoom = newScale / oldScale
+                        val focus = Offset(detector.focusX, detector.focusY)
+                        val nextOffset = offset + (focus - offset) * (1f - zoom)
+                        scale = newScale
+                        offset = clampOffset(nextOffset, newScale)
+                        onZoomChanged(true)
+                        return true
+                    }
+                }
+            )
+        }
+
+        fun currentTwoFingerFocus(event: MotionEvent): Offset {
+            return if (event.pointerCount >= 2) {
+                Offset(
+                    x = (event.getX(0) + event.getX(1)) / 2f,
+                    y = (event.getY(0) + event.getY(1)) / 2f,
+                )
+            } else {
+                Offset.Zero
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -482,20 +517,15 @@ private fun ZoomableAttachmentPage(
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN -> {
                                 isTwoFingerGestureActive = false
-                                activePointerId1 = event.getPointerId(0)
-                                activePointerId2 = -1
+                                prevFocus = null
                                 false
                             }
 
                             MotionEvent.ACTION_POINTER_DOWN -> {
-                                val idxNew = event.actionIndex
-                                val idxOld = if (idxNew == 0) 1 else 0
-                                if (event.pointerCount >= 2 && idxOld < event.pointerCount) {
-                                    activePointerId1 = event.getPointerId(idxOld)
-                                    activePointerId2 = event.getPointerId(idxNew)
-                                    prevPointer1 = Offset(event.getX(idxOld), event.getY(idxOld))
-                                    prevPointer2 = Offset(event.getX(idxNew), event.getY(idxNew))
+                                if (event.pointerCount >= 2) {
                                     isTwoFingerGestureActive = true
+                                    prevFocus = currentTwoFingerFocus(event)
+                                    scaleGestureDetector.onTouchEvent(event)
                                     true
                                 } else {
                                     false
@@ -503,51 +533,20 @@ private fun ZoomableAttachmentPage(
                             }
 
                             MotionEvent.ACTION_MOVE -> {
-                                if (!isTwoFingerGestureActive) {
+                                if (!isTwoFingerGestureActive || event.pointerCount < 2) {
                                     return@pointerInteropFilter false
                                 }
 
-                                val p1Index = event.findPointerIndex(activePointerId1)
-                                val p2Index = event.findPointerIndex(activePointerId2)
-                                if (p1Index < 0 || p2Index < 0) {
-                                    isTwoFingerGestureActive = false
-                                    activePointerId1 = -1
-                                    activePointerId2 = -1
-                                    return@pointerInteropFilter false
+                                scaleGestureDetector.onTouchEvent(event)
+                                val currentFocus = currentTwoFingerFocus(event)
+                                prevFocus?.let { previousFocus ->
+                                    val pan = currentFocus - previousFocus
+                                    if (scale > 1.005f) {
+                                        offset = clampOffset(offset + pan, scale)
+                                        onZoomChanged(true)
+                                    }
                                 }
-
-                                val currPointer1 = Offset(event.getX(p1Index), event.getY(p1Index))
-                                val currPointer2 = Offset(event.getX(p2Index), event.getY(p2Index))
-                                val prevCentroid = (prevPointer1 + prevPointer2) / 2f
-                                val currCentroid = (currPointer1 + currPointer2) / 2f
-                                val pan = currCentroid - prevCentroid
-                                val prevDist = hypot(
-                                    (prevPointer1.x - prevPointer2.x).toDouble(),
-                                    (prevPointer1.y - prevPointer2.y).toDouble(),
-                                ).toFloat()
-                                val currDist = hypot(
-                                    (currPointer1.x - currPointer2.x).toDouble(),
-                                    (currPointer1.y - currPointer2.y).toDouble(),
-                                ).toFloat()
-                                val zoomFactor = if (prevDist > 0f) currDist / prevDist else 1f
-
-                                val oldScale = scale
-                                val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
-                                if (newScale <= 1.005f) {
-                                    scale = 1f
-                                    offset = Offset.Zero
-                                    onZoomChanged(false)
-                                } else {
-                                    val zoom = newScale / oldScale
-                                    val shiftedOffset = offset + pan
-                                    val nextOffset = shiftedOffset + (currCentroid - shiftedOffset) * (1f - zoom)
-                                    offset = clampOffset(nextOffset, newScale)
-                                    scale = newScale
-                                    onZoomChanged(true)
-                                }
-
-                                prevPointer1 = currPointer1
-                                prevPointer2 = currPointer2
+                                prevFocus = currentFocus
                                 true
                             }
 
@@ -557,24 +556,22 @@ private fun ZoomableAttachmentPage(
                                 }
 
                                 if (event.pointerCount - 1 >= 2) {
+                                    scaleGestureDetector.onTouchEvent(event)
                                     val upIndex = event.actionIndex
                                     val remainingIndices = (0 until event.pointerCount)
                                         .filter { it != upIndex }
                                         .take(2)
                                     if (remainingIndices.size == 2) {
-                                        val first = remainingIndices[0]
-                                        val second = remainingIndices[1]
-                                        activePointerId1 = event.getPointerId(first)
-                                        activePointerId2 = event.getPointerId(second)
-                                        prevPointer1 = Offset(event.getX(first), event.getY(first))
-                                        prevPointer2 = Offset(event.getX(second), event.getY(second))
+                                        prevFocus = Offset(
+                                            x = (event.getX(remainingIndices[0]) + event.getX(remainingIndices[1])) / 2f,
+                                            y = (event.getY(remainingIndices[0]) + event.getY(remainingIndices[1])) / 2f,
+                                        )
                                     }
                                     true
                                 } else {
                                     isTwoFingerGestureActive = false
-                                    activePointerId1 = -1
-                                    activePointerId2 = -1
-                                    if (scale <= 1.01f) {
+                                    prevFocus = null
+                                    if (scale <= 1.005f) {
                                         scale = 1f
                                         offset = Offset.Zero
                                         onZoomChanged(false)
@@ -585,11 +582,9 @@ private fun ZoomableAttachmentPage(
 
                             MotionEvent.ACTION_UP,
                             MotionEvent.ACTION_CANCEL -> {
-                                val shouldConsume = isTwoFingerGestureActive
                                 isTwoFingerGestureActive = false
-                                activePointerId1 = -1
-                                activePointerId2 = -1
-                                shouldConsume
+                                prevFocus = null
+                                false
                             }
 
                             else -> isTwoFingerGestureActive
