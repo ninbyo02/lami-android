@@ -15,10 +15,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -59,6 +59,9 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.calculateCentroid
+import androidx.compose.ui.input.pointer.calculateZoom
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
@@ -82,6 +85,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -465,21 +469,42 @@ private fun ZoomableAttachmentPage(
                     )
                 }
                 .pointerInput(attachmentUri, resetToken) {
-                    detectTransformGestures { centroid, pan, zoom, _ ->
-                        if (zoom != 1f) {
-                            val oldScale = scale
-                            val newScale = (oldScale * zoom).coerceIn(1f, 5f)
-                            val zoomFactor = newScale / oldScale
-                            val nextOffset = offset + pan + (centroid - offset) * (1f - zoomFactor)
+                    awaitEachGesture {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val pressedCount = event.changes.count { it.pressed }
 
-                            offset = clampOffset(nextOffset, newScale)
-                            scale = if (newScale <= 1.01f) 1f else newScale
+                                if (pressedCount < 2) {
+                                    if (event.changes.none { it.pressed }) break
+                                    continue
+                                }
 
-                            if (scale > 1.01f) {
-                                onZoomChanged(true)
-                            } else {
-                                offset = Offset.Zero
-                                onZoomChanged(false)
+                                val zoom = event.calculateZoom()
+                                if (abs(zoom - 1f) <= 0.002f) {
+                                    if (event.changes.none { it.pressed }) break
+                                    continue
+                                }
+
+                                val centroid = event.calculateCentroid(useCurrent = true)
+                                val oldScale = scale
+                                val newScale = (oldScale * zoom).coerceIn(1f, 5f)
+                                val zoomFactor = newScale / oldScale
+                                val nextOffset = offset + (centroid - offset) * (1f - zoomFactor)
+
+                                offset = clampOffset(nextOffset, newScale)
+                                scale = if (newScale <= 1.01f) 1f else newScale
+
+                                if (scale > 1.01f) {
+                                    onZoomChanged(true)
+                                } else {
+                                    offset = Offset.Zero
+                                    onZoomChanged(false)
+                                }
+
+                                event.changes.forEach { it.consume() }
+
+                                if (event.changes.none { it.pressed }) break
                             }
                         }
                     }
