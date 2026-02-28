@@ -491,8 +491,16 @@ private fun ZoomableAttachmentPage(
                                 if (event.pointerCount >= 2) {
                                     activePointerId1 = event.getPointerId(0)
                                     activePointerId2 = event.getPointerId(1)
-                                    prevPointer1 = Offset(event.getX(0), event.getY(0))
-                                    prevPointer2 = Offset(event.getX(1), event.getY(1))
+                                    val i1 = event.findPointerIndex(activePointerId1)
+                                    val i2 = event.findPointerIndex(activePointerId2)
+                                    if (i1 < 0 || i2 < 0) {
+                                        isTwoFingerGestureActive = false
+                                        activePointerId1 = -1
+                                        activePointerId2 = -1
+                                        return@pointerInteropFilter false
+                                    }
+                                    prevPointer1 = Offset(event.getX(i1), event.getY(i1))
+                                    prevPointer2 = Offset(event.getX(i2), event.getY(i2))
                                     isTwoFingerGestureActive = true
                                     true
                                 } else {
@@ -508,7 +516,10 @@ private fun ZoomableAttachmentPage(
                                 val p1Index = event.findPointerIndex(activePointerId1)
                                 val p2Index = event.findPointerIndex(activePointerId2)
                                 if (p1Index < 0 || p2Index < 0) {
-                                    return@pointerInteropFilter true
+                                    isTwoFingerGestureActive = false
+                                    activePointerId1 = -1
+                                    activePointerId2 = -1
+                                    return@pointerInteropFilter false
                                 }
 
                                 val currPointer1 = Offset(event.getX(p1Index), event.getY(p1Index))
@@ -528,7 +539,7 @@ private fun ZoomableAttachmentPage(
 
                                 val oldScale = scale
                                 val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
-                                if (newScale <= 1.01f) {
+                                if (newScale <= 1.005f) {
                                     scale = 1f
                                     offset = Offset.Zero
                                     onZoomChanged(false)
