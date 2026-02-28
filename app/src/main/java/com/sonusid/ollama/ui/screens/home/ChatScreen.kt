@@ -1,5 +1,10 @@
 package com.sonusid.ollama.ui.screens.home
 
+import android.net.Uri
+import android.widget.ImageView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +14,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -35,23 +43,25 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,6 +83,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +94,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -96,6 +109,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
@@ -111,6 +125,7 @@ import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import kotlinx.coroutines.yield
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -129,6 +144,7 @@ private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
+private const val MaxComposerAttachments = 10
 
 private enum class TopPaddingMode {
     NewConversation,
@@ -161,7 +177,7 @@ fun Home(
     val allChatsOrNull = allChatsState?.value
     var toggle by remember { mutableStateOf(false) }
     var placeholder by remember { mutableStateOf("Enter your prompt ...") }
-    var toolsMenuExpanded by remember { mutableStateOf(false) }
+    var attachSheetOpen by remember { mutableStateOf(false) }
     var expandDialogOpen by remember { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
@@ -170,6 +186,30 @@ fun Home(
     val baseUrl by viewModel.baseUrl.collectAsState()
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var composerViewerUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        val imageUris = uris.filter { uri ->
+            context.contentResolver.getType(uri)?.startsWith("image/") == true
+        }
+        if (imageUris.size != uris.size) {
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = "画像のみ添付できます",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+        selectedImageUriStrings = (selectedImageUriStrings + imageUris.map(Uri::toString))
+            .distinct()
+            .take(MaxComposerAttachments)
+    }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val debugOverlayEnabled = false
@@ -508,6 +548,7 @@ fun Home(
             color = MaterialTheme.colorScheme.onSurface
         )
         val overlayBase = MaterialTheme.colorScheme.background
+        val composerBottomGradientEnabled = true
 
         Column(
             modifier = Modifier
@@ -518,7 +559,7 @@ fun Home(
                     overlayRootTopY = coordinates.positionInRoot().y
                 }
                 .let { modifier ->
-                    if (debugOverlayEnabled) {
+                    if (composerBottomGradientEnabled) {
                         modifier.drawWithContent {
                             val localTop = (measuredComposerTopY - overlayRootTopY).coerceAtLeast(0f)
                             val overlayHeight = (size.height - localTop).coerceAtLeast(1f)
@@ -588,133 +629,171 @@ fun Home(
                             }
                     ) {
                         Box(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = ComposerMinHeight),
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            // 左ボタンを外側へ寄せるための最小余白
-                            Spacer(modifier = Modifier.width(0.dp))
-
-                            IconButton(
-                                onClick = { toolsMenuExpanded = true },
-                                modifier = Modifier
-                                    .size(ComposerButtonSize)
-                                    .align(Alignment.Bottom)
-                                    .clip(CircleShape)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(ComposerButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(Color.LightGray.copy(alpha = 0.25f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Add,
-                                        contentDescription = "Tools",
-                                        modifier = Modifier.size(ComposerButtonIconVisualSize)
-                                    )
-                                }
-                            }
-
-                            BasicTextField(
-                                value = userPrompt,
-                                onValueChange = { newValue ->
-                                    userPrompt = newValue
-                                    viewModel.onUserInteraction()
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .align(Alignment.CenterVertically)
-                                    .heightIn(min = 44.dp, max = 180.dp),
-                                singleLine = false,
-                                maxLines = maxComposerLines,
-                                textStyle = composerTextStyle,
-                                interactionSource = interactionSource,
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                decorationBox = { innerTextField ->
-                                    OutlinedTextFieldDefaults.DecorationBox(
-                                        value = userPrompt,
-                                        innerTextField = innerTextField,
-                                        enabled = true,
-                                        singleLine = false,
-                                        visualTransformation = VisualTransformation.None,
-                                        interactionSource = interactionSource,
-                                        placeholder = {
-                                            Text(
-                                                placeholder,
-                                                fontSize = 15.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                if (selectedImageUris.isNotEmpty()) {
+                                    AttachmentPreviewRow(
+                                        uris = selectedImageUris,
+                                        onOpen = { uri -> composerViewerUriString = uri.toString() },
+                                        onRemoveAt = { removeIndex ->
+                                            selectedImageUriStrings = selectedImageUriStrings.filterIndexed { index, _ ->
+                                                index != removeIndex
+                                            }
                                         },
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            unfocusedBorderColor = Color.Transparent,
-                                            focusedBorderColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            focusedContainerColor = Color.Transparent
-                                        ),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+                                        inComposer = true,
                                     )
+                                    // サムネイルと入力行を視認分離する最小限の余白
+                                    Spacer(modifier = Modifier.height(2.dp))
                                 }
-                            )
 
-                            IconButton(
-                                enabled = !selectedModel.isNullOrBlank(),
-                                onClick = {
-                                    viewModel.onUserInteraction()
-                                    if (selectedModel.isNullOrBlank()) {
-                                        coroutineScope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar(
-                                                message = "モデルを選択してください",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                        }
-                                        return@IconButton
-                                    }
-
-                                    val currentChatId = effectiveChatId
-                                    if (currentChatId != null) {
-                                        if (userPrompt.isNotEmpty()) {
-                                            placeholder = "I'm thinking ... "
-                                            viewModel.insert(
-                                                Message(chatId = currentChatId, message = userPrompt, isSendbyMe = true)
-                                            )
-                                            toggle = true
-                                            prompt = userPrompt
-                                            userPrompt = ""
-                                            viewModel.sendPrompt(prompt, selectedModel)
-                                            prompt = ""
-                                        }
-                                    } else {
-                                        placeholder = "Setting up a new chat ..."
-                                    }
-                                },
-                                modifier = Modifier
-                                    .size(ComposerButtonSize)
-                                    .align(Alignment.Bottom)
-                                    .clip(CircleShape)
-                            ) {
-                                Box(
+                                Row(
                                     modifier = Modifier
-                                        .size(ComposerButtonVisualSize)
-                                        .clip(CircleShape)
-                                        .background(Color.LightGray.copy(alpha = 0.25f)),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxWidth()
+                                        .heightIn(min = ComposerMinHeight),
+                                    verticalAlignment = Alignment.Bottom
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ArrowUpward,
-                                        contentDescription = "Send Button",
-                                        modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                    // 左ボタンを外側へ寄せるための最小余白
+                                    Spacer(modifier = Modifier.width(0.dp))
+
+                                    IconButton(
+                                        onClick = { attachSheetOpen = true },
+                                        modifier = Modifier
+                                            .size(ComposerButtonSize)
+                                            .align(Alignment.Bottom)
+                                            .clip(CircleShape)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(ComposerButtonVisualSize)
+                                                .clip(CircleShape)
+                                                .background(Color.LightGray.copy(alpha = 0.25f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Add,
+                                                contentDescription = "Tools",
+                                                modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                            )
+                                        }
+                                    }
+
+                                    BasicTextField(
+                                        value = userPrompt,
+                                        onValueChange = { newValue ->
+                                            userPrompt = newValue
+                                            viewModel.onUserInteraction()
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .align(Alignment.CenterVertically)
+                                            .heightIn(min = 44.dp, max = 180.dp),
+                                        singleLine = false,
+                                        maxLines = maxComposerLines,
+                                        textStyle = composerTextStyle,
+                                        interactionSource = interactionSource,
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                        decorationBox = { innerTextField ->
+                                            OutlinedTextFieldDefaults.DecorationBox(
+                                                value = userPrompt,
+                                                innerTextField = innerTextField,
+                                                enabled = true,
+                                                singleLine = false,
+                                                visualTransformation = VisualTransformation.None,
+                                                interactionSource = interactionSource,
+                                                placeholder = {
+                                                    Text(
+                                                        placeholder,
+                                                        fontSize = 15.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    unfocusedBorderColor = Color.Transparent,
+                                                    focusedBorderColor = Color.Transparent,
+                                                    unfocusedContainerColor = Color.Transparent,
+                                                    focusedContainerColor = Color.Transparent
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+                                            )
+                                        }
                                     )
+
+                                    IconButton(
+                                        enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()),
+                                        onClick = {
+                                            viewModel.onUserInteraction()
+                                            if (selectedModel.isNullOrBlank()) {
+                                                coroutineScope.launch {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(
+                                                        message = "モデルを選択してください",
+                                                        duration = SnackbarDuration.Short
+                                                    )
+                                                }
+                                                return@IconButton
+                                            }
+
+                                            val currentChatId = effectiveChatId
+                                            if (currentChatId != null) {
+                                                val requestPrompt = userPrompt
+                                                val requestAttachmentUris = selectedImageUris
+                                                if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
+                                                    placeholder = "I'm thinking ... "
+                                                    toggle = true
+                                                }
+                                                prompt = requestPrompt
+                                                viewModel.sendPrompt(
+                                                    prompt = requestPrompt,
+                                                    model = selectedModel,
+                                                    attachmentUris = requestAttachmentUris,
+                                                    context = context.applicationContext,
+                                                    onAttachmentPrepared = { savedAttachmentUriStrings ->
+                                                        if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
+                                                            val attachmentJson = savedAttachmentUriStrings
+                                                                ?.takeIf { it.isNotEmpty() }
+                                                                ?.toAttachmentUriStringsJson()
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = currentChatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                    attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
+                                                                    attachmentUriStringsJson = attachmentJson,
+                                                                )
+                                                            )
+                                                        }
+                                                    },
+                                                )
+                                                prompt = ""
+                                                userPrompt = ""
+                                                selectedImageUriStrings = emptyList()
+                                            } else {
+                                                placeholder = "Setting up a new chat ..."
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(ComposerButtonSize)
+                                            .align(Alignment.Bottom)
+                                            .clip(CircleShape)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(ComposerButtonVisualSize)
+                                                .clip(CircleShape)
+                                                .background(Color.LightGray.copy(alpha = 0.25f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.ArrowUpward,
+                                                contentDescription = "Send Button",
+                                                modifier = Modifier.size(ComposerButtonIconVisualSize)
+                                            )
+                                        }
+                                    }
+
+                                    // 右ボタンを外側へ寄せるための最小余白
+                                    Spacer(modifier = Modifier.width(0.dp))
                                 }
                             }
-
-                            // 右ボタンを外側へ寄せるための最小余白
-                            Spacer(modifier = Modifier.width(0.dp))
-                        }
 
                         if (measuredLines >= 5) {
                             IconButton(
@@ -730,23 +809,6 @@ fun Home(
                             }
                         }
 
-                            DropdownMenu(
-                            expanded = toolsMenuExpanded,
-                            onDismissRequest = { toolsMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Attach image (placeholder)") },
-                                onClick = { toolsMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Paste from clipboard (placeholder)") },
-                                onClick = { toolsMenuExpanded = false }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Settings (placeholder)") },
-                                onClick = { toolsMenuExpanded = false }
-                            )
-                            }
                         }
                     }
                 }
@@ -843,6 +905,35 @@ fun Home(
                         val anchor = computeLatestUserAnchor(messagesForList)
                         // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
                         val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+                        val isNearBottom by remember(listState) {
+                            derivedStateOf {
+                                val layoutInfo = listState.layoutInfo
+                                val totalItems = layoutInfo.totalItemsCount
+                                if (totalItems == 0) {
+                                    true
+                                } else {
+                                    val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                                    lastVisibleIndex >= totalItems - 2
+                                }
+                            }
+                        }
+                        var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
+                        var previousMessageCount by remember(effectiveChatId) { mutableStateOf(-1) }
+                        var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
+                        var suppressFollowOnce by remember(effectiveChatId) { mutableStateOf(false) }
+
+                        LaunchedEffect(effectiveChatId) {
+                            previousMessageCount = messagesForList.size
+                            lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
+                            suppressFollowOnce = true
+                        }
+
+                        LaunchedEffect(listState) {
+                            snapshotFlow { isNearBottom }
+                                .collect { nearBottom ->
+                                    isNearBottomSnapshot = nearBottom
+                                }
+                        }
 
                         LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
                             val currentChatId = effectiveChatId ?: return@LaunchedEffect
@@ -883,25 +974,55 @@ fun Home(
                         }
 
                         LaunchedEffect(effectiveChatId, messagesForList) {
-                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                            try {
+                                val currentChatId = effectiveChatId ?: return@LaunchedEffect
 
-                            val isListForCurrentChat =
-                                messagesForList.isEmpty() ||
-                                    messagesForList.all { it.chatId == currentChatId }
+                                // 初期同期ガード
+                                if (previousMessageCount == -1) {
+                                    previousMessageCount = messagesForList.size
+                                    lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
+                                    return@LaunchedEffect
+                                }
 
-                            if (!isListForCurrentChat) return@LaunchedEffect
-                            if (messagesForList.isEmpty()) return@LaunchedEffect
+                                val isListForCurrentChat =
+                                    messagesForList.isEmpty() ||
+                                        messagesForList.all { it.chatId == currentChatId }
 
-                            if (!topPaddingModeMap.containsKey(currentChatId)) {
-                                val firstIsUser =
-                                    messagesForList.firstOrNull()?.isSendbyMe == true
+                                if (!isListForCurrentChat) return@LaunchedEffect
+                                val currentMessageCount = messagesForList.size
+                                val appended = currentMessageCount > previousMessageCount
+                                val currentAnchor = computeLatestUserAnchor(messagesForList)
+                                val followSuppressedByAnchorUpdate = currentAnchor != lastAppliedAnchor
 
-                                topPaddingModeMap[currentChatId] =
-                                    if (firstIsUser) {
-                                        TopPaddingMode.NewConversation
-                                    } else {
-                                        TopPaddingMode.ExistingConversation
+                                if (followSuppressedByAnchorUpdate) {
+                                    lastAppliedAnchor = currentAnchor
+                                    suppressFollowOnce = true
+                                }
+
+                                if (messagesForList.isNotEmpty()) {
+                                    val lastIndex = messagesForList.lastIndex
+                                    if (appended && isNearBottomSnapshot && !suppressFollowOnce && lastIndex >= 0) {
+                                        listState.scrollToItem(lastIndex)
                                     }
+                                }
+
+                                previousMessageCount = currentMessageCount
+
+                                if (messagesForList.isEmpty()) return@LaunchedEffect
+
+                                if (!topPaddingModeMap.containsKey(currentChatId)) {
+                                    val firstIsUser =
+                                        messagesForList.firstOrNull()?.isSendbyMe == true
+
+                                    topPaddingModeMap[currentChatId] =
+                                        if (firstIsUser) {
+                                            TopPaddingMode.NewConversation
+                                        } else {
+                                            TopPaddingMode.ExistingConversation
+                                        }
+                                }
+                            } finally {
+                                suppressFollowOnce = false
                             }
                         }
                         val mode = topPaddingModeMap[effectiveChatId]
@@ -914,7 +1035,7 @@ fun Home(
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
-                        Column(modifier = contentModifier) {
+                        Box(modifier = contentModifier) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
@@ -941,7 +1062,12 @@ fun Home(
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
                                     ) { _, message ->
                                         if (message.isSendbyMe) {
-                                            ChatBubble(message.message, message.isSendbyMe)
+                                            ChatBubble(
+                                                message = message.message,
+                                                isSentByMe = message.isSendbyMe,
+                                                attachmentUriString = message.attachmentUriString,
+                                                attachmentUriStringsJson = message.attachmentUriStringsJson,
+                                            )
                                         } else {
                                             PlainAssistantMessage(message.message)
                                         }
@@ -950,6 +1076,28 @@ fun Home(
                                 item(key = "composer_spacer") {
                                     // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
                                     Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                }
+                            }
+
+                            if (!isNearBottom && messagesForList.isNotEmpty()) {
+                                SmallFloatingActionButton(
+                                    onClick = {
+                                        val lastIndex = messagesForList.lastIndex
+                                        if (lastIndex >= 0) {
+                                            coroutineScope.launch {
+                                                listState.animateScrollToItem(lastIndex)
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        // 入力欄と下部グラデーションの上に重ねるため、末尾ガターより上へ配置する
+                                        .padding(end = 16.dp, bottom = ComposerMinHeight + ComposerBottomGapHeight + bottomDp + 16.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDownward,
+                                        contentDescription = "最新へ"
+                                    )
                                 }
                             }
                         }
@@ -1013,10 +1161,156 @@ fun Home(
             )
         }
     }
+
+    if (attachSheetOpen) {
+        ModalBottomSheet(
+            onDismissRequest = { attachSheetOpen = false },
+        ) {
+            ListItem(
+                modifier = Modifier.clickable {
+                    attachSheetOpen = false
+                    pickImageLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                headlineContent = { Text("Attach image") },
+            )
+            ListItem(
+                modifier = Modifier.clickable { attachSheetOpen = false },
+                headlineContent = { Text("Paste from clipboard") },
+            )
+            ListItem(
+                modifier = Modifier.clickable { attachSheetOpen = false },
+                headlineContent = { Text("Settings") },
+            )
+        }
+    }
+
+    composerViewerUriString?.let { uriString ->
+        Dialog(onDismissRequest = { composerViewerUriString = null }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.92f))
+            ) {
+                val attachmentUri = remember(uriString) { Uri.parse(uriString) }
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                        }
+                    },
+                    update = { imageView ->
+                        imageView.setImageURI(attachmentUri)
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                IconButton(
+                    onClick = { composerViewerUriString = null },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(12.dp)
+                        .size(40.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "閉じる",
+                        tint = Color.White,
+                    )
+                }
+            }
+        }
+    }
 }
 
 }
+}
 
+@Composable
+private fun AttachmentPreviewRow(
+    uris: List<Uri>,
+    onOpen: (Uri) -> Unit,
+    onRemoveAt: (Int) -> Unit,
+    inComposer: Boolean = false,
+) {
+    val attachmentPreviewSize = 72.dp
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            // 入力欄との視認分離に必要な最小限の余白
+            .padding(
+                horizontal = if (inComposer) 12.dp else 17.dp,
+                // 入力欄内表示時の上側余白を +2dp 調整して縁との距離を確保
+                vertical = if (inComposer) 3.5.dp else 8.dp,
+            ),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        itemsIndexed(uris) { index, uri ->
+            Box(
+                modifier = Modifier
+                    .size(attachmentPreviewSize),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(12.dp),
+                        ),
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply {
+                                scaleType = ImageView.ScaleType.CENTER_CROP
+                            }
+                        },
+                        update = { imageView ->
+                            imageView.setImageURI(uri)
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onOpen(uri) },
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 1.dp, end = 1.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .clickable { onRemoveAt(index) }
+                        .testTag("attachment_remove_$index"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Remove attachment",
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 internal fun filterChatsByTitle(chats: List<Chat>, query: String): List<Chat> {
@@ -1114,3 +1408,7 @@ private fun computeLatestUserAnchor(messages: List<Message>): Int {
         messages.lastIndex
     }
 }
+
+
+private fun List<String>.toAttachmentUriStringsJson(): String =
+    JSONArray().apply { forEach { uri -> put(uri) } }.toString()

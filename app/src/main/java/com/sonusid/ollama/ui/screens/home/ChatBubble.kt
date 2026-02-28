@@ -6,46 +6,81 @@ import android.text.Spannable
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ReplacementSpan
+import android.net.Uri
+import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import org.json.JSONArray
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -53,9 +88,30 @@ import dev.jeziellago.compose.markdowntext.MarkdownText
 fun ChatBubble(
     message: String,
     isSentByMe: Boolean,
+    attachmentUriString: String? = null,
+    attachmentUriStringsJson: String? = null,
+) {
+    val resolvedAttachmentUriStrings = remember(attachmentUriString, attachmentUriStringsJson) {
+        decodeAttachmentUriStrings(attachmentUriStringsJson).ifEmpty { listOfNotNull(attachmentUriString) }
+    }
+    ChatBubble(
+        message = message,
+        isSentByMe = isSentByMe,
+        attachmentUriStrings = resolvedAttachmentUriStrings,
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ChatBubble(
+    message: String,
+    isSentByMe: Boolean,
+    attachmentUriStrings: List<String>,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
+    val attachmentUris = remember(attachmentUriStrings) { attachmentUriStrings.map(Uri::parse) }
+    var selectedAttachmentIndex by remember { mutableStateOf<Int?>(null) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -80,10 +136,374 @@ fun ChatBubble(
                     onClick = {},
                     onLongClick = { clipboardManager.setText(AnnotatedString(message)) })
             ) {
-                MessageSegments(segments = segments)
+                AttachmentGallery(
+                    attachmentUris = attachmentUris,
+                    onAttachmentClick = { index -> selectedAttachmentIndex = index },
+                )
+
+                selectedAttachmentIndex?.let { initialIndex ->
+                    AttachmentFullscreenViewer(
+                        attachmentUris = attachmentUris,
+                        initialIndex = initialIndex,
+                        onDismiss = { selectedAttachmentIndex = null },
+                    )
+                }
+
+                if (message.isNotBlank()) {
+                    MessageSegments(segments = segments)
+                }
             }
         }
     }
+}
+
+@Composable
+private fun AttachmentGallery(
+    attachmentUris: List<Uri>,
+    onAttachmentClick: (Int) -> Unit,
+) {
+    if (attachmentUris.isEmpty()) {
+        return
+    }
+
+    if (attachmentUris.size == 1) {
+        AndroidView(
+            factory = { context ->
+                ImageView(context).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    adjustViewBounds = false
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                }
+            },
+            update = { imageView ->
+                imageView.setImageURI(attachmentUris.first())
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { onAttachmentClick(0) },
+        )
+    } else {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            itemsIndexed(attachmentUris) { index, attachmentUri ->
+                AndroidView(
+                    factory = { context ->
+                        ImageView(context).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            adjustViewBounds = false
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                        }
+                    },
+                    update = { imageView ->
+                        imageView.setImageURI(attachmentUri)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onAttachmentClick(index) },
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AttachmentFullscreenViewer(
+    attachmentUris: List<Uri>,
+    initialIndex: Int,
+    onDismiss: () -> Unit,
+) {
+    if (attachmentUris.isEmpty()) return
+
+    val pagerState = rememberPagerState(
+        initialPage = initialIndex.coerceIn(0, attachmentUris.lastIndex),
+        pageCount = { attachmentUris.size },
+    )
+    val coroutineScope = rememberCoroutineScope()
+    val pageMoveMutex = remember { Mutex() }
+    var isZoomed by remember { mutableStateOf(false) }
+    val repeatInitialDelayMs = 250L
+    val repeatIntervalMs = 20L
+    val overlayButtonSize = 36.dp
+    val overlayButtonAlpha = 0.55f
+    val overlayButtonModifier = Modifier
+        .size(overlayButtonSize)
+        .background(Color.Black.copy(alpha = overlayButtonAlpha), CircleShape)
+
+    suspend fun movePageBy(delta: Int): Boolean {
+        return pageMoveMutex.withLock {
+            val basePage = pagerState.currentPage
+            val targetPage = (basePage + delta).coerceIn(0, attachmentUris.lastIndex)
+            if (targetPage == basePage) return@withLock false
+            try {
+                pagerState.animateScrollToPage(targetPage)
+            } finally {
+                withContext(NonCancellable) {
+                    pagerState.scrollToPage(targetPage)
+                }
+            }
+            true
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        isZoomed = false
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = !isZoomed,
+            ) { page ->
+                ZoomableAttachmentPage(
+                    attachmentUri = attachmentUris[page],
+                    resetToken = pagerState.currentPage,
+                    onZoomChanged = { zoomed ->
+                        if (page == pagerState.currentPage) {
+                            isZoomed = zoomed
+                        }
+                    },
+                )
+            }
+
+            if (pagerState.currentPage > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp)
+                        .then(overlayButtonModifier)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    if (!movePageBy(-1)) return@detectTapGestures
+                                    var keepRepeating = true
+                                    val repeatJob = coroutineScope.launch {
+                                        delay(repeatInitialDelayMs)
+                                        while (keepRepeating && isActive) {
+                                            if (!movePageBy(-1)) break
+                                            if (repeatIntervalMs > 0) {
+                                                delay(repeatIntervalMs)
+                                            }
+                                        }
+                                    }
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        keepRepeating = false
+                                        repeatJob.join()
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "前の画像",
+                        tint = Color.White,
+                    )
+                }
+            }
+
+            if (pagerState.currentPage < attachmentUris.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                        .then(overlayButtonModifier)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onPress = {
+                                    if (!movePageBy(1)) return@detectTapGestures
+                                    var keepRepeating = true
+                                    val repeatJob = coroutineScope.launch {
+                                        delay(repeatInitialDelayMs)
+                                        while (keepRepeating && isActive) {
+                                            if (!movePageBy(1)) break
+                                            if (repeatIntervalMs > 0) {
+                                                delay(repeatIntervalMs)
+                                            }
+                                        }
+                                    }
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        keepRepeating = false
+                                        repeatJob.join()
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "次の画像",
+                        tint = Color.White,
+                    )
+                }
+            }
+
+            Text(
+                text = "${pagerState.currentPage + 1} / ${attachmentUris.size}",
+                color = Color.White.copy(alpha = 0.82f),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 14.dp)
+                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(12.dp)
+                    .then(overlayButtonModifier)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                onDismiss()
+                                tryAwaitRelease()
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "閉じる",
+                    tint = Color.White,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ZoomableAttachmentPage(
+    attachmentUri: Uri,
+    resetToken: Int,
+    onZoomChanged: (Boolean) -> Unit,
+) {
+    var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
+    var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
+
+    LaunchedEffect(attachmentUri, resetToken) {
+        scale = 1f
+        offset = Offset.Zero
+        onZoomChanged(false)
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        val density = LocalDensity.current
+        val containerW = with(density) { maxWidth.toPx() }
+        val containerH = with(density) { maxHeight.toPx() }
+
+        fun clampOffset(raw: Offset, currentScale: Float): Offset {
+            if (currentScale <= 1.01f) return Offset.Zero
+            val maxX = ((containerW * currentScale) - containerW) / 2f
+            val maxY = ((containerH * currentScale) - containerH) / 2f
+            return Offset(
+                x = raw.x.coerceIn(-maxX, maxX),
+                y = raw.y.coerceIn(-maxY, maxY),
+            )
+        }
+
+        val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
+            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
+            scale = if (newScale <= 1.01f) 1f else newScale
+
+            if (scale > 1.01f) {
+                offset = clampOffset(offset + panChange, scale)
+                onZoomChanged(true)
+            } else {
+                offset = Offset.Zero
+                onZoomChanged(false)
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds()
+                .transformable(
+                    state = transformableState,
+                    enabled = scale > 1.01f,
+                )
+                .pointerInput(attachmentUri, resetToken) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (scale > 1f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                                onZoomChanged(false)
+                            } else {
+                                scale = 2f
+                                offset = Offset.Zero
+                                onZoomChanged(true)
+                            }
+                        },
+                    )
+                }
+        ) {
+            AndroidView(
+                factory = { context ->
+                    ImageView(context).apply {
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        adjustViewBounds = true
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                    }
+                },
+                update = { imageView -> imageView.setImageURI(attachmentUri) },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    }
+            )
+        }
+    }
+}
+
+private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<String> {
+    if (attachmentUriStringsJson.isNullOrBlank()) return emptyList()
+    return runCatching {
+        val jsonArray = JSONArray(attachmentUriStringsJson)
+        List(jsonArray.length()) { index -> jsonArray.optString(index) }
+            .filter { it.isNotBlank() }
+    }.getOrDefault(emptyList())
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -324,13 +744,12 @@ private fun CodeBlockCard(
                     )
                 }
             }
-            IconButton(
-                onClick = { clipboardManager.setText(AnnotatedString(code)) },
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 18.dp, y = (-18).dp)
-                    .minimumInteractiveComponentSize()
                     .padding(0.dp)
+                    .clickable { clipboardManager.setText(AnnotatedString(code)) }
             ) {
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
