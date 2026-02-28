@@ -452,6 +452,17 @@ private fun ZoomableAttachmentPage(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (scale > 1.01f) {
+                                scale = 1f
+                                offset = Offset.Zero
+                                onZoomChanged(false)
+                            }
+                        }
+                    )
+                }
                 .transformable(
                     state = transformableState,
                 )
