@@ -2,21 +2,22 @@ package com.sonusid.ollama.ui.screens.home
 
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.net.Uri
 import android.text.Spannable
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ReplacementSpan
-import android.net.Uri
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -54,6 +55,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
@@ -81,6 +84,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
+import kotlin.math.hypot
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -411,19 +416,40 @@ private fun ZoomableAttachmentPage(
 ) {
     var scale by remember(attachmentUri, resetToken) { mutableFloatStateOf(1f) }
     var offset by remember(attachmentUri, resetToken) { mutableStateOf(Offset.Zero) }
+    var anchorScreen by remember(attachmentUri, resetToken) { mutableStateOf<Offset?>(null) }
+    var anchorContent by remember(attachmentUri, resetToken) { mutableStateOf<Offset?>(null) }
+
+    fun resetZoomIfNeeded() {
+        if (scale > 1.01f) {
+            scale = 1f
+            offset = Offset.Zero
+            anchorScreen = null
+            anchorContent = null
+            onZoomChanged(false)
+        }
+    }
 
     LaunchedEffect(attachmentUri, resetToken) {
         scale = 1f
         offset = Offset.Zero
+        anchorScreen = null
+        anchorContent = null
         onZoomChanged(false)
     }
 
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(resetToken) {
+                detectTapGestures(
+                    onDoubleTap = { resetZoomIfNeeded() }
+                )
+            }
     ) {
         val density = LocalDensity.current
         val containerW = with(density) { maxWidth.toPx() }
         val containerH = with(density) { maxHeight.toPx() }
+        val centerScreen = Offset(containerW / 2f, containerH / 2f)
 
         fun clampOffset(raw: Offset, currentScale: Float): Offset {
             if (currentScale <= 1.01f) return Offset.Zero
@@ -435,42 +461,10 @@ private fun ZoomableAttachmentPage(
             )
         }
 
-        val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
-            val newScale = (scale * zoomChange).coerceIn(1f, 5f)
-            scale = if (newScale <= 1.01f) 1f else newScale
-
-            if (scale > 1.01f) {
-                offset = clampOffset(offset + panChange, scale)
-                onZoomChanged(true)
-            } else {
-                offset = Offset.Zero
-                onZoomChanged(false)
-            }
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .transformable(
-                    state = transformableState,
-                    enabled = scale > 1.01f,
-                )
-                .pointerInput(attachmentUri, resetToken) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            if (scale > 1f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                                onZoomChanged(false)
-                            } else {
-                                scale = 2f
-                                offset = Offset.Zero
-                                onZoomChanged(true)
-                            }
-                        },
-                    )
-                }
         ) {
             AndroidView(
                 factory = { context ->
@@ -485,6 +479,125 @@ private fun ZoomableAttachmentPage(
                 },
                 update = { imageView -> imageView.setImageURI(attachmentUri) },
                 modifier = Modifier
+                    .pointerInput(attachmentUri, resetToken) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(pass = PointerEventPass.Main)
+                            if (scale <= 1.01f) return@awaitEachGesture
+
+                            var pointerId = down.id
+                            var lastPosition = down.position
+
+                            val drag = awaitTouchSlopOrCancellation(pointerId) { change, over ->
+                                if (over != Offset.Zero) {
+                                    offset = clampOffset(offset + over, scale)
+                                }
+                                lastPosition = change.position
+                                change.consume()
+                            }
+
+                            if (drag == null) return@awaitEachGesture
+
+                            pointerId = drag.id
+                            lastPosition = drag.position
+
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val pressedCount = event.changes.count { it.pressed }
+                                if (pressedCount >= 2) break
+
+                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                if (!change.pressed) break
+
+                                val delta = change.position - lastPosition
+                                if (delta != Offset.Zero) {
+                                    offset = clampOffset(offset + delta, scale)
+                                }
+                                lastPosition = change.position
+                                change.consume()
+                            }
+                        }
+                    }
+                    .pointerInput(attachmentUri, resetToken) {
+                        awaitEachGesture {
+                            var prevPos1: Offset
+                            var prevPos2: Offset
+                            var pointerId1: PointerId
+                            var pointerId2: PointerId
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val pressedChanges = event.changes.filter { it.pressed }
+                                if (pressedChanges.size < 2) {
+                                    if (pressedChanges.isEmpty()) return@awaitEachGesture
+                                    continue
+                                }
+
+                                val firstChange = pressedChanges[0]
+                                val secondChange = pressedChanges[1]
+                                pointerId1 = firstChange.id
+                                pointerId2 = secondChange.id
+                                prevPos1 = firstChange.position
+                                prevPos2 = secondChange.position
+                                val anchorS = centerScreen + offset
+                                anchorScreen = anchorS
+                                anchorContent = (anchorS - (centerScreen + offset)) / scale
+                                event.changes.forEach { it.consume() }
+                                break
+                            }
+
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val firstChange = event.changes.firstOrNull { it.id == pointerId1 }
+                                if (firstChange == null) {
+                                    anchorScreen = null
+                                    anchorContent = null
+                                    break
+                                }
+                                val secondChange = event.changes.firstOrNull { it.id == pointerId2 }
+                                if (secondChange == null) {
+                                    anchorScreen = null
+                                    anchorContent = null
+                                    break
+                                }
+
+                                if (!firstChange.pressed || !secondChange.pressed) {
+                                    anchorScreen = null
+                                    anchorContent = null
+                                    event.changes.forEach { it.consume() }
+                                    break
+                                }
+
+                                val currPos1 = firstChange.position
+                                val currPos2 = secondChange.position
+                                val prevDist = hypot(
+                                    (prevPos1.x - prevPos2.x).toDouble(),
+                                    (prevPos1.y - prevPos2.y).toDouble(),
+                                ).toFloat()
+                                val currDist = hypot(
+                                    (currPos1.x - currPos2.x).toDouble(),
+                                    (currPos1.y - currPos2.y).toDouble(),
+                                ).toFloat()
+                                val zoomFactor = if (prevDist > 0f) currDist / prevDist else 1f
+
+                                val oldScale = scale
+                                val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
+                                if (newScale <= 1.005f) {
+                                    scale = 1f
+                                    offset = Offset.Zero
+                                    anchorScreen = null
+                                    anchorContent = null
+                                    onZoomChanged(false)
+                                } else {
+                                    offset = clampOffset(offset, newScale)
+                                    scale = newScale
+                                    onZoomChanged(true)
+                                }
+
+                                prevPos1 = currPos1
+                                prevPos2 = currPos2
+                                event.changes.forEach { it.consume() }
+                            }
+                        }
+                    }
                     .fillMaxSize()
                     .graphicsLayer {
                         scaleX = scale

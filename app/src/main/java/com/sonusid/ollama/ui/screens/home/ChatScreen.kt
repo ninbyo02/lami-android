@@ -1236,8 +1236,35 @@ private fun AttachmentPreviewRow(
     inComposer: Boolean = false,
 ) {
     val attachmentPreviewSize = 72.dp
+    val edgeFadeWidth = 12.dp
+    val epsilonPx = 2
+    val listState = rememberLazyListState()
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val showLeftFade by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+        }
+    }
+    val showRightFade by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            val totalItemsCount = layoutInfo.totalItemsCount
+            val lastVisibleIndex = visibleItems.lastOrNull()?.index ?: -1
+            val lastVisibleItem = visibleItems.lastOrNull()
 
-    LazyRow(
+            totalItemsCount > 0 && (
+                lastVisibleIndex < totalItemsCount - 1 ||
+                    (
+                        lastVisibleItem != null &&
+                            (lastVisibleItem.offset + lastVisibleItem.size) >
+                            (layoutInfo.viewportEndOffset + epsilonPx)
+                        )
+                )
+        }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             // 入力欄との視認分離に必要な最小限の余白
@@ -1246,69 +1273,108 @@ private fun AttachmentPreviewRow(
                 // 入力欄内表示時の上側余白を +2dp 調整して縁との距離を確保
                 vertical = if (inComposer) 3.5.dp else 8.dp,
             ),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        itemsIndexed(uris) { index, uri ->
-            Box(
-                modifier = Modifier
-                    .size(attachmentPreviewSize),
-            ) {
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            itemsIndexed(uris) { index, uri ->
                 Box(
                     modifier = Modifier
-                        .matchParentSize()
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = RoundedCornerShape(12.dp),
-                        ),
-                ) {
-                    AndroidView(
-                        factory = { context ->
-                            ImageView(context).apply {
-                                scaleType = ImageView.ScaleType.CENTER_CROP
-                            }
-                        },
-                        update = { imageView ->
-                            imageView.setImageURI(uri)
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { onOpen(uri) },
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 1.dp, end = 1.dp)
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .clickable { onRemoveAt(index) }
-                        .testTag("attachment_remove_$index"),
-                    contentAlignment = Alignment.Center,
+                        .size(attachmentPreviewSize),
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(12.dp))
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.outlineVariant,
-                                shape = CircleShape,
+                                shape = RoundedCornerShape(12.dp),
                             ),
+                    ) {
+                        AndroidView(
+                            factory = { context ->
+                                ImageView(context).apply {
+                                    scaleType = ImageView.ScaleType.CENTER_CROP
+                                }
+                            },
+                            update = { imageView ->
+                                imageView.setImageURI(uri)
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { onOpen(uri) },
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 1.dp, end = 1.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable { onRemoveAt(index) }
+                            .testTag("attachment_remove_$index"),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Remove attachment",
-                            modifier = Modifier.size(14.dp),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Remove attachment",
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
                     }
                 }
             }
+        }
+
+        if (showLeftFade) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .height(attachmentPreviewSize)
+                    .width(edgeFadeWidth)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                surfaceColor.copy(alpha = 1f),
+                                surfaceColor.copy(alpha = 0f),
+                            ),
+                        ),
+                    ),
+            )
+        }
+
+        if (showRightFade) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .height(attachmentPreviewSize)
+                    .width(edgeFadeWidth)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                surfaceColor.copy(alpha = 0f),
+                                surfaceColor.copy(alpha = 1f),
+                            ),
+                        ),
+                    ),
+            )
         }
     }
 }
