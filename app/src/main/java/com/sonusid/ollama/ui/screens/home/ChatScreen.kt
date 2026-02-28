@@ -1191,14 +1191,20 @@ fun Home(
     }
 
     composerViewerUris?.let { attachmentUris ->
-        AttachmentFullscreenViewer(
-            attachmentUris = attachmentUris,
-            initialIndex = composerViewerInitialIndex,
-            onDismiss = {
-                composerViewerUris = null
-                composerViewerInitialIndex = 0
-            },
-        )
+        if (attachmentUris.isEmpty()) {
+            composerViewerUris = null
+            composerViewerInitialIndex = 0
+        } else {
+            val safeIndex = composerViewerInitialIndex.coerceIn(0, (attachmentUris.lastIndex).coerceAtLeast(0))
+            AttachmentFullscreenViewer(
+                attachmentUris = attachmentUris,
+                initialIndex = safeIndex,
+                onDismiss = {
+                    composerViewerUris = null
+                    composerViewerInitialIndex = 0
+                },
+            )
+        }
     }
 }
 
