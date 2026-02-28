@@ -16,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
@@ -463,8 +464,29 @@ private fun ZoomableAttachmentPage(
                         }
                     )
                 }
+                .pointerInput(attachmentUri, resetToken) {
+                    detectTransformGestures { centroid, pan, zoom, _ ->
+                        if (zoom != 1f) {
+                            val oldScale = scale
+                            val newScale = (oldScale * zoom).coerceIn(1f, 5f)
+                            val zoomFactor = newScale / oldScale
+                            val nextOffset = offset + pan + (centroid - offset) * (1f - zoomFactor)
+
+                            offset = clampOffset(nextOffset, newScale)
+                            scale = if (newScale <= 1.01f) 1f else newScale
+
+                            if (scale > 1.01f) {
+                                onZoomChanged(true)
+                            } else {
+                                offset = Offset.Zero
+                                onZoomChanged(false)
+                            }
+                        }
+                    }
+                }
                 .transformable(
                     state = transformableState,
+                    enabled = scale > 1.01f,
                 )
         ) {
             AndroidView(
