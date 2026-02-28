@@ -61,9 +61,6 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.input.pointer.awaitPointerEvent
-import androidx.compose.ui.input.pointer.awaitPointerEventScope
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.PlatformTextStyle
@@ -87,7 +84,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -471,40 +467,35 @@ private fun ZoomableAttachmentPage(
                     )
                 }
                 .pointerInput(attachmentUri, resetToken) {
+                    val epsilon = 0.002f
                     awaitEachGesture {
                         awaitPointerEventScope {
                             var event = awaitPointerEvent()
 
+                            // 2本指になるまで待つ（1本指はPagerに任せるので消費しない）
                             while (event.changes.count { it.pressed } < 2) {
-                                if (event.changes.all { !it.pressed }) {
-                                    return@awaitPointerEventScope
-                                }
+                                if (event.changes.all { !it.pressed }) return@awaitPointerEventScope
                                 event = awaitPointerEvent()
                             }
 
+                            // 2本指ピンチ中だけ処理
                             do {
                                 event = awaitPointerEvent()
 
-                                val zoom = event.changes.calculateZoom()
-                                if (abs(zoom - 1f) > 0.002f) {
-                                    val centroid =
-                                        event.changes.calculateCentroid(useCurrent = true)
+                                val zoom = event.calculateZoom()
+                                val zooming = kotlin.math.abs(zoom - 1f) > epsilon
+                                if (zooming) {
+                                    val centroid = event.calculateCentroid(useCurrent = true)
 
                                     val oldScale = scale
-                                    val newScale =
-                                        (oldScale * zoom).coerceIn(1f, 5f)
-
+                                    val newScale = (oldScale * zoom).coerceIn(1f, 5f)
                                     val zoomFactor = newScale / oldScale
 
-                                    val nextOffset =
-                                        offset + (centroid - offset) *
-                                            (1f - zoomFactor)
+                                    // pan は混ぜない（支点補正のみ）
+                                    val nextOffset = offset + (centroid - offset) * (1f - zoomFactor)
 
                                     offset = clampOffset(nextOffset, newScale)
-
-                                    scale =
-                                        if (newScale <= 1.01f) 1f
-                                        else newScale
+                                    scale = if (newScale <= 1.01f) 1f else newScale
 
                                     if (scale > 1.01f) {
                                         onZoomChanged(true)
@@ -513,7 +504,8 @@ private fun ZoomableAttachmentPage(
                                         onZoomChanged(false)
                                     }
 
-                                    event.changes.forEach { it.consume() }
+                                    // ズームが発生したフレームのみ消費（Pagerへの横スワイプ干渉を最小化）
+                                    event.changes.forEach { it.consumeAllChanges() }
                                 }
                             } while (event.changes.any { it.pressed })
                         }
