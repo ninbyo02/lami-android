@@ -488,19 +488,13 @@ private fun ZoomableAttachmentPage(
                             }
 
                             MotionEvent.ACTION_POINTER_DOWN -> {
-                                if (event.pointerCount >= 2) {
-                                    activePointerId1 = event.getPointerId(0)
-                                    activePointerId2 = event.getPointerId(1)
-                                    val i1 = event.findPointerIndex(activePointerId1)
-                                    val i2 = event.findPointerIndex(activePointerId2)
-                                    if (i1 < 0 || i2 < 0) {
-                                        isTwoFingerGestureActive = false
-                                        activePointerId1 = -1
-                                        activePointerId2 = -1
-                                        return@pointerInteropFilter false
-                                    }
-                                    prevPointer1 = Offset(event.getX(i1), event.getY(i1))
-                                    prevPointer2 = Offset(event.getX(i2), event.getY(i2))
+                                val idxNew = event.actionIndex
+                                val idxOld = if (idxNew == 0) 1 else 0
+                                if (event.pointerCount >= 2 && idxOld < event.pointerCount) {
+                                    activePointerId1 = event.getPointerId(idxOld)
+                                    activePointerId2 = event.getPointerId(idxNew)
+                                    prevPointer1 = Offset(event.getX(idxOld), event.getY(idxOld))
+                                    prevPointer2 = Offset(event.getX(idxNew), event.getY(idxNew))
                                     isTwoFingerGestureActive = true
                                     true
                                 } else {
