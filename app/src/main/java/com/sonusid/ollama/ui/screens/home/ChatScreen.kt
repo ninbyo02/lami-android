@@ -189,7 +189,7 @@ fun Home(
     val context = LocalContext.current
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var composerViewerUris by remember { mutableStateOf<List<Uri>?>(null) }
-    var composerViewerInitialIndex by remember { mutableIntStateOf(0) }
+    var composerViewerInitialIndex by remember { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
