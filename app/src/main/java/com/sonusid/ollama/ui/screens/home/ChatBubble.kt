@@ -82,6 +82,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.hypot
 
 
@@ -530,6 +531,7 @@ private fun ZoomableAttachmentPage(
                                     (currPos1.y - currPos2.y).toDouble(),
                                 ).toFloat()
                                 val zoomFactor = if (prevDist > 0f) currDist / prevDist else 1f
+                                val epsZoom = 0.002f
 
                                 val oldScale = scale
                                 val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
@@ -540,20 +542,27 @@ private fun ZoomableAttachmentPage(
                                     anchorContent = null
                                     onZoomChanged(false)
                                 } else {
-                                    val zoom = newScale / oldScale
-                                    val shiftedOffset = offset + pan
-                                    val anchorS = anchorScreen
-                                    val contentA = anchorContent
-                                    val anchor = anchorS ?: currCentroid
-                                    val nextOffsetFromAnchor = contentA?.let {
-                                        anchor - it * newScale
-                                    }
-                                    val nextOffset = if (nextOffsetFromAnchor != null) {
-                                        nextOffsetFromAnchor + (shiftedOffset - offset)
+                                    val nextOffset = if (abs(zoomFactor - 1f) < epsZoom) {
+                                        clampOffset(offset + pan, oldScale)
                                     } else {
-                                        shiftedOffset + (anchor - shiftedOffset) * (1f - zoom)
+                                        val zoom = newScale / oldScale
+                                        val shiftedOffset = offset + pan
+                                        val anchorS = anchorScreen
+                                        val contentA = anchorContent
+                                        val anchor = anchorS ?: currCentroid
+                                        val nextOffsetFromAnchor = contentA?.let {
+                                            anchor - it * newScale
+                                        }
+                                        if (nextOffsetFromAnchor != null) {
+                                            clampOffset(nextOffsetFromAnchor + pan, newScale)
+                                        } else {
+                                            clampOffset(
+                                                shiftedOffset + (anchor - shiftedOffset) * (1f - zoom),
+                                                newScale,
+                                            )
+                                        }
                                     }
-                                    offset = clampOffset(nextOffset, newScale)
+                                    offset = nextOffset
                                     scale = newScale
                                     onZoomChanged(true)
                                 }
