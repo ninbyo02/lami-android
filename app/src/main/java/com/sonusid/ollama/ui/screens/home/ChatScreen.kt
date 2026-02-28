@@ -1351,10 +1351,9 @@ private fun AttachmentPreviewRow(
                     .width(edgeFadeWidth)
                     .background(
                         brush = Brush.horizontalGradient(
-                            colorStops = arrayOf(
-                                0.0f to surfaceColor.copy(alpha = 0.65f),
-                                0.6f to surfaceColor.copy(alpha = 0.25f),
-                                1.0f to surfaceColor.copy(alpha = 0f),
+                            colors = listOf(
+                                surfaceColor.copy(alpha = 1f),
+                                surfaceColor.copy(alpha = 0f),
                             ),
                         ),
                     ),
@@ -1369,10 +1368,9 @@ private fun AttachmentPreviewRow(
                     .width(edgeFadeWidth)
                     .background(
                         brush = Brush.horizontalGradient(
-                            colorStops = arrayOf(
-                                0.0f to surfaceColor.copy(alpha = 0f),
-                                0.4f to surfaceColor.copy(alpha = 0.25f),
-                                1.0f to surfaceColor.copy(alpha = 0.65f),
+                            colors = listOf(
+                                surfaceColor.copy(alpha = 0f),
+                                surfaceColor.copy(alpha = 1f),
                             ),
                         ),
                     ),
