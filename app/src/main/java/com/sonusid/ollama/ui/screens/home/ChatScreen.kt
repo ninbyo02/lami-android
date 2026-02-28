@@ -18,7 +18,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1247,10 +1246,19 @@ private fun AttachmentPreviewRow(
     }
     val showRightFade by remember {
         derivedStateOf {
-            val visibleItems = listState.layoutInfo.visibleItemsInfo
-            val totalItemsCount = listState.layoutInfo.totalItemsCount
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            val totalItemsCount = layoutInfo.totalItemsCount
             val lastVisibleIndex = visibleItems.lastOrNull()?.index ?: -1
-            totalItemsCount > 0 && lastVisibleIndex < totalItemsCount - 1
+            val lastVisibleItem = visibleItems.lastOrNull()
+
+            totalItemsCount > 0 && (
+                lastVisibleIndex < totalItemsCount - 1 ||
+                    (
+                        lastVisibleItem != null &&
+                            (lastVisibleItem.offset + lastVisibleItem.size) > layoutInfo.viewportEndOffset
+                        )
+                )
         }
     }
 
@@ -1337,7 +1345,7 @@ private fun AttachmentPreviewRow(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .fillMaxHeight()
+                    .height(attachmentPreviewSize)
                     .width(edgeFadeWidth)
                     .background(
                         brush = Brush.horizontalGradient(
@@ -1354,7 +1362,7 @@ private fun AttachmentPreviewRow(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
+                    .height(attachmentPreviewSize)
                     .width(edgeFadeWidth)
                     .background(
                         brush = Brush.horizontalGradient(
