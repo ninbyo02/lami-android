@@ -443,6 +443,9 @@ private fun ZoomableAttachmentPage(
         val density = LocalDensity.current
         val containerW = with(density) { maxWidth.toPx() }
         val containerH = with(density) { maxHeight.toPx() }
+        // centerScreen は表示領域（BoxWithConstraints）の中心座標。
+        // PointerInput の position と同一のローカル座標系（画面内）で扱う。
+        val centerScreen = Offset(containerW / 2f, containerH / 2f)
 
         fun clampOffset(raw: Offset, currentScale: Float): Offset {
             if (currentScale <= ZOOM_EPS) return Offset.Zero
@@ -516,6 +519,7 @@ private fun ZoomableAttachmentPage(
                             var prevPos2: Offset
                             var pointerId1: PointerId
                             var pointerId2: PointerId
+                            var anchorStart = Offset.Zero
                             while (true) {
                                 val event = awaitPointerEvent(pass = PointerEventPass.Main)
                                 val pressedChanges = event.changes.filter { it.pressed }
@@ -530,6 +534,10 @@ private fun ZoomableAttachmentPage(
                                 pointerId2 = secondChange.id
                                 prevPos1 = firstChange.position
                                 prevPos2 = secondChange.position
+                                // anchorStart はピンチ開始時の2本指の中心。
+                                // screen座標系（centerScreenと同じ座標系）で保持し、
+                                // ズーム中はこの位置を拡大中心として固定する。
+                                anchorStart = (prevPos1 + prevPos2) / 2f
                                 event.changes.forEach { it.consume() }
                                 break
                             }
@@ -569,7 +577,13 @@ private fun ZoomableAttachmentPage(
                                     offset = Offset.Zero
                                     onZoomChanged(false)
                                 } else {
-                                    offset = clampOffset(offset, newScale)
+                                    val zoom = newScale / oldScale
+                                    // anchorRel は表示中心(centerScreen)基準の相対位置。
+                                    // offset をこの相対位置に追従させることで、
+                                    // ピンチ開始地点を中心にズームする。
+                                    val anchorRel = anchorStart - centerScreen
+                                    val nextOffset = offset + (anchorRel - offset) * (1f - zoom)
+                                    offset = clampOffset(nextOffset, newScale)
                                     scale = newScale
                                     onZoomChanged(true)
                                 }
