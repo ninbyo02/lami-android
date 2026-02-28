@@ -188,7 +188,8 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
-    var composerViewerUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    var composerViewerUris by remember { mutableStateOf<List<Uri>?>(null) }
+    var composerViewerInitialIndex by remember { mutableIntStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
@@ -633,7 +634,10 @@ fun Home(
                                 if (selectedImageUris.isNotEmpty()) {
                                     AttachmentPreviewRow(
                                         uris = selectedImageUris,
-                                        onOpen = { uri -> composerViewerUriString = uri.toString() },
+                                        onOpen = { index ->
+                                            composerViewerUris = selectedImageUris.toList()
+                                            composerViewerInitialIndex = index
+                                        },
                                         onRemoveAt = { removeIndex ->
                                             selectedImageUriStrings = selectedImageUriStrings.filterIndexed { index, _ ->
                                                 index != removeIndex
@@ -1186,12 +1190,14 @@ fun Home(
         }
     }
 
-    composerViewerUriString?.let { uriString ->
-        val attachmentUri = remember(uriString) { Uri.parse(uriString) }
+    composerViewerUris?.let { attachmentUris ->
         AttachmentFullscreenViewer(
-            attachmentUris = listOf(attachmentUri),
-            initialIndex = 0,
-            onDismiss = { composerViewerUriString = null },
+            attachmentUris = attachmentUris,
+            initialIndex = composerViewerInitialIndex,
+            onDismiss = {
+                composerViewerUris = null
+                composerViewerInitialIndex = 0
+            },
         )
     }
 }
@@ -1202,7 +1208,7 @@ fun Home(
 @Composable
 private fun AttachmentPreviewRow(
     uris: List<Uri>,
-    onOpen: (Uri) -> Unit,
+    onOpen: (Int) -> Unit,
     onRemoveAt: (Int) -> Unit,
     inComposer: Boolean = false,
 ) {
@@ -1277,7 +1283,7 @@ private fun AttachmentPreviewRow(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onOpen(uri) },
+                                .clickable { onOpen(index) },
                         )
                     }
 
