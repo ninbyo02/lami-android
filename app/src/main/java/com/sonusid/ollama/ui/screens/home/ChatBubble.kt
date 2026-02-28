@@ -447,6 +447,7 @@ private fun ZoomableAttachmentPage(
         val density = LocalDensity.current
         val containerW = with(density) { maxWidth.toPx() }
         val containerH = with(density) { maxHeight.toPx() }
+        val centerScreen = Offset(containerW / 2f, containerH / 2f)
 
         fun clampOffset(raw: Offset, currentScale: Float): Offset {
             if (currentScale <= 1.01f) return Offset.Zero
@@ -496,7 +497,7 @@ private fun ZoomableAttachmentPage(
                                 pointerId2 = secondChange.id
                                 prevPos1 = firstChange.position
                                 prevPos2 = secondChange.position
-                                val anchorS = (prevPos1 + prevPos2) / 2f
+                                val anchorS = centerScreen
                                 anchorScreen = anchorS
                                 anchorContent = (anchorS - offset) / scale
                                 event.changes.forEach { it.consume() }
