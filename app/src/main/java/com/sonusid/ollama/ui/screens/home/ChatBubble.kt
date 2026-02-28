@@ -418,7 +418,19 @@ private fun ZoomableAttachmentPage(
     }
 
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(resetToken) {
+                detectTapGestures(
+                    onDoubleTap = {
+                        if (scale > 1.01f) {
+                            scale = 1f
+                            offset = Offset.Zero
+                            onZoomChanged(false)
+                        }
+                    }
+                )
+            }
     ) {
         val density = LocalDensity.current
         val containerW = with(density) { maxWidth.toPx() }
@@ -438,19 +450,10 @@ private fun ZoomableAttachmentPage(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            if (scale > 1.01f) {
-                                scale = 1f
-                                offset = Offset.Zero
-                                onZoomChanged(false)
-                            }
-                        }
-                    )
-                }
                 .pointerInput(attachmentUri, resetToken) {
                     detectTransformGestures { centroid, pan, zoom, _ ->
+                        if (zoom == 1f) return@detectTransformGestures
+
                         val oldScale = scale
                         val newScale = (oldScale * zoom).coerceIn(1f, 5f)
 
