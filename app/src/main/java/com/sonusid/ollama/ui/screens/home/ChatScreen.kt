@@ -1237,6 +1237,7 @@ private fun AttachmentPreviewRow(
 ) {
     val attachmentPreviewSize = 72.dp
     val edgeFadeWidth = 12.dp
+    val epsilonPx = 2
     val listState = rememberLazyListState()
     val surfaceColor = MaterialTheme.colorScheme.surface
     val showLeftFade by remember {
@@ -1256,7 +1257,8 @@ private fun AttachmentPreviewRow(
                 lastVisibleIndex < totalItemsCount - 1 ||
                     (
                         lastVisibleItem != null &&
-                            (lastVisibleItem.offset + lastVisibleItem.size) > layoutInfo.viewportEndOffset
+                            (lastVisibleItem.offset + lastVisibleItem.size) >
+                            (layoutInfo.viewportEndOffset + epsilonPx)
                         )
                 )
         }
@@ -1349,9 +1351,10 @@ private fun AttachmentPreviewRow(
                     .width(edgeFadeWidth)
                     .background(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                surfaceColor.copy(alpha = 0.85f),
-                                surfaceColor.copy(alpha = 0f),
+                            colorStops = arrayOf(
+                                0.0f to surfaceColor.copy(alpha = 0.65f),
+                                0.6f to surfaceColor.copy(alpha = 0.25f),
+                                1.0f to surfaceColor.copy(alpha = 0f),
                             ),
                         ),
                     ),
@@ -1366,9 +1369,10 @@ private fun AttachmentPreviewRow(
                     .width(edgeFadeWidth)
                     .background(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                surfaceColor.copy(alpha = 0f),
-                                surfaceColor.copy(alpha = 0.85f),
+                            colorStops = arrayOf(
+                                0.0f to surfaceColor.copy(alpha = 0f),
+                                0.4f to surfaceColor.copy(alpha = 0.25f),
+                                1.0f to surfaceColor.copy(alpha = 0.65f),
                             ),
                         ),
                     ),
