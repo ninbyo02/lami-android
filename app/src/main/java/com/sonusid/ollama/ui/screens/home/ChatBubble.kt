@@ -16,7 +16,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -59,9 +58,6 @@ import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.input.pointer.awaitPointerEvent
-import androidx.compose.ui.input.pointer.awaitPointerEventScope
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.text.AnnotatedString
@@ -481,72 +477,6 @@ private fun ZoomableAttachmentPage(
                 modifier = Modifier
                     .pointerInput(resetToken) {
                         detectTapGestures(onDoubleTap = { resetZoomIfNeeded() })
-                    }
-                    .pointerInput(attachmentUri, resetToken) {
-                        awaitEachGesture {
-                            awaitPointerEventScope {
-                                var prevCentroid: Offset? = null
-                                var prevDistance: Float? = null
-
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val pressedChanges = event.changes.filter { it.pressed }
-
-                                    if (pressedChanges.isEmpty()) break
-
-                                    if (pressedChanges.size < 2) {
-                                        // 1本指操作は consume せず、Pager スワイプに委譲する。
-                                        prevCentroid = null
-                                        prevDistance = null
-                                        continue
-                                    }
-
-                                    // 安定性優先で最初の2点のみを使ってピンチ計算する。
-                                    val p1 = pressedChanges[0].position
-                                    val p2 = pressedChanges[1].position
-                                    val centroid = (p1 + p2) / 2f
-                                    val dx = p1.x - p2.x
-                                    val dy = p1.y - p2.y
-                                    val distance = hypot(dx.toDouble(), dy.toDouble()).toFloat()
-
-                                    if (prevCentroid == null || prevDistance == null) {
-                                        prevCentroid = centroid
-                                        prevDistance = distance
-                                        event.changes.forEach { it.consume() }
-                                        continue
-                                    }
-
-                                    val pan = centroid - prevCentroid
-                                    val zoomFactor = if (prevDistance > 0f) {
-                                        distance / prevDistance
-                                    } else {
-                                        1f
-                                    }
-
-                                    val oldScale = scale
-                                    val newScale = (oldScale * zoomFactor).coerceIn(1f, 5f)
-
-                                    if (newScale <= 1.01f) {
-                                        scale = 1f
-                                        offset = Offset.Zero
-                                        onZoomChanged(false)
-                                    } else {
-                                        val zoom = newScale / oldScale
-                                        val shiftedOffset = offset + pan
-                                        val nextOffset = shiftedOffset + (centroid - shiftedOffset) * (1f - zoom)
-                                        offset = clampOffset(nextOffset, newScale)
-                                        scale = newScale
-                                        onZoomChanged(true)
-                                    }
-
-                                    prevCentroid = centroid
-                                    prevDistance = distance
-
-                                    // 2本指中は compose 側で確実に処理するため consume する。
-                                    event.changes.forEach { it.consume() }
-                                }
-                            }
-                        }
                     }
                     .pointerInteropFilter { event ->
                         when (event.actionMasked) {
