@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -477,6 +478,29 @@ private fun ZoomableAttachmentPage(
                 },
                 update = { imageView -> imageView.setImageURI(attachmentUri) },
                 modifier = Modifier
+                    .pointerInput(attachmentUri, resetToken) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(pass = PointerEventPass.Main)
+                            if (scale <= 1.01f) return@awaitEachGesture
+
+                            var pointerId = down.id
+                            var lastPosition = down.position
+                            down.consume()
+
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Main)
+                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                if (!change.pressed) break
+
+                                val delta = change.position - lastPosition
+                                if (delta != Offset.Zero) {
+                                    offset = clampOffset(offset + delta, scale)
+                                }
+                                lastPosition = change.position
+                                change.consume()
+                            }
+                        }
+                    }
                     .pointerInput(attachmentUri, resetToken) {
                         awaitEachGesture {
                             var prevPos1: Offset
