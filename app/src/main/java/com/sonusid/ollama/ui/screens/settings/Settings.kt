@@ -292,13 +292,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                // Scaffold の描画領域（TopAppBar 下）に座標系を統一する
+                .padding(paddingValues)
         ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    // 上下左右の余白を反映するための padding
-                    .padding(paddingValues)
                     // 下: IME とナビゲーションバーの差分だけを適用し、キーボードとの隙間をなくす
                     .padding(bottom = bottomDp),
                 // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
@@ -752,7 +752,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 show = showBottomFade,
                 bg = scaffoldBg,
                 height = fadeHeight,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    // 下: IME 表示時にフェードがキーボードに隠れないよう最小限だけ持ち上げる
+                    .padding(bottom = bottomDp)
+                    .zIndex(1f),
                 label = "settingsBottomFade",
             )
         }
