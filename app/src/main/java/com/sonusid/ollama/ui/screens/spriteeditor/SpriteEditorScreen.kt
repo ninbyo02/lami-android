@@ -1675,12 +1675,23 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            BoxWithConstraints(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                val sideDp = min(maxHeight, maxWidth)
+                                Box(
+                                    modifier = Modifier
+                                        .size(sideDp)
+                                        .align(Alignment.Center),
+                                ) {
+                                    previewContent()
+                                }
+                            }
                             Column(
                                 modifier = Modifier.weight(1f),
                                 // [dp] 縦: 右カラムの間隔(間隔)に関係
                                 verticalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
-                                previewContent()
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
