@@ -5385,14 +5385,18 @@ private fun ReadyAnimationTab(
                     // [非dp] 縦: 左カラム の fillMaxHeight(制約)に関係
                     .fillMaxHeight()
             ) {
-                val sideDp = minOf(maxWidth, maxHeight)
+                val portraitLikeWidthDp = minOf(
+                    configuration.screenWidthDp,
+                    configuration.screenHeightDp
+                ).dp
+                val previewWidth = minOf(maxWidth, portraitLikeWidthDp)
                 Box(
                     modifier = Modifier
-                        // [非dp] 縦横: 左カラム内 の fillMaxSize(制約)に関係
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                        // [非dp] 横: 左カラム内 の fillMaxWidth(制約)に関係
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    previewContent(Modifier.size(sideDp))
+                    previewContent(Modifier.width(previewWidth))
                 }
             }
             formContent(
