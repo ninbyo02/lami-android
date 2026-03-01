@@ -1678,7 +1678,7 @@ fun SpriteEditorScreen(navController: NavController) {
                             BoxWithConstraints(
                                 modifier = Modifier.weight(1f)
                             ) {
-                                val sideDp = min(maxHeight, maxWidth)
+                                val sideDp = minOf(maxHeight, maxWidth)
                                 Box(
                                     modifier = Modifier
                                         .size(sideDp)
