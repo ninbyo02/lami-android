@@ -12,3 +12,6 @@ val Pink40 = Color(0xFF7D5260)
 
 val White = Color(0xFFFFFFFF)
 val NeutralGray900 = Color(0xFF1F1F1F)
+
+// LAMI accent orange for top fade overlay
+val LamiOrange = Color(0xFFFFA000)

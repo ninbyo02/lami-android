@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -51,6 +52,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -82,6 +85,8 @@ import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.BottomFadeOverlay
+import com.sonusid.ollama.ui.common.TopFadeOverlay
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
@@ -221,7 +226,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemBarInsets = WindowInsets.systemBars
-    // 左右の安全領域は維持し、上は TopAppBar のデフォルト Insets に任せる
+    // 上端は TopAppBar 側で制御し、Scaffold は左右の安全領域のみ適用する
     val scaffoldInsets = WindowInsets(
         left = systemBarInsets.getLeft(density, layoutDirection),
         top = 0,
@@ -231,10 +236,16 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val imeBottomDp = WindowInsets.ime.asPaddingValues(density).calculateBottomPadding()
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
+    val listState = rememberLazyListState()
+    val fadeHeight = 32.dp
+    val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
+    val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
+    val scaffoldBg = MaterialTheme.colorScheme.background
 
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
-        // 左右の安全領域は維持し、上は TopAppBar 側で処理する
+        containerColor = scaffoldBg,
+        // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
         contentWindowInsets = scaffoldInsets,
         topBar = {
             Box(
@@ -244,7 +255,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     .fillMaxWidth()
             ) {
                 TopAppBar(
-                    // 上余白の原因切り分けのため、TopAppBar 側の Insets は明示的に 0 にする
+                    // 上端余白の重複を防ぐため、TopAppBar 側の Insets は明示的に 0 にする
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         Box(
@@ -277,21 +288,26 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             }
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 上下左右の余白を反映するための padding
+                // Scaffold の描画領域（TopAppBar 下）に座標系を統一する
                 .padding(paddingValues)
-                // 下: IME とナビゲーションバーの差分だけを適用し、キーボードとの隙間をなくす
-                .padding(bottom = bottomDp),
-            // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = horizontalPadding,
-                end = horizontalPadding,
-                top = 0.dp,
-                bottom = 0.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    // 下: IME とナビゲーションバーの差分だけを適用し、キーボードとの隙間をなくす
+                    .padding(bottom = bottomDp),
+                // 上: 視認性維持のため最小限の top padding、下: 表示領域最大化のため 0dp
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = horizontalPadding,
+                    end = horizontalPadding,
+                    top = 0.dp,
+                    bottom = 0.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             item {
                 CardSectionHeader(
@@ -722,6 +738,25 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     }
                 }
             }
+            }
+            TopFadeOverlay(
+                show = showTopFade,
+                bg = scaffoldBg,
+                height = fadeHeight,
+                modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
+                label = "settingsTopFade",
+            )
+            BottomFadeOverlay(
+                show = showBottomFade,
+                bg = scaffoldBg,
+                height = fadeHeight,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    // 下: IME 表示時にフェードがキーボードに隠れないよう最小限だけ持ち上げる
+                    .padding(bottom = bottomDp)
+                    .zIndex(1f),
+                label = "settingsBottomFade",
+            )
         }
     }
 }
