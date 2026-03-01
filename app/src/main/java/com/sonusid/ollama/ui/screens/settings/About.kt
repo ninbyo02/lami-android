@@ -257,7 +257,7 @@ fun About(
                             val maxSizeByHeight = maxHeight * 0.85f
                             val maxSizeByWidth = maxWidth * 0.90f
                             val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
-                            val upwardOffset = -min(maxHeight * 0.03f, 32.dp)
+                            val upwardOffset = -(minOf(maxHeight * 0.03f, 32.dp))
 
                             LamiSprite(
                                 state = lamiState,
