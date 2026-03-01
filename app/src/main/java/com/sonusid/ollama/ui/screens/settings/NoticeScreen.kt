@@ -165,8 +165,8 @@ private fun TopFadeOverlay(
                 drawRect(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f to bg.copy(alpha = 0.9f),
-                            0.5f to bg.copy(alpha = 0.45f),
+                            0.0f to bg.copy(alpha = 1.0f),
+                            0.5f to bg.copy(alpha = 0.85f),
                             1.0f to bg.copy(alpha = 0.0f),
                         ),
                     ),
