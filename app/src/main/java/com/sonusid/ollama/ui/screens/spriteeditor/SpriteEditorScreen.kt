@@ -1079,7 +1079,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(vertical = 2.dp)
                                 .testTag("spriteEditorStatus"),
                             // [dp] 縦: ステータス の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             val statusLine1 = if (state == null) {
                                 "画像読み込み中"
@@ -1675,12 +1675,23 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            BoxWithConstraints(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                val sideDp = minOf(maxHeight, maxWidth)
+                                Box(
+                                    modifier = Modifier
+                                        .size(sideDp)
+                                        .align(Alignment.Center),
+                                ) {
+                                    previewContent()
+                                }
+                            }
                             Column(
                                 modifier = Modifier.weight(1f),
                                 // [dp] 縦: 右カラムの間隔(間隔)に関係
                                 verticalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
-                                previewContent()
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
