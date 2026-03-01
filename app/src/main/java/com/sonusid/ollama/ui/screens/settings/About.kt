@@ -60,6 +60,7 @@ import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.LamiUiState
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
+import kotlin.math.min
 import kotlinx.coroutines.launch
 
 internal fun buildVersionLabel(version: String, sha: String): String {
@@ -256,12 +257,13 @@ fun About(
                             val maxSizeByHeight = maxHeight * 0.85f
                             val maxSizeByWidth = maxWidth * 0.90f
                             val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
+                            val upwardOffset = -min(maxHeight * 0.03f, 32.dp)
 
                             LamiSprite(
                                 state = lamiState,
                                 lamiStatus = lamiStatus,
                                 sizeDp = finalSize,
-                                modifier = Modifier.offset(y = (-32).dp),
+                                modifier = Modifier.offset(y = upwardOffset),
                                 shape = CircleShape,
                                 backgroundColor = rememberLamiCharacterBackdropColor(),
                                 // 中央キャラ：背景円の余白をなくす
