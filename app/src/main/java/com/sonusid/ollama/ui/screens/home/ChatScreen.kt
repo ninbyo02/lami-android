@@ -32,8 +32,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -167,7 +167,7 @@ fun Home(
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
-    var userPrompt: String by remember { mutableStateOf("") }
+    var userPrompt: String by rememberSaveable { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
     val allChatsState = effectiveChatId?.let {
         viewModel.allMessages(it)
@@ -176,9 +176,9 @@ fun Home(
     }
     val allChatsOrNull = allChatsState?.value
     var toggle by remember { mutableStateOf(false) }
-    var placeholder by remember { mutableStateOf("Enter your prompt ...") }
-    var attachSheetOpen by remember { mutableStateOf(false) }
-    var expandDialogOpen by remember { mutableStateOf(false) }
+    var placeholder by rememberSaveable { mutableStateOf("Enter your prompt ...") }
+    var attachSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var expandDialogOpen by rememberSaveable { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
@@ -188,7 +188,10 @@ fun Home(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
-    var composerViewerUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
+    // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
+    var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
@@ -633,7 +636,10 @@ fun Home(
                                 if (selectedImageUris.isNotEmpty()) {
                                     AttachmentPreviewRow(
                                         uris = selectedImageUris,
-                                        onOpen = { uri -> composerViewerUriString = uri.toString() },
+                                        onOpen = { index ->
+                                            composerViewerUriStrings = selectedImageUriStrings.toList()
+                                            composerViewerInitialIndex = index
+                                        },
                                         onRemoveAt = { removeIndex ->
                                             selectedImageUriStrings = selectedImageUriStrings.filterIndexed { index, _ ->
                                                 index != removeIndex
@@ -903,8 +909,10 @@ fun Home(
                 } else {
                     key(effectiveChatId) {
                         val anchor = computeLatestUserAnchor(messagesForList)
-                        // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
-                        val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+                        // 仕上げチェック: 初回のみ anchor を使い、それ以降は Saveable な復元位置を優先する
+                        val listState = rememberSaveable(effectiveChatId, saver = LazyListState.Saver) {
+                            LazyListState(firstVisibleItemIndex = anchor)
+                        }
                         val isNearBottom by remember(listState) {
                             derivedStateOf {
                                 val layoutInfo = listState.layoutInfo
@@ -1186,41 +1194,21 @@ fun Home(
         }
     }
 
-    composerViewerUriString?.let { uriString ->
-        Dialog(onDismissRequest = { composerViewerUriString = null }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.92f))
-            ) {
-                val attachmentUri = remember(uriString) { Uri.parse(uriString) }
-                AndroidView(
-                    factory = { context ->
-                        ImageView(context).apply {
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                        }
-                    },
-                    update = { imageView ->
-                        imageView.setImageURI(attachmentUri)
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-                IconButton(
-                    onClick = { composerViewerUriString = null },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(12.dp)
-                        .size(40.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "閉じる",
-                        tint = Color.White,
-                    )
-                }
-            }
+    composerViewerUriStrings?.let { uriStrings ->
+        if (uriStrings.isEmpty()) {
+            composerViewerUriStrings = null
+            composerViewerInitialIndex = 0
+        } else {
+            val attachmentUris = uriStrings.map(Uri::parse)
+            val safeIndex = composerViewerInitialIndex.coerceIn(0, attachmentUris.lastIndex.coerceAtLeast(0))
+            AttachmentFullscreenViewer(
+                attachmentUris = attachmentUris,
+                initialIndex = safeIndex,
+                onDismiss = {
+                    composerViewerUriStrings = null
+                    composerViewerInitialIndex = 0
+                },
+            )
         }
     }
 }
@@ -1231,14 +1219,14 @@ fun Home(
 @Composable
 private fun AttachmentPreviewRow(
     uris: List<Uri>,
-    onOpen: (Uri) -> Unit,
+    onOpen: (Int) -> Unit,
     onRemoveAt: (Int) -> Unit,
     inComposer: Boolean = false,
 ) {
     val attachmentPreviewSize = 72.dp
     val edgeFadeWidth = 12.dp
     val epsilonPx = 2
-    val listState = rememberLazyListState()
+    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val surfaceColor = MaterialTheme.colorScheme.surface
     val showLeftFade by remember {
         derivedStateOf {
@@ -1306,7 +1294,7 @@ private fun AttachmentPreviewRow(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { onOpen(uri) },
+                                .clickable { onOpen(index) },
                         )
                     }
 
