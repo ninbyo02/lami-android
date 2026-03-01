@@ -1,24 +1,33 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +35,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
@@ -35,6 +45,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private val NoticeTopFadeHeight = 28.dp
 
 @Composable
 fun NoticeScreen(navController: NavController) {
@@ -47,6 +59,10 @@ fun NoticeScreen(navController: NavController) {
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
     val copiedText = stringResource(R.string.about_notice_copy_done)
+    val scrollState = rememberScrollState()
+    val showTopFade by remember {
+        derivedStateOf { scrollState.value > 0 }
+    }
 
     // 左右の安全領域は維持し、上は TopAppBar 側で処理する
     val scaffoldInsets = WindowInsets(
@@ -75,34 +91,71 @@ fun NoticeScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 // 上：ScaffoldのinnerPaddingをそのまま適用
-                .padding(innerPadding)
-                // 四辺：長文可読性を保つ最小限の余白
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-                .pointerInput(noticeText) {
-                    detectTapGestures(
-                        onLongPress = {
-                            clipboardManager.setText(AnnotatedString(noticeText))
-                            scope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                val dismissJob = launch {
-                                    delay(PROJECT_SNACKBAR_SHORT_MS)
-                                    snackbarHostState.currentSnackbarData?.dismiss()
-                                }
-                                try {
-                                    snackbarHostState.showSnackbar(
-                                        message = copiedText,
-                                        duration = SnackbarDuration.Indefinite,
-                                    )
-                                } finally {
-                                    dismissJob.cancel()
-                                }
-                            }
-                        },
-                    )
-                },
+                .padding(innerPadding),
         ) {
-            Text(text = noticeText)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // 四辺：長文可読性を保つ最小限の余白
+                    .padding(16.dp)
+                    .verticalScroll(scrollState)
+                    .pointerInput(noticeText) {
+                        detectTapGestures(
+                            onLongPress = {
+                                clipboardManager.setText(AnnotatedString(noticeText))
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    val dismissJob = launch {
+                                        delay(PROJECT_SNACKBAR_SHORT_MS)
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                    }
+                                    try {
+                                        snackbarHostState.showSnackbar(
+                                            message = copiedText,
+                                            duration = SnackbarDuration.Indefinite,
+                                        )
+                                    } finally {
+                                        dismissJob.cancel()
+                                    }
+                                }
+                            },
+                        )
+                    },
+            ) {
+                Text(text = noticeText)
+            }
+            TopFadeOverlay(
+                show = showTopFade,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
     }
+}
+
+@Composable
+private fun TopFadeOverlay(
+    show: Boolean,
+    modifier: Modifier = Modifier,
+    height: Dp = NoticeTopFadeHeight,
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (show) 1f else 0f,
+        label = "noticeTopFade",
+    )
+    val bg = MaterialTheme.colorScheme.background
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .graphicsLayer { this.alpha = alpha }
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        bg.copy(alpha = 1f),
+                        bg.copy(alpha = 0f),
+                    ),
+                ),
+            ),
+    )
 }
