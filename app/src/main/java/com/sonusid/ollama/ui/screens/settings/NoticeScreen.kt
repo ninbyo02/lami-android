@@ -68,8 +68,14 @@ fun NoticeScreen(navController: NavController) {
     val showTopFade by remember {
         derivedStateOf { scrollState.value > thresholdPx }
     }
+    val showBottomFade by remember {
+        derivedStateOf {
+            scrollState.maxValue > thresholdPx &&
+                scrollState.value < (scrollState.maxValue - thresholdPx)
+        }
+    }
 
-    // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右・下端のみ適用する
+    // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
     val scaffoldInsets = WindowInsets.systemBars.only(
         WindowInsetsSides.Horizontal,
     )
@@ -139,6 +145,11 @@ fun NoticeScreen(navController: NavController) {
                 bg = scaffoldBg,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
+            BottomFadeOverlay(
+                show = showBottomFade,
+                bg = scaffoldBg,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 }
@@ -169,6 +180,40 @@ private fun TopFadeOverlay(
                             0.0f to bg.copy(alpha = 1.0f),
                             0.5f to bg.copy(alpha = 0.6f),
                             1.0f to bg.copy(alpha = 0.0f),
+                        ),
+                    ),
+                    size = size,
+                )
+            },
+    )
+}
+
+@Composable
+private fun BottomFadeOverlay(
+    show: Boolean,
+    bg: Color,
+    modifier: Modifier = Modifier,
+    height: Dp = 16.dp,
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (show) 1f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
+        label = "noticeBottomFade",
+    )
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .graphicsLayer { this.alpha = alpha }
+            .clipToBounds()
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to bg.copy(alpha = 0.0f),
+                            0.5f to bg.copy(alpha = 0.6f),
+                            1.0f to bg.copy(alpha = 1.0f),
                         ),
                     ),
                     size = size,
