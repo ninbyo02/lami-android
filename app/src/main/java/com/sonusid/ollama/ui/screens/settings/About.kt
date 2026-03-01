@@ -160,7 +160,7 @@ fun About(
                     Column(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .fillMaxWidth(0.4f)
+                            .fillMaxWidth(0.6f)
                             .fillMaxHeight()
                             .widthIn(max = 560.dp)
                             .verticalScroll(rememberScrollState())
@@ -245,15 +245,15 @@ fun About(
                     Box(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
-                            .fillMaxWidth(0.6f)
+                            .fillMaxWidth(0.4f)
                             .fillMaxHeight(),
-                        contentAlignment = Alignment.CenterEnd,
+                        contentAlignment = Alignment.Center,
                     ) {
                         BoxWithConstraints {
                             val baseSpriteSize = 100.dp
                             val targetSize = baseSpriteSize * 2f
                             val maxSizeByHeight = maxHeight * 0.85f
-                            val maxSizeByWidth = maxWidth * 0.55f
+                            val maxSizeByWidth = maxWidth * 0.90f
                             val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
 
                             LamiSprite(
