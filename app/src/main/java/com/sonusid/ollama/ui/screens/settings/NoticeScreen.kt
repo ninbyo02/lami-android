@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -78,7 +79,10 @@ fun NoticeScreen(navController: NavController) {
         }
     }
 
+    val scaffoldBg = MaterialTheme.colorScheme.background
+
     Scaffold(
+        containerColor = scaffoldBg,
         contentWindowInsets = scaffoldInsets,
         topBar = {
             SettingsTopAppBar(
@@ -126,6 +130,7 @@ fun NoticeScreen(navController: NavController) {
             }
             TopFadeOverlay(
                 show = showTopFade,
+                bg = scaffoldBg,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -135,6 +140,7 @@ fun NoticeScreen(navController: NavController) {
 @Composable
 private fun TopFadeOverlay(
     show: Boolean,
+    bg: Color,
     modifier: Modifier = Modifier,
     height: Dp = NoticeTopFadeHeight,
 ) {
@@ -142,8 +148,6 @@ private fun TopFadeOverlay(
         targetValue = if (show) 1f else 0f,
         label = "noticeTopFade",
     )
-    val bg = MaterialTheme.colorScheme.background
-
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -151,9 +155,10 @@ private fun TopFadeOverlay(
             .graphicsLayer { this.alpha = alpha }
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(
-                        bg.copy(alpha = 1f),
-                        bg.copy(alpha = 0f),
+                    colorStops = arrayOf(
+                        0.0f to bg.copy(alpha = 1.0f),
+                        0.5f to bg.copy(alpha = 0.6f),
+                        1.0f to bg.copy(alpha = 0.0f),
                     ),
                 ),
             ),
