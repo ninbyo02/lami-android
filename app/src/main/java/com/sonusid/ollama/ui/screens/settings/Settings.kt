@@ -70,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.roundToPx
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -236,7 +237,15 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
-    val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
+    val fadeHeight = 32.dp
+    val topFadeThresholdPx = with(density) { 8.dp.roundToPx() }
+    // 先頭でも微スクロール時に自然にフェードが出るよう threshold で判定する
+    val showTopFade by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 ||
+                listState.firstVisibleItemScrollOffset > topFadeThresholdPx
+        }
+    }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
     val scaffoldBg = MaterialTheme.colorScheme.background
 
@@ -740,12 +749,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             TopFadeOverlay(
                 show = showTopFade,
                 bg = scaffoldBg,
+                height = fadeHeight,
                 modifier = Modifier.align(Alignment.TopCenter),
                 label = "settingsTopFade",
             )
             BottomFadeOverlay(
                 show = showBottomFade,
                 bg = scaffoldBg,
+                height = fadeHeight,
                 modifier = Modifier.align(Alignment.BottomCenter),
                 label = "settingsBottomFade",
             )
