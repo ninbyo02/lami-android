@@ -4809,6 +4809,9 @@ private fun ReadyAnimationTab(
     resolvedErrorKey: String?,
 ) {
     val configuration = LocalConfiguration.current
+    val isLandscapeOrWide =
+        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
+            configuration.screenWidthDp >= configuration.screenHeightDp
     val selectedAnimation = selectionState.selectedAnimation
     val lazyListState = rememberLazyListState()
     val layoutState = rememberReadyPreviewLayoutState(
@@ -4914,14 +4917,10 @@ private fun ReadyAnimationTab(
         bottom = listBottomPadding
     )
 
-    Column(
-        modifier = Modifier
-            // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
-            .fillMaxSize()
-    ) {
+    val previewContent: @Composable (Modifier) -> Unit = { modifier ->
         Surface(
             // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.background
         ) {
             ReadyAnimationPreviewPane(
@@ -4942,13 +4941,10 @@ private fun ReadyAnimationTab(
                 resolvedErrorKey = resolvedErrorKey,
             )
         }
-        // [dp] 縦: プレビュー の間隔(間隔)に関係
-        // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
-        // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
-        Spacer(modifier = Modifier.height(0.dp))
+    }
+    val formContent: @Composable (Modifier) -> Unit = { modifier ->
         LazyColumn(
-            modifier = Modifier
-                // [非dp] 縦: リスト の weight(制約)に関係
+            modifier = modifier
                 .fillMaxWidth()
                 // [dp] 下: IME 表示中のみ純IME分を追加し、入力欄がキーボード直上へ追従するようにする
                 .padding(bottom = if (isImeVisible) imeBottomExcludingNavDp else 0.dp)
@@ -5371,6 +5367,54 @@ private fun ReadyAnimationTab(
                     previewUiState = readyPreviewUiState
                 )
             }
+        }
+    }
+
+    if (isLandscapeOrWide) {
+        Row(
+            modifier = Modifier
+                // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
+                .fillMaxSize(),
+            // [dp] 横: 2カラム の間隔(間隔)に関係
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    // [非dp] 横: 左カラム の weight(制約)に関係
+                    .weight(1f)
+                    // [非dp] 縦: 左カラム の fillMaxHeight(制約)に関係
+                    .fillMaxHeight()
+            ) {
+                val sideDp = minOf(maxWidth, maxHeight)
+                Box(
+                    modifier = Modifier
+                        // [非dp] 縦横: 左カラム内 の fillMaxSize(制約)に関係
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    previewContent(Modifier.width(sideDp))
+                }
+            }
+            formContent(
+                Modifier
+                    // [非dp] 横: 右カラム の weight(制約)に関係
+                    .weight(1f)
+                    // [非dp] 縦: 右カラム の fillMaxHeight(制約)に関係
+                    .fillMaxHeight()
+            )
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
+                .fillMaxSize()
+        ) {
+            previewContent(Modifier.fillMaxWidth())
+            // [dp] 縦: プレビュー の間隔(間隔)に関係
+            // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
+            // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
+            Spacer(modifier = Modifier.height(0.dp))
+            formContent(Modifier)
         }
     }
 }
