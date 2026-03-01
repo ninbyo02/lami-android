@@ -101,8 +101,8 @@ fun NoticeScreen(navController: NavController) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    // 左右と下：長文可読性を保つ最小限の余白（先頭余白は詰める）
-                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    // 左右：長文可読性を保つ最小限の余白（先頭余白は詰める）
+                    .padding(start = 16.dp, end = 16.dp)
                     .verticalScroll(scrollState)
                     .pointerInput(noticeText) {
                         detectTapGestures(
