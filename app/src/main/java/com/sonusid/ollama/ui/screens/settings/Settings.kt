@@ -87,7 +87,6 @@ import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.common.TopFadeOverlay
-import com.sonusid.ollama.ui.theme.LamiOrange
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
@@ -744,7 +743,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 show = showTopFade,
                 bg = scaffoldBg,
                 height = fadeHeight,
-                tint = LamiOrange,
                 modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
                 label = "settingsTopFade",
             )
