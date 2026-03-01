@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -48,6 +50,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private val NoticeTopFadeHeight = 64.dp
+private val NoticeTopFadeThreshold = 4.dp
 
 @Composable
 fun NoticeScreen(navController: NavController) {
@@ -61,8 +64,9 @@ fun NoticeScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val copiedText = stringResource(R.string.about_notice_copy_done)
     val scrollState = rememberScrollState()
+    val thresholdPx = with(density) { NoticeTopFadeThreshold.roundToPx() }
     val showTopFade by remember {
-        derivedStateOf { scrollState.value > 0 }
+        derivedStateOf { scrollState.value > thresholdPx }
     }
 
     // 左右の安全領域は維持し、上は TopAppBar 側で処理する
@@ -146,6 +150,7 @@ private fun TopFadeOverlay(
 ) {
     val alpha by animateFloatAsState(
         targetValue = if (show) 1f else 0f,
+        animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
         label = "noticeTopFade",
     )
     Box(
