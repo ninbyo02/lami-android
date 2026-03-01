@@ -46,7 +46,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val NoticeTopFadeHeight = 28.dp
+private val NoticeTopFadeHeight = 64.dp
 
 @Composable
 fun NoticeScreen(navController: NavController) {
