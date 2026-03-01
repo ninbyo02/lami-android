@@ -261,7 +261,7 @@ fun About(
                                 state = lamiState,
                                 lamiStatus = lamiStatus,
                                 sizeDp = finalSize,
-                                modifier = Modifier.offset(y = (-20).dp),
+                                modifier = Modifier.offset(y = (-32).dp),
                                 shape = CircleShape,
                                 backgroundColor = rememberLamiCharacterBackdropColor(),
                                 // 中央キャラ：背景円の余白をなくす
