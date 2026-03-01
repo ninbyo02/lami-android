@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
@@ -151,17 +152,16 @@ fun About(
                 .fillMaxSize(),
         ) {
             if (isLandscape) {
-                Row(
+                Box(
                     modifier = Modifier
-                        // 上：画面中央基準で位置を安定させる
-                        .align(Alignment.Center)
+                        .fillMaxSize()
                         .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .align(Alignment.CenterStart)
                             .fillMaxHeight()
+                            .widthIn(max = 560.dp)
                             .verticalScroll(rememberScrollState())
                             .padding(end = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -241,31 +241,38 @@ fun About(
                             }
                         }
                     }
-                    Spacer(Modifier.width(20.dp))
-                    BoxWithConstraints(modifier = Modifier.weight(0.85f)) {
-                        val baseSpriteSize = 100.dp
-                        val targetSize = baseSpriteSize * 2f
-                        val maxSizeByWidth = maxWidth * 0.46f
-                        val maxSizeByHeight = maxHeight * 0.84f
-                        val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
-                        LamiSprite(
-                            state = lamiState,
-                            lamiStatus = lamiStatus,
-                            sizeDp = finalSize,
-                            modifier = Modifier,
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            backgroundColor = rememberLamiCharacterBackdropColor(),
-                            // 中央キャラ：背景円の余白をなくす
-                            contentPadding = 0.dp,
-                            animationsEnabled = true,
-                            replacementEnabled = true,
-                            blinkEffectEnabled = true,
-                            contentOffsetYDp = 2.dp,
-                            tightContainer = true,
-                            maxStatusSpriteSizeDp = finalSize,
-                            debugOverlayEnabled = false,
-                            syncEpochMs = animationEpochMs,
-                        )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        BoxWithConstraints {
+                            val baseSpriteSize = 100.dp
+                            val targetSize = baseSpriteSize * 2f
+                            val maxSizeByHeight = maxHeight * 0.85f
+                            val maxSizeByWidth = maxWidth * 0.45f
+                            val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
+
+                            LamiSprite(
+                                state = lamiState,
+                                lamiStatus = lamiStatus,
+                                sizeDp = finalSize,
+                                modifier = Modifier,
+                                shape = CircleShape,
+                                backgroundColor = rememberLamiCharacterBackdropColor(),
+                                // 中央キャラ：背景円の余白をなくす
+                                contentPadding = 0.dp,
+                                animationsEnabled = true,
+                                replacementEnabled = true,
+                                blinkEffectEnabled = true,
+                                contentOffsetYDp = 2.dp,
+                                tightContainer = true,
+                                maxStatusSpriteSizeDp = finalSize,
+                                debugOverlayEnabled = false,
+                                syncEpochMs = animationEpochMs,
+                            )
+                        }
                     }
                 }
             } else {
@@ -287,7 +294,7 @@ fun About(
                             lamiStatus = lamiStatus,
                             sizeDp = finalSize,
                             modifier = Modifier,
-                            shape = androidx.compose.foundation.shape.CircleShape,
+                            shape = CircleShape,
                             backgroundColor = rememberLamiCharacterBackdropColor(),
                             // 中央キャラ：背景円の余白をなくす
                             contentPadding = 0.dp,
