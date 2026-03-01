@@ -2,7 +2,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Alignment
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
