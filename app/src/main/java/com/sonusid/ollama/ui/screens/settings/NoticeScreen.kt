@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -17,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -26,32 +23,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
+import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.TopFadeOverlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val NoticeTopFadeHeight = 64.dp
 private val NoticeTopFadeThreshold = 0.dp
 
 @Composable
@@ -144,80 +134,14 @@ fun NoticeScreen(navController: NavController) {
                 show = showTopFade,
                 bg = scaffoldBg,
                 modifier = Modifier.align(Alignment.TopCenter),
+                label = "noticeTopFade",
             )
             BottomFadeOverlay(
                 show = showBottomFade,
                 bg = scaffoldBg,
                 modifier = Modifier.align(Alignment.BottomCenter),
+                label = "noticeBottomFade",
             )
         }
     }
-}
-
-@Composable
-private fun TopFadeOverlay(
-    show: Boolean,
-    bg: Color,
-    modifier: Modifier = Modifier,
-    height: Dp = NoticeTopFadeHeight,
-) {
-    val alpha by animateFloatAsState(
-        targetValue = if (show) 1f else 0f,
-        animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
-        label = "noticeTopFade",
-    )
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .graphicsLayer { this.alpha = alpha }
-            .clipToBounds()
-            .drawWithContent {
-                drawContent()
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to bg.copy(alpha = 1.0f),
-                            0.5f to bg.copy(alpha = 0.6f),
-                            1.0f to bg.copy(alpha = 0.0f),
-                        ),
-                    ),
-                    size = size,
-                )
-            },
-    )
-}
-
-@Composable
-private fun BottomFadeOverlay(
-    show: Boolean,
-    bg: Color,
-    modifier: Modifier = Modifier,
-    height: Dp = 32.dp,
-) {
-    val alpha by animateFloatAsState(
-        targetValue = if (show) 1f else 0f,
-        animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
-        label = "noticeBottomFade",
-    )
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .graphicsLayer { this.alpha = alpha }
-            .clipToBounds()
-            .drawWithContent {
-                drawContent()
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to bg.copy(alpha = 0.0f),
-                            0.5f to bg.copy(alpha = 0.6f),
-                            1.0f to bg.copy(alpha = 1.0f),
-                        ),
-                    ),
-                    size = size,
-                )
-            },
-    )
 }
