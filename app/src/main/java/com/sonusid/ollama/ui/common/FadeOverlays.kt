@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 fun TopFadeOverlay(
     show: Boolean,
     bg: Color,
+    tint: Color = bg,
     modifier: Modifier = Modifier,
     height: Dp = 16.dp,
     label: String = "topFade",
@@ -41,9 +42,9 @@ fun TopFadeOverlay(
                 drawRect(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f to bg.copy(alpha = 1.0f),
-                            0.5f to bg.copy(alpha = 0.6f),
-                            1.0f to bg.copy(alpha = 0.0f),
+                            0.0f to tint.copy(alpha = 1.0f),
+                            0.5f to tint.copy(alpha = 0.6f),
+                            1.0f to tint.copy(alpha = 0.0f),
                         ),
                     ),
                     size = size,
