@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private val NoticeTopFadeHeight = 64.dp
-private val NoticeTopFadeThreshold = 4.dp
+private val NoticeTopFadeThreshold = 0.dp
 
 @Composable
 fun NoticeScreen(navController: NavController) {
@@ -166,7 +166,7 @@ private fun TopFadeOverlay(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
                             0.0f to bg.copy(alpha = 1.0f),
-                            0.25f to bg.copy(alpha = 0.85f),
+                            0.5f to bg.copy(alpha = 0.6f),
                             1.0f to bg.copy(alpha = 0.0f),
                         ),
                     ),
