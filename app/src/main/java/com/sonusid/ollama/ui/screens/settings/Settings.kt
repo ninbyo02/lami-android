@@ -70,7 +70,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.roundToPx
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -92,6 +91,7 @@ import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -238,7 +238,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
     val fadeHeight = 32.dp
-    val topFadeThresholdPx = with(density) { 8.dp.roundToPx() }
+    val topFadeThresholdPx = with(density) { 8.dp.toPx() }.roundToInt()
     // 先頭でも微スクロール時に自然にフェードが出るよう threshold で判定する
     val showTopFade by remember {
         derivedStateOf {
