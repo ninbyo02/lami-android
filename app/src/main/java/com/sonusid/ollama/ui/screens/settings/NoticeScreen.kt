@@ -127,7 +127,12 @@ fun NoticeScreen(navController: NavController) {
                         )
                     },
             ) {
-                Text(text = noticeText)
+                Text(
+                    text = noticeText,
+                    modifier = Modifier
+                        // 上：NOTICE見出し相当の見え位置を揃えるため最小限の余白
+                        .padding(top = 8.dp),
+                )
             }
             TopFadeOverlay(
                 show = showTopFade,
