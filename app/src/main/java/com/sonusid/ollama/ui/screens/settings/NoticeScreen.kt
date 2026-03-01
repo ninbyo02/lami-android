@@ -1,7 +1,6 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -31,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -158,14 +159,19 @@ private fun TopFadeOverlay(
             .fillMaxWidth()
             .height(height)
             .graphicsLayer { this.alpha = alpha }
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to bg.copy(alpha = 1.0f),
-                        0.5f to bg.copy(alpha = 0.6f),
-                        1.0f to bg.copy(alpha = 0.0f),
+            .clipToBounds()
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to bg.copy(alpha = 1.0f),
+                            0.5f to bg.copy(alpha = 0.6f),
+                            1.0f to bg.copy(alpha = 0.0f),
+                        ),
                     ),
-                ),
-            ),
+                    size = size,
+                )
+            },
     )
 }
