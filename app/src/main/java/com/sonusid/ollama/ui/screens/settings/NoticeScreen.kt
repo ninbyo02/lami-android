@@ -193,7 +193,7 @@ private fun BottomFadeOverlay(
     show: Boolean,
     bg: Color,
     modifier: Modifier = Modifier,
-    height: Dp = 16.dp,
+    height: Dp = 32.dp,
 ) {
     val alpha by animateFloatAsState(
         targetValue = if (show) 1f else 0f,
