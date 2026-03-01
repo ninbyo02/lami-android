@@ -71,7 +71,7 @@ fun NoticeScreen(navController: NavController) {
 
     // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右・下端のみ適用する
     val scaffoldInsets = WindowInsets.systemBars.only(
-        WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+        WindowInsetsSides.Horizontal,
     )
 
     LaunchedEffect(Unit) {
