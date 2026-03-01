@@ -5392,7 +5392,7 @@ private fun ReadyAnimationTab(
                         .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    previewContent(Modifier.width(sideDp))
+                    previewContent(Modifier.size(sideDp))
                 }
             }
             formContent(
