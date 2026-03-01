@@ -4,6 +4,7 @@ package com.sonusid.ollama.ui.screens.settings
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.res.Configuration
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -4560,23 +4561,13 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 val statusTextStyle = MaterialTheme.typography.labelMedium.copy(
                                     lineHeight = MaterialTheme.typography.labelMedium.fontSize
                                 )
-                                Column(
-                                    modifier = Modifier
-                                        // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
-                                        .fillMaxSize()
-                                        // テストで調整タブの表示確認に使う最小限の testTag
-                                        .testTag("spriteAdjustPanel"),
-                                    // [非dp] 横: プレビュー/ステータス の中央寄せ(配置)に関係
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
+                                val configuration = LocalConfiguration.current
+                                val isLandscapeOrWide =
+                                    configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
+                                        configuration.screenWidthDp >= configuration.screenHeightDp
+                                val previewContent: @Composable (Modifier) -> Unit = { previewModifier ->
                                     Box(
-                                        modifier = Modifier
-                                            // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
-                                            .fillMaxWidth()
-                                            // [dp] 上: プレビュー の余白(余白)に関係
-                                            .padding(top = 2.dp)
-                                            // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
-                                            .aspectRatio(1f)
+                                        modifier = previewModifier
                                             .clip(RoundedCornerShape(8.dp)),
                                         contentAlignment = Alignment.TopCenter
                                     ) {
@@ -4626,45 +4617,111 @@ fun SpriteSettingsScreen(navController: NavController) {
                                             }
                                         )
                                     }
-                                    Column(
-                                        modifier = Modifier
-                                            // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
-                                            .fillMaxWidth()
-                                            // [dp] 左右: ステータス行 の余白(余白)に関係
-                                            .padding(horizontal = 12.dp)
-                                            // [dp] 上: ステータス行 の余白(余白)に関係
-                                            .padding(top = 8.dp),
-                                        // [dp] 縦: ステータス行 の間隔(間隔)に関係
-                                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                                    ) {
-                                        Text(
-                                            text = statusLine1Text,
-                                            style = statusTextStyle,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        Text(
-                                            text = statusLine2Text,
-                                            style = statusTextStyle,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
+                                }
+                                val statusAndControlsContent: @Composable (Modifier) -> Unit = {
+                                        controlsModifier ->
+                                    Column(modifier = controlsModifier) {
+                                        Column(
+                                            modifier = Modifier
+                                                // [非dp] 横: ステータス行 の fillMaxWidth(制約)に関係
+                                                .fillMaxWidth()
+                                                // [dp] 左右: ステータス行 の余白(余白)に関係
+                                                .padding(horizontal = 12.dp)
+                                                // [dp] 上: ステータス行 の余白(余白)に関係
+                                                .padding(top = 8.dp),
+                                            // [dp] 縦: ステータス行 の間隔(間隔)に関係
+                                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            Text(
+                                                text = statusLine1Text,
+                                                style = statusTextStyle,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = statusLine2Text,
+                                                style = statusTextStyle,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                        // [dp] 縦: ステータス行と調整ボタン群の間隔を 12.dp に統一
+                                        Spacer(modifier = Modifier.height(AdjustStatusToControlsSpacing))
+                                        SpriteSettingsControls(
+                                            buttonHeight = controlButtonHeight,
+                                            buttonContentPadding = controlButtonPadding,
+                                            buttonShape = actionButtonShape,
+                                            onPrev = onPrev,
+                                            onNext = onNext,
+                                            onMoveXNegative = { onMove(-1, 0) },
+                                            onMoveXPositive = { onMove(1, 0) },
+                                            onMoveYNegative = { onMove(0, -1) },
+                                            onMoveYPositive = { onMove(0, 1) },
+                                            onSizeDecrease = { updateBoxSize(-4) },
+                                            onSizeIncrease = { updateBoxSize(4) }
                                         )
                                     }
-                                    // [dp] 縦: ステータス行と調整ボタン群の間隔を 12.dp に統一
-                                    Spacer(modifier = Modifier.height(AdjustStatusToControlsSpacing))
-                                    SpriteSettingsControls(
-                                        buttonHeight = controlButtonHeight,
-                                        buttonContentPadding = controlButtonPadding,
-                                        buttonShape = actionButtonShape,
-                                        onPrev = onPrev,
-                                        onNext = onNext,
-                                        onMoveXNegative = { onMove(-1, 0) },
-                                        onMoveXPositive = { onMove(1, 0) },
-                                        onMoveYNegative = { onMove(0, -1) },
-                                        onMoveYPositive = { onMove(0, 1) },
-                                        onSizeDecrease = { updateBoxSize(-4) },
-                                        onSizeIncrease = { updateBoxSize(4) }
-                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        // [非dp] 縦横: 調整タブ全体 の fillMaxSize(制約)に関係
+                                        .fillMaxSize()
+                                        // テストで調整タブの表示確認に使う最小限の testTag
+                                        .testTag("spriteAdjustPanel")
+                                ) {
+                                    if (isLandscapeOrWide) {
+                                        Row(
+                                            modifier = Modifier
+                                                // [非dp] 縦横: 横画面2カラム の fillMaxSize(制約)に関係
+                                                .fillMaxSize(),
+                                            // [dp] 横: 横画面2カラム の間隔(間隔)に関係
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            BoxWithConstraints(
+                                                modifier = Modifier
+                                                    // [非dp] 横: 左カラム の比率(制約)に関係
+                                                    .weight(1f)
+                                                    // [非dp] 縦: 左カラム の fillMaxHeight(制約)に関係
+                                                    .fillMaxHeight()
+                                            ) {
+                                                val sideDp = minOf(maxWidth, maxHeight)
+                                                Box(
+                                                    modifier = Modifier
+                                                        // [非dp] 縦横: 左プレビュー の正方形固定(制約)に関係
+                                                        .size(sideDp)
+                                                        .align(Alignment.Center)
+                                                ) {
+                                                    previewContent(Modifier.fillMaxSize())
+                                                }
+                                            }
+                                            statusAndControlsContent(
+                                                Modifier
+                                                    // [非dp] 横: 右カラム の比率(制約)に関係
+                                                    .weight(1f)
+                                                    // [非dp] 縦: 右カラム の fillMaxHeight(制約)に関係
+                                                    .fillMaxHeight()
+                                            )
+                                        }
+                                    } else {
+                                        Column(
+                                            modifier = Modifier
+                                                // [非dp] 縦横: プレビュー の fillMaxSize(制約)に関係
+                                                .fillMaxSize(),
+                                            // [非dp] 横: プレビュー/ステータス の中央寄せ(配置)に関係
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            previewContent(
+                                                Modifier
+                                                    // [非dp] 横: プレビュー の fillMaxWidth(制約)に関係
+                                                    .fillMaxWidth()
+                                                    // [dp] 上: プレビュー の余白(余白)に関係
+                                                    .padding(top = 2.dp)
+                                                    // [非dp] 縦: プレビュー の正方形レイアウト(制約)に関係
+                                                    .aspectRatio(1f)
+                                            )
+                                            statusAndControlsContent(Modifier)
+                                        }
+                                    }
                                 }
                             }
                         }
