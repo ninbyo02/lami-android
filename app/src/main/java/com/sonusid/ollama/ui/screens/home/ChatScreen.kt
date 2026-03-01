@@ -32,8 +32,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -167,7 +167,7 @@ fun Home(
     var suppressChatContentWhileClosingDrawer by rememberSaveable { mutableStateOf(false) }
     var pendingNavigateChatId by rememberSaveable { mutableStateOf<Int?>(null) }
     val interactionSource = remember { MutableInteractionSource() }
-    var userPrompt: String by remember { mutableStateOf("") }
+    var userPrompt: String by rememberSaveable { mutableStateOf("") }
     var prompt: String by remember { mutableStateOf("") }
     val allChatsState = effectiveChatId?.let {
         viewModel.allMessages(it)
@@ -176,9 +176,9 @@ fun Home(
     }
     val allChatsOrNull = allChatsState?.value
     var toggle by remember { mutableStateOf(false) }
-    var placeholder by remember { mutableStateOf("Enter your prompt ...") }
-    var attachSheetOpen by remember { mutableStateOf(false) }
-    var expandDialogOpen by remember { mutableStateOf(false) }
+    var placeholder by rememberSaveable { mutableStateOf("Enter your prompt ...") }
+    var attachSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var expandDialogOpen by rememberSaveable { mutableStateOf(false) }
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
@@ -909,8 +909,10 @@ fun Home(
                 } else {
                     key(effectiveChatId) {
                         val anchor = computeLatestUserAnchor(messagesForList)
-                        // 仕上げチェック: rememberLazyListState(initialFirstVisibleItemIndex=...) を利用して初期表示のズレを防止
-                        val listState = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+                        // 仕上げチェック: 初回のみ anchor を使い、それ以降は Saveable な復元位置を優先する
+                        val listState = rememberSaveable(effectiveChatId, saver = LazyListState.Saver) {
+                            LazyListState(firstVisibleItemIndex = anchor)
+                        }
                         val isNearBottom by remember(listState) {
                             derivedStateOf {
                                 val layoutInfo = listState.layoutInfo
@@ -1224,7 +1226,7 @@ private fun AttachmentPreviewRow(
     val attachmentPreviewSize = 72.dp
     val edgeFadeWidth = 12.dp
     val epsilonPx = 2
-    val listState = rememberLazyListState()
+    val listState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val surfaceColor = MaterialTheme.colorScheme.surface
     val showLeftFade by remember {
         derivedStateOf {
