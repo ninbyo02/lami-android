@@ -1,17 +1,24 @@
 package com.sonusid.ollama.ui.screens.settings
 
+import android.content.res.Configuration
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -25,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -77,6 +85,8 @@ fun About(
             ?: LamiState.Idle
     val animationEpochMs =
         viewModel?.animationEpochMs?.collectAsState(initial = 0L)?.value ?: 0L
+    val isLandscape =
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val systemBarInsets = WindowInsets.systemBars
@@ -141,114 +151,234 @@ fun About(
                 .padding(paddingValues)
                 .fillMaxSize(),
         ) {
-            Column(
-                modifier = Modifier
-                    // 上：画面中央基準で位置を安定させる
-                    .align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                BoxWithConstraints {
-                    // 中央キャラ：現状の上限(100.dp)を基準に約2倍を目標にする
-                    val baseSpriteSize = 100.dp
-                    val targetSize = baseSpriteSize * 2f
-                    val maxSizeByWidth = maxWidth * 0.92f
-                    val maxSizeByHeight = maxHeight * 0.45f
-                    val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
-                    LamiSprite(
-                        state = lamiState,
-                        lamiStatus = lamiStatus,
-                        sizeDp = finalSize,
-                        modifier = Modifier,
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        backgroundColor = rememberLamiCharacterBackdropColor(),
-                        // 中央キャラ：背景円の余白をなくす
-                        contentPadding = 0.dp,
-                        animationsEnabled = true,
-                        replacementEnabled = true,
-                        blinkEffectEnabled = true,
-                        contentOffsetYDp = 2.dp,
-                        tightContainer = true,
-                        maxStatusSpriteSizeDp = finalSize,
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                    )
-                }
-                // 下：タイトルとの距離を確保するための Spacer
-                Spacer(Modifier.height(20.dp))
-                Text(
-                    stringResource(R.string.app_name),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    BuildConfig.APP_SUBTITLE,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // 下：バージョン表示との距離を確保するための Spacer
-                Spacer(Modifier.height(10.dp))
-                val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
-                Text(
-                    versionLabel,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(24.dp))
-                ElevatedCard(
+            if (isLandscape) {
+                Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .pointerInput(fullLicenseText) {
-                            detectTapGestures(
-                                onLongPress = {
-                                    clipboardManager.setText(AnnotatedString(fullLicenseText))
-                                    scope.launch {
-                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                        val dismissJob = launch {
-                                            delay(PROJECT_SNACKBAR_SHORT_MS)
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                        }
-                                        try {
-                                            snackbarHostState.showSnackbar(
-                                                message = copiedText,
-                                                duration = SnackbarDuration.Indefinite,
-                                            )
-                                        } finally {
-                                            dismissJob.cancel()
-                                        }
-                                    }
-                                },
-                            )
-                        },
+                        // 上：画面中央基準で位置を安定させる
+                        .align(Alignment.Center)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    BoxWithConstraints(modifier = Modifier.weight(0.85f)) {
+                        val baseSpriteSize = 100.dp
+                        val targetSize = baseSpriteSize * 2f
+                        val maxSizeByWidth = maxWidth * 0.40f
+                        val maxSizeByHeight = maxHeight * 0.80f
+                        val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
+                        LamiSprite(
+                            state = lamiState,
+                            lamiStatus = lamiStatus,
+                            sizeDp = finalSize,
+                            modifier = Modifier,
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            backgroundColor = rememberLamiCharacterBackdropColor(),
+                            // 中央キャラ：背景円の余白をなくす
+                            contentPadding = 0.dp,
+                            animationsEnabled = true,
+                            replacementEnabled = true,
+                            blinkEffectEnabled = true,
+                            contentOffsetYDp = 2.dp,
+                            tightContainer = true,
+                            maxStatusSpriteSizeDp = finalSize,
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                        )
+                    }
+                    Spacer(Modifier.width(20.dp))
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                            .padding(end = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = stringResource(R.string.about_license_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.fillMaxWidth(),
+                            stringResource(R.string.app_name),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
                         )
                         Text(
-                            text = licenseLine1,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth(),
+                            BuildConfig.APP_SUBTITLE,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
+                        Text(
+                            versionLabel,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text = licenseLine2,
+                            buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth(),
                         )
-                        Text(
-                            text = noticeAnnotatedText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.fillMaxWidth(),
+                        Spacer(Modifier.height(24.dp))
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pointerInput(fullLicenseText) {
+                                    detectTapGestures(
+                                        onLongPress = {
+                                            clipboardManager.setText(AnnotatedString(fullLicenseText))
+                                            scope.launch {
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                val dismissJob = launch {
+                                                    delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                }
+                                                try {
+                                                    snackbarHostState.showSnackbar(
+                                                        message = copiedText,
+                                                        duration = SnackbarDuration.Indefinite,
+                                                    )
+                                                } finally {
+                                                    dismissJob.cancel()
+                                                }
+                                            }
+                                        },
+                                    )
+                                },
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.about_license_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Text(
+                                    text = licenseLine1,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Text(
+                                    text = licenseLine2,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Text(
+                                    text = noticeAnnotatedText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        // 上：画面中央基準で位置を安定させる
+                        .align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    BoxWithConstraints {
+                        // 中央キャラ：現状の上限(100.dp)を基準に約2倍を目標にする
+                        val baseSpriteSize = 100.dp
+                        val targetSize = baseSpriteSize * 2f
+                        val maxSizeByWidth = maxWidth * 0.92f
+                        val maxSizeByHeight = maxHeight * 0.45f
+                        val finalSize = minOf(targetSize, maxSizeByWidth, maxSizeByHeight)
+                        LamiSprite(
+                            state = lamiState,
+                            lamiStatus = lamiStatus,
+                            sizeDp = finalSize,
+                            modifier = Modifier,
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            backgroundColor = rememberLamiCharacterBackdropColor(),
+                            // 中央キャラ：背景円の余白をなくす
+                            contentPadding = 0.dp,
+                            animationsEnabled = true,
+                            replacementEnabled = true,
+                            blinkEffectEnabled = true,
+                            contentOffsetYDp = 2.dp,
+                            tightContainer = true,
+                            maxStatusSpriteSizeDp = finalSize,
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
                         )
+                    }
+                    // 下：タイトルとの距離を確保するための Spacer
+                    Spacer(Modifier.height(20.dp))
+                    Text(
+                        stringResource(R.string.app_name),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        BuildConfig.APP_SUBTITLE,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // 下：バージョン表示との距離を確保するための Spacer
+                    Spacer(Modifier.height(10.dp))
+                    val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
+                    Text(
+                        versionLabel,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .pointerInput(fullLicenseText) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        clipboardManager.setText(AnnotatedString(fullLicenseText))
+                                        scope.launch {
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                            val dismissJob = launch {
+                                                delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                            }
+                                            try {
+                                                snackbarHostState.showSnackbar(
+                                                    message = copiedText,
+                                                    duration = SnackbarDuration.Indefinite,
+                                                )
+                                            } finally {
+                                                dismissJob.cancel()
+                                            }
+                                        }
+                                    },
+                                )
+                            },
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.about_license_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text = licenseLine1,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text = licenseLine2,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text = noticeAnnotatedText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
             }
