@@ -5371,41 +5371,47 @@ private fun ReadyAnimationTab(
     }
 
     if (isLandscapeOrWide) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
-                .fillMaxSize(),
-            // [dp] 横: 2カラム の間隔(間隔)に関係
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .fillMaxSize()
         ) {
-            BoxWithConstraints(
+            val portraitLikeWidthDp = minOf(
+                configuration.screenWidthDp,
+                configuration.screenHeightDp
+            ).dp
+            val previewWidth = minOf((maxWidth - 6.dp) / 2f, portraitLikeWidthDp)
+            Row(
                 modifier = Modifier
-                    // [非dp] 横: 左カラム の weight(制約)に関係
-                    .weight(1f)
-                    // [非dp] 縦: 左カラム の fillMaxHeight(制約)に関係
-                    .fillMaxHeight()
+                    // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
+                    .fillMaxSize(),
+                // [dp] 横: 2カラム の間隔(間隔)に関係
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val portraitLikeWidthDp = minOf(
-                    configuration.screenWidthDp,
-                    configuration.screenHeightDp
-                ).dp
-                val previewWidth = minOf(maxWidth, portraitLikeWidthDp)
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
-                        // [非dp] 横: 左カラム内 の fillMaxWidth(制約)に関係
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.TopCenter
+                        // [非dp] 横: 左カラム の width(制約)に関係
+                        .width(previewWidth)
+                        // [非dp] 縦: 左カラム の fillMaxHeight(制約)に関係
+                        .fillMaxHeight()
                 ) {
-                    previewContent(Modifier.width(previewWidth))
+                    Box(
+                        modifier = Modifier
+                            // [非dp] 横: 左カラム内 の fillMaxWidth(制約)に関係
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        previewContent(Modifier.width(previewWidth))
+                    }
                 }
+                formContent(
+                    Modifier
+                        // [非dp] 横: 右カラム の weight(制約)に関係
+                        .weight(1f)
+                        // [非dp] 縦: 右カラム の fillMaxHeight(制約)に関係
+                        .fillMaxHeight()
+                )
             }
-            formContent(
-                Modifier
-                    // [非dp] 横: 右カラム の weight(制約)に関係
-                    .weight(1f)
-                    // [非dp] 縦: 右カラム の fillMaxHeight(制約)に関係
-                    .fillMaxHeight()
-            )
         }
     } else {
         Column(
