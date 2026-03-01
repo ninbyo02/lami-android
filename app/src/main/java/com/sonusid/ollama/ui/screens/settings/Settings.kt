@@ -70,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -86,6 +87,7 @@ import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.common.TopFadeOverlay
+import com.sonusid.ollama.ui.theme.LamiOrange
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
 import com.sonusid.ollama.util.normalizeUrlInput
 import com.sonusid.ollama.util.validateUrlFormat
@@ -750,7 +752,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 show = showTopFade,
                 bg = scaffoldBg,
                 height = fadeHeight,
-                modifier = Modifier.align(Alignment.TopCenter),
+                tint = LamiOrange,
+                modifier = Modifier.align(Alignment.TopCenter).zIndex(1f),
                 label = "settingsTopFade",
             )
             BottomFadeOverlay(
