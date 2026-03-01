@@ -1079,7 +1079,7 @@ fun SpriteEditorScreen(navController: NavController) {
                                 .padding(vertical = 2.dp)
                                 .testTag("spriteEditorStatus"),
                             // [dp] 縦: ステータス の間隔(間隔)に関係
-                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             val statusLine1 = if (state == null) {
                                 "画像読み込み中"
