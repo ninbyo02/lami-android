@@ -4,9 +4,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +38,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.Dp
@@ -58,8 +59,6 @@ fun NoticeScreen(navController: NavController) {
     val context = LocalContext.current
     var noticeText by remember { mutableStateOf("") }
     val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
@@ -70,12 +69,9 @@ fun NoticeScreen(navController: NavController) {
         derivedStateOf { scrollState.value > thresholdPx }
     }
 
-    // 左右の安全領域は維持し、上は TopAppBar 側で処理する
-    val scaffoldInsets = WindowInsets(
-        left = systemBarInsets.getLeft(density, layoutDirection),
-        top = 0,
-        right = systemBarInsets.getRight(density, layoutDirection),
-        bottom = 0,
+    // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右・下端のみ適用する
+    val scaffoldInsets = WindowInsets.systemBars.only(
+        WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
     )
 
     LaunchedEffect(Unit) {
