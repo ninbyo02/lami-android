@@ -774,7 +774,7 @@ private fun CardSectionHeader(
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier
+        modifier = modifier.padding(top = 8.dp)
     ) {
         Text(
             title,
