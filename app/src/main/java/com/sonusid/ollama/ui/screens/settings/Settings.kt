@@ -725,7 +725,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     ListItem(
                         headlineContent = {
