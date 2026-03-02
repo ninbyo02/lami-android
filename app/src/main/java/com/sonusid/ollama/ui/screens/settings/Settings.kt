@@ -545,7 +545,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 Icon(
                                     Icons.Filled.Add,
                                     contentDescription = "Add server",
-                                    modifier = Modifier.offset(x = 0.dp)
+                                    modifier = Modifier.offset(x = 2.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(6.dp))
