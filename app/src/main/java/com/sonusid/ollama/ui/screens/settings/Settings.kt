@@ -374,16 +374,21 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RadioButton(
-                            selected = serverInput.isActive,
-                            onClick = {
-                                serverInputs.indices.forEach { i ->
-                                    val current = serverInputs[i]
-                                    serverInputs[i] = current.copy(isActive = i == index)
+                        Box(
+                            modifier = Modifier.width(32.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            RadioButton(
+                                selected = serverInput.isActive,
+                                onClick = {
+                                    serverInputs.indices.forEach { i ->
+                                        val current = serverInputs[i]
+                                        serverInputs[i] = current.copy(isActive = i == index)
+                                    }
                                 }
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
                         Column(
                             modifier = Modifier.weight(1f)
                         ) {
