@@ -725,6 +725,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     )
                 }
             }
+            }
             TopFadeOverlay(
                 show = showTopFade,
                 bg = scaffoldBg,
