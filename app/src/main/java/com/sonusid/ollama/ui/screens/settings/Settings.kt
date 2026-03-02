@@ -586,6 +586,16 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
                                         colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = if (serverInput.isActive) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outline
+                                            },
+                                            unfocusedBorderColor = if (serverInput.isActive) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outline
+                                            },
                                             errorBorderColor = MaterialTheme.colorScheme.error,
                                             errorCursorColor = MaterialTheme.colorScheme.error,
                                             errorLabelColor = MaterialTheme.colorScheme.error,
