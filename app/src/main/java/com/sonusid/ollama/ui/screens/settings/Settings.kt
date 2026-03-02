@@ -376,6 +376,15 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 headlineContent = {
                                     Text("設定を保存", style = MaterialTheme.typography.titleMedium)
                                 },
+                                supportingContent = {
+                                    Text(
+                                        "サーバー設定の変更内容を保存します",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
                                 colors = ListItemDefaults.colors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 ),
