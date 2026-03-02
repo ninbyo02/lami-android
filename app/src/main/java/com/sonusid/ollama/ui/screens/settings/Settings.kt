@@ -748,6 +748,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 contentDescription = null
                             )
                         },
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { navgationController.navigate(Routes.ABOUT) }
