@@ -473,7 +473,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         IconButton(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
-                                .padding(end = 8.dp),
+                                .padding(end = 0.dp),
                             enabled = serverInputs.size > 1,
                             onClick = {
                                 if (serverInputs.size <= 1) {
