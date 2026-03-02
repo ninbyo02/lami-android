@@ -61,6 +61,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -69,6 +70,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
@@ -317,67 +319,20 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 )
                 Card {
                     Column {
-                        ListItem(
-                            headlineContent = {
-                                Text("Sprite Settings", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "スプライト画像を表示します",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    minLines = 2,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Filled.BugReport,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            },
+                        SettingsNavRowItem(
+                            title = "Sprite Settings",
+                            description = "スプライト画像を表示します",
+                            onClick = { navgationController.navigate(SettingsRoute.SpriteSettings.route) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                        ListItem(
-                            headlineContent = {
-                                Text("Sprite Editor", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "スプライト画像の編集・書き出しを行います",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Filled.BugReport,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            },
+                        SettingsNavRowItem(
+                            title = "Sprite Editor",
+                            description = "スプライト画像の編集・書き出しを行います",
+                            onClick = { navgationController.navigate(SettingsRoute.SpriteEditor.route) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { navgationController.navigate(SettingsRoute.SpriteEditor.route) }
                                 // [dp] 左右/上下: ListItem の余白(余白)に関係
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
@@ -757,6 +712,62 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     .padding(bottom = bottomDp)
                     .zIndex(1f),
                 label = "settingsBottomFade",
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun SettingsNavRowItem(
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector = Icons.Filled.BugReport,
+    trailingIcon: ImageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight
+) {
+    val density = LocalDensity.current
+    val headlineLineHeight = MaterialTheme.typography.titleMedium.lineHeight
+    val headlineLineHeightDp = with(density) {
+        if (headlineLineHeight == TextUnit.Unspecified) 24.dp else headlineLineHeight.toDp()
+    }
+
+    Row(
+        modifier = modifier.clickable(onClick = onClick),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier.height(headlineLineHeightDp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Box(
+            modifier = Modifier.height(headlineLineHeightDp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = trailingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
