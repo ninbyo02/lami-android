@@ -318,26 +318,20 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
-                    Column {
-                        SettingsNavRowItem(
-                            title = "Sprite Settings",
-                            description = "スプライト画像を表示します",
-                            onClick = { navgationController.navigate(SettingsRoute.SpriteSettings.route) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        SettingsNavRowItem(
-                            title = "Sprite Editor",
-                            description = "スプライト画像の編集・書き出しを行います",
-                            onClick = { navgationController.navigate(SettingsRoute.SpriteEditor.route) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // [dp] 左右/上下: ListItem の余白(余白)に関係
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-
+                    SettingsNavRowItem(
+                        headline = "Sprite Settings",
+                        supporting = "スプライト画像を表示します",
+                        leadingIcon = Icons.Filled.BugReport,
+                        onClick = { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
+                    )
+                }
+                Card {
+                    SettingsNavRowItem(
+                        headline = "Sprite Editor",
+                        supporting = "スプライト画像の編集・書き出しを行います",
+                        leadingIcon = Icons.Filled.BugReport,
+                        onClick = { navgationController.navigate(SettingsRoute.SpriteEditor.route) }
+                    )
                 }
             }
             item {
@@ -347,28 +341,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
-                    ListItem(
-                        headlineContent = {
-                            Text("ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
-                        },
-                        supportingContent = {
-                            Text(
-                                "システムカラーに合わせて配色を自動調整します",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = settingsData.useDynamicColor,
-                                onCheckedChange = { enabled ->
-                                    scope.launch { settingsPreferences.updateDynamicColor(enabled) }
-                                }
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    SettingsToggleRowItem(
+                        headline = "ダイナミックカラー",
+                        supporting = "システムカラーに合わせて配色を自動調整します",
+                        leadingIcon = null,
+                        checked = settingsData.useDynamicColor,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                        }
                     )
                 }
             }
@@ -718,60 +698,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 }
 
 
-@Composable
-private fun SettingsNavRowItem(
-    title: String,
-    description: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    leadingIcon: ImageVector = Icons.Filled.BugReport,
-    trailingIcon: ImageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight
-) {
-    val density = LocalDensity.current
-    val headlineLineHeight = MaterialTheme.typography.titleMedium.lineHeight
-    val headlineLineHeightDp = with(density) {
-        if (headlineLineHeight == TextUnit.Unspecified) 24.dp else headlineLineHeight.toDp()
-    }
-
-    Row(
-        modifier = modifier.clickable(onClick = onClick),
-        verticalAlignment = Alignment.Top
-    ) {
-        Box(
-            modifier = Modifier.height(headlineLineHeightDp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = leadingIcon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                minLines = 2,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Box(
-            modifier = Modifier.height(headlineLineHeightDp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = trailingIcon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
 
 @Composable
 private fun CardSectionHeader(
