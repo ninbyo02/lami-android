@@ -506,38 +506,50 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
+                    TextButton(
+                        enabled = serverInputs.size < maxServers,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.width(32.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        TextButton(
-                            enabled = serverInputs.size < maxServers,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                if (serverInputs.size >= maxServers) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = "追加できるサーバー数は最大${maxServers}件です",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                } else {
-                                    serverInputs.add(
-                                        ServerInput(
-                                            url = "http://localhost:13511/",
-                                            isActive = false
-                                        )
+                            .height(48.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        onClick = {
+                            if (serverInputs.size >= maxServers) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "追加できるサーバー数は最大${maxServers}件です",
+                                        duration = SnackbarDuration.Short
                                     )
-                                    val normalizedInputs = getNormalizedInputs()
-                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                 }
+                            } else {
+                                serverInputs.add(
+                                    ServerInput(
+                                        url = "http://localhost:13511/",
+                                        isActive = false
+                                    )
+                                )
+                                val normalizedInputs = getNormalizedInputs()
+                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
                             }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add server")
+                            Box(
+                                modifier = Modifier.width(32.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = "Add server",
+                                    modifier = Modifier.offset(x = (-2).dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
