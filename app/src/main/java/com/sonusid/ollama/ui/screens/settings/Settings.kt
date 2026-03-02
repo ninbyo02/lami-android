@@ -510,7 +510,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         enabled = serverInputs.size < maxServers,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .height(32.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                         onClick = {
                             if (serverInputs.size >= maxServers) {
@@ -545,7 +545,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 Icon(
                                     Icons.Filled.Add,
                                     contentDescription = "Add server",
-                                    modifier = Modifier.offset(x = (-2).dp)
+                                    modifier = Modifier.offset(x = 0.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(6.dp))
