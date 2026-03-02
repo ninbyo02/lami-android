@@ -351,6 +351,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         headline = "ダイナミックカラー",
                         supporting = "システムカラーに合わせて配色を自動調整します",
                         leadingIcon = null,
+                        modifier = Modifier.padding(start = 4.dp),
                         checked = settingsData.useDynamicColor,
                         onCheckedChange = { enabled ->
                             scope.launch { settingsPreferences.updateDynamicColor(enabled) }
