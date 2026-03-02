@@ -379,6 +379,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             contentAlignment = Alignment.CenterStart
                         ) {
                             RadioButton(
+                                modifier = Modifier.offset(x = (-2).dp),
                                 selected = serverInput.isActive,
                                 onClick = {
                                     serverInputs.indices.forEach { i ->
