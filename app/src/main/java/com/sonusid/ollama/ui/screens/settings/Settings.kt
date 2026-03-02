@@ -30,7 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -569,119 +569,121 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 )
                             },
                             trailingContent = {
-                                Button(onClick = {
-                                    scope.launch {
-                                        if (serverInputs.any { it.url.isBlank() }) {
-                                            snackbarHostState.showSnackbar(
-                                                message = "空のURLを保存できません",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                            return@launch
-                                        }
-                                        val normalizedInputs = getNormalizedInputs()
-                                        val duplicates = detectDuplicateUrls(normalizedInputs)
-                                        duplicateUrls = duplicates
-                                        if (duplicates.isNotEmpty()) {
-                                            connectionStatuses = emptyMap()
-                                            snackbarHostState.showSnackbar(
-                                                message = "同じURLは複数登録できません",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                            return@launch
-                                        }
-                                        if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
-                                            snackbarHostState.showSnackbar(
-                                                message = PORT_ERROR_MESSAGE,
-                                                duration = SnackbarDuration.Short
-                                            )
-                                            return@launch
-                                        }
-                                        if (serverInputs.none { it.isActive }) {
-                                            serverInputs[0] = serverInputs[0].copy(isActive = true)
-                                        }
-                                        val inputsForValidation = getNormalizedInputs()
-                                        isValidatingConnections = true
-                                        val validationResults = try {
-                                            withContext(Dispatchers.IO) {
-                                                validateActiveConnections(inputsForValidation, ::isValidURL)
+                                IconButton(
+                                    modifier = Modifier.padding(end = 0.dp),
+                                    onClick = {
+                                        scope.launch {
+                                            if (serverInputs.any { it.url.isBlank() }) {
+                                                snackbarHostState.showSnackbar(
+                                                    message = "空のURLを保存できません",
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                                return@launch
                                             }
-                                        } finally {
-                                            isValidatingConnections = false
-                                        }
-                                        connectionStatuses = validationResults
-                                        val unreachableConnections = validationResults.filterValues { !it.isReachable }
-                                        val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
-                                        if (unreachableConnections.isNotEmpty()) {
-                                            snackbarHostState.showSnackbar(
-                                                message = "選択中のサーバーに接続できません。入力内容を確認してください",
-                                                actionLabel = "ERROR",
-                                                duration = SnackbarDuration.Short
-                                            )
-                                            return@launch
-                                        }
-                                        if (warningMessages.isNotEmpty()) {
-                                            snackbarHostState.showSnackbar(
-                                                message = warningMessages.joinToString("\n"),
-                                                duration = SnackbarDuration.Short
-                                            )
-                                        }
-                                        connectionStatuses = validationResults.mapValues { entry ->
-                                            entry.value.copy(errorMessage = null)
-                                        }
-                                        duplicateUrls = emptyMap()
-                                        val inputsToSave = inputsForValidation.mapIndexed { _, input ->
-                                            BaseUrl(
-                                                id = input.id ?: 0,
-                                                url = input.url,
-                                                isActive = input.isActive
-                                            )
-                                        }
-                                        val initializationState = saveServers(
-                                            inputsToSave,
-                                            baseUrlRepository,
-                                            modelPreferenceRepository,
-                                            RetrofitClient::refreshBaseUrl
-                                        )
-                                        if (initializationState.usedFallback) {
-                                            val fallbackMessage = initializationState.errorMessage
-                                                ?: "有効なURLがないためデフォルトにフォールバックしました"
-                                            snackbarHostState.showSnackbar(
-                                                message = fallbackMessage,
-                                                duration = SnackbarDuration.Short
-                                            )
-                                            val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
-                                            val hasActive = storedUrls.any { it.isActive }
-                                            serverInputs.clear()
-                                            serverInputs.addAll(
-                                                storedUrls.mapIndexed { index, baseUrl ->
-                                                    ServerInput(
-                                                        id = baseUrl.id,
-                                                        url = baseUrl.url,
-                                                        isActive = if (hasActive) baseUrl.isActive else index == 0
-                                                    )
-                                                }
-                                            )
-                                            connectionStatuses = emptyMap()
                                             val normalizedInputs = getNormalizedInputs()
-                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                        } else {
-                                            val normalizedActiveBaseUrl =
-                                                normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
-                                            serverInputs.indices.forEach { i ->
-                                                val current = serverInputs[i]
-                                                val normalized = normalizeUrlInput(current.url).trimEnd('/')
-                                                serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                            val duplicates = detectDuplicateUrls(normalizedInputs)
+                                            duplicateUrls = duplicates
+                                            if (duplicates.isNotEmpty()) {
+                                                connectionStatuses = emptyMap()
+                                                snackbarHostState.showSnackbar(
+                                                    message = "同じURLは複数登録できません",
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                                return@launch
                                             }
-                                            showSuccessSnackbarShort("サーバー設定を保存しました")
+                                            if (normalizedInputs.any { !validateUrlFormat(it.url).isValid }) {
+                                                snackbarHostState.showSnackbar(
+                                                    message = PORT_ERROR_MESSAGE,
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                                return@launch
+                                            }
+                                            if (serverInputs.none { it.isActive }) {
+                                                serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                            }
+                                            val inputsForValidation = getNormalizedInputs()
+                                            isValidatingConnections = true
+                                            val validationResults = try {
+                                                withContext(Dispatchers.IO) {
+                                                    validateActiveConnections(inputsForValidation, ::isValidURL)
+                                                }
+                                            } finally {
+                                                isValidatingConnections = false
+                                            }
+                                            connectionStatuses = validationResults
+                                            val unreachableConnections = validationResults.filterValues { !it.isReachable }
+                                            val warningMessages = validationResults.values.mapNotNull { it.warningMessage }
+                                            if (unreachableConnections.isNotEmpty()) {
+                                                snackbarHostState.showSnackbar(
+                                                    message = "選択中のサーバーに接続できません。入力内容を確認してください",
+                                                    actionLabel = "ERROR",
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                                return@launch
+                                            }
+                                            if (warningMessages.isNotEmpty()) {
+                                                snackbarHostState.showSnackbar(
+                                                    message = warningMessages.joinToString("\n"),
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                            }
+                                            connectionStatuses = validationResults.mapValues { entry ->
+                                                entry.value.copy(errorMessage = null)
+                                            }
+                                            duplicateUrls = emptyMap()
+                                            val inputsToSave = inputsForValidation.mapIndexed { _, input ->
+                                                BaseUrl(
+                                                    id = input.id ?: 0,
+                                                    url = input.url,
+                                                    isActive = input.isActive
+                                                )
+                                            }
+                                            val initializationState = saveServers(
+                                                inputsToSave,
+                                                baseUrlRepository,
+                                                modelPreferenceRepository,
+                                                RetrofitClient::refreshBaseUrl
+                                            )
+                                            if (initializationState.usedFallback) {
+                                                val fallbackMessage = initializationState.errorMessage
+                                                    ?: "有効なURLがないためデフォルトにフォールバックしました"
+                                                snackbarHostState.showSnackbar(
+                                                    message = fallbackMessage,
+                                                    duration = SnackbarDuration.Short
+                                                )
+                                                val storedUrls = withContext(Dispatchers.IO) { baseUrlRepository.getAll() }
+                                                val hasActive = storedUrls.any { it.isActive }
+                                                serverInputs.clear()
+                                                serverInputs.addAll(
+                                                    storedUrls.mapIndexed { index, baseUrl ->
+                                                        ServerInput(
+                                                            id = baseUrl.id,
+                                                            url = baseUrl.url,
+                                                            isActive = if (hasActive) baseUrl.isActive else index == 0
+                                                        )
+                                                    }
+                                                )
+                                                connectionStatuses = emptyMap()
+                                                val normalizedInputs = getNormalizedInputs()
+                                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                            } else {
+                                                val normalizedActiveBaseUrl =
+                                                    normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
+                                                serverInputs.indices.forEach { i ->
+                                                    val current = serverInputs[i]
+                                                    val normalized = normalizeUrlInput(current.url).trimEnd('/')
+                                                    serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                                }
+                                                showSuccessSnackbarShort("サーバー設定を保存しました")
+                                            }
                                         }
                                     }
-                                }) {
+                                ) {
                                     Icon(
-                                        painter = painterResource(R.drawable.save),
-                                        contentDescription = "Save"
+                                        imageVector = Icons.Filled.Save,
+                                        contentDescription = "Save settings",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("保存")
                                 }
                             },
                             modifier = Modifier
