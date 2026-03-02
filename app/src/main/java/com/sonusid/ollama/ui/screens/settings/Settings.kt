@@ -736,7 +736,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 }
             }
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(36.dp))
             }
             }
             TopFadeOverlay(
