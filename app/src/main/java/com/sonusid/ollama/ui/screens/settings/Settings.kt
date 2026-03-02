@@ -71,6 +71,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -319,7 +320,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "デバッグツール",
                     description = "スプライト関連の挙動を確認・調整するためのツールです",
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    modifier = Modifier.padding(bottom = 2.dp),
+                    topPadding = 20.dp
                 )
                 Card {
                     SettingsNavRowItem(
@@ -762,11 +764,12 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 private fun CardSectionHeader(
     title: String,
     description: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    topPadding: Dp = 16.dp
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier.padding(top = 24.dp)
+        modifier = modifier.padding(top = topPadding)
     ) {
         Text(
             title,
