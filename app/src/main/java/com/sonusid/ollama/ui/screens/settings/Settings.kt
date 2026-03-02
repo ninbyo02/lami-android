@@ -122,6 +122,9 @@ internal data class ServerInput(
 // サーバー接続検証中インジケータの視覚的中心補正
 private val ServerValidationIndicatorYOffset = 3.dp
 
+// サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
+private val ServerRowTrailingSlotWidth = 48.dp
+
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
     context.startActivity(intent)
@@ -368,104 +371,109 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier.width(32.dp),
-                            contentAlignment = Alignment.CenterStart
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(end = ServerRowTrailingSlotWidth),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                modifier = Modifier.offset(x = (-2).dp),
-                                selected = serverInput.isActive,
-                                onClick = {
-                                    serverInputs.indices.forEach { i ->
-                                        val current = serverInputs[i]
-                                        serverInputs[i] = current.copy(isActive = i == index)
+                            Box(
+                                modifier = Modifier.width(32.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                RadioButton(
+                                    modifier = Modifier.offset(x = (-2).dp),
+                                    selected = serverInput.isActive,
+                                    onClick = {
+                                        serverInputs.indices.forEach { i ->
+                                            val current = serverInputs[i]
+                                            serverInputs[i] = current.copy(isActive = i == index)
+                                        }
+                                    }
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextField(
+                                        value = serverInput.url,
+                                        onValueChange = { newValue ->
+                                            val normalized = normalizeUrlInput(newValue)
+                                            serverInputs[index] = serverInput.copy(url = normalized)
+                                            val normalizedInputs = getNormalizedInputs()
+                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                        },
+                                        placeholder = { Text("http://host:port") },
+                                        label = { Text("Server ${index + 1}") },
+                                        singleLine = true,
+                                        isError = duplicateUrls[serverInput.localId] == true ||
+                                            !validateUrlFormat(serverInput.url).isValid ||
+                                            connectionStatuses[serverInput.localId]?.isReachable == false,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            errorBorderColor = MaterialTheme.colorScheme.error,
+                                            errorCursorColor = MaterialTheme.colorScheme.error,
+                                            errorLabelColor = MaterialTheme.colorScheme.error,
+                                            errorLeadingIconColor = MaterialTheme.colorScheme.error,
+                                            errorTrailingIconColor = MaterialTheme.colorScheme.error
+                                        ),
+                                    )
+                                    if (isValidatingConnections && serverInput.isActive) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier
+                                                        .align(Alignment.Center)
+                                                        .offset(y = ServerValidationIndicatorYOffset)
+                                                        .size(28.dp),
+                                                    strokeWidth = 6.dp
+                                                )
                                     }
                                 }
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(
-                                    value = serverInput.url,
-                                    onValueChange = { newValue ->
-                                        val normalized = normalizeUrlInput(newValue)
-                                        serverInputs[index] = serverInput.copy(url = normalized)
-                                        val normalizedInputs = getNormalizedInputs()
-                                        duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                    },
-                                    placeholder = { Text("http://host:port") },
-                                    label = { Text("Server ${index + 1}") },
-                                    singleLine = true,
-                                    isError = duplicateUrls[serverInput.localId] == true ||
-                                        !validateUrlFormat(serverInput.url).isValid ||
-                                        connectionStatuses[serverInput.localId]?.isReachable == false,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        errorBorderColor = MaterialTheme.colorScheme.error,
-                                        errorCursorColor = MaterialTheme.colorScheme.error,
-                                        errorLabelColor = MaterialTheme.colorScheme.error,
-                                        errorLeadingIconColor = MaterialTheme.colorScheme.error,
-                                        errorTrailingIconColor = MaterialTheme.colorScheme.error
-                                    ),
-                                )
-                                if (isValidatingConnections && serverInput.isActive) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier
-                                                    .align(Alignment.Center)
-                                                    .offset(y = ServerValidationIndicatorYOffset)
-                                                    .size(28.dp),
-                                                strokeWidth = 6.dp
-                                            )
-                                }
-                            }
-                            when {
-                                duplicateUrls[serverInput.localId] == true -> {
-                                    Text(
-                                        text = "このURLは既に追加されています",
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                    )
-                                }
-                                isValidatingConnections && serverInput.isActive -> {
-                                    Text(
-                                        text = "接続確認中…",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                    )
-                                }
-                                connectionStatuses[serverInput.localId]?.isReachable == false -> {
-                                    val message = connectionStatuses[serverInput.localId]?.errorMessage
-                                        ?: "接続できません"
-                                    Text(
-                                        text = message,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                    )
-                                }
-                                connectionStatuses[serverInput.localId]?.warningMessage != null -> {
-                                    val message = connectionStatuses[serverInput.localId]?.warningMessage
-                                    if (message != null) {
+                                when {
+                                    duplicateUrls[serverInput.localId] == true -> {
                                         Text(
-                                            text = message,
+                                            text = "このURLは既に追加されています",
+                                            color = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
                                         )
                                     }
+                                    isValidatingConnections && serverInput.isActive -> {
+                                        Text(
+                                            text = "接続確認中…",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                        )
+                                    }
+                                    connectionStatuses[serverInput.localId]?.isReachable == false -> {
+                                        val message = connectionStatuses[serverInput.localId]?.errorMessage
+                                            ?: "接続できません"
+                                        Text(
+                                            text = message,
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                        )
+                                    }
+                                    connectionStatuses[serverInput.localId]?.warningMessage != null -> {
+                                        val message = connectionStatuses[serverInput.localId]?.warningMessage
+                                        if (message != null) {
+                                            Text(
+                                                text = message,
+                                                modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.width(6.dp))
                         IconButton(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 0.dp),
                             enabled = serverInputs.size > 1,
                             onClick = {
                                 if (serverInputs.size <= 1) {
