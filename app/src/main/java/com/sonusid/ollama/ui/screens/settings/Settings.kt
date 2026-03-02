@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -349,16 +350,33 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
-                    SettingsToggleRowItem(
-                        headline = "ダイナミックカラー",
-                        supporting = "システムカラーに合わせて配色を自動調整します",
-                        leadingIcon = null,
-                        modifier = Modifier.padding(start = 4.dp),
-                        checked = settingsData.useDynamicColor,
-                        onCheckedChange = { enabled ->
-                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { scope.launch { settingsPreferences.updateDynamicColor(!settingsData.useDynamicColor) } }
+                            .padding(start = 4.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = "システムカラーに合わせて配色を自動調整します",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
-                    )
+                        Switch(
+                            checked = settingsData.useDynamicColor,
+                            onCheckedChange = { enabled ->
+                                scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                            },
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
+                    }
                 }
             }
             item {
