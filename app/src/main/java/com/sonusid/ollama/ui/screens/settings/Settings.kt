@@ -704,21 +704,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 }
             }
             item {
-                Column(
+                CardSectionHeader(
+                    title = "アプリ情報",
+                    description = "バージョン情報やオープンソースライセンスを確認できます",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "アプリ情報",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "バージョン情報やオープンソースライセンスを確認できます",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                )
             }
             item {
                 Card(
