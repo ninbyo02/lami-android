@@ -417,58 +417,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         errorLabelColor = MaterialTheme.colorScheme.error,
                                         errorLeadingIconColor = MaterialTheme.colorScheme.error,
                                         errorTrailingIconColor = MaterialTheme.colorScheme.error
-                                    ),
-                                    trailingIcon = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(onClick = {
-                                                if (serverInputs.size >= maxServers) {
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                            message = "追加できるサーバー数は最大${maxServers}件です",
-                                                            duration = SnackbarDuration.Short
-                                                        )
-                                                    }
-                                                } else {
-                                                    serverInputs.add(
-                                                        ServerInput(
-                                                            url = "http://localhost:13511/",
-                                                            isActive = false
-                                                        )
-                                                    )
-                                                    val normalizedInputs = getNormalizedInputs()
-                                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                                }
-                                            }) {
-                                                Icon(Icons.Filled.Add, contentDescription = "Add server")
-                                            }
-                                            if (serverInputs.size > 1) {
-                                                IconButton(onClick = {
-                                                    if (serverInputs.size <= 1) {
-                                                        scope.launch {
-                                                            snackbarHostState.showSnackbar(
-                                                                message = "最低1件のサーバーを残してください",
-                                                                duration = SnackbarDuration.Short
-                                                            )
-                                                        }
-                                                        return@IconButton
-                                                    }
-                                                    val wasActive = serverInputs[index].isActive
-                                                    val updatedInvalidConnections =
-                                                        connectionStatuses.toMutableMap().apply {
-                                                            remove(serverInput.localId)
-                                                        }
-                                                    serverInputs.removeAt(index)
-                                                    connectionStatuses = updatedInvalidConnections
-                                                    val normalizedInputs = getNormalizedInputs()
-                                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                                    if (wasActive && serverInputs.isNotEmpty()) {
-                                                        serverInputs[0] = serverInputs[0].copy(isActive = true)
-                                                    }
-                                                }) {
-                                                    Icon(Icons.Filled.Delete, contentDescription = "Remove server")
-                                                }
-                                            }
-                                        }
                                     }
                                 )
                                 if (isValidatingConnections && serverInput.isActive) {
@@ -515,6 +463,73 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     }
                                 }
                             }
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            enabled = serverInputs.size > 1,
+                            onClick = {
+                                if (serverInputs.size <= 1) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = "最低1件のサーバーを残してください",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                    return@IconButton
+                                }
+                                val wasActive = serverInputs[index].isActive
+                                val updatedInvalidConnections =
+                                    connectionStatuses.toMutableMap().apply {
+                                        remove(serverInput.localId)
+                                    }
+                                serverInputs.removeAt(index)
+                                connectionStatuses = updatedInvalidConnections
+                                val normalizedInputs = getNormalizedInputs()
+                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                if (wasActive && serverInputs.isNotEmpty()) {
+                                    serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Remove server")
+                        }
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(modifier = Modifier.width(32.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        TextButton(
+                            enabled = serverInputs.size < maxServers,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                if (serverInputs.size >= maxServers) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = "追加できるサーバー数は最大${maxServers}件です",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                } else {
+                                    serverInputs.add(
+                                        ServerInput(
+                                            url = "http://localhost:13511/",
+                                            isActive = false
+                                        )
+                                    )
+                                    val normalizedInputs = getNormalizedInputs()
+                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Filled.Add, contentDescription = "Add server")
                         }
                     }
                 }
