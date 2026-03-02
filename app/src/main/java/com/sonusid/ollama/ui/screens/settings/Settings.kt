@@ -386,9 +386,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 colors = ListItemDefaults.colors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 ),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                    horizontal = 12.dp,
+                                    vertical = 6.dp
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .padding(horizontal = 8.dp)
                                     .padding(end = ServerRowTrailingSlotWidth)
                             )
                             IconButton(
@@ -512,9 +516,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         }
                     }
                 }
-            }
-            item {
-                Spacer(modifier = Modifier.height(2.dp))
             }
             itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
                 Card(
