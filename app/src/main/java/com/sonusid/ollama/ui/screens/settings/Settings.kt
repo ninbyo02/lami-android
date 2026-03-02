@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
@@ -728,32 +727,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                stringResource(R.string.about),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                "バージョン情報やオープンソースライセンスを表示します",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingContent = {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null
-                            )
-                        },
-                        colors = ListItemDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ),
+                    SettingsNavRowItem(
+                        headline = stringResource(R.string.about),
+                        supporting = "バージョン情報やオープンソースライセンスを表示します",
+                        leadingIcon = null,
+                        onClick = { navgationController.navigate(Routes.ABOUT) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { navgationController.navigate(Routes.ABOUT) }
+                            .padding(start = 4.dp)
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
