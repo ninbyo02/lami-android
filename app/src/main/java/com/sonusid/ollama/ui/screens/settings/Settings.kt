@@ -326,6 +326,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     "スプライト画像を表示します",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    minLines = 2,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
