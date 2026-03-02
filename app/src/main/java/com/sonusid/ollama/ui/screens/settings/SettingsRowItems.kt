@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 private val SettingsRowHorizontalPadding = 12.dp
 private val SettingsRowVerticalPadding = 10.dp
 private val SettingsRowIconSize = 24.dp
-private val SettingsRowIconBoxWidth = 36.dp
+private val SettingsRowIconBoxWidth = 32.dp
 
 @Composable
 fun SettingsNavRowItem(
@@ -128,7 +128,7 @@ private fun SettingsBaseRow(
             .then(rowModifier)
             .padding(horizontal = SettingsRowHorizontalPadding, vertical = SettingsRowVerticalPadding),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (leadingIcon != null) {
             Box(
