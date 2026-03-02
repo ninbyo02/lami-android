@@ -123,7 +123,7 @@ internal data class ServerInput(
 private val ServerValidationIndicatorYOffset = 3.dp
 
 // サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
-private val ServerRowTrailingSlotWidth = 48.dp
+private val ServerRowTrailingSlotWidth = 24.dp
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
