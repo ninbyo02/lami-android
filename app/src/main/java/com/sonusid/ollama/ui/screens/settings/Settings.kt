@@ -376,13 +376,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 headlineContent = {
                                     Text("設定を保存", style = MaterialTheme.typography.titleMedium)
                                 },
-                                supportingContent = {
-                                    Text(
-                                        "入力したサーバー設定を検証して保存します",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
                                 colors = ListItemDefaults.colors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 ),
