@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 private val SettingsRowHorizontalPadding = 12.dp
 private val SettingsRowVerticalPadding = 10.dp
 private val SettingsRowIconSize = 24.dp
-private val SettingsRowIconBoxWidth = 40.dp
+private val SettingsRowIconBoxWidth = 36.dp
 
 @Composable
 fun SettingsNavRowItem(

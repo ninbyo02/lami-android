@@ -325,6 +325,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         onClick = { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
                     )
                 }
+                // 同一セクション内の Sprite カード同士だけ 2dp の間隔を確保
+                Spacer(modifier = Modifier.height(2.dp))
                 Card {
                     SettingsNavRowItem(
                         headline = "Sprite Editor",
