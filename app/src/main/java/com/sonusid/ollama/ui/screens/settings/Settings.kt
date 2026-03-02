@@ -386,13 +386,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 colors = ListItemDefaults.colors(
                                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 ),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                                    horizontal = 12.dp,
-                                    vertical = 6.dp
-                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 8.dp)
+                                    .padding(vertical = 0.dp)
                                     .padding(end = ServerRowTrailingSlotWidth)
                             )
                             IconButton(
