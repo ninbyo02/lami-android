@@ -417,7 +417,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         errorLabelColor = MaterialTheme.colorScheme.error,
                                         errorLeadingIconColor = MaterialTheme.colorScheme.error,
                                         errorTrailingIconColor = MaterialTheme.colorScheme.error
-                                    }
+                                    ),
                                 )
                                 if (isValidatingConnections && serverInput.isActive) {
                                             CircularProgressIndicator(
