@@ -708,7 +708,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             item {
                 CardSectionHeader(
                     title = "アプリ情報",
-                    description = "バージョン情報やオープンソースライセンスを確認できます",
+                    description = "このアプリについて",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -725,7 +725,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 ) {
                     SettingsNavRowItem(
                         headline = stringResource(R.string.about),
-                        supporting = "バージョン情報やオープンソースライセンスを表示します",
+                        supporting = "バージョン情報とオープンソースライセンス",
                         leadingIcon = null,
                         onClick = null,
                         modifier = Modifier
