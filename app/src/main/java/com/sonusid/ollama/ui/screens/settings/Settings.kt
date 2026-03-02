@@ -732,7 +732,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         headline = stringResource(R.string.about),
                         supporting = "バージョン情報やオープンソースライセンスを表示します",
                         leadingIcon = null,
-                        onClick = { navgationController.navigate(Routes.ABOUT) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 4.dp)
