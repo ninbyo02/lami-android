@@ -33,7 +33,7 @@ fun SettingsNavRowItem(
     headline: String,
     supporting: String?,
     leadingIcon: ImageVector?,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     testTag: String? = null,
