@@ -61,6 +61,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -69,6 +70,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
@@ -316,72 +318,22 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
-                    Column {
-                        ListItem(
-                            headlineContent = {
-                                Text("Sprite Settings", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "スプライト画像を表示します",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Filled.BugReport,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        ListItem(
-                            headlineContent = {
-                                Text("Sprite Editor", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "スプライト画像の編集・書き出しを行います",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Filled.BugReport,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navgationController.navigate(SettingsRoute.SpriteEditor.route) }
-                                // [dp] 左右/上下: ListItem の余白(余白)に関係
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-
+                    SettingsNavRowItem(
+                        headline = "Sprite Settings",
+                        supporting = "スプライト画像を表示します",
+                        leadingIcon = Icons.Filled.BugReport,
+                        onClick = { navgationController.navigate(SettingsRoute.SpriteSettings.route) }
+                    )
+                }
+                // 同一セクション内の Sprite カード同士だけ 2dp の間隔を確保
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    SettingsNavRowItem(
+                        headline = "Sprite Editor",
+                        supporting = "スプライト画像の編集・書き出しを行います",
+                        leadingIcon = Icons.Filled.BugReport,
+                        onClick = { navgationController.navigate(SettingsRoute.SpriteEditor.route) }
+                    )
                 }
             }
             item {
@@ -391,28 +343,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
-                    ListItem(
-                        headlineContent = {
-                            Text("ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
-                        },
-                        supportingContent = {
-                            Text(
-                                "システムカラーに合わせて配色を自動調整します",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = settingsData.useDynamicColor,
-                                onCheckedChange = { enabled ->
-                                    scope.launch { settingsPreferences.updateDynamicColor(enabled) }
-                                }
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    SettingsToggleRowItem(
+                        headline = "ダイナミックカラー",
+                        supporting = "システムカラーに合わせて配色を自動調整します",
+                        leadingIcon = null,
+                        checked = settingsData.useDynamicColor,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                        }
                     )
                 }
             }
@@ -760,6 +698,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         }
     }
 }
+
+
 
 @Composable
 private fun CardSectionHeader(
