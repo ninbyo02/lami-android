@@ -390,7 +390,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 8.dp)
                                     .padding(vertical = 0.dp)
                                     .padding(end = ServerRowTrailingSlotWidth)
                             )
