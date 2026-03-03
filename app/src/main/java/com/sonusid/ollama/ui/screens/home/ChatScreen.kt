@@ -1202,6 +1202,8 @@ fun Home(
     }
 }
 
+}
+
 @Composable
 private fun DrawerSearchPill(
     value: String,
