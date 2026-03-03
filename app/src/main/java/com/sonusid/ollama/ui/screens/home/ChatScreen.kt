@@ -381,25 +381,11 @@ fun Home(
                 ) {
                     // 上: 検索窓の直上余白を8dpに統一
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
+                    DrawerSearchPill(
                         value = chatSearchQuery,
                         onValueChange = { chatSearchQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = CircleShape,
-                        singleLine = true,
-                        placeholder = { Text("タイトル検索") },
-                        trailingIcon = {
-                            if (chatSearchQuery.isNotEmpty()) {
-                                IconButton(onClick = { chatSearchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "検索をクリア"
-                                    )
-                                }
-                            }
-                        }
+                        onClear = { chatSearchQuery = "" },
+                        modifier = Modifier.fillMaxWidth()
                     )
                     ElevatedButton(
                         onClick = createNewChatAndNavigate,
@@ -1216,7 +1202,56 @@ fun Home(
     }
 }
 
-}
+@Composable
+private fun DrawerSearchPill(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val height = 40.dp
+    val shape = RoundedCornerShape(height / 2)
+    Box(
+        modifier = modifier
+            .height(height)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .background(MaterialTheme.colorScheme.surface, shape)
+            .padding(horizontal = 16.dp, vertical = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = "タイトル検索",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (value.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "検索をクリア"
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
