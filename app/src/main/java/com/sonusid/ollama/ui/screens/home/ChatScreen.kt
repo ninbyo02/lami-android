@@ -1221,7 +1221,7 @@ private fun DrawerSearchPill(
             .height(height)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .background(MaterialTheme.colorScheme.surface, shape)
-            .padding(start = 16.dp, end = 0.dp, vertical = 1.dp)
+            .padding(start = 16.dp, top = 1.dp, end = 0.dp, bottom = 1.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
