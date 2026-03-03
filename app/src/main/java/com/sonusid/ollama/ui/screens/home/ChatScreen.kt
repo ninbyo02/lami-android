@@ -18,6 +18,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -376,7 +377,7 @@ fun Home(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
                 ) {
                     // 上: 検索窓の直上余白を8dpに統一
                     Spacer(modifier = Modifier.height(8.dp))
@@ -384,7 +385,9 @@ fun Home(
                         value = chatSearchQuery,
                         onValueChange = { chatSearchQuery = it },
                         modifier = Modifier
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 56.dp),
+                        shape = CircleShape,
                         singleLine = true,
                         label = { Text("タイトル検索") },
                         trailingIcon = {
