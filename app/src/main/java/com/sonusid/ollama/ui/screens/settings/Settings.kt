@@ -115,6 +115,10 @@ internal data class ConnectionValidationResult(
     val errorMessage: String? = null
 )
 
+private fun normalizeUrlForSave(url: String): String {
+    return url.trim().trimEnd('/')
+}
+
 internal data class ServerInput(
     val localId: String = UUID.randomUUID().toString(),
     val id: Int? = null,
@@ -427,7 +431,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             )
                                             return@launch
                                         }
-                                        val normalizedInputs = getNormalizedInputs()
+                                        val normalizedInputs = getNormalizedInputs().map { input ->
+                                            input.copy(url = normalizeUrlForSave(input.url))
+                                        }
                                         val duplicates = detectDuplicateUrls(normalizedInputs)
                                         duplicateUrls = duplicates
                                         if (duplicates.isNotEmpty()) {
@@ -448,7 +454,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         if (serverInputs.none { it.isActive }) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
-                                        val inputsForValidation = getNormalizedInputs()
+                                        val inputsForValidation = normalizedInputs
                                         isValidatingConnections = true
                                         val validationResults = try {
                                             withContext(Dispatchers.IO) {
@@ -515,11 +521,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         } else {
                                             val normalizedActiveBaseUrl =
-                                                normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
+                                                normalizeUrlForSave(normalizeUrlInput(initializationState.baseUrl))
                                             serverInputs.indices.forEach { i ->
                                                 val current = serverInputs[i]
-                                                val normalized = normalizeUrlInput(current.url).trimEnd('/')
-                                                serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                                val normalized = normalizeUrlForSave(normalizeUrlInput(current.url))
+                                                serverInputs[i] = current.copy(
+                                                    url = normalized,
+                                                    isActive = normalized == normalizedActiveBaseUrl
+                                                )
                                             }
                                             showSuccessSnackbarShort("サーバー設定を保存しました")
                                         }
