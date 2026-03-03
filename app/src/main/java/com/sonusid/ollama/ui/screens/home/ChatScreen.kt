@@ -378,13 +378,13 @@ fun Home(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    Text(text = "履歴", style = MaterialTheme.typography.titleLarge)
+                    // 上: 検索窓の直上余白を8dpに統一
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = chatSearchQuery,
                         onValueChange = { chatSearchQuery = it },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
+                            .fillMaxWidth(),
                         singleLine = true,
                         label = { Text("タイトル検索") },
                         trailingIcon = {
