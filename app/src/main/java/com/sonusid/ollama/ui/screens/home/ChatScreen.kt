@@ -1202,6 +1202,10 @@ fun Home(
     }
 }
 
+}
+
+}
+
 
 @Composable
 private fun DrawerSearchPill(
@@ -1247,13 +1251,12 @@ private fun DrawerSearchPill(
                 IconButton(onClick = onClear) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "検索をクリア"
-            )
+                        contentDescription = "検索をクリア",
+                    )
+                }
+            }
         }
     }
-}
-
-}
 }
 
 @Composable
