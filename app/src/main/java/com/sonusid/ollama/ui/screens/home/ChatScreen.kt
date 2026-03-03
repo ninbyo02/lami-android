@@ -386,10 +386,10 @@ fun Home(
                         onValueChange = { chatSearchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp),
+                            .height(48.dp),
                         shape = CircleShape,
                         singleLine = true,
-                        label = { Text("タイトル検索") },
+                        placeholder = { Text("タイトル検索") },
                         trailingIcon = {
                             if (chatSearchQuery.isNotEmpty()) {
                                 IconButton(onClick = { chatSearchQuery = "" }) {
