@@ -386,7 +386,7 @@ fun Home(
                         onValueChange = { chatSearchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 36.dp),
+                            .height(40.dp),
                         shape = CircleShape,
                         singleLine = true,
                         label = { Text("タイトル検索") },
