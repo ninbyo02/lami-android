@@ -1441,6 +1441,7 @@ internal fun formatChatPreview(message: String?): String {
 internal fun resolveDefaultChatId(explicitChatId: Int?, chats: List<Chat>): Int? {
     return explicitChatId
 }
+}
 
 internal suspend fun createAndNavigateToNewChat(
     createNewChat: suspend () -> Int,
