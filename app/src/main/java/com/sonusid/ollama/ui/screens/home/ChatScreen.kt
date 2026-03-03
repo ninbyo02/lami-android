@@ -1202,7 +1202,6 @@ fun Home(
     }
 }
 
-}
 
 @Composable
 private fun DrawerSearchPill(
