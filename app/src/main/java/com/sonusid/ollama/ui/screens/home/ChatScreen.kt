@@ -375,13 +375,16 @@ fun Home(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
+            val drawerBg = MaterialTheme.colorScheme.surface
             ModalDrawerSheet(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
-                windowInsets = WindowInsets(0, 0, 0, 0)
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                containerColor = drawerBg,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
             ) {
                 val newChatButtonHeight = 40.dp
                 val newChatListTopGap = 0.dp
-                val surface = MaterialTheme.colorScheme.surface
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -465,9 +468,9 @@ fun Home(
                                     drawRect(
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
-                                                0.0f to surface.copy(alpha = 1.0f),
-                                                0.35f to surface.copy(alpha = 0.6f),
-                                                1.0f to surface.copy(alpha = 0.0f),
+                                                0.0f to drawerBg.copy(alpha = 1.0f),
+                                                0.35f to drawerBg.copy(alpha = 0.6f),
+                                                1.0f to drawerBg.copy(alpha = 0.0f),
                                             )
                                         )
                                     )
