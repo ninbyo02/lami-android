@@ -389,9 +389,11 @@ fun Home(
                         onClear = { chatSearchQuery = "" },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    // 検索ピルと新規チャットボタンの間隔を 16dp 確保する
+                    Spacer(modifier = Modifier.height(16.dp))
                     ElevatedButton(
                         onClick = createNewChatAndNavigate,
-                        modifier = Modifier.padding(top = 12.dp)
+                        modifier = Modifier
                     ) {
                         Text("New chat")
                     }
