@@ -463,7 +463,9 @@ fun Home(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .fillMaxWidth()
-                                .height(newChatButtonHeight)
+                                // New chat ボタン下端より 4dp 下までフェードを伸ばし、終端線を目立たせない
+                                // ※スレッド開始位置は維持（LazyColumn の contentPadding.top は変更しない）
+                                .height(newChatButtonHeight + 4.dp)
                                 .drawBehind {
                                     drawRect(
                                         brush = Brush.verticalGradient(
