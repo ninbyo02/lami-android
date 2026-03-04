@@ -379,8 +379,6 @@ fun Home(
                         .fillMaxWidth()
                         .padding(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
                 ) {
-                    // 上: 検索窓の直上余白を8dpに統一
-                    Spacer(modifier = Modifier.height(8.dp))
                     DrawerSearchPill(
                         value = chatSearchQuery,
                         onValueChange = { chatSearchQuery = it },
