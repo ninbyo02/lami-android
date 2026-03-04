@@ -1216,6 +1216,11 @@ private fun DrawerSearchPill(
 ) {
     val height = 40.dp
     val shape = RoundedCornerShape(height / 2)
+    val drawerSearchTextStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Normal,
+        fontFamily = FontFamily.Default,
+    )
     Box(
         modifier = modifier
             .height(height)
@@ -1232,18 +1237,16 @@ private fun DrawerSearchPill(
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Normal
-                ),
+                textStyle = drawerSearchTextStyle,
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 decorationBox = { innerTextField ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty()) {
                             Text(
                                 text = "タイトル検索",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyLarge
+                                style = drawerSearchTextStyle.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             )
                         }
                         innerTextField()
