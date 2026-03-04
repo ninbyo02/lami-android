@@ -467,8 +467,8 @@ fun Home(
                                     drawRect(
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
-                                                0.0f to drawerBg.copy(alpha = 0.95f),
-                                                0.35f to drawerBg.copy(alpha = 0.40f),
+                                                0.0f to drawerBg.copy(alpha = 1.0f),
+                                                0.85f to drawerBg.copy(alpha = 0.5f),
                                                 1.0f to drawerBg.copy(alpha = 0.0f),
                                             )
                                         )
