@@ -377,6 +377,9 @@ fun Home(
         drawerContent = {
             // drawerBg は必ず @Composable スコープ（Home() 内）で評価すること
             val drawerBg = MaterialTheme.colorScheme.surface
+            // DEBUG: フェードの境界/高さ/終端を見やすくするため一時的にオレンジへ差し替え
+            // 調整が終わったら drawerBg に戻すこと
+            val debugOrange = Color(0xFFFF9800)
             ModalDrawerSheet(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -473,9 +476,9 @@ fun Home(
                                     drawRect(
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
-                                                0.0f to drawerBg.copy(alpha = 0.0f),
-                                                0.8f to drawerBg.copy(alpha = 0.65f),
-                                                1.0f to drawerBg.copy(alpha = 1.0f),
+                                                0.0f to debugOrange.copy(alpha = 0.0f),
+                                                0.8f to debugOrange.copy(alpha = 0.65f),
+                                                1.0f to debugOrange.copy(alpha = 1.0f),
                                             )
                                         )
                                     )
@@ -494,9 +497,9 @@ fun Home(
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
                                                 // New chat ボタン背後のフェード（高さは増やさず、3点のまま滑らかに）
-                                                0.0f to drawerBg.copy(alpha = 1.0f),
-                                                0.8f to drawerBg.copy(alpha = 0.65f),
-                                                1.0f to drawerBg.copy(alpha = 0.0f),
+                                                0.0f to debugOrange.copy(alpha = 1.0f),
+                                                0.8f to debugOrange.copy(alpha = 0.65f),
+                                                1.0f to debugOrange.copy(alpha = 0.0f),
                                             )
                                         )
                                     )
