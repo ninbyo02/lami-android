@@ -381,7 +381,7 @@ fun Home(
                     modifier = Modifier
                         .fillMaxWidth()
                         // 上：詰めすぎ防止のため最小限の top padding を残す
-                        .padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 16.dp)
+                        .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp)
                 ) {
                     DrawerSearchPill(
                         value = chatSearchQuery,
