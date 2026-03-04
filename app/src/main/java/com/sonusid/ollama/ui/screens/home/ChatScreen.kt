@@ -385,7 +385,8 @@ fun Home(
             ) {
                 val newChatButtonHeight = 40.dp
                 val newChatListTopGap = 0.dp
-                val drawerBottomFadeHeight = 28.dp
+                // 下端フェード：唐突感を減らすため少し広げる（overlayのみでレイアウトは壊さない）
+                val drawerBottomFadeHeight = 36.dp
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -485,9 +486,9 @@ fun Home(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .fillMaxWidth()
-                                // New chat ボタン下端より 4dp 下までフェードを伸ばし、終端線を目立たせない
+                                // New chat ボタン下端より 8dp 下までフェードを伸ばし、透明側の境目をさらに目立たせない
                                 // ※スレッド開始位置は維持（LazyColumn の contentPadding.top は変更しない）
-                                .height(newChatButtonHeight + 4.dp)
+                                .height(newChatButtonHeight + 8.dp)
                                 .drawBehind {
                                     drawRect(
                                         brush = Brush.verticalGradient(
