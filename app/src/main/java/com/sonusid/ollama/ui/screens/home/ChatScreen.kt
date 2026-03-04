@@ -371,11 +371,11 @@ fun Home(
             pendingNavigateChatId = newChatId
         }
     }
-    val drawerBg = MaterialTheme.colorScheme.surface
-
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
+            // drawerBg は必ず @Composable スコープ（Home() 内）で評価すること
+            val drawerBg = MaterialTheme.colorScheme.surface
             ModalDrawerSheet(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
                 windowInsets = WindowInsets(0, 0, 0, 0),
