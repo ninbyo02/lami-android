@@ -371,17 +371,16 @@ fun Home(
             pendingNavigateChatId = newChatId
         }
     }
+    val drawerBg = MaterialTheme.colorScheme.surface
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            val drawerBg = MaterialTheme.colorScheme.surface
             ModalDrawerSheet(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                containerColor = drawerBg,
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp,
+                drawerContainerColor = drawerBg,
+                drawerTonalElevation = 0.dp,
             ) {
                 val newChatButtonHeight = 40.dp
                 val newChatListTopGap = 0.dp
