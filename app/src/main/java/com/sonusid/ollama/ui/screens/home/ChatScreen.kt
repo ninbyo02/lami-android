@@ -385,6 +385,7 @@ fun Home(
             ) {
                 val newChatButtonHeight = 40.dp
                 val newChatListTopGap = 0.dp
+                val drawerBottomFadeHeight = 28.dp
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -459,6 +460,27 @@ fun Home(
                                 }
                             }
                         }
+
+                        // Drawer の最下部フェード（終端の境界を目立たせない）
+                        // まずは overlay のみ追加してレイアウトを壊さない（必要なら次で bottom padding を増やす）
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .height(drawerBottomFadeHeight)
+                                .drawBehind {
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            colorStops = arrayOf(
+                                                0.0f to drawerBg.copy(alpha = 0.0f),
+                                                0.8f to drawerBg.copy(alpha = 0.65f),
+                                                1.0f to drawerBg.copy(alpha = 1.0f),
+                                            )
+                                        )
+                                    )
+                                }
+                        )
+
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
