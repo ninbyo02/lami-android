@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -588,6 +589,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         placeholder = { Text("http://host:port") },
                                         label = { Text("Server ${index + 1}") },
                                         singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            fontFamily = FontFamily.Default,
+                                            fontWeight = FontWeight.Normal,
+                                        ),
                                         isError = duplicateUrls[serverInput.localId] == true ||
                                             !validateUrlFormat(serverInput.url).isValid ||
                                             connectionStatuses[serverInput.localId]?.isReachable == false,
