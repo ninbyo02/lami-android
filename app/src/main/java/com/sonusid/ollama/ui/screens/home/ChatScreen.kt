@@ -377,8 +377,11 @@ fun Home(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
                 windowInsets = WindowInsets(0, 0, 0, 0)
             ) {
+                val newChatButtonHeight = 40.dp
+                val newChatListTopGap = 0.dp
                 Column(
                     modifier = Modifier
+                        .fillMaxSize()
                         .fillMaxWidth()
                         // 上：詰めすぎ防止のため最小限の top padding を残す
                         .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
@@ -389,57 +392,74 @@ fun Home(
                         onClear = { chatSearchQuery = "" },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    // 検索ピルと新規チャットボタンの間隔を 8dp 確保する
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ElevatedButton(
-                        onClick = createNewChatAndNavigate,
+                    Box(
                         modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            // 上：検索ピルと New chat ボタンの間隔を 8dp 維持する
+                            .padding(top = 8.dp)
                     ) {
-                        Text("New chat")
-                    }
-                }
-                if (filteredChats.isEmpty()) {
-                    Text(
-                        text = "該当なし",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(bottom = 12.dp)
-                    ) {
-                        items(filteredChats, key = { it.chatId }) { chat ->
-                            val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
-                            TextButton(
-                                onClick = {
-                                    suppressChatContentWhileClosingDrawer = true
-                                    suppressAutoNewChat = true
-                                    pendingNavigateChatId = chat.chatId
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp)
+                        if (filteredChats.isEmpty()) {
+                            Text(
+                                text = "該当なし",
+                                // 上：New chat ボタン下から空状態メッセージを表示する
+                                modifier = Modifier.padding(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    top = newChatButtonHeight + newChatListTopGap + 12.dp,
+                                    bottom = 12.dp,
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(
+                                    top = newChatButtonHeight + newChatListTopGap,
+                                    bottom = 12.dp,
+                                )
                             ) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Text(
-                                        text = chat.title,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    if (previewText.isNotEmpty()) {
-                                        Text(
-                                            text = previewText,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
+                                items(filteredChats, key = { it.chatId }) { chat ->
+                                    val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
+                                    TextButton(
+                                        onClick = {
+                                            suppressChatContentWhileClosingDrawer = true
+                                            suppressAutoNewChat = true
+                                            pendingNavigateChatId = chat.chatId
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp)
+                                    ) {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            Text(
+                                                text = chat.title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            if (previewText.isNotEmpty()) {
+                                                Text(
+                                                    text = previewText,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
+                        }
+                        ElevatedButton(
+                            onClick = createNewChatAndNavigate,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .height(newChatButtonHeight)
+                        ) {
+                            Text("New chat")
                         }
                     }
                 }
