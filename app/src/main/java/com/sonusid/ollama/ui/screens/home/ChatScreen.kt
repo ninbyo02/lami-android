@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -467,6 +468,7 @@ fun Home(
                                     drawRect(
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
+                                                // New chat ボタン背後のフェード（高さは増やさず、3点のまま滑らかに）
                                                 0.0f to drawerBg.copy(alpha = 1.0f),
                                                 0.8f to drawerBg.copy(alpha = 0.65f),
                                                 1.0f to drawerBg.copy(alpha = 0.0f),
@@ -479,9 +481,14 @@ fun Home(
                             onClick = createNewChatAndNavigate,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
+                                .zIndex(1f)
                                 .height(newChatButtonHeight),
                             elevation = ButtonDefaults.elevatedButtonElevation(
                                 defaultElevation = 6.dp,
+                                pressedElevation = 8.dp,
+                                focusedElevation = 6.dp,
+                                hoveredElevation = 6.dp,
+                                disabledElevation = 0.dp,
                             )
                         ) {
                             Text("New chat")
