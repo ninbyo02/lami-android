@@ -38,9 +38,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -379,6 +381,7 @@ fun Home(
             ) {
                 val newChatButtonHeight = 40.dp
                 val newChatListTopGap = 0.dp
+                val surface = MaterialTheme.colorScheme.surface
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -453,11 +456,31 @@ fun Home(
                                 }
                             }
                         }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .fillMaxWidth()
+                                .height(newChatButtonHeight)
+                                .drawBehind {
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            colorStops = arrayOf(
+                                                0.0f to surface.copy(alpha = 1.0f),
+                                                0.35f to surface.copy(alpha = 0.6f),
+                                                1.0f to surface.copy(alpha = 0.0f),
+                                            )
+                                        )
+                                    )
+                                }
+                        )
                         ElevatedButton(
                             onClick = createNewChatAndNavigate,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .height(newChatButtonHeight)
+                                .height(newChatButtonHeight),
+                            elevation = ButtonDefaults.elevatedButtonElevation(
+                                defaultElevation = 6.dp,
+                            )
                         ) {
                             Text("New chat")
                         }
