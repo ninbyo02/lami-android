@@ -386,7 +386,7 @@ fun Home(
             // Golden ratio based midpoint (1/φ)
             val fadeMidPos = 0.618f
             val fadeMidAlpha = 0.55f
-            val fadeMaxAlpha = 0.90f
+            val fadeMaxAlpha = 0.72f
 
             // 下端フェード（透明→濃い）
             val bottomFadeStops = arrayOf(
