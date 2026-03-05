@@ -508,7 +508,7 @@ fun Home(
                                 .fillMaxWidth()
                                 // New chat ボタン下端より 8dp 下までフェードを伸ばし、透明側の境目をさらに目立たせない
                                 // ※スレッド開始位置は維持（LazyColumn の contentPadding.top は変更しない）
-                                .height(newChatButtonHeight + 8.dp)
+                                .height(newChatButtonHeight + 6.dp)
                                 .drawBehind {
                                     drawRect(
                                         brush = Brush.verticalGradient(
