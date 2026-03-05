@@ -377,11 +377,7 @@ fun Home(
         drawerContent = {
             // drawerBg は必ず @Composable スコープ（Home() 内）で評価すること
             val drawerBg = MaterialTheme.colorScheme.surface
-            // DEBUG: フェードの境界/高さ/終端を見やすくするため一時的にオレンジへ差し替え
-            // 調整が終わったら drawerBg に戻すこと
-            val debugOrange = Color(0xFFFF9800)
-            // DEBUG の色差し替えを維持しつつ、あとで drawerBg に戻しやすくする
-            val fadeColor = debugOrange // 調整完了後は drawerBg に戻す
+            val drawerColor = drawerBg
 
             // Golden ratio based midpoint (1/φ)
             val fadeMidPos = 0.618f
@@ -390,16 +386,16 @@ fun Home(
 
             // 下端フェード（透明→濃い）
             val bottomFadeStops = arrayOf(
-                0.0f to fadeColor.copy(alpha = 0.0f),
-                fadeMidPos to fadeColor.copy(alpha = fadeMidAlpha),
-                1.0f to fadeColor.copy(alpha = fadeMaxAlpha),
+                0.0f to drawerColor.copy(alpha = 0.0f),
+                fadeMidPos to drawerColor.copy(alpha = fadeMidAlpha),
+                1.0f to drawerColor.copy(alpha = fadeMaxAlpha),
             )
 
             // 上端フェード（濃い→透明）※ bottom の反転
             val topFadeStops = arrayOf(
-                0.0f to fadeColor.copy(alpha = fadeMaxAlpha),
-                fadeMidPos to fadeColor.copy(alpha = fadeMidAlpha),
-                1.0f to fadeColor.copy(alpha = 0.0f),
+                0.0f to drawerColor.copy(alpha = fadeMaxAlpha),
+                fadeMidPos to drawerColor.copy(alpha = fadeMidAlpha),
+                1.0f to drawerColor.copy(alpha = 0.0f),
             )
             ModalDrawerSheet(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
