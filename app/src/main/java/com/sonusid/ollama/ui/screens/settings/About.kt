@@ -177,7 +177,7 @@ fun About(
                         Text(
                             BuildConfig.APP_SUBTITLE,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(Modifier.height(10.dp))
                         val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
@@ -323,7 +323,7 @@ fun About(
                     Text(
                         BuildConfig.APP_SUBTITLE,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     // 下：バージョン表示との距離を確保するための Spacer
                     Spacer(Modifier.height(10.dp))
