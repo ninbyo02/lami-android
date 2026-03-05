@@ -124,6 +124,7 @@ import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -789,8 +790,7 @@ fun Home(
                                                 placeholder = {
                                                     Text(
                                                         placeholder,
-                                                        fontSize = 15.sp,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        style = LamiTypographyTokens.chatPlaceholder(),
                                                     )
                                                 },
                                                 colors = OutlinedTextFieldDefaults.colors(

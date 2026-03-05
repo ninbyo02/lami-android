@@ -40,7 +40,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -54,6 +53,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiState
@@ -64,16 +64,6 @@ import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlinx.coroutines.launch
 
-private val ReadableBodyLineHeightSp = 22.sp
-
-@Composable
-private fun rememberReadableBodyTextStyle(): TextStyle {
-    return MaterialTheme.typography.bodyMedium.copy(
-        color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Medium,
-        lineHeight = ReadableBodyLineHeightSp,
-    )
-}
 
 internal fun buildVersionLabel(version: String, sha: String): String {
     val shaShort = sha.trim().takeIf { it.isNotBlank() }?.take(7)
@@ -122,7 +112,7 @@ fun About(
     val noticeText = stringResource(R.string.notice)
     val copiedText = stringResource(R.string.about_notice_copy_done)
     val fullLicenseText = listOf(licenseLine1, licenseLine2, licenseLine3).joinToString("\n")
-    val readableBodyTextStyle = rememberReadableBodyTextStyle()
+    val readableBodyTextStyle = LamiTypographyTokens.bodyReadable()
 
     val noticeAnnotatedText = buildAnnotatedString {
         val noticeStart = licenseLine3.indexOf(noticeText)
@@ -195,12 +185,11 @@ fun About(
                         val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
                         Text(
                             versionLabel,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = LamiTypographyTokens.aboutVersion(),
                         )
                         Text(
                             buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = LamiTypographyTokens.aboutBuild(),
                         )
                         Spacer(Modifier.height(24.dp))
                         ElevatedCard(
@@ -341,12 +330,11 @@ fun About(
                     val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
                     Text(
                         versionLabel,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = LamiTypographyTokens.aboutVersion(),
                     )
                     Text(
                         buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = LamiTypographyTokens.aboutBuild(),
                     )
                     Spacer(Modifier.height(24.dp))
                     ElevatedCard(

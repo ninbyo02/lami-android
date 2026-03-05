@@ -30,13 +30,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.TopFadeOverlay
@@ -46,16 +44,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private val NoticeTopFadeThreshold = 0.dp
-private val ReadableBodyLineHeightSp = 22.sp
-
-@Composable
-private fun rememberReadableBodyTextStyle(): TextStyle {
-    return MaterialTheme.typography.bodyMedium.copy(
-        color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Medium,
-        lineHeight = ReadableBodyLineHeightSp,
-    )
-}
 
 @Composable
 fun NoticeScreen(navController: NavController) {
@@ -66,7 +54,7 @@ fun NoticeScreen(navController: NavController) {
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
     val copiedText = stringResource(R.string.about_notice_copy_done)
-    val readableBodyTextStyle = rememberReadableBodyTextStyle()
+    val readableBodyTextStyle = LamiTypographyTokens.bodyReadable()
     val scrollState = rememberScrollState()
     val thresholdPx = with(density) { NoticeTopFadeThreshold.roundToPx() }
     val showTopFade by remember {
