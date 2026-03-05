@@ -217,6 +217,9 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
+    // NOTE: debug-only top gradient adjustments. Keep easy to revert later.
+    val debugTopGradientOrange = true
+    val debugTopGradientDownshift = 32.dp
     val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
@@ -1222,7 +1225,7 @@ fun Home(
                 // 上部グラデーションはスクロール領域と独立した画面固定オーバーレイとして描画する
                 .zIndex(10f)
                 // 上部グラデーションの見た目サイズは維持し、表示位置のみ固定する
-                .offset(y = TopGradientOverlayTopOffset + TopGradientOverlayYOffset)
+                .offset(y = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + debugTopGradientDownshift)
         ) {
             Box(
                 modifier = Modifier
@@ -1234,13 +1237,18 @@ fun Home(
                     }
                     .clipToBounds()
                     .background(
-                        brush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to topColor.copy(alpha = 1.0f),
-                                0.5f to topColor.copy(alpha = 0.6f),
-                                1.0f to topColor.copy(alpha = 0.0f)
+                        brush = run {
+                            // 既存挙動を維持しつつ、デバッグ時のみ先頭カラーをオレンジ系に差し替える。
+                            val debugTint = if (debugTopGradientOrange) MaterialTheme.colorScheme.tertiary else null
+                            val topGradientColor = debugTint ?: topColor
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to topGradientColor.copy(alpha = 1.0f),
+                                    0.5f to topColor.copy(alpha = 0.6f),
+                                    1.0f to topColor.copy(alpha = 0.0f)
+                                )
                             )
-                        )
+                        }
                     )
             )
         }
