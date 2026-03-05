@@ -380,6 +380,27 @@ fun Home(
             // DEBUG: フェードの境界/高さ/終端を見やすくするため一時的にオレンジへ差し替え
             // 調整が終わったら drawerBg に戻すこと
             val debugOrange = Color(0xFFFF9800)
+            // DEBUG の色差し替えを維持しつつ、あとで drawerBg に戻しやすくする
+            val fadeColor = debugOrange // 調整完了後は drawerBg に戻す
+
+            // Golden ratio based midpoint (1/φ)
+            val fadeMidPos = 0.618f
+            val fadeMidAlpha = 0.55f
+            val fadeMaxAlpha = 0.90f
+
+            // 下端フェード（透明→濃い）
+            val bottomFadeStops = arrayOf(
+                0.0f to fadeColor.copy(alpha = 0.0f),
+                fadeMidPos to fadeColor.copy(alpha = fadeMidAlpha),
+                1.0f to fadeColor.copy(alpha = fadeMaxAlpha),
+            )
+
+            // 上端フェード（濃い→透明）※ bottom の反転
+            val topFadeStops = arrayOf(
+                0.0f to fadeColor.copy(alpha = fadeMaxAlpha),
+                fadeMidPos to fadeColor.copy(alpha = fadeMidAlpha),
+                1.0f to fadeColor.copy(alpha = 0.0f),
+            )
             ModalDrawerSheet(
                 // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -475,11 +496,7 @@ fun Home(
                                 .drawBehind {
                                     drawRect(
                                         brush = Brush.verticalGradient(
-                                            colorStops = arrayOf(
-                                                0.0f to debugOrange.copy(alpha = 0.0f),
-                                                0.7f to debugOrange.copy(alpha = 0.55f),
-                                                1.0f to debugOrange.copy(alpha = 0.90f),
-                                            )
+                                            colorStops = bottomFadeStops
                                         )
                                     )
                                 }
@@ -495,12 +512,7 @@ fun Home(
                                 .drawBehind {
                                     drawRect(
                                         brush = Brush.verticalGradient(
-                                            colorStops = arrayOf(
-                                                // New chat ボタン背後のフェード（高さは増やさず、3点のまま滑らかに）
-                                                0.0f to debugOrange.copy(alpha = 1.0f),
-                                                0.8f to debugOrange.copy(alpha = 0.65f),
-                                                1.0f to debugOrange.copy(alpha = 0.0f),
-                                            )
+                                            colorStops = topFadeStops
                                         )
                                     )
                                 }
