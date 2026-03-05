@@ -386,7 +386,7 @@ fun Home(
             // Golden ratio based midpoint (1/φ)
             val fadeMidPos = 0.618f
             val fadeMidAlpha = 0.55f
-            val fadeMaxAlpha = 0.72f
+            val fadeMaxAlpha = 0.68f
 
             // 下端フェード（透明→濃い）
             val bottomFadeStops = arrayOf(
@@ -409,8 +409,8 @@ fun Home(
             ) {
                 val newChatButtonHeight = 40.dp
                 val newChatListTopGap = 0.dp
-                // 下端フェード：唐突感を減らすため少し広げる（overlayのみでレイアウトは壊さない）
-                val drawerBottomFadeHeight = 36.dp
+                // 下端フェード：帯感を減らすため高さを少し詰める（overlayのみでレイアウトは壊さない）
+                val drawerBottomFadeHeight = 32.dp
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
