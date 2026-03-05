@@ -704,7 +704,7 @@ fun Home(
                         color = MaterialTheme.colorScheme.surface,
                         border = androidx.compose.foundation.BorderStroke(
                             width = 1.dp,
-                            color = MaterialTheme.colorScheme.primaryContainer
+                            color = MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
