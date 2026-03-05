@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -96,7 +95,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -112,7 +110,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
@@ -1222,12 +1219,10 @@ fun Home(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                // 上部グラデーションの開始位置をステータスバーぶん下げる
-                .statusBarsPadding()
-                // 上部グラデーション全体を既存位置へ配置
-                .padding(top = TopGradientOverlayTopOffset)
-                // 上部グラデーションの開始位置を 4dp 上へ戻す
-                .offset(y = TopGradientOverlayYOffset)
+                // 上部グラデーションはスクロール領域と独立した画面固定オーバーレイとして描画する
+                .zIndex(10f)
+                // 上部グラデーションの見た目サイズは維持し、表示位置のみ固定する
+                .offset(y = TopGradientOverlayTopOffset + TopGradientOverlayYOffset)
         ) {
             Box(
                 modifier = Modifier
@@ -1235,7 +1230,7 @@ fun Home(
                     // IME の表示有無に関係なく上部グラデの高さを固定する
                     .height(TopGradientOverlayHeight)
                     .onGloballyPositioned { coordinates ->
-                        measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
+                        measuredTopGradientBottomPx = coordinates.positionInRoot().y + coordinates.size.height
                     }
                     .clipToBounds()
                     .background(
