@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -62,6 +63,17 @@ import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlinx.coroutines.launch
+
+private val ReadableBodyLineHeightSp = 22.sp
+
+@Composable
+private fun rememberReadableBodyTextStyle(): TextStyle {
+    return MaterialTheme.typography.bodyMedium.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Medium,
+        lineHeight = ReadableBodyLineHeightSp,
+    )
+}
 
 internal fun buildVersionLabel(version: String, sha: String): String {
     val shaShort = sha.trim().takeIf { it.isNotBlank() }?.take(7)
@@ -110,6 +122,7 @@ fun About(
     val noticeText = stringResource(R.string.notice)
     val copiedText = stringResource(R.string.about_notice_copy_done)
     val fullLicenseText = listOf(licenseLine1, licenseLine2, licenseLine3).joinToString("\n")
+    val readableBodyTextStyle = rememberReadableBodyTextStyle()
 
     val noticeAnnotatedText = buildAnnotatedString {
         val noticeStart = licenseLine3.indexOf(noticeText)
@@ -176,8 +189,7 @@ fun About(
                         )
                         Text(
                             BuildConfig.APP_SUBTITLE,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = readableBodyTextStyle,
                         )
                         Spacer(Modifier.height(10.dp))
                         val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
@@ -228,17 +240,17 @@ fun About(
                                 )
                                 Text(
                                     text = licenseLine1,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = readableBodyTextStyle,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 Text(
                                     text = licenseLine2,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = readableBodyTextStyle,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 Text(
                                     text = noticeAnnotatedText,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = readableBodyTextStyle,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -322,8 +334,7 @@ fun About(
                     )
                     Text(
                         BuildConfig.APP_SUBTITLE,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = readableBodyTextStyle,
                     )
                     // 下：バージョン表示との距離を確保するための Spacer
                     Spacer(Modifier.height(10.dp))
@@ -376,17 +387,17 @@ fun About(
                             )
                             Text(
                                 text = licenseLine1,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = readableBodyTextStyle,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
                                 text = licenseLine2,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = readableBodyTextStyle,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
                                 text = noticeAnnotatedText,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = readableBodyTextStyle,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
