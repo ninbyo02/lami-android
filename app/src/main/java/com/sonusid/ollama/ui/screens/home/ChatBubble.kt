@@ -820,7 +820,7 @@ private fun CodeBlockCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier.border(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.primary,
             shape = RoundedCornerShape(12.dp)
         )
     ) {
