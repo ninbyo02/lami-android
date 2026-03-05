@@ -28,14 +28,14 @@ object LamiTypographyTokens {
     @Composable
     fun aboutBuild(): TextStyle =
         MaterialTheme.typography.bodyMedium.copy(
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             fontWeight = FontWeight.Medium,
         )
 
     @Composable
     fun chatPlaceholder(): TextStyle =
         MaterialTheme.typography.bodyMedium.copy(
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             fontWeight = FontWeight.Medium,
         )
 
