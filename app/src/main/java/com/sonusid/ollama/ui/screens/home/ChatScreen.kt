@@ -427,7 +427,8 @@ fun Home(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentPadding = PaddingValues(
                                     top = newChatButtonHeight + newChatListTopGap,
-                                    bottom = 12.dp,
+                                    // 最終行がフェードに被らないように bottom padding を増やす
+                                    bottom = 12.dp + drawerBottomFadeHeight,
                                 )
                             ) {
                                 items(filteredChats, key = { it.chatId }) { chat ->
@@ -465,8 +466,7 @@ fun Home(
                             }
                         }
 
-                        // Drawer の最下部フェード（終端の境界を目立たせない）
-                        // まずは overlay のみ追加してレイアウトを壊さない（必要なら次で bottom padding を増やす）
+                        // 下端フェードは帯に見えないよう max alpha を落として midpoint を前倒し
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
@@ -477,8 +477,8 @@ fun Home(
                                         brush = Brush.verticalGradient(
                                             colorStops = arrayOf(
                                                 0.0f to debugOrange.copy(alpha = 0.0f),
-                                                0.8f to debugOrange.copy(alpha = 0.65f),
-                                                1.0f to debugOrange.copy(alpha = 1.0f),
+                                                0.7f to debugOrange.copy(alpha = 0.55f),
+                                                1.0f to debugOrange.copy(alpha = 0.90f),
                                             )
                                         )
                                     )
