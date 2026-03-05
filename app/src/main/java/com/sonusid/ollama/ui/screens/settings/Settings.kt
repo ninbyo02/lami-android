@@ -91,6 +91,7 @@ import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.common.TopFadeOverlay
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
@@ -586,8 +587,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             val normalizedInputs = getNormalizedInputs()
                                             duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         },
-                                        placeholder = { Text("http://host:port") },
-                                        label = { Text("Server ${index + 1}") },
+                                        placeholder = { Text("http://host:port", style = LamiTypographyTokens.fieldPlaceholder()) },
+                                        label = { Text("Server ${index + 1}", style = LamiTypographyTokens.fieldLabel()) },
                                         singleLine = true,
                                         textStyle = MaterialTheme.typography.bodyLarge.copy(
                                             fontFamily = FontFamily.Default,
