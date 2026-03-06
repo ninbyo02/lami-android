@@ -219,12 +219,13 @@ fun Home(
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
-    val debugTopGradientDownshift = 0.dp
+    val debugTopGradientDownshift = 32.dp
     val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
+    val debugTopGradientDownshiftPx = with(LocalDensity.current) { debugTopGradientDownshift.toPx() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
@@ -1233,7 +1234,7 @@ fun Home(
                     // IME の表示有無に関係なく上部グラデの高さを固定する
                     .height(TopGradientOverlayHeight)
                     .onGloballyPositioned { coordinates ->
-                        measuredTopGradientBottomPx = coordinates.positionInRoot().y + coordinates.size.height
+                        measuredTopGradientBottomPx = coordinates.positionInRoot().y + coordinates.size.height - debugTopGradientDownshiftPx
                     }
                     .clipToBounds()
                     .background(
