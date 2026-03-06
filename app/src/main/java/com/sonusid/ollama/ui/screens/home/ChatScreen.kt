@@ -1140,10 +1140,16 @@ fun Home(
                             ) {
                                 if (messagesForList.isEmpty()) {
                                     item(key = "empty-state") {
-                                        PlainAssistantMessage(
-                                            message = "ラミィがお手伝いします。\n今日は何をしますか？",
-                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .offset(y = (-16).dp)
+                                        ) {
+                                            PlainAssistantMessage(
+                                                message = "ラミィがお手伝いします。\n今日は何をしますか？",
+                                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                            )
+                                        }
                                     }
                                 } else {
                                     itemsIndexed(
