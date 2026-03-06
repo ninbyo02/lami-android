@@ -1124,7 +1124,11 @@ fun Home(
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
-                        val emptyStateTopAdjust = if (messagesForList.isEmpty()) (-16).dp else 0.dp
+                        val emptyStateTopAdjust = if (messagesForList.isEmpty()) {
+                            -debugTopGradientDownshift
+                        } else {
+                            0.dp
+                        }
                         Box(modifier = contentModifier) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
