@@ -1124,13 +1124,14 @@ fun Home(
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
+                        val emptyStateTopAdjust = if (messagesForList.isEmpty()) (-16).dp else 0.dp
                         Box(modifier = contentModifier) {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                                 contentPadding = PaddingValues(
                                     // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
-                                    top = messageListTopPaddingDp,
+                                    top = messageListTopPaddingDp + emptyStateTopAdjust,
                                     start = 0.dp,
                                     end = 0.dp,
                                     bottom = 0.dp
@@ -1140,16 +1141,10 @@ fun Home(
                             ) {
                                 if (messagesForList.isEmpty()) {
                                     item(key = "empty-state") {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .offset(y = (-16).dp)
-                                        ) {
-                                            PlainAssistantMessage(
-                                                message = "ラミィがお手伝いします。\n今日は何をしますか？",
-                                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
-                                            )
-                                        }
+                                        PlainAssistantMessage(
+                                            message = "ラミィがお手伝いします。\n今日は何をしますか？",
+                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
                                     }
                                 } else {
                                     itemsIndexed(
