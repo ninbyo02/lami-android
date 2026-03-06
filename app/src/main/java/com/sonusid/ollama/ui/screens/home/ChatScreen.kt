@@ -217,9 +217,9 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
-    // NOTE: debug-only top gradient adjustments. Keep easy to revert later.
-    val debugTopGradientOrange = true
-    val debugTopGradientDownshift = 32.dp
+    // NOTE: debug-only top gradient adjustments. Default OFF.
+    val debugTopGradientOrange = false
+    val debugTopGradientDownshift = 0.dp
     val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
