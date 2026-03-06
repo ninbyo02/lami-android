@@ -224,8 +224,11 @@ fun Home(
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
+    var measuredHeaderBottomPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
+    val measuredHeaderBottomDp = with(LocalDensity.current) { (measuredHeaderBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
+    val emptyStateTopPaddingDp = if (measuredHeaderBottomPx != null) measuredHeaderBottomDp + 8.dp else effectiveTopGradientBottomDp
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
@@ -550,6 +553,9 @@ fun Home(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topAppBarContainerColor)
+                    .onGloballyPositioned { coordinates ->
+                        measuredHeaderBottomPx = coordinates.positionInRoot().y + coordinates.size.height
+                    }
             ) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
@@ -1117,17 +1123,12 @@ fun Home(
                         val mode = topPaddingModeMap[effectiveChatId]
                             ?: TopPaddingMode.ExistingConversation
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            effectiveTopGradientBottomDp
+                            emptyStateTopPaddingDp
                         } else {
                             when (mode) {
                                 TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
-                        }
-                        val emptyStateTopAdjust = if (messagesForList.isEmpty()) {
-                            -debugTopGradientDownshift
-                        } else {
-                            0.dp
                         }
                         Box(modifier = contentModifier) {
                             LazyColumn(
@@ -1135,7 +1136,7 @@ fun Home(
                                 // 入力欄の背後まで本文を描画し、ガター領域を透明表示にする
                                 contentPadding = PaddingValues(
                                     // 新規/既存の初期判定で top padding を固定し、会話途中で切り替えないことでジャンプを防ぐ
-                                    top = messageListTopPaddingDp + emptyStateTopAdjust,
+                                    top = messageListTopPaddingDp,
                                     start = 0.dp,
                                     end = 0.dp,
                                     bottom = 0.dp
