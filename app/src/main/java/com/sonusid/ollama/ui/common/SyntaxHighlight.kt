@@ -116,6 +116,13 @@ private val sqlKeywords = setOf(
     "like", "between", "union", "all"
 )
 
+private val cssValueKeywords = setOf(
+    "auto", "none", "inherit", "initial", "unset", "normal",
+    "block", "inline", "inline-block", "flex", "grid",
+    "left", "right", "center", "start", "end", "justify",
+    "white", "black", "transparent", "solid", "relative", "absolute", "fixed", "sticky"
+)
+
 fun buildHighlightedCodeAnnotatedString(
     code: String,
     language: String?,
@@ -133,11 +140,13 @@ fun buildHighlightedCodeAnnotatedString(
         collectHtmlTokens(code, marked, tokens)
         collectCssSelectorTokensInHtmlStyleBlocks(code, marked, tokens)
         collectCssPropertyTokensInHtmlStyleBlocks(code, marked, tokens)
+        collectCssValueTokensInHtmlStyleBlocks(code, marked, tokens)
     }
 
     if (supportedLanguage == SupportedLanguage.CSS) {
         collectCssSelectorTokens(code, 0, code.length, marked, tokens)
         collectCssPropertyTokens(code, 0, code.length, marked, tokens)
+        collectCssValueTokens(code, 0, code.length, marked, tokens)
     }
 
     val simplify = code.length > 10_000
@@ -148,7 +157,7 @@ fun buildHighlightedCodeAnnotatedString(
     }
 
     val palette = HighlightPalette(
-        comment = colors.onSurfaceVariant,
+        comment = lerp(colors.onSurfaceVariant, colors.onSurface, 0.18f),
         string = lerp(colors.onSurface, colors.tertiary, 0.14f),
         keyword = lerp(colors.onSurface, colors.primary, 0.28f),
         number = lerp(colors.onSurface, colors.secondary, 0.12f),
@@ -292,6 +301,20 @@ private fun collectCssSelectorTokensInHtmlStyleBlocks(
     }
 }
 
+private fun collectCssValueTokensInHtmlStyleBlocks(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val styleOpenRegex = Regex("<style\\b[^>]*>", RegexOption.IGNORE_CASE)
+    styleOpenRegex.findAll(code).forEach { openTag ->
+        val styleContentStart = openTag.range.last + 1
+        val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
+        if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
+        collectCssValueTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
 private fun collectCssSelectorTokens(
     code: String,
     start: Int,
@@ -360,6 +383,95 @@ private fun collectCssPropertyTokens(
 
         addTokenIfFree(nameStart, i, TOKEN_CSS_PROPERTY, marked, tokens)
         i = afterName + 1
+    }
+}
+
+private fun collectCssValueTokens(
+    code: String,
+    start: Int,
+    endExclusive: Int,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val safeStart = start.coerceAtLeast(0)
+    val safeEnd = endExclusive.coerceAtMost(code.length)
+    var i = safeStart
+    var braceDepth = 0
+    var inValue = false
+
+    while (i < safeEnd) {
+        val char = code[i]
+        if (marked[i] != TOKEN_NONE) {
+            i++
+            continue
+        }
+
+        when {
+            char == '{' -> {
+                braceDepth++
+                inValue = false
+                i++
+            }
+
+            char == '}' -> {
+                braceDepth = (braceDepth - 1).coerceAtLeast(0)
+                inValue = false
+                i++
+            }
+
+            braceDepth > 0 && char == ':' -> {
+                inValue = true
+                i++
+            }
+
+            inValue && (char == ';' || char == '!') -> {
+                inValue = false
+                i++
+            }
+
+            !inValue -> i++
+
+            char == '#' -> {
+                val valueStart = i
+                var j = i + 1
+                while (j < safeEnd && (code[j].isDigit() || code[j] in 'a'..'f' || code[j] in 'A'..'F')) j++
+                val hexLength = j - valueStart - 1
+                if (hexLength == 3 || hexLength == 4 || hexLength == 6 || hexLength == 8) {
+                    addTokenIfFree(valueStart, j, TOKEN_NUMBER, marked, tokens)
+                    i = j
+                } else {
+                    i++
+                }
+            }
+
+            char.isDigit() ||
+                (char == '.' && i + 1 < safeEnd && code[i + 1].isDigit()) ||
+                (char == '-' && i + 1 < safeEnd && (code[i + 1].isDigit() || (i + 2 < safeEnd && code[i + 1] == '.' && code[i + 2].isDigit()))) -> {
+                val valueStart = i
+                if (code[i] == '-') i++
+                if (i < safeEnd && code[i] == '.') i++
+                while (i < safeEnd && code[i].isDigit()) i++
+                if (i < safeEnd && code[i] == '.' && i + 1 < safeEnd && code[i + 1].isDigit()) {
+                    i++
+                    while (i < safeEnd && code[i].isDigit()) i++
+                }
+                while (i < safeEnd && code[i].isLetter()) i++
+                if (i < safeEnd && code[i] == '%') i++
+                addTokenIfFree(valueStart, i, TOKEN_NUMBER, marked, tokens)
+            }
+
+            isIdentifierStart(char) -> {
+                val valueStart = i
+                i++
+                while (i < safeEnd && (isIdentifierPart(code[i]) || code[i] == '-')) i++
+                val keyword = code.substring(valueStart, i).lowercase()
+                if (keyword in cssValueKeywords) {
+                    addTokenIfFree(valueStart, i, TOKEN_KEYWORD, marked, tokens)
+                }
+            }
+
+            else -> i++
+        }
     }
 }
 
