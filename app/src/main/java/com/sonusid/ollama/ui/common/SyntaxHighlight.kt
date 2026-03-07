@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.common
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -127,10 +128,10 @@ fun buildHighlightedCodeAnnotatedString(
 
     val palette = HighlightPalette(
         comment = colors.onSurfaceVariant,
-        string = colors.onSurface,
-        keyword = colors.primary,
-        number = colors.onSurface,
-        function = colors.onSurface,
+        string = lerp(colors.onSurface, colors.tertiary, 0.14f),
+        keyword = lerp(colors.onSurface, colors.primary, 0.28f),
+        number = lerp(colors.onSurface, colors.secondary, 0.12f),
+        function = lerp(colors.onSurface, colors.primary, 0.16f),
     )
 
     return buildAnnotatedString {
