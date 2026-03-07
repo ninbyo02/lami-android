@@ -224,6 +224,7 @@ fun Home(
             .take(MaxComposerAttachments)
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
+    val streamingResponseText = (uiState as? UiState.Streaming)?.partialText
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
@@ -348,8 +349,8 @@ fun Home(
                     viewModel.resetUiState()
                 }
 
-                else -> {
-                }
+                is UiState.Streaming -> Unit
+                else -> Unit
             }
         }
     }
@@ -1002,10 +1003,22 @@ fun Home(
                 Box(modifier = contentModifier)
             } else {
                 val currentChatId = effectiveChatId
-                val messagesForList: List<Message> = allChatsOrNull
+                val messagesForListBase: List<Message> = allChatsOrNull
+                val messagesForList: List<Message> = if (
+                    currentChatId != null &&
+                    !streamingResponseText.isNullOrBlank()
+                ) {
+                    messagesForListBase + Message(
+                        chatId = currentChatId,
+                        message = streamingResponseText,
+                        isSendbyMe = false,
+                    )
+                } else {
+                    messagesForListBase
+                }
                 val isListForCurrentChatForUi =
                     currentChatId != null &&
-                        (messagesForList.isEmpty() || messagesForList.all { it.chatId == currentChatId })
+                        (messagesForListBase.isEmpty() || messagesForListBase.all { it.chatId == currentChatId })
 
                 if (!isListForCurrentChatForUi) {
                     Box(modifier = contentModifier)
