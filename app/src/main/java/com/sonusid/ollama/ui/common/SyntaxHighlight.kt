@@ -20,6 +20,7 @@ private const val TOKEN_HTML_ATTRIBUTE = 7
 private const val TOKEN_HTML_DOCTYPE = 8
 private const val TOKEN_CSS_PROPERTY = 9
 private const val TOKEN_CSS_SELECTOR = 10
+private const val TOKEN_CSS_COLOR = 11
 
 private enum class SupportedLanguage {
     PYTHON,
@@ -51,6 +52,7 @@ private data class HighlightPalette(
     val htmlDoctype: Color,
     val cssProperty: Color,
     val cssSelector: Color,
+    val cssColor: Color,
 )
 
 private val pythonKeywords = setOf(
@@ -167,6 +169,7 @@ fun buildHighlightedCodeAnnotatedString(
         htmlDoctype = lerp(colors.onSurface, lerp(colors.onSurfaceVariant, colors.tertiary, 0.12f), 0.56f),
         cssProperty = lerp(colors.onSurface, colors.secondary, 0.32f),
         cssSelector = lerp(colors.onSurface, colors.tertiary, 0.42f),
+        cssColor = lerp(colors.onSurface, colors.tertiary, 0.24f),
     )
 
     return buildAnnotatedString {
@@ -186,6 +189,7 @@ fun buildHighlightedCodeAnnotatedString(
                 TOKEN_HTML_DOCTYPE -> SpanStyle(color = palette.htmlDoctype, fontWeight = FontWeight.Medium)
                 TOKEN_CSS_PROPERTY -> SpanStyle(color = palette.cssProperty)
                 TOKEN_CSS_SELECTOR -> SpanStyle(color = palette.cssSelector, fontWeight = FontWeight.Medium)
+                TOKEN_CSS_COLOR -> SpanStyle(color = palette.cssColor, fontWeight = FontWeight.Medium)
                 else -> null
             }
             if (style != null && token.start < token.end) {
@@ -437,7 +441,7 @@ private fun collectCssValueTokens(
                 while (j < safeEnd && (code[j].isDigit() || code[j] in 'a'..'f' || code[j] in 'A'..'F')) j++
                 val hexLength = j - valueStart - 1
                 if (hexLength == 3 || hexLength == 4 || hexLength == 6 || hexLength == 8) {
-                    addTokenIfFree(valueStart, j, TOKEN_NUMBER, marked, tokens)
+                    addTokenIfFree(valueStart, j, TOKEN_CSS_COLOR, marked, tokens)
                     i = j
                 } else {
                     i++
