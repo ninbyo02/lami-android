@@ -230,6 +230,8 @@ fun Home(
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
+    var measuredSpriteBottomPx by remember { mutableStateOf<Float?>(null) }
+    var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
@@ -568,21 +570,27 @@ fun Home(
                     modifier = Modifier
                         .padding(bottom = 4.dp)
                 ) {
-                    HeaderAvatar(
-                        baseUrl = baseUrl,
-                        selectedModel = selectedModel,
-                        lastError = errorMessage,
-                        lamiStatus = lamiAnimationStatus,
-                        lamiState = lamiUiState.state,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
-                        },
-                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                    )
+                    Box(
+                        modifier = Modifier.onGloballyPositioned { coordinates ->
+                            measuredSpriteBottomPx = coordinates.positionInRoot().y + coordinates.size.height
+                        }
+                    ) {
+                        HeaderAvatar(
+                            baseUrl = baseUrl,
+                            selectedModel = selectedModel,
+                            lastError = errorMessage,
+                            lamiStatus = lamiAnimationStatus,
+                            lamiState = lamiUiState.state,
+                            availableModels = availableModels,
+                            onSelectModel = { modelName ->
+                                viewModel.onUserInteraction()
+                                viewModel.updateSelectedModel(modelName)
+                            },
+                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                        )
+                    }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                     Spacer(modifier = Modifier.size(2.dp))
                     LamiHeaderStatus(
@@ -968,6 +976,9 @@ fun Home(
                 .padding(
                     top = paddingValues.calculateTopPadding()
                 )
+                .onGloballyPositioned { coordinates ->
+                    measuredContentTopPx = coordinates.positionInRoot().y
+                }
                 // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
                 .consumeWindowInsets(paddingValues)
         ) {
@@ -1124,8 +1135,20 @@ fun Home(
                             ?: TopPaddingMode.ExistingConversation
                         val resolvedGradientStartTopPaddingDp =
                             effectiveTopGradientBottomDp + EmptyNewConversationBaseTopPadding
+                        val resolvedSpriteAnchorTopPaddingDp =
+                            if (measuredSpriteBottomPx != null && measuredContentTopPx != null) {
+                                with(LocalDensity.current) {
+                                    (measuredSpriteBottomPx!! - measuredContentTopPx!!)
+                                        .coerceAtLeast(0f)
+                                        .toDp()
+                                } + 4.dp
+                            } else {
+                                null
+                            }
                         val emptyNewConversationAnchorTopPaddingDp =
-                            (resolvedGradientStartTopPaddingDp + EmptyNewConversationTopAdjust).coerceAtLeast(0.dp)
+                            (resolvedSpriteAnchorTopPaddingDp
+                                ?: (resolvedGradientStartTopPaddingDp + EmptyNewConversationTopAdjust))
+                                .coerceAtLeast(0.dp)
                         val messageListTopPaddingDp = when {
                             // Empty / New は共通アンカーを利用する
                             messagesForList.isEmpty() -> emptyNewConversationAnchorTopPaddingDp
