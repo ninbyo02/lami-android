@@ -1137,7 +1137,7 @@ fun Home(
                                 effectiveTopGradientBottomDp
                             }
                         }
-                        val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 4.dp
+                        val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 12.dp
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
                             resolvedGradientStartTopPaddingDp
                         } else {
