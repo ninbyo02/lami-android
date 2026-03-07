@@ -14,6 +14,7 @@ class AndroidTtsController(context: Context) {
     private var onPlaybackStateChanged: ((Boolean) -> Unit)? = null
     private var tts: TextToSpeech? = null
     private var isReady = false
+    private var pendingSpeakText: String? = null
 
     init {
         tts = TextToSpeech(appContext) { status ->
@@ -41,8 +42,15 @@ class AndroidTtsController(context: Context) {
                         notifyPlaybackState(false)
                     }
                 })
+
+                val pendingText = pendingSpeakText
+                pendingSpeakText = null
+                if (!pendingText.isNullOrEmpty()) {
+                    speakInternal(pendingText)
+                }
             } else {
                 isReady = false
+                pendingSpeakText = null
                 notifyPlaybackState(false)
             }
         }
@@ -54,17 +62,26 @@ class AndroidTtsController(context: Context) {
 
     fun speak(text: String) {
         val normalizedText = text.trim()
-        if (!isReady || normalizedText.isEmpty()) {
+        if (normalizedText.isEmpty()) {
             return
         }
+        if (!isReady) {
+            pendingSpeakText = normalizedText
+            return
+        }
+        speakInternal(normalizedText)
+    }
+
+    private fun speakInternal(text: String) {
         runCatching {
-            tts?.speak(normalizedText, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
         }.onFailure {
             notifyPlaybackState(false)
         }
     }
 
     fun stop() {
+        pendingSpeakText = null
         runCatching {
             tts?.stop()
         }
@@ -76,6 +93,7 @@ class AndroidTtsController(context: Context) {
         runCatching {
             tts?.shutdown()
         }
+        pendingSpeakText = null
         tts = null
         isReady = false
     }
