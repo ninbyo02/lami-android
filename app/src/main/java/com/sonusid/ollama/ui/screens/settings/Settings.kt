@@ -253,6 +253,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
+    // Use the explicit SETTINGS NavBackStackEntry as the owner of the
+    // SavedStateHandle used for About→Settings return events.
+    // This avoids relying on currentBackStackEntry and makes the state
+    // owner explicit and stable across recompositions.
     val settingsBackStackEntry = remember(navgationController) {
         navgationController.getBackStackEntry(Routes.SETTINGS)
     }
