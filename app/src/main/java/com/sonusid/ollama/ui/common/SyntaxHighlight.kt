@@ -194,38 +194,46 @@ private fun collectHtmlTokens(
 ) {
     val tagRegex = Regex("<[^>]+>")
     val tagNameRegex = Regex("^</?\\s*([A-Za-z][A-Za-z0-9:-]*)")
+    val closingBracketRegex = Regex("\\s*/?>$")
     val attributeRegex = Regex("\\b([A-Za-z_:][A-Za-z0-9_:.\\-]*)(?=\\s*=)")
     val doctypeRegex = Regex("^<!\\s*(doctype)\\b", RegexOption.IGNORE_CASE)
 
     tagRegex.findAll(code).forEach { match ->
         val range = match.range
         val start = range.first
+        val endExclusive = range.last + 1
 
         val doctype = doctypeRegex.find(match.value)
         if (doctype != null) {
-            val doctypeRange = doctype.groups[1]?.range
-            if (doctypeRange != null) {
-                addTokenIfFree(
-                    start + doctypeRange.first,
-                    start + doctypeRange.last + 1,
-                    TOKEN_HTML_DOCTYPE,
-                    marked,
-                    tokens,
-                )
-            }
+            addTokenIfFree(start, endExclusive, TOKEN_HTML_DOCTYPE, marked, tokens)
             return@forEach
         }
 
         val tagName = tagNameRegex.find(match.value)
         val tagNameRange = tagName?.groups?.get(1)?.range
         if (tagNameRange != null) {
+            // `<tag` / `</tag` までを同一トークン化し、タグ記号とタグ名のまとまり感を出す
+            val tagTokenStart = 0
+            val tagTokenEndExclusive = tagNameRange.last + 1
             addTokenIfFree(
-                start + tagNameRange.first,
-                start + tagNameRange.last + 1,
+                start + tagTokenStart,
+                start + tagTokenEndExclusive,
                 TOKEN_HTML_TAG,
                 marked,
                 tokens,
             )
+
+            // `>` / `/>` もタグトークン化して、タグ全体の見え方を一般的なHTML表示に寄せる
+            val closingBracketRange = closingBracketRegex.find(match.value)?.range
+            if (closingBracketRange != null) {
+                addTokenIfFree(
+                    start + closingBracketRange.first,
+                    start + closingBracketRange.last + 1,
+                    TOKEN_HTML_TAG,
+                    marked,
+                    tokens,
+                )
+            }
         }
 
         attributeRegex.findAll(match.value).forEach { attribute ->
