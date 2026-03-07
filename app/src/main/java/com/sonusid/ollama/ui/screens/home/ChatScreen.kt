@@ -1139,9 +1139,11 @@ fun Home(
                         val resolvedSpriteAnchorTopPaddingDp =
                             if (measuredSpriteBottomPx != null && measuredContentTopPx != null) {
                                 with(LocalDensity.current) {
-                                    (measuredSpriteBottomPx!! - measuredContentTopPx!!)
-                                        .coerceAtLeast(0f)
-                                        .toDp()
+                                    val spriteAnchorDeltaPx =
+                                        (measuredSpriteBottomPx!! - measuredContentTopPx!!)
+                                            .coerceAtLeast(0f)
+                                            .roundToInt()
+                                    spriteAnchorDeltaPx.toDp()
                                 } + SpriteMessageGap
                             } else {
                                 null
