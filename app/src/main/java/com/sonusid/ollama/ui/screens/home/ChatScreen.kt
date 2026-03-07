@@ -144,6 +144,7 @@ private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
 private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
+private val EmptyNewConversationTopAdjust = (-128).dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
@@ -1138,9 +1139,8 @@ fun Home(
                             }
                         }
                         val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 12.dp
-                        val newEmptyTopPaddingAdjust = (-128).dp
                         val newEmptyTopPaddingDp =
-                            (resolvedGradientStartTopPaddingDp + newEmptyTopPaddingAdjust).coerceAtLeast(0.dp)
+                            (resolvedGradientStartTopPaddingDp + EmptyNewConversationTopAdjust).coerceAtLeast(0.dp)
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
                             newEmptyTopPaddingDp
                         } else {
