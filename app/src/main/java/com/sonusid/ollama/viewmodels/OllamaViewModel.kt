@@ -277,6 +277,9 @@ class OllamaViewModel(
         val body = response.body() ?: throw IOException("Empty response")
         val resultBuilder = StringBuilder()
         var doneReceived = false
+        val streamingUiUpdateIntervalMs = 80L
+        var lastUiUpdateAtMs = 0L
+        var latestFlushedLength = 0
 
         body.charStream().buffered().use { reader ->
             while (true) {
@@ -289,10 +292,21 @@ class OllamaViewModel(
                 if (!chunk.text.isNullOrBlank()) {
                     resultBuilder.append(chunk.text)
                     val currentText = resultBuilder.toString()
-                    _uiState.value = UiState.Streaming(currentText)
-                    onResponseReceived(currentText.length)
+                    val nowMs = System.currentTimeMillis()
+                    if (nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs) {
+                        _uiState.value = UiState.Streaming(currentText)
+                        onResponseReceived(currentText.length)
+                        lastUiUpdateAtMs = nowMs
+                        latestFlushedLength = currentText.length
+                    }
                 }
                 if (chunk.done) {
+                    val currentText = resultBuilder.toString()
+                    if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
+                        _uiState.value = UiState.Streaming(currentText)
+                        onResponseReceived(currentText.length)
+                        latestFlushedLength = currentText.length
+                    }
                     doneReceived = true
                     break
                 }
