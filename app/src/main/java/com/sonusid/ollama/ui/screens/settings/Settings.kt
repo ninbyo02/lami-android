@@ -253,13 +253,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
-    val settingsBackStackEntry = navgationController.currentBackStackEntry
+    val settingsBackStackEntry = remember(navgationController) {
+        navgationController.getBackStackEntry(Routes.SETTINGS)
+    }
     val resetScrollOnReturnFromAbout by
         settingsBackStackEntry
-            ?.savedStateHandle
-            ?.getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
-            ?.collectAsState()
-            ?: remember { mutableStateOf(false) }
+            .savedStateHandle
+            .getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
+            .collectAsState()
     val fadeHeight = 32.dp
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
@@ -269,8 +270,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         if (resetScrollOnReturnFromAbout) {
             listState.scrollToItem(0)
             settingsBackStackEntry
-                ?.savedStateHandle
-                ?.set(ResetSettingsScrollOnReturnFromAboutKey, false)
+                .savedStateHandle
+                .set(ResetSettingsScrollOnReturnFromAboutKey, false)
         }
     }
 
@@ -778,9 +779,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             item {
                 Card(
                     onClick = {
-                        navgationController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set(ResetSettingsScrollOnReturnFromAboutKey, true)
+                        settingsBackStackEntry
+                            .savedStateHandle
+                            .set(ResetSettingsScrollOnReturnFromAboutKey, true)
                         navgationController.navigate(Routes.ABOUT)
                     },
                     modifier = Modifier.fillMaxWidth(),
