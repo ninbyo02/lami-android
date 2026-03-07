@@ -897,6 +897,7 @@ fun LamiStatusSprite(
 @Composable
 fun LamiStatusSprite(
     status: State<LamiStatus>,
+    lamiState: LamiState? = null,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 48.dp,
     maxSizeDp: Dp = 100.dp,
@@ -914,8 +915,11 @@ fun LamiStatusSprite(
     resolvedErrorKey: String? = null,
     syncEpochMs: Long = 0L,
 ) {
-    val spriteStatus = remember(status.value) {
-        mapToLamiSpriteStatus(lamiStatus = status.value)
+    val spriteStatus = remember(status.value, lamiState) {
+        mapToLamiSpriteStatus(
+            lamiStatus = status.value,
+            lamiState = lamiState,
+        )
     }
     LamiStatusSprite(
         status = spriteStatus,

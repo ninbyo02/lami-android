@@ -10,7 +10,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.api.OllamaRequest
-import com.sonusid.ollama.api.OllamaResponse
 import com.sonusid.ollama.api.RetrofitClient
 import com.sonusid.ollama.db.dao.ChatLatestMessage
 import com.sonusid.ollama.db.entity.Chat
@@ -36,10 +35,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import kotlin.math.min
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 data class ModelInfo(val name: String)
@@ -243,45 +240,91 @@ class OllamaViewModel(
             val request = OllamaRequest(
                 model = model.toString(),
                 prompt = effectivePrompt,
+                stream = true,
                 images = encodedImages.ifEmpty { null },
             )
 
             if (model != null) {
-                RetrofitClient.instance.generateText(request)
-                    .enqueue(object : Callback<OllamaResponse> {
-                        override fun onResponse(
-                            call: Call<OllamaResponse>,
-                            response: Response<OllamaResponse>,
-                        ) {
-                            if (response.isSuccessful) {
-                                response.body()?.response?.let { output ->
-                                    onResponseReceived(output.length)
-                                    _uiState.value = UiState.Success(output)
-                                } ?: run {
-                                    onResponseReceived(0)
-                                    updateErrorState("Empty response")
-                                }
-
-                            } else {
-                                val error =
-                                    response.errorBody()?.string().orEmpty()
-                                onResponseReceived(error.length)
-                                updateErrorState(error.ifEmpty { "Failed to generate response" })
-                            }
-                        }
-
-                        override fun onFailure(call: Call<OllamaResponse>, t: Throwable) {
-                            Log.e("OllamaError", "Request failed: ${t.message}")
-                            onResponseReceived(t.message?.length ?: 0)
-                            updateErrorState(t.message ?: "Unknown error")
-                        }
-                    })
+                try {
+                    val finalText = withContext(Dispatchers.IO) {
+                        collectStreamingResponse(request)
+                    }
+                    if (finalText.isBlank()) {
+                        onResponseReceived(0)
+                        updateErrorState("Empty response")
+                    } else {
+                        _uiState.value = UiState.Success(finalText)
+                    }
+                } catch (e: Exception) {
+                    Log.e("OllamaError", "Request failed: ${e.message}")
+                    onResponseReceived(e.message?.length ?: 0)
+                    updateErrorState(e.message ?: "Unknown error")
+                }
             } else {
                 onResponseReceived("Please Choose A model".length)
                 _uiState.value = UiState.Success("Please Choose A model")
             }
         }
     }
+
+    private fun collectStreamingResponse(request: OllamaRequest): String {
+        val response = RetrofitClient.instance.generateTextStream(request).execute()
+        if (!response.isSuccessful) {
+            val error = response.errorBody()?.string().orEmpty()
+            throw IOException(error.ifEmpty { "Failed to generate response" })
+        }
+
+        val body = response.body() ?: throw IOException("Empty response")
+        val resultBuilder = StringBuilder()
+        var doneReceived = false
+
+        body.charStream().buffered().use { reader ->
+            while (true) {
+                val rawLine = reader.readLine() ?: break
+                val line = rawLine.trim()
+                if (line.isEmpty()) {
+                    continue
+                }
+                val chunk = parseStreamingChunk(line)
+                if (!chunk.text.isNullOrBlank()) {
+                    resultBuilder.append(chunk.text)
+                    val currentText = resultBuilder.toString()
+                    _uiState.value = UiState.Streaming(currentText)
+                    onResponseReceived(currentText.length)
+                }
+                if (chunk.done) {
+                    doneReceived = true
+                    break
+                }
+            }
+        }
+
+        if (!doneReceived) {
+            throw IOException("Streaming response ended before done=true")
+        }
+        if (resultBuilder.isEmpty()) {
+            throw IOException("Empty response")
+        }
+        return resultBuilder.toString()
+    }
+
+    private fun parseStreamingChunk(line: String): StreamChunk {
+        val json = runCatching { JSONObject(line) }
+            .getOrElse { throw IOException("Failed to parse streaming chunk: $line") }
+        val responseText = json.optString("response").takeIf { it.isNotEmpty() }
+        val messageText = json.optJSONObject("message")
+            ?.optString("content")
+            ?.takeIf { it.isNotEmpty() }
+        return StreamChunk(
+            text = responseText ?: messageText,
+            done = json.optBoolean("done", false),
+        )
+    }
+
+    private data class StreamChunk(
+        val text: String?,
+        val done: Boolean,
+    )
 
     private val _availableModels = MutableStateFlow<List<ModelInfo>>(emptyList())
     val availableModels: StateFlow<List<ModelInfo>> = _availableModels.asStateFlow()
