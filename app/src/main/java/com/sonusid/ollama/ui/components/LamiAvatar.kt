@@ -190,6 +190,7 @@ fun LamiAvatar(
         val adjustedOffsetDp = computedOffsetDp + sizeBasedOffsetAdjustDp
         LamiStatusSprite(
             status = avatarStatusState,
+            lamiState = lamiState,
             sizeDp = avatarSize.dp,
             modifier = Modifier
                 .offset(x = adjustedOffsetDp)
