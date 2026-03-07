@@ -142,9 +142,9 @@ fun buildHighlightedCodeAnnotatedString(
         keyword = lerp(colors.onSurface, colors.primary, 0.28f),
         number = lerp(colors.onSurface, colors.secondary, 0.12f),
         function = lerp(colors.onSurface, colors.primary, 0.16f),
-        htmlTag = lerp(colors.onSurface, colors.primary, 0.22f),
-        htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.2f),
-        htmlDoctype = lerp(colors.onSurface, colors.onSurfaceVariant, 0.45f),
+        htmlTag = lerp(colors.onSurface, colors.primary, 0.28f),
+        htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.24f),
+        htmlDoctype = lerp(colors.onSurface, lerp(colors.onSurfaceVariant, colors.tertiary, 0.08f), 0.5f),
     )
 
     return buildAnnotatedString {
