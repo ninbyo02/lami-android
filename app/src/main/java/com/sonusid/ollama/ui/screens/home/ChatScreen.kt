@@ -1138,7 +1138,7 @@ fun Home(
                             }
                         }
                         val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 12.dp
-                        val newEmptyTopPaddingAdjust = (-64).dp
+                        val newEmptyTopPaddingAdjust = (-128).dp
                         val newEmptyTopPaddingDp =
                             (resolvedGradientStartTopPaddingDp + newEmptyTopPaddingAdjust).coerceAtLeast(0.dp)
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
