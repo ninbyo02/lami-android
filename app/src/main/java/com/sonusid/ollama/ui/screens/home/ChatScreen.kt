@@ -225,10 +225,16 @@ fun Home(
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     var measuredHeaderBottomPx by remember { mutableStateOf<Float?>(null) }
+    var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
-    val measuredHeaderBottomDp = with(LocalDensity.current) { (measuredHeaderBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
-    val emptyStateTopPaddingDp = if (measuredHeaderBottomPx != null) measuredHeaderBottomDp + 8.dp else effectiveTopGradientBottomDp
+    val emptyStateTopPaddingDp = with(LocalDensity.current) {
+        if (measuredHeaderBottomPx != null && measuredContentTopPx != null) {
+            (measuredHeaderBottomPx!! - measuredContentTopPx!!).coerceAtLeast(0f).toDp()
+        } else {
+            effectiveTopGradientBottomDp
+        }
+    }
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
@@ -970,6 +976,9 @@ fun Home(
                 )
                 // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
                 .consumeWindowInsets(paddingValues)
+                .onGloballyPositioned { coordinates ->
+                    measuredContentTopPx = coordinates.positionInRoot().y
+                }
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
