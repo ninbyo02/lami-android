@@ -1130,30 +1130,17 @@ fun Home(
                         }
                         val mode = topPaddingModeMap[effectiveChatId]
                             ?: TopPaddingMode.ExistingConversation
-                        val resolvedHeaderAlignedTopPaddingDp = with(LocalDensity.current) {
-                            if (
-                                effectiveChatId != null &&
-                                measuredHeaderBottomPx != null &&
-                                measuredContentTopPx != null
-                            ) {
-                                (measuredHeaderBottomPx!! - measuredContentTopPx!!)
-                                    .coerceAtLeast(0f)
-                                    .toDp()
-                            } else {
-                                effectiveTopGradientBottomDp
-                            }
-                        }
                         val resolvedGradientStartTopPaddingDp =
                             effectiveTopGradientBottomDp + EmptyNewConversationBaseTopPadding
-                        val newEmptyTopPaddingDp =
+                        val emptyNewConversationAnchorTopPaddingDp =
                             (resolvedGradientStartTopPaddingDp + EmptyNewConversationTopAdjust).coerceAtLeast(0.dp)
-                        val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            newEmptyTopPaddingDp
-                        } else {
-                            when (mode) {
-                                TopPaddingMode.NewConversation -> newEmptyTopPaddingDp
-                                TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
-                            }
+                        val messageListTopPaddingDp = when {
+                            // Empty / New は共通アンカーを利用する
+                            messagesForList.isEmpty() -> emptyNewConversationAnchorTopPaddingDp
+                            mode == TopPaddingMode.NewConversation ->
+                                emptyNewConversationAnchorTopPaddingDp
+                            // Existing は従来どおり会話一覧の top gap を利用する
+                            else -> chatListTopPaddingDp
                         }
                         Box(modifier = contentModifier) {
                             LazyColumn(
