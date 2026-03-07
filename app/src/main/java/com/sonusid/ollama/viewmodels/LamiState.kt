@@ -36,7 +36,7 @@ fun mapToLamiState(uiState: UiState, selectedModel: String?): LamiState {
     return when (uiState) {
         UiState.Loading -> LamiState.Thinking
         is UiState.Error -> LamiState.Idle
-        is UiState.Streaming -> LamiState.Idle
+        is UiState.Streaming -> LamiState.Speaking(uiState.partialText.length)
         is UiState.Success -> LamiState.Idle
         is UiState.ModelsLoaded -> LamiState.Idle
         UiState.Initial -> LamiState.Idle
