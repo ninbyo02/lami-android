@@ -224,8 +224,6 @@ fun Home(
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
-    var measuredHeaderBottomPx by remember { mutableStateOf<Float?>(null) }
-    var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
@@ -552,9 +550,6 @@ fun Home(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topAppBarContainerColor)
-                    .onGloballyPositioned { coordinates ->
-                        measuredHeaderBottomPx = coordinates.positionInRoot().y + coordinates.size.height
-                    }
             ) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
@@ -969,9 +964,6 @@ fun Home(
                 )
                 // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
                 .consumeWindowInsets(paddingValues)
-                .onGloballyPositioned { coordinates ->
-                    measuredContentTopPx = coordinates.positionInRoot().y
-                }
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
@@ -1124,31 +1116,12 @@ fun Home(
                         }
                         val mode = topPaddingModeMap[effectiveChatId]
                             ?: TopPaddingMode.ExistingConversation
-                        val resolvedHeaderAlignedTopPaddingDp = with(LocalDensity.current) {
-                            if (
-                                effectiveChatId != null &&
-                                measuredHeaderBottomPx != null &&
-                                measuredContentTopPx != null
-                            ) {
-                                (measuredHeaderBottomPx!! - measuredContentTopPx!!)
-                                    .coerceAtLeast(0f)
-                                    .toDp()
-                            } else {
-                                effectiveTopGradientBottomDp
-                            }
-                        }
-                        val resolvedGradientAlignedTopPaddingDp = effectiveTopGradientBottomDp
-                        val resolvedTopStartPaddingDp =
-                            if (resolvedHeaderAlignedTopPaddingDp > resolvedGradientAlignedTopPaddingDp) {
-                                resolvedHeaderAlignedTopPaddingDp
-                            } else {
-                                resolvedGradientAlignedTopPaddingDp
-                            }
+                        val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 4.dp
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            resolvedTopStartPaddingDp
+                            resolvedGradientStartTopPaddingDp
                         } else {
                             when (mode) {
-                                TopPaddingMode.NewConversation -> resolvedTopStartPaddingDp
+                                TopPaddingMode.NewConversation -> resolvedGradientStartTopPaddingDp
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
