@@ -228,13 +228,6 @@ fun Home(
     var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
-    val emptyStateTopPaddingDp = with(LocalDensity.current) {
-        if (measuredHeaderBottomPx != null && measuredContentTopPx != null) {
-            (measuredHeaderBottomPx!! - measuredContentTopPx!!).coerceAtLeast(0f).toDp()
-        } else {
-            effectiveTopGradientBottomDp
-        }
-    }
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
     }
@@ -1132,7 +1125,19 @@ fun Home(
                         val mode = topPaddingModeMap[effectiveChatId]
                             ?: TopPaddingMode.ExistingConversation
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            emptyStateTopPaddingDp
+                            with(LocalDensity.current) {
+                                if (
+                                    effectiveChatId != null &&
+                                    measuredHeaderBottomPx != null &&
+                                    measuredContentTopPx != null
+                                ) {
+                                    (measuredHeaderBottomPx!! - measuredContentTopPx!!)
+                                        .coerceAtLeast(0f)
+                                        .toDp()
+                                } else {
+                                    effectiveTopGradientBottomDp
+                                }
+                            }
                         } else {
                             when (mode) {
                                 TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
