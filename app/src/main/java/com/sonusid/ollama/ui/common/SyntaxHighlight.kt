@@ -15,6 +15,9 @@ private const val TOKEN_STRING = 2
 private const val TOKEN_KEYWORD = 3
 private const val TOKEN_NUMBER = 4
 private const val TOKEN_FUNCTION = 5
+private const val TOKEN_HTML_TAG = 6
+private const val TOKEN_HTML_ATTRIBUTE = 7
+private const val TOKEN_HTML_DOCTYPE = 8
 
 private enum class SupportedLanguage {
     PYTHON,
@@ -41,6 +44,9 @@ private data class HighlightPalette(
     val keyword: Color,
     val number: Color,
     val function: Color,
+    val htmlTag: Color,
+    val htmlAttribute: Color,
+    val htmlDoctype: Color,
 )
 
 private val pythonKeywords = setOf(
@@ -119,6 +125,10 @@ fun buildHighlightedCodeAnnotatedString(
 
     collectCommentAndStringTokens(code, supportedLanguage, marked, tokens)
 
+    if (supportedLanguage == SupportedLanguage.HTML) {
+        collectHtmlTokens(code, marked, tokens)
+    }
+
     val simplify = code.length > 10_000
     if (!simplify) {
         collectKeywordNumberAndFunctionTokens(code, supportedLanguage, marked, tokens)
@@ -132,6 +142,9 @@ fun buildHighlightedCodeAnnotatedString(
         keyword = lerp(colors.onSurface, colors.primary, 0.28f),
         number = lerp(colors.onSurface, colors.secondary, 0.12f),
         function = lerp(colors.onSurface, colors.primary, 0.16f),
+        htmlTag = lerp(colors.onSurface, colors.primary, 0.22f),
+        htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.2f),
+        htmlDoctype = lerp(colors.onSurface, colors.onSurfaceVariant, 0.45f),
     )
 
     return buildAnnotatedString {
@@ -146,6 +159,9 @@ fun buildHighlightedCodeAnnotatedString(
                 TOKEN_KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
                 TOKEN_NUMBER -> SpanStyle(color = palette.number, fontWeight = FontWeight.Medium)
                 TOKEN_FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.SemiBold)
+                TOKEN_HTML_TAG -> SpanStyle(color = palette.htmlTag, fontWeight = FontWeight.SemiBold)
+                TOKEN_HTML_ATTRIBUTE -> SpanStyle(color = palette.htmlAttribute)
+                TOKEN_HTML_DOCTYPE -> SpanStyle(color = palette.htmlDoctype, fontWeight = FontWeight.Medium)
                 else -> null
             }
             if (style != null && token.start < token.end) {
@@ -162,12 +178,66 @@ private fun normalizeLanguage(language: String?): SupportedLanguage? {
         "bash", "sh", "zsh", "shell" -> SupportedLanguage.BASH
         "json" -> SupportedLanguage.JSON
         "yaml", "yml" -> SupportedLanguage.YAML
-        "html", "htm" -> SupportedLanguage.HTML
+        "html", "htm", "xml", "xhtml", "markup" -> SupportedLanguage.HTML
         "css" -> SupportedLanguage.CSS
         "javascript", "js" -> SupportedLanguage.JAVASCRIPT
         "typescript", "ts" -> SupportedLanguage.TYPESCRIPT
         "sql" -> SupportedLanguage.SQL
         else -> null
+    }
+}
+
+private fun collectHtmlTokens(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val tagRegex = Regex("<[^>]+>")
+    val tagNameRegex = Regex("^</?\\s*([A-Za-z][A-Za-z0-9:-]*)")
+    val attributeRegex = Regex("\\b([A-Za-z_:][A-Za-z0-9_:.\\-]*)(?=\\s*=)")
+    val doctypeRegex = Regex("^<!\\s*(doctype)\\b", RegexOption.IGNORE_CASE)
+
+    tagRegex.findAll(code).forEach { match ->
+        val range = match.range
+        val start = range.first
+
+        val doctype = doctypeRegex.find(match.value)
+        if (doctype != null) {
+            val doctypeRange = doctype.groups[1]?.range
+            if (doctypeRange != null) {
+                addTokenIfFree(
+                    start + doctypeRange.first,
+                    start + doctypeRange.last + 1,
+                    TOKEN_HTML_DOCTYPE,
+                    marked,
+                    tokens,
+                )
+            }
+            return@forEach
+        }
+
+        val tagName = tagNameRegex.find(match.value)
+        val tagNameRange = tagName?.groups?.get(1)?.range
+        if (tagNameRange != null) {
+            addTokenIfFree(
+                start + tagNameRange.first,
+                start + tagNameRange.last + 1,
+                TOKEN_HTML_TAG,
+                marked,
+                tokens,
+            )
+        }
+
+        attributeRegex.findAll(match.value).forEach { attribute ->
+            val attributeRange = attribute.groups[1]?.range ?: return@forEach
+            addTokenIfFree(
+                start + attributeRange.first,
+                start + attributeRange.last + 1,
+                TOKEN_HTML_ATTRIBUTE,
+                marked,
+                tokens,
+            )
+        }
     }
 }
 
