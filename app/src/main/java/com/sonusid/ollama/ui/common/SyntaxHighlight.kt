@@ -152,7 +152,7 @@ fun buildHighlightedCodeAnnotatedString(
         htmlTag = lerp(colors.onSurface, colors.primary, 0.34f),
         htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.3f),
         htmlDoctype = lerp(colors.onSurface, lerp(colors.onSurfaceVariant, colors.tertiary, 0.12f), 0.56f),
-        cssProperty = lerp(colors.onSurface, colors.secondary, 0.24f),
+        cssProperty = lerp(colors.onSurface, colors.secondary, 0.32f),
     )
 
     return buildAnnotatedString {
