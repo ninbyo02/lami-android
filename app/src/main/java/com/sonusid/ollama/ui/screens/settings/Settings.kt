@@ -51,7 +51,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -66,7 +65,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -82,8 +80,6 @@ import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.navigation.SettingsRoute
 import com.sonusid.ollama.R
@@ -134,6 +130,8 @@ internal data class ServerInput(
 
 // サーバー接続検証中インジケータの視覚的中心補正
 private val ServerValidationIndicatorYOffset = 3.dp
+
+private const val ResetSettingsScrollOnReturnFromAboutKey = "reset_settings_scroll_on_return_from_about"
 
 // サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
 private val ServerRowTrailingSlotWidth = 32.dp
@@ -255,23 +253,24 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
     val listState = rememberLazyListState()
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val settingsBackStackEntry = navgationController.currentBackStackEntry
+    val resetScrollOnReturnFromAbout by
+        settingsBackStackEntry
+            ?.savedStateHandle
+            ?.getStateFlow(ResetSettingsScrollOnReturnFromAboutKey, false)
+            ?.collectAsState()
+            ?: remember { mutableStateOf(false) }
     val fadeHeight = 32.dp
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
     val scaffoldBg = MaterialTheme.colorScheme.background
 
-    DisposableEffect(lifecycleOwner, listState) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                scope.launch {
-                    listState.scrollToItem(0)
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+    LaunchedEffect(resetScrollOnReturnFromAbout) {
+        if (resetScrollOnReturnFromAbout) {
+            listState.scrollToItem(0)
+            settingsBackStackEntry
+                ?.savedStateHandle
+                ?.set(ResetSettingsScrollOnReturnFromAboutKey, false)
         }
     }
 
@@ -778,7 +777,12 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             }
             item {
                 Card(
-                    onClick = { navgationController.navigate(Routes.ABOUT) },
+                    onClick = {
+                        navgationController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set(ResetSettingsScrollOnReturnFromAboutKey, true)
+                        navgationController.navigate(Routes.ABOUT)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
