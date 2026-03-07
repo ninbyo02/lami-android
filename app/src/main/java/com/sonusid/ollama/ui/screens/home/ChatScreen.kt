@@ -1137,22 +1137,12 @@ fun Home(
                                 effectiveTopGradientBottomDp
                             }
                         }
-                        val resolvedGradientSafeTopPaddingDp = effectiveTopGradientBottomDp + 4.dp
+                        val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 4.dp
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            if (resolvedHeaderAlignedTopPaddingDp > resolvedGradientSafeTopPaddingDp) {
-                                resolvedHeaderAlignedTopPaddingDp
-                            } else {
-                                resolvedGradientSafeTopPaddingDp
-                            }
+                            resolvedGradientStartTopPaddingDp
                         } else {
                             when (mode) {
-                                TopPaddingMode.NewConversation -> {
-                                    if (resolvedHeaderAlignedTopPaddingDp > resolvedGradientSafeTopPaddingDp) {
-                                        resolvedHeaderAlignedTopPaddingDp
-                                    } else {
-                                        resolvedGradientSafeTopPaddingDp
-                                    }
-                                }
+                                TopPaddingMode.NewConversation -> resolvedGradientStartTopPaddingDp
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
