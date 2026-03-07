@@ -19,6 +19,7 @@ private const val TOKEN_HTML_TAG = 6
 private const val TOKEN_HTML_ATTRIBUTE = 7
 private const val TOKEN_HTML_DOCTYPE = 8
 private const val TOKEN_CSS_PROPERTY = 9
+private const val TOKEN_CSS_SELECTOR = 10
 
 private enum class SupportedLanguage {
     PYTHON,
@@ -49,6 +50,7 @@ private data class HighlightPalette(
     val htmlAttribute: Color,
     val htmlDoctype: Color,
     val cssProperty: Color,
+    val cssSelector: Color,
 )
 
 private val pythonKeywords = setOf(
@@ -129,10 +131,12 @@ fun buildHighlightedCodeAnnotatedString(
 
     if (supportedLanguage == SupportedLanguage.HTML) {
         collectHtmlTokens(code, marked, tokens)
+        collectCssSelectorTokensInHtmlStyleBlocks(code, marked, tokens)
         collectCssPropertyTokensInHtmlStyleBlocks(code, marked, tokens)
     }
 
     if (supportedLanguage == SupportedLanguage.CSS) {
+        collectCssSelectorTokens(code, 0, code.length, marked, tokens)
         collectCssPropertyTokens(code, 0, code.length, marked, tokens)
     }
 
@@ -153,6 +157,7 @@ fun buildHighlightedCodeAnnotatedString(
         htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.3f),
         htmlDoctype = lerp(colors.onSurface, lerp(colors.onSurfaceVariant, colors.tertiary, 0.12f), 0.56f),
         cssProperty = lerp(colors.onSurface, colors.secondary, 0.32f),
+        cssSelector = lerp(colors.onSurface, colors.tertiary, 0.36f),
     )
 
     return buildAnnotatedString {
@@ -171,6 +176,7 @@ fun buildHighlightedCodeAnnotatedString(
                 TOKEN_HTML_ATTRIBUTE -> SpanStyle(color = palette.htmlAttribute)
                 TOKEN_HTML_DOCTYPE -> SpanStyle(color = palette.htmlDoctype, fontWeight = FontWeight.Medium)
                 TOKEN_CSS_PROPERTY -> SpanStyle(color = palette.cssProperty)
+                TOKEN_CSS_SELECTOR -> SpanStyle(color = palette.cssSelector, fontWeight = FontWeight.Medium)
                 else -> null
             }
             if (style != null && token.start < token.end) {
@@ -269,6 +275,58 @@ private fun collectCssPropertyTokensInHtmlStyleBlocks(
         val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
         if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
         collectCssPropertyTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
+private fun collectCssSelectorTokensInHtmlStyleBlocks(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val styleOpenRegex = Regex("<style\\b[^>]*>", RegexOption.IGNORE_CASE)
+    styleOpenRegex.findAll(code).forEach { openTag ->
+        val styleContentStart = openTag.range.last + 1
+        val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
+        if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
+        collectCssSelectorTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
+private fun collectCssSelectorTokens(
+    code: String,
+    start: Int,
+    endExclusive: Int,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val safeStart = start.coerceAtLeast(0)
+    val safeEnd = endExclusive.coerceAtMost(code.length)
+    var i = safeStart
+    while (i < safeEnd) {
+        if (code[i] != '{') {
+            i++
+            continue
+        }
+
+        var selectorStart = i - 1
+        while (selectorStart >= safeStart) {
+            val char = code[selectorStart]
+            if (char == '{' || char == '}' || char == ';') break
+            selectorStart--
+        }
+        selectorStart++
+
+        var tokenStart = selectorStart
+        while (tokenStart < i && code[tokenStart].isWhitespace()) tokenStart++
+
+        var tokenEnd = i
+        while (tokenEnd > tokenStart && code[tokenEnd - 1].isWhitespace()) tokenEnd--
+
+        if (tokenStart < tokenEnd) {
+            addTokenIfFree(tokenStart, tokenEnd, TOKEN_CSS_SELECTOR, marked, tokens)
+        }
+
+        i++
     }
 }
 
