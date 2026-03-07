@@ -110,6 +110,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
@@ -237,6 +238,9 @@ fun Home(
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
         mutableStateMapOf<Int, TopPaddingMode>()
+    }
+    val fixedEmptyNewAnchorTopPaddingByChatId = remember {
+        mutableStateMapOf<Int, Dp>()
     }
     val lastUserMessageCountByChatId = remember {
         mutableStateMapOf<Int, Int>()
@@ -1148,8 +1152,20 @@ fun Home(
                             } else {
                                 null
                             }
+                        val fixedEmptyNewAnchorTopPaddingDp =
+                            effectiveChatId?.let { currentChatId ->
+                                fixedEmptyNewAnchorTopPaddingByChatId[currentChatId]
+                            }
+                        LaunchedEffect(effectiveChatId, resolvedSpriteAnchorTopPaddingDp) {
+                            val currentChatId = effectiveChatId ?: return@LaunchedEffect
+                            val resolved = resolvedSpriteAnchorTopPaddingDp ?: return@LaunchedEffect
+                            if (!fixedEmptyNewAnchorTopPaddingByChatId.containsKey(currentChatId)) {
+                                fixedEmptyNewAnchorTopPaddingByChatId[currentChatId] = resolved
+                            }
+                        }
                         val emptyNewConversationAnchorTopPaddingDp =
-                            (resolvedSpriteAnchorTopPaddingDp
+                            ((fixedEmptyNewAnchorTopPaddingDp
+                                ?: resolvedSpriteAnchorTopPaddingDp)
                                 ?: (resolvedGradientStartTopPaddingDp + EmptyNewConversationTopAdjust))
                                 .coerceAtLeast(0.dp)
                         val messageListTopPaddingDp = when {
