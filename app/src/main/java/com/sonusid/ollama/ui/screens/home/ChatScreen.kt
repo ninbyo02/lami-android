@@ -1141,7 +1141,7 @@ fun Home(
                                     (measuredSpriteBottomPx!! - measuredContentTopPx!!)
                                         .coerceAtLeast(0f)
                                         .toDp()
-                                } + 4.dp
+                                } + 8.dp
                             } else {
                                 null
                             }
