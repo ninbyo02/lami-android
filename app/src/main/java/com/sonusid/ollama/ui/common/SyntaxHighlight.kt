@@ -127,10 +127,10 @@ fun buildHighlightedCodeAnnotatedString(
 
     val palette = HighlightPalette(
         comment = colors.onSurfaceVariant,
-        string = colors.tertiary,
+        string = colors.onSurface,
         keyword = colors.primary,
-        number = colors.secondary,
-        function = colors.tertiary,
+        number = colors.onSurface,
+        function = colors.onSurface,
     )
 
     return buildAnnotatedString {
