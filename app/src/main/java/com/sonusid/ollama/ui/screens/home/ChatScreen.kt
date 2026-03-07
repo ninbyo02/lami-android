@@ -218,7 +218,7 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
-    val debugTopGradientOrange = false
+    val debugTopGradientOrange = true
     val debugTopGradientDownshift = 32.dp
     val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
@@ -1124,23 +1124,24 @@ fun Home(
                         }
                         val mode = topPaddingModeMap[effectiveChatId]
                             ?: TopPaddingMode.ExistingConversation
-                        val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            with(LocalDensity.current) {
-                                if (
-                                    effectiveChatId != null &&
-                                    measuredHeaderBottomPx != null &&
-                                    measuredContentTopPx != null
-                                ) {
-                                    (measuredHeaderBottomPx!! - measuredContentTopPx!!)
-                                        .coerceAtLeast(0f)
-                                        .toDp()
-                                } else {
-                                    effectiveTopGradientBottomDp
-                                }
+                        val resolvedHeaderAlignedTopPaddingDp = with(LocalDensity.current) {
+                            if (
+                                effectiveChatId != null &&
+                                measuredHeaderBottomPx != null &&
+                                measuredContentTopPx != null
+                            ) {
+                                (measuredHeaderBottomPx!! - measuredContentTopPx!!)
+                                    .coerceAtLeast(0f)
+                                    .toDp()
+                            } else {
+                                effectiveTopGradientBottomDp
                             }
+                        }
+                        val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
+                            resolvedHeaderAlignedTopPaddingDp
                         } else {
                             when (mode) {
-                                TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
+                                TopPaddingMode.NewConversation -> resolvedHeaderAlignedTopPaddingDp
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
