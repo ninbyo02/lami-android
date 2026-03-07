@@ -77,6 +77,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -119,6 +120,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
+import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
@@ -197,6 +199,7 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
     // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
@@ -255,6 +258,16 @@ fun Home(
         filterChatsByTitle(sortedChats, chatSearchQuery)
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+
+    DisposableEffect(ttsController) {
+        ttsController.setOnPlaybackStateChanged { isPlaying ->
+            viewModel.onTtsPlaybackChanged(isPlaying)
+        }
+        onDispose {
+            viewModel.stopTtsPlayback()
+            ttsController.shutdown()
+        }
+    }
 
     LaunchedEffect(chatId) {
         if (chatId != null) {
@@ -331,6 +344,7 @@ fun Home(
                             Message(message = response, chatId = currentChatId, isSendbyMe = false)
                         )
                     }
+                    ttsController.speak(response)
                     placeholder = "Enter your prompt..."
                     viewModel.resetUiState()
                 }
@@ -847,6 +861,8 @@ fun Home(
                                                     placeholder = "I'm thinking ... "
                                                     toggle = true
                                                 }
+                                                ttsController.stop()
+                                                viewModel.stopTtsPlayback()
                                                 prompt = requestPrompt
                                                 viewModel.sendPrompt(
                                                     prompt = requestPrompt,

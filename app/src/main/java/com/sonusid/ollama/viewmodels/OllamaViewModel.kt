@@ -64,6 +64,8 @@ class OllamaViewModel(
     val lamiAnimationStatus: StateFlow<LamiStatus> = _lamiAnimationStatus.asStateFlow()
     private val _animationEpochMs = MutableStateFlow(SystemClock.uptimeMillis())
     val animationEpochMs: StateFlow<Long> = _animationEpochMs.asStateFlow()
+    private val _isTtsPlaying = MutableStateFlow(false)
+    val isTtsPlaying: StateFlow<Boolean> = _isTtsPlaying.asStateFlow()
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
@@ -89,11 +91,12 @@ class OllamaViewModel(
                 }
         }
         viewModelScope.launch {
-            combine(lamiUiState, _uiState, _selectedModel) { lamiUiState, uiState, selectedModel ->
+            combine(lamiUiState, _uiState, _selectedModel, _isTtsPlaying) { lamiUiState, uiState, selectedModel, isTtsPlaying ->
                 mapToAnimationLamiStatus(
                     lamiState = lamiUiState.state,
                     uiState = uiState,
                     selectedModel = selectedModel,
+                    isTtsPlaying = isTtsPlaying,
                 )
             }.collect { mappedStatus ->
                 if (mappedStatus != _lamiAnimationStatus.value && !RuntimeFlags.shouldDisableContinuousAnimations()) {
@@ -177,8 +180,17 @@ class OllamaViewModel(
     }
 
     fun onPromptSubmitted() {
+        _isTtsPlaying.value = false
         val now = System.currentTimeMillis()
         _lamiUiState.value = LamiUiState(state = LamiState.Thinking, lastInteractionTimeMs = now)
+    }
+
+    fun onTtsPlaybackChanged(isPlaying: Boolean) {
+        _isTtsPlaying.value = isPlaying
+    }
+
+    fun stopTtsPlayback() {
+        _isTtsPlaying.value = false
     }
 
     fun onResponseReceived(textLength: Int) {
