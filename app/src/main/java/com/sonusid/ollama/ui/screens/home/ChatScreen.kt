@@ -144,6 +144,7 @@ private val TopGradientOverlayTopOffset = 34.dp
 // DEBUG: 上部グラデーションの視認確認で 4dp 上へずらす（調整完了後に 0.dp へ戻しやすくする）
 private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
+private val EmptyNewConversationBaseTopPadding = 12.dp
 private val EmptyNewConversationTopAdjust = (-128).dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
@@ -219,7 +220,7 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
-    val debugTopGradientOrange = true
+    val debugTopGradientOrange = false
     val debugTopGradientDownshift = 32.dp
     val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
@@ -1138,7 +1139,8 @@ fun Home(
                                 effectiveTopGradientBottomDp
                             }
                         }
-                        val resolvedGradientStartTopPaddingDp = effectiveTopGradientBottomDp + 12.dp
+                        val resolvedGradientStartTopPaddingDp =
+                            effectiveTopGradientBottomDp + EmptyNewConversationBaseTopPadding
                         val newEmptyTopPaddingDp =
                             (resolvedGradientStartTopPaddingDp + EmptyNewConversationTopAdjust).coerceAtLeast(0.dp)
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
