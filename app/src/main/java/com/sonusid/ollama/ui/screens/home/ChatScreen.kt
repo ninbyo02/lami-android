@@ -145,7 +145,11 @@ private val TopGradientOverlayTopOffset = 34.dp
 private val TopGradientOverlayYOffset = (-4).dp
 private val ChatListTopGapFromGradientBottom = 24.dp
 private val EmptyNewConversationBaseTopPadding = 12.dp
-private val EmptyNewConversationTopAdjust = (-128).dp
+// Empty / New conversation のメッセージ開始位置を sprite 直下に近づける補正。
+// 現在のレイアウトは gradient bottom を anchor にしているため、
+// gradient → sprite bottom の視覚差分をここで補正している。
+// UI調整用パラメータなので、位置調整はこの値のみ変更する。
+private val EmptyNewConversationTopAdjust = (-120).dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
