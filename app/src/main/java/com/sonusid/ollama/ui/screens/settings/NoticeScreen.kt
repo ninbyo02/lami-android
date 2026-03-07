@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.TopFadeOverlay
@@ -53,6 +54,7 @@ fun NoticeScreen(navController: NavController) {
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
     val copiedText = stringResource(R.string.about_notice_copy_done)
+    val readableBodyTextStyle = LamiTypographyTokens.bodyReadable()
     val scrollState = rememberScrollState()
     val thresholdPx = with(density) { NoticeTopFadeThreshold.roundToPx() }
     val showTopFade by remember {
@@ -125,6 +127,7 @@ fun NoticeScreen(navController: NavController) {
             ) {
                 Text(
                     text = noticeText,
+                    style = readableBodyTextStyle,
                     modifier = Modifier
                         // 上：NOTICE見出し相当の見え位置を揃えるため最小限の余白
                         .padding(top = 24.dp),

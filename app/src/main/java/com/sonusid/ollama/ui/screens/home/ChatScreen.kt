@@ -18,6 +18,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,7 +28,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -37,9 +37,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -92,7 +95,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -108,7 +110,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
 import com.sonusid.ollama.R
@@ -120,6 +121,7 @@ import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -215,10 +217,15 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val lamiUiState by viewModel.lamiUiState.collectAsState()
+    // NOTE: debug-only top gradient adjustments. Default OFF.
+    val debugTopGradientOrange = true
+    val debugTopGradientDownshift = 32.dp
     val debugOverlayEnabled = false
     val topGradientBottomDp = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + TopGradientOverlayHeight
     val chatListTopPaddingDp = topGradientBottomDp + ChatListTopGapFromGradientBottom
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
+    var measuredHeaderBottomPx by remember { mutableStateOf<Float?>(null) }
+    var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
@@ -368,85 +375,162 @@ fun Home(
             pendingNavigateChatId = newChatId
         }
     }
-
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
+            // drawerBg は必ず @Composable スコープ（Home() 内）で評価すること
+            val drawerBg = MaterialTheme.colorScheme.surface
+            val drawerColor = drawerBg
+
+            // Golden ratio based midpoint (1/φ)
+            val fadeMidPos = 0.618f
+            val fadeMidAlpha = 0.55f
+            val fadeMaxAlpha = 0.68f
+
+            // 下端フェード（透明→濃い）
+            val bottomFadeStops = arrayOf(
+                0.0f to drawerColor.copy(alpha = 0.0f),
+                fadeMidPos to drawerColor.copy(alpha = fadeMidAlpha),
+                1.0f to drawerColor.copy(alpha = fadeMaxAlpha),
+            )
+
+            // 上端フェード（濃い→透明）※ bottom の反転
+            val topFadeStops = arrayOf(
+                0.0f to drawerColor.copy(alpha = fadeMaxAlpha),
+                fadeMidPos to drawerColor.copy(alpha = fadeMidAlpha),
+                1.0f to drawerColor.copy(alpha = 0.0f),
+            )
+            ModalDrawerSheet(
+                // 上：Drawer 側のデフォルト safe drawing inset を無効化して検索窓の先頭位置を詰める
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                drawerContainerColor = drawerBg,
+                drawerTonalElevation = 0.dp,
+            ) {
+                val newChatButtonHeight = 40.dp
+                val newChatListTopGap = 0.dp
+                // 下端フェード：帯感を減らすため高さを少し詰める（overlayのみでレイアウトは壊さない）
+                val drawerBottomFadeHeight = 32.dp
                 Column(
                     modifier = Modifier
+                        .fillMaxSize()
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        // 上：詰めすぎ防止のため最小限の top padding を残す
+                        .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
                 ) {
-                    Text(text = "履歴", style = MaterialTheme.typography.titleLarge)
-                    OutlinedTextField(
+                    DrawerSearchPill(
                         value = chatSearchQuery,
                         onValueChange = { chatSearchQuery = it },
+                        onClear = { chatSearchQuery = "" },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        singleLine = true,
-                        label = { Text("タイトル検索") },
-                        trailingIcon = {
-                            if (chatSearchQuery.isNotEmpty()) {
-                                IconButton(onClick = { chatSearchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "検索をクリア"
-                                    )
-                                }
-                            }
-                        }
-                    )
-                    ElevatedButton(
-                        onClick = createNewChatAndNavigate,
-                        modifier = Modifier.padding(top = 12.dp)
+                            .weight(1f)
+                            // 上：検索ピルと New chat ボタンの間隔を 8dp 維持する
+                            .padding(top = 8.dp)
                     ) {
-                        Text("New chat")
-                    }
-                }
-                if (filteredChats.isEmpty()) {
-                    Text(
-                        text = "該当なし",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(bottom = 12.dp)
-                    ) {
-                        items(filteredChats, key = { it.chatId }) { chat ->
-                            val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
-                            TextButton(
-                                onClick = {
-                                    suppressChatContentWhileClosingDrawer = true
-                                    suppressAutoNewChat = true
-                                    pendingNavigateChatId = chat.chatId
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp)
+                        if (filteredChats.isEmpty()) {
+                            Text(
+                                text = "該当なし",
+                                // 上：New chat ボタン下から空状態メッセージを表示する
+                                modifier = Modifier.padding(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    top = newChatButtonHeight + newChatListTopGap + 12.dp,
+                                    bottom = 12.dp,
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(
+                                    top = newChatButtonHeight + newChatListTopGap,
+                                    // 最終行がフェードに被らないように bottom padding を増やす
+                                    bottom = 12.dp + drawerBottomFadeHeight,
+                                )
                             ) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Text(
-                                        text = chat.title,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    if (previewText.isNotEmpty()) {
-                                        Text(
-                                            text = previewText,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
+                                items(filteredChats, key = { it.chatId }) { chat ->
+                                    val previewText = latestMessagePreviewByChatId[chat.chatId].orEmpty()
+                                    TextButton(
+                                        onClick = {
+                                            suppressChatContentWhileClosingDrawer = true
+                                            suppressAutoNewChat = true
+                                            pendingNavigateChatId = chat.chatId
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp)
+                                    ) {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            Text(
+                                                text = chat.title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                            if (previewText.isNotEmpty()) {
+                                                Text(
+                                                    text = previewText,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
+                        }
+
+                        // 下端フェードは帯に見えないよう max alpha を落として midpoint を前倒し
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .height(drawerBottomFadeHeight)
+                                .drawBehind {
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            colorStops = bottomFadeStops
+                                        )
+                                    )
+                                }
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .fillMaxWidth()
+                                // New chat ボタン下端より 8dp 下までフェードを伸ばし、透明側の境目をさらに目立たせない
+                                // ※スレッド開始位置は維持（LazyColumn の contentPadding.top は変更しない）
+                                .height(newChatButtonHeight + 6.dp)
+                                .drawBehind {
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            colorStops = topFadeStops
+                                        )
+                                    )
+                                }
+                        )
+                        ElevatedButton(
+                            onClick = createNewChatAndNavigate,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .zIndex(1f)
+                                .height(newChatButtonHeight),
+                            elevation = ButtonDefaults.elevatedButtonElevation(
+                                defaultElevation = 6.dp,
+                                pressedElevation = 8.dp,
+                                focusedElevation = 6.dp,
+                                hoveredElevation = 6.dp,
+                                disabledElevation = 0.dp,
+                            )
+                        ) {
+                            Text("New chat")
                         }
                     }
                 }
@@ -468,6 +552,9 @@ fun Home(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topAppBarContainerColor)
+                    .onGloballyPositioned { coordinates ->
+                        measuredHeaderBottomPx = coordinates.positionInRoot().y + coordinates.size.height
+                    }
             ) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
@@ -622,7 +709,7 @@ fun Home(
                         color = MaterialTheme.colorScheme.surface,
                         border = androidx.compose.foundation.BorderStroke(
                             width = 1.dp,
-                            color = MaterialTheme.colorScheme.primaryContainer
+                            color = MaterialTheme.colorScheme.primary
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -708,8 +795,7 @@ fun Home(
                                                 placeholder = {
                                                     Text(
                                                         placeholder,
-                                                        fontSize = 15.sp,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        style = LamiTypographyTokens.chatPlaceholder(),
                                                     )
                                                 },
                                                 colors = OutlinedTextFieldDefaults.colors(
@@ -883,6 +969,9 @@ fun Home(
                 )
                 // LazyColumn 側で Insets を二重適用しないよう、この階層で消費する
                 .consumeWindowInsets(paddingValues)
+                .onGloballyPositioned { coordinates ->
+                    measuredContentTopPx = coordinates.positionInRoot().y
+                }
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
@@ -1035,11 +1124,24 @@ fun Home(
                         }
                         val mode = topPaddingModeMap[effectiveChatId]
                             ?: TopPaddingMode.ExistingConversation
+                        val resolvedHeaderAlignedTopPaddingDp = with(LocalDensity.current) {
+                            if (
+                                effectiveChatId != null &&
+                                measuredHeaderBottomPx != null &&
+                                measuredContentTopPx != null
+                            ) {
+                                (measuredHeaderBottomPx!! - measuredContentTopPx!!)
+                                    .coerceAtLeast(0f)
+                                    .toDp()
+                            } else {
+                                effectiveTopGradientBottomDp
+                            }
+                        }
                         val messageListTopPaddingDp = if (messagesForList.isEmpty()) {
-                            effectiveTopGradientBottomDp
+                            resolvedHeaderAlignedTopPaddingDp
                         } else {
                             when (mode) {
-                                TopPaddingMode.NewConversation -> effectiveTopGradientBottomDp
+                                TopPaddingMode.NewConversation -> resolvedHeaderAlignedTopPaddingDp
                                 TopPaddingMode.ExistingConversation -> chatListTopPaddingDp
                             }
                         }
@@ -1141,12 +1243,10 @@ fun Home(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                // 上部グラデーションの開始位置をステータスバーぶん下げる
-                .statusBarsPadding()
-                // 上部グラデーション全体を既存位置へ配置
-                .padding(top = TopGradientOverlayTopOffset)
-                // 上部グラデーションの開始位置を 4dp 上へ戻す
-                .offset(y = TopGradientOverlayYOffset)
+                // 上部グラデーションはスクロール領域と独立した画面固定オーバーレイとして描画する
+                .zIndex(10f)
+                // 上部グラデーションの見た目サイズは維持し、表示位置のみ固定する
+                .offset(y = TopGradientOverlayTopOffset + TopGradientOverlayYOffset + debugTopGradientDownshift)
         ) {
             Box(
                 modifier = Modifier
@@ -1154,17 +1254,22 @@ fun Home(
                     // IME の表示有無に関係なく上部グラデの高さを固定する
                     .height(TopGradientOverlayHeight)
                     .onGloballyPositioned { coordinates ->
-                        measuredTopGradientBottomPx = coordinates.positionInParent().y + coordinates.size.height
+                        measuredTopGradientBottomPx = coordinates.positionInRoot().y + coordinates.size.height
                     }
                     .clipToBounds()
                     .background(
-                        brush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to topColor.copy(alpha = 1.0f),
-                                0.5f to topColor.copy(alpha = 0.6f),
-                                1.0f to topColor.copy(alpha = 0.0f)
+                        brush = run {
+                            // 既存挙動を維持しつつ、デバッグ時のみ先頭カラーをオレンジ系に差し替える。
+                            val debugTint = if (debugTopGradientOrange) MaterialTheme.colorScheme.tertiary else null
+                            val topGradientColor = debugTint ?: topColor
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to topGradientColor.copy(alpha = 1.0f),
+                                    0.5f to topColor.copy(alpha = 0.6f),
+                                    1.0f to topColor.copy(alpha = 0.0f)
+                                )
                             )
-                        )
+                        }
                     )
             )
         }
@@ -1214,6 +1319,66 @@ fun Home(
 }
 
 }
+
+}
+
+
+@Composable
+private fun DrawerSearchPill(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val height = 40.dp
+    val shape = RoundedCornerShape(height / 2)
+    val drawerSearchTextStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Normal,
+        fontFamily = FontFamily.Default,
+    )
+    Box(
+        modifier = modifier
+            .height(height)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .background(MaterialTheme.colorScheme.surface, shape)
+            .padding(start = 16.dp, top = 1.dp, end = 0.dp, bottom = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = drawerSearchTextStyle,
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = "タイトル検索",
+                                style = drawerSearchTextStyle.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (value.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "検索をクリア",
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

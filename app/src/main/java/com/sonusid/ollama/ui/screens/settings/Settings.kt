@@ -2,7 +2,6 @@ package com.sonusid.ollama.ui.screens.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,22 +21,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -68,8 +69,11 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -87,6 +91,7 @@ import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.common.TopFadeOverlay
 import com.sonusid.ollama.util.PORT_ERROR_MESSAGE
@@ -112,6 +117,10 @@ internal data class ConnectionValidationResult(
     val errorMessage: String? = null
 )
 
+private fun normalizeUrlForSave(url: String): String {
+    return url.trim().trimEnd('/')
+}
+
 internal data class ServerInput(
     val localId: String = UUID.randomUUID().toString(),
     val id: Int? = null,
@@ -121,6 +130,9 @@ internal data class ServerInput(
 
 // サーバー接続検証中インジケータの視覚的中心補正
 private val ServerValidationIndicatorYOffset = 3.dp
+
+// サーバー行右端の削除ボタン領域（48dpタップ領域を確保）
+private val ServerRowTrailingSlotWidth = 32.dp
 
 fun openUrl(context: Context, url: String) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -315,7 +327,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 CardSectionHeader(
                     title = "デバッグツール",
                     description = "スプライト関連の挙動を確認・調整するためのツールです",
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    modifier = Modifier.padding(bottom = 2.dp),
+                    topPadding = 20.dp
                 )
                 Card {
                     SettingsNavRowItem(
@@ -343,192 +356,75 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
                 Card {
-                    SettingsToggleRowItem(
-                        headline = "ダイナミックカラー",
-                        supporting = "システムカラーに合わせて配色を自動調整します",
-                        leadingIcon = null,
-                        checked = settingsData.useDynamicColor,
-                        onCheckedChange = { enabled ->
-                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { scope.launch { settingsPreferences.updateDynamicColor(!settingsData.useDynamicColor) } }
+                            .padding(start = 4.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = "システムカラーに合わせて配色を自動調整します",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
-                    )
+                        Switch(
+                            checked = settingsData.useDynamicColor,
+                            onCheckedChange = { enabled ->
+                                scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                            },
+                            modifier = Modifier.align(Alignment.CenterVertically),
+                        )
+                    }
                 }
             }
             item {
                 CardSectionHeader(
                     title = "サーバー設定",
-                    description = "Ollama サーバーのURLと接続状態を管理します",
+                    description = "接続するLLMサーバーのURLと接続状態を管理します",
                     modifier = Modifier.padding(
                         // 下: サーバー設定の見出しとカードの間隔を最小限確保
                         bottom = 2.dp
                     )
                 )
             }
-            itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = serverInput.isActive,
-                            onClick = {
-                                serverInputs.indices.forEach { i ->
-                                    val current = serverInputs[i]
-                                    serverInputs[i] = current.copy(isActive = i == index)
-                                }
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(
-                                    value = serverInput.url,
-                                    onValueChange = { newValue ->
-                                        val normalized = normalizeUrlInput(newValue)
-                                        serverInputs[index] = serverInput.copy(url = normalized)
-                                        val normalizedInputs = getNormalizedInputs()
-                                        duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                    },
-                                    placeholder = { Text("http://host:port") },
-                                    label = { Text("Server ${index + 1}") },
-                                    singleLine = true,
-                                    isError = duplicateUrls[serverInput.localId] == true ||
-                                        !validateUrlFormat(serverInput.url).isValid ||
-                                        connectionStatuses[serverInput.localId]?.isReachable == false,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        errorBorderColor = MaterialTheme.colorScheme.error,
-                                        errorCursorColor = MaterialTheme.colorScheme.error,
-                                        errorLabelColor = MaterialTheme.colorScheme.error,
-                                        errorLeadingIconColor = MaterialTheme.colorScheme.error,
-                                        errorTrailingIconColor = MaterialTheme.colorScheme.error
-                                    ),
-                                    trailingIcon = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(onClick = {
-                                                if (serverInputs.size >= maxServers) {
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                            message = "追加できるサーバー数は最大${maxServers}件です",
-                                                            duration = SnackbarDuration.Short
-                                                        )
-                                                    }
-                                                } else {
-                                                    serverInputs.add(
-                                                        ServerInput(
-                                                            url = "http://localhost:13511/",
-                                                            isActive = false
-                                                        )
-                                                    )
-                                                    val normalizedInputs = getNormalizedInputs()
-                                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                                }
-                                            }) {
-                                                Icon(Icons.Filled.Add, contentDescription = "Add server")
-                                            }
-                                            if (serverInputs.size > 1) {
-                                                IconButton(onClick = {
-                                                    if (serverInputs.size <= 1) {
-                                                        scope.launch {
-                                                            snackbarHostState.showSnackbar(
-                                                                message = "最低1件のサーバーを残してください",
-                                                                duration = SnackbarDuration.Short
-                                                            )
-                                                        }
-                                                        return@IconButton
-                                                    }
-                                                    val wasActive = serverInputs[index].isActive
-                                                    val updatedInvalidConnections =
-                                                        connectionStatuses.toMutableMap().apply {
-                                                            remove(serverInput.localId)
-                                                        }
-                                                    serverInputs.removeAt(index)
-                                                    connectionStatuses = updatedInvalidConnections
-                                                    val normalizedInputs = getNormalizedInputs()
-                                                    duplicateUrls = detectDuplicateUrls(normalizedInputs)
-                                                    if (wasActive && serverInputs.isNotEmpty()) {
-                                                        serverInputs[0] = serverInputs[0].copy(isActive = true)
-                                                    }
-                                                }) {
-                                                    Icon(Icons.Filled.Delete, contentDescription = "Remove server")
-                                                }
-                                            }
-                                        }
-                                    }
-                                )
-                                if (isValidatingConnections && serverInput.isActive) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier
-                                                    .align(Alignment.Center)
-                                                    .offset(y = ServerValidationIndicatorYOffset)
-                                                    .size(28.dp),
-                                                strokeWidth = 6.dp
-                                            )
-                                }
-                            }
-                            when {
-                                duplicateUrls[serverInput.localId] == true -> {
-                                    Text(
-                                        text = "このURLは既に追加されています",
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                    )
-                                }
-                                isValidatingConnections && serverInput.isActive -> {
-                                    Text(
-                                        text = "接続確認中…",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                    )
-                                }
-                                connectionStatuses[serverInput.localId]?.isReachable == false -> {
-                                    val message = connectionStatuses[serverInput.localId]?.errorMessage
-                                        ?: "接続できません"
-                                    Text(
-                                        text = message,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                    )
-                                }
-                                connectionStatuses[serverInput.localId]?.warningMessage != null -> {
-                                    val message = connectionStatuses[serverInput.localId]?.warningMessage
-                                    if (message != null) {
-                                        Text(
-                                            text = message,
-                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
             item {
                 Card {
                     Column {
-                        ListItem(
-                            headlineContent = {
-                                Text("設定を保存", style = MaterialTheme.typography.titleMedium)
-                            },
-                            supportingContent = {
-                                Text(
-                                    "入力したサーバー設定を検証して保存します",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            trailingContent = {
-                                Button(onClick = {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            ListItem(
+                                headlineContent = {
+                                    Text("設定を保存", style = MaterialTheme.typography.titleMedium)
+                                },
+                                supportingContent = {
+                                    Text(
+                                        "サーバー設定の変更内容を保存します",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 0.dp)
+                                    .padding(end = ServerRowTrailingSlotWidth)
+                            )
+                            IconButton(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .padding(end = 0.dp),
+                                onClick = {
                                     scope.launch {
                                         if (serverInputs.any { it.url.isBlank() }) {
                                             snackbarHostState.showSnackbar(
@@ -537,7 +433,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             )
                                             return@launch
                                         }
-                                        val normalizedInputs = getNormalizedInputs()
+                                        val normalizedInputs = getNormalizedInputs().map { input ->
+                                            input.copy(url = normalizeUrlForSave(input.url))
+                                        }
                                         val duplicates = detectDuplicateUrls(normalizedInputs)
                                         duplicateUrls = duplicates
                                         if (duplicates.isNotEmpty()) {
@@ -558,7 +456,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         if (serverInputs.none { it.isActive }) {
                                             serverInputs[0] = serverInputs[0].copy(isActive = true)
                                         }
-                                        val inputsForValidation = getNormalizedInputs()
+                                        val inputsForValidation = normalizedInputs
                                         isValidatingConnections = true
                                         val validationResults = try {
                                             withContext(Dispatchers.IO) {
@@ -625,56 +523,263 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             duplicateUrls = detectDuplicateUrls(normalizedInputs)
                                         } else {
                                             val normalizedActiveBaseUrl =
-                                                normalizeUrlInput(initializationState.baseUrl).trimEnd('/')
+                                                normalizeUrlForSave(normalizeUrlInput(initializationState.baseUrl))
                                             serverInputs.indices.forEach { i ->
                                                 val current = serverInputs[i]
-                                                val normalized = normalizeUrlInput(current.url).trimEnd('/')
-                                                serverInputs[i] = current.copy(isActive = normalized == normalizedActiveBaseUrl)
+                                                val normalized = normalizeUrlForSave(normalizeUrlInput(current.url))
+                                                serverInputs[i] = current.copy(
+                                                    url = normalized,
+                                                    isActive = normalized == normalizedActiveBaseUrl
+                                                )
                                             }
                                             showSuccessSnackbarShort("サーバー設定を保存しました")
                                         }
                                     }
-                                }) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.save),
-                                        contentDescription = "Save"
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("保存")
                                 }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        HorizontalDivider()
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    stringResource(R.string.about),
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    "バージョン情報やオープンソースライセンスを表示します",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            trailingContent = {
+                            ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null
+                                    imageVector = Icons.Filled.Save,
+                                    contentDescription = "Save settings",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { navgationController.navigate(Routes.ABOUT) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                            }
+                        }
                     }
                 }
+            }
+            itemsIndexed(serverInputs, key = { _, item -> item.localId }) { index, serverInput ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(end = ServerRowTrailingSlotWidth),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.width(32.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                RadioButton(
+                                    modifier = Modifier.offset(x = (-2).dp),
+                                    selected = serverInput.isActive,
+                                    onClick = {
+                                        serverInputs.indices.forEach { i ->
+                                            val current = serverInputs[i]
+                                            serverInputs[i] = current.copy(isActive = i == index)
+                                        }
+                                    }
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextField(
+                                        value = serverInput.url,
+                                        onValueChange = { newValue ->
+                                            val normalized = normalizeUrlInput(newValue)
+                                            serverInputs[index] = serverInput.copy(url = normalized)
+                                            val normalizedInputs = getNormalizedInputs()
+                                            duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                        },
+                                        placeholder = { Text("http://host:port", style = LamiTypographyTokens.fieldPlaceholder()) },
+                                        label = { Text("Server ${index + 1}", style = LamiTypographyTokens.fieldLabel()) },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            fontFamily = FontFamily.Default,
+                                            fontWeight = FontWeight.Normal,
+                                        ),
+                                        isError = duplicateUrls[serverInput.localId] == true ||
+                                            !validateUrlFormat(serverInput.url).isValid ||
+                                            connectionStatuses[serverInput.localId]?.isReachable == false,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = if (serverInput.isActive) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outline
+                                            },
+                                            unfocusedBorderColor = if (serverInput.isActive) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outline
+                                            },
+                                            errorBorderColor = MaterialTheme.colorScheme.error,
+                                            errorCursorColor = MaterialTheme.colorScheme.error,
+                                            errorLabelColor = MaterialTheme.colorScheme.error,
+                                            errorLeadingIconColor = MaterialTheme.colorScheme.error,
+                                            errorTrailingIconColor = MaterialTheme.colorScheme.error
+                                        ),
+                                    )
+                                    if (isValidatingConnections && serverInput.isActive) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier
+                                                        .align(Alignment.Center)
+                                                        .offset(y = ServerValidationIndicatorYOffset)
+                                                        .size(28.dp),
+                                                    strokeWidth = 6.dp
+                                                )
+                                    }
+                                }
+                                when {
+                                    duplicateUrls[serverInput.localId] == true -> {
+                                        Text(
+                                            text = "このURLは既に追加されています",
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                        )
+                                    }
+                                    isValidatingConnections && serverInput.isActive -> {
+                                        Text(
+                                            text = "接続確認中…",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                        )
+                                    }
+                                    connectionStatuses[serverInput.localId]?.isReachable == false -> {
+                                        val message = connectionStatuses[serverInput.localId]?.errorMessage
+                                            ?: "接続できません"
+                                        Text(
+                                            text = message,
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                        )
+                                    }
+                                    connectionStatuses[serverInput.localId]?.warningMessage != null -> {
+                                        val message = connectionStatuses[serverInput.localId]?.warningMessage
+                                        if (message != null) {
+                                            Text(
+                                                text = message,
+                                                modifier = Modifier.padding(top = 4.dp) // 上：入力枠と文言の間隔を最小限確保
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        IconButton(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 0.dp),
+                            enabled = serverInputs.size > 1,
+                            onClick = {
+                                if (serverInputs.size <= 1) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            message = "最低1件のサーバーを残してください",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                    return@IconButton
+                                }
+                                val wasActive = serverInputs[index].isActive
+                                val updatedInvalidConnections =
+                                    connectionStatuses.toMutableMap().apply {
+                                        remove(serverInput.localId)
+                                    }
+                                serverInputs.removeAt(index)
+                                connectionStatuses = updatedInvalidConnections
+                                val normalizedInputs = getNormalizedInputs()
+                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                                if (wasActive && serverInputs.isNotEmpty()) {
+                                    serverInputs[0] = serverInputs[0].copy(isActive = true)
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Remove server")
+                        }
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    TextButton(
+                        enabled = serverInputs.size < maxServers,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        onClick = {
+                            if (serverInputs.size >= maxServers) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "追加できるサーバー数は最大${maxServers}件です",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } else {
+                                serverInputs.add(
+                                    ServerInput(
+                                        url = "http://localhost:13511/",
+                                        isActive = false
+                                    )
+                                )
+                                val normalizedInputs = getNormalizedInputs()
+                                duplicateUrls = detectDuplicateUrls(normalizedInputs)
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.width(32.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = "Add server",
+                                    modifier = Modifier.offset(x = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+            item {
+                CardSectionHeader(
+                    title = "アプリ情報",
+                    description = "このアプリについて",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            item {
+                Card(
+                    onClick = { navgationController.navigate(Routes.ABOUT) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    SettingsNavRowItem(
+                        headline = stringResource(R.string.about),
+                        supporting = "バージョン情報とオープンソースライセンス",
+                        leadingIcon = null,
+                        onClick = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp)
+                            .padding(vertical = 4.dp)
+                    )
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(36.dp))
             }
             }
             TopFadeOverlay(
@@ -705,13 +810,19 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 private fun CardSectionHeader(
     title: String,
     description: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    topPadding: Dp = 16.dp
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier
+        modifier = modifier.padding(top = topPadding)
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold
+            )
+        )
         Text(
             description,
             style = MaterialTheme.typography.bodyMedium,

@@ -820,7 +820,7 @@ private fun CodeBlockCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         modifier = Modifier.border(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.primary,
             shape = RoundedCornerShape(12.dp)
         )
     ) {
@@ -834,7 +834,11 @@ private fun CodeBlockCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // ヘッダーを角丸の縁から少し離して表示する
+                        .padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -842,6 +846,16 @@ private fun CodeBlockCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Box(
+                        modifier = Modifier
+                            .clickable { clipboardManager.setText(AnnotatedString(code)) }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ContentCopy,
+                            contentDescription = "コードをコピー",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 SelectionContainer {
                     Text(
@@ -852,19 +866,6 @@ private fun CodeBlockCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 18.dp, y = (-18).dp)
-                    .padding(0.dp)
-                    .clickable { clipboardManager.setText(AnnotatedString(code)) }
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.ContentCopy,
-                    contentDescription = "コードをコピー",
-                    modifier = Modifier.size(18.dp)
-                )
             }
         }
     }

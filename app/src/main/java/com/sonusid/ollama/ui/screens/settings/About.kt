@@ -53,6 +53,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
 import com.sonusid.ollama.viewmodels.LamiState
@@ -62,6 +63,7 @@ import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlinx.coroutines.launch
+
 
 internal fun buildVersionLabel(version: String, sha: String): String {
     val shaShort = sha.trim().takeIf { it.isNotBlank() }?.take(7)
@@ -110,6 +112,7 @@ fun About(
     val noticeText = stringResource(R.string.notice)
     val copiedText = stringResource(R.string.about_notice_copy_done)
     val fullLicenseText = listOf(licenseLine1, licenseLine2, licenseLine3).joinToString("\n")
+    val readableBodyTextStyle = LamiTypographyTokens.bodyReadable()
 
     val noticeAnnotatedText = buildAnnotatedString {
         val noticeStart = licenseLine3.indexOf(noticeText)
@@ -176,19 +179,17 @@ fun About(
                         )
                         Text(
                             BuildConfig.APP_SUBTITLE,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = readableBodyTextStyle,
                         )
                         Spacer(Modifier.height(10.dp))
                         val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
                         Text(
                             versionLabel,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = LamiTypographyTokens.aboutVersion(),
                         )
                         Text(
                             buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = LamiTypographyTokens.aboutBuild(),
                         )
                         Spacer(Modifier.height(24.dp))
                         ElevatedCard(
@@ -228,17 +229,17 @@ fun About(
                                 )
                                 Text(
                                     text = licenseLine1,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = readableBodyTextStyle,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 Text(
                                     text = licenseLine2,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = readableBodyTextStyle,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 Text(
                                     text = noticeAnnotatedText,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = readableBodyTextStyle,
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -322,20 +323,18 @@ fun About(
                     )
                     Text(
                         BuildConfig.APP_SUBTITLE,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = readableBodyTextStyle,
                     )
                     // 下：バージョン表示との距離を確保するための Spacer
                     Spacer(Modifier.height(10.dp))
                     val versionLabel = buildVersionLabel(BuildConfig.VERSION_NAME, BuildConfig.GIT_SHA)
                     Text(
                         versionLabel,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        style = LamiTypographyTokens.aboutVersion(),
                     )
                     Text(
                         buildPrLabel(BuildConfig.BUILD_PR_NUMBER),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = LamiTypographyTokens.aboutBuild(),
                     )
                     Spacer(Modifier.height(24.dp))
                     ElevatedCard(
@@ -376,17 +375,17 @@ fun About(
                             )
                             Text(
                                 text = licenseLine1,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = readableBodyTextStyle,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
                                 text = licenseLine2,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = readableBodyTextStyle,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
                                 text = noticeAnnotatedText,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = readableBodyTextStyle,
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
