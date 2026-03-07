@@ -299,7 +299,10 @@ class OllamaViewModel(
             }
         }
 
-        if (!doneReceived && resultBuilder.isEmpty()) {
+        if (!doneReceived) {
+            throw IOException("Streaming response ended before done=true")
+        }
+        if (resultBuilder.isEmpty()) {
             throw IOException("Empty response")
         }
         return resultBuilder.toString()
