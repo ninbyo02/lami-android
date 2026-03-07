@@ -299,8 +299,8 @@ class OllamaViewModel(
                         chunk.text.lastOrNull() in priorityFlushChars ||
                             currentText.lastOrNull() in priorityFlushChars
                     if (isIntervalElapsed || endsWithPriorityChar) {
-                        _uiState.value = UiState.Streaming(currentText)
                         onResponseReceived(currentText.length)
+                        _uiState.value = UiState.Streaming(currentText)
                         lastUiUpdateAtMs = nowMs
                         latestFlushedLength = currentText.length
                     }
@@ -308,8 +308,8 @@ class OllamaViewModel(
                 if (chunk.done) {
                     val currentText = resultBuilder.toString()
                     if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
-                        _uiState.value = UiState.Streaming(currentText)
                         onResponseReceived(currentText.length)
+                        _uiState.value = UiState.Streaming(currentText)
                         latestFlushedLength = currentText.length
                     }
                     doneReceived = true
