@@ -18,6 +18,7 @@ private const val TOKEN_FUNCTION = 5
 private const val TOKEN_HTML_TAG = 6
 private const val TOKEN_HTML_ATTRIBUTE = 7
 private const val TOKEN_HTML_DOCTYPE = 8
+private const val TOKEN_CSS_PROPERTY = 9
 
 private enum class SupportedLanguage {
     PYTHON,
@@ -47,6 +48,7 @@ private data class HighlightPalette(
     val htmlTag: Color,
     val htmlAttribute: Color,
     val htmlDoctype: Color,
+    val cssProperty: Color,
 )
 
 private val pythonKeywords = setOf(
@@ -127,6 +129,11 @@ fun buildHighlightedCodeAnnotatedString(
 
     if (supportedLanguage == SupportedLanguage.HTML) {
         collectHtmlTokens(code, marked, tokens)
+        collectCssPropertyTokensInHtmlStyleBlocks(code, marked, tokens)
+    }
+
+    if (supportedLanguage == SupportedLanguage.CSS) {
+        collectCssPropertyTokens(code, 0, code.length, marked, tokens)
     }
 
     val simplify = code.length > 10_000
@@ -145,6 +152,7 @@ fun buildHighlightedCodeAnnotatedString(
         htmlTag = lerp(colors.onSurface, colors.primary, 0.34f),
         htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.3f),
         htmlDoctype = lerp(colors.onSurface, lerp(colors.onSurfaceVariant, colors.tertiary, 0.12f), 0.56f),
+        cssProperty = lerp(colors.onSurface, colors.secondary, 0.24f),
     )
 
     return buildAnnotatedString {
@@ -162,6 +170,7 @@ fun buildHighlightedCodeAnnotatedString(
                 TOKEN_HTML_TAG -> SpanStyle(color = palette.htmlTag, fontWeight = FontWeight.SemiBold)
                 TOKEN_HTML_ATTRIBUTE -> SpanStyle(color = palette.htmlAttribute)
                 TOKEN_HTML_DOCTYPE -> SpanStyle(color = palette.htmlDoctype, fontWeight = FontWeight.Medium)
+                TOKEN_CSS_PROPERTY -> SpanStyle(color = palette.cssProperty)
                 else -> null
             }
             if (style != null && token.start < token.end) {
@@ -248,6 +257,78 @@ private fun collectHtmlTokens(
         }
     }
 }
+
+private fun collectCssPropertyTokensInHtmlStyleBlocks(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val styleOpenRegex = Regex("<style\\b[^>]*>", RegexOption.IGNORE_CASE)
+    styleOpenRegex.findAll(code).forEach { openTag ->
+        val styleContentStart = openTag.range.last + 1
+        val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
+        if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
+        collectCssPropertyTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
+private fun collectCssPropertyTokens(
+    code: String,
+    start: Int,
+    endExclusive: Int,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    var i = start.coerceAtLeast(0)
+    val safeEnd = endExclusive.coerceAtMost(code.length)
+    while (i < safeEnd) {
+        if (i !in marked.indices || marked[i] != TOKEN_NONE) {
+            i++
+            continue
+        }
+
+        if (!isCssPropertyStartChar(code[i])) {
+            i++
+            continue
+        }
+
+        val nameStart = i
+        i++
+        while (i < safeEnd && isCssPropertyChar(code[i])) i++
+
+        val afterName = findNextNonWhitespaceWithinRange(code, i, safeEnd)
+        if (afterName !in code.indices || code[afterName] != ':') continue
+        if (!isLikelyCssDeclarationStart(code, start, nameStart, marked)) continue
+
+        addTokenIfFree(nameStart, i, TOKEN_CSS_PROPERTY, marked, tokens)
+        i = afterName + 1
+    }
+}
+
+private fun isLikelyCssDeclarationStart(
+    code: String,
+    rangeStart: Int,
+    nameStart: Int,
+    marked: IntArray,
+): Boolean {
+    var i = nameStart - 1
+    while (i >= rangeStart) {
+        if (i !in marked.indices || marked[i] != TOKEN_NONE) {
+            i--
+            continue
+        }
+        if (code[i].isWhitespace()) {
+            i--
+            continue
+        }
+        return code[i] == '{' || code[i] == ';'
+    }
+    return true
+}
+
+private fun isCssPropertyStartChar(char: Char): Boolean = char.isLetter() || char == '-'
+
+private fun isCssPropertyChar(char: Char): Boolean = char.isLetterOrDigit() || char == '-'
 
 private fun collectCommentAndStringTokens(
     code: String,
@@ -630,6 +711,12 @@ private fun findQuotedEnd(code: String, start: Int, quote: Char): Int {
 private fun findNextNonWhitespace(code: String, start: Int): Int {
     var i = start
     while (i < code.length && code[i].isWhitespace()) i++
+    return i
+}
+
+private fun findNextNonWhitespaceWithinRange(code: String, start: Int, endExclusive: Int): Int {
+    var i = start
+    while (i < endExclusive && code[i].isWhitespace()) i++
     return i
 }
 
