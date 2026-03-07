@@ -278,6 +278,7 @@ class OllamaViewModel(
         val resultBuilder = StringBuilder()
         var doneReceived = false
         val streamingUiUpdateIntervalMs = 80L
+        val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
         var lastUiUpdateAtMs = 0L
         var latestFlushedLength = 0
 
@@ -293,7 +294,11 @@ class OllamaViewModel(
                     resultBuilder.append(chunk.text)
                     val currentText = resultBuilder.toString()
                     val nowMs = System.currentTimeMillis()
-                    if (nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs) {
+                    val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
+                    val endsWithPriorityChar =
+                        chunk.text.lastOrNull() in priorityFlushChars ||
+                            currentText.lastOrNull() in priorityFlushChars
+                    if (isIntervalElapsed || endsWithPriorityChar) {
                         _uiState.value = UiState.Streaming(currentText)
                         onResponseReceived(currentText.length)
                         lastUiUpdateAtMs = nowMs
