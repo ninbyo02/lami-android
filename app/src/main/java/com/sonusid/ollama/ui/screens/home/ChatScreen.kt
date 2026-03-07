@@ -150,7 +150,7 @@ private val EmptyNewConversationBaseTopPadding = 12.dp
 // gradient → sprite bottom の視覚差分をここで補正している。
 // UI調整用パラメータなので、位置調整はこの値のみ変更する。
 private val EmptyNewConversationTopAdjust = (-120).dp
-private val SpriteMessageGap = 8.dp
+private val SpriteMessageGap = 12.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
