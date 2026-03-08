@@ -10,6 +10,7 @@ import java.util.UUID
 
 private const val DEFAULT_TTS_SPEECH_RATE = 0.92f
 private const val DEFAULT_TTS_PITCH = 1.18f
+private const val TTS_REFERENCE_PHRASE = "こんにちは。ラミィです。今日はどんなお手伝いをしましょうか。"
 
 class AndroidTtsController(context: Context) {
     private val appContext = context.applicationContext
@@ -73,6 +74,10 @@ class AndroidTtsController(context: Context) {
             return
         }
         speakInternal(speechText)
+    }
+
+    fun speakReferencePhrase() {
+        speak(TTS_REFERENCE_PHRASE)
     }
 
     private fun speakInternal(text: String) {
