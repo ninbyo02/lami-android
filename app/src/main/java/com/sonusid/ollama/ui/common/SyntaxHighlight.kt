@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.common
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -14,6 +15,12 @@ private const val TOKEN_STRING = 2
 private const val TOKEN_KEYWORD = 3
 private const val TOKEN_NUMBER = 4
 private const val TOKEN_FUNCTION = 5
+private const val TOKEN_HTML_TAG = 6
+private const val TOKEN_HTML_ATTRIBUTE = 7
+private const val TOKEN_HTML_DOCTYPE = 8
+private const val TOKEN_CSS_PROPERTY = 9
+private const val TOKEN_CSS_SELECTOR = 10
+private const val TOKEN_CSS_COLOR = 11
 
 private enum class SupportedLanguage {
     PYTHON,
@@ -40,6 +47,12 @@ private data class HighlightPalette(
     val keyword: Color,
     val number: Color,
     val function: Color,
+    val htmlTag: Color,
+    val htmlAttribute: Color,
+    val htmlDoctype: Color,
+    val cssProperty: Color,
+    val cssSelector: Color,
+    val cssColor: Color,
 )
 
 private val pythonKeywords = setOf(
@@ -105,6 +118,13 @@ private val sqlKeywords = setOf(
     "like", "between", "union", "all"
 )
 
+private val cssValueKeywords = setOf(
+    "auto", "none", "inherit", "initial", "unset", "normal",
+    "block", "inline", "inline-block", "flex", "grid",
+    "left", "right", "center", "start", "end", "justify",
+    "white", "black", "transparent", "solid", "relative", "absolute", "fixed", "sticky"
+)
+
 fun buildHighlightedCodeAnnotatedString(
     code: String,
     language: String?,
@@ -118,6 +138,19 @@ fun buildHighlightedCodeAnnotatedString(
 
     collectCommentAndStringTokens(code, supportedLanguage, marked, tokens)
 
+    if (supportedLanguage == SupportedLanguage.HTML) {
+        collectHtmlTokens(code, marked, tokens)
+        collectCssSelectorTokensInHtmlStyleBlocks(code, marked, tokens)
+        collectCssPropertyTokensInHtmlStyleBlocks(code, marked, tokens)
+        collectCssValueTokensInHtmlStyleBlocks(code, marked, tokens)
+    }
+
+    if (supportedLanguage == SupportedLanguage.CSS) {
+        collectCssSelectorTokens(code, 0, code.length, marked, tokens)
+        collectCssPropertyTokens(code, 0, code.length, marked, tokens)
+        collectCssValueTokens(code, 0, code.length, marked, tokens)
+    }
+
     val simplify = code.length > 10_000
     if (!simplify) {
         collectKeywordNumberAndFunctionTokens(code, supportedLanguage, marked, tokens)
@@ -126,11 +159,17 @@ fun buildHighlightedCodeAnnotatedString(
     }
 
     val palette = HighlightPalette(
-        comment = colors.onSurfaceVariant,
-        string = colors.tertiary,
-        keyword = colors.primary,
-        number = colors.secondary,
-        function = colors.tertiary,
+        comment = lerp(colors.onSurfaceVariant, colors.onSurface, 0.18f),
+        string = lerp(colors.onSurface, colors.tertiary, 0.14f),
+        keyword = lerp(colors.onSurface, colors.primary, 0.28f),
+        number = lerp(colors.onSurface, colors.secondary, 0.12f),
+        function = lerp(colors.onSurface, colors.primary, 0.16f),
+        htmlTag = lerp(colors.onSurface, colors.primary, 0.34f),
+        htmlAttribute = lerp(colors.onSurface, colors.secondary, 0.3f),
+        htmlDoctype = lerp(colors.onSurface, lerp(colors.onSurfaceVariant, colors.tertiary, 0.12f), 0.56f),
+        cssProperty = lerp(colors.onSurface, colors.secondary, 0.32f),
+        cssSelector = lerp(colors.onSurface, colors.tertiary, 0.42f),
+        cssColor = lerp(colors.onSurface, colors.tertiary, 0.24f),
     )
 
     return buildAnnotatedString {
@@ -145,6 +184,12 @@ fun buildHighlightedCodeAnnotatedString(
                 TOKEN_KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.SemiBold)
                 TOKEN_NUMBER -> SpanStyle(color = palette.number, fontWeight = FontWeight.Medium)
                 TOKEN_FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.SemiBold)
+                TOKEN_HTML_TAG -> SpanStyle(color = palette.htmlTag, fontWeight = FontWeight.SemiBold)
+                TOKEN_HTML_ATTRIBUTE -> SpanStyle(color = palette.htmlAttribute)
+                TOKEN_HTML_DOCTYPE -> SpanStyle(color = palette.htmlDoctype, fontWeight = FontWeight.Medium)
+                TOKEN_CSS_PROPERTY -> SpanStyle(color = palette.cssProperty)
+                TOKEN_CSS_SELECTOR -> SpanStyle(color = palette.cssSelector, fontWeight = FontWeight.Medium)
+                TOKEN_CSS_COLOR -> SpanStyle(color = palette.cssColor, fontWeight = FontWeight.Medium)
                 else -> null
             }
             if (style != null && token.start < token.end) {
@@ -161,7 +206,7 @@ private fun normalizeLanguage(language: String?): SupportedLanguage? {
         "bash", "sh", "zsh", "shell" -> SupportedLanguage.BASH
         "json" -> SupportedLanguage.JSON
         "yaml", "yml" -> SupportedLanguage.YAML
-        "html", "htm" -> SupportedLanguage.HTML
+        "html", "htm", "xml", "xhtml", "markup" -> SupportedLanguage.HTML
         "css" -> SupportedLanguage.CSS
         "javascript", "js" -> SupportedLanguage.JAVASCRIPT
         "typescript", "ts" -> SupportedLanguage.TYPESCRIPT
@@ -169,6 +214,295 @@ private fun normalizeLanguage(language: String?): SupportedLanguage? {
         else -> null
     }
 }
+
+private fun collectHtmlTokens(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val tagRegex = Regex("<[^>]+>")
+    val tagNameRegex = Regex("^</?\\s*([A-Za-z][A-Za-z0-9:-]*)")
+    val closingBracketRegex = Regex("\\s*/?>$")
+    val attributeRegex = Regex("\\b([A-Za-z_:][A-Za-z0-9_:.\\-]*)(?=\\s*=)")
+    val doctypeRegex = Regex("^<!\\s*(doctype)\\b", RegexOption.IGNORE_CASE)
+
+    tagRegex.findAll(code).forEach { match ->
+        val range = match.range
+        val start = range.first
+        val endExclusive = range.last + 1
+
+        val doctype = doctypeRegex.find(match.value)
+        if (doctype != null) {
+            addTokenIfFree(start, endExclusive, TOKEN_HTML_DOCTYPE, marked, tokens)
+            return@forEach
+        }
+
+        val tagName = tagNameRegex.find(match.value)
+        val tagNameRange = tagName?.groups?.get(1)?.range
+        if (tagNameRange != null) {
+            // `<tag` / `</tag` までを同一トークン化し、タグ記号とタグ名のまとまり感を出す
+            val tagTokenStart = 0
+            val tagTokenEndExclusive = tagNameRange.last + 1
+            addTokenIfFree(
+                start + tagTokenStart,
+                start + tagTokenEndExclusive,
+                TOKEN_HTML_TAG,
+                marked,
+                tokens,
+            )
+
+            // `>` / `/>` もタグトークン化して、タグ全体の見え方を一般的なHTML表示に寄せる
+            val closingBracketRange = closingBracketRegex.find(match.value)?.range
+            if (closingBracketRange != null) {
+                addTokenIfFree(
+                    start + closingBracketRange.first,
+                    start + closingBracketRange.last + 1,
+                    TOKEN_HTML_TAG,
+                    marked,
+                    tokens,
+                )
+            }
+        }
+
+        attributeRegex.findAll(match.value).forEach { attribute ->
+            val attributeRange = attribute.groups[1]?.range ?: return@forEach
+            addTokenIfFree(
+                start + attributeRange.first,
+                start + attributeRange.last + 1,
+                TOKEN_HTML_ATTRIBUTE,
+                marked,
+                tokens,
+            )
+        }
+    }
+}
+
+private fun collectCssPropertyTokensInHtmlStyleBlocks(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val styleOpenRegex = Regex("<style\\b[^>]*>", RegexOption.IGNORE_CASE)
+    styleOpenRegex.findAll(code).forEach { openTag ->
+        val styleContentStart = openTag.range.last + 1
+        val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
+        if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
+        collectCssPropertyTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
+private fun collectCssSelectorTokensInHtmlStyleBlocks(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val styleOpenRegex = Regex("<style\\b[^>]*>", RegexOption.IGNORE_CASE)
+    styleOpenRegex.findAll(code).forEach { openTag ->
+        val styleContentStart = openTag.range.last + 1
+        val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
+        if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
+        collectCssSelectorTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
+private fun collectCssValueTokensInHtmlStyleBlocks(
+    code: String,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val styleOpenRegex = Regex("<style\\b[^>]*>", RegexOption.IGNORE_CASE)
+    styleOpenRegex.findAll(code).forEach { openTag ->
+        val styleContentStart = openTag.range.last + 1
+        val closeTagStart = code.indexOf("</style", styleContentStart, ignoreCase = true)
+        if (closeTagStart == -1 || styleContentStart >= closeTagStart) return@forEach
+        collectCssValueTokens(code, styleContentStart, closeTagStart, marked, tokens)
+    }
+}
+
+private fun collectCssSelectorTokens(
+    code: String,
+    start: Int,
+    endExclusive: Int,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val safeStart = start.coerceAtLeast(0)
+    val safeEnd = endExclusive.coerceAtMost(code.length)
+    var i = safeStart
+    while (i < safeEnd) {
+        if (code[i] != '{') {
+            i++
+            continue
+        }
+
+        var selectorStart = i - 1
+        while (selectorStart >= safeStart) {
+            val char = code[selectorStart]
+            if (char == '{' || char == '}' || char == ';') break
+            selectorStart--
+        }
+        selectorStart++
+
+        var tokenStart = selectorStart
+        while (tokenStart < i && code[tokenStart].isWhitespace()) tokenStart++
+
+        var tokenEnd = i
+        while (tokenEnd > tokenStart && code[tokenEnd - 1].isWhitespace()) tokenEnd--
+
+        if (tokenStart < tokenEnd) {
+            addTokenIfFree(tokenStart, tokenEnd, TOKEN_CSS_SELECTOR, marked, tokens)
+        }
+
+        i++
+    }
+}
+
+private fun collectCssPropertyTokens(
+    code: String,
+    start: Int,
+    endExclusive: Int,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    var i = start.coerceAtLeast(0)
+    val safeEnd = endExclusive.coerceAtMost(code.length)
+    while (i < safeEnd) {
+        if (i !in marked.indices || marked[i] != TOKEN_NONE) {
+            i++
+            continue
+        }
+
+        if (!isCssPropertyStartChar(code[i])) {
+            i++
+            continue
+        }
+
+        val nameStart = i
+        i++
+        while (i < safeEnd && isCssPropertyChar(code[i])) i++
+
+        val afterName = findNextNonWhitespaceWithinRange(code, i, safeEnd)
+        if (afterName !in code.indices || code[afterName] != ':') continue
+        if (!isLikelyCssDeclarationStart(code, start, nameStart, marked)) continue
+
+        addTokenIfFree(nameStart, i, TOKEN_CSS_PROPERTY, marked, tokens)
+        i = afterName + 1
+    }
+}
+
+private fun collectCssValueTokens(
+    code: String,
+    start: Int,
+    endExclusive: Int,
+    marked: IntArray,
+    tokens: MutableList<TokenRange>,
+) {
+    val safeStart = start.coerceAtLeast(0)
+    val safeEnd = endExclusive.coerceAtMost(code.length)
+    var i = safeStart
+    var braceDepth = 0
+    var inValue = false
+
+    while (i < safeEnd) {
+        val char = code[i]
+        if (marked[i] != TOKEN_NONE) {
+            i++
+            continue
+        }
+
+        when {
+            char == '{' -> {
+                braceDepth++
+                inValue = false
+                i++
+            }
+
+            char == '}' -> {
+                braceDepth = (braceDepth - 1).coerceAtLeast(0)
+                inValue = false
+                i++
+            }
+
+            braceDepth > 0 && char == ':' -> {
+                inValue = true
+                i++
+            }
+
+            inValue && (char == ';' || char == '!') -> {
+                inValue = false
+                i++
+            }
+
+            !inValue -> i++
+
+            char == '#' -> {
+                val valueStart = i
+                var j = i + 1
+                while (j < safeEnd && (code[j].isDigit() || code[j] in 'a'..'f' || code[j] in 'A'..'F')) j++
+                val hexLength = j - valueStart - 1
+                if (hexLength == 3 || hexLength == 4 || hexLength == 6 || hexLength == 8) {
+                    addTokenIfFree(valueStart, j, TOKEN_CSS_COLOR, marked, tokens)
+                    i = j
+                } else {
+                    i++
+                }
+            }
+
+            char.isDigit() ||
+                (char == '.' && i + 1 < safeEnd && code[i + 1].isDigit()) ||
+                (char == '-' && i + 1 < safeEnd && (code[i + 1].isDigit() || (i + 2 < safeEnd && code[i + 1] == '.' && code[i + 2].isDigit()))) -> {
+                val valueStart = i
+                if (code[i] == '-') i++
+                if (i < safeEnd && code[i] == '.') i++
+                while (i < safeEnd && code[i].isDigit()) i++
+                if (i < safeEnd && code[i] == '.' && i + 1 < safeEnd && code[i + 1].isDigit()) {
+                    i++
+                    while (i < safeEnd && code[i].isDigit()) i++
+                }
+                while (i < safeEnd && code[i].isLetter()) i++
+                if (i < safeEnd && code[i] == '%') i++
+                addTokenIfFree(valueStart, i, TOKEN_NUMBER, marked, tokens)
+            }
+
+            isIdentifierStart(char) -> {
+                val valueStart = i
+                i++
+                while (i < safeEnd && (isIdentifierPart(code[i]) || code[i] == '-')) i++
+                val keyword = code.substring(valueStart, i).lowercase()
+                if (keyword in cssValueKeywords) {
+                    addTokenIfFree(valueStart, i, TOKEN_KEYWORD, marked, tokens)
+                }
+            }
+
+            else -> i++
+        }
+    }
+}
+
+private fun isLikelyCssDeclarationStart(
+    code: String,
+    rangeStart: Int,
+    nameStart: Int,
+    marked: IntArray,
+): Boolean {
+    var i = nameStart - 1
+    while (i >= rangeStart) {
+        if (i !in marked.indices || marked[i] != TOKEN_NONE) {
+            i--
+            continue
+        }
+        if (code[i].isWhitespace()) {
+            i--
+            continue
+        }
+        return code[i] == '{' || code[i] == ';'
+    }
+    return true
+}
+
+private fun isCssPropertyStartChar(char: Char): Boolean = char.isLetter() || char == '-'
+
+private fun isCssPropertyChar(char: Char): Boolean = char.isLetterOrDigit() || char == '-'
 
 private fun collectCommentAndStringTokens(
     code: String,
@@ -551,6 +885,12 @@ private fun findQuotedEnd(code: String, start: Int, quote: Char): Int {
 private fun findNextNonWhitespace(code: String, start: Int): Int {
     var i = start
     while (i < code.length && code[i].isWhitespace()) i++
+    return i
+}
+
+private fun findNextNonWhitespaceWithinRange(code: String, start: Int, endExclusive: Int): Int {
+    var i = start
+    while (i < endExclusive && code[i].isWhitespace()) i++
     return i
 }
 
