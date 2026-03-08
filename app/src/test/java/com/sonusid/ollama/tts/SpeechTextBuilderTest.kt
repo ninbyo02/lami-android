@@ -153,6 +153,33 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun headingPuzzleEmoji_isRemovedAtLineStart() {
+        val input = "🧩 今後の拡張例:"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("今後の拡張例:", actual)
+    }
+
+    @Test
+    fun headingDocumentEmoji_withoutSpace_isRemoved() {
+        val input = "📄完全なHTMLコード:"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("完全なHTMLコード:", actual)
+    }
+
+    @Test
+    fun headingTestTubeEmoji_isRemoved() {
+        val input = "🧪 テスト方法"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("テスト方法", actual)
+    }
+
+    @Test
     fun boldMarkdown_isStrippedButContentRemains() {
         val actual = SpeechTextBuilder.build("**Minimaxアルゴリズム**")
 
@@ -183,6 +210,15 @@ class SpeechTextBuilderTest {
     @Test
     fun trailingEmoji_isPreserved() {
         val actual = SpeechTextBuilder.build("成功しました ✅")
+
+        assertEquals("成功しました ✅", actual)
+    }
+
+    @Test
+    fun trailingEmoji_isStillPreserved() {
+        val input = "成功しました ✅"
+
+        val actual = SpeechTextBuilder.build(input)
 
         assertEquals("成功しました ✅", actual)
     }
@@ -255,6 +291,15 @@ class SpeechTextBuilderTest {
 
     @Test
     fun bulletMarkers_arePreserved() {
+        val input = "• 項目A\n- 項目B"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("• 項目A\n- 項目B", actual)
+    }
+
+    @Test
+    fun bulletMarkers_areStillPreserved() {
         val input = "• 項目A\n- 項目B"
 
         val actual = SpeechTextBuilder.build(input)
