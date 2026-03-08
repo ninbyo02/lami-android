@@ -17,6 +17,10 @@ class AndroidTtsController(context: Context) {
     companion object {
         const val DEFAULT_SPEECH_RATE: Float = DEFAULT_TTS_SPEECH_RATE
         const val DEFAULT_PITCH: Float = DEFAULT_TTS_PITCH
+        const val MIN_SPEECH_RATE: Float = 0.70f
+        const val MAX_SPEECH_RATE: Float = 1.20f
+        const val MIN_PITCH: Float = 0.80f
+        const val MAX_PITCH: Float = 1.40f
     }
 
     private val appContext = context.applicationContext
@@ -93,16 +97,16 @@ class AndroidTtsController(context: Context) {
     }
 
     fun setSpeechRate(rate: Float) {
-        currentSpeechRate = rate
+        currentSpeechRate = rate.coerceIn(MIN_SPEECH_RATE, MAX_SPEECH_RATE)
     }
 
     fun setPitch(pitch: Float) {
-        currentPitch = pitch
+        currentPitch = pitch.coerceIn(MIN_PITCH, MAX_PITCH)
     }
 
     fun setSpeechConfig(rate: Float, pitch: Float) {
-        currentSpeechRate = rate
-        currentPitch = pitch
+        currentSpeechRate = rate.coerceIn(MIN_SPEECH_RATE, MAX_SPEECH_RATE)
+        currentPitch = pitch.coerceIn(MIN_PITCH, MAX_PITCH)
     }
 
     private fun speakInternal(text: String) {

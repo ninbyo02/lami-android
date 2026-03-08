@@ -6,12 +6,14 @@ import androidx.annotation.VisibleForTesting
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.data.SpriteSheetConfig
 import com.sonusid.ollama.data.normalize
+import com.sonusid.ollama.tts.AndroidTtsController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -287,6 +289,8 @@ class SettingsPreferences(private val context: Context) {
     private val lastSelectedBoxNumberKey = intPreferencesKey("sprite_last_selected_box_number")
     // 再起動時の復元用に最後の画面Routeを保持する
     private val lastRouteKey = stringPreferencesKey("last_route")
+    private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
+    private val ttsPitchKey = floatPreferencesKey("tts_pitch")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -393,6 +397,16 @@ class SettingsPreferences(private val context: Context) {
 
     val lastRoute: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[lastRouteKey]
+    }
+
+    val ttsSpeechRateFlow: Flow<Float> = context.dataStore.data.map { preferences ->
+        (preferences[ttsSpeechRateKey] ?: AndroidTtsController.DEFAULT_SPEECH_RATE)
+            .coerceIn(AndroidTtsController.MIN_SPEECH_RATE, AndroidTtsController.MAX_SPEECH_RATE)
+    }
+
+    val ttsPitchFlow: Flow<Float> = context.dataStore.data.map { preferences ->
+        (preferences[ttsPitchKey] ?: AndroidTtsController.DEFAULT_PITCH)
+            .coerceIn(AndroidTtsController.MIN_PITCH, AndroidTtsController.MAX_PITCH)
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -1038,6 +1052,28 @@ class SettingsPreferences(private val context: Context) {
         if (route.isBlank()) return
         context.dataStore.edit { preferences ->
             preferences[lastRouteKey] = route
+        }
+    }
+
+    suspend fun getTtsSpeechRate(): Float = ttsSpeechRateFlow.first()
+
+    suspend fun getTtsPitch(): Float = ttsPitchFlow.first()
+
+    suspend fun setTtsSpeechRate(value: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[ttsSpeechRateKey] = value.coerceIn(
+                AndroidTtsController.MIN_SPEECH_RATE,
+                AndroidTtsController.MAX_SPEECH_RATE,
+            )
+        }
+    }
+
+    suspend fun setTtsPitch(value: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[ttsPitchKey] = value.coerceIn(
+                AndroidTtsController.MIN_PITCH,
+                AndroidTtsController.MAX_PITCH,
+            )
         }
     }
 

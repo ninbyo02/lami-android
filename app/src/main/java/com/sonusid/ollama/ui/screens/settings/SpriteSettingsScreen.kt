@@ -1039,6 +1039,12 @@ fun SpriteSettingsScreen(navController: NavController) {
     val talkingInsertionAnimationSettings by settingsPreferences.talkingInsertionAnimationSettings.collectAsState(
         initial = InsertionAnimationSettings.TALKING_DEFAULT
     )
+    val storedDevMenuTtsSpeechRate by settingsPreferences.ttsSpeechRateFlow.collectAsState(
+        initial = AndroidTtsController.DEFAULT_SPEECH_RATE
+    )
+    val storedDevMenuTtsPitch by settingsPreferences.ttsPitchFlow.collectAsState(
+        initial = AndroidTtsController.DEFAULT_PITCH
+    )
     var selectedNumber by rememberSaveable { mutableStateOf(1) }
     var boxSizePx by rememberSaveable { mutableStateOf(DEFAULT_BOX_SIZE_PX) }
     var boxPositions by rememberSaveable(stateSaver = boxPositionsSaver()) { mutableStateOf(defaultBoxPositions()) }
@@ -4917,8 +4923,12 @@ private fun ReadyAnimationTab(
         // 下: リスト(アニメタブ) の NavigationBars + 最小余白のみ追加（IME 高さの加算は二重回避）
         bottom = listBottomPadding
     )
-    var devMenuTtsSpeechRate by rememberSaveable { mutableStateOf(AndroidTtsController.DEFAULT_SPEECH_RATE) }
-    var devMenuTtsPitch by rememberSaveable { mutableStateOf(AndroidTtsController.DEFAULT_PITCH) }
+    var devMenuTtsSpeechRate by rememberSaveable(storedDevMenuTtsSpeechRate) {
+        mutableStateOf(storedDevMenuTtsSpeechRate)
+    }
+    var devMenuTtsPitch by rememberSaveable(storedDevMenuTtsPitch) {
+        mutableStateOf(storedDevMenuTtsPitch)
+    }
 
     val previewContent: @Composable (Modifier) -> Unit = { modifier ->
         Surface(
@@ -5381,16 +5391,36 @@ private fun ReadyAnimationTab(
                     ttsSpeechRate = devMenuTtsSpeechRate,
                     ttsPitch = devMenuTtsPitch,
                     onIncreaseTtsSpeechRate = {
-                        devMenuTtsSpeechRate = (devMenuTtsSpeechRate + 0.02f).coerceAtMost(1.20f)
+                        val updatedRate = (devMenuTtsSpeechRate + 0.02f)
+                            .coerceAtMost(AndroidTtsController.MAX_SPEECH_RATE)
+                        devMenuTtsSpeechRate = updatedRate
+                        coroutineScope.launch {
+                            settingsPreferences.setTtsSpeechRate(updatedRate)
+                        }
                     },
                     onDecreaseTtsSpeechRate = {
-                        devMenuTtsSpeechRate = (devMenuTtsSpeechRate - 0.02f).coerceAtLeast(0.70f)
+                        val updatedRate = (devMenuTtsSpeechRate - 0.02f)
+                            .coerceAtLeast(AndroidTtsController.MIN_SPEECH_RATE)
+                        devMenuTtsSpeechRate = updatedRate
+                        coroutineScope.launch {
+                            settingsPreferences.setTtsSpeechRate(updatedRate)
+                        }
                     },
                     onIncreaseTtsPitch = {
-                        devMenuTtsPitch = (devMenuTtsPitch + 0.02f).coerceAtMost(1.40f)
+                        val updatedPitch = (devMenuTtsPitch + 0.02f)
+                            .coerceAtMost(AndroidTtsController.MAX_PITCH)
+                        devMenuTtsPitch = updatedPitch
+                        coroutineScope.launch {
+                            settingsPreferences.setTtsPitch(updatedPitch)
+                        }
                     },
                     onDecreaseTtsPitch = {
-                        devMenuTtsPitch = (devMenuTtsPitch - 0.02f).coerceAtLeast(0.80f)
+                        val updatedPitch = (devMenuTtsPitch - 0.02f)
+                            .coerceAtLeast(AndroidTtsController.MIN_PITCH)
+                        devMenuTtsPitch = updatedPitch
+                        coroutineScope.launch {
+                            settingsPreferences.setTtsPitch(updatedPitch)
+                        }
                     }
                 )
             }
