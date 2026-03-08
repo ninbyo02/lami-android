@@ -125,6 +125,14 @@ class SpeechTextBuilderTest {
         assertEquals("機能:\n動作方法:", actual)
     }
 
+
+    @Test
+    fun headingCheckEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("✅ 機能説明:")
+
+        assertEquals("機能説明:", actual)
+    }
+
     @Test
     fun headingCheckEmoji_isRemoved() {
         val actual = SpeechTextBuilder.build("✅ 機能:")
@@ -141,9 +149,9 @@ class SpeechTextBuilderTest {
 
     @Test
     fun headingPinEmoji_isRemoved() {
-        val actual = SpeechTextBuilder.build("📌 注意:")
+        val actual = SpeechTextBuilder.build("📌 注意点:")
 
-        assertEquals("注意:", actual)
+        assertEquals("注意点:", actual)
     }
 
     @Test
@@ -151,6 +159,13 @@ class SpeechTextBuilderTest {
         val actual = SpeechTextBuilder.build("🧠 今後追加できる機能:")
 
         assertEquals("今後追加できる機能:", actual)
+    }
+
+    @Test
+    fun headingDiceEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🎲 HTML + JavaScriptで作成した双六ゲーム")
+
+        assertEquals("HTML + JavaScriptで作成した双六ゲーム", actual)
     }
 
     @Test

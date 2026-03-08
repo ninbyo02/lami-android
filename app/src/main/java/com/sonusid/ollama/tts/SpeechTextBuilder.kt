@@ -30,7 +30,7 @@ class SpeechTextBuilder private constructor() {
             "🔹", "🔸", "⭐", "🌟",
             "🚀", "🎯", "📝", "📖",
             "🤖", "📣", "🎉", "⚠️", "⚠", "❗", "❓", "🔧", "🛠️", "🛠",
-            "🧩", "📄", "📘", "📚", "🗂️", "🗂", "🧪"
+            "🧩", "📄", "📘", "📚", "🗂️", "🗂", "🧪", "🎲"
         )
 
         fun build(displayText: String): String {
@@ -152,7 +152,13 @@ class SpeechTextBuilder private constructor() {
                 decorativeEmojiRemoved = true
                 normalizedContent = normalizedContent
                     .removePrefix(matchedEmoji)
-                    .dropWhile { it == ' ' || it == '\t' }
+                    .dropWhile {
+                        it == ' ' ||
+                            it == '\t' ||
+                            it == '\uFE0E' ||
+                            it == '\uFE0F' ||
+                            it == '\u200D'
+                    }
             }
 
             if (!decorativeEmojiRemoved) {
