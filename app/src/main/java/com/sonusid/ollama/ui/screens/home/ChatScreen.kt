@@ -344,7 +344,9 @@ fun Home(
                             Message(message = response, chatId = currentChatId, isSendbyMe = false)
                         )
                     }
-                    ttsController.speak(response)
+                    if (!ttsController.isInCooldown()) {
+                        ttsController.speak(response)
+                    }
                     placeholder = "Enter your prompt..."
                     viewModel.resetUiState()
                 }

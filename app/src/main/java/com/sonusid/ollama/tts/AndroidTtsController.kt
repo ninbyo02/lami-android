@@ -3,6 +3,7 @@ package com.sonusid.ollama.tts
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
@@ -23,6 +24,7 @@ class AndroidTtsController(context: Context) {
         const val MAX_SPEECH_RATE: Float = 1.20f
         const val MIN_PITCH: Float = 0.80f
         const val MAX_PITCH: Float = 1.40f
+        const val AUTO_SPEAK_COOLDOWN_MS: Long = 2_500L
     }
 
     private val appContext = context.applicationContext
@@ -33,6 +35,7 @@ class AndroidTtsController(context: Context) {
     private var pendingSpeakText: String? = null
     private var currentSpeechRate: Float = DEFAULT_TTS_SPEECH_RATE
     private var currentPitch: Float = DEFAULT_TTS_PITCH
+    private var lastPlaybackEndedAtMs: Long = 0L
 
     init {
         tts = TextToSpeech(appContext) { status ->
@@ -45,18 +48,22 @@ class AndroidTtsController(context: Context) {
                     }
 
                     override fun onDone(utteranceId: String?) {
+                        markPlaybackEnded()
                         notifyPlaybackState(false)
                     }
 
                     override fun onError(utteranceId: String?) {
+                        markPlaybackEnded()
                         notifyPlaybackState(false)
                     }
 
                     override fun onError(utteranceId: String?, errorCode: Int) {
+                        markPlaybackEnded()
                         notifyPlaybackState(false)
                     }
 
                     override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                        markPlaybackEnded()
                         notifyPlaybackState(false)
                     }
                 })
@@ -134,7 +141,16 @@ class AndroidTtsController(context: Context) {
         runCatching {
             tts?.stop()
         }
+        markPlaybackEnded()
         notifyPlaybackState(false)
+    }
+
+    fun isInCooldown(nowMs: Long = SystemClock.elapsedRealtime()): Boolean {
+        return nowMs - lastPlaybackEndedAtMs < AUTO_SPEAK_COOLDOWN_MS
+    }
+
+    fun clearCooldown() {
+        lastPlaybackEndedAtMs = 0L
     }
 
     fun shutdown() {
@@ -151,6 +167,10 @@ class AndroidTtsController(context: Context) {
         mainHandler.post {
             onPlaybackStateChanged?.invoke(isPlaying)
         }
+    }
+
+    private fun markPlaybackEnded(nowMs: Long = SystemClock.elapsedRealtime()) {
+        lastPlaybackEndedAtMs = nowMs
     }
 
     private fun nextUtteranceId(): String = "lami-tts-${UUID.randomUUID()}"
