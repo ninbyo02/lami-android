@@ -17,6 +17,7 @@ class SpeechTextBuilder private constructor() {
         private val inlineCodeRegex = Regex("`([^`]+)`")
         private val rawUrlRegex = Regex("(https?://\\S+|www\\.\\S+)")
         private val markdownDecorationLineRegex = Regex("(?m)^\\s*([#=\\-*`_])\\1{2,}\\s*$")
+        private val atxHeadingRegex = Regex("^(\\s{0,3})#{1,6}\\s+(.+?)\\s*$")
         private val repeatedSymbolRegex = Regex("([=\\-*#])\\1{2,}")
         private val multiBlankLineRegex = Regex("\\n{3,}")
         private val boldAsteriskRegex = Regex("(?<!\\*)\\*\\*([^*\\n]+)\\*\\*(?!\\*)")
@@ -47,7 +48,8 @@ class SpeechTextBuilder private constructor() {
             val urlConverted = rawUrlRegex.replace(inlineConverted, "リンクがあります")
             val lineBreakNormalized = urlConverted.replace("\r\n", "\n")
             val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
-            val emphasisStripped = stripMarkdownEmphasis(headingEmojiNormalized)
+            val atxHeadingStripped = stripAtxHeadings(headingEmojiNormalized)
+            val emphasisStripped = stripMarkdownEmphasis(atxHeadingStripped)
 
             val symbolReduced = emphasisStripped
                 .replace(markdownDecorationLineRegex, "")
@@ -114,6 +116,19 @@ class SpeechTextBuilder private constructor() {
                         .replace(boldUnderscoreRegex, "$1")
                         .replace(italicAsteriskRegex, "$1")
                         .replace(italicUnderscoreRegex, "$1")
+                }
+        }
+
+        private fun stripAtxHeadings(text: String): String {
+            return text
+                .lineSequence()
+                .joinToString("\n") { line ->
+                    val match = atxHeadingRegex.matchEntire(line)
+                    if (match != null) {
+                        match.groupValues[1] + match.groupValues[2]
+                    } else {
+                        line
+                    }
                 }
         }
 
