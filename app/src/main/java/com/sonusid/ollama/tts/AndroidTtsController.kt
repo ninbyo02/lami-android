@@ -74,6 +74,8 @@ class AndroidTtsController(context: Context) {
 
     private fun speakInternal(text: String) {
         runCatching {
+            tts?.setSpeechRate(0.92f)
+            tts?.setPitch(1.18f)
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
         }.onFailure {
             notifyPlaybackState(false)
