@@ -76,6 +76,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -4815,6 +4816,7 @@ private fun ReadyAnimationTab(
     initialHeaderLeftXOffsetDp: Int?,
     resolvedErrorKey: String?,
 ) {
+    val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isLandscapeOrWide =
         configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
@@ -4840,6 +4842,15 @@ private fun ReadyAnimationTab(
 
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
+    val settingsPreferences = remember(context.applicationContext) {
+        SettingsPreferences(context.applicationContext)
+    }
+    val storedDevMenuTtsSpeechRate by settingsPreferences.ttsSpeechRateFlow.collectAsState(
+        initial = AndroidTtsController.DEFAULT_SPEECH_RATE
+    )
+    val storedDevMenuTtsPitch by settingsPreferences.ttsPitchFlow.collectAsState(
+        initial = AndroidTtsController.DEFAULT_PITCH
+    )
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val imeBottomDp = with(density) { imeBottomPx.toDp() }
     val navigationBottomDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
@@ -4923,11 +4934,17 @@ private fun ReadyAnimationTab(
         // 下: リスト(アニメタブ) の NavigationBars + 最小余白のみ追加（IME 高さの加算は二重回避）
         bottom = listBottomPadding
     )
-    var devMenuTtsSpeechRate by rememberSaveable(storedDevMenuTtsSpeechRate) {
-        mutableStateOf(storedDevMenuTtsSpeechRate)
+    var devMenuTtsSpeechRate by rememberSaveable {
+        mutableFloatStateOf(AndroidTtsController.DEFAULT_SPEECH_RATE)
     }
-    var devMenuTtsPitch by rememberSaveable(storedDevMenuTtsPitch) {
-        mutableStateOf(storedDevMenuTtsPitch)
+    var devMenuTtsPitch by rememberSaveable {
+        mutableFloatStateOf(AndroidTtsController.DEFAULT_PITCH)
+    }
+    LaunchedEffect(storedDevMenuTtsSpeechRate) {
+        devMenuTtsSpeechRate = storedDevMenuTtsSpeechRate
+    }
+    LaunchedEffect(storedDevMenuTtsPitch) {
+        devMenuTtsPitch = storedDevMenuTtsPitch
     }
 
     val previewContent: @Composable (Modifier) -> Unit = { modifier ->
@@ -4956,14 +4973,15 @@ private fun ReadyAnimationTab(
         }
     }
     val formContent: @Composable (Modifier) -> Unit = { modifier ->
-        val context = LocalContext.current
         val ttsController = remember(context.applicationContext) {
             AndroidTtsController(context.applicationContext)
         }
-        ttsController.setSpeechConfig(
-            rate = devMenuTtsSpeechRate,
-            pitch = devMenuTtsPitch,
-        )
+        LaunchedEffect(devMenuTtsSpeechRate, devMenuTtsPitch) {
+            ttsController.setSpeechConfig(
+                rate = devMenuTtsSpeechRate,
+                pitch = devMenuTtsPitch,
+            )
+        }
         LazyColumn(
             modifier = modifier
                 .fillMaxWidth()
@@ -5394,7 +5412,7 @@ private fun ReadyAnimationTab(
                         val updatedRate = (devMenuTtsSpeechRate + 0.02f)
                             .coerceAtMost(AndroidTtsController.MAX_SPEECH_RATE)
                         devMenuTtsSpeechRate = updatedRate
-                        coroutineScope.launch {
+                        scope.launch {
                             settingsPreferences.setTtsSpeechRate(updatedRate)
                         }
                     },
@@ -5402,7 +5420,7 @@ private fun ReadyAnimationTab(
                         val updatedRate = (devMenuTtsSpeechRate - 0.02f)
                             .coerceAtLeast(AndroidTtsController.MIN_SPEECH_RATE)
                         devMenuTtsSpeechRate = updatedRate
-                        coroutineScope.launch {
+                        scope.launch {
                             settingsPreferences.setTtsSpeechRate(updatedRate)
                         }
                     },
@@ -5410,7 +5428,7 @@ private fun ReadyAnimationTab(
                         val updatedPitch = (devMenuTtsPitch + 0.02f)
                             .coerceAtMost(AndroidTtsController.MAX_PITCH)
                         devMenuTtsPitch = updatedPitch
-                        coroutineScope.launch {
+                        scope.launch {
                             settingsPreferences.setTtsPitch(updatedPitch)
                         }
                     },
@@ -5418,7 +5436,7 @@ private fun ReadyAnimationTab(
                         val updatedPitch = (devMenuTtsPitch - 0.02f)
                             .coerceAtLeast(AndroidTtsController.MIN_PITCH)
                         devMenuTtsPitch = updatedPitch
-                        coroutineScope.launch {
+                        scope.launch {
                             settingsPreferences.setTtsPitch(updatedPitch)
                         }
                     }
