@@ -71,6 +71,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -4946,6 +4947,7 @@ private fun ReadyAnimationTab(
     LaunchedEffect(storedDevMenuTtsPitch) {
         devMenuTtsPitch = storedDevMenuTtsPitch
     }
+    var isDevMenuTtsPlaying by remember { mutableStateOf(false) }
 
     val previewContent: @Composable (Modifier) -> Unit = { modifier ->
         Surface(
@@ -4981,6 +4983,16 @@ private fun ReadyAnimationTab(
                 rate = devMenuTtsSpeechRate,
                 pitch = devMenuTtsPitch,
             )
+        }
+        DisposableEffect(ttsController) {
+            ttsController.setOnPlaybackStateChanged { isPlaying ->
+                isDevMenuTtsPlaying = isPlaying
+            }
+            onDispose {
+                ttsController.setOnPlaybackStateChanged { }
+                ttsController.stop()
+                isDevMenuTtsPlaying = false
+            }
         }
         LazyColumn(
             modifier = modifier
@@ -5406,6 +5418,24 @@ private fun ReadyAnimationTab(
                     previewUiState = readyPreviewUiState,
                     onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
                     onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() },
+                    onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
+                    onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
+                    onStopTts = { ttsController.stop() },
+                    onResetTtsDefaults = {
+                        val defaultRate = AndroidTtsController.DEFAULT_SPEECH_RATE
+                        val defaultPitch = AndroidTtsController.DEFAULT_PITCH
+                        devMenuTtsSpeechRate = defaultRate
+                        devMenuTtsPitch = defaultPitch
+                        ttsController.setSpeechConfig(
+                            rate = defaultRate,
+                            pitch = defaultPitch,
+                        )
+                        scope.launch {
+                            settingsPreferences.setTtsSpeechRate(defaultRate)
+                            settingsPreferences.setTtsPitch(defaultPitch)
+                        }
+                    },
+                    isTtsPlaying = isDevMenuTtsPlaying,
                     ttsSpeechRate = devMenuTtsSpeechRate,
                     ttsPitch = devMenuTtsPitch,
                     onIncreaseTtsSpeechRate = {
