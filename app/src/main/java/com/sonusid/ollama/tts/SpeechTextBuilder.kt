@@ -20,6 +20,8 @@ class SpeechTextBuilder private constructor() {
         private val atxHeadingRegex = Regex("^(\\s{0,3})#{1,6}\\s+(.+?)\\s*$")
         private val repeatedSymbolRegex = Regex("([=\\-*#])\\1{2,}")
         private val multiBlankLineRegex = Regex("\\n{3,}")
+        private val unorderedListMarkerRegex = Regex("^(\\s*)[•\\-*]\\s+")
+        private val orderedListMarkerRegex = Regex("^(\\s*)\\d+\\.\\s+")
         private val boldAsteriskRegex = Regex("(?<!\\*)\\*\\*([^*\\n]+)\\*\\*(?!\\*)")
         private val boldUnderscoreRegex = Regex("(?<!\\w)__((?=[^\\n]*[^A-Za-z0-9_])[^_\\n]+)__(?!\\w)")
         private val italicAsteriskRegex = Regex("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)")
@@ -50,7 +52,8 @@ class SpeechTextBuilder private constructor() {
             val lineBreakNormalized = urlConverted.replace("\r\n", "\n")
             val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
             val atxHeadingStripped = stripAtxHeadings(headingEmojiNormalized)
-            val emphasisStripped = stripMarkdownEmphasis(atxHeadingStripped)
+            val headingEmojiRenormalized = removeLeadingDecorativeEmoji(atxHeadingStripped)
+            val emphasisStripped = stripMarkdownEmphasis(headingEmojiRenormalized)
 
             val symbolReduced = emphasisStripped
                 .replace(markdownDecorationLineRegex, "")
@@ -58,8 +61,10 @@ class SpeechTextBuilder private constructor() {
                     symbolMatch.groupValues[1].repeat(2)
                 }
 
-            val normalized = symbolReduced
+            val blankCollapsed = symbolReduced
                 .replace(multiBlankLineRegex, "\n\n")
+            val listMarkerNormalized = normalizeListMarkers(blankCollapsed)
+            val normalized = listMarkerNormalized
                 .trim()
 
             return normalized.ifEmpty { EMPTY_FALLBACK }
@@ -130,6 +135,17 @@ class SpeechTextBuilder private constructor() {
                     } else {
                         line
                     }
+                }
+        }
+
+
+        private fun normalizeListMarkers(text: String): String {
+            return text
+                .lineSequence()
+                .joinToString("\n") { line ->
+                    line
+                        .replace(unorderedListMarkerRegex, "$1")
+                        .replace(orderedListMarkerRegex, "$1")
                 }
         }
 

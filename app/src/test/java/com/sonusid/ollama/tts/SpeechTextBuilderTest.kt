@@ -196,10 +196,12 @@ class SpeechTextBuilderTest {
     }
 
     @Test
-    fun bulletStar_isPreserved() {
-        val actual = SpeechTextBuilder.build("* 項目A")
+    fun asteriskList_isNormalizedForSpeech() {
+        val input = "* 項目A\n* 項目B"
 
-        assertEquals("* 項目A", actual)
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("項目A\n項目B", actual)
     }
 
     @Test
@@ -226,6 +228,41 @@ class SpeechTextBuilderTest {
     @Test
     fun atxHeading_level3_isStripped() {
         val actual = SpeechTextBuilder.build("### 注意事項")
+
+        assertEquals("注意事項", actual)
+    }
+
+    @Test
+    fun atxHeadingWithPinEmoji_isFullyNormalized() {
+        val actual = SpeechTextBuilder.build("## 📌 使い方")
+
+        assertEquals("使い方", actual)
+    }
+
+    @Test
+    fun atxHeadingWithBrainEmoji_isFullyNormalized() {
+        val actual = SpeechTextBuilder.build("## 🧠 次の改善案（任意）")
+
+        assertEquals("次の改善案（任意）", actual)
+    }
+
+    @Test
+    fun atxHeadingWithCheckEmoji_isFullyNormalized() {
+        val actual = SpeechTextBuilder.build("### ✅ 機能説明")
+
+        assertEquals("機能説明", actual)
+    }
+
+    @Test
+    fun plainHeadingEmojiStillRemoved() {
+        val actual = SpeechTextBuilder.build("📌 注意点:")
+
+        assertEquals("注意点:", actual)
+    }
+
+    @Test
+    fun atxHeadingWithoutEmoji_isStillStripped() {
+        val actual = SpeechTextBuilder.build("## 注意事項")
 
         assertEquals("注意事項", actual)
     }
@@ -266,12 +303,60 @@ class SpeechTextBuilderTest {
     }
 
     @Test
-    fun bulletMarkers_arePreserved() {
-        val input = "• 項目A\n- 項目B"
+    fun bulletList_isNormalizedForSpeech() {
+        val input = "• 項目A\n• 項目B\n• 項目C"
 
         val actual = SpeechTextBuilder.build(input)
 
-        assertEquals("• 項目A\n- 項目B", actual)
+        assertEquals("項目A\n項目B\n項目C", actual)
+    }
+
+    @Test
+    fun dashList_isNormalizedForSpeech() {
+        val input = "- 手順A\n- 手順B"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("手順A\n手順B", actual)
+    }
+
+    @Test
+    fun numberedList_isNormalizedForSpeech() {
+        val input = "1. 手順A\n2. 手順B\n3. 手順C"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("手順A\n手順B\n手順C", actual)
+    }
+
+    @Test
+    fun mixedListMarkers_areNormalizedForSpeech() {
+        val input = """
+            • 項目A
+            - 項目B
+            * 項目C
+
+            1. 手順A
+            2. 手順B
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("項目A\n項目B\n項目C\n\n手順A\n手順B", actual)
+    }
+
+    @Test
+    fun inlineNumericText_isPreserved() {
+        val actual = SpeechTextBuilder.build("version 1.2 を確認")
+
+        assertEquals("version 1.2 を確認", actual)
+    }
+
+    @Test
+    fun inlineHashText_isPreserved() {
+        val actual = SpeechTextBuilder.build("C# は別物です")
+
+        assertEquals("C# は別物です", actual)
     }
 
     @Test
