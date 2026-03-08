@@ -233,6 +233,41 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun atxHeadingWithPinEmoji_isFullyNormalized() {
+        val actual = SpeechTextBuilder.build("## 📌 使い方")
+
+        assertEquals("使い方", actual)
+    }
+
+    @Test
+    fun atxHeadingWithBrainEmoji_isFullyNormalized() {
+        val actual = SpeechTextBuilder.build("## 🧠 次の改善案（任意）")
+
+        assertEquals("次の改善案（任意）", actual)
+    }
+
+    @Test
+    fun atxHeadingWithCheckEmoji_isFullyNormalized() {
+        val actual = SpeechTextBuilder.build("### ✅ 機能説明")
+
+        assertEquals("機能説明", actual)
+    }
+
+    @Test
+    fun plainHeadingEmojiStillRemoved() {
+        val actual = SpeechTextBuilder.build("📌 注意点:")
+
+        assertEquals("注意点:", actual)
+    }
+
+    @Test
+    fun atxHeadingWithoutEmoji_isStillStripped() {
+        val actual = SpeechTextBuilder.build("## 注意事項")
+
+        assertEquals("注意事項", actual)
+    }
+
+    @Test
     fun atxHeading_afterEmojiRemoval_isStripped() {
         val actual = SpeechTextBuilder.build("🤖 ## AIの改善案")
 

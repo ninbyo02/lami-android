@@ -52,7 +52,8 @@ class SpeechTextBuilder private constructor() {
             val lineBreakNormalized = urlConverted.replace("\r\n", "\n")
             val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
             val atxHeadingStripped = stripAtxHeadings(headingEmojiNormalized)
-            val emphasisStripped = stripMarkdownEmphasis(atxHeadingStripped)
+            val headingEmojiRenormalized = removeLeadingDecorativeEmoji(atxHeadingStripped)
+            val emphasisStripped = stripMarkdownEmphasis(headingEmojiRenormalized)
 
             val symbolReduced = emphasisStripped
                 .replace(markdownDecorationLineRegex, "")
