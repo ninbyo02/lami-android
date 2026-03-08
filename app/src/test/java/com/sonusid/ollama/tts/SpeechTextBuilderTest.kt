@@ -293,4 +293,98 @@ class SpeechTextBuilderTest {
 
         assertEquals("• 項目A\n- 項目B", actual)
     }
+
+    @Test
+    fun htmlCodeBlock_isReplacedWithGuideOnly() {
+        val input = """
+            以下はサンプルです。
+
+            ```html
+            <!DOCTYPE html>
+            <html lang="ja">
+            <body>
+              <h1>タイトル</h1>
+            </body>
+            </html>
+            ```
+
+            実行してください。
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertTrue(actual.contains("以下はサンプルです。"))
+        assertTrue(actual.contains("実行してください。"))
+        assertTrue(actual.contains("コード例があります") || actual.contains("詳細なコード例があります"))
+        assertFalse(actual.contains("<html"))
+        assertFalse(actual.contains("<body"))
+        assertFalse(actual.contains("<h1>"))
+        assertFalse(actual.contains("<!DOCTYPE html>"))
+    }
+
+    @Test
+    fun codeBlockEmoji_isNotIncludedInSpeechText() {
+        val input = """
+            ゲーム例です。
+
+            ```html
+            <h1>🎯 ホッケーゲーム 🎯</h1>
+            const symbols = ['🍎', '🍌', '🍇'];
+            ```
+
+            以上です。
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertTrue(actual.contains("ゲーム例です。"))
+        assertTrue(actual.contains("以上です。"))
+        assertFalse(actual.contains("🎯"))
+        assertFalse(actual.contains("🍎"))
+        assertFalse(actual.contains("🍌"))
+        assertFalse(actual.contains("🍇"))
+    }
+
+    @Test
+    fun codeBlockSymbolsAndComments_areNotIncludedInSpeechText() {
+        val input = """
+            説明です。
+
+            ```js
+            // ゲームの初期化
+            const score = 0;
+            ====
+            ****
+            ```
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertTrue(actual.contains("説明です。"))
+        assertFalse(actual.contains("//"))
+        assertFalse(actual.contains("const score"))
+        assertFalse(actual.contains("===="))
+        assertFalse(actual.contains("****"))
+    }
+
+    @Test
+    fun surroundingText_isPreservedWhenCodeBlockExists() {
+        val input = """
+            これは双六ゲームの例です。
+
+            ```html
+            <div>🎲 game</div>
+            ```
+
+            ブラウザで実行してください。
+        """.trimIndent()
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertTrue(actual.contains("これは双六ゲームの例です。"))
+        assertTrue(actual.contains("ブラウザで実行してください。"))
+        assertTrue(actual.contains("コード例があります") || actual.contains("詳細なコード例があります"))
+        assertFalse(actual.contains("🎲"))
+        assertFalse(actual.contains("<div>"))
+    }
 }
