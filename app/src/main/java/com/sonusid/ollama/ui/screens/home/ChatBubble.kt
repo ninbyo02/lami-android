@@ -824,47 +824,56 @@ private fun CodeBlockCard(
             shape = RoundedCornerShape(12.dp)
         )
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.42f))
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // ヘッダーを角丸の縁から少し離して表示する
-                        .padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = lang?.takeIf { it.isNotBlank() } ?: "Code",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .clickable { clipboardManager.setText(AnnotatedString(code)) }
+                            .fillMaxWidth()
+                            // ヘッダーを角丸の縁から少し離して表示する
+                            .padding(top = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.ContentCopy,
-                            contentDescription = "コードをコピー",
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = lang?.takeIf { it.isNotBlank() } ?: "Code",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clickable { clipboardManager.setText(AnnotatedString(code)) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "コードをコピー",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.94f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    SelectionContainer {
+                        Text(
+                            text = highlightedCode,
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            fontFamily = FontFamily.Monospace,
+                            style = codeTextStyle,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                }
-                SelectionContainer {
-                    Text(
-                        text = highlightedCode,
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        fontFamily = FontFamily.Monospace,
-                        style = codeTextStyle,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
             }
         }
