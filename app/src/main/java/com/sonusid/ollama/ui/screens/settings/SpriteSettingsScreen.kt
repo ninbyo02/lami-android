@@ -4917,6 +4917,8 @@ private fun ReadyAnimationTab(
         // 下: リスト(アニメタブ) の NavigationBars + 最小余白のみ追加（IME 高さの加算は二重回避）
         bottom = listBottomPadding
     )
+    var devMenuTtsSpeechRate by rememberSaveable { mutableStateOf(AndroidTtsController.DEFAULT_SPEECH_RATE) }
+    var devMenuTtsPitch by rememberSaveable { mutableStateOf(AndroidTtsController.DEFAULT_PITCH) }
 
     val previewContent: @Composable (Modifier) -> Unit = { modifier ->
         Surface(
@@ -4948,6 +4950,10 @@ private fun ReadyAnimationTab(
         val ttsController = remember(context.applicationContext) {
             AndroidTtsController(context.applicationContext)
         }
+        ttsController.setSpeechConfig(
+            rate = devMenuTtsSpeechRate,
+            pitch = devMenuTtsPitch,
+        )
         LazyColumn(
             modifier = modifier
                 .fillMaxWidth()
@@ -5371,7 +5377,21 @@ private fun ReadyAnimationTab(
                     layoutState = layoutState,
                     previewUiState = readyPreviewUiState,
                     onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
-                    onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() }
+                    onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() },
+                    ttsSpeechRate = devMenuTtsSpeechRate,
+                    ttsPitch = devMenuTtsPitch,
+                    onIncreaseTtsSpeechRate = {
+                        devMenuTtsSpeechRate = (devMenuTtsSpeechRate + 0.02f).coerceAtMost(1.20f)
+                    },
+                    onDecreaseTtsSpeechRate = {
+                        devMenuTtsSpeechRate = (devMenuTtsSpeechRate - 0.02f).coerceAtLeast(0.70f)
+                    },
+                    onIncreaseTtsPitch = {
+                        devMenuTtsPitch = (devMenuTtsPitch + 0.02f).coerceAtMost(1.40f)
+                    },
+                    onDecreaseTtsPitch = {
+                        devMenuTtsPitch = (devMenuTtsPitch - 0.02f).coerceAtLeast(0.80f)
+                    }
                 )
             }
         }
