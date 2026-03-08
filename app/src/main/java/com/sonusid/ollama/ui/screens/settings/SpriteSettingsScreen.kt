@@ -184,6 +184,15 @@ private val AdjustStatusToControlsSpacing = 12.dp
 private val PreviewHeaderNudgeDp = (-2).dp
 private val PreviewHeaderRightExtraNudgeDp = (-2).dp
 
+private data class TtsPreset(val rate: Float, val pitch: Float)
+
+private val TtsPresetDefault = TtsPreset(
+    rate = AndroidTtsController.DEFAULT_SPEECH_RATE,
+    pitch = AndroidTtsController.DEFAULT_PITCH,
+)
+private val TtsPresetCalm = TtsPreset(rate = 0.88f, pitch = 1.10f)
+private val TtsPresetBright = TtsPreset(rate = 0.98f, pitch = 1.24f)
+
 @Composable
 private fun Modifier.previewHeaderNudge(): Modifier {
     return this.offset(x = PreviewHeaderNudgeDp + PreviewHeaderRightExtraNudgeDp)
@@ -4984,6 +4993,22 @@ private fun ReadyAnimationTab(
                 pitch = devMenuTtsPitch,
             )
         }
+        fun applyTtsPreset(preset: TtsPreset) {
+            val updatedRate = preset.rate
+                .coerceIn(AndroidTtsController.MIN_SPEECH_RATE, AndroidTtsController.MAX_SPEECH_RATE)
+            val updatedPitch = preset.pitch
+                .coerceIn(AndroidTtsController.MIN_PITCH, AndroidTtsController.MAX_PITCH)
+            devMenuTtsSpeechRate = updatedRate
+            devMenuTtsPitch = updatedPitch
+            ttsController.setSpeechConfig(
+                rate = updatedRate,
+                pitch = updatedPitch,
+            )
+            scope.launch {
+                settingsPreferences.setTtsSpeechRate(updatedRate)
+                settingsPreferences.setTtsPitch(updatedPitch)
+            }
+        }
         DisposableEffect(ttsController) {
             ttsController.setOnPlaybackStateChanged { isPlaying ->
                 isDevMenuTtsPlaying = isPlaying
@@ -5422,19 +5447,11 @@ private fun ReadyAnimationTab(
                     onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
                     onStopTts = { ttsController.stop() },
                     onResetTtsDefaults = {
-                        val defaultRate = AndroidTtsController.DEFAULT_SPEECH_RATE
-                        val defaultPitch = AndroidTtsController.DEFAULT_PITCH
-                        devMenuTtsSpeechRate = defaultRate
-                        devMenuTtsPitch = defaultPitch
-                        ttsController.setSpeechConfig(
-                            rate = defaultRate,
-                            pitch = defaultPitch,
-                        )
-                        scope.launch {
-                            settingsPreferences.setTtsSpeechRate(defaultRate)
-                            settingsPreferences.setTtsPitch(defaultPitch)
-                        }
+                        applyTtsPreset(TtsPresetDefault)
                     },
+                    onApplyTtsPresetDefault = { applyTtsPreset(TtsPresetDefault) },
+                    onApplyTtsPresetCalm = { applyTtsPreset(TtsPresetCalm) },
+                    onApplyTtsPresetBright = { applyTtsPreset(TtsPresetBright) },
                     isTtsPlaying = isDevMenuTtsPlaying,
                     ttsSpeechRate = devMenuTtsSpeechRate,
                     ttsPitch = devMenuTtsPitch,
