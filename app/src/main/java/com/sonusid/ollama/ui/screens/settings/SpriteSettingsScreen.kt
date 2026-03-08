@@ -4950,6 +4950,9 @@ private fun ReadyAnimationTab(
     var devMenuTtsPitch by rememberSaveable {
         mutableFloatStateOf(AndroidTtsController.DEFAULT_PITCH)
     }
+    var currentTtsPreset by rememberSaveable {
+        mutableStateOf("Default")
+    }
     LaunchedEffect(storedDevMenuTtsSpeechRate) {
         devMenuTtsSpeechRate = storedDevMenuTtsSpeechRate
     }
@@ -5447,11 +5450,22 @@ private fun ReadyAnimationTab(
                     onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
                     onStopTts = { ttsController.stop() },
                     onResetTtsDefaults = {
+                        currentTtsPreset = "Default"
                         applyTtsPreset(TtsPresetDefault)
                     },
-                    onApplyTtsPresetDefault = { applyTtsPreset(TtsPresetDefault) },
-                    onApplyTtsPresetCalm = { applyTtsPreset(TtsPresetCalm) },
-                    onApplyTtsPresetBright = { applyTtsPreset(TtsPresetBright) },
+                    onApplyTtsPresetDefault = {
+                        currentTtsPreset = "Default"
+                        applyTtsPreset(TtsPresetDefault)
+                    },
+                    onApplyTtsPresetCalm = {
+                        currentTtsPreset = "Calm"
+                        applyTtsPreset(TtsPresetCalm)
+                    },
+                    onApplyTtsPresetBright = {
+                        currentTtsPreset = "Bright"
+                        applyTtsPreset(TtsPresetBright)
+                    },
+                    currentTtsPreset = currentTtsPreset,
                     isTtsPlaying = isDevMenuTtsPlaying,
                     ttsSpeechRate = devMenuTtsSpeechRate,
                     ttsPitch = devMenuTtsPitch,
