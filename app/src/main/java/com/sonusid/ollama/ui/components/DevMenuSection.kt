@@ -38,6 +38,7 @@ import com.sonusid.ollama.ui.screens.settings.ReadyPreviewUiState
 import com.sonusid.ollama.ui.screens.settings.toJsonObject
 import androidx.compose.ui.text.AnnotatedString
 import kotlin.math.abs
+import kotlin.math.round
 import org.json.JSONObject
 
 internal data class DevMenuUiState(
@@ -71,6 +72,19 @@ internal data class DevMenuUiState(
 internal data class DevMenuCallbacks(
     val onDevExpandedChange: (Boolean) -> Unit,
     val onCopy: () -> Unit,
+    val onSpeakReferencePhrase: () -> Unit,
+    val onSpeakReferencePhrase2: () -> Unit,
+    val onSpeakReferencePhrase3: () -> Unit,
+    val onSpeakReferencePhrase4: () -> Unit,
+    val onStopTts: () -> Unit,
+    val onResetTtsDefaults: () -> Unit,
+    val onApplyTtsPresetDefault: () -> Unit,
+    val onApplyTtsPresetCalm: () -> Unit,
+    val onApplyTtsPresetBright: () -> Unit,
+    val onIncreaseTtsSpeechRate: () -> Unit,
+    val onDecreaseTtsSpeechRate: () -> Unit,
+    val onIncreaseTtsPitch: () -> Unit,
+    val onDecreaseTtsPitch: () -> Unit,
     val onCharXOffsetChange: (Int) -> Unit,
     val onCharYOffsetChange: (Int) -> Unit,
     val onInfoXOffsetChange: (Int) -> Unit,
@@ -102,6 +116,22 @@ internal fun DebugDevMenuSection(
         devUnlocked = devUnlocked,
         layoutState = layoutState,
         previewUiState = previewUiState,
+        onSpeakReferencePhrase = {},
+        onSpeakReferencePhrase2 = {},
+        onSpeakReferencePhrase3 = {},
+        onSpeakReferencePhrase4 = {},
+        onStopTts = {},
+        onResetTtsDefaults = {},
+        onApplyTtsPresetDefault = {},
+        onApplyTtsPresetCalm = {},
+        onApplyTtsPresetBright = {},
+        isTtsPlaying = false,
+        ttsSpeechRate = 0.92f,
+        ttsPitch = 1.18f,
+        onIncreaseTtsSpeechRate = {},
+        onDecreaseTtsSpeechRate = {},
+        onIncreaseTtsPitch = {},
+        onDecreaseTtsPitch = {},
         modifier = modifier
     )
 }
@@ -111,6 +141,22 @@ internal fun DevMenuSectionHost(
     devUnlocked: Boolean,
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
+    onSpeakReferencePhrase: () -> Unit,
+    onSpeakReferencePhrase2: () -> Unit,
+    onSpeakReferencePhrase3: () -> Unit,
+    onSpeakReferencePhrase4: () -> Unit,
+    onStopTts: () -> Unit,
+    onResetTtsDefaults: () -> Unit,
+    onApplyTtsPresetDefault: () -> Unit,
+    onApplyTtsPresetCalm: () -> Unit,
+    onApplyTtsPresetBright: () -> Unit,
+    isTtsPlaying: Boolean,
+    ttsSpeechRate: Float,
+    ttsPitch: Float,
+    onIncreaseTtsSpeechRate: () -> Unit,
+    onDecreaseTtsSpeechRate: () -> Unit,
+    onIncreaseTtsPitch: () -> Unit,
+    onDecreaseTtsPitch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!BuildConfig.DEBUG) return
@@ -129,6 +175,22 @@ internal fun DevMenuSectionHost(
         layoutState = layoutState,
         previewUiState = previewUiState,
         onCopyDevJson = onCopyDevJson,
+        onSpeakReferencePhrase = onSpeakReferencePhrase,
+        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
+        onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
+        onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
+        onStopTts = onStopTts,
+        onResetTtsDefaults = onResetTtsDefaults,
+        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
+        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
+        onApplyTtsPresetBright = onApplyTtsPresetBright,
+        isTtsPlaying = isTtsPlaying,
+        ttsSpeechRate = ttsSpeechRate,
+        ttsPitch = ttsPitch,
+        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
+        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
+        onIncreaseTtsPitch = onIncreaseTtsPitch,
+        onDecreaseTtsPitch = onDecreaseTtsPitch,
         modifier = modifier,
     )
 }
@@ -139,6 +201,22 @@ internal fun DevMenuSection(
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
     onCopyDevJson: () -> Unit,
+    onSpeakReferencePhrase: () -> Unit,
+    onSpeakReferencePhrase2: () -> Unit,
+    onSpeakReferencePhrase3: () -> Unit,
+    onSpeakReferencePhrase4: () -> Unit,
+    onStopTts: () -> Unit,
+    onResetTtsDefaults: () -> Unit,
+    onApplyTtsPresetDefault: () -> Unit,
+    onApplyTtsPresetCalm: () -> Unit,
+    onApplyTtsPresetBright: () -> Unit,
+    isTtsPlaying: Boolean,
+    ttsSpeechRate: Float,
+    ttsPitch: Float,
+    onIncreaseTtsSpeechRate: () -> Unit,
+    onDecreaseTtsSpeechRate: () -> Unit,
+    onIncreaseTtsPitch: () -> Unit,
+    onDecreaseTtsPitch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -175,6 +253,19 @@ internal fun DevMenuSection(
     val devMenuCallbacks = DevMenuCallbacks(
         onDevExpandedChange = { expanded -> devExpanded = expanded },
         onCopy = onCopyDevJson,
+        onSpeakReferencePhrase = onSpeakReferencePhrase,
+        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
+        onSpeakReferencePhrase3 = onSpeakReferencePhrase3,
+        onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
+        onStopTts = onStopTts,
+        onResetTtsDefaults = onResetTtsDefaults,
+        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
+        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
+        onApplyTtsPresetBright = onApplyTtsPresetBright,
+        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
+        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
+        onIncreaseTtsPitch = onIncreaseTtsPitch,
+        onDecreaseTtsPitch = onDecreaseTtsPitch,
         onCharXOffsetChange = { delta ->
             layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -269,7 +360,13 @@ internal fun DevMenuSection(
             )
         }
         if (devMenuEnabled) {
-            DevMenuBlock(uiState = devMenuUiState, callbacks = devMenuCallbacks)
+            DevMenuBlock(
+                uiState = devMenuUiState,
+                callbacks = devMenuCallbacks,
+                isTtsPlaying = isTtsPlaying,
+                ttsSpeechRate = ttsSpeechRate,
+                ttsPitch = ttsPitch,
+            )
         }
     }
 }
@@ -296,6 +393,8 @@ private fun ReadyPreviewLayoutState.toDevPreviewSettings(): DevPreviewSettings =
         bodySpacerDp = bodySpacerDp,
     )
 
+private fun formatTtsValue(value: Float): String = "%.2f".format((round(value * 100f) / 100f).toDouble())
+
 private fun buildDevJson(devSettings: DevPreviewSettings): String {
     val root = JSONObject()
     root.put("dev", devSettings.toJsonObject())
@@ -306,6 +405,9 @@ private fun buildDevJson(devSettings: DevPreviewSettings): String {
 private fun DevMenuBlock(
     uiState: DevMenuUiState,
     callbacks: DevMenuCallbacks,
+    isTtsPlaying: Boolean,
+    ttsSpeechRate: Float,
+    ttsPitch: Float,
 ) {
     Column {
         Surface(
@@ -360,6 +462,111 @@ private fun DevMenuBlock(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = callbacks.onSpeakReferencePhrase,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("TTS基準文1を再生")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onSpeakReferencePhrase2,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("TTS基準文2を再生")
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = callbacks.onSpeakReferencePhrase3,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("TTS基準文3を再生")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onSpeakReferencePhrase4,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("TTS基準文4を再生")
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = callbacks.onApplyTtsPresetDefault,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Preset: Default")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onApplyTtsPresetCalm,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Preset: Calm")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onApplyTtsPresetBright,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Preset: Bright")
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = callbacks.onStopTts,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("TTS停止")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onResetTtsDefaults,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("TTS初期値に戻す")
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "TTS Rate: ${formatTtsValue(ttsSpeechRate)}",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            IconButton(onClick = callbacks.onDecreaseTtsSpeechRate) {
+                                Text("-")
+                            }
+                            IconButton(onClick = callbacks.onIncreaseTtsSpeechRate) {
+                                Text("+")
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "TTS Pitch: ${formatTtsValue(ttsPitch)}",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            IconButton(onClick = callbacks.onDecreaseTtsPitch) {
+                                Text("-")
+                            }
+                            IconButton(onClick = callbacks.onIncreaseTtsPitch) {
+                                Text("+")
+                            }
+                        }
+                        Text(
+                            text = if (isTtsPlaying) "TTS: 再生中" else "TTS: 停止中",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = "Offsets",
