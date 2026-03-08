@@ -115,4 +115,40 @@ class SpeechTextBuilderTest {
 
         assertEquals("1行目\n\n2行目", actual)
     }
+
+    @Test
+    fun headingEmoji_isRemovedAtLineStart() {
+        val input = "✅ 機能:\n🧠 動作方法:"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("機能:\n動作方法:", actual)
+    }
+
+    @Test
+    fun headingEmoji_withoutSpace_isRemoved() {
+        val input = "💡ポイント"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("ポイント", actual)
+    }
+
+    @Test
+    fun inlineOrTrailingEmoji_isPreserved() {
+        val input = "成功しました ✅"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("成功しました ✅", actual)
+    }
+
+    @Test
+    fun bulletMarkers_arePreserved() {
+        val input = "• 項目A\n- 項目B"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("• 項目A\n- 項目B", actual)
+    }
 }
