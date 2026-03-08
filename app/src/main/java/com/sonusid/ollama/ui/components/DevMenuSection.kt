@@ -103,6 +103,7 @@ internal fun DebugDevMenuSection(
         devUnlocked = devUnlocked,
         layoutState = layoutState,
         previewUiState = previewUiState,
+        onSpeakReferencePhrase = {},
         modifier = modifier
     )
 }
