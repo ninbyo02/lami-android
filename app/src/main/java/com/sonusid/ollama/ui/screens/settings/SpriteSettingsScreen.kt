@@ -4950,9 +4950,6 @@ private fun ReadyAnimationTab(
     var devMenuTtsPitch by rememberSaveable {
         mutableFloatStateOf(AndroidTtsController.DEFAULT_PITCH)
     }
-    var currentTtsPreset by rememberSaveable {
-        mutableStateOf("Default")
-    }
     LaunchedEffect(storedDevMenuTtsSpeechRate) {
         devMenuTtsSpeechRate = storedDevMenuTtsSpeechRate
     }
@@ -5010,6 +5007,20 @@ private fun ReadyAnimationTab(
             scope.launch {
                 settingsPreferences.setTtsSpeechRate(updatedRate)
                 settingsPreferences.setTtsPitch(updatedPitch)
+            }
+        }
+        fun resetTtsToDefaults() {
+            val defaultRate = AndroidTtsController.DEFAULT_SPEECH_RATE
+            val defaultPitch = AndroidTtsController.DEFAULT_PITCH
+            devMenuTtsSpeechRate = defaultRate
+            devMenuTtsPitch = defaultPitch
+            ttsController.setSpeechConfig(
+                rate = defaultRate,
+                pitch = defaultPitch,
+            )
+            scope.launch {
+                settingsPreferences.setTtsSpeechRate(defaultRate)
+                settingsPreferences.setTtsPitch(defaultPitch)
             }
         }
         DisposableEffect(ttsController) {
@@ -5449,23 +5460,16 @@ private fun ReadyAnimationTab(
                     onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
                     onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
                     onStopTts = { ttsController.stop() },
-                    onResetTtsDefaults = {
-                        currentTtsPreset = "Default"
-                        applyTtsPreset(TtsPresetDefault)
-                    },
+                    onResetTtsDefaults = { resetTtsToDefaults() },
                     onApplyTtsPresetDefault = {
-                        currentTtsPreset = "Default"
                         applyTtsPreset(TtsPresetDefault)
                     },
                     onApplyTtsPresetCalm = {
-                        currentTtsPreset = "Calm"
                         applyTtsPreset(TtsPresetCalm)
                     },
                     onApplyTtsPresetBright = {
-                        currentTtsPreset = "Bright"
                         applyTtsPreset(TtsPresetBright)
                     },
-                    currentTtsPreset = currentTtsPreset,
                     isTtsPlaying = isDevMenuTtsPlaying,
                     ttsSpeechRate = devMenuTtsSpeechRate,
                     ttsPitch = devMenuTtsPitch,
