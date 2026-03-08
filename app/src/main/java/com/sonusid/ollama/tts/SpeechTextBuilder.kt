@@ -19,11 +19,16 @@ class SpeechTextBuilder private constructor() {
         private val markdownDecorationLineRegex = Regex("(?m)^\\s*([#=\\-*`_])\\1{2,}\\s*$")
         private val repeatedSymbolRegex = Regex("([=\\-*#])\\1{2,}")
         private val multiBlankLineRegex = Regex("\\n{3,}")
+        private val boldAsteriskRegex = Regex("(?<!\\*)\\*\\*([^*\\n]+)\\*\\*(?!\\*)")
+        private val boldUnderscoreRegex = Regex("(?<!\\w)__((?=[^\\n]*[^A-Za-z0-9_])[^_\\n]+)__(?!\\w)")
+        private val italicAsteriskRegex = Regex("(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)")
+        private val italicUnderscoreRegex = Regex("(?<!\\w)_((?=[^\\n]*[^A-Za-z0-9_])[^_\\n]+)_(?!\\w)")
         private val leadingDecorativeEmojis = listOf(
             "☑️", "✔️", "✅", "☑", "✔",
             "🧠", "💡", "📌", "📍",
             "🔹", "🔸", "⭐", "🌟",
-            "🚀", "🎯", "📝", "📖"
+            "🚀", "🎯", "📝", "📖",
+            "🤖", "📣", "🎉", "⚠️", "⚠", "❗", "❓", "🔧", "🛠️", "🛠"
         )
 
         fun build(displayText: String): String {
@@ -40,17 +45,17 @@ class SpeechTextBuilder private constructor() {
             }
 
             val urlConverted = rawUrlRegex.replace(inlineConverted, "リンクがあります")
+            val lineBreakNormalized = urlConverted.replace("\r\n", "\n")
+            val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
+            val emphasisStripped = stripMarkdownEmphasis(headingEmojiNormalized)
 
-            val symbolReduced = urlConverted
+            val symbolReduced = emphasisStripped
                 .replace(markdownDecorationLineRegex, "")
                 .replace(repeatedSymbolRegex) { symbolMatch ->
                     symbolMatch.groupValues[1].repeat(2)
                 }
 
-            val lineBreakNormalized = symbolReduced.replace("\r\n", "\n")
-            val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
-
-            val normalized = headingEmojiNormalized
+            val normalized = symbolReduced
                 .replace(multiBlankLineRegex, "\n\n")
                 .trim()
 
@@ -97,6 +102,18 @@ class SpeechTextBuilder private constructor() {
                 .lineSequence()
                 .joinToString("\n") { line ->
                     normalizeLeadingDecorativeEmoji(line)
+                }
+        }
+
+        private fun stripMarkdownEmphasis(text: String): String {
+            return text
+                .lineSequence()
+                .joinToString("\n") { line ->
+                    line
+                        .replace(boldAsteriskRegex, "$1")
+                        .replace(boldUnderscoreRegex, "$1")
+                        .replace(italicAsteriskRegex, "$1")
+                        .replace(italicUnderscoreRegex, "$1")
                 }
         }
 

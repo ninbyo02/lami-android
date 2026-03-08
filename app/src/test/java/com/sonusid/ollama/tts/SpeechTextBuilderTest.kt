@@ -135,6 +135,66 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun headingRobotEmoji_isRemovedAtLineStart() {
+        val input = "🤖 AIのアルゴリズムの改善案"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("AIのアルゴリズムの改善案", actual)
+    }
+
+    @Test
+    fun headingToolEmoji_withoutSpace_isRemoved() {
+        val input = "🔧設定方法"
+
+        val actual = SpeechTextBuilder.build(input)
+
+        assertEquals("設定方法", actual)
+    }
+
+    @Test
+    fun boldMarkdown_isStrippedButContentRemains() {
+        val actual = SpeechTextBuilder.build("**Minimaxアルゴリズム**")
+
+        assertEquals("Minimaxアルゴリズム", actual)
+    }
+
+    @Test
+    fun underscoreBoldMarkdown_isStrippedButContentRemains() {
+        val actual = SpeechTextBuilder.build("__Alpha-Beta剪定__")
+
+        assertEquals("Alpha-Beta剪定", actual)
+    }
+
+    @Test
+    fun italicMarkdown_isStrippedButContentRemains() {
+        val actual = SpeechTextBuilder.build("*強調*")
+
+        assertEquals("強調", actual)
+    }
+
+    @Test
+    fun bulletStar_isPreserved() {
+        val actual = SpeechTextBuilder.build("* 項目A")
+
+        assertEquals("* 項目A", actual)
+    }
+
+    @Test
+    fun trailingEmoji_isPreserved() {
+        val actual = SpeechTextBuilder.build("成功しました ✅")
+
+        assertEquals("成功しました ✅", actual)
+    }
+
+    @Test
+    fun mixedHeadingAndBold_areNormalized() {
+        val actual = SpeechTextBuilder.build("🤖 **AIの改善案**")
+
+        assertEquals("AIの改善案", actual)
+    }
+
+    @Test
     fun inlineOrTrailingEmoji_isPreserved() {
         val input = "成功しました ✅"
 
