@@ -72,6 +72,7 @@ internal data class DevMenuCallbacks(
     val onDevExpandedChange: (Boolean) -> Unit,
     val onCopy: () -> Unit,
     val onSpeakReferencePhrase: () -> Unit,
+    val onSpeakReferencePhrase2: () -> Unit,
     val onCharXOffsetChange: (Int) -> Unit,
     val onCharYOffsetChange: (Int) -> Unit,
     val onInfoXOffsetChange: (Int) -> Unit,
@@ -104,6 +105,7 @@ internal fun DebugDevMenuSection(
         layoutState = layoutState,
         previewUiState = previewUiState,
         onSpeakReferencePhrase = {},
+        onSpeakReferencePhrase2 = {},
         modifier = modifier
     )
 }
@@ -114,6 +116,7 @@ internal fun DevMenuSectionHost(
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
     onSpeakReferencePhrase: () -> Unit,
+    onSpeakReferencePhrase2: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!BuildConfig.DEBUG) return
@@ -133,6 +136,7 @@ internal fun DevMenuSectionHost(
         previewUiState = previewUiState,
         onCopyDevJson = onCopyDevJson,
         onSpeakReferencePhrase = onSpeakReferencePhrase,
+        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
         modifier = modifier,
     )
 }
@@ -144,6 +148,7 @@ internal fun DevMenuSection(
     previewUiState: ReadyPreviewUiState,
     onCopyDevJson: () -> Unit,
     onSpeakReferencePhrase: () -> Unit,
+    onSpeakReferencePhrase2: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -181,6 +186,7 @@ internal fun DevMenuSection(
         onDevExpandedChange = { expanded -> devExpanded = expanded },
         onCopy = onCopyDevJson,
         onSpeakReferencePhrase = onSpeakReferencePhrase,
+        onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
         onCharXOffsetChange = { delta ->
             layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -370,7 +376,13 @@ private fun DevMenuBlock(
                             onClick = callbacks.onSpeakReferencePhrase,
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text("TTS基準文を再生")
+                            Text("TTS基準文1を再生")
+                        }
+                        FilledTonalButton(
+                            onClick = callbacks.onSpeakReferencePhrase2,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("TTS基準文2を再生")
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
