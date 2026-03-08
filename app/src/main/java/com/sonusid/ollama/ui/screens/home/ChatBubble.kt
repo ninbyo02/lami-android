@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.platform.ClipboardManager
@@ -824,47 +825,64 @@ private fun CodeBlockCard(
             shape = RoundedCornerShape(12.dp)
         )
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.5.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // ヘッダーを角丸の縁から少し離して表示する
-                        .padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = lang?.takeIf { it.isNotBlank() } ?: "Code",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .clickable { clipboardManager.setText(AnnotatedString(code)) }
+                            .fillMaxWidth()
+                            // ヘッダーを角丸の縁から少し離して表示する
+                            .padding(top = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.ContentCopy,
-                            contentDescription = "コードをコピー",
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = lang?.takeIf { it.isNotBlank() } ?: "Code",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = lerp(
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                MaterialTheme.colorScheme.primary,
+                                0.18f,
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clickable { clipboardManager.setText(AnnotatedString(code)) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "コードをコピー",
+                                modifier = Modifier.size(18.dp),
+                                tint = lerp(
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                    MaterialTheme.colorScheme.primary,
+                                    0.16f,
+                                )
+                            )
+                        }
+                    }
+                    SelectionContainer {
+                        Text(
+                            text = highlightedCode,
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            fontFamily = FontFamily.Monospace,
+                            style = codeTextStyle,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                }
-                SelectionContainer {
-                    Text(
-                        text = highlightedCode,
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        fontFamily = FontFamily.Monospace,
-                        style = codeTextStyle,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
             }
         }
