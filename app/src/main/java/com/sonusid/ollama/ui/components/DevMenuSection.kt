@@ -38,6 +38,7 @@ import com.sonusid.ollama.ui.screens.settings.ReadyPreviewUiState
 import com.sonusid.ollama.ui.screens.settings.toJsonObject
 import androidx.compose.ui.text.AnnotatedString
 import kotlin.math.abs
+import kotlin.math.round
 import org.json.JSONObject
 
 internal data class DevMenuUiState(
@@ -73,6 +74,10 @@ internal data class DevMenuCallbacks(
     val onCopy: () -> Unit,
     val onSpeakReferencePhrase: () -> Unit,
     val onSpeakReferencePhrase2: () -> Unit,
+    val onIncreaseTtsSpeechRate: () -> Unit,
+    val onDecreaseTtsSpeechRate: () -> Unit,
+    val onIncreaseTtsPitch: () -> Unit,
+    val onDecreaseTtsPitch: () -> Unit,
     val onCharXOffsetChange: (Int) -> Unit,
     val onCharYOffsetChange: (Int) -> Unit,
     val onInfoXOffsetChange: (Int) -> Unit,
@@ -106,6 +111,12 @@ internal fun DebugDevMenuSection(
         previewUiState = previewUiState,
         onSpeakReferencePhrase = {},
         onSpeakReferencePhrase2 = {},
+        ttsSpeechRate = 0.92f,
+        ttsPitch = 1.18f,
+        onIncreaseTtsSpeechRate = {},
+        onDecreaseTtsSpeechRate = {},
+        onIncreaseTtsPitch = {},
+        onDecreaseTtsPitch = {},
         modifier = modifier
     )
 }
@@ -117,6 +128,12 @@ internal fun DevMenuSectionHost(
     previewUiState: ReadyPreviewUiState,
     onSpeakReferencePhrase: () -> Unit,
     onSpeakReferencePhrase2: () -> Unit,
+    ttsSpeechRate: Float,
+    ttsPitch: Float,
+    onIncreaseTtsSpeechRate: () -> Unit,
+    onDecreaseTtsSpeechRate: () -> Unit,
+    onIncreaseTtsPitch: () -> Unit,
+    onDecreaseTtsPitch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!BuildConfig.DEBUG) return
@@ -137,6 +154,12 @@ internal fun DevMenuSectionHost(
         onCopyDevJson = onCopyDevJson,
         onSpeakReferencePhrase = onSpeakReferencePhrase,
         onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
+        ttsSpeechRate = ttsSpeechRate,
+        ttsPitch = ttsPitch,
+        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
+        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
+        onIncreaseTtsPitch = onIncreaseTtsPitch,
+        onDecreaseTtsPitch = onDecreaseTtsPitch,
         modifier = modifier,
     )
 }
@@ -149,6 +172,12 @@ internal fun DevMenuSection(
     onCopyDevJson: () -> Unit,
     onSpeakReferencePhrase: () -> Unit,
     onSpeakReferencePhrase2: () -> Unit,
+    ttsSpeechRate: Float,
+    ttsPitch: Float,
+    onIncreaseTtsSpeechRate: () -> Unit,
+    onDecreaseTtsSpeechRate: () -> Unit,
+    onIncreaseTtsPitch: () -> Unit,
+    onDecreaseTtsPitch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -187,6 +216,10 @@ internal fun DevMenuSection(
         onCopy = onCopyDevJson,
         onSpeakReferencePhrase = onSpeakReferencePhrase,
         onSpeakReferencePhrase2 = onSpeakReferencePhrase2,
+        onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
+        onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
+        onIncreaseTtsPitch = onIncreaseTtsPitch,
+        onDecreaseTtsPitch = onDecreaseTtsPitch,
         onCharXOffsetChange = { delta ->
             layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -308,6 +341,8 @@ private fun ReadyPreviewLayoutState.toDevPreviewSettings(): DevPreviewSettings =
         bodySpacerDp = bodySpacerDp,
     )
 
+private fun formatTtsValue(value: Float): String = "%.2f".format((round(value * 100f) / 100f).toDouble())
+
 private fun buildDevJson(devSettings: DevPreviewSettings): String {
     val root = JSONObject()
     root.put("dev", devSettings.toJsonObject())
@@ -383,6 +418,36 @@ private fun DevMenuBlock(
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text("TTS基準文2を再生")
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "TTS Rate: ${formatTtsValue(ttsSpeechRate)}",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            IconButton(onClick = callbacks.onDecreaseTtsSpeechRate) {
+                                Text("-")
+                            }
+                            IconButton(onClick = callbacks.onIncreaseTtsSpeechRate) {
+                                Text("+")
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "TTS Pitch: ${formatTtsValue(ttsPitch)}",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            IconButton(onClick = callbacks.onDecreaseTtsPitch) {
+                                Text("-")
+                            }
+                            IconButton(onClick = callbacks.onIncreaseTtsPitch) {
+                                Text("+")
+                            }
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(

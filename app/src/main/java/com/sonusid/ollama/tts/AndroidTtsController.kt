@@ -14,12 +14,19 @@ private const val TTS_REFERENCE_PHRASE = "こんにちは。ラミィです。�
 private const val TTS_REFERENCE_PHRASE_2 = "はい、了解しました。少しお待ちくださいね。内容を確認します。"
 
 class AndroidTtsController(context: Context) {
+    companion object {
+        const val DEFAULT_SPEECH_RATE: Float = DEFAULT_TTS_SPEECH_RATE
+        const val DEFAULT_PITCH: Float = DEFAULT_TTS_PITCH
+    }
+
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private var onPlaybackStateChanged: ((Boolean) -> Unit)? = null
     private var tts: TextToSpeech? = null
     private var isReady = false
     private var pendingSpeakText: String? = null
+    private var currentSpeechRate: Float = DEFAULT_TTS_SPEECH_RATE
+    private var currentPitch: Float = DEFAULT_TTS_PITCH
 
     init {
         tts = TextToSpeech(appContext) { status ->
@@ -85,10 +92,23 @@ class AndroidTtsController(context: Context) {
         speak(TTS_REFERENCE_PHRASE_2)
     }
 
+    fun setSpeechRate(rate: Float) {
+        currentSpeechRate = rate
+    }
+
+    fun setPitch(pitch: Float) {
+        currentPitch = pitch
+    }
+
+    fun setSpeechConfig(rate: Float, pitch: Float) {
+        currentSpeechRate = rate
+        currentPitch = pitch
+    }
+
     private fun speakInternal(text: String) {
         runCatching {
-            tts?.setSpeechRate(DEFAULT_TTS_SPEECH_RATE)
-            tts?.setPitch(DEFAULT_TTS_PITCH)
+            tts?.setSpeechRate(currentSpeechRate)
+            tts?.setPitch(currentPitch)
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
         }.onFailure {
             notifyPlaybackState(false)
