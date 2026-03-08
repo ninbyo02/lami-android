@@ -71,6 +71,7 @@ internal data class DevMenuUiState(
 internal data class DevMenuCallbacks(
     val onDevExpandedChange: (Boolean) -> Unit,
     val onCopy: () -> Unit,
+    val onSpeakReferencePhrase: () -> Unit,
     val onCharXOffsetChange: (Int) -> Unit,
     val onCharYOffsetChange: (Int) -> Unit,
     val onInfoXOffsetChange: (Int) -> Unit,
@@ -111,6 +112,7 @@ internal fun DevMenuSectionHost(
     devUnlocked: Boolean,
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
+    onSpeakReferencePhrase: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!BuildConfig.DEBUG) return
@@ -129,6 +131,7 @@ internal fun DevMenuSectionHost(
         layoutState = layoutState,
         previewUiState = previewUiState,
         onCopyDevJson = onCopyDevJson,
+        onSpeakReferencePhrase = onSpeakReferencePhrase,
         modifier = modifier,
     )
 }
@@ -139,6 +142,7 @@ internal fun DevMenuSection(
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
     onCopyDevJson: () -> Unit,
+    onSpeakReferencePhrase: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -175,6 +179,7 @@ internal fun DevMenuSection(
     val devMenuCallbacks = DevMenuCallbacks(
         onDevExpandedChange = { expanded -> devExpanded = expanded },
         onCopy = onCopyDevJson,
+        onSpeakReferencePhrase = onSpeakReferencePhrase,
         onCharXOffsetChange = { delta ->
             layoutState.updateDevSettings { charXOffsetDp = (charXOffsetDp + delta).coerceIn(-200, 200) }
         },
@@ -360,6 +365,12 @@ private fun DevMenuBlock(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        FilledTonalButton(
+                            onClick = callbacks.onSpeakReferencePhrase,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("TTS基準文を再生")
+                        }
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = "Offsets",

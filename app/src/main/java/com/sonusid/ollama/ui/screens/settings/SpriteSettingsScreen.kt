@@ -149,6 +149,7 @@ import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.TopAppBarHeight
+import com.sonusid.ollama.tts.AndroidTtsController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -882,6 +883,9 @@ private fun defaultBoxPositions(): List<BoxPosition> =
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
     val context = LocalContext.current
+    val ttsController = remember(context.applicationContext) {
+        AndroidTtsController(context.applicationContext)
+    }
     val defaultImageBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = context) {
         // 画像デコードは重いため、遷移直後の白ブランクを避ける目的で非同期ロードする
         value = withContext(Dispatchers.IO) {
@@ -5364,7 +5368,8 @@ private fun ReadyAnimationTab(
                 DevMenuSectionHost(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
-                    previewUiState = readyPreviewUiState
+                    previewUiState = readyPreviewUiState,
+                    onSpeakReferencePhrase = { ttsController.speakReferencePhrase() }
                 )
             }
         }
