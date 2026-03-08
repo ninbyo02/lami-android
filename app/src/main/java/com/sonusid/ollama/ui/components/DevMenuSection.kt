@@ -78,6 +78,9 @@ internal data class DevMenuCallbacks(
     val onSpeakReferencePhrase4: () -> Unit,
     val onStopTts: () -> Unit,
     val onResetTtsDefaults: () -> Unit,
+    val onApplyTtsPresetDefault: () -> Unit,
+    val onApplyTtsPresetCalm: () -> Unit,
+    val onApplyTtsPresetBright: () -> Unit,
     val onIncreaseTtsSpeechRate: () -> Unit,
     val onDecreaseTtsSpeechRate: () -> Unit,
     val onIncreaseTtsPitch: () -> Unit,
@@ -119,6 +122,9 @@ internal fun DebugDevMenuSection(
         onSpeakReferencePhrase4 = {},
         onStopTts = {},
         onResetTtsDefaults = {},
+        onApplyTtsPresetDefault = {},
+        onApplyTtsPresetCalm = {},
+        onApplyTtsPresetBright = {},
         isTtsPlaying = false,
         ttsSpeechRate = 0.92f,
         ttsPitch = 1.18f,
@@ -141,6 +147,9 @@ internal fun DevMenuSectionHost(
     onSpeakReferencePhrase4: () -> Unit,
     onStopTts: () -> Unit,
     onResetTtsDefaults: () -> Unit,
+    onApplyTtsPresetDefault: () -> Unit,
+    onApplyTtsPresetCalm: () -> Unit,
+    onApplyTtsPresetBright: () -> Unit,
     isTtsPlaying: Boolean,
     ttsSpeechRate: Float,
     ttsPitch: Float,
@@ -172,6 +181,9 @@ internal fun DevMenuSectionHost(
         onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
         onStopTts = onStopTts,
         onResetTtsDefaults = onResetTtsDefaults,
+        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
+        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
+        onApplyTtsPresetBright = onApplyTtsPresetBright,
         isTtsPlaying = isTtsPlaying,
         ttsSpeechRate = ttsSpeechRate,
         ttsPitch = ttsPitch,
@@ -195,6 +207,9 @@ internal fun DevMenuSection(
     onSpeakReferencePhrase4: () -> Unit,
     onStopTts: () -> Unit,
     onResetTtsDefaults: () -> Unit,
+    onApplyTtsPresetDefault: () -> Unit,
+    onApplyTtsPresetCalm: () -> Unit,
+    onApplyTtsPresetBright: () -> Unit,
     isTtsPlaying: Boolean,
     ttsSpeechRate: Float,
     ttsPitch: Float,
@@ -244,6 +259,9 @@ internal fun DevMenuSection(
         onSpeakReferencePhrase4 = onSpeakReferencePhrase4,
         onStopTts = onStopTts,
         onResetTtsDefaults = onResetTtsDefaults,
+        onApplyTtsPresetDefault = onApplyTtsPresetDefault,
+        onApplyTtsPresetCalm = onApplyTtsPresetCalm,
+        onApplyTtsPresetBright = onApplyTtsPresetBright,
         onIncreaseTtsSpeechRate = onIncreaseTtsSpeechRate,
         onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
         onIncreaseTtsPitch = onIncreaseTtsPitch,
@@ -474,6 +492,28 @@ private fun DevMenuBlock(
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text("TTS基準文4を再生")
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = callbacks.onApplyTtsPresetDefault,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Preset: Default")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onApplyTtsPresetCalm,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Preset: Calm")
+                            }
+                            FilledTonalButton(
+                                onClick = callbacks.onApplyTtsPresetBright,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Preset: Bright")
                             }
                         }
                         Row(
