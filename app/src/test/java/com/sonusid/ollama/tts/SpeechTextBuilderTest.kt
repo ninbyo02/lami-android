@@ -125,7 +125,6 @@ class SpeechTextBuilderTest {
         assertEquals("機能:\n動作方法:", actual)
     }
 
-
     @Test
     fun headingCheckEmojiWithVariationSelector_isRemoved() {
         val actual = SpeechTextBuilder.build("✅ 機能説明:")
@@ -210,7 +209,6 @@ class SpeechTextBuilderTest {
         assertEquals("成功しました ✅", actual)
     }
 
-
     @Test
     fun atxHeading_level1_isStripped() {
         val actual = SpeechTextBuilder.build("# 概要")
@@ -268,25 +266,7 @@ class SpeechTextBuilderTest {
     }
 
     @Test
-    fun inlineOrTrailingEmoji_isPreserved() {
-        val input = "成功しました ✅"
-
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("成功しました ✅", actual)
-    }
-
-    @Test
     fun bulletMarkers_arePreserved() {
-        val input = "• 項目A\n- 項目B"
-
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("• 項目A\n- 項目B", actual)
-    }
-
-    @Test
-    fun bulletMarkers_areStillPreserved() {
         val input = "• 項目A\n- 項目B"
 
         val actual = SpeechTextBuilder.build(input)
@@ -313,13 +293,9 @@ class SpeechTextBuilderTest {
 
         val actual = SpeechTextBuilder.build(input)
 
-        assertTrue(actual.contains("以下はサンプルです。"))
-        assertTrue(actual.contains("実行してください。"))
-        assertTrue(actual.contains("コード例があります") || actual.contains("詳細なコード例があります"))
-        assertFalse(actual.contains("<html"))
-        assertFalse(actual.contains("<body"))
-        assertFalse(actual.contains("<h1>"))
-        assertFalse(actual.contains("<!DOCTYPE html>"))
+        assertContainsAll(actual, "以下はサンプルです。", "実行してください。")
+        assertContainsCodeGuide(actual)
+        assertContainsNone(actual, "<html", "<body", "<h1>", "<!DOCTYPE html>")
     }
 
     @Test
@@ -337,12 +313,9 @@ class SpeechTextBuilderTest {
 
         val actual = SpeechTextBuilder.build(input)
 
-        assertTrue(actual.contains("ゲーム例です。"))
-        assertTrue(actual.contains("以上です。"))
-        assertFalse(actual.contains("🎯"))
-        assertFalse(actual.contains("🍎"))
-        assertFalse(actual.contains("🍌"))
-        assertFalse(actual.contains("🍇"))
+        assertContainsAll(actual, "ゲーム例です。", "以上です。")
+        assertContainsCodeGuide(actual)
+        assertContainsNone(actual, "🎯", "🍎", "🍌", "🍇")
     }
 
     @Test
@@ -361,6 +334,7 @@ class SpeechTextBuilderTest {
         val actual = SpeechTextBuilder.build(input)
 
         assertTrue(actual.contains("説明です。"))
+        assertContainsCodeGuide(actual)
         assertFalse(actual.contains("//"))
         assertFalse(actual.contains("const score"))
         assertFalse(actual.contains("===="))
@@ -381,10 +355,27 @@ class SpeechTextBuilderTest {
 
         val actual = SpeechTextBuilder.build(input)
 
-        assertTrue(actual.contains("これは双六ゲームの例です。"))
-        assertTrue(actual.contains("ブラウザで実行してください。"))
-        assertTrue(actual.contains("コード例があります") || actual.contains("詳細なコード例があります"))
-        assertFalse(actual.contains("🎲"))
-        assertFalse(actual.contains("<div>"))
+        assertContainsAll(actual, "これは双六ゲームの例です。", "ブラウザで実行してください。")
+        assertContainsCodeGuide(actual)
+        assertContainsNone(actual, "🎲", "<div>")
+    }
+
+    private fun assertContainsCodeGuide(actual: String) {
+        assertTrue(
+            actual.contains("コード例があります") ||
+                actual.contains("詳細なコード例があります")
+        )
+    }
+
+    private fun assertContainsAll(actual: String, vararg expectedFragments: String) {
+        expectedFragments.forEach { fragment ->
+            assertTrue(actual.contains(fragment))
+        }
+    }
+
+    private fun assertContainsNone(actual: String, vararg unexpectedFragments: String) {
+        unexpectedFragments.forEach { fragment ->
+            assertFalse(actual.contains(fragment))
+        }
     }
 }
