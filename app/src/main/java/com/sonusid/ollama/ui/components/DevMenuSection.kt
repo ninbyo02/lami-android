@@ -103,7 +103,6 @@ internal data class DevMenuCallbacks(
     val onDetailsMaxLinesChange: (Int) -> Unit,
     val onHeaderSpacerChange: (Int) -> Unit,
     val onBodySpacerChange: (Int) -> Unit,
-    val currentTtsPreset: String,
 )
 
 @Composable
@@ -126,7 +125,6 @@ internal fun DebugDevMenuSection(
         onApplyTtsPresetDefault = {},
         onApplyTtsPresetCalm = {},
         onApplyTtsPresetBright = {},
-        currentTtsPreset = "Default",
         isTtsPlaying = false,
         ttsSpeechRate = 0.92f,
         ttsPitch = 1.18f,
@@ -152,7 +150,6 @@ internal fun DevMenuSectionHost(
     onApplyTtsPresetDefault: () -> Unit,
     onApplyTtsPresetCalm: () -> Unit,
     onApplyTtsPresetBright: () -> Unit,
-    currentTtsPreset: String,
     isTtsPlaying: Boolean,
     ttsSpeechRate: Float,
     ttsPitch: Float,
@@ -187,7 +184,6 @@ internal fun DevMenuSectionHost(
         onApplyTtsPresetDefault = onApplyTtsPresetDefault,
         onApplyTtsPresetCalm = onApplyTtsPresetCalm,
         onApplyTtsPresetBright = onApplyTtsPresetBright,
-        currentTtsPreset = currentTtsPreset,
         isTtsPlaying = isTtsPlaying,
         ttsSpeechRate = ttsSpeechRate,
         ttsPitch = ttsPitch,
@@ -214,7 +210,6 @@ internal fun DevMenuSection(
     onApplyTtsPresetDefault: () -> Unit,
     onApplyTtsPresetCalm: () -> Unit,
     onApplyTtsPresetBright: () -> Unit,
-    currentTtsPreset: String,
     isTtsPlaying: Boolean,
     ttsSpeechRate: Float,
     ttsPitch: Float,
@@ -331,7 +326,6 @@ internal fun DevMenuSection(
         onBodySpacerChange = { delta ->
             layoutState.updateDevSettings { bodySpacerDp = (bodySpacerDp + delta).coerceIn(0, 24) }
         },
-        currentTtsPreset = currentTtsPreset,
     )
     Column(
         modifier = modifier
@@ -499,15 +493,6 @@ private fun DevMenuBlock(
                             ) {
                                 Text("TTS基準文4を再生")
                             }
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "Preset: ${callbacks.currentTtsPreset}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
