@@ -8,6 +8,9 @@ import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 import java.util.UUID
 
+private const val DEFAULT_TTS_SPEECH_RATE = 0.92f
+private const val DEFAULT_TTS_PITCH = 1.18f
+
 class AndroidTtsController(context: Context) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -74,8 +77,8 @@ class AndroidTtsController(context: Context) {
 
     private fun speakInternal(text: String) {
         runCatching {
-            tts?.setSpeechRate(0.92f)
-            tts?.setPitch(1.18f)
+            tts?.setSpeechRate(DEFAULT_TTS_SPEECH_RATE)
+            tts?.setPitch(DEFAULT_TTS_PITCH)
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
         }.onFailure {
             notifyPlaybackState(false)
