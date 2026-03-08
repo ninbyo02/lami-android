@@ -314,7 +314,12 @@ internal fun DevMenuSection(
             )
         }
         if (devMenuEnabled) {
-            DevMenuBlock(uiState = devMenuUiState, callbacks = devMenuCallbacks)
+            DevMenuBlock(
+                uiState = devMenuUiState,
+                callbacks = devMenuCallbacks,
+                ttsSpeechRate = ttsSpeechRate,
+                ttsPitch = ttsPitch,
+            )
         }
     }
 }
@@ -353,6 +358,8 @@ private fun buildDevJson(devSettings: DevPreviewSettings): String {
 private fun DevMenuBlock(
     uiState: DevMenuUiState,
     callbacks: DevMenuCallbacks,
+    ttsSpeechRate: Float,
+    ttsPitch: Float,
 ) {
     Column {
         Surface(
