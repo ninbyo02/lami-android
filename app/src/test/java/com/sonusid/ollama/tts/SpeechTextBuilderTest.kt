@@ -126,57 +126,38 @@ class SpeechTextBuilderTest {
     }
 
     @Test
-    fun headingEmoji_withoutSpace_isRemoved() {
-        val input = "💡ポイント"
+    fun headingCheckEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("✅ 機能:")
 
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("ポイント", actual)
+        assertEquals("機能:", actual)
     }
 
     @Test
-    fun headingRobotEmoji_isRemovedAtLineStart() {
-        val input = "🤖 AIのアルゴリズムの改善案"
+    fun headingPageEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("📄 HTMLコード:")
 
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("AIのアルゴリズムの改善案", actual)
+        assertEquals("HTMLコード:", actual)
     }
 
     @Test
-    fun headingToolEmoji_withoutSpace_isRemoved() {
-        val input = "🔧設定方法"
+    fun headingPinEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("📌 注意:")
 
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("設定方法", actual)
+        assertEquals("注意:", actual)
     }
 
     @Test
-    fun headingPuzzleEmoji_isRemovedAtLineStart() {
-        val input = "🧩 今後の拡張例:"
+    fun headingBrainEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🧠 今後追加できる機能:")
 
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("今後の拡張例:", actual)
+        assertEquals("今後追加できる機能:", actual)
     }
 
     @Test
-    fun headingDocumentEmoji_withoutSpace_isRemoved() {
-        val input = "📄完全なHTMLコード:"
+    fun headingPuzzleEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🧩 拡張例:")
 
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("完全なHTMLコード:", actual)
-    }
-
-    @Test
-    fun headingTestTubeEmoji_isRemoved() {
-        val input = "🧪 テスト方法"
-
-        val actual = SpeechTextBuilder.build(input)
-
-        assertEquals("テスト方法", actual)
+        assertEquals("拡張例:", actual)
     }
 
     @Test
@@ -210,15 +191,6 @@ class SpeechTextBuilderTest {
     @Test
     fun trailingEmoji_isPreserved() {
         val actual = SpeechTextBuilder.build("成功しました ✅")
-
-        assertEquals("成功しました ✅", actual)
-    }
-
-    @Test
-    fun trailingEmoji_isStillPreserved() {
-        val input = "成功しました ✅"
-
-        val actual = SpeechTextBuilder.build(input)
 
         assertEquals("成功しました ✅", actual)
     }

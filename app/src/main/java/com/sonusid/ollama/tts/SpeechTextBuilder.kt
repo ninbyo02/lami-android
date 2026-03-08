@@ -141,15 +141,25 @@ class SpeechTextBuilder private constructor() {
                 return line
             }
 
-            val matchedEmoji = leadingDecorativeEmojis.firstOrNull { emoji ->
-                content.startsWith(emoji)
-            } ?: return line
+            var normalizedContent = content
+            var decorativeEmojiRemoved = false
 
-            val trimmedContent = content
-                .removePrefix(matchedEmoji)
-                .dropWhile { it == ' ' || it == '\t' }
+            while (true) {
+                val matchedEmoji = leadingDecorativeEmojis.firstOrNull { emoji ->
+                    normalizedContent.startsWith(emoji)
+                } ?: break
 
-            return leadingWhitespace + trimmedContent
+                decorativeEmojiRemoved = true
+                normalizedContent = normalizedContent
+                    .removePrefix(matchedEmoji)
+                    .dropWhile { it == ' ' || it == '\t' }
+            }
+
+            if (!decorativeEmojiRemoved) {
+                return line
+            }
+
+            return leadingWhitespace + normalizedContent
         }
     }
 }
