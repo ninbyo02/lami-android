@@ -883,6 +883,9 @@ private fun defaultBoxPositions(): List<BoxPosition> =
 @Composable
 fun SpriteSettingsScreen(navController: NavController) {
     val context = LocalContext.current
+    val ttsController = remember(context.applicationContext) {
+        AndroidTtsController(context.applicationContext)
+    }
     val defaultImageBitmap by produceState<ImageBitmap?>(initialValue = null, key1 = context) {
         // 画像デコードは重いため、遷移直後の白ブランクを避ける目的で非同期ロードする
         value = withContext(Dispatchers.IO) {
@@ -4944,9 +4947,6 @@ private fun ReadyAnimationTab(
         }
     }
     val formContent: @Composable (Modifier) -> Unit = { modifier ->
-        val ttsController = remember(context.applicationContext) {
-            AndroidTtsController(context.applicationContext)
-        }
         LazyColumn(
             modifier = modifier
                 .fillMaxWidth()
