@@ -19,6 +19,12 @@ class SpeechTextBuilder private constructor() {
         private val markdownDecorationLineRegex = Regex("(?m)^\\s*([#=\\-*`_])\\1{2,}\\s*$")
         private val repeatedSymbolRegex = Regex("([=\\-*#])\\1{2,}")
         private val multiBlankLineRegex = Regex("\\n{3,}")
+        private val leadingDecorativeEmojis = listOf(
+            "☑️", "✔️", "✅", "☑", "✔",
+            "🧠", "💡", "📌", "📍",
+            "🔹", "🔸", "⭐", "🌟",
+            "🚀", "🎯", "📝", "📖"
+        )
 
         fun build(displayText: String): String {
             if (displayText.isBlank()) {
@@ -41,8 +47,10 @@ class SpeechTextBuilder private constructor() {
                     symbolMatch.groupValues[1].repeat(2)
                 }
 
-            val normalized = symbolReduced
-                .replace("\r\n", "\n")
+            val lineBreakNormalized = symbolReduced.replace("\r\n", "\n")
+            val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
+
+            val normalized = headingEmojiNormalized
                 .replace(multiBlankLineRegex, "\n\n")
                 .trim()
 
@@ -82,6 +90,33 @@ class SpeechTextBuilder private constructor() {
                 return "$inlineCode コマンド"
             }
             return if (inlineCode.length <= 20) inlineCode else "コード"
+        }
+
+        private fun removeLeadingDecorativeEmoji(text: String): String {
+            return text
+                .lineSequence()
+                .joinToString("\n") { line ->
+                    normalizeLeadingDecorativeEmoji(line)
+                }
+        }
+
+        private fun normalizeLeadingDecorativeEmoji(line: String): String {
+            val leadingWhitespace = line.takeWhile { it == ' ' || it == '\t' }
+            val content = line.removePrefix(leadingWhitespace)
+
+            if (content.isEmpty()) {
+                return line
+            }
+
+            val matchedEmoji = leadingDecorativeEmojis.firstOrNull { emoji ->
+                content.startsWith(emoji)
+            } ?: return line
+
+            val trimmedContent = content
+                .removePrefix(matchedEmoji)
+                .dropWhile { it == ' ' || it == '\t' }
+
+            return leadingWhitespace + trimmedContent
         }
     }
 }
