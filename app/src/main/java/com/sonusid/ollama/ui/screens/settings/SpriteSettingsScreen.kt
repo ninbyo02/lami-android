@@ -5370,7 +5370,8 @@ private fun ReadyAnimationTab(
                     devUnlocked = devUnlocked,
                     layoutState = layoutState,
                     previewUiState = readyPreviewUiState,
-                    onSpeakReferencePhrase = { ttsController.speakReferencePhrase() }
+                    onSpeakReferencePhrase = { ttsController.speakReferencePhrase() },
+                    onSpeakReferencePhrase2 = { ttsController.speakReferencePhrase2() }
                 )
             }
         }
