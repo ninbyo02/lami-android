@@ -187,6 +187,56 @@ class SpeechTextBuilderTest {
         assertEquals("成功しました ✅", actual)
     }
 
+
+    @Test
+    fun atxHeading_level1_isStripped() {
+        val actual = SpeechTextBuilder.build("# 概要")
+
+        assertEquals("概要", actual)
+    }
+
+    @Test
+    fun atxHeading_level2_isStripped() {
+        val actual = SpeechTextBuilder.build("## チェック")
+
+        assertEquals("チェック", actual)
+    }
+
+    @Test
+    fun atxHeading_level3_isStripped() {
+        val actual = SpeechTextBuilder.build("### 注意事項")
+
+        assertEquals("注意事項", actual)
+    }
+
+    @Test
+    fun atxHeading_afterEmojiRemoval_isStripped() {
+        val actual = SpeechTextBuilder.build("🤖 ## AIの改善案")
+
+        assertEquals("AIの改善案", actual)
+    }
+
+    @Test
+    fun inlineHash_isPreserved() {
+        val actual = SpeechTextBuilder.build("C# は別物です")
+
+        assertEquals("C# は別物です", actual)
+    }
+
+    @Test
+    fun hashtag_isPreserved() {
+        val actual = SpeechTextBuilder.build("今日は #hashtag を使う")
+
+        assertEquals("今日は #hashtag を使う", actual)
+    }
+
+    @Test
+    fun nonHeadingDoubleHashWithoutSpace_isPreserved_orHandledSafely() {
+        val actual = SpeechTextBuilder.build("##チェック")
+
+        assertEquals("##チェック", actual)
+    }
+
     @Test
     fun mixedHeadingAndBold_areNormalized() {
         val actual = SpeechTextBuilder.build("🤖 **AIの改善案**")
