@@ -168,6 +168,48 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun headingGamepadEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🎮 操作方法:")
+
+        assertEquals("操作方法:", actual)
+    }
+
+    @Test
+    fun headingGamepadEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("🎮️ 操作方法:")
+
+        assertEquals("操作方法:", actual)
+    }
+
+    @Test
+    fun headingFlagEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🏁 レースゲームのコード")
+
+        assertEquals("レースゲームのコード", actual)
+    }
+
+    @Test
+    fun headingFlagEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("🏁️ レースゲームのコード")
+
+        assertEquals("レースゲームのコード", actual)
+    }
+
+    @Test
+    fun headingSmileEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("😊 ありがとうございます")
+
+        assertEquals("ありがとうございます", actual)
+    }
+
+    @Test
+    fun headingSmileEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("😊️ ありがとうございます")
+
+        assertEquals("ありがとうございます", actual)
+    }
+
+    @Test
     fun headingPuzzleEmoji_isRemoved() {
         val actual = SpeechTextBuilder.build("🧩 拡張例:")
 
@@ -209,6 +251,27 @@ class SpeechTextBuilderTest {
         val actual = SpeechTextBuilder.build("成功しました ✅")
 
         assertEquals("成功しました ✅", actual)
+    }
+
+    @Test
+    fun trailingSmileEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("追加できますよ 😊")
+
+        assertEquals("追加できますよ", actual)
+    }
+
+    @Test
+    fun trailingSmileEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("追加できますよ 😊️")
+
+        assertEquals("追加できますよ", actual)
+    }
+
+    @Test
+    fun trailingSmileEmojiAfterPeriod_isRemoved() {
+        val actual = SpeechTextBuilder.build("追加できますよ。😊")
+
+        assertEquals("追加できますよ。", actual)
     }
 
     @Test

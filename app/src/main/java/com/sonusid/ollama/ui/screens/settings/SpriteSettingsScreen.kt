@@ -5009,6 +5009,20 @@ private fun ReadyAnimationTab(
                 settingsPreferences.setTtsPitch(updatedPitch)
             }
         }
+        fun resetTtsToDefaults() {
+            val defaultRate = AndroidTtsController.DEFAULT_SPEECH_RATE
+            val defaultPitch = AndroidTtsController.DEFAULT_PITCH
+            devMenuTtsSpeechRate = defaultRate
+            devMenuTtsPitch = defaultPitch
+            ttsController.setSpeechConfig(
+                rate = defaultRate,
+                pitch = defaultPitch,
+            )
+            scope.launch {
+                settingsPreferences.setTtsSpeechRate(defaultRate)
+                settingsPreferences.setTtsPitch(defaultPitch)
+            }
+        }
         DisposableEffect(ttsController) {
             ttsController.setOnPlaybackStateChanged { isPlaying ->
                 isDevMenuTtsPlaying = isPlaying
@@ -5446,12 +5460,16 @@ private fun ReadyAnimationTab(
                     onSpeakReferencePhrase3 = { ttsController.speakReferencePhrase3() },
                     onSpeakReferencePhrase4 = { ttsController.speakReferencePhrase4() },
                     onStopTts = { ttsController.stop() },
-                    onResetTtsDefaults = {
+                    onResetTtsDefaults = { resetTtsToDefaults() },
+                    onApplyTtsPresetDefault = {
                         applyTtsPreset(TtsPresetDefault)
                     },
-                    onApplyTtsPresetDefault = { applyTtsPreset(TtsPresetDefault) },
-                    onApplyTtsPresetCalm = { applyTtsPreset(TtsPresetCalm) },
-                    onApplyTtsPresetBright = { applyTtsPreset(TtsPresetBright) },
+                    onApplyTtsPresetCalm = {
+                        applyTtsPreset(TtsPresetCalm)
+                    },
+                    onApplyTtsPresetBright = {
+                        applyTtsPreset(TtsPresetBright)
+                    },
                     isTtsPlaying = isDevMenuTtsPlaying,
                     ttsSpeechRate = devMenuTtsSpeechRate,
                     ttsPitch = devMenuTtsPitch,

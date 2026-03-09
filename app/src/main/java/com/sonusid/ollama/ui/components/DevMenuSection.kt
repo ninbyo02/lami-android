@@ -501,19 +501,19 @@ private fun DevMenuBlock(
                                 onClick = callbacks.onApplyTtsPresetDefault,
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("Preset: Default")
+                                Text("Default")
                             }
                             FilledTonalButton(
                                 onClick = callbacks.onApplyTtsPresetCalm,
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("Preset: Calm")
+                                Text("Calm")
                             }
                             FilledTonalButton(
                                 onClick = callbacks.onApplyTtsPresetBright,
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Text("Preset: Bright")
+                                Text("Bright")
                             }
                         }
                         Row(

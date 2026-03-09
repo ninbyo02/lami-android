@@ -32,11 +32,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -616,13 +619,16 @@ private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<
     }.getOrDefault(emptyList())
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+    showMessageActions: Boolean = false,
+    isReplaying: Boolean = false,
+    onReplayClick: (() -> Unit)? = null,
+    onStopReplayClick: (() -> Unit)? = null,
+    onCopyAllClick: (() -> Unit)? = null,
 ) {
-    val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
 
     Column(
@@ -630,18 +636,55 @@ fun PlainAssistantMessage(
             .fillMaxWidth()
             .padding(contentPadding)
             .testTag("assistantPlainMessage")
-            .combinedClickable(
-                enabled = true,
-                onClick = {},
-                onLongClick = { clipboardManager.setText(AnnotatedString(message)) }
-            )
     ) {
-        MessageSegments(segments = segments)
+        MessageSegments(
+            segments = segments,
+            enableTextSelection = true,
+        )
+        if (showMessageActions) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (isReplaying) {
+                            onStopReplayClick?.invoke()
+                        } else {
+                            onReplayClick?.invoke()
+                        }
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isReplaying) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = if (isReplaying) "再生を停止" else "回答を再生",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { onCopyAllClick?.invoke() },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = "全文をコピー",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun MessageSegments(segments: List<Segment>) {
+private fun MessageSegments(
+    segments: List<Segment>,
+    enableTextSelection: Boolean = false,
+) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
         lineHeight = (bodyMedium.lineHeight.value * 0.895f + 4f).sp,
@@ -657,6 +700,7 @@ private fun MessageSegments(segments: List<Segment>) {
                         MarkdownText(
                             segment.text,
                             style = markdownTextStyle,
+                            isTextSelectable = enableTextSelection,
                             syntaxHighlightColor = inlineCodeBg,
                             beforeSetMarkdown = { textView, spanned ->
                                 if (spanned is Spannable) {
