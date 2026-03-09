@@ -86,15 +86,20 @@ class AndroidTtsController(context: Context) {
     }
 
     fun speak(text: String) {
-        val speechText = SpeechTextBuilder.build(text).trim()
-        if (speechText.isEmpty()) {
+        val cleanedSpeechText = SpeechTextBuilder.build(text)
+        val finalSpeechText = TtsSummaryBuilder.build(
+            rawDisplayText = text,
+            speechText = cleanedSpeechText,
+            isError = false
+        ).trim()
+        if (finalSpeechText.isEmpty()) {
             return
         }
         if (!isReady) {
-            pendingSpeakText = speechText
+            pendingSpeakText = finalSpeechText
             return
         }
-        speakInternal(speechText)
+        speakInternal(finalSpeechText)
     }
 
     fun speakReferencePhrase() {
