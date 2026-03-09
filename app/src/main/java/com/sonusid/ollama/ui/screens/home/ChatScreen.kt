@@ -125,7 +125,11 @@ import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
+import com.sonusid.ollama.ui.util.buildInferenceSummary
+import com.sonusid.ollama.ui.util.formatGenerationTime
+import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -196,6 +200,7 @@ fun Home(
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
     val animationEpochMs by viewModel.animationEpochMs.collectAsState()
+    val latestInferenceStats by viewModel.latestInferenceStats.collectAsState()
     val baseUrl by viewModel.baseUrl.collectAsState()
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
@@ -262,6 +267,8 @@ fun Home(
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var activeReplayMessageId by remember { mutableStateOf<Int?>(null) }
     var isReplayPlaying by remember { mutableStateOf(false) }
+    var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
+    var showInferenceStatsSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
@@ -1047,6 +1054,7 @@ fun Home(
                 val isListForCurrentChatForUi =
                     currentChatId != null &&
                         (messagesForListBase.isEmpty() || messagesForListBase.all { it.chatId == currentChatId })
+                val latestAssistantMessageId = messagesForListBase.lastOrNull { !it.isSendbyMe }?.messageID
 
                 if (!isListForCurrentChatForUi) {
                     Box(modifier = contentModifier)
@@ -1251,6 +1259,12 @@ fun Home(
                                                 attachmentUriStringsJson = message.attachmentUriStringsJson,
                                             )
                                         } else {
+                                            val messageInferenceStats =
+                                                if (message.messageID != 0 && message.messageID == latestAssistantMessageId) {
+                                                    latestInferenceStats
+                                                } else {
+                                                    null
+                                                }
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
@@ -1265,7 +1279,14 @@ fun Home(
                                                 },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
-                                                }
+                                                },
+                                                inferenceStats = messageInferenceStats,
+                                                onInferenceStatsClick = messageInferenceStats?.let {
+                                                    {
+                                                        selectedInferenceStats = it
+                                                        showInferenceStatsSheet = true
+                                                    }
+                                                },
                                             )
                                         }
                                     }
@@ -1362,6 +1383,54 @@ fun Home(
         }
     }
 
+    if (showInferenceStatsSheet && selectedInferenceStats != null) {
+        val stats = selectedInferenceStats
+        ModalBottomSheet(
+            onDismissRequest = {
+                showInferenceStatsSheet = false
+                selectedInferenceStats = null
+            },
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "推論統計",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                stats?.modelLabel?.takeIf { it.isNotBlank() }?.let { modelLabel ->
+                    InferenceStatRow(label = "モデル", value = modelLabel)
+                }
+                stats?.deviceLabel?.takeIf { it.isNotBlank() }?.let { deviceLabel ->
+                    InferenceStatRow(label = "実行デバイス", value = deviceLabel)
+                }
+                stats?.let(::formatTokenPerSec)?.let { tokenPerSec ->
+                    InferenceStatRow(label = "生成速度", value = tokenPerSec.removePrefix("⚡"))
+                }
+                stats?.completionTokens?.takeIf { it > 0 }?.let { completionTokens ->
+                    InferenceStatRow(label = "出力トークン数", value = "$completionTokens")
+                }
+                stats?.let(::formatGenerationTime)?.let { generationTime ->
+                    InferenceStatRow(label = "推論時間", value = generationTime)
+                }
+                if (stats?.let(::buildInferenceSummary) == null &&
+                    stats?.modelLabel.isNullOrBlank() &&
+                    stats?.deviceLabel.isNullOrBlank() &&
+                    (stats?.completionTokens ?: 0) <= 0
+                ) {
+                    Text(
+                        text = "表示できる統計がありません",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+
     if (attachSheetOpen) {
         ModalBottomSheet(
             onDismissRequest = { attachSheetOpen = false },
@@ -1409,6 +1478,29 @@ fun Home(
 
 }
 
+
+@Composable
+private fun InferenceStatRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
 
 @Composable
 private fun DrawerSearchPill(
