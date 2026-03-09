@@ -254,6 +254,27 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun trailingSmileEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("追加できますよ 😊")
+
+        assertEquals("追加できますよ", actual)
+    }
+
+    @Test
+    fun trailingSmileEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("追加できますよ 😊️")
+
+        assertEquals("追加できますよ", actual)
+    }
+
+    @Test
+    fun trailingSmileEmojiAfterPeriod_isRemoved() {
+        val actual = SpeechTextBuilder.build("追加できますよ。😊")
+
+        assertEquals("追加できますよ。", actual)
+    }
+
+    @Test
     fun atxHeading_level1_isStripped() {
         val actual = SpeechTextBuilder.build("# 概要")
 
