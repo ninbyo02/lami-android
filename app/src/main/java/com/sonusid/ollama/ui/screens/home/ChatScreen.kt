@@ -1453,12 +1453,13 @@ private fun InferenceStatRow(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = if (emphasizeValue) FontWeight.SemiBold else FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -1481,15 +1482,13 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
             .fillMaxWidth()
             // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
             .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
             text = "推論統計",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        // タイトル直下の区切りを維持しつつ、項目との間隔を最小限で確保する。
-        Spacer(modifier = Modifier.height(12.dp))
-
         if (entries.isEmpty()) {
             Text(
                 text = "表示できる統計がありません",
@@ -1499,16 +1498,12 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
             return
         }
 
-        entries.forEachIndexed { index, (label, value, emphasizeValue) ->
+        entries.forEach { (label, value, emphasizeValue) ->
             InferenceStatRow(
                 label = label,
                 value = value,
                 emphasizeValue = emphasizeValue,
             )
-            if (index < entries.lastIndex) {
-                // 各項目の読み取りをしやすくするため、指定どおり 12dp で統一する。
-                Spacer(modifier = Modifier.height(12.dp))
-            }
         }
     }
 }
