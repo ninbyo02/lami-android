@@ -1055,7 +1055,7 @@ fun Home(
                 val isListForCurrentChatForUi =
                     currentChatId != null &&
                         (messagesForListBase.isEmpty() || messagesForListBase.all { it.chatId == currentChatId })
-                val latestAssistantMessageId = messagesForListBase.lastOrNull { !it.isSendbyMe }?.messageID
+                val latestAssistantIndex = messagesForList.indexOfLast { !it.isSendbyMe }
 
                 if (!isListForCurrentChatForUi) {
                     Box(modifier = contentModifier)
@@ -1251,7 +1251,7 @@ fun Home(
                                     itemsIndexed(
                                         items = messagesForList,
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                                    ) { _, message ->
+                                    ) { index, message ->
                                         if (message.isSendbyMe) {
                                             ChatBubble(
                                                 message = message.message,
@@ -1261,7 +1261,7 @@ fun Home(
                                             )
                                         } else {
                                             val messageInferenceStats =
-                                                if (message.messageID != 0 && message.messageID == latestAssistantMessageId) {
+                                                if (index == latestAssistantIndex) {
                                                     latestInferenceStats
                                                 } else {
                                                     null

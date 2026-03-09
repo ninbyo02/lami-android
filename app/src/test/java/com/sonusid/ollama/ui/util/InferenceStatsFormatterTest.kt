@@ -28,6 +28,24 @@ class InferenceStatsFormatterTest {
     }
 
     @Test
+    fun `buildInferenceSummary uses token per second fallback`() {
+        val stats = InferenceStats(completionTokens = 62, evalDurationNs = 5_000_000_000)
+
+        assertEquals("⚡12.4 token/s", buildInferenceSummary(stats))
+    }
+
+    @Test
+    fun `buildInferenceSummary combines token per second and generation time`() {
+        val stats = InferenceStats(
+            completionTokens = 62,
+            evalDurationNs = 5_000_000_000,
+            generationTimeMs = 18_700,
+        )
+
+        assertEquals("⚡12.4 token/s · 18.7s", buildInferenceSummary(stats))
+    }
+
+    @Test
     fun `formatCompletionTokens formats with grouping`() {
         val stats = InferenceStats(completionTokens = 1696)
 
