@@ -121,6 +121,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.db.entity.toInferenceStats
 import com.sonusid.ollama.db.entity.isInferenceStatsMissing
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
@@ -362,13 +363,10 @@ fun Home(
                     val response = (uiState as UiState.Success).outputText
                     if (currentChatId != null) {
                         viewModel.insert(
-                            Message(
-                                message = response,
+                            createAssistantMessage(
                                 chatId = currentChatId,
-                                isSendbyMe = false,
-                                completionTokens = latestInferenceStats?.completionTokens,
-                                generationTimeMs = latestInferenceStats?.generationTimeMs,
-                                evalDurationNs = latestInferenceStats?.evalDurationNs,
+                                response = response,
+                                latestInferenceStats = latestInferenceStats,
                             )
                         )
                     }
@@ -382,10 +380,9 @@ fun Home(
                 is UiState.Error -> {
                     if (currentChatId != null) {
                         viewModel.insert(
-                            Message(
-                                message = (uiState as UiState.Error).errorMessage,
+                            createAssistantMessage(
                                 chatId = currentChatId,
-                                isSendbyMe = false
+                                response = (uiState as UiState.Error).errorMessage,
                             )
                         )
                     }
@@ -1349,6 +1346,7 @@ fun Home(
                                             )
                                         } else {
                                             val messageInferenceStats =
+                                                // 永続表示は DB 保存済み stats を優先し、latestInferenceStats は直近生成時の補助表示のみ。
                                                 message.toInferenceStats() ?: if (index == latestAssistantIndex) {
                                                     latestInferenceStats
                                                 } else {
@@ -1575,17 +1573,19 @@ private fun InferenceStatRow(
     }
 }
 
-private fun Message.toInferenceStats(): InferenceStats? {
-    if (isInferenceStatsMissing()) {
-        return null
-    }
-    if ((completionTokens ?: 0) <= 0 && (generationTimeMs ?: 0L) <= 0L && (evalDurationNs ?: 0L) <= 0L) {
-        return null
-    }
-    return InferenceStats(
-        completionTokens = completionTokens,
-        generationTimeMs = generationTimeMs,
-        evalDurationNs = evalDurationNs,
+
+internal fun createAssistantMessage(
+    chatId: Int,
+    response: String,
+    latestInferenceStats: InferenceStats? = null,
+): Message {
+    return Message(
+        message = response,
+        chatId = chatId,
+        isSendbyMe = false,
+        completionTokens = latestInferenceStats?.completionTokens,
+        generationTimeMs = latestInferenceStats?.generationTimeMs,
+        evalDurationNs = latestInferenceStats?.evalDurationNs,
     )
 }
 
