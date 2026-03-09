@@ -24,7 +24,7 @@ class AndroidTtsController(context: Context) {
         const val MAX_SPEECH_RATE: Float = 1.20f
         const val MIN_PITCH: Float = 0.80f
         const val MAX_PITCH: Float = 1.40f
-        const val AUTO_SPEAK_COOLDOWN_MS: Long = 2_500L
+        const val AUTO_SPEAK_COOLDOWN_MS: Long = 1_200L
     }
 
     private val appContext = context.applicationContext
