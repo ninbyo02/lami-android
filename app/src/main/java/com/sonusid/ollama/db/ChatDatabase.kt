@@ -47,6 +47,8 @@ abstract class ChatDatabase : RoomDatabase() {
 
         private val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(database: SupportSQLiteDatabase) {
+                // 既存行の backfill は行わず、追加列は NULL のまま残す。
+                // そのため統計値は v5 移行後に新規保存されたメッセージのみ保持される。
                 database.execSQL("ALTER TABLE chat_table ADD COLUMN completionTokens INTEGER")
                 database.execSQL("ALTER TABLE chat_table ADD COLUMN generationTimeMs INTEGER")
                 database.execSQL("ALTER TABLE chat_table ADD COLUMN evalDurationNs INTEGER")
