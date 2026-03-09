@@ -1090,6 +1090,42 @@ fun Home(
                                 }
                             }
                         }
+                        val shouldShowScrollToBottomFab by remember(
+                            listState,
+                            latestAssistantIndex,
+                            messagesForList.size,
+                        ) {
+                            derivedStateOf {
+                                if (messagesForList.isEmpty()) {
+                                    false
+                                } else {
+                                    val targetMessageIndex =
+                                        if (latestAssistantIndex >= 0) {
+                                            latestAssistantIndex
+                                        } else {
+                                            messagesForList.lastIndex
+                                        }
+                                    if (targetMessageIndex < 0) {
+                                        false
+                                    } else {
+                                        val layoutInfo = listState.layoutInfo
+                                        val targetMessageItem =
+                                            layoutInfo.visibleItemsInfo.lastOrNull {
+                                                it.index == targetMessageIndex
+                                            }
+                                        val nearBottomEpsilonPx = 24
+                                        if (targetMessageItem == null) {
+                                            true
+                                        } else {
+                                            val targetMessageBottom =
+                                                targetMessageItem.offset + targetMessageItem.size
+                                            targetMessageBottom >
+                                                (layoutInfo.viewportEndOffset + nearBottomEpsilonPx)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
                         var autoFollowEnabled by remember(effectiveChatId) { mutableStateOf(true) }
                         var previousMessageCount by remember(effectiveChatId) { mutableStateOf(-1) }
@@ -1323,7 +1359,7 @@ fun Home(
                                 }
                             }
 
-                            if (!isNearBottom && messagesForList.isNotEmpty()) {
+                            if (shouldShowScrollToBottomFab) {
                                 SmallFloatingActionButton(
                                     onClick = {
                                         val lastIndex = messagesForList.lastIndex
