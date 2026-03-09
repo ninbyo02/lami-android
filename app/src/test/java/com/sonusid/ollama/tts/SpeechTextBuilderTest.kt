@@ -168,6 +168,20 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun headingGamepadEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🎮 操作方法:")
+
+        assertEquals("操作方法:", actual)
+    }
+
+    @Test
+    fun headingGamepadEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("🎮️ 操作方法:")
+
+        assertEquals("操作方法:", actual)
+    }
+
+    @Test
     fun headingPuzzleEmoji_isRemoved() {
         val actual = SpeechTextBuilder.build("🧩 拡張例:")
 

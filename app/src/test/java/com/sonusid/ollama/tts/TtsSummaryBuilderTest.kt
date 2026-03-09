@@ -46,13 +46,14 @@ class TtsSummaryBuilderTest {
     }
 
     @Test
-    fun codeResponse_addsCodeIntro() {
+    fun codeResponse_keepsOriginalSpeechText() {
         val raw = "```python\nprint('hello')\n```"
         val speech = SpeechTextBuilder.build(raw)
 
         val actual = TtsSummaryBuilder.build(rawDisplayText = raw, speechText = speech)
 
-        assertTrue(actual.contains("コード例があります。ポイントをお話ししますね。"))
+        assertEquals(speech, actual)
+        assertTrue(actual.contains("コード例があります。ポイントをお話ししますね。").not())
     }
 
     @Test
