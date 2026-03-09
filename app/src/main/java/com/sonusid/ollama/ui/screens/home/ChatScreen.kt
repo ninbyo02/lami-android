@@ -127,8 +127,9 @@ import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.util.buildInferenceSummary
-import com.sonusid.ollama.ui.util.formatGenerationTime
+import com.sonusid.ollama.ui.util.formatCompletionTokens
+import com.sonusid.ollama.ui.util.formatInferenceTime
+import com.sonusid.ollama.ui.util.formatModelLabel
 import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
@@ -1391,43 +1392,7 @@ fun Home(
                 selectedInferenceStats = null
             },
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = "推論統計",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                stats?.modelLabel?.takeIf { it.isNotBlank() }?.let { modelLabel ->
-                    InferenceStatRow(label = "モデル", value = modelLabel)
-                }
-                stats?.deviceLabel?.takeIf { it.isNotBlank() }?.let { deviceLabel ->
-                    InferenceStatRow(label = "実行デバイス", value = deviceLabel)
-                }
-                stats?.let(::formatTokenPerSec)?.let { tokenPerSec ->
-                    InferenceStatRow(label = "生成速度", value = tokenPerSec.removePrefix("⚡"))
-                }
-                stats?.completionTokens?.takeIf { it > 0 }?.let { completionTokens ->
-                    InferenceStatRow(label = "出力トークン数", value = "$completionTokens")
-                }
-                stats?.let(::formatGenerationTime)?.let { generationTime ->
-                    InferenceStatRow(label = "推論時間", value = generationTime)
-                }
-                if (stats?.let(::buildInferenceSummary) == null &&
-                    stats?.modelLabel.isNullOrBlank() &&
-                    stats?.deviceLabel.isNullOrBlank() &&
-                    (stats?.completionTokens ?: 0) <= 0
-                ) {
-                    Text(
-                        text = "表示できる統計がありません",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            stats?.let { InferenceStatsSheetContent(it) }
         }
     }
 
@@ -1483,22 +1448,67 @@ fun Home(
 private fun InferenceStatRow(
     label: String,
     value: String,
+    emphasizeValue: Boolean = false,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (emphasizeValue) FontWeight.Medium else FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+@Composable
+private fun InferenceStatsSheetContent(stats: InferenceStats) {
+    val entries = listOfNotNull(
+        formatModelLabel(stats)?.let { Triple("モデル", it, false) },
+        formatTokenPerSec(stats)?.removePrefix("⚡")?.trim()?.takeIf { it.isNotBlank() }
+            ?.let { Triple("生成速度", it, true) },
+        formatCompletionTokens(stats)?.let { Triple("出力トークン数", it, false) },
+        formatInferenceTime(stats)?.let { Triple("推論時間", it, false) },
+        stats.deviceLabel?.takeIf { it.isNotBlank() }?.let { Triple("実行デバイス", it, false) },
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
+            .padding(20.dp),
+    ) {
+        Text(
+            text = "推論統計",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        // タイトル直下の区切りを維持しつつ、項目との間隔を最小限で確保する。
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (entries.isEmpty()) {
+            Text(
+                text = "表示できる統計がありません",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return
+        }
+
+        entries.forEachIndexed { index, (label, value, emphasizeValue) ->
+            InferenceStatRow(
+                label = label,
+                value = value,
+                emphasizeValue = emphasizeValue,
+            )
+            if (index < entries.lastIndex) {
+                // 各項目の読み取りをしやすくするため、指定どおり 12dp で統一する。
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
     }
 }
 

@@ -26,4 +26,18 @@ class InferenceStatsFormatterTest {
 
         assertEquals("3.2s", buildInferenceSummary(stats))
     }
+
+    @Test
+    fun `formatCompletionTokens formats with grouping`() {
+        val stats = InferenceStats(completionTokens = 1696)
+
+        assertEquals("1,696", formatCompletionTokens(stats))
+    }
+
+    @Test
+    fun `formatInferenceTime adds readable suffix spacing`() {
+        val stats = InferenceStats(generationTimeMs = 18_700)
+
+        assertEquals("18.7 s", formatInferenceTime(stats))
+    }
 }
