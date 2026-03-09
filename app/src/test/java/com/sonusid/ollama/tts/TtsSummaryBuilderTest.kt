@@ -56,13 +56,13 @@ class TtsSummaryBuilderTest {
     }
 
     @Test
-    fun longExplanation_addsDefaultIntro() {
+    fun longExplanation_keepsOriginalSpeechText() {
         val raw = "まず状況を整理します。次に原因候補を確認します。最後に再発防止策を提案します。"
         val speech = SpeechTextBuilder.build(raw)
 
         val actual = TtsSummaryBuilder.build(rawDisplayText = raw, speechText = speech)
 
-        assertTrue(actual.contains("結論からお伝えしますね。"))
+        assertEquals(speech, actual)
     }
 
     @Test
