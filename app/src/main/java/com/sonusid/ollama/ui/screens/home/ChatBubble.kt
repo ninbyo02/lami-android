@@ -27,8 +27,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -630,6 +630,9 @@ fun PlainAssistantMessage(
     onCopyAllClick: (() -> Unit)? = null,
 ) {
     val segments = remember(message) { parseFencedCodeSegments(message) }
+    val replayIcon = if (isReplaying) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp
+    val replayDescription = if (isReplaying) "再生を停止" else "回答を再生"
+    val replayAction = if (isReplaying) onStopReplayClick else onReplayClick
 
     Column(
         modifier = Modifier
@@ -650,18 +653,12 @@ fun PlainAssistantMessage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = {
-                        if (isReplaying) {
-                            onStopReplayClick?.invoke()
-                        } else {
-                            onReplayClick?.invoke()
-                        }
-                    },
+                    onClick = { replayAction?.invoke() },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = if (isReplaying) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = if (isReplaying) "再生を停止" else "回答を再生",
+                        imageVector = replayIcon,
+                        contentDescription = replayDescription,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -697,21 +694,24 @@ private fun MessageSegments(
             when (segment) {
                 is Segment.Text -> {
                     if (segment.text.isNotEmpty()) {
-                        MarkdownText(
-                            segment.text,
-                            style = markdownTextStyle,
-                            isTextSelectable = enableTextSelection,
-                            syntaxHighlightColor = inlineCodeBg,
-                            beforeSetMarkdown = { textView, spanned ->
-                                if (spanned is Spannable) {
-                                    replaceInlineCodeSpans(
-                                        textView = textView,
-                                        text = spanned,
-                                        backgroundColor = inlineCodeBg.toArgb()
-                                    )
+                        val textComposable: @Composable () -> Unit = {
+                            MarkdownText(
+                                segment.text,
+                                style = markdownTextStyle,
+                                isTextSelectable = enableTextSelection,
+                                syntaxHighlightColor = inlineCodeBg,
+                                beforeSetMarkdown = { textView, spanned ->
+                                    if (spanned is Spannable) {
+                                        replaceInlineCodeSpans(
+                                            textView = textView,
+                                            text = spanned,
+                                            backgroundColor = inlineCodeBg.toArgb()
+                                        )
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
+                        textComposable()
                     }
                 }
 
