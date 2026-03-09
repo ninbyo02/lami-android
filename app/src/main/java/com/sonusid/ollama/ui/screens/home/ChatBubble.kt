@@ -34,9 +34,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -621,6 +623,9 @@ private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<
 fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+    showMessageActions: Boolean = false,
+    onReplayClick: (() -> Unit)? = null,
+    onCopyAllClick: (() -> Unit)? = null,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
@@ -637,6 +642,36 @@ fun PlainAssistantMessage(
             )
     ) {
         MessageSegments(segments = segments)
+        if (showMessageActions) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { onReplayClick?.invoke() },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.VolumeUp,
+                        contentDescription = "回答を再生",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { onCopyAllClick?.invoke() },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = "全文をコピー",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
