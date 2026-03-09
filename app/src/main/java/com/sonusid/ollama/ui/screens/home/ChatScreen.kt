@@ -1066,19 +1066,32 @@ fun Home(
                         val listState = rememberSaveable(effectiveChatId, saver = LazyListState.Saver) {
                             LazyListState(firstVisibleItemIndex = anchor)
                         }
-                        val isNearBottom by remember(listState) {
+                        val lastContentIndex = remember(messagesForList.size, uiState) {
+                            val lastMessageIndex = messagesForList.lastIndex
+                            if (lastMessageIndex < 0) {
+                                -1
+                            } else {
+                                if (uiState is UiState.Loading) lastMessageIndex + 1 else lastMessageIndex
+                            }
+                        }
+                        val isNearBottom by remember(listState, lastContentIndex) {
                             derivedStateOf {
                                 val layoutInfo = listState.layoutInfo
-                                val totalItems = layoutInfo.totalItemsCount
-                                if (totalItems == 0) {
+                                val visibleItems = layoutInfo.visibleItemsInfo
+                                val nearBottomEpsilonPx = 24
+                                if (lastContentIndex < 0) {
                                     true
                                 } else {
-                                    val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-                                    lastVisibleIndex >= totalItems - 2
+                                    val lastVisibleContentItem =
+                                        visibleItems.lastOrNull { it.index <= lastContentIndex }
+                                    lastVisibleContentItem != null &&
+                                        (lastVisibleContentItem.offset + lastVisibleContentItem.size) <=
+                                        (layoutInfo.viewportEndOffset + nearBottomEpsilonPx)
                                 }
                             }
                         }
                         var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
+                        var autoFollowEnabled by remember(effectiveChatId) { mutableStateOf(true) }
                         var previousMessageCount by remember(effectiveChatId) { mutableStateOf(-1) }
                         var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
                         var suppressFollowOnce by remember(effectiveChatId) { mutableStateOf(false) }
@@ -1087,12 +1100,19 @@ fun Home(
                             previousMessageCount = messagesForList.size
                             lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
                             suppressFollowOnce = true
+                            autoFollowEnabled = true
                         }
 
                         LaunchedEffect(listState) {
-                            snapshotFlow { isNearBottom }
-                                .collect { nearBottom ->
+                            snapshotFlow { listState.isScrollInProgress to isNearBottom }
+                                .collect { (isScrolling, nearBottom) ->
                                     isNearBottomSnapshot = nearBottom
+                                    if (isScrolling && !nearBottom) {
+                                        autoFollowEnabled = false
+                                    }
+                                    if (nearBottom) {
+                                        autoFollowEnabled = true
+                                    }
                                 }
                         }
 
@@ -1162,7 +1182,7 @@ fun Home(
 
                                 if (messagesForList.isNotEmpty()) {
                                     val lastIndex = messagesForList.lastIndex
-                                    if (appended && isNearBottomSnapshot && !suppressFollowOnce && lastIndex >= 0) {
+                                    if (appended && isNearBottomSnapshot && autoFollowEnabled && !suppressFollowOnce && lastIndex >= 0) {
                                         listState.scrollToItem(lastIndex)
                                     }
                                 }
@@ -1308,6 +1328,7 @@ fun Home(
                                     onClick = {
                                         val lastIndex = messagesForList.lastIndex
                                         if (lastIndex >= 0) {
+                                            autoFollowEnabled = true
                                             coroutineScope.launch {
                                                 listState.animateScrollToItem(lastIndex)
                                             }
