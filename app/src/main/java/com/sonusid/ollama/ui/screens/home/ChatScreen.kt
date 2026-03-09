@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.home
 
 import android.net.Uri
+import android.util.Log
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -115,10 +116,12 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.db.entity.isInferenceStatsMissing
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.tts.AndroidTtsController
@@ -1059,6 +1062,16 @@ fun Home(
                 } else {
                     messagesForListBase
                 }
+                LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
+                    if (!BuildConfig.DEBUG) return@LaunchedEffect
+                    val assistantMessages = messagesForList.filterNot { it.isSendbyMe }
+                    val missingCount = assistantMessages.count { it.isInferenceStatsMissing() }
+                    val storedCount = assistantMessages.size - missingCount
+                    Log.d(
+                        "InferenceStatsAudit",
+                        "chatId=$effectiveChatId assistant=${assistantMessages.size} stored=$storedCount missing=$missingCount",
+                    )
+                }
                 val isListForCurrentChatForUi =
                     currentChatId != null &&
                         (messagesForListBase.isEmpty() || messagesForListBase.all { it.chatId == currentChatId })
@@ -1563,6 +1576,9 @@ private fun InferenceStatRow(
 }
 
 private fun Message.toInferenceStats(): InferenceStats? {
+    if (isInferenceStatsMissing()) {
+        return null
+    }
     if ((completionTokens ?: 0) <= 0 && (generationTimeMs ?: 0L) <= 0L && (evalDurationNs ?: 0L) <= 0L) {
         return null
     }
