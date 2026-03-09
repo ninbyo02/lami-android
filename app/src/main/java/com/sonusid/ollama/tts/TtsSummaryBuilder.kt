@@ -4,9 +4,10 @@ object TtsSummaryBuilder {
     private const val DEFAULT_INTRO = "結論からお伝えしますね。"
     private const val LIST_INTRO = "順番に説明しますね。"
     private const val CODE_INTRO = "コード例があります。ポイントをお話ししますね。"
-    private const val ERROR_INTRO = "状況を確認しますね。"
 
-    private const val SHORT_TEXT_MAX_LENGTH = 30
+    private const val LONG_FORM_MIN_SENTENCE_COUNT = 3
+    private const val LONG_FORM_MIN_LENGTH = 70
+
     private val sentenceDelimiterRegex = Regex("[。！？!?]+")
     private val fencedCodeRegex = Regex("```[\\s\\S]*?```")
     private val listLineRegex = Regex("(?m)^\\s*(?:[-*•]|\\d+\\.)\\s+")
@@ -17,32 +18,24 @@ object TtsSummaryBuilder {
             return ""
         }
 
-        if (shouldKeepAsIs(rawDisplayText = rawDisplayText, speechText = normalizedSpeechText)) {
-            return normalizedSpeechText
+        if (containsFencedCode(rawDisplayText)) {
+            return "$CODE_INTRO $normalizedSpeechText"
         }
 
-        val intro = when {
-            isError -> ERROR_INTRO
-            containsFencedCode(rawDisplayText) -> CODE_INTRO
-            looksLikeList(rawDisplayText) -> LIST_INTRO
-            else -> DEFAULT_INTRO
+        if (looksLikeList(rawDisplayText)) {
+            return "$LIST_INTRO $normalizedSpeechText"
         }
 
-        return "$intro $normalizedSpeechText"
+        if (shouldAddLongFormIntro(normalizedSpeechText)) {
+            return "$DEFAULT_INTRO $normalizedSpeechText"
+        }
+
+        return normalizedSpeechText
     }
 
-    private fun shouldKeepAsIs(rawDisplayText: String, speechText: String): Boolean {
-        if (containsFencedCode(rawDisplayText) || looksLikeList(rawDisplayText)) {
-            return false
-        }
-
-        if (speechText.length > SHORT_TEXT_MAX_LENGTH) {
-            return false
-        }
-
-        val sentenceCount = sentenceCount(speechText)
-
-        return sentenceCount <= 1
+    private fun shouldAddLongFormIntro(speechText: String): Boolean {
+        return sentenceCount(speechText) >= LONG_FORM_MIN_SENTENCE_COUNT ||
+            speechText.length >= LONG_FORM_MIN_LENGTH
     }
 
     private fun sentenceCount(speechText: String): Int {
