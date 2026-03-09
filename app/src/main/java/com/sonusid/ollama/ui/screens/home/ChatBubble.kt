@@ -28,6 +28,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -917,13 +918,15 @@ private fun CodeBlockCard(
                             )
                         }
                     }
-                    Text(
-                        text = highlightedCode,
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        fontFamily = FontFamily.Monospace,
-                        style = codeTextStyle,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    SelectionContainer {
+                        Text(
+                            text = highlightedCode,
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            fontFamily = FontFamily.Monospace,
+                            style = codeTextStyle,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
         }
