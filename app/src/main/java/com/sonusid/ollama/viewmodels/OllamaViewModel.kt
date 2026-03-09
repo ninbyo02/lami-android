@@ -17,6 +17,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.util.RuntimeFlags
@@ -66,6 +67,8 @@ class OllamaViewModel(
     val animationEpochMs: StateFlow<Long> = _animationEpochMs.asStateFlow()
     private val _isTtsPlaying = MutableStateFlow(false)
     val isTtsPlaying: StateFlow<Boolean> = _isTtsPlaying.asStateFlow()
+    private val _latestInferenceStats = MutableStateFlow<InferenceStats?>(null)
+    val latestInferenceStats: StateFlow<InferenceStats?> = _latestInferenceStats.asStateFlow()
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
@@ -243,6 +246,8 @@ class OllamaViewModel(
             onAttachmentPrepared?.invoke(savedAttachmentUriStrings.takeIf { it.isNotEmpty() })
             onPromptSubmitted()
             _uiState.value = UiState.Loading
+            _latestInferenceStats.value = null
+            val generationStartedAtMs = SystemClock.elapsedRealtime()
 
             val effectivePrompt = if (prompt.isBlank() && attachmentUris.isNotEmpty()) {
                 "この画像について説明して。"
@@ -265,15 +270,22 @@ class OllamaViewModel(
                         onResponseReceived(0)
                         updateErrorState("Empty response")
                     } else {
+                        val generationTimeMs = (SystemClock.elapsedRealtime() - generationStartedAtMs).coerceAtLeast(0L)
+                        _latestInferenceStats.value = InferenceStats(
+                            modelLabel = model,
+                            generationTimeMs = generationTimeMs,
+                        )
                         _uiState.value = UiState.Success(finalText)
                     }
                 } catch (e: Exception) {
                     Log.e("OllamaError", "Request failed: ${e.message}")
                     onResponseReceived(e.message?.length ?: 0)
+                    _latestInferenceStats.value = null
                     updateErrorState(e.message ?: "Unknown error")
                 }
             } else {
                 onResponseReceived("Please Choose A model".length)
+                _latestInferenceStats.value = null
                 _uiState.value = UiState.Success("Please Choose A model")
             }
         }
