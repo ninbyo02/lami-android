@@ -1459,7 +1459,7 @@ private fun InferenceStatRow(
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (emphasizeValue) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (emphasizeValue) FontWeight.SemiBold else FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
@@ -1485,6 +1485,7 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
         Text(
             text = "推論統計",
             style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
         )
         // タイトル直下の区切りを維持しつつ、項目との間隔を最小限で確保する。
         Spacer(modifier = Modifier.height(12.dp))
