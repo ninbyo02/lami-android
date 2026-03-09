@@ -98,6 +98,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -199,6 +200,7 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
@@ -1241,7 +1243,14 @@ fun Home(
                                                 attachmentUriStringsJson = message.attachmentUriStringsJson,
                                             )
                                         } else {
-                                            PlainAssistantMessage(message.message)
+                                            PlainAssistantMessage(
+                                                message = message.message,
+                                                showMessageActions = true,
+                                                onReplayClick = { ttsController.speak(message.message) },
+                                                onCopyAllClick = {
+                                                    clipboardManager.setText(AnnotatedString(message.message))
+                                                }
+                                            )
                                         }
                                     }
                                 }
