@@ -2,14 +2,16 @@ package com.sonusid.ollama.ui.util
 
 import com.sonusid.ollama.ui.model.InferenceStats
 import java.util.Locale
-import kotlin.math.roundToInt
 
 fun formatTokenPerSec(stats: InferenceStats): String? {
     val tokens = stats.completionTokens ?: return null
-    val generationTimeMs = stats.generationTimeMs ?: return null
-    if (tokens <= 0 || generationTimeMs <= 0L) return null
-    val tokensPerSec = (tokens * 1000.0) / generationTimeMs.toDouble()
-    return String.format(Locale.US, "⚡%d token/s", tokensPerSec.roundToInt())
+    val evalDurationNs = stats.evalDurationNs ?: return null
+    if (tokens <= 0 || evalDurationNs <= 0L) return null
+    val seconds = evalDurationNs / 1_000_000_000.0
+    if (seconds <= 0.0) return null
+    val tokensPerSec = tokens / seconds
+    if (!tokensPerSec.isFinite()) return null
+    return String.format(Locale.US, "⚡%.1f token/s", tokensPerSec)
 }
 
 fun formatGenerationTime(stats: InferenceStats): String? {

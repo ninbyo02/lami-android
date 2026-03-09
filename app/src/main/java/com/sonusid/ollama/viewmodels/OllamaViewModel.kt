@@ -263,17 +263,21 @@ class OllamaViewModel(
 
             if (model != null) {
                 try {
-                    val finalText = withContext(Dispatchers.IO) {
+                    val streamingResult = withContext(Dispatchers.IO) {
                         collectStreamingResponse(request)
                     }
+                    val finalText = streamingResult.text
                     if (finalText.isBlank()) {
                         onResponseReceived(0)
                         updateErrorState("Empty response")
                     } else {
                         val generationTimeMs = (SystemClock.elapsedRealtime() - generationStartedAtMs).coerceAtLeast(0L)
+                        val finalChunk = streamingResult.finalChunk
                         _latestInferenceStats.value = InferenceStats(
-                            modelLabel = model,
+                            modelLabel = finalChunk?.model ?: model,
+                            completionTokens = finalChunk?.evalCount,
                             generationTimeMs = generationTimeMs,
+                            evalDurationNs = finalChunk?.evalDurationNs,
                         )
                         _uiState.value = UiState.Success(finalText)
                     }
@@ -291,7 +295,7 @@ class OllamaViewModel(
         }
     }
 
-    private fun collectStreamingResponse(request: OllamaRequest): String {
+    private fun collectStreamingResponse(request: OllamaRequest): StreamingResult {
         val response = RetrofitClient.instance.generateTextStream(request).execute()
         if (!response.isSuccessful) {
             val error = response.errorBody()?.string().orEmpty()
@@ -305,6 +309,7 @@ class OllamaViewModel(
         val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
         var lastUiUpdateAtMs = 0L
         var latestFlushedLength = 0
+        var finalChunk: StreamChunk? = null
 
         body.charStream().buffered().use { reader ->
             while (true) {
@@ -330,6 +335,7 @@ class OllamaViewModel(
                     }
                 }
                 if (chunk.done) {
+                    finalChunk = chunk
                     val currentText = resultBuilder.toString()
                     if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
                         onResponseReceived(currentText.length)
@@ -348,7 +354,10 @@ class OllamaViewModel(
         if (resultBuilder.isEmpty()) {
             throw IOException("Empty response")
         }
-        return resultBuilder.toString()
+        return StreamingResult(
+            text = resultBuilder.toString(),
+            finalChunk = finalChunk,
+        )
     }
 
     private fun parseStreamingChunk(line: String): StreamChunk {
@@ -361,12 +370,38 @@ class OllamaViewModel(
         return StreamChunk(
             text = responseText ?: messageText,
             done = json.optBoolean("done", false),
+            model = json.optNullableString("model"),
+            evalCount = json.optNullableInt("eval_count"),
+            evalDurationNs = json.optNullableLong("eval_duration"),
+            promptEvalCount = json.optNullableInt("prompt_eval_count"),
+            promptEvalDurationNs = json.optNullableLong("prompt_eval_duration"),
+            totalDurationNs = json.optNullableLong("total_duration"),
         )
     }
+
+    private fun JSONObject.optNullableString(name: String): String? =
+        if (has(name) && !isNull(name)) optString(name).takeIf { it.isNotBlank() } else null
+
+    private fun JSONObject.optNullableInt(name: String): Int? =
+        if (has(name) && !isNull(name)) runCatching { getInt(name) }.getOrNull() else null
+
+    private fun JSONObject.optNullableLong(name: String): Long? =
+        if (has(name) && !isNull(name)) runCatching { getLong(name) }.getOrNull() else null
+
+    private data class StreamingResult(
+        val text: String,
+        val finalChunk: StreamChunk? = null,
+    )
 
     private data class StreamChunk(
         val text: String?,
         val done: Boolean,
+        val model: String? = null,
+        val evalCount: Int? = null,
+        val evalDurationNs: Long? = null,
+        val promptEvalCount: Int? = null,
+        val promptEvalDurationNs: Long? = null,
+        val totalDurationNs: Long? = null,
     )
 
     private val _availableModels = MutableStateFlow<List<ModelInfo>>(emptyList())

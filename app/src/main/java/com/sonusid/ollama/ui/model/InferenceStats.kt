@@ -5,4 +5,5 @@ data class InferenceStats(
     val deviceLabel: String? = null,
     val completionTokens: Int? = null,
     val generationTimeMs: Long? = null,
+    val evalDurationNs: Long? = null,
 )
