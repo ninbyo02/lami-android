@@ -1074,6 +1074,18 @@ fun Home(
                                 if (uiState is UiState.Loading) lastMessageIndex + 1 else lastMessageIndex
                             }
                         }
+                        val fabScrollTargetIndex = remember(messagesForList.size, uiState) {
+                            val lastMessageIndex = messagesForList.lastIndex
+                            if (lastMessageIndex < 0) {
+                                -1
+                            } else {
+                                var index = lastMessageIndex
+                                if (uiState is UiState.Loading) {
+                                    index += 1
+                                }
+                                index + 1 // composer_spacer
+                            }
+                        }
                         val isNearBottom by remember(listState, lastContentIndex) {
                             derivedStateOf {
                                 val layoutInfo = listState.layoutInfo
@@ -1362,11 +1374,10 @@ fun Home(
                             if (shouldShowScrollToBottomFab) {
                                 SmallFloatingActionButton(
                                     onClick = {
-                                        val lastIndex = messagesForList.lastIndex
-                                        if (lastIndex >= 0) {
+                                        if (fabScrollTargetIndex >= 0) {
                                             autoFollowEnabled = true
                                             coroutineScope.launch {
-                                                listState.animateScrollToItem(lastIndex)
+                                                listState.animateScrollToItem(fabScrollTargetIndex)
                                             }
                                         }
                                     },
