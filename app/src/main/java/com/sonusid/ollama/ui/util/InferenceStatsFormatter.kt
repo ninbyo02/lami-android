@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.util
 
 import com.sonusid.ollama.ui.model.InferenceStats
+import java.text.NumberFormat
 import java.util.Locale
 
 fun formatTokenPerSec(stats: InferenceStats): String? {
@@ -30,4 +31,18 @@ fun buildInferenceSummary(stats: InferenceStats): String? {
         tokenPerSec != null -> tokenPerSec
         else -> null
     }
+}
+
+fun formatInferenceTime(stats: InferenceStats): String? {
+    return formatGenerationTime(stats)?.replace("s", " s")
+}
+
+fun formatCompletionTokens(stats: InferenceStats): String? {
+    val completionTokens = stats.completionTokens ?: return null
+    if (completionTokens <= 0) return null
+    return NumberFormat.getIntegerInstance(Locale.US).format(completionTokens)
+}
+
+fun formatModelLabel(stats: InferenceStats): String? {
+    return stats.modelLabel?.takeIf { it.isNotBlank() }
 }
