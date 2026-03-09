@@ -182,6 +182,20 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun headingFlagEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("🏁 レースゲームのコード")
+
+        assertEquals("レースゲームのコード", actual)
+    }
+
+    @Test
+    fun headingFlagEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("🏁️ レースゲームのコード")
+
+        assertEquals("レースゲームのコード", actual)
+    }
+
+    @Test
     fun headingPuzzleEmoji_isRemoved() {
         val actual = SpeechTextBuilder.build("🧩 拡張例:")
 

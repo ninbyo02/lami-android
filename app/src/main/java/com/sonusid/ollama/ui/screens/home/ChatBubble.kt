@@ -32,9 +32,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -624,7 +625,9 @@ fun PlainAssistantMessage(
     message: String,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
     showMessageActions: Boolean = false,
+    isReplaying: Boolean = false,
     onReplayClick: (() -> Unit)? = null,
+    onStopReplayClick: (() -> Unit)? = null,
     onCopyAllClick: (() -> Unit)? = null,
 ) {
     val clipboardManager: ClipboardManager = LocalClipboardManager.current
@@ -651,12 +654,18 @@ fun PlainAssistantMessage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { onReplayClick?.invoke() },
+                    onClick = {
+                        if (isReplaying) {
+                            onStopReplayClick?.invoke()
+                        } else {
+                            onReplayClick?.invoke()
+                        }
+                    },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "回答を再生",
+                        imageVector = if (isReplaying) Icons.Filled.Stop else Icons.Filled.VolumeUp,
+                        contentDescription = if (isReplaying) "再生を停止" else "回答を再生",
                         modifier = Modifier.size(16.dp)
                     )
                 }
