@@ -260,13 +260,21 @@ fun Home(
         filterChatsByTitle(sortedChats, chatSearchQuery)
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+    var activeReplayMessageId by remember { mutableStateOf<Int?>(null) }
+    var isReplayPlaying by remember { mutableStateOf(false) }
 
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
+            isReplayPlaying = isPlaying
+            if (!isPlaying) {
+                activeReplayMessageId = null
+            }
         }
         onDispose {
             viewModel.stopTtsPlayback()
+            activeReplayMessageId = null
+            isReplayPlaying = false
             ttsController.shutdown()
         }
     }
@@ -1246,7 +1254,15 @@ fun Home(
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
-                                                onReplayClick = { ttsController.speak(message.message) },
+                                                isReplaying = isReplayPlaying && activeReplayMessageId == message.messageID,
+                                                onReplayClick = {
+                                                    activeReplayMessageId = message.messageID
+                                                    ttsController.speak(message.message)
+                                                },
+                                                onStopReplayClick = {
+                                                    ttsController.stop()
+                                                    activeReplayMessageId = null
+                                                },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
                                                 }

@@ -1,7 +1,6 @@
 package com.sonusid.ollama.tts
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TtsSummaryBuilderTest {
@@ -36,13 +35,13 @@ class TtsSummaryBuilderTest {
     }
 
     @Test
-    fun listResponse_addsListIntro() {
+    fun listResponse_keepsOriginalSpeechTextWithoutIntro() {
         val raw = "- 手順A\n- 手順B\n- 手順C"
         val speech = SpeechTextBuilder.build(raw)
 
         val actual = TtsSummaryBuilder.build(rawDisplayText = raw, speechText = speech)
 
-        assertTrue(actual.contains("順番に説明しますね。"))
+        assertEquals(speech, actual)
     }
 
     @Test
@@ -53,7 +52,6 @@ class TtsSummaryBuilderTest {
         val actual = TtsSummaryBuilder.build(rawDisplayText = raw, speechText = speech)
 
         assertEquals(speech, actual)
-        assertTrue(actual.contains("コード例があります。ポイントをお話ししますね。").not())
     }
 
     @Test
