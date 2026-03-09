@@ -34,6 +34,7 @@ class SpeechTextBuilder private constructor() {
             "🤖", "📣", "🎉", "⚠️", "⚠", "❗", "❓", "🔧", "🛠️", "🛠",
             "🧩", "📄", "📘", "📚", "🗂️", "🗂", "🧪", "🎲", "🎮", "🏁", "😊"
         )
+        private val trailingDecorativeSmileEmojis = listOf("😊", "😊\uFE0E", "😊\uFE0F")
 
         fun build(displayText: String): String {
             if (displayText.isBlank()) {
@@ -66,8 +67,9 @@ class SpeechTextBuilder private constructor() {
             val listMarkerNormalized = normalizeListMarkers(blankCollapsed)
             val normalized = listMarkerNormalized
                 .trim()
+            val trailingSmileNormalized = removeTrailingDecorativeSmile(normalized)
 
-            return normalized.ifEmpty { EMPTY_FALLBACK }
+            return trailingSmileNormalized.ifEmpty { EMPTY_FALLBACK }
         }
 
         private fun classifyFencedCodeLanguage(rawLanguage: String): String {
@@ -182,6 +184,21 @@ class SpeechTextBuilder private constructor() {
             }
 
             return leadingWhitespace + normalizedContent
+        }
+
+        private fun removeTrailingDecorativeSmile(text: String): String {
+            val normalized = text.trimEnd()
+
+            val matchedSuffix = trailingDecorativeSmileEmojis.firstOrNull { emoji ->
+                normalized.endsWith(emoji)
+            } ?: return text
+
+            val withoutSuffix = normalized.removeSuffix(matchedSuffix).trimEnd()
+            if (withoutSuffix.endsWith("😊")) {
+                return text
+            }
+
+            return withoutSuffix
         }
     }
 }

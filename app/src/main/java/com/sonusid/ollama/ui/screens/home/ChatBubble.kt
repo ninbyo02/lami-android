@@ -32,10 +32,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -660,7 +660,7 @@ fun PlainAssistantMessage(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = if (isReplaying) Icons.Filled.Stop else Icons.Filled.VolumeUp,
+                        imageVector = if (isReplaying) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp,
                         contentDescription = if (isReplaying) "再生を停止" else "回答を再生",
                         modifier = Modifier.size(16.dp)
                     )
@@ -697,27 +697,21 @@ private fun MessageSegments(
             when (segment) {
                 is Segment.Text -> {
                     if (segment.text.isNotEmpty()) {
-                        val textComposable: @Composable () -> Unit = {
-                            MarkdownText(
-                                segment.text,
-                                style = markdownTextStyle,
-                                syntaxHighlightColor = inlineCodeBg,
-                                beforeSetMarkdown = { textView, spanned ->
-                                    if (spanned is Spannable) {
-                                        replaceInlineCodeSpans(
-                                            textView = textView,
-                                            text = spanned,
-                                            backgroundColor = inlineCodeBg.toArgb()
-                                        )
-                                    }
+                        MarkdownText(
+                            segment.text,
+                            style = markdownTextStyle,
+                            isTextSelectable = enableTextSelection,
+                            syntaxHighlightColor = inlineCodeBg,
+                            beforeSetMarkdown = { textView, spanned ->
+                                if (spanned is Spannable) {
+                                    replaceInlineCodeSpans(
+                                        textView = textView,
+                                        text = spanned,
+                                        backgroundColor = inlineCodeBg.toArgb()
+                                    )
                                 }
-                            )
-                        }
-                        if (enableTextSelection) {
-                            SelectionContainer { textComposable() }
-                        } else {
-                            textComposable()
-                        }
+                            }
+                        )
                     }
                 }
 
