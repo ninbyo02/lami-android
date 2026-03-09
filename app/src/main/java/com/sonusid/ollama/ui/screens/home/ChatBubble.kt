@@ -77,6 +77,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
+import com.sonusid.ollama.ui.model.InferenceStats
+import com.sonusid.ollama.ui.util.buildInferenceSummary
 import com.sonusid.ollama.ui.text.Segment
 import com.sonusid.ollama.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
@@ -628,11 +630,14 @@ fun PlainAssistantMessage(
     onReplayClick: (() -> Unit)? = null,
     onStopReplayClick: (() -> Unit)? = null,
     onCopyAllClick: (() -> Unit)? = null,
+    inferenceStats: InferenceStats? = null,
+    onInferenceStatsClick: (() -> Unit)? = null,
 ) {
     val segments = remember(message) { parseFencedCodeSegments(message) }
     val replayIcon = if (isReplaying) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp
     val replayDescription = if (isReplaying) "再生を停止" else "回答を再生"
     val replayAction = if (isReplaying) onStopReplayClick else onReplayClick
+    val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
 
     Column(
         modifier = Modifier
@@ -670,6 +675,18 @@ fun PlainAssistantMessage(
                         imageVector = Icons.Filled.ContentCopy,
                         contentDescription = "全文をコピー",
                         modifier = Modifier.size(16.dp)
+                    )
+                }
+                if (inferenceSummary != null) {
+                    Text(
+                        text = inferenceSummary,
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .clickable(enabled = onInferenceStatsClick != null) {
+                                onInferenceStatsClick?.invoke()
+                            },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
