@@ -127,8 +127,9 @@ import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.util.buildInferenceSummary
-import com.sonusid.ollama.ui.util.formatGenerationTime
+import com.sonusid.ollama.ui.util.formatCompletionTokens
+import com.sonusid.ollama.ui.util.formatInferenceTime
+import com.sonusid.ollama.ui.util.formatModelLabel
 import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
@@ -1054,7 +1055,7 @@ fun Home(
                 val isListForCurrentChatForUi =
                     currentChatId != null &&
                         (messagesForListBase.isEmpty() || messagesForListBase.all { it.chatId == currentChatId })
-                val latestAssistantMessageId = messagesForListBase.lastOrNull { !it.isSendbyMe }?.messageID
+                val latestAssistantIndex = messagesForList.indexOfLast { !it.isSendbyMe }
 
                 if (!isListForCurrentChatForUi) {
                     Box(modifier = contentModifier)
@@ -1065,19 +1066,80 @@ fun Home(
                         val listState = rememberSaveable(effectiveChatId, saver = LazyListState.Saver) {
                             LazyListState(firstVisibleItemIndex = anchor)
                         }
-                        val isNearBottom by remember(listState) {
+                        // LazyColumn tail layout:
+                        // [messages...] + [assistant_streaming_indicator?] + [composer_spacer]
+                        val hasLoadingTailItem = uiState is UiState.Loading
+
+                        val lastContentIndex = remember(messagesForList.size, hasLoadingTailItem) {
+                            val lastMessageIndex = messagesForList.lastIndex
+                            if (lastMessageIndex < 0) {
+                                -1
+                            } else {
+                                if (hasLoadingTailItem) lastMessageIndex + 1 else lastMessageIndex
+                            }
+                        }
+                        val fabScrollTargetIndex = remember(lastContentIndex) {
+                            if (lastContentIndex < 0) {
+                                -1
+                            } else {
+                                // FAB押下時は composer_spacer まで送って、最新回答末尾が見える位置へ寄せる
+                                lastContentIndex + 1
+                            }
+                        }
+                        val isNearBottom by remember(listState, lastContentIndex) {
                             derivedStateOf {
                                 val layoutInfo = listState.layoutInfo
-                                val totalItems = layoutInfo.totalItemsCount
-                                if (totalItems == 0) {
+                                val visibleItems = layoutInfo.visibleItemsInfo
+                                val nearBottomEpsilonPx = 24
+                                if (lastContentIndex < 0) {
                                     true
                                 } else {
-                                    val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-                                    lastVisibleIndex >= totalItems - 2
+                                    val lastVisibleContentItem =
+                                        visibleItems.lastOrNull { it.index <= lastContentIndex }
+                                    lastVisibleContentItem != null &&
+                                        (lastVisibleContentItem.offset + lastVisibleContentItem.size) <=
+                                        (layoutInfo.viewportEndOffset + nearBottomEpsilonPx)
+                                }
+                            }
+                        }
+                        val shouldShowScrollToBottomFab by remember(
+                            listState,
+                            latestAssistantIndex,
+                            messagesForList.size,
+                        ) {
+                            derivedStateOf {
+                                if (messagesForList.isEmpty()) {
+                                    false
+                                } else {
+                                    val targetMessageIndex =
+                                        if (latestAssistantIndex >= 0) {
+                                            latestAssistantIndex
+                                        } else {
+                                            messagesForList.lastIndex
+                                        }
+                                    if (targetMessageIndex < 0) {
+                                        false
+                                    } else {
+                                        val layoutInfo = listState.layoutInfo
+                                        val targetMessageItem =
+                                            layoutInfo.visibleItemsInfo.lastOrNull {
+                                                it.index == targetMessageIndex
+                                            }
+                                        val nearBottomEpsilonPx = 24
+                                        if (targetMessageItem == null) {
+                                            true
+                                        } else {
+                                            val targetMessageBottom =
+                                                targetMessageItem.offset + targetMessageItem.size
+                                            targetMessageBottom >
+                                                (layoutInfo.viewportEndOffset + nearBottomEpsilonPx)
+                                        }
+                                    }
                                 }
                             }
                         }
                         var isNearBottomSnapshot by remember(effectiveChatId) { mutableStateOf(true) }
+                        var autoFollowEnabled by remember(effectiveChatId) { mutableStateOf(true) }
                         var previousMessageCount by remember(effectiveChatId) { mutableStateOf(-1) }
                         var lastAppliedAnchor by remember(effectiveChatId) { mutableStateOf(anchor) }
                         var suppressFollowOnce by remember(effectiveChatId) { mutableStateOf(false) }
@@ -1086,12 +1148,19 @@ fun Home(
                             previousMessageCount = messagesForList.size
                             lastAppliedAnchor = computeLatestUserAnchor(messagesForList)
                             suppressFollowOnce = true
+                            autoFollowEnabled = true
                         }
 
                         LaunchedEffect(listState) {
-                            snapshotFlow { isNearBottom }
-                                .collect { nearBottom ->
+                            snapshotFlow { listState.isScrollInProgress to isNearBottom }
+                                .collect { (isScrolling, nearBottom) ->
                                     isNearBottomSnapshot = nearBottom
+                                    if (isScrolling && !nearBottom) {
+                                        autoFollowEnabled = false
+                                    }
+                                    if (nearBottom) {
+                                        autoFollowEnabled = true
+                                    }
                                 }
                         }
 
@@ -1161,7 +1230,7 @@ fun Home(
 
                                 if (messagesForList.isNotEmpty()) {
                                     val lastIndex = messagesForList.lastIndex
-                                    if (appended && isNearBottomSnapshot && !suppressFollowOnce && lastIndex >= 0) {
+                                    if (appended && isNearBottomSnapshot && autoFollowEnabled && !suppressFollowOnce && lastIndex >= 0) {
                                         listState.scrollToItem(lastIndex)
                                     }
                                 }
@@ -1250,7 +1319,7 @@ fun Home(
                                     itemsIndexed(
                                         items = messagesForList,
                                         key = { _, message -> message.messageID.takeIf { it != 0 } ?: "${message.chatId}-${message.message}" }
-                                    ) { _, message ->
+                                    ) { index, message ->
                                         if (message.isSendbyMe) {
                                             ChatBubble(
                                                 message = message.message,
@@ -1260,7 +1329,7 @@ fun Home(
                                             )
                                         } else {
                                             val messageInferenceStats =
-                                                if (message.messageID != 0 && message.messageID == latestAssistantMessageId) {
+                                                if (index == latestAssistantIndex) {
                                                     latestInferenceStats
                                                 } else {
                                                     null
@@ -1291,19 +1360,24 @@ fun Home(
                                         }
                                     }
                                 }
+                                if (uiState is UiState.Loading) {
+                                    item(key = "assistant_streaming_indicator") {
+                                        AssistantStreamingIndicator()
+                                    }
+                                }
                                 item(key = "composer_spacer") {
                                     // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
                                     Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
                                 }
                             }
 
-                            if (!isNearBottom && messagesForList.isNotEmpty()) {
+                            if (shouldShowScrollToBottomFab) {
                                 SmallFloatingActionButton(
                                     onClick = {
-                                        val lastIndex = messagesForList.lastIndex
-                                        if (lastIndex >= 0) {
+                                        if (fabScrollTargetIndex >= 0) {
+                                            autoFollowEnabled = true
                                             coroutineScope.launch {
-                                                listState.animateScrollToItem(lastIndex)
+                                                listState.animateScrollToItem(fabScrollTargetIndex)
                                             }
                                         }
                                     },
@@ -1391,43 +1465,7 @@ fun Home(
                 selectedInferenceStats = null
             },
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = "推論統計",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                stats?.modelLabel?.takeIf { it.isNotBlank() }?.let { modelLabel ->
-                    InferenceStatRow(label = "モデル", value = modelLabel)
-                }
-                stats?.deviceLabel?.takeIf { it.isNotBlank() }?.let { deviceLabel ->
-                    InferenceStatRow(label = "実行デバイス", value = deviceLabel)
-                }
-                stats?.let(::formatTokenPerSec)?.let { tokenPerSec ->
-                    InferenceStatRow(label = "生成速度", value = tokenPerSec.removePrefix("⚡"))
-                }
-                stats?.completionTokens?.takeIf { it > 0 }?.let { completionTokens ->
-                    InferenceStatRow(label = "出力トークン数", value = "$completionTokens")
-                }
-                stats?.let(::formatGenerationTime)?.let { generationTime ->
-                    InferenceStatRow(label = "推論時間", value = generationTime)
-                }
-                if (stats?.let(::buildInferenceSummary) == null &&
-                    stats?.modelLabel.isNullOrBlank() &&
-                    stats?.deviceLabel.isNullOrBlank() &&
-                    (stats?.completionTokens ?: 0) <= 0
-                ) {
-                    Text(
-                        text = "表示できる統計がありません",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            stats?.let { InferenceStatsSheetContent(it) }
         }
     }
 
@@ -1480,25 +1518,82 @@ fun Home(
 
 
 @Composable
-private fun InferenceStatRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+private fun AssistantStreamingIndicator() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .testTag("assistantStreamingIndicator")
     ) {
         Text(
-            text = label,
+            text = "生成中…",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun InferenceStatRow(
+    label: String,
+    value: String,
+    emphasizeValue: Boolean = false,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (emphasizeValue) FontWeight.SemiBold else FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+@Composable
+private fun InferenceStatsSheetContent(stats: InferenceStats) {
+    val entries = listOfNotNull(
+        formatModelLabel(stats)?.let { Triple("モデル", it, false) },
+        formatTokenPerSec(stats)?.removePrefix("⚡")?.trim()?.takeIf { it.isNotBlank() }
+            ?.let { Triple("生成速度", it, true) },
+        formatCompletionTokens(stats)?.let { Triple("出力トークン数", it, false) },
+        formatInferenceTime(stats)?.let { Triple("推論時間", it, false) },
+        stats.deviceLabel?.takeIf { it.isNotBlank() }?.let { Triple("実行デバイス", it, false) },
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "推論統計",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (entries.isEmpty()) {
+            Text(
+                text = "表示できる統計がありません",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return
+        }
+
+        entries.forEach { (label, value, emphasizeValue) ->
+            InferenceStatRow(
+                label = label,
+                value = value,
+                emphasizeValue = emphasizeValue,
+            )
+        }
     }
 }
 
