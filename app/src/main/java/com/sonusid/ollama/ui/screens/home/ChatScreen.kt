@@ -1292,6 +1292,11 @@ fun Home(
                                         }
                                     }
                                 }
+                                if (uiState is UiState.Loading) {
+                                    item(key = "assistant_streaming_indicator") {
+                                        AssistantStreamingIndicator()
+                                    }
+                                }
                                 item(key = "composer_spacer") {
                                     // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
                                     Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
@@ -1443,6 +1448,22 @@ fun Home(
 
 }
 
+
+@Composable
+private fun AssistantStreamingIndicator() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .testTag("assistantStreamingIndicator")
+    ) {
+        Text(
+            text = "生成中…",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
 
 @Composable
 private fun InferenceStatRow(
