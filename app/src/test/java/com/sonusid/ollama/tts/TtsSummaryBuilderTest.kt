@@ -46,8 +46,18 @@ class TtsSummaryBuilderTest {
     }
 
     @Test
-    fun errorResponse_addsErrorIntro() {
-        val raw = "接続に失敗しました。"
+    fun shortGreeting_keepsOriginalSpeechText() {
+        val raw = "こんにちは。"
+        val speech = SpeechTextBuilder.build(raw)
+
+        val actual = TtsSummaryBuilder.build(rawDisplayText = raw, speechText = speech)
+
+        assertEquals("こんにちは。", actual)
+    }
+
+    @Test
+    fun errorResponse_addsErrorIntroWhenLong() {
+        val raw = "接続に失敗しました。ネットワーク設定を確認してから再試行してください。"
         val speech = SpeechTextBuilder.build(raw)
 
         val actual = TtsSummaryBuilder.build(rawDisplayText = raw, speechText = speech, isError = true)

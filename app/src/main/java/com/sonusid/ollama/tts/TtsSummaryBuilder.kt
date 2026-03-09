@@ -17,7 +17,7 @@ object TtsSummaryBuilder {
             return ""
         }
 
-        if (shouldKeepAsIs(normalizedSpeechText)) {
+        if (shouldKeepAsIs(rawDisplayText = rawDisplayText, speechText = normalizedSpeechText)) {
             return normalizedSpeechText
         }
 
@@ -31,17 +31,25 @@ object TtsSummaryBuilder {
         return "$intro $normalizedSpeechText"
     }
 
-    private fun shouldKeepAsIs(speechText: String): Boolean {
+    private fun shouldKeepAsIs(rawDisplayText: String, speechText: String): Boolean {
+        if (containsFencedCode(rawDisplayText) || looksLikeList(rawDisplayText)) {
+            return false
+        }
+
         if (speechText.length > SHORT_TEXT_MAX_LENGTH) {
             return false
         }
 
-        val sentenceCount = sentenceDelimiterRegex
+        val sentenceCount = sentenceCount(speechText)
+
+        return sentenceCount <= 1
+    }
+
+    private fun sentenceCount(speechText: String): Int {
+        return sentenceDelimiterRegex
             .split(speechText)
             .map { it.trim() }
             .count { it.isNotEmpty() }
-
-        return sentenceCount <= 1
     }
 
     private fun containsFencedCode(rawDisplayText: String): Boolean {
