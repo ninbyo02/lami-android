@@ -619,7 +619,6 @@ private fun decodeAttachmentUriStrings(attachmentUriStringsJson: String?): List<
     }.getOrDefault(emptyList())
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlainAssistantMessage(
     message: String,
@@ -630,7 +629,6 @@ fun PlainAssistantMessage(
     onStopReplayClick: (() -> Unit)? = null,
     onCopyAllClick: (() -> Unit)? = null,
 ) {
-    val clipboardManager: ClipboardManager = LocalClipboardManager.current
     val segments = remember(message) { parseFencedCodeSegments(message) }
 
     Column(
@@ -638,13 +636,11 @@ fun PlainAssistantMessage(
             .fillMaxWidth()
             .padding(contentPadding)
             .testTag("assistantPlainMessage")
-            .combinedClickable(
-                enabled = true,
-                onClick = {},
-                onLongClick = { clipboardManager.setText(AnnotatedString(message)) }
-            )
     ) {
-        MessageSegments(segments = segments)
+        MessageSegments(
+            segments = segments,
+            enableTextSelection = true,
+        )
         if (showMessageActions) {
             Row(
                 modifier = Modifier
@@ -685,7 +681,10 @@ fun PlainAssistantMessage(
 }
 
 @Composable
-private fun MessageSegments(segments: List<Segment>) {
+private fun MessageSegments(
+    segments: List<Segment>,
+    enableTextSelection: Boolean = false,
+) {
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val markdownTextStyle = bodyMedium.copy(
         lineHeight = (bodyMedium.lineHeight.value * 0.895f + 4f).sp,
@@ -698,20 +697,27 @@ private fun MessageSegments(segments: List<Segment>) {
             when (segment) {
                 is Segment.Text -> {
                     if (segment.text.isNotEmpty()) {
-                        MarkdownText(
-                            segment.text,
-                            style = markdownTextStyle,
-                            syntaxHighlightColor = inlineCodeBg,
-                            beforeSetMarkdown = { textView, spanned ->
-                                if (spanned is Spannable) {
-                                    replaceInlineCodeSpans(
-                                        textView = textView,
-                                        text = spanned,
-                                        backgroundColor = inlineCodeBg.toArgb()
-                                    )
+                        val textComposable: @Composable () -> Unit = {
+                            MarkdownText(
+                                segment.text,
+                                style = markdownTextStyle,
+                                syntaxHighlightColor = inlineCodeBg,
+                                beforeSetMarkdown = { textView, spanned ->
+                                    if (spanned is Spannable) {
+                                        replaceInlineCodeSpans(
+                                            textView = textView,
+                                            text = spanned,
+                                            backgroundColor = inlineCodeBg.toArgb()
+                                        )
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
+                        if (enableTextSelection) {
+                            SelectionContainer { textComposable() }
+                        } else {
+                            textComposable()
+                        }
                     }
                 }
 

@@ -196,6 +196,20 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun headingSmileEmoji_isRemoved() {
+        val actual = SpeechTextBuilder.build("😊 ありがとうございます")
+
+        assertEquals("ありがとうございます", actual)
+    }
+
+    @Test
+    fun headingSmileEmojiWithVariationSelector_isRemoved() {
+        val actual = SpeechTextBuilder.build("😊️ ありがとうございます")
+
+        assertEquals("ありがとうございます", actual)
+    }
+
+    @Test
     fun headingPuzzleEmoji_isRemoved() {
         val actual = SpeechTextBuilder.build("🧩 拡張例:")
 
