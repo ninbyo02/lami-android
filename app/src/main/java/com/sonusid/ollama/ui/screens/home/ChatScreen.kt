@@ -359,7 +359,14 @@ fun Home(
                     val response = (uiState as UiState.Success).outputText
                     if (currentChatId != null) {
                         viewModel.insert(
-                            Message(message = response, chatId = currentChatId, isSendbyMe = false)
+                            Message(
+                                message = response,
+                                chatId = currentChatId,
+                                isSendbyMe = false,
+                                completionTokens = latestInferenceStats?.completionTokens,
+                                generationTimeMs = latestInferenceStats?.generationTimeMs,
+                                evalDurationNs = latestInferenceStats?.evalDurationNs,
+                            )
                         )
                     }
                     if (!ttsController.isInCooldown()) {
@@ -1329,7 +1336,7 @@ fun Home(
                                             )
                                         } else {
                                             val messageInferenceStats =
-                                                if (index == latestAssistantIndex) {
+                                                message.toInferenceStats() ?: if (index == latestAssistantIndex) {
                                                     latestInferenceStats
                                                 } else {
                                                     null
@@ -1553,6 +1560,17 @@ private fun InferenceStatRow(
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
+}
+
+private fun Message.toInferenceStats(): InferenceStats? {
+    if ((completionTokens ?: 0) <= 0 && (generationTimeMs ?: 0L) <= 0L && (evalDurationNs ?: 0L) <= 0L) {
+        return null
+    }
+    return InferenceStats(
+        completionTokens = completionTokens,
+        generationTimeMs = generationTimeMs,
+        evalDurationNs = evalDurationNs,
+    )
 }
 
 @Composable

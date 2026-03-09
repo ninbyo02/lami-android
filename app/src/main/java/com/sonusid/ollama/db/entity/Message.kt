@@ -11,4 +11,7 @@ data class Message(
     val isSendbyMe: Boolean,
     val attachmentUriString: String? = null,
     val attachmentUriStringsJson: String? = null,
+    val completionTokens: Int? = null,
+    val generationTimeMs: Long? = null,
+    val evalDurationNs: Long? = null,
 )
