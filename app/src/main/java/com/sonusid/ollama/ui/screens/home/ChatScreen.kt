@@ -1066,24 +1066,24 @@ fun Home(
                         val listState = rememberSaveable(effectiveChatId, saver = LazyListState.Saver) {
                             LazyListState(firstVisibleItemIndex = anchor)
                         }
-                        val lastContentIndex = remember(messagesForList.size, uiState) {
+                        // LazyColumn tail layout:
+                        // [messages...] + [assistant_streaming_indicator?] + [composer_spacer]
+                        val hasLoadingTailItem = uiState is UiState.Loading
+
+                        val lastContentIndex = remember(messagesForList.size, hasLoadingTailItem) {
                             val lastMessageIndex = messagesForList.lastIndex
                             if (lastMessageIndex < 0) {
                                 -1
                             } else {
-                                if (uiState is UiState.Loading) lastMessageIndex + 1 else lastMessageIndex
+                                if (hasLoadingTailItem) lastMessageIndex + 1 else lastMessageIndex
                             }
                         }
-                        val fabScrollTargetIndex = remember(messagesForList.size, uiState) {
-                            val lastMessageIndex = messagesForList.lastIndex
-                            if (lastMessageIndex < 0) {
+                        val fabScrollTargetIndex = remember(lastContentIndex) {
+                            if (lastContentIndex < 0) {
                                 -1
                             } else {
-                                var index = lastMessageIndex
-                                if (uiState is UiState.Loading) {
-                                    index += 1
-                                }
-                                index + 1 // composer_spacer
+                                // FAB押下時は composer_spacer まで送って、最新回答末尾が見える位置へ寄せる
+                                lastContentIndex + 1
                             }
                         }
                         val isNearBottom by remember(listState, lastContentIndex) {
