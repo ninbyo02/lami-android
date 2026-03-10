@@ -132,9 +132,9 @@ import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.util.formatCompletionTokens
+import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
-import com.sonusid.ollama.ui.util.formatModelLabel
+import com.sonusid.ollama.ui.util.formatModelName
 import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
@@ -1605,7 +1605,7 @@ internal fun createAssistantMessage(
         generationTimeMs = latestInferenceStats?.generationTimeMs
             ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
         evalDurationNs = latestInferenceStats?.evalDurationNs,
-        modelName = latestInferenceStats?.model,
+        modelName = latestInferenceStats?.modelName ?: latestInferenceStats?.model,
         inputTokens = inputTokens,
         totalTokens = persistedTotalTokens,
         tokensPerSecond = latestInferenceStats?.tokensPerSecond,
@@ -1615,12 +1615,33 @@ internal fun createAssistantMessage(
 
 @Composable
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
-    val modelValue = formatModelLabel(stats) ?: "—"
-    val speedValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—"
-    val inputTokensValue = stats.inputTokens?.toString() ?: "—"
-    val outputTokensValue = formatCompletionTokens(stats) ?: "—"
-    val totalTokensValue = formatTotalTokens(stats) ?: "—"
-    val inferenceTimeValue = formatInferenceTime(stats) ?: "—"
+    val sections = listOf(
+        InferenceStatsSectionUi(
+            title = "モデル情報",
+            items = listOf(
+                InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
+            ),
+        ),
+        InferenceStatsSectionUi(
+            title = "実行情報",
+            items = listOf(
+                InferenceStatItemUi(
+                    label = "生成速度",
+                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                    emphasizeValue = true,
+                ),
+                InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
+            ),
+        ),
+        InferenceStatsSectionUi(
+            title = "トークン",
+            items = listOf(
+                InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
+                InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
+                InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+            ),
+        ),
+    )
 
     Column(
         modifier = Modifier
@@ -1635,22 +1656,26 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
             fontWeight = FontWeight.SemiBold,
         )
 
-        InferenceStatsSection(title = "モデル") {
-            InferenceStatRow(label = "モデル", value = modelValue)
-        }
-
-        InferenceStatsSection(title = "速度 / 時間") {
-            InferenceStatRow(label = "生成速度", value = speedValue, emphasizeValue = true)
-            InferenceStatRow(label = "推論時間", value = inferenceTimeValue)
-        }
-
-        InferenceStatsSection(title = "トークン") {
-            InferenceStatRow(label = "入力トークン数", value = inputTokensValue)
-            InferenceStatRow(label = "出力トークン数", value = outputTokensValue)
-            InferenceStatRow(label = "総トークン数", value = totalTokensValue)
+        sections.forEach { section ->
+            InferenceStatsSection(title = section.title) {
+                section.items.forEach { item ->
+                    InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
+                }
+            }
         }
     }
 }
+
+private data class InferenceStatsSectionUi(
+    val title: String,
+    val items: List<InferenceStatItemUi>,
+)
+
+private data class InferenceStatItemUi(
+    val label: String,
+    val value: String,
+    val emphasizeValue: Boolean = false,
+)
 
 @Composable
 private fun DrawerSearchPill(

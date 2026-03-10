@@ -18,21 +18,28 @@ fun Message.isInferenceStatsMissing(): Boolean {
 
 /**
  * DB 保存済みの推論統計のみを復元する。旧履歴（stats がすべて null）は null を返す。
+ *
+ * 責務メモ:
+ * - finalChunk.model -> Message.modelName -> InferenceStats.modelName
+ * - finalChunk.evalCount -> Message.completionTokens -> InferenceStats.outputTokens
+ * - Message.inferenceTimeSec (保存値) を優先し、欠損時のみ generationTimeMs から導出
  */
 fun Message.toInferenceStats(): InferenceStats? {
     if (isInferenceStatsMissing()) {
         return null
     }
     return InferenceStats(
-        model = modelName,
+        modelName = modelName,
         inputTokens = inputTokens,
         outputTokens = completionTokens,
         totalTokens = totalTokens,
         tokensPerSecond = tokensPerSecond,
         inferenceTimeSec = inferenceTimeSec ?: generationTimeMs?.div(1000.0),
-        modelLabel = modelName,
-        completionTokens = completionTokens,
         generationTimeMs = generationTimeMs,
         evalDurationNs = evalDurationNs,
+        // 互換項目（段階移行用）。
+        model = modelName,
+        modelLabel = modelName,
+        completionTokens = completionTokens,
     )
 }
