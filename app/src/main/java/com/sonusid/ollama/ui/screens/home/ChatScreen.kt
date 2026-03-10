@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,10 +27,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -77,6 +81,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -1628,6 +1633,9 @@ internal fun createAssistantMessage(
 
 @Composable
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
+    var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+
     val sections = listOf(
         InferenceStatsSectionUi(
             title = "モデル情報",
@@ -1648,29 +1656,26 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                 InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
             ),
         ),
-        InferenceStatsSectionUi(
-            title = "トークン",
-            items = listOf(
-                InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
-                InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
-                InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
-            ),
-        ),
-        InferenceStatsSectionUi(
-            title = "詳細",
-            items = listOf(
-                InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
-            ),
-        ),
     )
+    val detailSections = buildInferenceDetailSections(stats)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(scrollState)
             // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
             .padding(20.dp),
+            // 下部コンテンツが IME / ナビゲーションバーに埋もれないようにする。
+            // シート内でのみ insets を吸収し、既存レイアウトへの影響を最小化する。
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
         Text(
             text = "推論統計",
             style = MaterialTheme.typography.titleMedium,
@@ -1684,15 +1689,94 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                 }
             }
         }
+
+            InferenceStatsCollapsibleSectionHeader(
+                expanded = isDetailExpanded,
+                onToggle = { isDetailExpanded = !isDetailExpanded },
+            )
+
+            AnimatedVisibility(visible = isDetailExpanded) {
+                Column(
+                    modifier = Modifier.testTag("inferenceStatsDetailContent"),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    detailSections.forEach { section ->
+                        InferenceStatsSection(title = section.title) {
+                            section.items.forEach { item ->
+                                InferenceStatRow(
+                                    label = item.label,
+                                    value = item.value,
+                                    emphasizeValue = item.emphasizeValue,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-private data class InferenceStatsSectionUi(
+@Composable
+private fun InferenceStatsCollapsibleSectionHeader(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .testTag("inferenceStatsDetailToggle")
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "詳細",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = if (expanded) "詳細を隠す" else "詳細を表示",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                contentDescription = if (expanded) "詳細を隠す" else "詳細を表示",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
+    InferenceStatsSectionUi(
+        title = "トークン",
+        items = listOf(
+            InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
+            InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+        ),
+    ),
+    InferenceStatsSectionUi(
+        title = "補足",
+        items = listOf(
+            InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
+        ),
+    ),
+)
+
+internal data class InferenceStatsSectionUi(
     val title: String,
     val items: List<InferenceStatItemUi>,
 )
 
-private data class InferenceStatItemUi(
+internal data class InferenceStatItemUi(
     val label: String,
     val value: String,
     val emphasizeValue: Boolean = false,
