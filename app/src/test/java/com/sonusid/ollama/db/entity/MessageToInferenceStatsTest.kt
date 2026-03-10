@@ -32,7 +32,7 @@ class MessageToInferenceStatsTest {
         val stats = message.toInferenceStats()
 
         assertNotNull(stats)
-        assertEquals("qwen3-vl:30b", stats?.model)
+        assertEquals("qwen3-vl:30b", stats?.modelName)
         assertEquals(12, stats?.inputTokens)
         assertEquals(34, stats?.outputTokens)
         assertEquals(46, stats?.totalTokens)
@@ -62,4 +62,19 @@ class MessageToInferenceStatsTest {
         assertEquals(0.0, stats?.tokensPerSecond)
         assertEquals(0.0, stats?.inferenceTimeSec)
     }
+    @Test
+    fun `toInferenceStats derives inferenceTimeSec from generationTimeMs when persisted value is missing`() {
+        val message = Message(
+            chatId = 1,
+            message = "fallback",
+            isSendbyMe = false,
+            generationTimeMs = 2_500L,
+        )
+
+        val stats = message.toInferenceStats()
+
+        assertNotNull(stats)
+        assertEquals(2.5, stats?.inferenceTimeSec)
+    }
+
 }

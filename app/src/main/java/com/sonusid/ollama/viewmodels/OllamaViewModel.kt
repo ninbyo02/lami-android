@@ -291,16 +291,19 @@ class OllamaViewModel(
                             ?: (generationTimeMs / 1000.0)
 
                         _latestInferenceStats.value = InferenceStats(
-                            model = finalChunk?.model ?: model,
+                            modelName = finalChunk?.model ?: model,
                             inputTokens = inputTokens,
                             outputTokens = outputTokens,
                             totalTokens = totalTokens,
                             tokensPerSecond = tokensPerSecond,
                             inferenceTimeSec = inferenceTimeSec,
-                            modelLabel = finalChunk?.model ?: model,
-                            completionTokens = outputTokens,
                             generationTimeMs = generationTimeMs,
                             evalDurationNs = finalChunk?.evalDurationNs,
+                            finishReason = finalChunk?.doneReason,
+                            // 旧命名互換（段階的移行用）。
+                            model = finalChunk?.model ?: model,
+                            modelLabel = finalChunk?.model ?: model,
+                            completionTokens = outputTokens,
                         )
                         _uiState.value = UiState.Success(finalText)
                     }
@@ -399,6 +402,7 @@ class OllamaViewModel(
             promptEvalCount = json.optNullableInt("prompt_eval_count"),
             promptEvalDurationNs = json.optNullableLong("prompt_eval_duration"),
             totalDurationNs = json.optNullableLong("total_duration"),
+            doneReason = json.optNullableString("done_reason") ?: json.optNullableString("finish_reason"),
         )
     }
 
@@ -425,6 +429,7 @@ class OllamaViewModel(
         val promptEvalCount: Int? = null,
         val promptEvalDurationNs: Long? = null,
         val totalDurationNs: Long? = null,
+        val doneReason: String? = null,
     )
 
     private val _availableModels = MutableStateFlow<List<ModelInfo>>(emptyList())

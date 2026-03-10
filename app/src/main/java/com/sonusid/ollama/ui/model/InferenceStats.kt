@@ -1,15 +1,28 @@
 package com.sonusid.ollama.ui.model
 
 data class InferenceStats(
-    val model: String? = null,
+    // UI で扱う正規のモデル名。
+    val modelName: String? = null,
     val inputTokens: Int? = null,
+    // UI/表示責務としての正規出力トークン。
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
     val tokensPerSecond: Double? = null,
+    // 秒単位の表示向け導出値（DB 保存値を優先）。
     val inferenceTimeSec: Double? = null,
-    val modelLabel: String? = null,
-    val deviceLabel: String? = null,
-    val completionTokens: Int? = null,
+    // 生値（ミリ秒）。表示は formatter 側で秒に整形する。
     val generationTimeMs: Long? = null,
     val evalDurationNs: Long? = null,
+    // 将来拡張向けの受け皿（取得元が未確定なため nullable）。
+    val finishReason: String? = null,
+    val timeToFirstTokenMs: Long? = null,
+    val imageInputCount: Int? = null,
+    val contextTokensUsed: Int? = null,
+    val contextWindow: Int? = null,
+    val contextUsageRatio: Double? = null,
+    // 旧命名互換。mapper / formatter 内でのみ吸収し、徐々に縮退する。
+    val model: String? = null,
+    val modelLabel: String? = null,
+    val completionTokens: Int? = null,
+    val deviceLabel: String? = null,
 )

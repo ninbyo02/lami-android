@@ -4,9 +4,17 @@ import com.sonusid.ollama.ui.model.InferenceStats
 import java.text.NumberFormat
 import java.util.Locale
 
+private fun resolveOutputTokens(stats: InferenceStats): Int? =
+    stats.outputTokens ?: stats.completionTokens
+
+private fun resolveModelName(stats: InferenceStats): String? =
+    stats.modelName?.takeIf { it.isNotBlank() }
+        ?: stats.model?.takeIf { it.isNotBlank() }
+        ?: stats.modelLabel?.takeIf { it.isNotBlank() }
+
 fun formatTokenPerSec(stats: InferenceStats): String? {
     val tokensPerSec = stats.tokensPerSecond ?: run {
-        val tokens = stats.completionTokens ?: return null
+        val tokens = resolveOutputTokens(stats) ?: return null
         val evalDurationNs = stats.evalDurationNs ?: return null
         if (tokens < 0 || evalDurationNs <= 0L) return null
         val seconds = evalDurationNs / 1_000_000_000.0
@@ -41,23 +49,24 @@ fun formatInferenceTime(stats: InferenceStats): String? {
     return String.format(Locale.US, "%.1f s", seconds)
 }
 
-fun formatCompletionTokens(stats: InferenceStats): String? {
-    val completionTokens = stats.outputTokens ?: stats.completionTokens ?: return null
-    if (completionTokens < 0) return null
-    return NumberFormat.getIntegerInstance(Locale.US).format(completionTokens)
+fun formatOutputTokens(stats: InferenceStats): String? {
+    val outputTokens = resolveOutputTokens(stats) ?: return null
+    if (outputTokens < 0) return null
+    return NumberFormat.getIntegerInstance(Locale.US).format(outputTokens)
 }
 
-fun formatModelLabel(stats: InferenceStats): String? {
-    return stats.model?.takeIf { it.isNotBlank() } ?: stats.modelLabel?.takeIf { it.isNotBlank() }
-}
-
+fun formatModelName(stats: InferenceStats): String? = resolveModelName(stats)
 
 fun formatTotalTokens(stats: InferenceStats): String? {
     val total = stats.totalTokens ?: run {
         val input = stats.inputTokens
-        val output = stats.outputTokens ?: stats.completionTokens
+        val output = resolveOutputTokens(stats)
         if (input != null && output != null) input + output else null
     } ?: return null
     if (total < 0) return null
     return NumberFormat.getIntegerInstance(Locale.US).format(total)
 }
+
+// 旧関数名の互換。既存呼び出しは段階的に formatOutputTokens / formatModelName へ移行する。
+fun formatCompletionTokens(stats: InferenceStats): String? = formatOutputTokens(stats)
+fun formatModelLabel(stats: InferenceStats): String? = formatModelName(stats)

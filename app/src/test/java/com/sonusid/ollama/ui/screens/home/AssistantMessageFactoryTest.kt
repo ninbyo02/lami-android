@@ -9,7 +9,7 @@ class AssistantMessageFactoryTest {
     @Test
     fun `createAssistantMessage keeps inference stats for newly generated response`() {
         val latestStats = InferenceStats(
-            model = "qwen3-vl:30b",
+            modelName = "qwen3-vl:30b",
             inputTokens = 80,
             outputTokens = 120,
             totalTokens = 200,
@@ -67,4 +67,20 @@ class AssistantMessageFactoryTest {
         assertNull(message.generationTimeMs)
         assertNull(message.evalDurationNs)
     }
+    @Test
+    fun `createAssistantMessage prefers canonical modelName over legacy model`() {
+        val latestStats = InferenceStats(
+            modelName = "canonical",
+            model = "legacy",
+        )
+
+        val message = createAssistantMessage(
+            chatId = 7,
+            response = "ok",
+            latestInferenceStats = latestStats,
+        )
+
+        assertEquals("canonical", message.modelName)
+    }
+
 }
