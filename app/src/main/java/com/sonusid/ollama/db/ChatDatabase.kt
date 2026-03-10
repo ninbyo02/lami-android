@@ -12,7 +12,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.entity.TitleSource
 
-@Database(entities = [Chat::class, Message::class], version = 5, exportSchema = false)
+@Database(entities = [Chat::class, Message::class], version = 6, exportSchema = false)
 abstract class ChatDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun chatDao(): ChatDao
@@ -55,6 +55,16 @@ abstract class ChatDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN modelName TEXT")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN inputTokens INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN totalTokens INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN tokensPerSecond REAL")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceTimeSec REAL")
+            }
+        }
+
         fun getDatabase(context: Context): ChatDatabase {
             return INSTANCE ?: synchronized(this) {
                 val db = Room.databaseBuilder(
@@ -62,7 +72,7 @@ abstract class ChatDatabase : RoomDatabase() {
                     ChatDatabase::class.java,
                     "chat-database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                 INSTANCE = db
                 db

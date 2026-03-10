@@ -73,4 +73,42 @@ class InferenceStatsFormatterTest {
 
         assertEquals("17.8 s", formatInferenceTime(stats))
     }
+
+
+    @Test
+    fun `formatTotalTokens prefers persisted totalTokens`() {
+        val stats = InferenceStats(totalTokens = 99, inputTokens = 10, outputTokens = 12)
+
+        assertEquals("99", formatTotalTokens(stats))
+    }
+
+    @Test
+    fun `formatTotalTokens falls back to input plus output`() {
+        val stats = InferenceStats(inputTokens = 10, outputTokens = 12)
+
+        assertEquals("22", formatTotalTokens(stats))
+    }
+
+    @Test
+    fun `formatModelLabel prefers model`() {
+        val stats = InferenceStats(model = "qwen3-vl:30b", modelLabel = "legacy")
+
+        assertEquals("qwen3-vl:30b", formatModelLabel(stats))
+    }
+
+    @Test
+    fun `formatter keeps zero values`() {
+        val stats = InferenceStats(
+            completionTokens = 0,
+            tokensPerSecond = 0.0,
+            inferenceTimeSec = 0.0,
+            totalTokens = 0,
+        )
+
+        assertEquals("⚡0.0 token/s", formatTokenPerSec(stats))
+        assertEquals("0.0 s", formatInferenceTime(stats))
+        assertEquals("0", formatCompletionTokens(stats))
+        assertEquals("0", formatTotalTokens(stats))
+    }
+
 }

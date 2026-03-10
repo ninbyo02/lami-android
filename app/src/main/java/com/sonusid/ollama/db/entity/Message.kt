@@ -14,4 +14,9 @@ data class Message(
     val completionTokens: Int? = null,
     val generationTimeMs: Long? = null,
     val evalDurationNs: Long? = null,
+    val modelName: String? = null,
+    val inputTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val tokensPerSecond: Double? = null,
+    val inferenceTimeSec: Double? = null,
 )
