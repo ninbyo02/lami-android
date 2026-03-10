@@ -19,4 +19,6 @@ data class Message(
     val totalTokens: Int? = null,
     val tokensPerSecond: Double? = null,
     val inferenceTimeSec: Double? = null,
+    val finishReason: String? = null,
+    val imageInputCount: Int? = null,
 )

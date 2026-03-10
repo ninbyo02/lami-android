@@ -13,9 +13,10 @@ data class InferenceStats(
     // 生値（ミリ秒）。表示は formatter 側で秒に整形する。
     val generationTimeMs: Long? = null,
     val evalDurationNs: Long? = null,
-    // 将来拡張向けの受け皿（取得元が未確定なため nullable）。
+    // finalChunk の doneReason / finishReason を保存して表示する。
     val finishReason: String? = null,
     val timeToFirstTokenMs: Long? = null,
+    // 添付画像の枚数。入力トークンとは別指標として扱う。
     val imageInputCount: Int? = null,
     val contextTokensUsed: Int? = null,
     val contextWindow: Int? = null,

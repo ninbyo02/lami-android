@@ -10,6 +10,8 @@ class AssistantMessageFactoryTest {
     fun `createAssistantMessage keeps inference stats for newly generated response`() {
         val latestStats = InferenceStats(
             modelName = "qwen3-vl:30b",
+            finishReason = "stop",
+            imageInputCount = 1,
             inputTokens = 80,
             outputTokens = 120,
             totalTokens = 200,
@@ -33,6 +35,8 @@ class AssistantMessageFactoryTest {
         assertEquals(5.0, message.inferenceTimeSec)
         assertEquals(5_000L, message.generationTimeMs)
         assertEquals(4_500_000_000L, message.evalDurationNs)
+        assertEquals("stop", message.finishReason)
+        assertEquals(1, message.imageInputCount)
     }
 
     @Test
@@ -66,6 +70,8 @@ class AssistantMessageFactoryTest {
         assertNull(message.inferenceTimeSec)
         assertNull(message.generationTimeMs)
         assertNull(message.evalDurationNs)
+        assertNull(message.finishReason)
+        assertNull(message.imageInputCount)
     }
     @Test
     fun `createAssistantMessage prefers canonical modelName over legacy model`() {
@@ -83,4 +89,19 @@ class AssistantMessageFactoryTest {
         assertEquals("canonical", message.modelName)
     }
 
+
+
+    @Test
+    fun `createAssistantMessage stores explicit imageInputCount parameter`() {
+        val latestStats = InferenceStats(imageInputCount = 1)
+
+        val message = createAssistantMessage(
+            chatId = 7,
+            response = "ok",
+            latestInferenceStats = latestStats,
+            imageInputCount = 3,
+        )
+
+        assertEquals(3, message.imageInputCount)
+    }
 }
