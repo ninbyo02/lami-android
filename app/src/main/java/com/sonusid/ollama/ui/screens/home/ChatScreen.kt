@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -1557,13 +1558,15 @@ private fun InferenceStatRow(
     value: String,
     emphasizeValue: Boolean = false,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
@@ -1573,6 +1576,20 @@ private fun InferenceStatRow(
     }
 }
 
+@Composable
+private fun InferenceStatsSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        content()
+    }
+}
 
 internal fun createAssistantMessage(
     chatId: Int,
@@ -1583,50 +1600,48 @@ internal fun createAssistantMessage(
         message = response,
         chatId = chatId,
         isSendbyMe = false,
-        completionTokens = latestInferenceStats?.completionTokens,
-        generationTimeMs = latestInferenceStats?.generationTimeMs,
+        completionTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens,
+        generationTimeMs = latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong()
+            ?: latestInferenceStats?.generationTimeMs,
         evalDurationNs = latestInferenceStats?.evalDurationNs,
     )
 }
 
 @Composable
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
-    val entries = listOfNotNull(
-        formatModelLabel(stats)?.let { Triple("モデル", it, false) },
-        formatTokenPerSec(stats)?.removePrefix("⚡")?.trim()?.takeIf { it.isNotBlank() }
-            ?.let { Triple("生成速度", it, true) },
-        formatCompletionTokens(stats)?.let { Triple("出力トークン数", it, false) },
-        formatInferenceTime(stats)?.let { Triple("推論時間", it, false) },
-        stats.deviceLabel?.takeIf { it.isNotBlank() }?.let { Triple("実行デバイス", it, false) },
-    )
+    val modelValue = formatModelLabel(stats) ?: "—"
+    val speedValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—"
+    val inputTokensValue = stats.inputTokens?.toString() ?: "—"
+    val outputTokensValue = formatCompletionTokens(stats) ?: "—"
+    val totalTokensValue = stats.totalTokens?.toString() ?: "—"
+    val inferenceTimeValue = formatInferenceTime(stats) ?: "—"
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text(
             text = "推論統計",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        if (entries.isEmpty()) {
-            Text(
-                text = "表示できる統計がありません",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return
+
+        InferenceStatsSection(title = "モデル") {
+            InferenceStatRow(label = "モデル", value = modelValue)
         }
 
-        entries.forEach { (label, value, emphasizeValue) ->
-            InferenceStatRow(
-                label = label,
-                value = value,
-                emphasizeValue = emphasizeValue,
-            )
+        InferenceStatsSection(title = "速度 / 時間") {
+            InferenceStatRow(label = "生成速度", value = speedValue, emphasizeValue = true)
+            InferenceStatRow(label = "推論時間", value = inferenceTimeValue)
+        }
+
+        InferenceStatsSection(title = "トークン") {
+            InferenceStatRow(label = "入力トークン数", value = inputTokensValue)
+            InferenceStatRow(label = "出力トークン数", value = outputTokensValue)
+            InferenceStatRow(label = "総トークン数", value = totalTokensValue)
         }
     }
 }

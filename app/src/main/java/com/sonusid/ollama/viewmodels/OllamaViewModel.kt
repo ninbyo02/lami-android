@@ -273,9 +273,32 @@ class OllamaViewModel(
                     } else {
                         val generationTimeMs = (SystemClock.elapsedRealtime() - generationStartedAtMs).coerceAtLeast(0L)
                         val finalChunk = streamingResult.finalChunk
+                        val inputTokens = finalChunk?.promptEvalCount
+                        val outputTokens = finalChunk?.evalCount
+                        val totalTokens = if (inputTokens != null && outputTokens != null) {
+                            inputTokens + outputTokens
+                        } else {
+                            null
+                        }
+                        val tokensPerSecond = finalChunk?.evalDurationNs
+                            ?.takeIf { it > 0L }
+                            ?.let { evalDurationNs ->
+                                outputTokens?.toDouble()?.div(evalDurationNs)?.times(1_000_000_000)
+                            }
+                        val inferenceTimeSec = finalChunk?.totalDurationNs
+                            ?.takeIf { it > 0L }
+                            ?.div(1_000_000_000.0)
+                            ?: (generationTimeMs / 1000.0)
+
                         _latestInferenceStats.value = InferenceStats(
+                            model = finalChunk?.model ?: model,
+                            inputTokens = inputTokens,
+                            outputTokens = outputTokens,
+                            totalTokens = totalTokens,
+                            tokensPerSecond = tokensPerSecond,
+                            inferenceTimeSec = inferenceTimeSec,
                             modelLabel = finalChunk?.model ?: model,
-                            completionTokens = finalChunk?.evalCount,
+                            completionTokens = outputTokens,
                             generationTimeMs = generationTimeMs,
                             evalDurationNs = finalChunk?.evalDurationNs,
                         )

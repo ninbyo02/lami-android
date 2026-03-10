@@ -6,6 +6,14 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class InferenceStatsFormatterTest {
+
+    @Test
+    fun `formatTokenPerSec prefers mapped tokensPerSecond`() {
+        val stats = InferenceStats(tokensPerSecond = 15.94)
+
+        assertEquals("⚡15.9 token/s", formatTokenPerSec(stats))
+    }
+
     @Test
     fun `formatTokenPerSec uses evalDurationNs`() {
         val stats = InferenceStats(completionTokens = 62, evalDurationNs = 5_000_000_000)
@@ -57,5 +65,12 @@ class InferenceStatsFormatterTest {
         val stats = InferenceStats(generationTimeMs = 18_700)
 
         assertEquals("18.7 s", formatInferenceTime(stats))
+    }
+
+    @Test
+    fun `formatInferenceTime prefers mapped inferenceTimeSec`() {
+        val stats = InferenceStats(inferenceTimeSec = 17.84)
+
+        assertEquals("17.8 s", formatInferenceTime(stats))
     }
 }
