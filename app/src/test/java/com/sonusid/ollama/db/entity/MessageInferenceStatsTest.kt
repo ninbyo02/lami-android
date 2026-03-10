@@ -35,4 +35,16 @@ class MessageInferenceStatsTest {
 
         assertFalse(message.isInferenceStatsMissing())
     }
+    @Test
+    fun `isInferenceStatsMissing returns false when timeToFirstTokenMs exists`() {
+        val message = Message(
+            chatId = 1,
+            message = "new",
+            isSendbyMe = false,
+            timeToFirstTokenMs = 0L,
+        )
+
+        assertFalse(message.isInferenceStatsMissing())
+    }
+
 }

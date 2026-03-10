@@ -135,6 +135,7 @@ import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
 import com.sonusid.ollama.ui.util.formatFinishReason
+import com.sonusid.ollama.ui.util.formatTimeToFirstToken
 import com.sonusid.ollama.ui.util.formatImageInputCount
 import com.sonusid.ollama.ui.util.formatModelName
 import com.sonusid.ollama.ui.util.formatTokenPerSec
@@ -1619,6 +1620,7 @@ internal fun createAssistantMessage(
         tokensPerSecond = latestInferenceStats?.tokensPerSecond,
         inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
         finishReason = latestInferenceStats?.finishReason,
+        timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,
         // 画像入力数は添付画像の枚数。入力トークンとは別メトリクスとして保存する。
         imageInputCount = imageInputCount ?: latestInferenceStats?.imageInputCount,
     )
@@ -1642,6 +1644,7 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                     emphasizeValue = true,
                 ),
                 InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
+                InferenceStatItemUi(label = "初回トークン時間", value = formatTimeToFirstToken(stats) ?: "—"),
                 InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
             ),
         ),

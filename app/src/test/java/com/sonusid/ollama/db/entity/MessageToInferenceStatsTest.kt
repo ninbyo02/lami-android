@@ -27,6 +27,7 @@ class MessageToInferenceStatsTest {
             inferenceTimeSec = 3.2,
             generationTimeMs = 3_500L,
             evalDurationNs = 2_000_000_000L,
+            timeToFirstTokenMs = 410L,
         )
 
         val stats = message.toInferenceStats()
@@ -38,6 +39,7 @@ class MessageToInferenceStatsTest {
         assertEquals(46, stats?.totalTokens)
         assertEquals(9.5, stats?.tokensPerSecond)
         assertEquals(3.2, stats?.inferenceTimeSec)
+        assertEquals(410L, stats?.timeToFirstTokenMs)
     }
 
     @Test
@@ -80,12 +82,13 @@ class MessageToInferenceStatsTest {
 
 
     @Test
-    fun `toInferenceStats maps finishReason and imageInputCount`() {
+    fun `toInferenceStats maps finishReason, first token time and imageInputCount`() {
         val message = Message(
             chatId = 1,
             message = "new",
             isSendbyMe = false,
             finishReason = "stop",
+            timeToFirstTokenMs = 0L,
             imageInputCount = 0,
         )
 
@@ -93,6 +96,7 @@ class MessageToInferenceStatsTest {
 
         assertNotNull(stats)
         assertEquals("stop", stats?.finishReason)
+        assertEquals(0L, stats?.timeToFirstTokenMs)
         assertEquals(0, stats?.imageInputCount)
     }
 }

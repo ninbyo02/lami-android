@@ -49,6 +49,19 @@ class InferenceStatsFormatterTest {
         assertEquals("1,696", formatOutputTokens(stats))
     }
 
+
+    @Test
+    fun `formatTimeToFirstToken uses ms and second units`() {
+        assertEquals("123 ms", formatTimeToFirstToken(InferenceStats(timeToFirstTokenMs = 123L)))
+        assertEquals("1.2 s", formatTimeToFirstToken(InferenceStats(timeToFirstTokenMs = 1_230L)))
+    }
+
+    @Test
+    fun `formatTimeToFirstToken keeps zero and null handling`() {
+        assertEquals("0 ms", formatTimeToFirstToken(InferenceStats(timeToFirstTokenMs = 0L)))
+        assertNull(formatTimeToFirstToken(InferenceStats()))
+    }
+
     @Test
     fun `formatInferenceTime adds readable suffix spacing`() {
         val stats = InferenceStats(generationTimeMs = 18_700)
