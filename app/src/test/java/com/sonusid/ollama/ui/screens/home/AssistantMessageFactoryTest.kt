@@ -18,6 +18,9 @@ class AssistantMessageFactoryTest {
             tokensPerSecond = 24.0,
             inferenceTimeSec = 5.0,
             generationTimeMs = 5_000L,
+            modelLoadDurationNs = 2_300_000_000L,
+            promptEvalDurationNs = 1_100_000_000L,
+            generationDurationNs = 4_500_000_000L,
             evalDurationNs = 4_500_000_000L,
             timeToFirstTokenMs = 320L,
         )
@@ -36,6 +39,8 @@ class AssistantMessageFactoryTest {
         assertEquals(5.0, message.inferenceTimeSec)
         assertEquals(5_000L, message.generationTimeMs)
         assertEquals(4_500_000_000L, message.evalDurationNs)
+        assertEquals(2_300_000_000L, message.loadDurationNs)
+        assertEquals(1_100_000_000L, message.promptEvalDurationNs)
         assertEquals("stop", message.finishReason)
         assertEquals(320L, message.timeToFirstTokenMs)
         assertEquals(1, message.imageInputCount)
@@ -72,6 +77,8 @@ class AssistantMessageFactoryTest {
         assertNull(message.inferenceTimeSec)
         assertNull(message.generationTimeMs)
         assertNull(message.evalDurationNs)
+        assertNull(message.loadDurationNs)
+        assertNull(message.promptEvalDurationNs)
         assertNull(message.finishReason)
         assertNull(message.timeToFirstTokenMs)
         assertNull(message.imageInputCount)
