@@ -74,8 +74,19 @@ fun formatModelLabel(stats: InferenceStats): String? = formatModelName(stats)
 
 
 fun formatFinishReason(stats: InferenceStats): String? {
-    val value = stats.finishReason?.trim() ?: return null
-    return value.takeIf { it.isNotEmpty() }
+    val raw = stats.finishReason?.trim()?.lowercase() ?: return null
+    if (raw.isBlank()) return null
+
+    val label = when (raw) {
+        "stop" -> "通常終了"
+        "length" -> "トークン上限"
+        "content_filter" -> "フィルター停止"
+        "error" -> "エラー終了"
+        "cancelled" -> "ユーザー停止"
+        else -> return raw
+    }
+
+    return "$label ($raw)"
 }
 
 fun formatImageInputCount(stats: InferenceStats): String? {
