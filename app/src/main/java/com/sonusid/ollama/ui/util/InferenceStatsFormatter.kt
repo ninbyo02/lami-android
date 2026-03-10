@@ -43,6 +43,17 @@ fun buildInferenceSummary(stats: InferenceStats): String? {
     }
 }
 
+
+fun formatTimeToFirstToken(stats: InferenceStats): String? {
+    val latencyMs = stats.timeToFirstTokenMs ?: return null
+    if (latencyMs < 0L) return null
+    return if (latencyMs < 1_000L) {
+        "$latencyMs ms"
+    } else {
+        String.format(Locale.US, "%.1f s", latencyMs / 1000.0)
+    }
+}
+
 fun formatInferenceTime(stats: InferenceStats): String? {
     val seconds = stats.inferenceTimeSec ?: return formatGenerationTime(stats)?.replace("s", " s")
     if (!seconds.isFinite() || seconds < 0.0) return null

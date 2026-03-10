@@ -264,7 +264,7 @@ class OllamaViewModel(
             if (model != null) {
                 try {
                     val streamingResult = withContext(Dispatchers.IO) {
-                        collectStreamingResponse(request)
+                        collectStreamingResponse(request, generationStartedAtMs)
                     }
                     val finalText = streamingResult.text
                     if (finalText.isBlank()) {
@@ -300,6 +300,8 @@ class OllamaViewModel(
                             generationTimeMs = generationTimeMs,
                             evalDurationNs = finalChunk?.evalDurationNs,
                             finishReason = finalChunk?.doneReason,
+                            // アプリ側計測値。Ollama usage の load_duration とは別指標として扱う。
+                            timeToFirstTokenMs = streamingResult.timeToFirstTokenMs,
                             imageInputCount = attachmentUris.size,
                             // 旧命名互換（段階的移行用）。
                             model = finalChunk?.model ?: model,
@@ -322,7 +324,7 @@ class OllamaViewModel(
         }
     }
 
-    private fun collectStreamingResponse(request: OllamaRequest): StreamingResult {
+    private fun collectStreamingResponse(request: OllamaRequest, requestStartedAtMs: Long): StreamingResult {
         val response = RetrofitClient.instance.generateTextStream(request).execute()
         if (!response.isSuccessful) {
             val error = response.errorBody()?.string().orEmpty()
@@ -337,6 +339,7 @@ class OllamaViewModel(
         var lastUiUpdateAtMs = 0L
         var latestFlushedLength = 0
         var finalChunk: StreamChunk? = null
+        var timeToFirstTokenMs: Long? = null
 
         body.charStream().buffered().use { reader ->
             while (true) {
@@ -346,6 +349,10 @@ class OllamaViewModel(
                     continue
                 }
                 val chunk = parseStreamingChunk(line)
+                if (shouldCaptureFirstAssistantToken(timeToFirstTokenMs, chunk.text)) {
+                    // assistant 本文の最初の非空トークン受信時刻をアプリ側で確定する。
+                    timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
+                }
                 if (!chunk.text.isNullOrBlank()) {
                     resultBuilder.append(chunk.text)
                     val currentText = resultBuilder.toString()
@@ -384,6 +391,7 @@ class OllamaViewModel(
         return StreamingResult(
             text = resultBuilder.toString(),
             finalChunk = finalChunk,
+            timeToFirstTokenMs = timeToFirstTokenMs,
         )
     }
 
@@ -416,9 +424,11 @@ class OllamaViewModel(
     private fun JSONObject.optNullableLong(name: String): Long? =
         if (has(name) && !isNull(name)) runCatching { getLong(name) }.getOrNull() else null
 
+
     private data class StreamingResult(
         val text: String,
         val finalChunk: StreamChunk? = null,
+        val timeToFirstTokenMs: Long? = null,
     )
 
     private data class StreamChunk(

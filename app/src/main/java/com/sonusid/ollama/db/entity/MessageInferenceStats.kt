@@ -15,6 +15,7 @@ fun Message.isInferenceStatsMissing(): Boolean {
         tokensPerSecond == null &&
         inferenceTimeSec == null &&
         finishReason == null &&
+        timeToFirstTokenMs == null &&
         imageInputCount == null
 }
 
@@ -42,6 +43,7 @@ fun Message.toInferenceStats(): InferenceStats? {
         generationTimeMs = generationTimeMs,
         evalDurationNs = evalDurationNs,
         finishReason = finishReason,
+        timeToFirstTokenMs = timeToFirstTokenMs,
         imageInputCount = imageInputCount,
         // 互換項目（段階移行用）。
         model = modelName,

@@ -19,6 +19,7 @@ class AssistantMessageFactoryTest {
             inferenceTimeSec = 5.0,
             generationTimeMs = 5_000L,
             evalDurationNs = 4_500_000_000L,
+            timeToFirstTokenMs = 320L,
         )
 
         val message = createAssistantMessage(
@@ -36,6 +37,7 @@ class AssistantMessageFactoryTest {
         assertEquals(5_000L, message.generationTimeMs)
         assertEquals(4_500_000_000L, message.evalDurationNs)
         assertEquals("stop", message.finishReason)
+        assertEquals(320L, message.timeToFirstTokenMs)
         assertEquals(1, message.imageInputCount)
     }
 
@@ -71,6 +73,7 @@ class AssistantMessageFactoryTest {
         assertNull(message.generationTimeMs)
         assertNull(message.evalDurationNs)
         assertNull(message.finishReason)
+        assertNull(message.timeToFirstTokenMs)
         assertNull(message.imageInputCount)
     }
     @Test
