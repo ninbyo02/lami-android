@@ -20,7 +20,9 @@ fun Message.toInferenceStats(): InferenceStats? {
         return null
     }
     return InferenceStats(
+        outputTokens = completionTokens,
         completionTokens = completionTokens,
+        inferenceTimeSec = generationTimeMs?.div(1000.0),
         generationTimeMs = generationTimeMs,
         evalDurationNs = evalDurationNs,
     )
