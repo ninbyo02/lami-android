@@ -77,6 +77,33 @@ class InferenceStatsFormatterTest {
     }
 
     @Test
+    fun `duration detail formatters convert ns to seconds safely`() {
+        val stats = InferenceStats(
+            modelLoadDurationNs = 2_345_000_000L,
+            promptEvalDurationNs = 650_000_000L,
+            generationDurationNs = 4_050_000_000L,
+        )
+
+        assertEquals("2.3 s", formatModelLoadDuration(stats))
+        assertEquals("0.7 s", formatPromptEvalDuration(stats))
+        assertEquals("4.0 s", formatGenerationDuration(stats))
+    }
+
+    @Test
+    fun `formatGenerationDuration falls back to evalDurationNs`() {
+        val stats = InferenceStats(evalDurationNs = 1_200_000_000L)
+
+        assertEquals("1.2 s", formatGenerationDuration(stats))
+    }
+
+    @Test
+    fun `duration detail formatters return null for null and negative values`() {
+        assertNull(formatModelLoadDuration(InferenceStats()))
+        assertNull(formatPromptEvalDuration(InferenceStats(promptEvalDurationNs = -1L)))
+        assertNull(formatGenerationDuration(InferenceStats(generationDurationNs = -2L)))
+    }
+
+    @Test
     fun `formatTotalTokens prefers persisted totalTokens`() {
         val stats = InferenceStats(totalTokens = 99, inputTokens = 10, outputTokens = 12)
 

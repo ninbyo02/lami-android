@@ -12,6 +12,12 @@ private fun resolveModelName(stats: InferenceStats): String? =
         ?: stats.model?.takeIf { it.isNotBlank() }
         ?: stats.modelLabel?.takeIf { it.isNotBlank() }
 
+private fun formatDurationNsAsSeconds(durationNs: Long?): String? {
+    val safeDurationNs = durationNs ?: return null
+    if (safeDurationNs < 0L) return null
+    return String.format(Locale.US, "%.1f s", safeDurationNs / 1_000_000_000.0)
+}
+
 fun formatTokenPerSec(stats: InferenceStats): String? {
     val tokensPerSec = stats.tokensPerSecond ?: run {
         val tokens = resolveOutputTokens(stats) ?: return null
@@ -59,6 +65,15 @@ fun formatInferenceTime(stats: InferenceStats): String? {
     if (!seconds.isFinite() || seconds < 0.0) return null
     return String.format(Locale.US, "%.1f s", seconds)
 }
+
+fun formatModelLoadDuration(stats: InferenceStats): String? =
+    formatDurationNsAsSeconds(stats.modelLoadDurationNs)
+
+fun formatPromptEvalDuration(stats: InferenceStats): String? =
+    formatDurationNsAsSeconds(stats.promptEvalDurationNs)
+
+fun formatGenerationDuration(stats: InferenceStats): String? =
+    formatDurationNsAsSeconds(stats.generationDurationNs ?: stats.evalDurationNs)
 
 fun formatOutputTokens(stats: InferenceStats): String? {
     val outputTokens = resolveOutputTokens(stats) ?: return null

@@ -142,9 +142,12 @@ import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
 import com.sonusid.ollama.ui.util.formatFinishReason
+import com.sonusid.ollama.ui.util.formatGenerationDuration
 import com.sonusid.ollama.ui.util.formatTimeToFirstToken
 import com.sonusid.ollama.ui.util.formatImageInputCount
+import com.sonusid.ollama.ui.util.formatModelLoadDuration
 import com.sonusid.ollama.ui.util.formatModelName
+import com.sonusid.ollama.ui.util.formatPromptEvalDuration
 import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
@@ -1621,6 +1624,8 @@ internal fun createAssistantMessage(
         generationTimeMs = latestInferenceStats?.generationTimeMs
             ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
         evalDurationNs = latestInferenceStats?.evalDurationNs,
+        loadDurationNs = latestInferenceStats?.modelLoadDurationNs,
+        promptEvalDurationNs = latestInferenceStats?.promptEvalDurationNs,
         modelName = latestInferenceStats?.modelName ?: latestInferenceStats?.model,
         inputTokens = inputTokens,
         totalTokens = persistedTotalTokens,
@@ -1774,6 +1779,14 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
             InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
             InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
             InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+        ),
+    ),
+    InferenceStatsSectionUi(
+        title = "時間詳細",
+        items = listOf(
+            InferenceStatItemUi(label = "モデルロード時間", value = formatModelLoadDuration(stats) ?: "—"),
+            InferenceStatItemUi(label = "入力評価時間", value = formatPromptEvalDuration(stats) ?: "—"),
+            InferenceStatItemUi(label = "生成時間", value = formatGenerationDuration(stats) ?: "—"),
         ),
     ),
     InferenceStatsSectionUi(
