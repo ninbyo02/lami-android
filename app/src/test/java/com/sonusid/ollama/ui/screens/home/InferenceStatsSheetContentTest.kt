@@ -17,6 +17,29 @@ class InferenceStatsSheetContentTest {
         assertEquals("詳細を閉じる", inferenceStatsDetailToggleAccessibilityLabel(expanded = true))
     }
 
+
+    @Test
+    fun `buildInferenceSummarySections returns model and overview sections in expected order`() {
+        val stats = InferenceStats(
+            modelName = "qwen2.5",
+            timeToFirstTokenMs = 420L,
+            inferenceTimeSec = 3.6,
+            tokensPerSecond = 55.5,
+            finishReason = "stop",
+        )
+
+        val sections = buildInferenceSummarySections(stats)
+
+        assertEquals(listOf("モデル情報", "概要"), sections.map { it.title })
+        assertEquals(listOf("使用モデル"), sections[0].items.map { it.label })
+        assertEquals(listOf("qwen2.5"), sections[0].items.map { it.value })
+        assertEquals(
+            listOf("初回トークン時間", "応答時間", "生成速度", "完了理由"),
+            sections[1].items.map { it.label },
+        )
+        assertEquals(listOf("0.4 s", "3.6 s", "55.5 token/s", "正常終了 (stop)"), sections[1].items.map { it.value })
+    }
+
     @Test
     fun `buildInferenceDetailSections returns token and supplement sections in expected order`() {
         val stats = InferenceStats(
