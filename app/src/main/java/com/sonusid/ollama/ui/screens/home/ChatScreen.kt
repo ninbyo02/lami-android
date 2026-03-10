@@ -1593,7 +1593,7 @@ private fun InferenceStatsSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.labelLarge,
@@ -1637,6 +1637,8 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val sheetContentPadding = 18.dp
+    val sectionSpacing = 16.dp
 
     val sections = listOf(
         InferenceStatsSectionUi(
@@ -1666,31 +1668,31 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
             .fillMaxWidth()
             .verticalScroll(scrollState)
             // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
-            .padding(20.dp),
+            .padding(sheetContentPadding),
             // 下部コンテンツが IME / ナビゲーションバーに埋もれないようにする。
             // シート内でのみ insets を吸収し、既存レイアウトへの影響を最小化する。
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
                 .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
         ) {
-        Text(
-            text = "推論統計",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
+            Text(
+                text = "推論統計",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
 
-        sections.forEach { section ->
-            InferenceStatsSection(title = section.title) {
-                section.items.forEach { item ->
-                    InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
+            sections.forEach { section ->
+                InferenceStatsSection(title = section.title) {
+                    section.items.forEach { item ->
+                        InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
+                    }
                 }
             }
-        }
 
             InferenceStatsCollapsibleSectionHeader(
                 expanded = isDetailExpanded,
@@ -1700,7 +1702,7 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
             AnimatedVisibility(visible = isDetailExpanded) {
                 Column(
                     modifier = Modifier.testTag("inferenceStatsDetailContent"),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                 ) {
                     detailSections.forEach { section ->
                         InferenceStatsSection(title = section.title) {
