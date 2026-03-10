@@ -3,10 +3,17 @@ package com.sonusid.ollama.db.entity
 import com.sonusid.ollama.ui.model.InferenceStats
 
 /**
- * v5 追加列が導入される前に保存された履歴は、統計列がすべて null のまま残る。
+ * v6 追加列が導入される前に保存された履歴は、統計列がすべて null のまま残る。
  */
 fun Message.isInferenceStatsMissing(): Boolean {
-    return completionTokens == null && generationTimeMs == null && evalDurationNs == null
+    return completionTokens == null &&
+        generationTimeMs == null &&
+        evalDurationNs == null &&
+        modelName == null &&
+        inputTokens == null &&
+        totalTokens == null &&
+        tokensPerSecond == null &&
+        inferenceTimeSec == null
 }
 
 /**
@@ -16,13 +23,15 @@ fun Message.toInferenceStats(): InferenceStats? {
     if (isInferenceStatsMissing()) {
         return null
     }
-    if ((completionTokens ?: 0) <= 0 && (generationTimeMs ?: 0L) <= 0L && (evalDurationNs ?: 0L) <= 0L) {
-        return null
-    }
     return InferenceStats(
+        model = modelName,
+        inputTokens = inputTokens,
         outputTokens = completionTokens,
+        totalTokens = totalTokens,
+        tokensPerSecond = tokensPerSecond,
+        inferenceTimeSec = inferenceTimeSec ?: generationTimeMs?.div(1000.0),
+        modelLabel = modelName,
         completionTokens = completionTokens,
-        inferenceTimeSec = generationTimeMs?.div(1000.0),
         generationTimeMs = generationTimeMs,
         evalDurationNs = evalDurationNs,
     )

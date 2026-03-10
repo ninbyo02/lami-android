@@ -13,12 +13,24 @@ class MessageInferenceStatsTest {
     }
 
     @Test
-    fun `isInferenceStatsMissing returns false when any stats exists`() {
+    fun `isInferenceStatsMissing returns false when any legacy stats exists`() {
         val message = Message(
             chatId = 1,
             message = "new",
             isSendbyMe = false,
             completionTokens = 42,
+        )
+
+        assertFalse(message.isInferenceStatsMissing())
+    }
+
+    @Test
+    fun `isInferenceStatsMissing returns false when v6 stats exists`() {
+        val message = Message(
+            chatId = 1,
+            message = "new",
+            isSendbyMe = false,
+            modelName = "qwen3-vl:30b",
         )
 
         assertFalse(message.isInferenceStatsMissing())

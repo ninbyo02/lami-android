@@ -136,6 +136,7 @@ import com.sonusid.ollama.ui.util.formatCompletionTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
 import com.sonusid.ollama.ui.util.formatModelLabel
 import com.sonusid.ollama.ui.util.formatTokenPerSec
+import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -1347,12 +1348,8 @@ fun Home(
                                             )
                                         } else {
                                             val messageInferenceStats =
-                                                // 永続表示は DB 保存済み stats を優先し、latestInferenceStats は直近生成時の補助表示のみ。
-                                                message.toInferenceStats() ?: if (index == latestAssistantIndex) {
-                                                    latestInferenceStats
-                                                } else {
-                                                    null
-                                                }
+                                                // 推論統計は保存済み assistant message の値のみを表示する。
+                                                message.toInferenceStats()
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
@@ -1596,14 +1593,23 @@ internal fun createAssistantMessage(
     response: String,
     latestInferenceStats: InferenceStats? = null,
 ): Message {
+    val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
+    val inputTokens = latestInferenceStats?.inputTokens
+    val persistedTotalTokens = latestInferenceStats?.totalTokens
+        ?: if (inputTokens != null && outputTokens != null) inputTokens + outputTokens else null
     return Message(
         message = response,
         chatId = chatId,
         isSendbyMe = false,
-        completionTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens,
-        generationTimeMs = latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong()
-            ?: latestInferenceStats?.generationTimeMs,
+        completionTokens = outputTokens,
+        generationTimeMs = latestInferenceStats?.generationTimeMs
+            ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
         evalDurationNs = latestInferenceStats?.evalDurationNs,
+        modelName = latestInferenceStats?.model,
+        inputTokens = inputTokens,
+        totalTokens = persistedTotalTokens,
+        tokensPerSecond = latestInferenceStats?.tokensPerSecond,
+        inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
     )
 }
 
@@ -1613,7 +1619,7 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
     val speedValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—"
     val inputTokensValue = stats.inputTokens?.toString() ?: "—"
     val outputTokensValue = formatCompletionTokens(stats) ?: "—"
-    val totalTokensValue = stats.totalTokens?.toString() ?: "—"
+    val totalTokensValue = formatTotalTokens(stats) ?: "—"
     val inferenceTimeValue = formatInferenceTime(stats) ?: "—"
 
     Column(
