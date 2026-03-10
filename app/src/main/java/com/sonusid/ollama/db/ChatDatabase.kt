@@ -12,7 +12,7 @@ import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.entity.TitleSource
 
-@Database(entities = [Chat::class, Message::class], version = 4, exportSchema = false)
+@Database(entities = [Chat::class, Message::class], version = 8, exportSchema = false)
 abstract class ChatDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun chatDao(): ChatDao
@@ -45,6 +45,39 @@ abstract class ChatDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // 既存行の backfill は行わず、追加列は NULL のまま残す。
+                // そのため統計値は v5 移行後に新規保存されたメッセージのみ保持される。
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN completionTokens INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN generationTimeMs INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN evalDurationNs INTEGER")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN modelName TEXT")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN inputTokens INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN totalTokens INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN tokensPerSecond REAL")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceTimeSec REAL")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN finishReason TEXT")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN imageInputCount INTEGER")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN timeToFirstTokenMs INTEGER")
+            }
+        }
+
         fun getDatabase(context: Context): ChatDatabase {
             return INSTANCE ?: synchronized(this) {
                 val db = Room.databaseBuilder(
@@ -52,7 +85,7 @@ abstract class ChatDatabase : RoomDatabase() {
                     ChatDatabase::class.java,
                     "chat-database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .build()
                 INSTANCE = db
                 db

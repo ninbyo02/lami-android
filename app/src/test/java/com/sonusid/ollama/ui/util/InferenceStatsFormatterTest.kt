@@ -6,8 +6,23 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class InferenceStatsFormatterTest {
+
     @Test
-    fun `formatTokenPerSec uses evalDurationNs`() {
+    fun `formatTokenPerSec prefers mapped tokensPerSecond`() {
+        val stats = InferenceStats(tokensPerSecond = 15.94)
+
+        assertEquals("⚡15.9 token/s", formatTokenPerSec(stats))
+    }
+
+    @Test
+    fun `formatTokenPerSec uses output tokens with evalDurationNs`() {
+        val stats = InferenceStats(outputTokens = 62, evalDurationNs = 5_000_000_000)
+
+        assertEquals("⚡12.4 token/s", formatTokenPerSec(stats))
+    }
+
+    @Test
+    fun `formatTokenPerSec keeps completionTokens compatibility`() {
         val stats = InferenceStats(completionTokens = 62, evalDurationNs = 5_000_000_000)
 
         assertEquals("⚡12.4 token/s", formatTokenPerSec(stats))
@@ -15,41 +30,36 @@ class InferenceStatsFormatterTest {
 
     @Test
     fun `formatTokenPerSec returns null when evalDurationNs is missing`() {
-        val stats = InferenceStats(completionTokens = 62, generationTimeMs = 5_000)
+        val stats = InferenceStats(outputTokens = 62, generationTimeMs = 5_000)
 
         assertNull(formatTokenPerSec(stats))
     }
 
     @Test
     fun `buildInferenceSummary keeps generation time fallback`() {
-        val stats = InferenceStats(completionTokens = 62, generationTimeMs = 3_200)
+        val stats = InferenceStats(outputTokens = 62, generationTimeMs = 3_200)
 
         assertEquals("3.2s", buildInferenceSummary(stats))
     }
 
     @Test
-    fun `buildInferenceSummary uses token per second fallback`() {
-        val stats = InferenceStats(completionTokens = 62, evalDurationNs = 5_000_000_000)
+    fun `formatOutputTokens formats with grouping`() {
+        val stats = InferenceStats(outputTokens = 1696)
 
-        assertEquals("⚡12.4 token/s", buildInferenceSummary(stats))
+        assertEquals("1,696", formatOutputTokens(stats))
+    }
+
+
+    @Test
+    fun `formatTimeToFirstToken uses ms and second units`() {
+        assertEquals("123 ms", formatTimeToFirstToken(InferenceStats(timeToFirstTokenMs = 123L)))
+        assertEquals("1.2 s", formatTimeToFirstToken(InferenceStats(timeToFirstTokenMs = 1_230L)))
     }
 
     @Test
-    fun `buildInferenceSummary combines token per second and generation time`() {
-        val stats = InferenceStats(
-            completionTokens = 62,
-            evalDurationNs = 5_000_000_000,
-            generationTimeMs = 18_700,
-        )
-
-        assertEquals("⚡12.4 token/s · 18.7s", buildInferenceSummary(stats))
-    }
-
-    @Test
-    fun `formatCompletionTokens formats with grouping`() {
-        val stats = InferenceStats(completionTokens = 1696)
-
-        assertEquals("1,696", formatCompletionTokens(stats))
+    fun `formatTimeToFirstToken keeps zero and null handling`() {
+        assertEquals("0 ms", formatTimeToFirstToken(InferenceStats(timeToFirstTokenMs = 0L)))
+        assertNull(formatTimeToFirstToken(InferenceStats()))
     }
 
     @Test
@@ -57,5 +67,72 @@ class InferenceStatsFormatterTest {
         val stats = InferenceStats(generationTimeMs = 18_700)
 
         assertEquals("18.7 s", formatInferenceTime(stats))
+    }
+
+    @Test
+    fun `formatInferenceTime prefers mapped inferenceTimeSec`() {
+        val stats = InferenceStats(inferenceTimeSec = 17.84, generationTimeMs = 20_000)
+
+        assertEquals("17.8 s", formatInferenceTime(stats))
+    }
+
+    @Test
+    fun `formatTotalTokens prefers persisted totalTokens`() {
+        val stats = InferenceStats(totalTokens = 99, inputTokens = 10, outputTokens = 12)
+
+        assertEquals("99", formatTotalTokens(stats))
+    }
+
+    @Test
+    fun `formatTotalTokens falls back to input plus output`() {
+        val stats = InferenceStats(inputTokens = 10, outputTokens = 12)
+
+        assertEquals("22", formatTotalTokens(stats))
+    }
+
+    @Test
+    fun `formatModelName prefers modelName and keeps legacy fallback`() {
+        val stats = InferenceStats(modelName = "qwen3-vl:30b", model = "legacy-model", modelLabel = "legacy-label")
+
+        assertEquals("qwen3-vl:30b", formatModelName(stats))
+    }
+
+    @Test
+    fun `formatter keeps zero values`() {
+        val stats = InferenceStats(
+            outputTokens = 0,
+            tokensPerSecond = 0.0,
+            inferenceTimeSec = 0.0,
+            totalTokens = 0,
+        )
+
+        assertEquals("⚡0.0 token/s", formatTokenPerSec(stats))
+        assertEquals("0.0 s", formatInferenceTime(stats))
+        assertEquals("0", formatOutputTokens(stats))
+        assertEquals("0", formatTotalTokens(stats))
+    }
+
+
+    @Test
+    fun `formatFinishReason maps known values for user display`() {
+        assertEquals("通常終了 (stop)", formatFinishReason(InferenceStats(finishReason = "stop")))
+        assertEquals("トークン上限 (length)", formatFinishReason(InferenceStats(finishReason = "length")))
+        assertEquals("フィルター停止 (content_filter)", formatFinishReason(InferenceStats(finishReason = "content_filter")))
+        assertEquals("ユーザー停止 (cancelled)", formatFinishReason(InferenceStats(finishReason = "cancelled")))
+    }
+
+    @Test
+    fun `formatFinishReason trims empty and unknown safely`() {
+        assertEquals("通常終了 (stop)", formatFinishReason(InferenceStats(finishReason = "  stop  ")))
+        assertNull(formatFinishReason(InferenceStats(finishReason = "   ")))
+        assertEquals("other", formatFinishReason(InferenceStats(finishReason = "other")))
+        assertNull(formatFinishReason(InferenceStats()))
+    }
+
+    @Test
+    fun `formatImageInputCount keeps zero as valid value`() {
+        assertEquals("0枚", formatImageInputCount(InferenceStats(imageInputCount = 0)))
+        assertEquals("2枚", formatImageInputCount(InferenceStats(imageInputCount = 2)))
+        assertNull(formatImageInputCount(InferenceStats()))
     }
 }

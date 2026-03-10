@@ -1,6 +1,7 @@
 package com.sonusid.ollama.ui.screens.home
 
 import android.net.Uri
+import android.util.Log
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,10 +27,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -75,6 +81,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -101,6 +108,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -115,10 +124,13 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavHostController
+import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
 import com.sonusid.ollama.db.entity.Chat
 import com.sonusid.ollama.db.entity.Message
+import com.sonusid.ollama.db.entity.toInferenceStats
+import com.sonusid.ollama.db.entity.isInferenceStatsMissing
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.tts.AndroidTtsController
@@ -127,10 +139,14 @@ import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.util.formatCompletionTokens
+import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
-import com.sonusid.ollama.ui.util.formatModelLabel
+import com.sonusid.ollama.ui.util.formatFinishReason
+import com.sonusid.ollama.ui.util.formatTimeToFirstToken
+import com.sonusid.ollama.ui.util.formatImageInputCount
+import com.sonusid.ollama.ui.util.formatModelName
 import com.sonusid.ollama.ui.util.formatTokenPerSec
+import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
@@ -209,6 +225,7 @@ fun Home(
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
     // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
@@ -359,27 +376,33 @@ fun Home(
                     val response = (uiState as UiState.Success).outputText
                     if (currentChatId != null) {
                         viewModel.insert(
-                            Message(message = response, chatId = currentChatId, isSendbyMe = false)
+                            createAssistantMessage(
+                                chatId = currentChatId,
+                                response = response,
+                                latestInferenceStats = latestInferenceStats,
+                                imageInputCount = pendingAssistantImageInputCount,
+                            )
                         )
                     }
                     if (!ttsController.isInCooldown()) {
                         ttsController.speak(response)
                     }
                     placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
                     viewModel.resetUiState()
                 }
 
                 is UiState.Error -> {
                     if (currentChatId != null) {
                         viewModel.insert(
-                            Message(
-                                message = (uiState as UiState.Error).errorMessage,
+                            createAssistantMessage(
                                 chatId = currentChatId,
-                                isSendbyMe = false
+                                response = (uiState as UiState.Error).errorMessage,
                             )
                         )
                     }
                     placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
                     viewModel.resetUiState()
                 }
 
@@ -877,6 +900,7 @@ fun Home(
                                             if (currentChatId != null) {
                                                 val requestPrompt = userPrompt
                                                 val requestAttachmentUris = selectedImageUris
+                                                pendingAssistantImageInputCount = requestAttachmentUris.size
                                                 if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
                                                     placeholder = "I'm thinking ... "
                                                     toggle = true
@@ -1051,6 +1075,16 @@ fun Home(
                     )
                 } else {
                     messagesForListBase
+                }
+                LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
+                    if (!BuildConfig.DEBUG) return@LaunchedEffect
+                    val assistantMessages = messagesForList.filterNot { it.isSendbyMe }
+                    val missingCount = assistantMessages.count { it.isInferenceStatsMissing() }
+                    val storedCount = assistantMessages.size - missingCount
+                    Log.d(
+                        "InferenceStatsAudit",
+                        "chatId=$effectiveChatId assistant=${assistantMessages.size} stored=$storedCount missing=$missingCount",
+                    )
                 }
                 val isListForCurrentChatForUi =
                     currentChatId != null &&
@@ -1329,11 +1363,8 @@ fun Home(
                                             )
                                         } else {
                                             val messageInferenceStats =
-                                                if (index == latestAssistantIndex) {
-                                                    latestInferenceStats
-                                                } else {
-                                                    null
-                                                }
+                                                // 推論統計は保存済み assistant message の値のみを表示する。
+                                                message.toInferenceStats()
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
@@ -1539,13 +1570,15 @@ private fun InferenceStatRow(
     value: String,
     emphasizeValue: Boolean = false,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
@@ -1556,46 +1589,211 @@ private fun InferenceStatRow(
 }
 
 @Composable
-private fun InferenceStatsSheetContent(stats: InferenceStats) {
-    val entries = listOfNotNull(
-        formatModelLabel(stats)?.let { Triple("モデル", it, false) },
-        formatTokenPerSec(stats)?.removePrefix("⚡")?.trim()?.takeIf { it.isNotBlank() }
-            ?.let { Triple("生成速度", it, true) },
-        formatCompletionTokens(stats)?.let { Triple("出力トークン数", it, false) },
-        formatInferenceTime(stats)?.let { Triple("推論時間", it, false) },
-        stats.deviceLabel?.takeIf { it.isNotBlank() }?.let { Triple("実行デバイス", it, false) },
+private fun InferenceStatsSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        content()
+    }
+}
+
+internal fun createAssistantMessage(
+    chatId: Int,
+    response: String,
+    latestInferenceStats: InferenceStats? = null,
+    imageInputCount: Int? = null,
+): Message {
+    val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
+    val inputTokens = latestInferenceStats?.inputTokens
+    val persistedTotalTokens = latestInferenceStats?.totalTokens
+        ?: if (inputTokens != null && outputTokens != null) inputTokens + outputTokens else null
+    return Message(
+        message = response,
+        chatId = chatId,
+        isSendbyMe = false,
+        completionTokens = outputTokens,
+        generationTimeMs = latestInferenceStats?.generationTimeMs
+            ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
+        evalDurationNs = latestInferenceStats?.evalDurationNs,
+        modelName = latestInferenceStats?.modelName ?: latestInferenceStats?.model,
+        inputTokens = inputTokens,
+        totalTokens = persistedTotalTokens,
+        tokensPerSecond = latestInferenceStats?.tokensPerSecond,
+        inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
+        finishReason = latestInferenceStats?.finishReason,
+        timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,
+        // 画像入力数は添付画像の枚数。入力トークンとは別メトリクスとして保存する。
+        imageInputCount = imageInputCount ?: latestInferenceStats?.imageInputCount,
     )
+}
+
+@Composable
+private fun InferenceStatsSheetContent(stats: InferenceStats) {
+    var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val sheetContentPadding = 18.dp
+    val sectionSpacing = 16.dp
+
+    val sections = listOf(
+        InferenceStatsSectionUi(
+            title = "モデル情報",
+            items = listOf(
+                InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
+            ),
+        ),
+        InferenceStatsSectionUi(
+            title = "実行情報",
+            items = listOf(
+                InferenceStatItemUi(
+                    label = "生成速度",
+                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                    emphasizeValue = true,
+                ),
+                InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
+                InferenceStatItemUi(label = "初回トークン時間", value = formatTimeToFirstToken(stats) ?: "—"),
+                InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
+            ),
+        ),
+    )
+    val detailSections = buildInferenceDetailSections(stats)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(scrollState)
             // BottomSheet 内の視認性を上げるため、周囲の余白を揃える。
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(sheetContentPadding),
+            // 下部コンテンツが IME / ナビゲーションバーに埋もれないようにする。
+            // シート内でのみ insets を吸収し、既存レイアウトへの影響を最小化する。
+        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+        ) {
+            Text(
+                text = "推論統計",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            sections.forEach { section ->
+                InferenceStatsSection(title = section.title) {
+                    section.items.forEach { item ->
+                        InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
+                    }
+                }
+            }
+
+            InferenceStatsCollapsibleSectionHeader(
+                expanded = isDetailExpanded,
+                onToggle = { isDetailExpanded = !isDetailExpanded },
+            )
+
+            AnimatedVisibility(visible = isDetailExpanded) {
+                Column(
+                    modifier = Modifier.testTag("inferenceStatsDetailContent"),
+                    verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                ) {
+                    detailSections.forEach { section ->
+                        InferenceStatsSection(title = section.title) {
+                            section.items.forEach { item ->
+                                InferenceStatRow(
+                                    label = item.label,
+                                    value = item.value,
+                                    emphasizeValue = item.emphasizeValue,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InferenceStatsCollapsibleSectionHeader(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val actionLabel = inferenceStatsDetailToggleActionLabel(expanded)
+    val accessibilityLabel = inferenceStatsDetailToggleAccessibilityLabel(expanded)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .semantics { contentDescription = accessibilityLabel }
+            .testTag("inferenceStatsDetailToggle")
+            // 見出し行全体のタップしやすさを維持するため、最小限の縦余白を確保する。
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "推論統計",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            text = "詳細",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (entries.isEmpty()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
-                text = "表示できる統計がありません",
-                style = MaterialTheme.typography.bodySmall,
+                text = actionLabel,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            return
-        }
-
-        entries.forEach { (label, value, emphasizeValue) ->
-            InferenceStatRow(
-                label = label,
-                value = value,
-                emphasizeValue = emphasizeValue,
+            Icon(
+                imageVector = if (expanded) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                contentDescription = accessibilityLabel,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
+
+internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = if (expanded) "閉じる" else "表示"
+
+internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
+
+internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
+    InferenceStatsSectionUi(
+        title = "トークン",
+        items = listOf(
+            InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
+            InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+        ),
+    ),
+    InferenceStatsSectionUi(
+        title = "補足",
+        items = listOf(
+            InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
+        ),
+    ),
+)
+
+internal data class InferenceStatsSectionUi(
+    val title: String,
+    val items: List<InferenceStatItemUi>,
+)
+
+internal data class InferenceStatItemUi(
+    val label: String,
+    val value: String,
+    val emphasizeValue: Boolean = false,
+)
 
 @Composable
 private fun DrawerSearchPill(
