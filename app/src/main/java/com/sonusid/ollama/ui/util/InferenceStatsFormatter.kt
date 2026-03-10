@@ -55,6 +55,7 @@ fun formatOutputTokens(stats: InferenceStats): String? {
     return NumberFormat.getIntegerInstance(Locale.US).format(outputTokens)
 }
 
+// モデル名の優先順位: modelName(正規) -> model(移行用) -> modelLabel(移行用)
 fun formatModelName(stats: InferenceStats): String? = resolveModelName(stats)
 
 fun formatTotalTokens(stats: InferenceStats): String? {
@@ -70,3 +71,15 @@ fun formatTotalTokens(stats: InferenceStats): String? {
 // 旧関数名の互換。既存呼び出しは段階的に formatOutputTokens / formatModelName へ移行する。
 fun formatCompletionTokens(stats: InferenceStats): String? = formatOutputTokens(stats)
 fun formatModelLabel(stats: InferenceStats): String? = formatModelName(stats)
+
+
+fun formatFinishReason(stats: InferenceStats): String? {
+    val value = stats.finishReason?.trim() ?: return null
+    return value.takeIf { it.isNotEmpty() }
+}
+
+fun formatImageInputCount(stats: InferenceStats): String? {
+    val count = stats.imageInputCount ?: return null
+    if (count < 0) return null
+    return "${count}枚"
+}

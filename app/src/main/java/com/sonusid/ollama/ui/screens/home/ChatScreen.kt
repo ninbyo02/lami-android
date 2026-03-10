@@ -134,6 +134,8 @@ import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
+import com.sonusid.ollama.ui.util.formatFinishReason
+import com.sonusid.ollama.ui.util.formatImageInputCount
 import com.sonusid.ollama.ui.util.formatModelName
 import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
@@ -215,6 +217,7 @@ fun Home(
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
+    var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
     // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
@@ -369,6 +372,7 @@ fun Home(
                                 chatId = currentChatId,
                                 response = response,
                                 latestInferenceStats = latestInferenceStats,
+                                imageInputCount = pendingAssistantImageInputCount,
                             )
                         )
                     }
@@ -376,6 +380,7 @@ fun Home(
                         ttsController.speak(response)
                     }
                     placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
                     viewModel.resetUiState()
                 }
 
@@ -389,6 +394,7 @@ fun Home(
                         )
                     }
                     placeholder = "Enter your prompt..."
+                    pendingAssistantImageInputCount = null
                     viewModel.resetUiState()
                 }
 
@@ -886,6 +892,7 @@ fun Home(
                                             if (currentChatId != null) {
                                                 val requestPrompt = userPrompt
                                                 val requestAttachmentUris = selectedImageUris
+                                                pendingAssistantImageInputCount = requestAttachmentUris.size
                                                 if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
                                                     placeholder = "I'm thinking ... "
                                                     toggle = true
@@ -1592,6 +1599,7 @@ internal fun createAssistantMessage(
     chatId: Int,
     response: String,
     latestInferenceStats: InferenceStats? = null,
+    imageInputCount: Int? = null,
 ): Message {
     val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
     val inputTokens = latestInferenceStats?.inputTokens
@@ -1610,6 +1618,9 @@ internal fun createAssistantMessage(
         totalTokens = persistedTotalTokens,
         tokensPerSecond = latestInferenceStats?.tokensPerSecond,
         inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
+        finishReason = latestInferenceStats?.finishReason,
+        // 画像入力数は添付画像の枚数。入力トークンとは別メトリクスとして保存する。
+        imageInputCount = imageInputCount ?: latestInferenceStats?.imageInputCount,
     )
 }
 
@@ -1631,6 +1642,7 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                     emphasizeValue = true,
                 ),
                 InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
+                InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
             ),
         ),
         InferenceStatsSectionUi(
@@ -1639,6 +1651,12 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                 InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
                 InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
                 InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+            ),
+        ),
+        InferenceStatsSectionUi(
+            title = "詳細",
+            items = listOf(
+                InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
             ),
         ),
     )

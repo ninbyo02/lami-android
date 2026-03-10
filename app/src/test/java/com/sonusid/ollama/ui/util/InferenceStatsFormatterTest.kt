@@ -98,4 +98,19 @@ class InferenceStatsFormatterTest {
         assertEquals("0", formatOutputTokens(stats))
         assertEquals("0", formatTotalTokens(stats))
     }
+
+
+    @Test
+    fun `formatFinishReason trims value and empty becomes null`() {
+        assertEquals("stop", formatFinishReason(InferenceStats(finishReason = "  stop  ")))
+        assertNull(formatFinishReason(InferenceStats(finishReason = "   ")))
+        assertNull(formatFinishReason(InferenceStats()))
+    }
+
+    @Test
+    fun `formatImageInputCount keeps zero as valid value`() {
+        assertEquals("0枚", formatImageInputCount(InferenceStats(imageInputCount = 0)))
+        assertEquals("2枚", formatImageInputCount(InferenceStats(imageInputCount = 2)))
+        assertNull(formatImageInputCount(InferenceStats()))
+    }
 }

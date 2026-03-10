@@ -77,4 +77,22 @@ class MessageToInferenceStatsTest {
         assertEquals(2.5, stats?.inferenceTimeSec)
     }
 
+
+
+    @Test
+    fun `toInferenceStats maps finishReason and imageInputCount`() {
+        val message = Message(
+            chatId = 1,
+            message = "new",
+            isSendbyMe = false,
+            finishReason = "stop",
+            imageInputCount = 0,
+        )
+
+        val stats = message.toInferenceStats()
+
+        assertNotNull(stats)
+        assertEquals("stop", stats?.finishReason)
+        assertEquals(0, stats?.imageInputCount)
+    }
 }

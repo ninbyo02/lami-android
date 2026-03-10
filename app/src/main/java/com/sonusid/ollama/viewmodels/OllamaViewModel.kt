@@ -300,6 +300,7 @@ class OllamaViewModel(
                             generationTimeMs = generationTimeMs,
                             evalDurationNs = finalChunk?.evalDurationNs,
                             finishReason = finalChunk?.doneReason,
+                            imageInputCount = attachmentUris.size,
                             // 旧命名互換（段階的移行用）。
                             model = finalChunk?.model ?: model,
                             modelLabel = finalChunk?.model ?: model,
