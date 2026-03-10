@@ -108,6 +108,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -1722,12 +1724,17 @@ private fun InferenceStatsCollapsibleSectionHeader(
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
+    val actionLabel = inferenceStatsDetailToggleActionLabel(expanded)
+    val accessibilityLabel = inferenceStatsDetailToggleAccessibilityLabel(expanded)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
+            .semantics { contentDescription = accessibilityLabel }
             .testTag("inferenceStatsDetailToggle")
-            .padding(vertical = 2.dp),
+            // 見出し行全体のタップしやすさを維持するため、最小限の縦余白を確保する。
+            .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1738,21 +1745,25 @@ private fun InferenceStatsCollapsibleSectionHeader(
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = if (expanded) "詳細を隠す" else "詳細を表示",
+                text = actionLabel,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                contentDescription = if (expanded) "詳細を隠す" else "詳細を表示",
+                contentDescription = accessibilityLabel,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 }
+
+internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = if (expanded) "閉じる" else "表示"
+
+internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
 
 internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(

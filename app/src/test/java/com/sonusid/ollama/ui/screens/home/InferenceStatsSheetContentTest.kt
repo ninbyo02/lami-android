@@ -6,6 +6,18 @@ import org.junit.Test
 
 class InferenceStatsSheetContentTest {
     @Test
+    fun `inferenceStatsDetailToggleActionLabel returns short action text by expanded state`() {
+        assertEquals("表示", inferenceStatsDetailToggleActionLabel(expanded = false))
+        assertEquals("閉じる", inferenceStatsDetailToggleActionLabel(expanded = true))
+    }
+
+    @Test
+    fun `inferenceStatsDetailToggleAccessibilityLabel keeps full meaning by expanded state`() {
+        assertEquals("詳細を表示", inferenceStatsDetailToggleAccessibilityLabel(expanded = false))
+        assertEquals("詳細を閉じる", inferenceStatsDetailToggleAccessibilityLabel(expanded = true))
+    }
+
+    @Test
     fun `buildInferenceDetailSections returns token and supplement sections in expected order`() {
         val stats = InferenceStats(
             inputTokens = 100,
