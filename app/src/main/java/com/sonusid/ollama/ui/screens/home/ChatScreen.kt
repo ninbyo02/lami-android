@@ -1645,27 +1645,7 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
     val sheetContentPadding = 18.dp
     val sectionSpacing = 16.dp
 
-    val sections = listOf(
-        InferenceStatsSectionUi(
-            title = "モデル情報",
-            items = listOf(
-                InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
-            ),
-        ),
-        InferenceStatsSectionUi(
-            title = "実行情報",
-            items = listOf(
-                InferenceStatItemUi(
-                    label = "生成速度",
-                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
-                    emphasizeValue = true,
-                ),
-                InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
-                InferenceStatItemUi(label = "初回トークン時間", value = formatTimeToFirstToken(stats) ?: "—"),
-                InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
-            ),
-        ),
-    )
+    val sections = buildInferenceSummarySections(stats)
     val detailSections = buildInferenceDetailSections(stats)
 
     Column(
@@ -1771,6 +1751,29 @@ private fun InferenceStatsCollapsibleSectionHeader(
 internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = if (expanded) "閉じる" else "表示"
 
 internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
+
+
+internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
+    InferenceStatsSectionUi(
+        title = "モデル情報",
+        items = listOf(
+            InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
+        ),
+    ),
+    InferenceStatsSectionUi(
+        title = "概要",
+        items = listOf(
+            InferenceStatItemUi(label = "初回トークン時間", value = formatTimeToFirstToken(stats) ?: "—"),
+            InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
+            InferenceStatItemUi(
+                label = "生成速度",
+                value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                emphasizeValue = true,
+            ),
+            InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
+        ),
+    ),
+)
 
 internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(
