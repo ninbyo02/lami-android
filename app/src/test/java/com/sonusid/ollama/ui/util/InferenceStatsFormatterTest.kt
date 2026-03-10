@@ -101,9 +101,18 @@ class InferenceStatsFormatterTest {
 
 
     @Test
-    fun `formatFinishReason trims value and empty becomes null`() {
-        assertEquals("stop", formatFinishReason(InferenceStats(finishReason = "  stop  ")))
+    fun `formatFinishReason maps known values for user display`() {
+        assertEquals("通常終了 (stop)", formatFinishReason(InferenceStats(finishReason = "stop")))
+        assertEquals("トークン上限 (length)", formatFinishReason(InferenceStats(finishReason = "length")))
+        assertEquals("フィルター停止 (content_filter)", formatFinishReason(InferenceStats(finishReason = "content_filter")))
+        assertEquals("ユーザー停止 (cancelled)", formatFinishReason(InferenceStats(finishReason = "cancelled")))
+    }
+
+    @Test
+    fun `formatFinishReason trims empty and unknown safely`() {
+        assertEquals("通常終了 (stop)", formatFinishReason(InferenceStats(finishReason = "  stop  ")))
         assertNull(formatFinishReason(InferenceStats(finishReason = "   ")))
+        assertEquals("other", formatFinishReason(InferenceStats(finishReason = "other")))
         assertNull(formatFinishReason(InferenceStats()))
     }
 
