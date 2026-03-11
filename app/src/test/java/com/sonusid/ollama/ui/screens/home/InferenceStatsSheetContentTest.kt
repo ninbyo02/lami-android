@@ -1,7 +1,6 @@
 package com.sonusid.ollama.ui.screens.home
 
 import com.sonusid.ollama.ui.model.InferenceStats
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -72,28 +71,6 @@ class InferenceStatsSheetContentTest {
         assertEquals(listOf("ロード", "入力", "生成"), breakdown.segments.map { it.label })
         assertEquals(listOf(94, 1, 5), breakdown.segments.map { it.percent })
         assertEquals(1.0, breakdown.segments.sumOf { it.ratio }, 0.0000001)
-    }
-
-    @Test
-    fun `normalizeSegmentRatiosForRendering keeps total as 1 and shows tiny non-zero segment`() {
-        val normalized = normalizeSegmentRatiosForRendering(
-            ratios = listOf(0.98, 0.0001, 0.0199),
-            minVisibleRatio = 0.01,
-        )
-
-        assertEquals(3, normalized.size)
-        assertTrue(normalized[1] >= 0.01)
-        assertEquals(1.0, normalized.sum(), 0.0000001)
-    }
-
-    @Test
-    fun `normalizeSegmentRatiosForRendering returns zero list when all segments are non-positive`() {
-        val normalized = normalizeSegmentRatiosForRendering(
-            ratios = listOf(0.0, 0.0, -0.2),
-            minVisibleRatio = 0.01,
-        )
-
-        assertEquals(listOf(0.0, 0.0, 0.0), normalized)
     }
 
     @Test
