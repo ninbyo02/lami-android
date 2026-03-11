@@ -30,8 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -104,9 +102,9 @@ fun LamiAvatar(
     onNavigateSettings: (() -> Unit)? = null,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
+    openControlRequestKey: Int = 0,
 ) {
     val haptic = LocalHapticFeedback.current
-    var showMenu by remember { mutableStateOf(false) }
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var animationsEnabled by rememberSaveable { mutableStateOf(true) }
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
@@ -150,6 +148,11 @@ fun LamiAvatar(
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive) {
         lastUpdated = formatter.format(Date())
     }
+    LaunchedEffect(openControlRequestKey) {
+        if (openControlRequestKey > 0) {
+            showSheet = true
+        }
+    }
 
     Box(
         modifier = modifier
@@ -161,13 +164,12 @@ fun LamiAvatar(
                 role = Role.Button,
                 onClick = {
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                    showMenu = true
-                },
-                onLongClick = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     showSheet = true
                 }
             )
+            .semantics {
+                contentDescription = "Lami コントロールを開く"
+            }
             .then(
                 if (debugEnabled && debugOverlayEnabled) {
                     Modifier.border(1.dp, outlineColor)
@@ -230,49 +232,6 @@ fun LamiAvatar(
                 )
             }
         }
-
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("""状態: $statusLabel""") },
-                onClick = { }
-            )
-            DropdownMenuItem(
-                text = { Text("""接続先: ${baseUrl.ifBlank { "未設定" }}""") },
-                onClick = { }
-            )
-            val canSelectModel = availableModels.size > 1
-            DropdownMenuItem(
-                text = { Text("""モデル: ${selectedModel ?: "未選択"}""") },
-                onClick = {
-                    if (canSelectModel) {
-                        showSheet = true
-                        showMenu = false
-                    }
-                },
-                enabled = canSelectModel
-            )
-            DropdownMenuItem(
-                text = { Text("""フォールバック: ${if (fallbackActive) "ON" else "OFF"}""") },
-                onClick = { }
-            )
-            if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                DropdownMenuItem(
-                    text = { Text("""理由: $fallbackMessage""") },
-                    onClick = { }
-                )
-            }
-            DropdownMenuItem(text = { Text("最終更新: $lastUpdated") }, onClick = { })
-            if (showStatusDetails) {
-                DropdownMenuItem(
-                    text = { Text("""エラー概要: ${lastError ?: "なし"}""") },
-                    onClick = { }
-                )
-            }
-        }
-
         if (showSheet) {
             ModalBottomSheet(
                 sheetState = sheetState,

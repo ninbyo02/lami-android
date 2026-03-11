@@ -43,6 +43,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     var showDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var chatTitle by remember { mutableStateOf("") }
+    var openLamiControlRequestKey by remember { mutableStateOf(0) }
     println(allChats.value)
 
     Scaffold(
@@ -72,6 +73,7 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
+                        openControlRequestKey = openLamiControlRequestKey,
                     )
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                     Spacer(modifier = Modifier.size(2.dp))
@@ -90,6 +92,10 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
                         showAvatar = false,
+                        onOpenControl = {
+                            viewModel.onUserInteraction()
+                            openLamiControlRequestKey += 1
+                        },
                     )
                 }
             },

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,6 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -33,6 +37,7 @@ fun LamiHeaderStatus(
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     showAvatar: Boolean = true,
+    onOpenControl: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -60,6 +65,7 @@ fun LamiHeaderStatus(
             selectedModel = selectedModel,
             lamiStatus = lamiStatus,
             lamiState = lamiState,
+            onOpenControl = onOpenControl,
         )
     }
 }
@@ -80,6 +86,7 @@ fun HeaderAvatar(
     minAvatarSize: Dp = 48.dp,
     maxAvatarSize: Dp = 64.dp,
     applyHeaderAvatarModifier: Boolean = true,
+    openControlRequestKey: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val avatarModifier = if (applyHeaderAvatarModifier) {
@@ -101,10 +108,11 @@ fun HeaderAvatar(
         onSelectModel = onSelectModel,
         onNavigateSettings = onNavigateSettings,
         debugOverlayEnabled = debugOverlayEnabled,
-            syncEpochMs = syncEpochMs,
-            modifier = avatarModifier
-                // 上端見切れを抑えるため、アバター側で安全マージンを追加確保
-                .padding(top = 3.dp),
+        syncEpochMs = syncEpochMs,
+        openControlRequestKey = openControlRequestKey,
+        modifier = avatarModifier
+            // 上端見切れを抑えるため、アバター側で安全マージンを追加確保
+            .padding(top = 3.dp),
     )
 }
 
@@ -113,6 +121,7 @@ fun HeaderStatusText(
     selectedModel: String?,
     lamiStatus: LamiStatus,
     lamiState: LamiState,
+    onOpenControl: () -> Unit,
 ) {
     val statusUi = rememberLamiStatusUi(
         status = lamiStatus,
@@ -129,7 +138,12 @@ fun HeaderStatusText(
             text = modelLabel ?: "Model",
             style = MaterialTheme.typography.titleMedium,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .semantics {
+                    contentDescription = "${modelLabel ?: "Model"}。Lami コントロールを開く"
+                }
+                .clickable(role = Role.Button, onClick = onOpenControl)
         )
         val subtitleText = statusUi.subtitle.orEmpty()
         val subtitleAlpha = if (statusUi.subtitle == null) 0f else 1f
