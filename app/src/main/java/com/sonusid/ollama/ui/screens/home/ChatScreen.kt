@@ -1782,13 +1782,16 @@ private fun InferenceModelInfoRow(
 @Composable
 private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
     val breakdown = buildInferenceTimeBreakdown(stats) ?: return
+    val segmentColors = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.tertiary,
+    )
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val dividerColor = MaterialTheme.colorScheme.surface
+
     InferenceStatsSection(title = "推論時間内訳") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val segmentColors = listOf(
-                MaterialTheme.colorScheme.primary,
-                MaterialTheme.colorScheme.secondary,
-                MaterialTheme.colorScheme.tertiary,
-            )
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1800,12 +1803,12 @@ private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
                 }
                 val normalizedRatios = normalizeSegmentRatiosForRendering(
                     ratios = breakdown.segments.map { it.ratio },
-                    minVisibleRatio = if (size.width > 0f) 1f / size.width else 0.0,
+                    minVisibleRatio = if (size.width > 0f) 1.0 / size.width.toDouble() else 0.0,
                 )
 
                 clipPath(clipShape) {
                     drawRect(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = trackColor,
                         topLeft = Offset.Zero,
                         size = size,
                     )
@@ -1815,7 +1818,7 @@ private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
                         val width = (ratio * size.width).toFloat()
                         if (width > 0f) {
                             drawRect(
-                                color = segmentColors.getOrElse(index) { MaterialTheme.colorScheme.primary },
+                                color = segmentColors.getOrElse(index) { segmentColors.first() },
                                 topLeft = Offset(currentX, 0f),
                                 size = Size(width, size.height),
                             )
@@ -1828,7 +1831,7 @@ private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
                         dividerX += (ratio * size.width).toFloat()
                         if (dividerX > 0f && dividerX < size.width) {
                             drawLine(
-                                color = MaterialTheme.colorScheme.surface,
+                                color = dividerColor,
                                 start = Offset(dividerX, 0f),
                                 end = Offset(dividerX, size.height),
                                 strokeWidth = 1.dp.toPx(),
@@ -1855,12 +1858,25 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
             when (usage) {
                 is ContextUsageUi.WithMax -> {
                     if (usage.ratio in 0.0..1.0) {
-                        LinearProgressIndicator(
-                            progress = { usage.ratio.toFloat() },
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(8.dp),
-                        )
+                                .height(8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(999.dp),
+                                ),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(usage.ratio.toFloat().coerceIn(0f, 1f))
+                                    .height(8.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = RoundedCornerShape(999.dp),
+                                    ),
+                            )
+                        }
                     }
                     Text(
                         text = "${usage.used} / ${usage.max} tokens (${usage.percent}%)",
