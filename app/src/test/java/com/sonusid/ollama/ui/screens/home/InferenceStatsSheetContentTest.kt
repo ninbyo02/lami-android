@@ -30,14 +30,12 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceSummarySections(stats)
 
-        assertEquals(listOf("モデル情報", "概要"), sections.map { it.title })
-        assertEquals(listOf("使用モデル"), sections[0].items.map { it.label })
-        assertEquals(listOf("qwen2.5"), sections[0].items.map { it.value })
+        assertEquals(listOf("概要"), sections.map { it.title })
         assertEquals(
             listOf("初回受信まで（端末基準）", "全体完了まで（統計基準）", "生成速度", "完了理由"),
-            sections[1].items.map { it.label },
+            sections[0].items.map { it.label },
         )
-        assertEquals(listOf("0.4 s", "3.6 s", "55.5 token/s", "正常終了 (stop)"), sections[1].items.map { it.value })
+        assertEquals(listOf("0.4 s", "3.6 s", "55.5 token/s", "通常終了 (stop)"), sections[0].items.map { it.value })
     }
 
     @Test
@@ -49,8 +47,41 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceSummarySections(stats)
 
-        assertEquals("2.0 s", sections[1].items[0].value)
-        assertEquals("1.8 s", sections[1].items[1].value)
+        assertEquals("2.0 s", sections[0].items[0].value)
+        assertEquals("1.8 s", sections[0].items[1].value)
+    }
+
+    @Test
+    fun `buildInferenceTimeBreakdown returns null when total duration is not positive`() {
+        assertEquals(null, buildInferenceTimeBreakdown(InferenceStats()))
+        assertEquals(null, buildInferenceTimeBreakdown(InferenceStats(modelLoadDurationNs = -1L)))
+    }
+
+    @Test
+    fun `buildInferenceTimeBreakdown builds three segments with ratios`() {
+        val stats = InferenceStats(
+            modelLoadDurationNs = 9_000_000_000L,
+            promptEvalDurationNs = 100_000_000L,
+            generationDurationNs = 500_000_000L,
+        )
+
+        val breakdown = buildInferenceTimeBreakdown(stats)
+
+        requireNotNull(breakdown)
+        assertEquals(listOf("ロード", "入力", "生成"), breakdown.segments.map { it.label })
+        assertEquals(listOf(94, 1, 5), breakdown.segments.map { it.percent })
+    }
+
+    @Test
+    fun `buildContextUsageUi uses totalTokens and falls back when max context is missing`() {
+        val withoutMax = buildContextUsageUi(InferenceStats(totalTokens = 40))
+        assertEquals(ContextUsageUi.WithoutMax(used = 40), withoutMax)
+
+        val withMax = buildContextUsageUi(InferenceStats(totalTokens = 40, contextWindow = 4096))
+        require(withMax is ContextUsageUi.WithMax)
+        assertEquals(40, withMax.used)
+        assertEquals(4096, withMax.max)
+        assertEquals(1, withMax.percent)
     }
 
     @Test
