@@ -1679,6 +1679,14 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                 }
             }
 
+            if (shouldShowInferenceTimingNote(stats)) {
+                Text(
+                    text = inferenceTimingNoteText(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             InferenceStatsCollapsibleSectionHeader(
                 expanded = isDetailExpanded,
                 onToggle = { isDetailExpanded = !isDetailExpanded },
@@ -1752,6 +1760,12 @@ internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = 
 
 internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
 
+internal fun inferenceTimingNoteText(): String =
+    "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
+
+internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
+    formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
+
 
 internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(
@@ -1763,8 +1777,8 @@ internal fun buildInferenceSummarySections(stats: InferenceStats): List<Inferenc
     InferenceStatsSectionUi(
         title = "概要",
         items = listOf(
-            InferenceStatItemUi(label = "初回トークン時間", value = formatTimeToFirstToken(stats) ?: "—"),
-            InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
+            InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
+            InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
             InferenceStatItemUi(
                 label = "生成速度",
                 value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
@@ -1785,7 +1799,7 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
         ),
     ),
     InferenceStatsSectionUi(
-        title = "時間詳細",
+        title = "バックエンド時間詳細",
         items = listOf(
             InferenceStatItemUi(label = "モデルロード時間", value = formatModelLoadDuration(stats) ?: "—"),
             InferenceStatItemUi(label = "入力評価時間", value = formatPromptEvalDuration(stats) ?: "—"),
