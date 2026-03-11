@@ -17,6 +17,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
@@ -70,6 +71,7 @@ class OllamaViewModel(
     private val _latestInferenceStats = MutableStateFlow<InferenceStats?>(null)
     val latestInferenceStats: StateFlow<InferenceStats?> = _latestInferenceStats.asStateFlow()
     private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
+    private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
 
     private fun buildContextWindowCacheKey(modelName: String): String {
         val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
@@ -267,6 +269,7 @@ class OllamaViewModel(
                 images = encodedImages.ifEmpty { null },
             )
             val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
+            val contextWindowFetchState = resolveContextWindowFetchState(model)
             prefetchEffectiveContextWindow(model)
 
             if (model != null) {
@@ -316,6 +319,7 @@ class OllamaViewModel(
                             imageInputCount = attachmentUris.size,
                             contextTokensUsed = totalTokens,
                             contextWindow = effectiveContextWindow,
+                            contextWindowFetchState = contextWindowFetchState,
                             contextUsageRatio = if (effectiveContextWindow != null && effectiveContextWindow > 0 && totalTokens != null) {
                                 totalTokens.toDouble() / effectiveContextWindow.toDouble()
                             } else {
@@ -642,6 +646,24 @@ class OllamaViewModel(
         }
     }
 
+    private fun resolveContextWindowFetchState(modelName: String?): ContextWindowFetchState {
+        val normalizedModel = modelName?.trim().orEmpty()
+        if (normalizedModel.isBlank()) {
+            return ContextWindowFetchState.UNAVAILABLE
+        }
+        val cacheKey = buildContextWindowCacheKey(normalizedModel)
+        val cachedWindow = effectiveContextWindowCache[cacheKey]
+        if (cachedWindow != null && cachedWindow > 0) {
+            return ContextWindowFetchState.AVAILABLE
+        }
+        return when (effectiveContextWindowRequestState[cacheKey]) {
+            ContextWindowResolutionState.LOADING -> ContextWindowFetchState.LOADING
+            ContextWindowResolutionState.RESOLVED_WITH_VALUE -> ContextWindowFetchState.AVAILABLE
+            ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE -> ContextWindowFetchState.UNAVAILABLE
+            null -> ContextWindowFetchState.LOADING
+        }
+    }
+
     private fun getCachedEffectiveContextWindow(modelName: String): Int? {
         return effectiveContextWindowCache[buildContextWindowCacheKey(modelName)]
     }
@@ -653,8 +675,17 @@ class OllamaViewModel(
         }
         val cacheKey = buildContextWindowCacheKey(normalizedModel)
         if (effectiveContextWindowCache.containsKey(cacheKey)) {
+            effectiveContextWindowRequestState[cacheKey] = if (effectiveContextWindowCache[cacheKey] != null) {
+                ContextWindowResolutionState.RESOLVED_WITH_VALUE
+            } else {
+                ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE
+            }
             return
         }
+        if (effectiveContextWindowRequestState[cacheKey] == ContextWindowResolutionState.LOADING) {
+            return
+        }
+        effectiveContextWindowRequestState[cacheKey] = ContextWindowResolutionState.LOADING
         viewModelScope.launch {
             val resolved = withContext(Dispatchers.IO) {
                 runCatching { fetchEffectiveContextWindow(normalizedModel) }
@@ -664,6 +695,35 @@ class OllamaViewModel(
                     .getOrNull()
             }
             effectiveContextWindowCache[cacheKey] = resolved
+            effectiveContextWindowRequestState[cacheKey] = if (resolved != null && resolved > 0) {
+                ContextWindowResolutionState.RESOLVED_WITH_VALUE
+            } else {
+                ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE
+            }
+            _latestInferenceStats.update { current ->
+                if (current == null) {
+                    return@update null
+                }
+                val statsModel = current.modelName ?: current.model
+                val normalizedStatsModel = statsModel?.trim().orEmpty()
+                if (normalizedStatsModel.isBlank() || buildContextWindowCacheKey(normalizedStatsModel) != cacheKey) {
+                    return@update current
+                }
+                val totalTokens = current.totalTokens
+                current.copy(
+                    contextWindow = resolved,
+                    contextWindowFetchState = if (resolved != null && resolved > 0) {
+                        ContextWindowFetchState.AVAILABLE
+                    } else {
+                        ContextWindowFetchState.UNAVAILABLE
+                    },
+                    contextUsageRatio = if (resolved != null && resolved > 0 && totalTokens != null) {
+                        totalTokens.toDouble() / resolved.toDouble()
+                    } else {
+                        null
+                    },
+                )
+            }
         }
     }
 
@@ -694,6 +754,12 @@ class OllamaViewModel(
             throw IOException("Failed to load model details (HTTP $responseCode): $response")
         }
         return extractEffectiveContextWindowFromShowResponse(response)
+    }
+
+    private enum class ContextWindowResolutionState {
+        LOADING,
+        RESOLVED_WITH_VALUE,
+        RESOLVED_WITHOUT_VALUE,
     }
 
     private data class EncodedAttachments(

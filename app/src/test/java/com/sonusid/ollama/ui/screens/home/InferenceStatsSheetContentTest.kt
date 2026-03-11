@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.home
 
+import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -74,11 +75,34 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
-    fun `buildContextUsageUi uses totalTokens and falls back when max context is missing`() {
-        val withoutMax = buildContextUsageUi(InferenceStats(totalTokens = 40))
+    fun `buildContextUsageUi returns Loading while context max is being fetched`() {
+        val usage = buildContextUsageUi(
+            InferenceStats(
+                totalTokens = 40,
+                contextWindowFetchState = ContextWindowFetchState.LOADING,
+            ),
+        )
+
+        assertEquals(ContextUsageUi.Loading(used = 40), usage)
+    }
+
+    @Test
+    fun `buildContextUsageUi uses totalTokens and falls back when max context is unavailable`() {
+        val withoutMax = buildContextUsageUi(
+            InferenceStats(
+                totalTokens = 40,
+                contextWindowFetchState = ContextWindowFetchState.UNAVAILABLE,
+            ),
+        )
         assertEquals(ContextUsageUi.WithoutMax(used = 40), withoutMax)
 
-        val withMax = buildContextUsageUi(InferenceStats(totalTokens = 40, contextWindow = 4096))
+        val withMax = buildContextUsageUi(
+            InferenceStats(
+                totalTokens = 40,
+                contextWindow = 4096,
+                contextWindowFetchState = ContextWindowFetchState.AVAILABLE,
+            ),
+        )
         require(withMax is ContextUsageUi.WithMax)
         assertEquals(40, withMax.used)
         assertEquals(4096, withMax.max)
