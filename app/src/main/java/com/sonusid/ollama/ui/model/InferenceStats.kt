@@ -12,6 +12,12 @@ data class InferenceStats(
     val inferenceTimeSec: Double? = null,
     // 生値（ミリ秒）。表示は formatter 側で秒に整形する。
     val generationTimeMs: Long? = null,
+    // Ollama usage の load_duration (ns)。
+    val modelLoadDurationNs: Long? = null,
+    // Ollama usage の prompt_eval_duration (ns)。
+    val promptEvalDurationNs: Long? = null,
+    // Ollama usage の eval_duration (ns)。
+    val generationDurationNs: Long? = null,
     val evalDurationNs: Long? = null,
     // finalChunk の doneReason / finishReason を保存して表示する。
     val finishReason: String? = null,

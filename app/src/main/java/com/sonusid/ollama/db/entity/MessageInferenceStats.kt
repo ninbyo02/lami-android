@@ -9,6 +9,8 @@ fun Message.isInferenceStatsMissing(): Boolean {
     return completionTokens == null &&
         generationTimeMs == null &&
         evalDurationNs == null &&
+        loadDurationNs == null &&
+        promptEvalDurationNs == null &&
         modelName == null &&
         inputTokens == null &&
         totalTokens == null &&
@@ -41,6 +43,9 @@ fun Message.toInferenceStats(): InferenceStats? {
         tokensPerSecond = tokensPerSecond,
         inferenceTimeSec = inferenceTimeSec ?: generationTimeMs?.div(1000.0),
         generationTimeMs = generationTimeMs,
+        modelLoadDurationNs = loadDurationNs,
+        promptEvalDurationNs = promptEvalDurationNs,
+        generationDurationNs = evalDurationNs,
         evalDurationNs = evalDurationNs,
         finishReason = finishReason,
         timeToFirstTokenMs = timeToFirstTokenMs,

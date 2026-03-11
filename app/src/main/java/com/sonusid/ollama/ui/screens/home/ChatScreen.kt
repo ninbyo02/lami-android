@@ -76,6 +76,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
@@ -142,9 +143,12 @@ import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
 import com.sonusid.ollama.ui.util.formatFinishReason
+import com.sonusid.ollama.ui.util.formatGenerationDuration
 import com.sonusid.ollama.ui.util.formatTimeToFirstToken
 import com.sonusid.ollama.ui.util.formatImageInputCount
+import com.sonusid.ollama.ui.util.formatModelLoadDuration
 import com.sonusid.ollama.ui.util.formatModelName
+import com.sonusid.ollama.ui.util.formatPromptEvalDuration
 import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
@@ -1490,7 +1494,9 @@ fun Home(
 
     if (showInferenceStatsSheet && selectedInferenceStats != null) {
         val stats = selectedInferenceStats
+        val inferenceStatsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
+            sheetState = inferenceStatsSheetState,
             onDismissRequest = {
                 showInferenceStatsSheet = false
                 selectedInferenceStats = null
@@ -1621,6 +1627,8 @@ internal fun createAssistantMessage(
         generationTimeMs = latestInferenceStats?.generationTimeMs
             ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
         evalDurationNs = latestInferenceStats?.evalDurationNs,
+        loadDurationNs = latestInferenceStats?.modelLoadDurationNs,
+        promptEvalDurationNs = latestInferenceStats?.promptEvalDurationNs,
         modelName = latestInferenceStats?.modelName ?: latestInferenceStats?.model,
         inputTokens = inputTokens,
         totalTokens = persistedTotalTokens,
@@ -1637,30 +1645,10 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-    val sheetContentPadding = 18.dp
-    val sectionSpacing = 16.dp
+    val sheetContentPadding = 14.dp
+    val sectionSpacing = 12.dp
 
-    val sections = listOf(
-        InferenceStatsSectionUi(
-            title = "モデル情報",
-            items = listOf(
-                InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
-            ),
-        ),
-        InferenceStatsSectionUi(
-            title = "実行情報",
-            items = listOf(
-                InferenceStatItemUi(
-                    label = "生成速度",
-                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
-                    emphasizeValue = true,
-                ),
-                InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
-                InferenceStatItemUi(label = "初回トークン時間", value = formatTimeToFirstToken(stats) ?: "—"),
-                InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
-            ),
-        ),
-    )
+    val sections = buildInferenceSummarySections(stats)
     val detailSections = buildInferenceDetailSections(stats)
 
     Column(
@@ -1692,6 +1680,14 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                         InferenceStatRow(label = item.label, value = item.value, emphasizeValue = item.emphasizeValue)
                     }
                 }
+            }
+
+            if (shouldShowInferenceTimingNote(stats)) {
+                Text(
+                    text = inferenceTimingNoteText(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             InferenceStatsCollapsibleSectionHeader(
@@ -1767,6 +1763,35 @@ internal fun inferenceStatsDetailToggleActionLabel(expanded: Boolean): String = 
 
 internal fun inferenceStatsDetailToggleAccessibilityLabel(expanded: Boolean): String = if (expanded) "詳細を閉じる" else "詳細を表示"
 
+internal fun inferenceTimingNoteText(): String =
+    "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。"
+
+internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
+    formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
+
+
+internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
+    InferenceStatsSectionUi(
+        title = "モデル情報",
+        items = listOf(
+            InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
+        ),
+    ),
+    InferenceStatsSectionUi(
+        title = "概要",
+        items = listOf(
+            InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
+            InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
+            InferenceStatItemUi(
+                label = "生成速度",
+                value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                emphasizeValue = true,
+            ),
+            InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
+        ),
+    ),
+)
+
 internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(
         title = "トークン",
@@ -1774,6 +1799,14 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
             InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
             InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
             InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+        ),
+    ),
+    InferenceStatsSectionUi(
+        title = "バックエンド時間詳細",
+        items = listOf(
+            InferenceStatItemUi(label = "モデルロード時間", value = formatModelLoadDuration(stats) ?: "—"),
+            InferenceStatItemUi(label = "入力評価時間", value = formatPromptEvalDuration(stats) ?: "—"),
+            InferenceStatItemUi(label = "生成時間", value = formatGenerationDuration(stats) ?: "—"),
         ),
     ),
     InferenceStatsSectionUi(

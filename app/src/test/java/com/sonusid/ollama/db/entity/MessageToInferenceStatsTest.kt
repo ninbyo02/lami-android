@@ -26,6 +26,8 @@ class MessageToInferenceStatsTest {
             tokensPerSecond = 9.5,
             inferenceTimeSec = 3.2,
             generationTimeMs = 3_500L,
+            loadDurationNs = 900_000_000L,
+            promptEvalDurationNs = 600_000_000L,
             evalDurationNs = 2_000_000_000L,
             timeToFirstTokenMs = 410L,
         )
@@ -39,6 +41,9 @@ class MessageToInferenceStatsTest {
         assertEquals(46, stats?.totalTokens)
         assertEquals(9.5, stats?.tokensPerSecond)
         assertEquals(3.2, stats?.inferenceTimeSec)
+        assertEquals(900_000_000L, stats?.modelLoadDurationNs)
+        assertEquals(600_000_000L, stats?.promptEvalDurationNs)
+        assertEquals(2_000_000_000L, stats?.generationDurationNs)
         assertEquals(410L, stats?.timeToFirstTokenMs)
     }
 

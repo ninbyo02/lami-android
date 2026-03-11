@@ -47,4 +47,16 @@ class MessageInferenceStatsTest {
         assertFalse(message.isInferenceStatsMissing())
     }
 
+    @Test
+    fun `isInferenceStatsMissing returns false when duration detail exists`() {
+        val message = Message(
+            chatId = 1,
+            message = "new",
+            isSendbyMe = false,
+            loadDurationNs = 0L,
+        )
+
+        assertFalse(message.isInferenceStatsMissing())
+    }
+
 }

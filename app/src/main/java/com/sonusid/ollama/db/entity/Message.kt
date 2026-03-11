@@ -14,6 +14,8 @@ data class Message(
     val completionTokens: Int? = null,
     val generationTimeMs: Long? = null,
     val evalDurationNs: Long? = null,
+    val loadDurationNs: Long? = null,
+    val promptEvalDurationNs: Long? = null,
     val modelName: String? = null,
     val inputTokens: Int? = null,
     val totalTokens: Int? = null,
