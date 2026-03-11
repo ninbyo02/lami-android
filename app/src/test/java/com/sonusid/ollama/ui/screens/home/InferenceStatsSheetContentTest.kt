@@ -34,10 +34,23 @@ class InferenceStatsSheetContentTest {
         assertEquals(listOf("使用モデル"), sections[0].items.map { it.label })
         assertEquals(listOf("qwen2.5"), sections[0].items.map { it.value })
         assertEquals(
-            listOf("初回トークン時間", "応答時間", "生成速度", "完了理由"),
+            listOf("初回受信まで（端末基準）", "全体完了まで（統計基準）", "生成速度", "完了理由"),
             sections[1].items.map { it.label },
         )
         assertEquals(listOf("0.4 s", "3.6 s", "55.5 token/s", "正常終了 (stop)"), sections[1].items.map { it.value })
+    }
+
+    @Test
+    fun `buildInferenceSummarySections keeps raw values even when first token time exceeds inference time`() {
+        val stats = InferenceStats(
+            timeToFirstTokenMs = 2_000L,
+            inferenceTimeSec = 1.8,
+        )
+
+        val sections = buildInferenceSummarySections(stats)
+
+        assertEquals("2.0 s", sections[1].items[0].value)
+        assertEquals("1.8 s", sections[1].items[1].value)
     }
 
     @Test
@@ -54,7 +67,7 @@ class InferenceStatsSheetContentTest {
 
         val sections = buildInferenceDetailSections(stats)
 
-        assertEquals(listOf("トークン", "時間詳細", "補足"), sections.map { it.title })
+        assertEquals(listOf("トークン", "バックエンド時間詳細", "補足"), sections.map { it.title })
         assertEquals(
             listOf("入力トークン", "生成トークン", "合計トークン"),
             sections[0].items.map { it.label },
@@ -73,5 +86,20 @@ class InferenceStatsSheetContentTest {
         assertEquals(listOf("—", "—", "—"), sections[0].items.map { it.value })
         assertEquals(listOf("—", "—", "—"), sections[1].items.map { it.value })
         assertEquals("—", sections[2].items.first().value)
+    }
+
+    @Test
+    fun `shouldShowInferenceTimingNote returns true when either timing exists`() {
+        assertEquals(true, shouldShowInferenceTimingNote(InferenceStats(timeToFirstTokenMs = 120L)))
+        assertEquals(true, shouldShowInferenceTimingNote(InferenceStats(inferenceTimeSec = 2.4)))
+        assertEquals(false, shouldShowInferenceTimingNote(InferenceStats()))
+    }
+
+    @Test
+    fun `inferenceTimingNoteText explains measurement source differences`() {
+        assertEquals(
+            "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。",
+            inferenceTimingNoteText(),
+        )
     }
 }
