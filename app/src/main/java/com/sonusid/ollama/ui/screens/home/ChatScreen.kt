@@ -269,6 +269,7 @@ fun Home(
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     var measuredSpriteBottomPx by remember { mutableStateOf<Float?>(null) }
     var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
+    var openLamiControlRequestKey by remember { mutableStateOf(0) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
@@ -658,6 +659,7 @@ fun Home(
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
+                            openControlRequestKey = openLamiControlRequestKey,
                         )
                     }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
@@ -678,6 +680,10 @@ fun Home(
                         syncEpochMs = animationEpochMs,
                         // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
                         showAvatar = false,
+                        onOpenControl = {
+                            viewModel.onUserInteraction()
+                            openLamiControlRequestKey += 1
+                        },
                     )
                 }
             },
