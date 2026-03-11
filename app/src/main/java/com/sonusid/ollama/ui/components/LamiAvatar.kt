@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -36,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -59,12 +59,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
@@ -279,16 +281,19 @@ fun LamiAvatar(
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    Text(
+                                        text = "Lami コントロール",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    )
                                     if (showStatusDetails) {
                                         Column(horizontalAlignment = Alignment.End) {
                                             Text(
                                                 text = statusLabel,
-                                                fontSize = 14.sp
+                                                style = MaterialTheme.typography.bodyMedium,
                                             )
                                             Text(
                                                 text = "最終更新: $lastUpdated",
-                                                fontSize = 12.sp
+                                                style = MaterialTheme.typography.bodySmall,
                                             )
                                         }
                                     }
@@ -316,36 +321,16 @@ fun LamiAvatar(
                     }
                     item { HorizontalDivider() }
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
-                            OutlinedTextField(
-                                modifier = Modifier.fillMaxWidth(),
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "利用可能なモデル",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            )
+                            LamiControlSearchPill(
                                 value = searchQuery,
                                 onValueChange = { query -> searchQuery = query },
-                                placeholder = { Text("モデルを検索") },
-                                singleLine = true,
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = "モデル検索"
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (searchQuery.isNotBlank()) {
-                                        IconButton(onClick = { searchQuery = "" }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "検索文字列をクリア"
-                                            )
-                                        }
-                                    }
-                                },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(
-                                    onSearch = {
-                                        scope.launch { listState.animateScrollToItem(0) }
-                                    }
-                                )
+                                onClear = { searchQuery = "" },
+                                onSearch = { scope.launch { listState.animateScrollToItem(0) } },
                             )
                         }
                     }
@@ -422,7 +407,10 @@ fun LamiAvatar(
                     }
                     item {
                         Column {
-                            Text("表示サイズ (${avatarSize}dp)", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = "表示サイズ (${avatarSize}dp)",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                            )
                             Slider(
                                 value = avatarSize.toFloat(),
                                 onValueChange = { value ->
@@ -466,7 +454,10 @@ private fun ToggleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+        )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange
@@ -479,9 +470,83 @@ private fun StatusInfoItem(
     label: String,
     value: String,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, fontWeight = FontWeight.SemiBold)
-        Text(value, fontSize = 13.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+private fun LamiControlSearchPill(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val height = 40.dp
+    val shape = RoundedCornerShape(height / 2)
+    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Normal,
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .background(MaterialTheme.colorScheme.surface, shape)
+            // 左：検索アイコンとの間を取り、ピル内の詰まりを防ぐ。
+            .padding(start = 16.dp, top = 1.dp, end = 0.dp, bottom = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "モデル検索",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // 左アイコンと入力テキストの間に最小限の余白を確保。
+            Spacer(modifier = Modifier.size(10.dp))
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = textStyle,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = "モデルを検索",
+                                style = textStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            if (value.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "検索文字列をクリア",
+                    )
+                }
+            }
+        }
     }
 }
 
