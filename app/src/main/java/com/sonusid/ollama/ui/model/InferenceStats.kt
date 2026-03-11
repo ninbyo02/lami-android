@@ -1,5 +1,11 @@
 package com.sonusid.ollama.ui.model
 
+enum class ContextWindowFetchState {
+    LOADING,
+    AVAILABLE,
+    UNAVAILABLE,
+}
+
 data class InferenceStats(
     // UI で扱う正規のモデル名。
     val modelName: String? = null,
@@ -27,6 +33,7 @@ data class InferenceStats(
     val contextTokensUsed: Int? = null,
     val contextWindow: Int? = null,
     val contextUsageRatio: Double? = null,
+    val contextWindowFetchState: ContextWindowFetchState = ContextWindowFetchState.UNAVAILABLE,
     // 旧命名互換。mapper / formatter 内でのみ吸収し、徐々に縮退する。
     val model: String? = null,
     val modelLabel: String? = null,

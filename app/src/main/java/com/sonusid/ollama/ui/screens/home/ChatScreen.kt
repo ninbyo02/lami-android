@@ -139,6 +139,7 @@ import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.util.formatOutputTokens
@@ -1847,11 +1848,29 @@ private fun InferenceContextUsageSection(stats: InferenceStats) {
                     )
                 }
 
+                is ContextUsageUi.Loading -> {
+                    Text(
+                        text = "使用トークン ${usage.used}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "上限取得中…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
                 is ContextUsageUi.WithoutMax -> {
                     Text(
                         text = "使用トークン ${usage.used}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "上限未取得",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -1970,22 +1989,28 @@ internal sealed interface ContextUsageUi {
         val percent: Int,
     ) : ContextUsageUi
 
+    data class Loading(val used: Int) : ContextUsageUi
+
     data class WithoutMax(val used: Int) : ContextUsageUi
 }
 
 internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     val used = stats.totalTokens?.takeIf { it >= 0 } ?: return null
     val max = stats.contextWindow?.takeIf { it > 0 }
-    return if (max != null) {
+    if (max != null) {
         val ratio = used.toDouble() / max.toDouble()
-        ContextUsageUi.WithMax(
+        return ContextUsageUi.WithMax(
             used = used,
             max = max,
             ratio = ratio,
             percent = (ratio * 100).roundToInt(),
         )
-    } else {
-        ContextUsageUi.WithoutMax(used = used)
+    }
+    return when (stats.contextWindowFetchState) {
+        ContextWindowFetchState.LOADING -> ContextUsageUi.Loading(used = used)
+        ContextWindowFetchState.AVAILABLE,
+        ContextWindowFetchState.UNAVAILABLE,
+        -> ContextUsageUi.WithoutMax(used = used)
     }
 }
 
