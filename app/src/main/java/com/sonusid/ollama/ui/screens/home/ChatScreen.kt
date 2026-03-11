@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -64,7 +65,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
@@ -102,9 +102,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
@@ -1780,25 +1784,57 @@ private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
     val breakdown = buildInferenceTimeBreakdown(stats) ?: return
     InferenceStatsSection(title = "推論時間内訳") {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            val segmentColors = listOf(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.secondary,
+                MaterialTheme.colorScheme.tertiary,
+            )
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
             ) {
-                val visibleSegments = breakdown.segments.filter { it.ratio > 0.0 }
-                val segmentColors = listOf(
-                    MaterialTheme.colorScheme.primary,
-                    MaterialTheme.colorScheme.secondary,
-                    MaterialTheme.colorScheme.tertiary,
+                val corner = CornerRadius(x = size.height / 2f, y = size.height / 2f)
+                val clipShape = Path().apply {
+                    addRoundRect(RoundRect(0f, 0f, size.width, size.height, corner))
+                }
+                val normalizedRatios = normalizeSegmentRatiosForRendering(
+                    ratios = breakdown.segments.map { it.ratio },
+                    minVisibleRatio = if (size.width > 0f) 1f / size.width else 0.0,
                 )
-                visibleSegments.forEachIndexed { index, segment ->
-                    LinearProgressIndicator(
-                        progress = { segment.ratio.toFloat() },
-                        modifier = Modifier
-                            .weight(segment.ratio.toFloat())
-                            .height(8.dp),
-                        color = segmentColors.getOrElse(index) { MaterialTheme.colorScheme.primary },
-                        trackColor = Color.Transparent,
+
+                clipPath(clipShape) {
+                    drawRect(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        topLeft = Offset.Zero,
+                        size = size,
                     )
+
+                    var currentX = 0f
+                    normalizedRatios.forEachIndexed { index, ratio ->
+                        val width = (ratio * size.width).toFloat()
+                        if (width > 0f) {
+                            drawRect(
+                                color = segmentColors.getOrElse(index) { MaterialTheme.colorScheme.primary },
+                                topLeft = Offset(currentX, 0f),
+                                size = Size(width, size.height),
+                            )
+                            currentX += width
+                        }
+                    }
+
+                    var dividerX = 0f
+                    normalizedRatios.dropLast(1).forEach { ratio ->
+                        dividerX += (ratio * size.width).toFloat()
+                        if (dividerX > 0f && dividerX < size.width) {
+                            drawLine(
+                                color = MaterialTheme.colorScheme.surface,
+                                start = Offset(dividerX, 0f),
+                                end = Offset(dividerX, size.height),
+                                strokeWidth = 1.dp.toPx(),
+                            )
+                        }
+                    }
                 }
             }
             breakdown.segments.forEach { segment ->
@@ -1924,6 +1960,46 @@ internal data class InferenceTimeSegmentUi(
 internal data class InferenceTimeBreakdownUi(
     val segments: List<InferenceTimeSegmentUi>,
 )
+
+internal fun normalizeSegmentRatiosForRendering(
+    ratios: List<Double>,
+    minVisibleRatio: Double,
+): List<Double> {
+    if (ratios.isEmpty()) return emptyList()
+    val positiveTotal = ratios.filter { it > 0.0 }.sum()
+    if (positiveTotal <= 0.0) return List(ratios.size) { 0.0 }
+
+    val normalizedRatios = ratios.map { ratio ->
+        if (ratio > 0.0) ratio / positiveTotal else 0.0
+    }.toMutableList()
+    val minimum = minVisibleRatio.coerceAtLeast(0.0)
+
+    normalizedRatios.indices.forEach { index ->
+        if (normalizedRatios[index] > 0.0 && normalizedRatios[index] < minimum) {
+            normalizedRatios[index] = minimum
+        }
+    }
+
+    var overflow = normalizedRatios.sum() - 1.0
+    while (overflow > 1e-9) {
+        val largestIndex = normalizedRatios.indices
+            .filter { normalizedRatios[it] > minimum }
+            .maxByOrNull { normalizedRatios[it] - minimum }
+            ?: break
+        val reducible = normalizedRatios[largestIndex] - minimum
+        val adjustment = minOf(overflow, reducible)
+        normalizedRatios[largestIndex] -= adjustment
+        overflow -= adjustment
+    }
+
+    val correction = 1.0 - normalizedRatios.sum()
+    if (kotlin.math.abs(correction) > 1e-9) {
+        val largestIndex = normalizedRatios.indices.maxByOrNull { normalizedRatios[it] } ?: 0
+        normalizedRatios[largestIndex] = (normalizedRatios[largestIndex] + correction).coerceAtLeast(0.0)
+    }
+
+    return normalizedRatios
+}
 
 internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
     val load = stats.modelLoadDurationNs?.takeIf { it >= 0L } ?: 0L
