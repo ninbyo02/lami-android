@@ -76,6 +76,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.DrawerValue
@@ -1493,7 +1494,9 @@ fun Home(
 
     if (showInferenceStatsSheet && selectedInferenceStats != null) {
         val stats = selectedInferenceStats
+        val inferenceStatsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
+            sheetState = inferenceStatsSheetState,
             onDismissRequest = {
                 showInferenceStatsSheet = false
                 selectedInferenceStats = null
@@ -1642,8 +1645,8 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-    val sheetContentPadding = 18.dp
-    val sectionSpacing = 16.dp
+    val sheetContentPadding = 14.dp
+    val sectionSpacing = 12.dp
 
     val sections = buildInferenceSummarySections(stats)
     val detailSections = buildInferenceDetailSections(stats)
