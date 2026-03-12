@@ -341,7 +341,7 @@ fun LamiAvatar(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
+                                    .padding(vertical = 3.dp)
                                     .selectable(
                                         selected = selectedModel == model.name,
                                         onClick = {
@@ -367,11 +367,21 @@ fun LamiAvatar(
                                     )
                                     Text(
                                         text = model.name,
-                                        modifier = Modifier.padding(start = 8.dp)
+                                        modifier = Modifier.padding(start = 8.dp, end = 8.dp),
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Normal,
+                                            lineHeight = 20.sp,
+                                        ),
                                     )
                                 }
                                 if (selectedModel == model.name) {
-                                    Text("選択中", fontSize = 12.sp)
+                                    Text(
+                                        text = "選択中",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        ),
+                                    )
                                 }
                             }
                         }
