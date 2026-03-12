@@ -354,9 +354,11 @@ fun LamiAvatar(
                                         contentDescription = "モデル ${model.name} を選択"
                                     },
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     RadioButton(
                                         selected = selectedModel == model.name,
                                         onClick = {
@@ -367,7 +369,10 @@ fun LamiAvatar(
                                     )
                                     Text(
                                         text = model.name,
-                                        modifier = Modifier.padding(start = 8.dp, end = 8.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            // ラジオボタンとの可読性を保ちながら、モデル名の有効横幅を少し広げる
+                                            .padding(start = 6.dp, end = 4.dp),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Normal,
                                             lineHeight = 18.sp,
@@ -377,6 +382,8 @@ fun LamiAvatar(
                                 if (selectedModel == model.name) {
                                     Text(
                                         text = "選択中",
+                                        // 補助ラベルの左余白を最小限にしてモデル名領域を優先
+                                        modifier = Modifier.padding(start = 4.dp),
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Medium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
