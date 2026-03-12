@@ -341,7 +341,7 @@ fun LamiAvatar(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 3.dp)
+                                    .padding(vertical = 2.dp)
                                     .selectable(
                                         selected = selectedModel == model.name,
                                         onClick = {
@@ -370,7 +370,7 @@ fun LamiAvatar(
                                         modifier = Modifier.padding(start = 8.dp, end = 8.dp),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Normal,
-                                            lineHeight = 20.sp,
+                                            lineHeight = 18.sp,
                                         ),
                                     )
                                 }
