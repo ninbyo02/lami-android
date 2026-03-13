@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -250,20 +251,30 @@ fun LamiAvatar(
                         }
                     }
                 }
+                val showCompactHeader by remember(listState) {
+                    derivedStateOf {
+                        listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 120
+                    }
+                }
 
-                LazyColumn(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = sheetMaxHeight),
-                    state = listState,
-                    // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
-                    contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 14.dp)
                 ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        state = listState,
+                        // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
+                        contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 14.dp)
+                    ) {
                     item {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = if (showCompactHeader) 48.dp else 0.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -445,6 +456,40 @@ fun LamiAvatar(
                             }
                         ) {
                             Text("設定画面へ移動")
+                        }
+                    }
+                    }
+
+                    if (showCompactHeader) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(horizontal = 24.dp, vertical = 8.dp)
+                                .align(Alignment.TopCenter),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = "Lami コントロール",
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                                )
+                                Text(
+                                    text = statusLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Text(
+                                text = selectedModel ?: "未選択",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            HorizontalDivider()
                         }
                     }
                 }
