@@ -372,10 +372,11 @@ fun LamiAvatar(
                                         modifier = Modifier
                                             .weight(1f)
                                             // ラジオボタンとの可読性を保ちつつ、モデル名の実効横幅を優先する
-                                            .padding(start = 6.dp, end = 2.dp),
+                                            .padding(start = 4.dp, end = 0.dp),
+                                        maxLines = Int.MAX_VALUE,
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Normal,
-                                            lineHeight = 18.sp,
+                                            lineHeight = 19.sp,
                                         ),
                                     )
                                 }
