@@ -371,22 +371,11 @@ fun LamiAvatar(
                                         text = model.name,
                                         modifier = Modifier
                                             .weight(1f)
-                                            // ラジオボタンとの可読性を保ちながら、モデル名の有効横幅を少し広げる
-                                            .padding(start = 6.dp, end = 4.dp),
+                                            // ラジオボタンとの可読性を保ちつつ、モデル名の実効横幅を優先する
+                                            .padding(start = 6.dp, end = 2.dp),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Normal,
                                             lineHeight = 18.sp,
-                                        ),
-                                    )
-                                }
-                                if (selectedModel == model.name) {
-                                    Text(
-                                        text = "選択中",
-                                        // 補助ラベルの左余白を最小限にしてモデル名領域を優先
-                                        modifier = Modifier.padding(start = 4.dp),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         ),
                                     )
                                 }
