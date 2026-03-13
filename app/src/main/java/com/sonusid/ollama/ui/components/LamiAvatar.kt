@@ -108,6 +108,10 @@ fun LamiAvatar(
     openControlRequestKey: Int = 0,
 ) {
     val haptic = LocalHapticFeedback.current
+    val selectModelAndKeepSheetOpen: (String) -> Unit = { modelName ->
+        onSelectModel(modelName)
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+    }
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var animationsEnabled by rememberSaveable { mutableStateOf(true) }
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
@@ -365,8 +369,7 @@ fun LamiAvatar(
                                     .selectable(
                                         selected = selectedModel == model.name,
                                         onClick = {
-                                            onSelectModel(model.name)
-                                            showSheet = false
+                                            selectModelAndKeepSheetOpen(model.name)
                                         },
                                         role = Role.RadioButton
                                     )
@@ -381,10 +384,7 @@ fun LamiAvatar(
                                 ) {
                                     RadioButton(
                                         selected = selectedModel == model.name,
-                                        onClick = {
-                                            onSelectModel(model.name)
-                                            showSheet = false
-                                        },
+                                        onClick = null,
                                         modifier = Modifier.semantics { contentDescription = "モデル ${model.name}" }
                                     )
                                     Text(
