@@ -307,8 +307,8 @@ fun LamiAvatar(
                         StatusInfoItem(
                             label = "接続先",
                             value = baseUrl.ifBlank { "未設定" },
-                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f),
+                            valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 22.sp,
                                 fontWeight = FontWeight.Normal,
                             ),
@@ -526,8 +526,8 @@ private fun LamiControlSearchPill(
     val height = 40.dp
     val shape = RoundedCornerShape(height / 2)
     val textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.94f),
-        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Medium,
     )
 
     Box(
@@ -565,7 +565,7 @@ private fun LamiControlSearchPill(
                             Text(
                                 text = "モデルを検索",
                                 style = textStyle.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.88f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontWeight = FontWeight.Normal,
                                 ),
                             )
