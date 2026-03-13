@@ -239,7 +239,7 @@ fun LamiAvatar(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
-                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.84f
+                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.94f
                 val listState: LazyListState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -259,7 +259,7 @@ fun LamiAvatar(
                     // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                    contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 14.dp)
                 ) {
                     item {
                         Row(
