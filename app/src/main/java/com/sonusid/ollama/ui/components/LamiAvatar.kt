@@ -274,44 +274,24 @@ fun LamiAvatar(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                // コンパクトヘッダー表示時にのみ重なり回避の top 余白を確保。
                                 .padding(top = if (showCompactHeader) 48.dp else 0.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                LamiSprite(
-                                    state = lamiState,
-                                    lamiStatus = lamiStatus,
-                                    sizeDp = 64.dp,
-                                    animationsEnabled = animationsEnabled,
-                                    replacementEnabled = replacementEnabled,
-                                    blinkEffectEnabled = blinkEffectEnabled,
-                                    debugOverlayEnabled = false
-                                )
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        text = "Lami コントロール",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    )
-                                    if (showStatusDetails) {
-                                        Column(horizontalAlignment = Alignment.End) {
-                                            Text(
-                                                text = statusLabel,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                            )
-                                            Text(
-                                                text = "最終更新: $lastUpdated",
-                                                style = MaterialTheme.typography.bodySmall,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            Text(
+                                text = "Lami コントロール",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             IconButton(onClick = {
                                 onNavigateSettings?.invoke()
                                 showSheet = false
@@ -323,14 +303,51 @@ fun LamiAvatar(
                             }
                         }
                     }
-                    item { StatusInfoItem(label = "接続先", value = baseUrl.ifBlank { "未設定" }) }
-                    item { StatusInfoItem(label = "選択モデル", value = selectedModel ?: "未選択") }
-                    item { StatusInfoItem(label = "フォールバック", value = if (fallbackActive) "ON" else "OFF") }
+                    item {
+                        StatusInfoItem(
+                            label = "接続先",
+                            value = baseUrl.ifBlank { "未設定" },
+                            valueStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 22.sp),
+                        )
+                    }
+                    item {
+                        StatusInfoItem(
+                            label = "選択モデル",
+                            value = selectedModel ?: "未選択",
+                            valueStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 22.sp),
+                        )
+                    }
+                    item {
+                        StatusInfoItem(
+                            label = "フォールバック",
+                            value = if (fallbackActive) "ON" else "OFF",
+                            valueStyle = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                     if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                        item { StatusInfoItem(label = "フォールバック理由", value = fallbackMessage) }
+                        item {
+                            StatusInfoItem(
+                                label = "フォールバック理由",
+                                value = fallbackMessage,
+                                valueStyle = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                     if (showStatusDetails) {
-                        item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
+                        item {
+                            StatusInfoItem(
+                                label = "エラー概要",
+                                value = lastError ?: "なし",
+                                valueStyle = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        item {
+                            StatusInfoItem(
+                                label = "最終更新",
+                                value = lastUpdated,
+                                valueStyle = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                     item { HorizontalDivider() }
                     item {
@@ -524,15 +541,16 @@ private fun ToggleRow(
 private fun StatusInfoItem(
     label: String,
     value: String,
+    valueStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = valueStyle,
         )
     }
 }
