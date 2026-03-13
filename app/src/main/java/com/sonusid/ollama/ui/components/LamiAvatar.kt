@@ -239,7 +239,7 @@ fun LamiAvatar(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
-                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.7f
+                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.84f
                 val listState: LazyListState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -256,8 +256,10 @@ fun LamiAvatar(
                         .fillMaxWidth()
                         .heightIn(max = sheetMaxHeight),
                     state = listState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                    // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
                 ) {
                     item {
                         Row(
@@ -341,7 +343,8 @@ fun LamiAvatar(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 2.dp)
+                                    // 行の圧迫感を避けながら縦密度を半歩だけ上げる
+                                    .padding(vertical = 1.dp)
                                     .selectable(
                                         selected = selectedModel == model.name,
                                         onClick = {
@@ -376,7 +379,7 @@ fun LamiAvatar(
                                         maxLines = Int.MAX_VALUE,
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.Normal,
-                                            lineHeight = 19.sp,
+                                            lineHeight = 18.sp,
                                         ),
                                     )
                                 }
