@@ -310,7 +310,7 @@ fun LamiAvatar(
                             valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 22.sp,
-                                fontWeight = FontWeight.Normal,
+                                fontWeight = FontWeight.Medium,
                             ),
                         )
                     }
@@ -529,6 +529,10 @@ private fun LamiControlSearchPill(
         color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.Medium,
     )
+    val placeholderStyle: TextStyle = textStyle.copy(
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+        fontWeight = FontWeight.Normal,
+    )
 
     Box(
         modifier = modifier
@@ -564,10 +568,7 @@ private fun LamiControlSearchPill(
                         if (value.isEmpty()) {
                             Text(
                                 text = "モデルを検索",
-                                style = textStyle.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Normal,
-                                ),
+                                style = placeholderStyle,
                             )
                         }
                         innerTextField()
