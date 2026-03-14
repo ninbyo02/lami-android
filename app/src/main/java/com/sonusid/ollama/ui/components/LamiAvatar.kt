@@ -38,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -431,26 +430,6 @@ fun LamiAvatar(
                             checked = animationsEnabled,
                             onCheckedChange = { animationsEnabled = it }
                         )
-                    }
-                    item {
-                        Column {
-                            Text(
-                                text = "表示サイズ (${avatarSize}dp)",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                            )
-                            Slider(
-                                value = avatarSize.toFloat(),
-                                onValueChange = { value ->
-                                    val snapped = (value.roundToInt() / 2) * 2
-                                    avatarSize = snapped.coerceIn(
-                                        minAvatarSize.value.roundToInt(),
-                                        maxAvatarSize.value.roundToInt()
-                                    )
-                                },
-                                valueRange = minAvatarSize.value..maxAvatarSize.value,
-                                steps = 0
-                            )
-                        }
                     }
                     item { Spacer(modifier = Modifier.height(8.dp)) }
                     item {
