@@ -296,7 +296,10 @@ fun LamiAvatar(
                                 }
                                 Text(
                                     text = selectedModel ?: "未選択",
-                                    style = MaterialTheme.typography.titleSmall,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Medium,
+                                    ),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -318,7 +321,10 @@ fun LamiAvatar(
                         StatusInfoItem(
                             label = "フォールバック",
                             value = if (fallbackActive) "ON" else "OFF",
-                            valueStyle = MaterialTheme.typography.bodyMedium,
+                            valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Normal,
+                            ),
                         )
                     }
                     if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
@@ -326,7 +332,10 @@ fun LamiAvatar(
                             StatusInfoItem(
                                 label = "フォールバック理由",
                                 value = fallbackMessage,
-                                valueStyle = MaterialTheme.typography.bodyMedium,
+                                valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Normal,
+                                ),
                             )
                         }
                     }
@@ -335,14 +344,20 @@ fun LamiAvatar(
                             StatusInfoItem(
                                 label = "エラー概要",
                                 value = lastError ?: "なし",
-                                valueStyle = MaterialTheme.typography.bodyMedium,
+                                valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Normal,
+                                ),
                             )
                         }
                         item {
                             StatusInfoItem(
                                 label = "最終更新",
                                 value = lastUpdated,
-                                valueStyle = MaterialTheme.typography.bodySmall,
+                                valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.Normal,
+                                ),
                             )
                         }
                     }
@@ -501,7 +516,7 @@ private fun ToggleRow(
 private fun StatusInfoItem(
     label: String,
     value: String,
-    valueStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    valueStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
