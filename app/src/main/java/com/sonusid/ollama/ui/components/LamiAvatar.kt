@@ -43,7 +43,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -250,10 +249,7 @@ fun LamiAvatar(
                 val listState: LazyListState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
-                val lamiSheetBg = surfaceColorAtElevation(
-                    MaterialTheme.colorScheme.surface,
-                    2.dp
-                )
+                val lamiSheetBg = MaterialTheme.colorScheme.surface
                 val filteredModels by remember(availableModels, searchQuery) {
                     derivedStateOf {
                         availableModels.filter { model ->
