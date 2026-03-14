@@ -4950,7 +4950,6 @@ private fun ReadyAnimationTab(
     var devMenuTtsSpeechRate by rememberSaveable {
         mutableFloatStateOf(AndroidTtsController.DEFAULT_SPEECH_RATE)
     }
-    var previewAvatarSizeDp by rememberSaveable { mutableStateOf(64) }
     var devMenuTtsPitch by rememberSaveable {
         mutableFloatStateOf(AndroidTtsController.DEFAULT_PITCH)
     }
@@ -4984,7 +4983,6 @@ private fun ReadyAnimationTab(
                 previewUiState = readyPreviewUiState,
                 selectedAnimation = selectedAnimation,
                 resolvedErrorKey = resolvedErrorKey,
-                previewAvatarSizeDp = previewAvatarSizeDp,
             )
         }
     }
@@ -5050,28 +5048,6 @@ private fun ReadyAnimationTab(
             // [dp] 四方向: リスト の余白(余白)に関係
             contentPadding = listContentPadding
         ) {
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // [dp] 上: 表示サイズ調整 のヘッダーをプレビュー直下から最小限離す
-                        .padding(top = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "表示サイズ (${previewAvatarSizeDp}dp)",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                    )
-                    Slider(
-                        value = previewAvatarSizeDp.toFloat(),
-                        onValueChange = { value ->
-                            previewAvatarSizeDp = value.roundToInt().coerceIn(32, 120)
-                        },
-                        valueRange = 32f..120f,
-                        steps = 0,
-                    )
-                }
-            }
             item {
                 Column(
                     modifier = Modifier
@@ -6009,7 +5985,6 @@ private fun ReadyAnimationPreviewPane(
     previewUiState: ReadyPreviewUiState,
     selectedAnimation: AnimationType,
     resolvedErrorKey: String?,
-    previewAvatarSizeDp: Int,
     devMenuContent: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
@@ -6067,10 +6042,8 @@ private fun ReadyAnimationPreviewPane(
             ) {
                 // [非dp] 縦横: プレビュー の制約(制約)に関係
                 val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
-                // [dp] 縦横: プレビュー の最大サイズ(制約)に関係
-                val maxSpriteSize = maxOf(32.dp, rawSpriteSize.coerceAtMost(120.dp))
                 // [dp] 縦横: プレビュー の表示サイズ(サイズ)に関係
-                val spriteSize = previewAvatarSizeDp.dp.coerceIn(32.dp, maxSpriteSize)
+                val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
                 val previewState = rememberReadyAnimationState(
                     spriteSheetConfig = spriteSheetConfig,
                     summary = baseSummary,
