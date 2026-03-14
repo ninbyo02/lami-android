@@ -273,7 +273,7 @@ fun LamiAvatar(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.Transparent)
+                                    .background(MaterialTheme.colorScheme.surface)
                                     .padding(top = 8.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
