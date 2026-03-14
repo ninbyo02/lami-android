@@ -36,6 +36,9 @@ fun LamiHeaderStatus(
     onNavigateSettings: () -> Unit,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
+    initialAvatarSize: Dp = 64.dp,
+    minAvatarSize: Dp = 48.dp,
+    maxAvatarSize: Dp = 64.dp,
     showAvatar: Boolean = true,
     onOpenControl: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -59,6 +62,9 @@ fun LamiHeaderStatus(
                 onNavigateSettings = onNavigateSettings,
                 debugOverlayEnabled = debugOverlayEnabled,
                 syncEpochMs = syncEpochMs,
+                initialAvatarSize = initialAvatarSize,
+                minAvatarSize = minAvatarSize,
+                maxAvatarSize = maxAvatarSize,
             )
         }
         HeaderStatusText(

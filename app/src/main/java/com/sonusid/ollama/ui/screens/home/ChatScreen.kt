@@ -139,6 +139,10 @@ import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
+import com.sonusid.ollama.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
+import com.sonusid.ollama.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
@@ -228,6 +232,12 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val settingsPreferences = remember(context.applicationContext) {
+        SettingsPreferences(context.applicationContext)
+    }
+    val savedChatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
+        initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP,
+    )
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
@@ -678,6 +688,9 @@ fun Home(
                         onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
+                        initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
+                        minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                        maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
                         // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
                         showAvatar = false,
                         onOpenControl = {
