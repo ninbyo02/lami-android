@@ -407,6 +407,38 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         )
                     }
                 }
+                // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // 仮UIの可読性を確保するため、最小限の内側余白を付与する
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = "ラミィ表示サイズ（仮）",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = "UI仮置きです。機能連携は今後追加予定です",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // サイズ候補を先に見せるための仮表示。選択機能は未接続
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // ラベルとチップの間隔を最小限で確保する
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AssistChip(onClick = {}, label = { Text("小") }, enabled = false)
+                            AssistChip(onClick = {}, label = { Text("中") }, enabled = false)
+                            AssistChip(onClick = {}, label = { Text("大") }, enabled = false)
+                        }
+                    }
+                }
             }
             item {
                 CardSectionHeader(
