@@ -43,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -269,6 +270,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
     val scaffoldBg = MaterialTheme.colorScheme.background
+    var previewLamiAvatarSizeDp by remember { mutableStateOf(64f) }
 
     LaunchedEffect(resetScrollOnReturnFromAbout) {
         if (resetScrollOnReturnFromAbout) {
@@ -417,26 +419,38 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Text(
-                            text = "ラミィ表示サイズ（仮）",
+                            text = "ラミィ表示サイズ",
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            text = "UI仮置きです。機能連携は今後追加予定です",
+                            text = "chat画面のラミィキャラの表示サイズを調整します",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        // サイズ候補を先に見せるための仮表示。選択機能は未接続
-                        Row(
+                        Text(
+                            text = "${previewLamiAvatarSizeDp.toInt()}dp",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        Slider(
+                            value = previewLamiAvatarSizeDp,
+                            onValueChange = { value ->
+                                previewLamiAvatarSizeDp = value
+                            },
+                            valueRange = 32f..120f,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // ラベルとチップの間隔を最小限で確保する
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            AssistChip(onClick = {}, label = { Text("小") }, enabled = false)
-                            AssistChip(onClick = {}, label = { Text("中") }, enabled = false)
-                            AssistChip(onClick = {}, label = { Text("大") }, enabled = false)
-                        }
+                                // 現在値ラベルとスライダーの間隔を最小限で確保する
+                                .padding(top = 8.dp)
+                        )
+                        Text(
+                            text = "※ 仮UIのため、保存やチャット画面への反映はまだ行われません",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp)
+                        )
                     }
                 }
             }
