@@ -125,6 +125,11 @@ fun LamiAvatar(
     ) {
         mutableStateOf(clampedInitialSize)
     }
+    LaunchedEffect(clampedInitialSize) {
+        if (avatarSize != clampedInitialSize) {
+            avatarSize = clampedInitialSize
+        }
+    }
     var lastUpdated by rememberSaveable { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val formatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
