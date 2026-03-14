@@ -307,7 +307,9 @@ fun LamiAvatar(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                HorizontalDivider()
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
                             }
                         }
                     item {
@@ -375,7 +377,11 @@ fun LamiAvatar(
                             )
                         }
                     }
-                    item { HorizontalDivider() }
+                    item {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
