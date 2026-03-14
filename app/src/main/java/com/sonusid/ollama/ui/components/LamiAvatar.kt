@@ -323,7 +323,7 @@ fun LamiAvatar(
                             value = if (fallbackActive) "ON" else "OFF",
                             valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Normal,
+                                fontWeight = FontWeight.Medium,
                             ),
                         )
                     }
@@ -334,7 +334,7 @@ fun LamiAvatar(
                                 value = fallbackMessage,
                                 valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Normal,
+                                    fontWeight = FontWeight.Medium,
                                 ),
                             )
                         }
@@ -346,7 +346,7 @@ fun LamiAvatar(
                                 value = lastError ?: "なし",
                                 valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Normal,
+                                    fontWeight = FontWeight.Medium,
                                 ),
                             )
                         }
@@ -355,8 +355,8 @@ fun LamiAvatar(
                                 label = "最終更新",
                                 value = lastUpdated,
                                 valueStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
-                                    fontWeight = FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium,
                                 ),
                             )
                         }
@@ -545,7 +545,7 @@ private fun LamiControlSearchPill(
         fontWeight = FontWeight.Medium,
     )
     val placeholderStyle: TextStyle = textStyle.copy(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f),
+        color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.Medium,
     )
 
