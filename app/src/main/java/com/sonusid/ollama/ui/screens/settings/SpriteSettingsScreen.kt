@@ -4832,6 +4832,8 @@ private fun ReadyAnimationTab(
         configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
             configuration.screenWidthDp >= configuration.screenHeightDp
     val selectedAnimation = selectionState.selectedAnimation
+    var replacementEnabled by rememberSaveable { mutableStateOf(true) }
+    var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val layoutState = rememberReadyPreviewLayoutState(
         devSettings = devSettings,
@@ -5504,7 +5506,11 @@ private fun ReadyAnimationTab(
                         scope.launch {
                             settingsPreferences.setTtsPitch(updatedPitch)
                         }
-                    }
+                    },
+                    replacementEnabled = replacementEnabled,
+                    onReplacementEnabledChange = { enabled -> replacementEnabled = enabled },
+                    blinkEffectEnabled = blinkEffectEnabled,
+                    onBlinkEffectEnabledChange = { enabled -> blinkEffectEnabled = enabled },
                 )
             }
         }

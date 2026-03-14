@@ -110,6 +110,10 @@ internal fun DebugDevMenuSection(
     devUnlocked: Boolean,
     layoutState: ReadyPreviewLayoutState,
     previewUiState: ReadyPreviewUiState,
+    replacementEnabled: Boolean = true,
+    onReplacementEnabledChange: (Boolean) -> Unit = {},
+    blinkEffectEnabled: Boolean = true,
+    onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     DevMenuSectionHost(
@@ -132,6 +136,10 @@ internal fun DebugDevMenuSection(
         onDecreaseTtsSpeechRate = {},
         onIncreaseTtsPitch = {},
         onDecreaseTtsPitch = {},
+        replacementEnabled = replacementEnabled,
+        onReplacementEnabledChange = onReplacementEnabledChange,
+        blinkEffectEnabled = blinkEffectEnabled,
+        onBlinkEffectEnabledChange = onBlinkEffectEnabledChange,
         modifier = modifier
     )
 }
@@ -157,6 +165,10 @@ internal fun DevMenuSectionHost(
     onDecreaseTtsSpeechRate: () -> Unit,
     onIncreaseTtsPitch: () -> Unit,
     onDecreaseTtsPitch: () -> Unit,
+    replacementEnabled: Boolean = true,
+    onReplacementEnabledChange: (Boolean) -> Unit = {},
+    blinkEffectEnabled: Boolean = true,
+    onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!BuildConfig.DEBUG) return
@@ -191,6 +203,10 @@ internal fun DevMenuSectionHost(
         onDecreaseTtsSpeechRate = onDecreaseTtsSpeechRate,
         onIncreaseTtsPitch = onIncreaseTtsPitch,
         onDecreaseTtsPitch = onDecreaseTtsPitch,
+        replacementEnabled = replacementEnabled,
+        onReplacementEnabledChange = onReplacementEnabledChange,
+        blinkEffectEnabled = blinkEffectEnabled,
+        onBlinkEffectEnabledChange = onBlinkEffectEnabledChange,
         modifier = modifier,
     )
 }
@@ -217,6 +233,10 @@ internal fun DevMenuSection(
     onDecreaseTtsSpeechRate: () -> Unit,
     onIncreaseTtsPitch: () -> Unit,
     onDecreaseTtsPitch: () -> Unit,
+    replacementEnabled: Boolean = true,
+    onReplacementEnabledChange: (Boolean) -> Unit = {},
+    blinkEffectEnabled: Boolean = true,
+    onBlinkEffectEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!devUnlocked) return
@@ -360,6 +380,17 @@ internal fun DevMenuSection(
             )
         }
         if (devMenuEnabled) {
+            Spacer(modifier = Modifier.height(4.dp))
+            DevToggleRow(
+                label = "置換",
+                checked = replacementEnabled,
+                onCheckedChange = onReplacementEnabledChange,
+            )
+            DevToggleRow(
+                label = "点滅エフェクト",
+                checked = blinkEffectEnabled,
+                onCheckedChange = onBlinkEffectEnabledChange,
+            )
             DevMenuBlock(
                 uiState = devMenuUiState,
                 callbacks = devMenuCallbacks,
@@ -368,6 +399,30 @@ internal fun DevMenuSection(
                 ttsPitch = ttsPitch,
             )
         }
+    }
+}
+
+
+@Composable
+private fun DevToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
