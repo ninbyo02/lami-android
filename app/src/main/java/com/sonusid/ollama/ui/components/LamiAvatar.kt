@@ -313,7 +313,7 @@ fun LamiAvatar(
                             valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 22.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.sp,
                             ),
                         )
@@ -324,7 +324,7 @@ fun LamiAvatar(
                             value = if (fallbackActive) "ON" else "OFF",
                             valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                             ),
                         )
                     }
@@ -335,7 +335,7 @@ fun LamiAvatar(
                                 value = fallbackMessage,
                                 valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Medium,
                                 ),
                             )
                         }
@@ -347,7 +347,7 @@ fun LamiAvatar(
                                 value = lastError ?: "なし",
                                 valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Medium,
                                 ),
                             )
                         }
@@ -357,7 +357,7 @@ fun LamiAvatar(
                                 value = lastUpdated,
                                 valueStyle = MaterialTheme.typography.bodyLarge.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Medium,
                                 ),
                             )
                         }
@@ -543,12 +543,12 @@ private fun LamiControlSearchPill(
     val shape = RoundedCornerShape(height / 2)
     val textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
     )
     val placeholderStyle: TextStyle = textStyle.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         letterSpacing = 0.sp,
     )
 
