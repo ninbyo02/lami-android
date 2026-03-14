@@ -144,16 +144,16 @@ fun LamiAvatar(
     val statusLabel = remember(lamiStatus) {
         when (lamiStatus) {
             LamiStatus.CONNECTING -> "接続中"
-            LamiStatus.READY -> "接続良好"
-            LamiStatus.DEGRADED -> "フォールバック中"
+            LamiStatus.READY -> "接続OK"
+            LamiStatus.DEGRADED -> "接続エラー"
             LamiStatus.NO_MODELS -> "モデルなし"
             LamiStatus.OFFLINE -> "オフライン"
-            LamiStatus.ERROR -> "エラー"
+            LamiStatus.ERROR -> "接続エラー"
             LamiStatus.TALKING -> "話し中"
         }
     }
 
-    LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive) {
+    LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive, fallbackMessage) {
         lastUpdated = formatter.format(Date())
     }
     LaunchedEffect(openControlRequestKey) {
@@ -314,6 +314,29 @@ fun LamiAvatar(
                         }
                     item {
                         StatusInfoItem(
+                            label = "接続状態",
+                            value = statusLabel,
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
+                        Text(
+                            text = "-- ms ▯▯▯▯",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
+                        StatusInfoItem(
                             label = "接続先",
                             value = baseUrl.ifBlank { "未設定" },
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -327,8 +350,8 @@ fun LamiAvatar(
                     }
                     item {
                         StatusInfoItem(
-                            label = "フォールバック",
-                            value = if (fallbackActive) "ON" else "OFF",
+                            label = "最終更新",
+                            value = lastUpdated,
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
@@ -336,46 +359,6 @@ fun LamiAvatar(
                                 letterSpacing = 0.sp,
                             ),
                         )
-                    }
-                    if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                        item {
-                            StatusInfoItem(
-                                label = "フォールバック理由",
-                                value = fallbackMessage,
-                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp,
-                                ),
-                            )
-                        }
-                    }
-                    if (showStatusDetails) {
-                        item {
-                            StatusInfoItem(
-                                label = "エラー概要",
-                                value = lastError ?: "なし",
-                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp,
-                                ),
-                            )
-                        }
-                        item {
-                            StatusInfoItem(
-                                label = "最終更新",
-                                value = lastUpdated,
-                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp,
-                                ),
-                            )
-                        }
                     }
                     item {
                         HorizontalDivider(
