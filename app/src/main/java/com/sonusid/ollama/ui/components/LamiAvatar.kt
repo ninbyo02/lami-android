@@ -316,7 +316,7 @@ fun LamiAvatar(
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Normal,
                                 letterSpacing = 0.sp,
                                 fontFamily = FontFamily.Monospace,
                             ),
@@ -329,7 +329,7 @@ fun LamiAvatar(
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Normal,
                                 letterSpacing = 0.sp,
                             ),
                         )
@@ -342,7 +342,7 @@ fun LamiAvatar(
                                 valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                     letterSpacing = 0.sp,
                                 ),
                             )
@@ -356,7 +356,7 @@ fun LamiAvatar(
                                 valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                     letterSpacing = 0.sp,
                                 ),
                             )
@@ -368,7 +368,7 @@ fun LamiAvatar(
                                 valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                     letterSpacing = 0.sp,
                                 ),
                             )
@@ -561,7 +561,7 @@ private fun LamiControlSearchPill(
     )
     val placeholderStyle: TextStyle = textStyle.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Normal,
         lineHeight = 20.sp,
         letterSpacing = 0.sp,
     )
