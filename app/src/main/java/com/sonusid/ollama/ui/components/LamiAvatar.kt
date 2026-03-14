@@ -67,6 +67,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -298,7 +299,7 @@ fun LamiAvatar(
                                     text = selectedModel ?: "未選択",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.Medium,
                                         lineHeight = 20.sp,
                                         letterSpacing = 0.sp,
                                     ),
@@ -315,8 +316,9 @@ fun LamiAvatar(
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.sp,
+                                fontFamily = FontFamily.Monospace,
                             ),
                         )
                     }
@@ -327,7 +329,7 @@ fun LamiAvatar(
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.sp,
                             ),
                         )
@@ -340,7 +342,7 @@ fun LamiAvatar(
                                 valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.Medium,
                                     letterSpacing = 0.sp,
                                 ),
                             )
@@ -354,7 +356,7 @@ fun LamiAvatar(
                                 valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.Medium,
                                     letterSpacing = 0.sp,
                                 ),
                             )
@@ -366,7 +368,7 @@ fun LamiAvatar(
                                 valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.Medium,
                                     letterSpacing = 0.sp,
                                 ),
                             )
@@ -553,13 +555,14 @@ private fun LamiControlSearchPill(
     val shape = RoundedCornerShape(height / 2)
     val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Medium,
         lineHeight = 20.sp,
         letterSpacing = 0.sp,
     )
     val placeholderStyle: TextStyle = textStyle.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.Medium,
+        lineHeight = 20.sp,
         letterSpacing = 0.sp,
     )
 
