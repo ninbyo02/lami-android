@@ -104,6 +104,17 @@ class InferenceStatsFormatterTest {
     }
 
     @Test
+    fun `duration formatters show less than point one seconds for tiny positive values`() {
+        val stats = InferenceStats(
+            inferenceTimeSec = 0.05,
+            modelLoadDurationNs = 50_000_000L,
+        )
+
+        assertEquals("<0.1 s", formatInferenceTime(stats))
+        assertEquals("<0.1 s", formatModelLoadDuration(stats))
+    }
+
+    @Test
     fun `formatTotalTokens prefers persisted totalTokens`() {
         val stats = InferenceStats(totalTokens = 99, inputTokens = 10, outputTokens = 12)
 

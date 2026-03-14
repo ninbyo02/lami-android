@@ -24,21 +24,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -61,14 +59,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,9 +106,13 @@ fun LamiAvatar(
     onNavigateSettings: (() -> Unit)? = null,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
+    openControlRequestKey: Int = 0,
 ) {
     val haptic = LocalHapticFeedback.current
-    var showMenu by remember { mutableStateOf(false) }
+    val selectModelAndKeepSheetOpen: (String) -> Unit = { modelName ->
+        onSelectModel(modelName)
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+    }
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var animationsEnabled by rememberSaveable { mutableStateOf(true) }
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
@@ -150,6 +156,11 @@ fun LamiAvatar(
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive) {
         lastUpdated = formatter.format(Date())
     }
+    LaunchedEffect(openControlRequestKey) {
+        if (openControlRequestKey > 0) {
+            showSheet = true
+        }
+    }
 
     Box(
         modifier = modifier
@@ -161,13 +172,12 @@ fun LamiAvatar(
                 role = Role.Button,
                 onClick = {
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                    showMenu = true
-                },
-                onLongClick = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     showSheet = true
                 }
             )
+            .semantics {
+                contentDescription = "Lami コントロールを開く"
+            }
             .then(
                 if (debugEnabled && debugOverlayEnabled) {
                     Modifier.border(1.dp, outlineColor)
@@ -230,58 +240,16 @@ fun LamiAvatar(
                 )
             }
         }
-
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("""状態: $statusLabel""") },
-                onClick = { }
-            )
-            DropdownMenuItem(
-                text = { Text("""接続先: ${baseUrl.ifBlank { "未設定" }}""") },
-                onClick = { }
-            )
-            val canSelectModel = availableModels.size > 1
-            DropdownMenuItem(
-                text = { Text("""モデル: ${selectedModel ?: "未選択"}""") },
-                onClick = {
-                    if (canSelectModel) {
-                        showSheet = true
-                        showMenu = false
-                    }
-                },
-                enabled = canSelectModel
-            )
-            DropdownMenuItem(
-                text = { Text("""フォールバック: ${if (fallbackActive) "ON" else "OFF"}""") },
-                onClick = { }
-            )
-            if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                DropdownMenuItem(
-                    text = { Text("""理由: $fallbackMessage""") },
-                    onClick = { }
-                )
-            }
-            DropdownMenuItem(text = { Text("最終更新: $lastUpdated") }, onClick = { })
-            if (showStatusDetails) {
-                DropdownMenuItem(
-                    text = { Text("""エラー概要: ${lastError ?: "なし"}""") },
-                    onClick = { }
-                )
-            }
-        }
-
         if (showSheet) {
             ModalBottomSheet(
                 sheetState = sheetState,
                 onDismissRequest = { showSheet = false }
             ) {
-                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.7f
+                val sheetMaxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.94f
                 val listState: LazyListState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
+                val lamiSheetBg = MaterialTheme.colorScheme.surface
                 val filteredModels by remember(availableModels, searchQuery) {
                     derivedStateOf {
                         availableModels.filter { model ->
@@ -289,104 +257,143 @@ fun LamiAvatar(
                         }
                     }
                 }
-
-                LazyColumn(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = sheetMaxHeight),
-                    state = listState,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        state = listState,
+                        // 上下の視認性を維持しつつ、初期表示でより多くの項目を見せるため最小限に詰める
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        // シート先頭・末尾の余白のみ半歩だけ縮め、一覧の操作範囲を広げる
+                        contentPadding = PaddingValues(start = 24.dp, top = 0.dp, end = 24.dp, bottom = 14.dp)
+                    ) {
+                        stickyHeader {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(lamiSheetBg)
+                                    .padding(top = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
-                                LamiSprite(
-                                    state = lamiState,
-                                    lamiStatus = lamiStatus,
-                                    sizeDp = 64.dp,
-                                    animationsEnabled = animationsEnabled,
-                                    replacementEnabled = replacementEnabled,
-                                    blinkEffectEnabled = blinkEffectEnabled,
-                                    debugOverlayEnabled = false
-                                )
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
-                                    Text("Lami コントロール", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                    if (showStatusDetails) {
-                                        Column(horizontalAlignment = Alignment.End) {
-                                            Text(
-                                                text = statusLabel,
-                                                fontSize = 14.sp
-                                            )
-                                            Text(
-                                                text = "最終更新: $lastUpdated",
-                                                fontSize = 12.sp
-                                            )
-                                        }
-                                    }
+                                    Text(
+                                        text = "Lami コントロール",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = statusLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
                                 }
-                            }
-                            IconButton(onClick = {
-                                onNavigateSettings?.invoke()
-                                showSheet = false
-                            }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.settings),
-                                    contentDescription = "設定を開く"
+                                Text(
+                                    text = selectedModel ?: "未選択",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = 20.sp,
+                                        letterSpacing = 0.sp,
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant
                                 )
                             }
                         }
+                    item {
+                        StatusInfoItem(
+                            label = "接続先",
+                            value = baseUrl.ifBlank { "未設定" },
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                                fontFamily = FontFamily.Monospace,
+                            ),
+                        )
                     }
-                    item { StatusInfoItem(label = "接続先", value = baseUrl.ifBlank { "未設定" }) }
-                    item { StatusInfoItem(label = "選択モデル", value = selectedModel ?: "未選択") }
-                    item { StatusInfoItem(label = "フォールバック", value = if (fallbackActive) "ON" else "OFF") }
+                    item {
+                        StatusInfoItem(
+                            label = "フォールバック",
+                            value = if (fallbackActive) "ON" else "OFF",
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
                     if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                        item { StatusInfoItem(label = "フォールバック理由", value = fallbackMessage) }
+                        item {
+                            StatusInfoItem(
+                                label = "フォールバック理由",
+                                value = fallbackMessage,
+                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    letterSpacing = 0.sp,
+                                ),
+                            )
+                        }
                     }
                     if (showStatusDetails) {
-                        item { StatusInfoItem(label = "エラー概要", value = lastError ?: "なし") }
+                        item {
+                            StatusInfoItem(
+                                label = "エラー概要",
+                                value = lastError ?: "なし",
+                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    letterSpacing = 0.sp,
+                                ),
+                            )
+                        }
+                        item {
+                            StatusInfoItem(
+                                label = "最終更新",
+                                value = lastUpdated,
+                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    letterSpacing = 0.sp,
+                                ),
+                            )
+                        }
                     }
-                    item { HorizontalDivider() }
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("利用可能なモデル", fontWeight = FontWeight.SemiBold)
-                            OutlinedTextField(
-                                modifier = Modifier.fillMaxWidth(),
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "利用可能なモデル",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            )
+                            LamiControlSearchPill(
                                 value = searchQuery,
+                                lamiSheetBg = lamiSheetBg,
                                 onValueChange = { query -> searchQuery = query },
-                                placeholder = { Text("モデルを検索") },
-                                singleLine = true,
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Search,
-                                        contentDescription = "モデル検索"
-                                    )
-                                },
-                                trailingIcon = {
-                                    if (searchQuery.isNotBlank()) {
-                                        IconButton(onClick = { searchQuery = "" }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "検索文字列をクリア"
-                                            )
-                                        }
-                                    }
-                                },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                keyboardActions = KeyboardActions(
-                                    onSearch = {
-                                        scope.launch { listState.animateScrollToItem(0) }
-                                    }
-                                )
+                                onClear = { searchQuery = "" },
+                                onSearch = { scope.launch { listState.animateScrollToItem(0) } },
                             )
                         }
                     }
@@ -397,12 +404,12 @@ fun LamiAvatar(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
+                                    // 行の圧迫感を避けながら縦密度を半歩だけ上げる
+                                    .padding(vertical = 1.dp)
                                     .selectable(
                                         selected = selectedModel == model.name,
                                         onClick = {
-                                            onSelectModel(model.name)
-                                            showSheet = false
+                                            selectModelAndKeepSheetOpen(model.name)
                                         },
                                         role = Role.RadioButton
                                     )
@@ -410,24 +417,28 @@ fun LamiAvatar(
                                         contentDescription = "モデル ${model.name} を選択"
                                     },
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     RadioButton(
                                         selected = selectedModel == model.name,
-                                        onClick = {
-                                            onSelectModel(model.name)
-                                            showSheet = false
-                                        },
+                                        onClick = null,
                                         modifier = Modifier.semantics { contentDescription = "モデル ${model.name}" }
                                     )
                                     Text(
                                         text = model.name,
-                                        modifier = Modifier.padding(start = 8.dp)
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            // ラジオボタンとの可読性を保ちつつ、モデル名の実効横幅を優先する
+                                            .padding(start = 4.dp, end = 0.dp),
+                                        maxLines = Int.MAX_VALUE,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Normal,
+                                            lineHeight = 18.sp,
+                                        ),
                                     )
-                                }
-                                if (selectedModel == model.name) {
-                                    Text("選択中", fontSize = 12.sp)
                                 }
                             }
                         }
@@ -463,7 +474,10 @@ fun LamiAvatar(
                     }
                     item {
                         Column {
-                            Text("表示サイズ (${avatarSize}dp)", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = "表示サイズ (${avatarSize}dp)",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                            )
                             Slider(
                                 value = avatarSize.toFloat(),
                                 onValueChange = { value ->
@@ -490,6 +504,7 @@ fun LamiAvatar(
                             Text("設定画面へ移動")
                         }
                     }
+                    }
                 }
             }
         }
@@ -507,7 +522,10 @@ private fun ToggleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+        )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange
@@ -519,10 +537,94 @@ private fun ToggleRow(
 private fun StatusInfoItem(
     label: String,
     value: String,
+    valueStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, fontWeight = FontWeight.SemiBold)
-        Text(value, fontSize = 13.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+        )
+        Text(
+            text = value,
+            style = valueStyle,
+        )
+    }
+}
+
+@Composable
+private fun LamiControlSearchPill(
+    value: String,
+    lamiSheetBg: Color,
+    onValueChange: (String) -> Unit,
+    onClear: () -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val height = 40.dp
+    val shape = RoundedCornerShape(height / 2)
+    val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Medium,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp,
+    )
+    val placeholderStyle: TextStyle = textStyle.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.Normal,
+        lineHeight = 20.sp,
+        letterSpacing = 0.sp,
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .background(lamiSheetBg, shape)
+            // 左：検索アイコンとの間を取り、ピル内の詰まりを防ぐ。
+            .padding(start = 16.dp, top = 1.dp, end = 0.dp, bottom = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "モデル検索",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // 左アイコンと入力テキストの間に最小限の余白を確保。
+            Spacer(modifier = Modifier.size(10.dp))
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = textStyle,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = "モデルを検索",
+                                style = placeholderStyle,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            if (value.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "検索文字列をクリア",
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -17,6 +17,7 @@ import com.sonusid.ollama.db.entity.Message
 import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.db.repository.ChatRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.screens.settings.ErrorCause
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
@@ -69,6 +70,13 @@ class OllamaViewModel(
     val isTtsPlaying: StateFlow<Boolean> = _isTtsPlaying.asStateFlow()
     private val _latestInferenceStats = MutableStateFlow<InferenceStats?>(null)
     val latestInferenceStats: StateFlow<InferenceStats?> = _latestInferenceStats.asStateFlow()
+    private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
+    private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
+
+    private fun buildContextWindowCacheKey(modelName: String): String {
+        val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+        return "$baseUrl|${modelName.trim()}"
+    }
 
     private val _chats = MutableStateFlow<List<Chat>>(emptyList())
     val chats: StateFlow<List<Chat>> = _chats
@@ -260,6 +268,9 @@ class OllamaViewModel(
                 stream = true,
                 images = encodedImages.ifEmpty { null },
             )
+            val effectiveContextWindow = model?.let { getCachedEffectiveContextWindow(it) }
+            val contextWindowFetchState = resolveContextWindowFetchState(model)
+            prefetchEffectiveContextWindow(model)
 
             if (model != null) {
                 try {
@@ -306,6 +317,14 @@ class OllamaViewModel(
                             // アプリ側計測値。Ollama usage の load_duration とは別指標として扱う。
                             timeToFirstTokenMs = streamingResult.timeToFirstTokenMs,
                             imageInputCount = attachmentUris.size,
+                            contextTokensUsed = totalTokens,
+                            contextWindow = effectiveContextWindow,
+                            contextWindowFetchState = contextWindowFetchState,
+                            contextUsageRatio = if (effectiveContextWindow != null && effectiveContextWindow > 0 && totalTokens != null) {
+                                totalTokens.toDouble() / effectiveContextWindow.toDouble()
+                            } else {
+                                null
+                            },
                             // 旧命名互換（段階的移行用）。
                             model = finalChunk?.model ?: model,
                             modelLabel = finalChunk?.model ?: model,
@@ -520,6 +539,7 @@ class OllamaViewModel(
         when {
             savedModelAvailable != null -> {
                 _selectedModel.value = savedModelAvailable
+                prefetchEffectiveContextWindow(savedModelAvailable)
                 withContext(Dispatchers.IO) {
                     modelPreferenceRepository.setSelectedModel(baseUrl, savedModelAvailable)
                 }
@@ -527,6 +547,7 @@ class OllamaViewModel(
 
             currentSelection != null -> {
                 _selectedModel.value = currentSelection
+                prefetchEffectiveContextWindow(currentSelection)
             }
 
             else -> {
@@ -617,11 +638,128 @@ class OllamaViewModel(
         viewModelScope.launch {
             val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
             _selectedModel.value = modelName
+            prefetchEffectiveContextWindow(modelName)
             // 永続化はユーザーが明示的に updateSelectedModel を呼び出した場合のみ行う
             withContext(Dispatchers.IO) {
                 modelPreferenceRepository.setSelectedModel(baseUrl, modelName)
             }
         }
+    }
+
+    private fun resolveContextWindowFetchState(modelName: String?): ContextWindowFetchState {
+        val normalizedModel = modelName?.trim().orEmpty()
+        if (normalizedModel.isBlank()) {
+            return ContextWindowFetchState.UNAVAILABLE
+        }
+        val cacheKey = buildContextWindowCacheKey(normalizedModel)
+        val cachedWindow = effectiveContextWindowCache[cacheKey]
+        if (cachedWindow != null && cachedWindow > 0) {
+            return ContextWindowFetchState.AVAILABLE
+        }
+        return when (effectiveContextWindowRequestState[cacheKey]) {
+            ContextWindowResolutionState.LOADING -> ContextWindowFetchState.LOADING
+            ContextWindowResolutionState.RESOLVED_WITH_VALUE -> ContextWindowFetchState.AVAILABLE
+            ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE -> ContextWindowFetchState.UNAVAILABLE
+            null -> ContextWindowFetchState.LOADING
+        }
+    }
+
+    private fun getCachedEffectiveContextWindow(modelName: String): Int? {
+        return effectiveContextWindowCache[buildContextWindowCacheKey(modelName)]
+    }
+
+    private fun prefetchEffectiveContextWindow(modelName: String?) {
+        val normalizedModel = modelName?.trim().orEmpty()
+        if (normalizedModel.isBlank()) {
+            return
+        }
+        val cacheKey = buildContextWindowCacheKey(normalizedModel)
+        if (effectiveContextWindowCache.containsKey(cacheKey)) {
+            effectiveContextWindowRequestState[cacheKey] = if (effectiveContextWindowCache[cacheKey] != null) {
+                ContextWindowResolutionState.RESOLVED_WITH_VALUE
+            } else {
+                ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE
+            }
+            return
+        }
+        if (effectiveContextWindowRequestState[cacheKey] == ContextWindowResolutionState.LOADING) {
+            return
+        }
+        effectiveContextWindowRequestState[cacheKey] = ContextWindowResolutionState.LOADING
+        viewModelScope.launch {
+            val resolved = withContext(Dispatchers.IO) {
+                runCatching { fetchEffectiveContextWindow(normalizedModel) }
+                    .onFailure { error ->
+                        Log.d("OllamaViewModel", "Failed to resolve effective context window for $normalizedModel: ${error.message}")
+                    }
+                    .getOrNull()
+            }
+            effectiveContextWindowCache[cacheKey] = resolved
+            effectiveContextWindowRequestState[cacheKey] = if (resolved != null && resolved > 0) {
+                ContextWindowResolutionState.RESOLVED_WITH_VALUE
+            } else {
+                ContextWindowResolutionState.RESOLVED_WITHOUT_VALUE
+            }
+            _latestInferenceStats.update { current ->
+                if (current == null) {
+                    return@update null
+                }
+                val statsModel = current.modelName ?: current.model
+                val normalizedStatsModel = statsModel?.trim().orEmpty()
+                if (normalizedStatsModel.isBlank() || buildContextWindowCacheKey(normalizedStatsModel) != cacheKey) {
+                    return@update current
+                }
+                val totalTokens = current.totalTokens
+                current.copy(
+                    contextWindow = resolved,
+                    contextWindowFetchState = if (resolved != null && resolved > 0) {
+                        ContextWindowFetchState.AVAILABLE
+                    } else {
+                        ContextWindowFetchState.UNAVAILABLE
+                    },
+                    contextUsageRatio = if (resolved != null && resolved > 0 && totalTokens != null) {
+                        totalTokens.toDouble() / resolved.toDouble()
+                    } else {
+                        null
+                    },
+                )
+            }
+        }
+    }
+
+    private fun fetchEffectiveContextWindow(modelName: String): Int? {
+        val baseUrl = RetrofitClient.currentBaseUrl().trimEnd('/')
+        val url = URL("$baseUrl/api/show")
+        val connection = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 5000
+            readTimeout = 10000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+        }
+        val requestBody = JSONObject()
+            .put("model", modelName)
+            .toString()
+        connection.outputStream.use { output ->
+            output.write(requestBody.toByteArray(Charsets.UTF_8))
+        }
+        val responseCode = connection.responseCode
+        val responseStream = if (responseCode in 200..299) {
+            connection.inputStream
+        } else {
+            connection.errorStream
+        } ?: return null
+        val response = responseStream.bufferedReader().use { it.readText() }
+        if (responseCode !in 200..299) {
+            throw IOException("Failed to load model details (HTTP $responseCode): $response")
+        }
+        return extractEffectiveContextWindowFromShowResponse(response)
+    }
+
+    private enum class ContextWindowResolutionState {
+        LOADING,
+        RESOLVED_WITH_VALUE,
+        RESOLVED_WITHOUT_VALUE,
     }
 
     private data class EncodedAttachments(
@@ -634,4 +772,57 @@ class OllamaViewModel(
         private const val MAX_COMPOSER_ATTACHMENTS = 10
     }
 
+}
+
+private val NUM_CTX_PATTERN = Regex("""(^|\\s)num_ctx\\s+(\\d+)""", RegexOption.MULTILINE)
+
+private fun JSONObject.optNullableIntCompat(name: String): Int? =
+    if (has(name) && !isNull(name)) runCatching { getInt(name) }.getOrNull() else null
+
+@VisibleForTesting
+internal fun extractEffectiveContextWindowFromShowResponse(response: String): Int? {
+    val json = runCatching { JSONObject(response) }.getOrNull() ?: return null
+
+    json.optJSONObject("options")
+        ?.optNullableIntCompat("num_ctx")
+        ?.takeIf { it > 0 }
+        ?.let { return it }
+
+    json.optString("parameters")
+        .takeIf { it.isNotBlank() }
+        ?.let { parameters ->
+            NUM_CTX_PATTERN.find(parameters)
+                ?.groupValues
+                ?.getOrNull(2)
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+                ?.let { return it }
+        }
+
+    json.optJSONObject("model_info")
+        ?.let { modelInfo ->
+            val keys = modelInfo.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                if (!key.contains("context_length")) continue
+                modelInfo.optNullableIntCompat(key)
+                    ?.takeIf { it > 0 }
+                    ?.let { return it }
+            }
+        }
+
+    json.optNullableIntCompat("context_window")
+        ?.takeIf { it > 0 }
+        ?.let { return it }
+
+    json.optNullableIntCompat("context_length")
+        ?.takeIf { it > 0 }
+        ?.let { return it }
+
+    json.optJSONObject("details")
+        ?.optNullableIntCompat("context_length")
+        ?.takeIf { it > 0 }
+        ?.let { return it }
+
+    return null
 }

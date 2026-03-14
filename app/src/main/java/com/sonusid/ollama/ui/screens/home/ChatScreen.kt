@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
@@ -138,6 +139,7 @@ import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.util.formatOutputTokens
@@ -157,8 +159,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.json.JSONArray
+import java.util.Locale
 import kotlinx.coroutines.yield
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 private val ComposerMinHeight = 44.dp
@@ -267,6 +269,7 @@ fun Home(
     var measuredTopGradientBottomPx by remember { mutableStateOf<Float?>(null) }
     var measuredSpriteBottomPx by remember { mutableStateOf<Float?>(null) }
     var measuredContentTopPx by remember { mutableStateOf<Float?>(null) }
+    var openLamiControlRequestKey by remember { mutableStateOf(0) }
     val measuredTopGradientBottomDp = with(LocalDensity.current) { (measuredTopGradientBottomPx ?: 0f).toDp() }
     val effectiveTopGradientBottomDp = if (measuredTopGradientBottomPx != null) measuredTopGradientBottomDp else topGradientBottomDp
     val topPaddingModeMap = remember {
@@ -656,6 +659,7 @@ fun Home(
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
+                            openControlRequestKey = openLamiControlRequestKey,
                         )
                     }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
@@ -676,6 +680,10 @@ fun Home(
                         syncEpochMs = animationEpochMs,
                         // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
                         showAvatar = false,
+                        onOpenControl = {
+                            viewModel.onUserInteraction()
+                            openLamiControlRequestKey += 1
+                        },
                     )
                 }
             },
@@ -1645,6 +1653,7 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(stats: InferenceStats) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val clipboardManager = LocalClipboardManager.current
     val sheetContentPadding = 14.dp
     val sectionSpacing = 12.dp
 
@@ -1674,6 +1683,13 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                 fontWeight = FontWeight.SemiBold,
             )
 
+            InferenceModelInfoRow(
+                stats = stats,
+                onCopyModelName = { modelName ->
+                    clipboardManager.setText(AnnotatedString(modelName))
+                },
+            )
+
             sections.forEach { section ->
                 InferenceStatsSection(title = section.title) {
                     section.items.forEach { item ->
@@ -1681,6 +1697,9 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                     }
                 }
             }
+
+            InferenceTimingBreakdownSection(stats)
+            InferenceContextUsageSection(stats)
 
             if (shouldShowInferenceTimingNote(stats)) {
                 Text(
@@ -1711,6 +1730,154 @@ private fun InferenceStatsSheetContent(stats: InferenceStats) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InferenceModelInfoRow(
+    stats: InferenceStats,
+    onCopyModelName: (String) -> Unit,
+) {
+    val modelName = formatModelName(stats)
+    InferenceStatsSection(title = "モデル情報") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "使用モデル",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = modelName ?: "—",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            if (!modelName.isNullOrBlank()) {
+                IconButton(
+                    onClick = { onCopyModelName(modelName) },
+                    modifier = Modifier.semantics { contentDescription = "モデル名をコピー" },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "モデル名をコピー",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InferenceTimingBreakdownSection(stats: InferenceStats) {
+    val breakdown = buildInferenceTimeBreakdown(stats) ?: return
+    val barColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+
+    InferenceStatsSection(title = "推論時間内訳") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            breakdown.segments.forEach { segment ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    InferenceStatRow(
+                        label = segment.label,
+                        value = "${segment.durationText} / ${segment.percent}%",
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .background(
+                                color = trackColor,
+                                shape = RoundedCornerShape(999.dp),
+                            ),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(segment.ratio.toFloat().coerceIn(0f, 1f))
+                                .height(8.dp)
+                                .background(
+                                    color = barColor,
+                                    shape = RoundedCornerShape(999.dp),
+                                ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InferenceContextUsageSection(stats: InferenceStats) {
+    val usage = buildContextUsageUi(stats) ?: return
+    InferenceStatsSection(title = "コンテキスト使用量") {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            when (usage) {
+                is ContextUsageUi.WithMax -> {
+                    if (usage.ratio in 0.0..1.0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(999.dp),
+                                ),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(usage.ratio.toFloat().coerceIn(0f, 1f))
+                                    .height(8.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = RoundedCornerShape(999.dp),
+                                    ),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "${usage.used} / ${usage.max} tokens (${usage.percent}%)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+
+                is ContextUsageUi.Loading -> {
+                    Text(
+                        text = "使用トークン ${usage.used}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "上限取得中…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                is ContextUsageUi.WithoutMax -> {
+                    Text(
+                        text = "使用トークン ${usage.used}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "上限未取得",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -1772,12 +1939,6 @@ internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
 
 internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(
-        title = "モデル情報",
-        items = listOf(
-            InferenceStatItemUi(label = "使用モデル", value = formatModelName(stats) ?: "—"),
-        ),
-    ),
-    InferenceStatsSectionUi(
         title = "概要",
         items = listOf(
             InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
@@ -1791,6 +1952,73 @@ internal fun buildInferenceSummarySections(stats: InferenceStats): List<Inferenc
         ),
     ),
 )
+
+internal data class InferenceTimeSegmentUi(
+    val label: String,
+    val ratio: Double,
+    val percent: Int,
+    val durationText: String,
+)
+
+internal data class InferenceTimeBreakdownUi(
+    val segments: List<InferenceTimeSegmentUi>,
+)
+
+internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
+    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L } ?: 0L
+    val prompt = stats.promptEvalDurationNs?.takeIf { it >= 0L } ?: 0L
+    val generation = (stats.generationDurationNs ?: stats.evalDurationNs)?.takeIf { it >= 0L } ?: 0L
+    val total = load + prompt + generation
+    if (total <= 0L) return null
+
+    fun ratio(value: Long): Double = value.toDouble() / total.toDouble()
+    return InferenceTimeBreakdownUi(
+        segments = listOf(
+            InferenceTimeSegmentUi("ロード", ratio(load), (ratio(load) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(load)),
+            InferenceTimeSegmentUi("入力", ratio(prompt), (ratio(prompt) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(prompt)),
+            InferenceTimeSegmentUi("生成", ratio(generation), (ratio(generation) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(generation)),
+        ),
+    )
+}
+
+private fun formatDurationNsAsSecondsForSheet(durationNs: Long): String {
+    val seconds = durationNs / 1_000_000_000.0
+    if (seconds > 0.0 && seconds < 0.1) return "<0.1 s"
+    return String.format(Locale.US, "%.1f s", seconds)
+}
+
+internal sealed interface ContextUsageUi {
+    data class WithMax(
+        val used: Int,
+        val max: Int,
+        val ratio: Double,
+        val percent: Int,
+    ) : ContextUsageUi
+
+    data class Loading(val used: Int) : ContextUsageUi
+
+    data class WithoutMax(val used: Int) : ContextUsageUi
+}
+
+internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
+    val used = stats.totalTokens?.takeIf { it >= 0 } ?: return null
+    val max = stats.contextWindow?.takeIf { it > 0 }
+    if (max != null) {
+        val ratio = used.toDouble() / max.toDouble()
+        return ContextUsageUi.WithMax(
+            used = used,
+            max = max,
+            ratio = ratio,
+            percent = (ratio * 100).roundToInt(),
+        )
+    }
+    return when (stats.contextWindowFetchState) {
+        ContextWindowFetchState.LOADING -> ContextUsageUi.Loading(used = used)
+        ContextWindowFetchState.AVAILABLE,
+        ContextWindowFetchState.UNAVAILABLE,
+        -> ContextUsageUi.WithoutMax(used = used)
+    }
+}
 
 internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(
