@@ -296,9 +296,11 @@ fun LamiAvatar(
                                 }
                                 Text(
                                     text = selectedModel ?: "未選択",
-                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                    style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = FontWeight.Bold,
+                                        lineHeight = 20.sp,
+                                        letterSpacing = 0.sp,
                                     ),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -310,10 +312,10 @@ fun LamiAvatar(
                         StatusInfoItem(
                             label = "接続先",
                             value = baseUrl.ifBlank { "未設定" },
-                            valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 22.sp,
-                                fontWeight = FontWeight.Medium,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.sp,
                             ),
                         )
@@ -322,9 +324,11 @@ fun LamiAvatar(
                         StatusInfoItem(
                             label = "フォールバック",
                             value = if (fallbackActive) "ON" else "OFF",
-                            valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Medium,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.sp,
                             ),
                         )
                     }
@@ -333,9 +337,11 @@ fun LamiAvatar(
                             StatusInfoItem(
                                 label = "フォールバック理由",
                                 value = fallbackMessage,
-                                valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.sp,
                                 ),
                             )
                         }
@@ -345,9 +351,11 @@ fun LamiAvatar(
                             StatusInfoItem(
                                 label = "エラー概要",
                                 value = lastError ?: "なし",
-                                valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.sp,
                                 ),
                             )
                         }
@@ -355,9 +363,11 @@ fun LamiAvatar(
                             StatusInfoItem(
                                 label = "最終更新",
                                 value = lastUpdated,
-                                valueStyle = MaterialTheme.typography.bodyLarge.copy(
+                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Medium,
+                                    lineHeight = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.sp,
                                 ),
                             )
                         }
@@ -541,14 +551,15 @@ private fun LamiControlSearchPill(
 ) {
     val height = 40.dp
     val shape = RoundedCornerShape(height / 2)
-    val textStyle: TextStyle = MaterialTheme.typography.bodyLarge.copy(
+    val textStyle: TextStyle = MaterialTheme.typography.bodyMedium.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
+        lineHeight = 20.sp,
         letterSpacing = 0.sp,
     )
     val placeholderStyle: TextStyle = textStyle.copy(
         color = MaterialTheme.colorScheme.onSurface,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
         letterSpacing = 0.sp,
     )
 
