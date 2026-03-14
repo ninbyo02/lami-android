@@ -530,7 +530,7 @@ private fun LamiControlSearchPill(
         fontWeight = FontWeight.Medium,
     )
     val placeholderStyle: TextStyle = textStyle.copy(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.84f),
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f),
         fontWeight = FontWeight.Medium,
     )
 
