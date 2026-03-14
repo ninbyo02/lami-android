@@ -118,7 +118,6 @@ fun LamiAvatar(
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
     // 左上アバターもセンターと同じ Ready アニメになるよう既定は true
     var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
-    var showStatusDetails by rememberSaveable { mutableStateOf(true) }
     val clampedInitialSize = initialAvatarSize.value
         .roundToInt()
         .coerceIn(minAvatarSize.value.roundToInt(), maxAvatarSize.value.roundToInt())
@@ -446,13 +445,6 @@ fun LamiAvatar(
                             label = "点滅エフェクト",
                             checked = blinkEffectEnabled,
                             onCheckedChange = { blinkEffectEnabled = it }
-                        )
-                    }
-                    item {
-                        ToggleRow(
-                            label = "ステータス詳細表示",
-                            checked = showStatusDetails,
-                            onCheckedChange = { showStatusDetails = it }
                         )
                     }
                     item {
