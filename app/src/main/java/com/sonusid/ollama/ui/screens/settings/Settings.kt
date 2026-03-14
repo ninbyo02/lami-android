@@ -47,7 +47,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
@@ -421,35 +420,33 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // 仮UIの可読性を確保するため、最小限の内側余白を付与する
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            // カード高さを最小化しつつ可読性を維持する
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
-                        Text(
-                            text = "キャラクター表示サイズ",
-                            style = MaterialTheme.typography.titleMedium
-                        )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // タイトルと値行の間隔を最小限で確保する
-                                .padding(top = 6.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "${previewLamiAvatarSizeDp.toInt()}dp",
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = "キャラクター表示サイズ",
+                                style = MaterialTheme.typography.titleMedium
                             )
-                            TextButton(
-                                onClick = {
+                            Text(
+                                text = "デフォルトに戻す",
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable {
                                     scope.launch {
                                         settingsPreferences.setChatLamiAvatarSizeDp(DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
                                     }
                                 },
-                            ) {
-                                Text(text = "デフォルトに戻す")
-                            }
+                            )
                         }
+                        Text(
+                            text = "${previewLamiAvatarSizeDp.toInt()}dp",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                         Slider(
                             value = previewLamiAvatarSizeDp,
                             onValueChange = { value ->
@@ -465,8 +462,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             valueRange = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 値行とスライダーの間隔を極小にする
-                                .padding(top = 1.dp)
+                                // 値ラベル直下に配置してカード高さを抑える
+                                .padding(top = 0.dp)
                         )
                     }
                 }
