@@ -425,22 +425,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Text(
-                            text = "ラミィ表示サイズ",
+                            text = "キャラクター表示サイズ",
                             style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = "chat画面のラミィキャラの表示サイズを調整します",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                // 説明文と値行の間隔を最小限で確保する
-                                .padding(top = 4.dp)
                         )
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 説明文と値行の間隔を最小限で確保する
-                                .padding(top = 8.dp),
+                                // タイトルと値行の間隔を最小限で確保する
+                                .padding(top = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -473,8 +465,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             valueRange = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 値行とスライダーの間隔を最小限で確保する
-                                .padding(top = 4.dp)
+                                // 値行とスライダーの間隔を極小にする
+                                .padding(top = 1.dp)
                         )
                     }
                 }
