@@ -23,7 +23,6 @@ import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.components.LamiSprite
 import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.viewmodels.OllamaViewModel
 import kotlinx.coroutines.launch
 
@@ -39,13 +38,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiState by viewModel.lamiState.collectAsState()
     val animationEpochMs by viewModel.animationEpochMs.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val settingsPreferences = remember(context.applicationContext) {
-        SettingsPreferences(context.applicationContext)
-    }
-    val chatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
-        initial = SettingsPreferences.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
-    )
 
     val lastError = (uiState as? UiState.Error)?.errorMessage
     var showDialog by remember { mutableStateOf(false) }
@@ -82,9 +74,6 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
                         debugOverlayEnabled = false,
                         syncEpochMs = animationEpochMs,
                         openControlRequestKey = openLamiControlRequestKey,
-                        initialAvatarSize = chatLamiAvatarSizeDp.dp,
-                        minAvatarSize = SettingsPreferences.MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                        maxAvatarSize = SettingsPreferences.MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
                     )
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                     Spacer(modifier = Modifier.size(2.dp))

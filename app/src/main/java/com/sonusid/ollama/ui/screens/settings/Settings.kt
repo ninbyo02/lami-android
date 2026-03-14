@@ -45,7 +45,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -157,9 +156,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
-    val chatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
-        initial = SettingsPreferences.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
-    )
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -408,43 +404,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 scope.launch { settingsPreferences.updateDynamicColor(enabled) }
                             },
                             modifier = Modifier.align(Alignment.CenterVertically),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                Card {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(text = "ラミィ表示サイズ", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = "chat画面のラミィキャラの表示サイズを調整します",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Slider(
-                            value = chatLamiAvatarSizeDp.toFloat(),
-                            onValueChange = { value ->
-                                val snapped = ((value / 2f).toInt() * 2)
-                                    .coerceIn(
-                                        SettingsPreferences.MIN_CHAT_LAMI_AVATAR_SIZE_DP,
-                                        SettingsPreferences.MAX_CHAT_LAMI_AVATAR_SIZE_DP,
-                                    )
-                                scope.launch {
-                                    settingsPreferences.setChatLamiAvatarSizeDp(snapped)
-                                }
-                            },
-                            valueRange = SettingsPreferences.MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..
-                                SettingsPreferences.MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
-                            steps = ((SettingsPreferences.MAX_CHAT_LAMI_AVATAR_SIZE_DP -
-                                SettingsPreferences.MIN_CHAT_LAMI_AVATAR_SIZE_DP) / 2) - 1,
-                        )
-                        Text(
-                            text = "${chatLamiAvatarSizeDp}dp",
-                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
