@@ -241,6 +241,12 @@ enum class SpriteState {
 
 class SettingsPreferences(private val context: Context) {
 
+    companion object {
+        const val DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP: Int = 64
+        const val MIN_CHAT_LAMI_AVATAR_SIZE_DP: Int = 32
+        const val MAX_CHAT_LAMI_AVATAR_SIZE_DP: Int = 120
+    }
+
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color_enabled")
     private val spriteSheetConfigKey = stringPreferencesKey("sprite_sheet_config")
@@ -291,6 +297,7 @@ class SettingsPreferences(private val context: Context) {
     private val lastRouteKey = stringPreferencesKey("last_route")
     private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
     private val ttsPitchKey = floatPreferencesKey("tts_pitch")
+    private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -407,6 +414,11 @@ class SettingsPreferences(private val context: Context) {
     val ttsPitchFlow: Flow<Float> = context.dataStore.data.map { preferences ->
         (preferences[ttsPitchKey] ?: AndroidTtsController.DEFAULT_PITCH)
             .coerceIn(AndroidTtsController.MIN_PITCH, AndroidTtsController.MAX_PITCH)
+    }
+
+    val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->
+        (preferences[chatLamiAvatarSizeDpKey] ?: DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
+            .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -1074,6 +1086,13 @@ class SettingsPreferences(private val context: Context) {
                 AndroidTtsController.MIN_PITCH,
                 AndroidTtsController.MAX_PITCH,
             )
+        }
+    }
+
+    suspend fun setChatLamiAvatarSizeDp(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[chatLamiAvatarSizeDpKey] = value
+                .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
         }
     }
 
