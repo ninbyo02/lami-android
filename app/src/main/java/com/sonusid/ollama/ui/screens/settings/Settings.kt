@@ -157,6 +157,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+    val savedLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow
+        .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -270,7 +272,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
     val scaffoldBg = MaterialTheme.colorScheme.background
-    var previewLamiAvatarSizeDp by remember { mutableStateOf(64f) }
+    var previewLamiAvatarSizeDp by remember { mutableStateOf(savedLamiAvatarSizeDp.toFloat()) }
+
+    LaunchedEffect(savedLamiAvatarSizeDp) {
+        previewLamiAvatarSizeDp = savedLamiAvatarSizeDp.toFloat()
+    }
 
     LaunchedEffect(resetScrollOnReturnFromAbout) {
         if (resetScrollOnReturnFromAbout) {
@@ -435,16 +441,33 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         Slider(
                             value = previewLamiAvatarSizeDp,
                             onValueChange = { value ->
-                                previewLamiAvatarSizeDp = value
+                                val snappedValue = value.toInt()
+                                    .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
+                                previewLamiAvatarSizeDp = snappedValue.toFloat()
                             },
-                            valueRange = 32f..120f,
+                            onValueChangeFinished = {
+                                scope.launch {
+                                    settingsPreferences.setChatLamiAvatarSizeDp(previewLamiAvatarSizeDp.toInt())
+                                }
+                            },
+                            valueRange = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // 現在値ラベルとスライダーの間隔を最小限で確保する
                                 .padding(top = 8.dp)
                         )
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    settingsPreferences.setChatLamiAvatarSizeDp(DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
+                                }
+                            },
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) {
+                            Text(text = "デフォルトに戻す")
+                        }
                         Text(
-                            text = "※ 仮UIのため、保存やチャット画面への反映はまだ行われません",
+                            text = "※ 値は保存されますが、チャット画面への反映はまだ行われません",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
