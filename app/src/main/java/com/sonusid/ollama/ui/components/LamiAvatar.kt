@@ -249,6 +249,7 @@ fun LamiAvatar(
                 val listState: LazyListState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
+                val lamiSheetBg = MaterialTheme.colorScheme.surface
                 val filteredModels by remember(availableModels, searchQuery) {
                     derivedStateOf {
                         availableModels.filter { model ->
@@ -273,7 +274,7 @@ fun LamiAvatar(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface)
+                                    .background(lamiSheetBg)
                                     .padding(top = 8.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
@@ -383,6 +384,7 @@ fun LamiAvatar(
                             )
                             LamiControlSearchPill(
                                 value = searchQuery,
+                                lamiSheetBg = lamiSheetBg,
                                 onValueChange = { query -> searchQuery = query },
                                 onClear = { searchQuery = "" },
                                 onSearch = { scope.launch { listState.animateScrollToItem(0) } },
@@ -546,6 +548,7 @@ private fun StatusInfoItem(
 @Composable
 private fun LamiControlSearchPill(
     value: String,
+    lamiSheetBg: Color,
     onValueChange: (String) -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
@@ -571,7 +574,7 @@ private fun LamiControlSearchPill(
             .fillMaxWidth()
             .height(height)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .background(MaterialTheme.colorScheme.surface, shape)
+            .background(lamiSheetBg, shape)
             // 左：検索アイコンとの間を取り、ピル内の詰まりを防ぐ。
             .padding(start = 16.dp, top = 1.dp, end = 0.dp, bottom = 1.dp)
     ) {
