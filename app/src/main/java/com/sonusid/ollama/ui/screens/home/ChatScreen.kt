@@ -142,7 +142,6 @@ import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.model.ContextWindowFetchState
 import com.sonusid.ollama.ui.model.InferenceStats
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.util.formatOutputTokens
 import com.sonusid.ollama.ui.util.formatInferenceTime
 import com.sonusid.ollama.ui.util.formatFinishReason
@@ -229,12 +228,6 @@ fun Home(
     val snackbarHostState = LocalAppSnackbarHostState.current
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val settingsPreferences = remember(context.applicationContext) {
-        SettingsPreferences(context.applicationContext)
-    }
-    val chatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
-        initial = SettingsPreferences.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
-    )
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
@@ -667,9 +660,6 @@ fun Home(
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
                             openControlRequestKey = openLamiControlRequestKey,
-                            initialAvatarSize = chatLamiAvatarSizeDp.dp,
-                            minAvatarSize = SettingsPreferences.MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
-                            maxAvatarSize = SettingsPreferences.MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
                         )
                     }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
