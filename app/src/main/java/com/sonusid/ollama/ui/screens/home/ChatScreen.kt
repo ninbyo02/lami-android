@@ -662,6 +662,9 @@ fun Home(
                             lamiStatus = lamiAnimationStatus,
                             lamiState = lamiUiState.state,
                             availableModels = availableModels,
+                            initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
+                            minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
+                            maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
                             onSelectModel = { modelName ->
                                 viewModel.onUserInteraction()
                                 viewModel.updateSelectedModel(modelName)
