@@ -431,13 +431,33 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         Text(
                             text = "chat画面のラミィキャラの表示サイズを調整します",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                // 説明文と値行の間隔を最小限で確保する
+                                .padding(top = 4.dp)
                         )
-                        Text(
-                            text = "${previewLamiAvatarSizeDp.toInt()}dp",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // 説明文と値行の間隔を最小限で確保する
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "${previewLamiAvatarSizeDp.toInt()}dp",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        settingsPreferences.setChatLamiAvatarSizeDp(DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
+                                    }
+                                },
+                            ) {
+                                Text(text = "デフォルトに戻す")
+                            }
+                        }
                         Slider(
                             value = previewLamiAvatarSizeDp,
                             onValueChange = { value ->
@@ -453,25 +473,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             valueRange = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 現在値ラベルとスライダーの間隔を最小限で確保する
-                                .padding(top = 8.dp)
-                        )
-                        TextButton(
-                            onClick = {
-                                scope.launch {
-                                    settingsPreferences.setChatLamiAvatarSizeDp(DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
-                                }
-                            },
-                            modifier = Modifier.padding(top = 4.dp),
-                        ) {
-                            Text(text = "デフォルトに戻す")
-                        }
-                        Text(
-                            text = "※ 値は保存されますが、チャット画面への反映はまだ行われません",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
+                                // 値行とスライダーの間隔を最小限で確保する
                                 .padding(top = 4.dp)
                         )
                     }
