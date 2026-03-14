@@ -249,7 +249,7 @@ fun LamiAvatar(
                 val listState: LazyListState = rememberLazyListState()
                 val scope = rememberCoroutineScope()
                 var searchQuery by rememberSaveable { mutableStateOf("") }
-                val lamiSheetBg = MaterialTheme.colorScheme.surface
+                val lamiSheetBg = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
                 val filteredModels by remember(availableModels, searchQuery) {
                     derivedStateOf {
                         availableModels.filter { model ->
