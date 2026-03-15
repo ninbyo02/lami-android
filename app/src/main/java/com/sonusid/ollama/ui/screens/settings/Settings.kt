@@ -507,7 +507,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         val centerExtendPx = 2.dp.toPx()
                                         val gapAdjustPx = 1.dp.toPx()
                                         val outerTrimPx = 2.dp.toPx()
-                                        val opticalAdjustPx = 0.5.dp.toPx()
+                                        val opticalAdjustPx = 1.dp.toPx()
                                         val markerX = x + markerShiftPx
 
                                         drawLine(
