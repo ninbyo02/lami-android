@@ -448,6 +448,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 // 上下の余白を除去してスライダーを値ラベルに密着させる
                                 .padding(top = 0.dp)
                         ) {
+                            val defaultMarkerColor =
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+
                             Slider(
                                 value = previewLamiAvatarSizeDp,
                                 onValueChange = { value ->
@@ -480,7 +483,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         val x = size.width * fraction
 
                                         drawLine(
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                            color = defaultMarkerColor,
                                             start = Offset(x, size.height * 0.2f),
                                             end = Offset(x, size.height * 0.8f),
                                             strokeWidth = 2.dp.toPx()
