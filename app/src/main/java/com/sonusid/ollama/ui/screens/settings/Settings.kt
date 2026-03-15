@@ -478,20 +478,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
                                     inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f),
                                 ),
-                                thumb = { interactionSource ->
-                                    SliderDefaults.Thumb(
-                                        interactionSource = interactionSource,
-                                        colors = SliderDefaults.colors(
-                                            thumbColor = MaterialTheme.colorScheme.primary,
-                                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                                            inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f),
-                                        )
-                                    )
-                                },
                                 track = { sliderState ->
                                     SliderDefaults.Track(
                                         sliderState = sliderState,
-                                        modifier = Modifier.scale(scaleY = 0.5f),
+                                        modifier = Modifier.scale(1f, 0.5f),
                                         colors = SliderDefaults.colors(
                                             thumbColor = MaterialTheme.colorScheme.primary,
                                             activeTrackColor = MaterialTheme.colorScheme.primary,
