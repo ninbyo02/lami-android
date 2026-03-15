@@ -480,7 +480,9 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         val max = MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
                                         val defaultValue = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
                                         val fraction = (defaultValue - min) / (max - min)
-                                        val x = size.width * fraction
+                                        val thumbRadius = 10.dp.toPx()
+                                        val trackWidth = size.width - thumbRadius * 2
+                                        val x = thumbRadius + trackWidth * fraction
 
                                         drawLine(
                                             color = defaultMarkerColor,
