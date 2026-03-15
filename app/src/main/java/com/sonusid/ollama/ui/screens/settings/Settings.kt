@@ -449,7 +449,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 .padding(top = 0.dp)
                         ) {
                             val defaultMarkerColor =
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
 
                             Slider(
                                 value = previewLamiAvatarSizeDp,
@@ -486,8 +486,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 
                                         drawLine(
                                             color = defaultMarkerColor,
-                                            start = Offset(x, size.height * 0.2f),
-                                            end = Offset(x, size.height * 0.8f),
+                                            start = Offset(x, size.height * 0.28f),
+                                            end = Offset(x, size.height * 0.72f),
                                             strokeWidth = 1.dp.toPx()
                                         )
                                     }
