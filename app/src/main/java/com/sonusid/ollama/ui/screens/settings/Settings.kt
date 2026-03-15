@@ -507,11 +507,12 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         val centerExtendPx = 2.dp.toPx()
                                         val gapAdjustPx = 1.dp.toPx()
                                         val outerTrimPx = 2.dp.toPx()
+                                        val opticalAdjustPx = 0.5.dp.toPx()
                                         val markerX = x + markerShiftPx
 
                                         drawLine(
                                             color = defaultMarkerColor,
-                                            start = Offset(markerX, size.height * 0.28f + outerTrimPx),
+                                            start = Offset(markerX, size.height * 0.28f + outerTrimPx + opticalAdjustPx),
                                             end = Offset(markerX, size.height * 0.46f + centerExtendPx - gapAdjustPx),
                                             strokeWidth = 2.dp.toPx()
                                         )
