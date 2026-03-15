@@ -507,6 +507,12 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         drawLine(
                                             color = defaultMarkerColor,
                                             start = Offset(x, size.height * 0.28f),
+                                            end = Offset(x, size.height * 0.46f),
+                                            strokeWidth = 2.dp.toPx()
+                                        )
+                                        drawLine(
+                                            color = defaultMarkerColor,
+                                            start = Offset(x, size.height * 0.54f),
                                             end = Offset(x, size.height * 0.72f),
                                             strokeWidth = 2.dp.toPx()
                                         )
