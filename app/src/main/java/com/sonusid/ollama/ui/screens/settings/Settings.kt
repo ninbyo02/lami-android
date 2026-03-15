@@ -471,6 +471,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 valueRange =
                                     MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..
                                         MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f),
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     // スライダー自体の上下余白も0dpに固定する
