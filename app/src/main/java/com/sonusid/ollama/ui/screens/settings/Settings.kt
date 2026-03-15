@@ -63,6 +63,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -440,24 +442,52 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
-                        Slider(
-                            value = previewLamiAvatarSizeDp,
-                            onValueChange = { value ->
-                                val snappedValue = value.toInt()
-                                    .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
-                                previewLamiAvatarSizeDp = snappedValue.toFloat()
-                            },
-                            onValueChangeFinished = {
-                                scope.launch {
-                                    settingsPreferences.setChatLamiAvatarSizeDp(previewLamiAvatarSizeDp.toInt())
-                                }
-                            },
-                            valueRange = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 値ラベル直下に配置してカード高さを抑える
-                                .padding(top = 2.dp)
-                        )
+                                // 上下の余白を除去してスライダーを値ラベルに密着させる
+                                .padding(top = 0.dp)
+                        ) {
+                            Slider(
+                                value = previewLamiAvatarSizeDp,
+                                onValueChange = { value ->
+                                    val snappedValue = value.toInt()
+                                        .coerceIn(
+                                            MIN_CHAT_LAMI_AVATAR_SIZE_DP,
+                                            MAX_CHAT_LAMI_AVATAR_SIZE_DP
+                                        )
+                                    previewLamiAvatarSizeDp = snappedValue.toFloat()
+                                },
+                                onValueChangeFinished = {
+                                    scope.launch {
+                                        settingsPreferences.setChatLamiAvatarSizeDp(
+                                            previewLamiAvatarSizeDp.toInt()
+                                        )
+                                    }
+                                },
+                                valueRange =
+                                    MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..
+                                        MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    // スライダー自体の上下余白も0dpに固定する
+                                    .padding(vertical = 0.dp)
+                                    .drawBehind {
+                                        val min = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
+                                        val max = MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
+                                        val defaultValue = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
+                                        val fraction = (defaultValue - min) / (max - min)
+                                        val x = size.width * fraction
+
+                                        drawLine(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                            start = Offset(x, size.height * 0.2f),
+                                            end = Offset(x, size.height * 0.8f),
+                                            strokeWidth = 2.dp.toPx()
+                                        )
+                                    }
+                            )
+                        }
                     }
                 }
             }
