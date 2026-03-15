@@ -488,7 +488,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                             color = defaultMarkerColor,
                                             start = Offset(x, size.height * 0.2f),
                                             end = Offset(x, size.height * 0.8f),
-                                            strokeWidth = 2.dp.toPx()
+                                            strokeWidth = 1.dp.toPx()
                                         )
                                     }
                             )
