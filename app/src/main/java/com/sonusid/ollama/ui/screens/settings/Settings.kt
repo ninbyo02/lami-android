@@ -417,36 +417,27 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 }
                 // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
                 Spacer(modifier = Modifier.height(2.dp))
-                Card {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             // カード高さを最小化しつつ可読性を維持する
                             .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
-                        Text(
-                            text = "キャラクター表示サイズ",
-                            style = MaterialTheme.typography.titleMedium
-                        )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "${previewLamiAvatarSizeDp.toInt()}dp",
-                                style = MaterialTheme.typography.bodyMedium
+                                text = "キャラクター表示サイズ",
+                                style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = "デフォルトに戻す",
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clickable {
-                                    scope.launch {
-                                        settingsPreferences.setChatLamiAvatarSizeDp(DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
-                                    }
-                                },
+                                text = "${previewLamiAvatarSizeDp.toInt()}dp",
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                         Slider(
@@ -465,7 +456,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 // 値ラベル直下に配置してカード高さを抑える
-                                .padding(top = 0.dp)
+                                .padding(top = 2.dp)
                         )
                     }
                 }
