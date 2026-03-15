@@ -424,14 +424,20 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             // カード高さを最小化しつつ可読性を維持する
                             .padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
+                        Text(
+                            text = "キャラクター表示サイズ",
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "キャラクター表示サイズ",
-                                style = MaterialTheme.typography.titleMedium
+                                text = "${previewLamiAvatarSizeDp.toInt()}dp",
+                                style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
                                 text = "デフォルトに戻す",
@@ -443,11 +449,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 },
                             )
                         }
-                        Text(
-                            text = "${previewLamiAvatarSizeDp.toInt()}dp",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                         Slider(
                             value = previewLamiAvatarSizeDp,
                             onValueChange = { value ->
