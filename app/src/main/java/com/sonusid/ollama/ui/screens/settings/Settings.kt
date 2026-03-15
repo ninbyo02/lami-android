@@ -450,8 +450,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 // 上下の余白を除去してスライダーを値ラベルに密着させる
                                 .padding(top = 0.dp)
                         ) {
-                            val defaultMarkerColor =
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+                            val activeTrackColor = MaterialTheme.colorScheme.primary
+                            val inactiveTrackColor =
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f)
+                            val defaultMarkerColor = inactiveTrackColor
 
                             Slider(
                                 value = previewLamiAvatarSizeDp,
@@ -474,18 +476,18 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                     MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..
                                         MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
                                 colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f),
+                                    thumbColor = activeTrackColor,
+                                    activeTrackColor = activeTrackColor,
+                                    inactiveTrackColor = inactiveTrackColor,
                                 ),
                                 track = { sliderState ->
                                     SliderDefaults.Track(
                                         sliderState = sliderState,
                                         modifier = Modifier.scale(1f, 0.5f),
                                         colors = SliderDefaults.colors(
-                                            thumbColor = MaterialTheme.colorScheme.primary,
-                                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                                            inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f),
+                                            thumbColor = activeTrackColor,
+                                            activeTrackColor = activeTrackColor,
+                                            inactiveTrackColor = inactiveTrackColor,
                                         )
                                     )
                                 },
