@@ -510,17 +510,22 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                         val opticalAdjustPx = 1.dp.toPx()
                                         val upperMarkerNudgePx = 0.2.dp.toPx()
                                         val markerX = x + markerShiftPx
+                                        val upperStartY = size.height * 0.28f + outerTrimPx + opticalAdjustPx + upperMarkerNudgePx
+                                        val lowerStartY = size.height * 0.54f - centerExtendPx + gapAdjustPx
+                                        val lowerEndY = size.height * 0.72f - outerTrimPx
+                                        val segmentLength = lowerEndY - lowerStartY
+                                        val upperEndY = upperStartY + segmentLength
 
                                         drawLine(
                                             color = defaultMarkerColor,
-                                            start = Offset(markerX, size.height * 0.28f + outerTrimPx + opticalAdjustPx + upperMarkerNudgePx),
-                                            end = Offset(markerX, size.height * 0.46f + centerExtendPx - gapAdjustPx + upperMarkerNudgePx),
+                                            start = Offset(markerX, upperStartY),
+                                            end = Offset(markerX, upperEndY),
                                             strokeWidth = 2.dp.toPx()
                                         )
                                         drawLine(
                                             color = defaultMarkerColor,
-                                            start = Offset(markerX, size.height * 0.54f - centerExtendPx + gapAdjustPx),
-                                            end = Offset(markerX, size.height * 0.72f - outerTrimPx),
+                                            start = Offset(markerX, lowerStartY),
+                                            end = Offset(markerX, lowerEndY),
                                             strokeWidth = 2.dp.toPx()
                                         )
                                     }
