@@ -38,7 +38,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -118,7 +117,6 @@ fun LamiAvatar(
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
     // 左上アバターもセンターと同じ Ready アニメになるよう既定は true
     var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
-    var showStatusDetails by rememberSaveable { mutableStateOf(true) }
     val clampedInitialSize = initialAvatarSize.value
         .roundToInt()
         .coerceIn(minAvatarSize.value.roundToInt(), maxAvatarSize.value.roundToInt())
@@ -126,6 +124,11 @@ fun LamiAvatar(
         inputs = arrayOf(minAvatarSize.value, maxAvatarSize.value, clampedInitialSize)
     ) {
         mutableStateOf(clampedInitialSize)
+    }
+    LaunchedEffect(clampedInitialSize) {
+        if (avatarSize != clampedInitialSize) {
+            avatarSize = clampedInitialSize
+        }
     }
     var lastUpdated by rememberSaveable { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -144,16 +147,16 @@ fun LamiAvatar(
     val statusLabel = remember(lamiStatus) {
         when (lamiStatus) {
             LamiStatus.CONNECTING -> "接続中"
-            LamiStatus.READY -> "接続良好"
-            LamiStatus.DEGRADED -> "フォールバック中"
+            LamiStatus.READY -> "接続OK"
+            LamiStatus.DEGRADED -> "接続エラー"
             LamiStatus.NO_MODELS -> "モデルなし"
             LamiStatus.OFFLINE -> "オフライン"
-            LamiStatus.ERROR -> "エラー"
+            LamiStatus.ERROR -> "接続エラー"
             LamiStatus.TALKING -> "話し中"
         }
     }
 
-    LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive) {
+    LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive, fallbackMessage) {
         lastUpdated = formatter.format(Date())
     }
     LaunchedEffect(openControlRequestKey) {
@@ -314,6 +317,29 @@ fun LamiAvatar(
                         }
                     item {
                         StatusInfoItem(
+                            label = "接続状態",
+                            value = statusLabel,
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
+                        Text(
+                            text = "-- ms ▯▯▯▯",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
+                        StatusInfoItem(
                             label = "接続先",
                             value = baseUrl.ifBlank { "未設定" },
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -327,8 +353,8 @@ fun LamiAvatar(
                     }
                     item {
                         StatusInfoItem(
-                            label = "フォールバック",
-                            value = if (fallbackActive) "ON" else "OFF",
+                            label = "最終更新",
+                            value = lastUpdated,
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
@@ -336,46 +362,6 @@ fun LamiAvatar(
                                 letterSpacing = 0.sp,
                             ),
                         )
-                    }
-                    if (fallbackActive && !fallbackMessage.isNullOrBlank()) {
-                        item {
-                            StatusInfoItem(
-                                label = "フォールバック理由",
-                                value = fallbackMessage,
-                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp,
-                                ),
-                            )
-                        }
-                    }
-                    if (showStatusDetails) {
-                        item {
-                            StatusInfoItem(
-                                label = "エラー概要",
-                                value = lastError ?: "なし",
-                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp,
-                                ),
-                            )
-                        }
-                        item {
-                            StatusInfoItem(
-                                label = "最終更新",
-                                value = lastUpdated,
-                                valueStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    letterSpacing = 0.sp,
-                                ),
-                            )
-                        }
                     }
                     item {
                         HorizontalDivider(
@@ -449,48 +435,6 @@ fun LamiAvatar(
                             checked = animationsEnabled,
                             onCheckedChange = { animationsEnabled = it }
                         )
-                    }
-                    item {
-                        ToggleRow(
-                            label = "置換",
-                            checked = replacementEnabled,
-                            onCheckedChange = { replacementEnabled = it }
-                        )
-                    }
-                    item {
-                        // 簡易確認: READY 時に左上とセンターのアニメが一致すること
-                        ToggleRow(
-                            label = "点滅エフェクト",
-                            checked = blinkEffectEnabled,
-                            onCheckedChange = { blinkEffectEnabled = it }
-                        )
-                    }
-                    item {
-                        ToggleRow(
-                            label = "ステータス詳細表示",
-                            checked = showStatusDetails,
-                            onCheckedChange = { showStatusDetails = it }
-                        )
-                    }
-                    item {
-                        Column {
-                            Text(
-                                text = "表示サイズ (${avatarSize}dp)",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                            )
-                            Slider(
-                                value = avatarSize.toFloat(),
-                                onValueChange = { value ->
-                                    val snapped = (value.roundToInt() / 2) * 2
-                                    avatarSize = snapped.coerceIn(
-                                        minAvatarSize.value.roundToInt(),
-                                        maxAvatarSize.value.roundToInt()
-                                    )
-                                },
-                                valueRange = minAvatarSize.value..maxAvatarSize.value,
-                                steps = 0
-                            )
-                        }
                     }
                     item { Spacer(modifier = Modifier.height(8.dp)) }
                     item {

@@ -43,6 +43,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -62,6 +64,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -156,6 +161,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
+    val savedLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow
+        .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -269,6 +276,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val showTopFade by remember { derivedStateOf { listState.canScrollBackward } }
     val showBottomFade by remember { derivedStateOf { listState.canScrollForward } }
     val scaffoldBg = MaterialTheme.colorScheme.background
+    var previewLamiAvatarSizeDp by remember { mutableStateOf(savedLamiAvatarSizeDp.toFloat()) }
+
+    LaunchedEffect(savedLamiAvatarSizeDp) {
+        previewLamiAvatarSizeDp = savedLamiAvatarSizeDp.toFloat()
+    }
 
     LaunchedEffect(resetScrollOnReturnFromAbout) {
         if (resetScrollOnReturnFromAbout) {
@@ -405,6 +417,116 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             },
                             modifier = Modifier.align(Alignment.CenterVertically),
                         )
+                    }
+                }
+                // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
+                Spacer(modifier = Modifier.height(2.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // カード高さを最小化しつつ可読性を維持する
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "キャラクター表示サイズ",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                text = "${previewLamiAvatarSizeDp.toInt()}dp",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // 上下の余白を除去してスライダーを値ラベルに密着させる
+                                .padding(top = 0.dp)
+                        ) {
+                            val activeTrackColor = MaterialTheme.colorScheme.primary
+                            val inactiveTrackColor =
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f)
+                            val defaultMarkerColor = inactiveTrackColor
+
+                            Slider(
+                                value = previewLamiAvatarSizeDp,
+                                onValueChange = { value ->
+                                    val snappedValue = value.toInt()
+                                        .coerceIn(
+                                            MIN_CHAT_LAMI_AVATAR_SIZE_DP,
+                                            MAX_CHAT_LAMI_AVATAR_SIZE_DP
+                                        )
+                                    previewLamiAvatarSizeDp = snappedValue.toFloat()
+                                },
+                                onValueChangeFinished = {
+                                    scope.launch {
+                                        settingsPreferences.setChatLamiAvatarSizeDp(
+                                            previewLamiAvatarSizeDp.toInt()
+                                        )
+                                    }
+                                },
+                                valueRange =
+                                    MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()..
+                                        MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat(),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = activeTrackColor,
+                                    activeTrackColor = activeTrackColor,
+                                    inactiveTrackColor = inactiveTrackColor,
+                                ),
+                                track = { sliderState ->
+                                    SliderDefaults.Track(
+                                        sliderState = sliderState,
+                                        modifier = Modifier.scale(1f, 0.5f),
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = activeTrackColor,
+                                            activeTrackColor = activeTrackColor,
+                                            inactiveTrackColor = inactiveTrackColor,
+                                        )
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    // スライダー自体の上下余白も0dpに固定する
+                                    .padding(vertical = 0.dp)
+                                    .drawBehind {
+                                        val min = MIN_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
+                                        val max = MAX_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
+                                        val defaultValue = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP.toFloat()
+                                        val fraction = (defaultValue - min) / (max - min)
+                                        val thumbRadius = 10.dp.toPx()
+                                        val trackWidth = size.width - thumbRadius * 2
+                                        val x = thumbRadius + trackWidth * fraction
+                                        val markerShiftPx = 1.dp.toPx()
+                                        val centerExtendPx = 2.dp.toPx()
+                                        val gapAdjustPx = 1.dp.toPx()
+                                        val outerTrimPx = 2.dp.toPx()
+                                        val opticalAdjustPx = 1.dp.toPx()
+                                        val upperMarkerNudgePx = 0.2.dp.toPx()
+                                        val upperStartExtendPx = 1.dp.toPx()
+                                        val markerX = x + markerShiftPx
+
+                                        drawLine(
+                                            color = defaultMarkerColor,
+                                            start = Offset(markerX, size.height * 0.28f + outerTrimPx + opticalAdjustPx + upperMarkerNudgePx - upperStartExtendPx),
+                                            end = Offset(markerX, size.height * 0.46f + centerExtendPx - gapAdjustPx + upperMarkerNudgePx),
+                                            strokeWidth = 2.dp.toPx()
+                                        )
+                                        drawLine(
+                                            color = defaultMarkerColor,
+                                            start = Offset(markerX, size.height * 0.54f - centerExtendPx + gapAdjustPx),
+                                            end = Offset(markerX, size.height * 0.72f - outerTrimPx),
+                                            strokeWidth = 2.dp.toPx()
+                                        )
+                                    }
+                            )
+                        }
                     }
                 }
             }

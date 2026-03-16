@@ -56,6 +56,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Tab
@@ -4832,6 +4833,8 @@ private fun ReadyAnimationTab(
         configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
             configuration.screenWidthDp >= configuration.screenHeightDp
     val selectedAnimation = selectionState.selectedAnimation
+    var replacementEnabled by rememberSaveable { mutableStateOf(true) }
+    var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
     val lazyListState = rememberLazyListState()
     val layoutState = rememberReadyPreviewLayoutState(
         devSettings = devSettings,
@@ -5504,7 +5507,11 @@ private fun ReadyAnimationTab(
                         scope.launch {
                             settingsPreferences.setTtsPitch(updatedPitch)
                         }
-                    }
+                    },
+                    replacementEnabled = replacementEnabled,
+                    onReplacementEnabledChange = { enabled -> replacementEnabled = enabled },
+                    blinkEffectEnabled = blinkEffectEnabled,
+                    onBlinkEffectEnabledChange = { enabled -> blinkEffectEnabled = enabled },
                 )
             }
         }
@@ -6035,7 +6042,7 @@ private fun ReadyAnimationPreviewPane(
             ) {
                 // [非dp] 縦横: プレビュー の制約(制約)に関係
                 val rawSpriteSize = (maxWidth * 0.30f).coerceAtLeast(1.dp)
-                // [dp] 縦横: プレビュー の最小サイズ(最小サイズ)に関係
+                // [dp] 縦横: プレビュー の表示サイズ(サイズ)に関係
                 val spriteSize = rawSpriteSize.coerceIn(72.dp, 120.dp)
                 val previewState = rememberReadyAnimationState(
                     spriteSheetConfig = spriteSheetConfig,
