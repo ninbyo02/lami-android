@@ -38,12 +38,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.sp
 import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.api.RetrofitClient
+import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
@@ -113,7 +115,9 @@ fun LamiAvatar(
         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
     }
     var showSheet by rememberSaveable { mutableStateOf(false) }
-    var animationsEnabled by rememberSaveable { mutableStateOf(true) }
+    val context = LocalContext.current
+    val settingsPreferences = remember(context) { SettingsPreferences(context) }
+    val animationsEnabled by settingsPreferences.characterAnimationEnabledFlow.collectAsState(initial = true)
     var replacementEnabled by rememberSaveable { mutableStateOf(true) }
     // 左上アバターもセンターと同じ Ready アニメになるよう既定は true
     var blinkEffectEnabled by rememberSaveable { mutableStateOf(true) }
@@ -429,13 +433,6 @@ fun LamiAvatar(
                             }
                         }
                     }
-                    item {
-                        ToggleRow(
-                            label = "アニメーション",
-                            checked = animationsEnabled,
-                            onCheckedChange = { animationsEnabled = it }
-                        )
-                    }
                     item { Spacer(modifier = Modifier.height(8.dp)) }
                     item {
                         TextButton(
@@ -455,27 +452,6 @@ fun LamiAvatar(
     }
 }
 
-@Composable
-private fun ToggleRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
-        )
-    }
-}
 
 @Composable
 private fun StatusInfoItem(

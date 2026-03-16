@@ -4,5 +4,6 @@ data class SettingsData(
     val url: String = "",
     val name: String = "",
     val logo: Int = 0,
-    val useDynamicColor: Boolean = false
+    val useDynamicColor: Boolean = false,
+    val characterAnimationEnabled: Boolean = true,
 )
