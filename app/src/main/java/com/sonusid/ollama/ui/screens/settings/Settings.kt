@@ -502,7 +502,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 Card {
                     SettingsToggleRowItem(
                         headline = "キャラクターアニメーション",
-                        supporting = "ラミィの動きを有効にします",
+                        supporting = "キャラクターの動きを有効にします",
                         leadingIcon = null,
                         checked = settingsData.characterAnimationEnabled,
                         onCheckedChange = { enabled ->
