@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -343,13 +344,8 @@ fun LamiAvatar(
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.sp,
                             ),
-                            trailing = {
-                                ConnectionLatencySummary(
-                                    modifier = Modifier.weight(1f),
-                                    latencyText = latencyText,
-                                    qualityLevel = latencyQualityLevel,
-                                )
-                            },
+                            latencyText = latencyText,
+                            qualityLevel = latencyQualityLevel,
                         )
                     }
                     item {
@@ -491,7 +487,8 @@ private fun ConnectionSummaryStatusRow(
     label: String,
     value: String,
     valueStyle: TextStyle,
-    trailing: @Composable RowScope.() -> Unit,
+    latencyText: String,
+    qualityLevel: Int,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -510,22 +507,7 @@ private fun ConnectionSummaryStatusRow(
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(modifier = Modifier.width(8.dp))
-        trailing()
-    }
-}
-
-@Composable
-private fun ConnectionLatencySummary(
-    latencyText: String,
-    qualityLevel: Int,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
         LatencyQualityIndicator(qualityLevel = qualityLevel)
-        Spacer(modifier = Modifier.width(8.dp))
         Spacer(modifier = Modifier.weight(1f))
         Text(
             text = latencyText,
