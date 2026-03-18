@@ -247,6 +247,7 @@ class SettingsPreferences(private val context: Context) {
 
     private val defaultSpriteSheetConfig = SpriteSheetConfig.default3x3()
     private val dynamicColorKey = booleanPreferencesKey("dynamic_color_enabled")
+    private val characterAnimationEnabledKey = booleanPreferencesKey("character_animation_enabled")
     private val spriteSheetConfigKey = stringPreferencesKey("sprite_sheet_config")
     private val spriteCurrentSheetOverrideEnabledKey = booleanPreferencesKey("sprite_current_sheet_override_enabled")
     private val spriteCurrentSheetOverrideUpdatedAtKey = longPreferencesKey("sprite_current_sheet_override_updated_at")
@@ -345,7 +346,8 @@ class SettingsPreferences(private val context: Context) {
 
     val settingsData: Flow<SettingsData> = context.dataStore.data.map { preferences ->
         SettingsData(
-            useDynamicColor = preferences[dynamicColorKey] ?: false
+            useDynamicColor = preferences[dynamicColorKey] ?: false,
+            characterAnimationEnabled = preferences[characterAnimationEnabledKey] ?: true
         )
     }
 
@@ -417,6 +419,10 @@ class SettingsPreferences(private val context: Context) {
     val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->
         (preferences[chatLamiAvatarSizeDpKey] ?: DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
             .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
+    }
+
+    val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[characterAnimationEnabledKey] ?: true
     }
 
     val spriteSheetConfig: Flow<SpriteSheetConfig> = context.dataStore.data.map { preferences ->
@@ -582,6 +588,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun updateDynamicColor(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[dynamicColorKey] = enabled
+        }
+    }
+
+    suspend fun setCharacterAnimationEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[characterAnimationEnabledKey] = enabled
         }
     }
 

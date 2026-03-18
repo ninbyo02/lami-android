@@ -46,7 +46,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -390,37 +389,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     description = "テーマカラーなどの外観設定を変更できます",
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
-                Card {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { scope.launch { settingsPreferences.updateDynamicColor(!settingsData.useDynamicColor) } }
-                            .padding(start = 4.dp)
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "ダイナミックカラー", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                text = "システムカラーに合わせて配色を自動調整します",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        Switch(
-                            checked = settingsData.useDynamicColor,
-                            onCheckedChange = { enabled ->
-                                scope.launch { settingsPreferences.updateDynamicColor(enabled) }
-                            },
-                            modifier = Modifier.align(Alignment.CenterVertically),
-                        )
-                    }
-                }
-                // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
-                Spacer(modifier = Modifier.height(2.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -528,6 +496,32 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             )
                         }
                     }
+                }
+                // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    SettingsToggleRowItem(
+                        headline = "キャラクターアニメーション",
+                        supporting = "キャラクターの動きを有効にします",
+                        leadingIcon = null,
+                        checked = settingsData.characterAnimationEnabled,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsPreferences.setCharacterAnimationEnabled(enabled) }
+                        }
+                    )
+                }
+                // 表示設定カード同士の視認性を保つため、最小限の間隔を確保する
+                Spacer(modifier = Modifier.height(2.dp))
+                Card {
+                    SettingsToggleRowItem(
+                        headline = "ダイナミックカラー",
+                        supporting = "システムカラーに合わせて配色を自動調整します",
+                        leadingIcon = null,
+                        checked = settingsData.useDynamicColor,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsPreferences.updateDynamicColor(enabled) }
+                        }
+                    )
                 }
             }
             item {
