@@ -510,7 +510,7 @@ private fun ConnectionSummaryStatusRow(
         Spacer(modifier = Modifier.width(12.dp))
         LatencyQualityIndicator(qualityLevel = qualityLevel)
         // 品質バーと遅延表示は意味のまとまりを優先して最小限だけ空ける
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = latencyText,
             style = MaterialTheme.typography.bodyMedium.copy(
