@@ -506,9 +506,11 @@ private fun ConnectionSummaryStatusRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        // 接続状態テキストと品質バーを少し離して視認性を整える
+        Spacer(modifier = Modifier.width(12.dp))
         LatencyQualityIndicator(qualityLevel = qualityLevel)
-        Spacer(modifier = Modifier.weight(1f))
+        // 品質バーと遅延表示は意味のまとまりを優先して最小限だけ空ける
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = latencyText,
             style = MaterialTheme.typography.bodyMedium.copy(
