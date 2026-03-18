@@ -492,12 +492,14 @@ private fun ConnectionSummaryStatusRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Bottom,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-            modifier = Modifier.widthIn(min = 72.dp),
+            modifier = Modifier
+                .widthIn(min = 72.dp)
+                .alignByBaseline(),
         )
         Spacer(modifier = Modifier.size(12.dp))
         Text(
@@ -505,10 +507,14 @@ private fun ConnectionSummaryStatusRow(
             style = valueStyle,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.alignByBaseline(),
         )
         // 接続状態テキストと品質バーを少し離して視認性を整える
         Spacer(modifier = Modifier.width(12.dp))
-        LatencyQualityIndicator(qualityLevel = qualityLevel)
+        LatencyQualityIndicator(
+            qualityLevel = qualityLevel,
+            modifier = Modifier.align(Alignment.Bottom),
+        )
         // 品質バーと遅延表示は意味のまとまりを優先して最小限だけ空ける
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -520,6 +526,7 @@ private fun ConnectionSummaryStatusRow(
                 letterSpacing = 0.sp,
             ),
             maxLines = 1,
+            modifier = Modifier.alignByBaseline(),
         )
     }
 }
