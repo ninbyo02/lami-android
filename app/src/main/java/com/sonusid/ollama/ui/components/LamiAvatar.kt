@@ -48,6 +48,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -66,6 +67,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -81,11 +83,16 @@ import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.viewmodels.LamiState
 import com.sonusid.ollama.viewmodels.LamiStatus
 import com.sonusid.ollama.viewmodels.ModelInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.os.SystemClock
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -159,6 +166,20 @@ fun LamiAvatar(
             LamiStatus.TALKING -> "話し中"
         }
     }
+    val latencyMs by produceState<Long?>(
+        initialValue = null,
+        showSheet,
+        baseUrl,
+        lamiStatus,
+    ) {
+        value = if (showSheet) {
+            measureConnectionLatency(baseUrl = baseUrl, lamiStatus = lamiStatus)
+        } else {
+            null
+        }
+    }
+    val latencyQualityLevel = remember(latencyMs) { latencyMsToQualityLevel(latencyMs) }
+    val latencyText = remember(latencyMs) { formatLatencyText(latencyMs) }
 
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive, fallbackMessage) {
         lastUpdated = formatter.format(Date())
@@ -316,19 +337,18 @@ fun LamiAvatar(
                         ConnectionSummaryStatusRow(
                             label = "接続状態",
                             value = statusLabel,
-                            trailing = "-- ms ▯▯▯▯",
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.sp,
                             ),
-                            trailingStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Normal,
-                                letterSpacing = 0.sp,
-                            ),
+                            trailing = {
+                                ConnectionLatencySummary(
+                                    latencyText = latencyText,
+                                    qualityLevel = latencyQualityLevel,
+                                )
+                            },
                         )
                     }
                     item {
@@ -469,9 +489,8 @@ private fun StatusInfoItem(
 private fun ConnectionSummaryStatusRow(
     label: String,
     value: String,
-    trailing: String,
     valueStyle: TextStyle,
-    trailingStyle: TextStyle,
+    trailing: @Composable () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -490,12 +509,99 @@ private fun ConnectionSummaryStatusRow(
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(modifier = Modifier.weight(1f))
+        trailing()
+    }
+}
+
+@Composable
+private fun ConnectionLatencySummary(
+    latencyText: String,
+    qualityLevel: Int,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            text = trailing,
-            style = trailingStyle,
+            text = latencyText,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 0.sp,
+            ),
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
+        LatencyQualityIndicator(qualityLevel = qualityLevel)
+    }
+}
+
+@Composable
+private fun LatencyQualityIndicator(
+    qualityLevel: Int,
+    modifier: Modifier = Modifier,
+) {
+    val activeColor = MaterialTheme.colorScheme.onSurface
+    val inactiveColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+    val barHeights = remember { listOf(8.dp, 11.dp, 14.dp, 17.dp) }
+    Row(
+        modifier = modifier.semantics {
+            stateDescription = "接続品質 ${qualityLevel.coerceIn(0, 4)}/4"
+        },
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        barHeights.forEachIndexed { index, height ->
+            Box(
+                modifier = Modifier
+                    .size(width = 3.dp, height = height)
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(if (index < qualityLevel) activeColor else inactiveColor)
+            )
+        }
+    }
+}
+
+internal fun latencyMsToQualityLevel(latencyMs: Long?): Int = when {
+    latencyMs == null -> 0
+    latencyMs <= 120L -> 4
+    latencyMs <= 250L -> 3
+    latencyMs <= 500L -> 2
+    else -> 1
+}
+
+internal fun formatLatencyText(latencyMs: Long?): String = latencyMs?.let { "${it}ms" } ?: "--ms"
+
+private suspend fun measureConnectionLatency(
+    baseUrl: String,
+    lamiStatus: LamiStatus,
+): Long? {
+    if (baseUrl.isBlank()) return null
+    if (lamiStatus == LamiStatus.OFFLINE || lamiStatus == LamiStatus.ERROR) return null
+    return withContext(Dispatchers.IO) {
+        val normalizedBaseUrl = baseUrl.trimEnd('/')
+        val requestUrl = "$normalizedBaseUrl/api/tags"
+        var connection: HttpURLConnection? = null
+        runCatching {
+            connection = (URL(requestUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 1500
+                readTimeout = 1500
+                setRequestProperty("Accept", "application/json")
+                useCaches = false
+            }
+            val startMs = SystemClock.elapsedRealtime()
+            connection?.connect()
+            val responseCode = connection?.responseCode ?: return@runCatching null
+            if (responseCode !in 200..299) {
+                return@runCatching null
+            }
+            val stream = connection?.inputStream ?: return@runCatching null
+            stream.close()
+            (SystemClock.elapsedRealtime() - startMs).coerceAtLeast(0L)
+        }.getOrNull().also {
+            connection?.disconnect()
+        }
     }
 }
 
