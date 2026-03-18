@@ -345,6 +345,7 @@ fun LamiAvatar(
                             ),
                             trailing = {
                                 ConnectionLatencySummary(
+                                    modifier = Modifier.weight(1f),
                                     latencyText = latencyText,
                                     qualityLevel = latencyQualityLevel,
                                 )
@@ -490,7 +491,7 @@ private fun ConnectionSummaryStatusRow(
     label: String,
     value: String,
     valueStyle: TextStyle,
-    trailing: @Composable () -> Unit,
+    trailing: @Composable RowScope.() -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -508,7 +509,7 @@ private fun ConnectionSummaryStatusRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(8.dp))
         trailing()
     }
 }
@@ -517,11 +518,15 @@ private fun ConnectionSummaryStatusRow(
 private fun ConnectionLatencySummary(
     latencyText: String,
     qualityLevel: Int,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        LatencyQualityIndicator(qualityLevel = qualityLevel)
+        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.weight(1f))
         Text(
             text = latencyText,
             style = MaterialTheme.typography.bodyMedium.copy(
@@ -532,7 +537,6 @@ private fun ConnectionLatencySummary(
             ),
             maxLines = 1,
         )
-        LatencyQualityIndicator(qualityLevel = qualityLevel)
     }
 }
 
