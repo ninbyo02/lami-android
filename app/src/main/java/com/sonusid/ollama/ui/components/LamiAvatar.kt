@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -67,7 +68,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -288,17 +288,10 @@ fun LamiAvatar(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Text(
                                         text = "Lami コントロール",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        text = statusLabel,
-                                        style = MaterialTheme.typography.bodySmall,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
@@ -317,24 +310,20 @@ fun LamiAvatar(
                                 HorizontalDivider(
                                     color = MaterialTheme.colorScheme.outlineVariant
                                 )
-                            }
+                        }
                         }
                     item {
-                        StatusInfoItem(
+                        ConnectionSummaryStatusRow(
                             label = "接続状態",
                             value = statusLabel,
+                            trailing = "-- ms ▯▯▯▯",
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.sp,
                             ),
-                        )
-                    }
-                    item {
-                        Text(
-                            text = "-- ms ▯▯▯▯",
-                            style = MaterialTheme.typography.bodyMedium.copy(
+                            trailingStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
                                 fontWeight = FontWeight.Normal,
@@ -351,7 +340,6 @@ fun LamiAvatar(
                                 lineHeight = 20.sp,
                                 fontWeight = FontWeight.Normal,
                                 letterSpacing = 0.sp,
-                                fontFamily = FontFamily.Monospace,
                             ),
                         )
                     }
@@ -459,14 +447,54 @@ private fun StatusInfoItem(
     value: String,
     valueStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+            modifier = Modifier.widthIn(min = 72.dp),
         )
+        Spacer(modifier = Modifier.size(12.dp))
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            style = valueStyle,
+        )
+    }
+}
+
+@Composable
+private fun ConnectionSummaryStatusRow(
+    label: String,
+    value: String,
+    trailing: String,
+    valueStyle: TextStyle,
+    trailingStyle: TextStyle,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+            modifier = Modifier.widthIn(min = 72.dp),
+        )
+        Spacer(modifier = Modifier.size(12.dp))
         Text(
             text = value,
             style = valueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = trailing,
+            style = trailingStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
