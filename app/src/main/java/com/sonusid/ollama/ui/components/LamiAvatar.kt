@@ -513,7 +513,7 @@ private fun ConnectionSummaryStatusRow(
         Spacer(modifier = Modifier.width(12.dp))
         LatencyQualityIndicator(
             qualityLevel = qualityLevel,
-            modifier = Modifier.align(Alignment.Bottom).offset(y = (-4).dp),
+            modifier = Modifier.align(Alignment.Bottom).offset(y = (-6).dp),
         )
         // 品質バーと遅延表示は意味のまとまりを優先して最小限だけ空ける
         Spacer(modifier = Modifier.width(8.dp))
