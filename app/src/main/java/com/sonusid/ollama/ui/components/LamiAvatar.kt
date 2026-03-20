@@ -326,7 +326,8 @@ fun LamiAvatar(
                                         lineHeight = 20.sp,
                                         letterSpacing = 0.sp,
                                     ),
-                                    maxLines = 1,
+                                    minLines = 2,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 HorizontalDivider(
