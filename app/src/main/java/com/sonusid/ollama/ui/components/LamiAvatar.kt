@@ -313,6 +313,7 @@ fun LamiAvatar(
                                 ) {
                                     Text(
                                         text = "Lami コントロール",
+                                        modifier = Modifier.padding(start = 8.dp),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -320,6 +321,7 @@ fun LamiAvatar(
                                 }
                                 Text(
                                     text = selectedModel ?: "未選択",
+                                    modifier = Modifier.padding(start = 8.dp),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Medium,
@@ -331,6 +333,7 @@ fun LamiAvatar(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 HorizontalDivider(
+                                    modifier = Modifier.padding(start = 8.dp),
                                     color = MaterialTheme.colorScheme.outlineVariant
                                 )
                         }
