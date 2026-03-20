@@ -323,7 +323,7 @@ fun LamiAvatar(
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Medium,
-                                        lineHeight = 20.sp,
+                                        lineHeight = 18.sp,
                                         letterSpacing = 0.sp,
                                     ),
                                     minLines = 2,
