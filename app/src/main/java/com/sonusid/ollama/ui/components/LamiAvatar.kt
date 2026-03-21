@@ -461,6 +461,10 @@ fun LamiAvatar(
 }
 
 
+private val ConnectionSummaryRowStartPadding = 20.dp
+private val ConnectionSummaryLabelMinWidth = 72.dp
+private val ConnectionSummaryLabelValueSpacing = 12.dp
+
 @Composable
 private fun StatusInfoItem(
     label: String,
@@ -468,19 +472,27 @@ private fun StatusInfoItem(
     valueStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ConnectionSummaryRowStartPadding),
+        verticalAlignment = Alignment.Bottom,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-            modifier = Modifier.widthIn(min = 72.dp),
+            modifier = Modifier
+                .widthIn(min = ConnectionSummaryLabelMinWidth)
+                .alignByBaseline(),
         )
-        Spacer(modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.width(ConnectionSummaryLabelValueSpacing))
         Text(
             text = value,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .alignByBaseline(),
             style = valueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -496,17 +508,17 @@ private fun ConnectionSummaryStatusRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp),
+            .padding(start = ConnectionSummaryRowStartPadding),
         verticalAlignment = Alignment.Bottom,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
             modifier = Modifier
-                .widthIn(min = 72.dp)
+                .widthIn(min = ConnectionSummaryLabelMinWidth)
                 .alignByBaseline(),
         )
-        Spacer(modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.width(ConnectionSummaryLabelValueSpacing))
         Text(
             text = value,
             style = valueStyle,
