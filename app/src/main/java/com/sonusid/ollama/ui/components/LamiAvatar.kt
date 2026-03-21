@@ -461,6 +461,10 @@ fun LamiAvatar(
 }
 
 
+private val ConnectionSummaryRowStart = 20.dp
+private val ConnectionSummaryLabelMinWidth = 72.dp
+private val ConnectionSummaryLabelSpacing = 12.dp
+
 @Composable
 private fun StatusInfoItem(
     label: String,
@@ -468,15 +472,19 @@ private fun StatusInfoItem(
     valueStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            // 接続状態行と同じ左基準に揃えるための開始位置
+            .padding(start = ConnectionSummaryRowStart),
         verticalAlignment = Alignment.Top,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-            modifier = Modifier.widthIn(min = 72.dp),
+            modifier = Modifier.widthIn(min = ConnectionSummaryLabelMinWidth),
         )
-        Spacer(modifier = Modifier.size(12.dp))
+        // ラベル列と値列の間隔を接続状態行と同じに揃える
+        Spacer(modifier = Modifier.size(ConnectionSummaryLabelSpacing))
         Text(
             text = value,
             modifier = Modifier.weight(1f),
@@ -496,17 +504,17 @@ private fun ConnectionSummaryStatusRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp),
+            .padding(start = ConnectionSummaryRowStart),
         verticalAlignment = Alignment.Bottom,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
             modifier = Modifier
-                .widthIn(min = 72.dp)
+                .widthIn(min = ConnectionSummaryLabelMinWidth)
                 .alignByBaseline(),
         )
-        Spacer(modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.size(ConnectionSummaryLabelSpacing))
         Text(
             text = value,
             style = valueStyle,
