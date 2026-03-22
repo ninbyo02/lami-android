@@ -181,6 +181,7 @@ internal object SpriteSettingsSessionSpriteOverride {
 }
 
 private val SpriteSettingsTabRowHeight = 32.dp
+private val SpriteSettingsTopBarVisualNudgeDp = (-1).dp
 private val AdjustStatusToControlsSpacing = 12.dp
 private val PreviewHeaderNudgeDp = (-2).dp
 private val PreviewHeaderRightExtraNudgeDp = (-2).dp
@@ -3894,6 +3895,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
+                                // 上: status bar 安全域は維持しつつ見た目の上余白だけを最小限だけ詰める
+                                .offset(y = SpriteSettingsTopBarVisualNudgeDp)
                         ) {
                             Text(
                                 text = "Sprite Settings",
@@ -3907,7 +3910,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = Modifier
                                 .width(56.dp)
                                 .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
+                                .wrapContentHeight(Alignment.CenterVertically)
+                                // 上: 戻るアイコンもタイトルと同じだけ上へ寄せて見た目の空白を揃える
+                                .offset(y = SpriteSettingsTopBarVisualNudgeDp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             IconButton(onClick = { onBackRequested() }) {
@@ -3920,44 +3925,53 @@ fun SpriteSettingsScreen(navController: NavController) {
                         }
                     },
                     actions = {
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationApply()
-                                    SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
-                                }
-                            }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                                // 上: 右アクション群も同じだけ寄せて、TopBar 内の見た目余白だけを揃える
+                                .offset(y = SpriteSettingsTopBarVisualNudgeDp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "プレビュー更新"
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
-                                    SpriteTab.ADJUST -> copySpriteSheetConfig()
+                            IconButton(
+                                onClick = {
+                                    when (selectedTab) {
+                                        SpriteTab.ANIM -> onAnimationApply()
+                                        SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
+                                    }
                                 }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "プレビュー更新"
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "コピー"
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationSave()
-                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                            IconButton(
+                                onClick = {
+                                    when (selectedTab) {
+                                        SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
+                                        SpriteTab.ADJUST -> copySpriteSheetConfig()
+                                    }
                                 }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentCopy,
+                                    contentDescription = "コピー"
+                                )
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Save,
-                                contentDescription = "保存"
-                            )
+                            IconButton(
+                                onClick = {
+                                    when (selectedTab) {
+                                        SpriteTab.ANIM -> onAnimationSave()
+                                        SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Save,
+                                    contentDescription = "保存"
+                                )
+                            }
                         }
                     },
                     // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
