@@ -4,11 +4,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -67,11 +65,6 @@ fun NoticeScreen(navController: NavController) {
         }
     }
 
-    // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
-    val scaffoldInsets = WindowInsets.systemBars.only(
-        WindowInsetsSides.Horizontal,
-    )
-
     LaunchedEffect(Unit) {
         noticeText = withContext(Dispatchers.IO) {
             context.resources.openRawResource(R.raw.notice).bufferedReader().use { it.readText() }
@@ -82,7 +75,8 @@ fun NoticeScreen(navController: NavController) {
 
     Scaffold(
         containerColor = scaffoldBg,
-        contentWindowInsets = scaffoldInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SettingsTopAppBar(
                 titleResId = R.string.notice_title,
@@ -93,8 +87,10 @@ fun NoticeScreen(navController: NavController) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 上：ScaffoldのinnerPaddingをそのまま適用
-                .padding(innerPadding),
+                // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
+                .padding(innerPadding)
+                // Scaffold の Insets はこの階層で消費し、本文側へ二重適用しない
+                .consumeWindowInsets(innerPadding),
         ) {
             Box(
                 modifier = Modifier
@@ -128,9 +124,6 @@ fun NoticeScreen(navController: NavController) {
                 Text(
                     text = noticeText,
                     style = readableBodyTextStyle,
-                    modifier = Modifier
-                        // 上：NOTICE見出し相当の見え位置を揃えるため最小限の余白
-                        .padding(top = 24.dp),
                 )
             }
             TopFadeOverlay(

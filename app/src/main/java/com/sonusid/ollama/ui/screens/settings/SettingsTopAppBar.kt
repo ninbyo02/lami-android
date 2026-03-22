@@ -1,8 +1,8 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.sonusid.ollama.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,13 +29,12 @@ fun SettingsTopAppBar(
 ) {
     Box(
         modifier = Modifier
-            // [dp] 縦: Settings 画面と同じ AppBar 高さに揃える
-            .height(48.dp)
             .fillMaxWidth()
+            .zIndex(1f)
     ) {
         TopAppBar(
-            // Settings 画面と同様に TopAppBar 側の Insets は 0 に統一する
-            windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+            // 上: Settings 系では status bar 吸収を行わず、Scaffold の innerPadding に責務を統一する
+            windowInsets = WindowInsets(0, 0, 0, 0),
             navigationIcon = {
                 Box(
                     modifier = Modifier
@@ -60,8 +60,26 @@ fun SettingsTopAppBar(
                     Text(stringResource(titleResId))
                 }
             },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
+                .fillMaxWidth()
+                .height(48.dp),
         )
     }
 }
 
+@Composable
+fun SimpleScreenTopBarContentWrapper(
+    modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.CenterStart,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .wrapContentHeight(Alignment.CenterVertically),
+        contentAlignment = contentAlignment,
+    ) {
+        content()
+    }
+}

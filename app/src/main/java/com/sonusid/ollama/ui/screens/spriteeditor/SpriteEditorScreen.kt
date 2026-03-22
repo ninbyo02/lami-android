@@ -26,19 +26,18 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,7 +98,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -112,6 +110,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
@@ -497,65 +496,54 @@ fun SpriteEditorScreen(navController: NavController) {
         requestCloseEditor()
     }
 
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
-    val scaffoldInsets = with(density) {
-        WindowInsets(
-            left = systemBarInsets.getLeft(this, layoutDirection),
-            top = 0,
-            right = systemBarInsets.getRight(this, layoutDirection),
-            bottom = 0,
-        )
-    }
-
     Scaffold(
-        contentWindowInsets = scaffoldInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Box(
+            TopAppBar(
+                // 上端余白の重複を防ぐため、TopAppBar 側の Insets は 0 に固定する
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                navigationIcon = {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        IconButton(onClick = { requestCloseEditor() }) {
+                            Icon(
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "exit",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                },
+                title = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically)
+                    ) {
+                        Text("Sprite Editor")
+                    }
+                },
                 modifier = Modifier
-                    .height(48.dp)
+                    // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
                     .fillMaxWidth()
-            ) {
-                TopAppBar(
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    navigationIcon = {
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { requestCloseEditor() }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.back),
-                                    contentDescription = "exit",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    },
-                    title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        ) {
-                            Text("Sprite Editor")
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+                    .height(48.dp)
+            )
         },
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                // 上下: Scaffold の内側余白を適用
-                .padding(innerPadding)
                 // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
-                .fillMaxSize(),
+                .fillMaxSize()
+                // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
+                .padding(innerPadding)
+                // Scaffold の Insets はこの階層で消費し、下位レイアウトへ重複させない
+                .consumeWindowInsets(innerPadding),
         ) {
             val state = editorState
             Column(

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,7 +35,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -69,7 +69,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -244,17 +243,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 
     val horizontalPadding = 16.dp
     val verticalPadding = 12.dp
-
     val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
-    // 上端は TopAppBar 側で制御し、Scaffold は左右の安全領域のみ適用する
-    val scaffoldInsets = WindowInsets(
-        left = systemBarInsets.getLeft(density, layoutDirection),
-        top = 0,
-        right = systemBarInsets.getRight(density, layoutDirection),
-        bottom = 0
-    )
     val imeBottomDp = WindowInsets.ime.asPaddingValues(density).calculateBottomPadding()
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
@@ -293,47 +282,43 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
         containerColor = scaffoldBg,
-        // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
-        contentWindowInsets = scaffoldInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Box(
+            TopAppBar(
+                // 上端余白の責務は Scaffold/content に寄せ、TopAppBar 自身は 0 inset に固定する
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                navigationIcon = {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        IconButton(onClick = { onBackRequested() }) {
+                            Icon(
+                                painterResource(R.drawable.back),
+                                "exit",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                },
+                title = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically)
+                    ) {
+                        Text("Settings")
+                    }
+                },
                 modifier = Modifier
-                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
-                    .height(48.dp)
+                    // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
                     .fillMaxWidth()
-            ) {
-                TopAppBar(
-                    // 上端余白の重複を防ぐため、TopAppBar 側の Insets は明示的に 0 にする
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    navigationIcon = {
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { onBackRequested() }) {
-                                Icon(
-                                    painterResource(R.drawable.back),
-                                    "exit",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    },
-                    title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        ) {
-                            Text("Settings")
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+                    .height(48.dp)
+            )
         }
     ) { paddingValues ->
         Box(
@@ -341,6 +326,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 .fillMaxSize()
                 // Scaffold の描画領域（TopAppBar 下）に座標系を統一する
                 .padding(paddingValues)
+                // Scaffold の Insets はこの階層で消費し、子で二重適用しない
+                .consumeWindowInsets(paddingValues)
         ) {
             LazyColumn(
                 state = listState,

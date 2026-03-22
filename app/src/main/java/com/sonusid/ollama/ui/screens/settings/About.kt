@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ElevatedCard
@@ -34,8 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -91,20 +89,9 @@ fun About(
         viewModel?.animationEpochMs?.collectAsState(initial = 0L)?.value ?: 0L
     val isLandscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
-
-    // 左右の安全領域は維持し、上は TopAppBar 側で処理する
-    val scaffoldInsets = WindowInsets(
-        left = systemBarInsets.getLeft(density, layoutDirection),
-        top = 0,
-        right = systemBarInsets.getRight(density, layoutDirection),
-        bottom = 0,
-    )
 
     val licenseLine1 = stringResource(R.string.about_license_line1)
     val licenseLine2 = stringResource(R.string.about_license_line2)
@@ -141,8 +128,8 @@ fun About(
     }
 
     Scaffold(
-        // 左右の安全領域は維持し、上は TopAppBar 側で処理する
-        contentWindowInsets = scaffoldInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SettingsTopAppBar(
                 titleResId = R.string.about,
@@ -152,9 +139,11 @@ fun About(
     ) { paddingValues ->
         Box(
             modifier = Modifier
-                // 上：Scaffold の余白をそのまま適用する
+                .fillMaxSize()
+                // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
                 .padding(paddingValues)
-                .fillMaxSize(),
+                // Scaffold の Insets はこの階層で消費し、内部スクロールへ重ねない
+                .consumeWindowInsets(paddingValues),
         ) {
             if (isLandscape) {
                 Box(

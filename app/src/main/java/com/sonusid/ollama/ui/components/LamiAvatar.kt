@@ -313,6 +313,7 @@ fun LamiAvatar(
                                 ) {
                                     Text(
                                         text = "Lami コントロール",
+                                        modifier = Modifier.padding(start = 20.dp),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
@@ -320,13 +321,15 @@ fun LamiAvatar(
                                 }
                                 Text(
                                     text = selectedModel ?: "未選択",
+                                    modifier = Modifier.padding(start = 20.dp),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Medium,
-                                        lineHeight = 20.sp,
+                                        lineHeight = 18.sp,
                                         letterSpacing = 0.sp,
                                     ),
-                                    maxLines = 1,
+                                    minLines = 2,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 HorizontalDivider(
@@ -458,6 +461,10 @@ fun LamiAvatar(
 }
 
 
+private val ConnectionSummaryRowStartPadding = 20.dp
+private val ConnectionSummaryLabelMinWidth = 72.dp
+private val ConnectionSummaryLabelValueSpacing = 12.dp
+
 @Composable
 private fun StatusInfoItem(
     label: String,
@@ -465,19 +472,27 @@ private fun StatusInfoItem(
     valueStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ConnectionSummaryRowStartPadding),
+        verticalAlignment = Alignment.Bottom,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-            modifier = Modifier.widthIn(min = 72.dp),
+            modifier = Modifier
+                .widthIn(min = ConnectionSummaryLabelMinWidth)
+                .alignByBaseline(),
         )
-        Spacer(modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.width(ConnectionSummaryLabelValueSpacing))
         Text(
             text = value,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .alignByBaseline(),
             style = valueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -491,17 +506,19 @@ private fun ConnectionSummaryStatusRow(
     qualityLevel: Int,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ConnectionSummaryRowStartPadding),
         verticalAlignment = Alignment.Bottom,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
             modifier = Modifier
-                .widthIn(min = 72.dp)
+                .widthIn(min = ConnectionSummaryLabelMinWidth)
                 .alignByBaseline(),
         )
-        Spacer(modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.width(ConnectionSummaryLabelValueSpacing))
         Text(
             text = value,
             style = valueStyle,
