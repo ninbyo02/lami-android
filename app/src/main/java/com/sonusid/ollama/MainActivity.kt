@@ -3,6 +3,10 @@ package com.sonusid.ollama
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -130,6 +134,12 @@ class MainActivity : ComponentActivity() {
                 }
             }
             OllamaTheme(dynamicColor = settingsData.useDynamicColor) {
+                val view = LocalView.current
+                val colorScheme = MaterialTheme.colorScheme
+                SideEffect {
+                    window.statusBarColor = colorScheme.background.toArgb()
+                    WindowInsetsControllerCompat(window, view).isAppearanceLightStatusBars = !colorScheme.background.isDark()
+                }
                 val appSnackbarHostState = remember { SnackbarHostState() }
                 CompositionLocalProvider(
                     LocalAppSnackbarHostState provides appSnackbarHostState
@@ -207,6 +217,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+
+private fun androidx.compose.ui.graphics.Color.isDark(): Boolean {
+    return ((red * 0.299f) + (green * 0.587f) + (blue * 0.114f)) < 0.5f
 }
 
 internal fun resolveStartRoute(
