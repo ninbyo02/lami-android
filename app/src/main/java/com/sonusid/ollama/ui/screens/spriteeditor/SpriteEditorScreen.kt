@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -36,9 +37,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,8 +99,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -118,6 +117,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -498,24 +498,14 @@ fun SpriteEditorScreen(navController: NavController) {
         requestCloseEditor()
     }
 
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
-    val scaffoldInsets = with(density) {
-        WindowInsets(
-            left = systemBarInsets.getLeft(this, layoutDirection),
-            top = 0,
-            right = systemBarInsets.getRight(this, layoutDirection),
-            bottom = 0,
-        )
-    }
-
     Scaffold(
-        contentWindowInsets = scaffoldInsets,
+        contentWindowInsets = SimpleScreenHorizontalInsets,
         topBar = {
             Box(
                 modifier = Modifier
                     .height(48.dp)
+                    // 上: edge-to-edge 移行時も status bar 回避は TopAppBar 側で担う
+                    .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
             ) {
@@ -556,6 +546,8 @@ fun SpriteEditorScreen(navController: NavController) {
             modifier = Modifier
                 // 上下: Scaffold の内側余白を適用
                 .padding(innerPadding)
+                // Scaffold の Insets はこの階層で消費し、下位レイアウトへ重複させない
+                .consumeWindowInsets(innerPadding)
                 // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                 .fillMaxSize(),
         ) {

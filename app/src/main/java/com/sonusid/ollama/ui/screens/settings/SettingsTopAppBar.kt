@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +32,8 @@ fun SettingsTopAppBar(
         modifier = Modifier
             // [dp] 縦: Settings 画面と同じ AppBar 高さに揃える
             .height(48.dp)
+            // 上: edge-to-edge 移行時も status bar 回避は TopAppBar 側で担う
+            .statusBarsPadding()
             .fillMaxWidth()
             .zIndex(1f)
     ) {
