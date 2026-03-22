@@ -2,12 +2,9 @@ package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,8 +35,8 @@ fun SettingsTopAppBar(
             .zIndex(1f)
     ) {
         TopAppBar(
-            // 上: ステータスバー回避は TopAppBar 側だけで行い、余白責務を 1 か所に統一する
-            windowInsets = WindowInsets.statusBars.only(WindowInsetsSides.Top),
+            // 上: Settings 系では status bar 吸収を行わず、Scaffold の innerPadding に責務を統一する
+            windowInsets = WindowInsets(0, 0, 0, 0),
             navigationIcon = {
                 Box(
                     modifier = Modifier

@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
@@ -117,7 +116,6 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
-import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -499,51 +497,43 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     Scaffold(
-        // 左右の安全領域は Scaffold で受け、上は TopAppBar 側に寄せる
-        contentWindowInsets = SimpleScreenHorizontalInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Box(
+            TopAppBar(
+                // 上端余白の重複を防ぐため、TopAppBar 側の Insets は 0 に固定する
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                navigationIcon = {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        IconButton(onClick = { requestCloseEditor() }) {
+                            Icon(
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "exit",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                },
+                title = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically)
+                    ) {
+                        Text("Sprite Editor")
+                    }
+                },
                 modifier = Modifier
-                    // 上: ステータスバー回避は外側 Box でだけ行う
-                    .statusBarsPadding()
+                    // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
                     .fillMaxWidth()
-                    .zIndex(1f)
-            ) {
-                TopAppBar(
-                    // 上端余白の重複を防ぐため、TopAppBar 側の Insets は 0 に固定する
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    navigationIcon = {
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { requestCloseEditor() }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.back),
-                                    contentDescription = "exit",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    },
-                    title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        ) {
-                            Text("Sprite Editor")
-                        }
-                    },
-                    modifier = Modifier
-                        // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
-                        .fillMaxWidth()
-                        .height(48.dp)
-                )
-            }
+                    .height(48.dp)
+            )
         },
     ) { innerPadding ->
         Column(

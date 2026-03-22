@@ -33,7 +33,6 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.TopFadeOverlay
 import kotlinx.coroutines.Dispatchers
@@ -75,7 +74,8 @@ fun NoticeScreen(navController: NavController) {
 
     Scaffold(
         containerColor = scaffoldBg,
-        contentWindowInsets = SimpleScreenHorizontalInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SettingsTopAppBar(
                 titleResId = R.string.notice_title,
@@ -123,9 +123,6 @@ fun NoticeScreen(navController: NavController) {
                 Text(
                     text = noticeText,
                     style = readableBodyTextStyle,
-                    modifier = Modifier
-                        // 上：NOTICE見出し相当の見え位置を揃えるため最小限の余白
-                        .padding(top = 24.dp),
                 )
             }
             TopFadeOverlay(
