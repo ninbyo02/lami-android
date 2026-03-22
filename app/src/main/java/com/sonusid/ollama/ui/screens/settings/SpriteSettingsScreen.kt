@@ -50,7 +50,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -3885,6 +3884,7 @@ fun SpriteSettingsScreen(navController: NavController) {
                     // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
                     .height(48.dp)
                     .fillMaxWidth()
+                    .zIndex(1f)
             ) {
                 TopAppBar(
                     title = {
@@ -4034,7 +4034,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                     height = 2.dp
                                 )
                             },
-                            divider = { HorizontalDivider(thickness = 0.5.dp) }
                         ) {
                             displayedTabs.forEach { tab ->
                                 when (tab) {
