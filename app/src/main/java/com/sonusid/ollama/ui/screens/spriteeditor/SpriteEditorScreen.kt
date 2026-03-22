@@ -120,12 +120,6 @@ import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
-import com.sonusid.ollama.ui.screens.settings.TopGapProbeActualContentColor
-import com.sonusid.ollama.ui.screens.settings.TopGapProbeContentColor
-import com.sonusid.ollama.ui.screens.settings.TopGapProbeLog
-import com.sonusid.ollama.ui.screens.settings.TopGapProbeTopBarColor
-import com.sonusid.ollama.ui.screens.settings.topGapProbeBounds
-import com.sonusid.ollama.ui.screens.settings.topGapProbeOverlay
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
 import com.sonusid.ollama.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
 import kotlinx.coroutines.Dispatchers
@@ -510,16 +504,11 @@ fun SpriteEditorScreen(navController: NavController) {
         topBar = {
             Box(
                 modifier = Modifier
-                    // DEBUG top-gap probe start
-                    .topGapProbeOverlay(TopGapProbeTopBarColor)
-                    .topGapProbeBounds("SpriteEditor.topBarRoot")
-                    // DEBUG top-gap probe end
                     // 上: ステータスバー回避は外側 Box でだけ行う
                     .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
             ) {
-                TopGapProbeLog("SpriteEditor.topBar.windowInsets=WindowInsets(0,0,0,0)")
                 TopAppBar(
                     // 上端余白の重複を防ぐため、TopAppBar 側の Insets は 0 に固定する
                     windowInsets = WindowInsets(0, 0, 0, 0),
@@ -543,10 +532,6 @@ fun SpriteEditorScreen(navController: NavController) {
                     title = {
                         Box(
                             modifier = Modifier
-                                // DEBUG top-gap probe start
-                                .topGapProbeOverlay(TopGapProbeActualContentColor)
-                                .topGapProbeBounds("SpriteEditor.topBarTitleParent")
-                                // DEBUG top-gap probe end
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
                         ) {
@@ -563,10 +548,6 @@ fun SpriteEditorScreen(navController: NavController) {
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                // DEBUG top-gap probe start
-                .topGapProbeOverlay(TopGapProbeContentColor)
-                .topGapProbeBounds("SpriteEditor.contentRoot")
-                // DEBUG top-gap probe end
                 // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                 .fillMaxSize()
                 // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
@@ -577,10 +558,6 @@ fun SpriteEditorScreen(navController: NavController) {
             val state = editorState
             Column(
                 modifier = Modifier
-                    // DEBUG top-gap probe start
-                    .topGapProbeOverlay(TopGapProbeActualContentColor)
-                    .topGapProbeBounds("SpriteEditor.firstContent")
-                    // DEBUG top-gap probe end
                     // [非dp] 横: プレビュー/操作領域 の fillMaxWidth(制約)に関係
                     .fillMaxWidth()
                     // [dp] 左右: 画面全体 の余白(余白)に関係

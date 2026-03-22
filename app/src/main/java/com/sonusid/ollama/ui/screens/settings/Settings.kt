@@ -289,16 +289,11 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         topBar = {
             Box(
                 modifier = Modifier
-                    // DEBUG top-gap probe start
-                    .topGapProbeOverlay(TopGapProbeTopBarColor)
-                    .topGapProbeBounds("Settings.topBarRoot")
-                    // DEBUG top-gap probe end
                     // 上: edge-to-edge 移行時も status bar 回避は TopAppBar コンテナ側で担う
                     .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
             ) {
-                TopGapProbeLog("Settings.topBar.windowInsets=WindowInsets(0,0,0,0)")
                 TopAppBar(
                     // 上端余白の重複を防ぐため、TopAppBar 側の Insets は明示的に 0 にする
                     windowInsets = WindowInsets(0, 0, 0, 0),
@@ -322,10 +317,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     title = {
                         Box(
                             modifier = Modifier
-                                // DEBUG top-gap probe start
-                                .topGapProbeOverlay(TopGapProbeActualContentColor)
-                                .topGapProbeBounds("Settings.topBarTitleParent")
-                                // DEBUG top-gap probe end
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
                         ) {
@@ -342,10 +333,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     ) { paddingValues ->
         Box(
             modifier = Modifier
-                // DEBUG top-gap probe start
-                .topGapProbeOverlay(TopGapProbeContentColor)
-                .topGapProbeBounds("Settings.contentRoot")
-                // DEBUG top-gap probe end
                 .fillMaxSize()
                 // Scaffold の描画領域（TopAppBar 下）に座標系を統一する
                 .padding(paddingValues)
@@ -355,10 +342,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
-                    // DEBUG top-gap probe start
-                    .topGapProbeOverlay(TopGapProbeActualContentColor)
-                    .topGapProbeBounds("Settings.firstContent")
-                    // DEBUG top-gap probe end
                     .fillMaxSize()
                     // 下: IME とナビゲーションバーの差分だけを適用し、キーボードとの隙間をなくす
                     .padding(bottom = bottomDp),

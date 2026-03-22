@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,19 +34,12 @@ fun SettingsTopAppBar(
 ) {
     Box(
         modifier = Modifier
-            // DEBUG top-gap probe start
-            .topGapProbeOverlay(TopGapProbeTopBarColor)
-            .topGapProbeBounds("SettingsTopAppBar.container(statusBarsPadding)")
-            // DEBUG top-gap probe end
-            // 上: 単純画面の TopBar は親 Box 側でだけステータスバーを回避する
-            .statusBarsPadding()
             .fillMaxWidth()
             .zIndex(1f)
     ) {
-        TopGapProbeLog("SettingsTopAppBar.windowInsets=WindowInsets(0,0,0,0)")
         TopAppBar(
-            // 上端余白の重複を防ぐため、TopAppBar 側の Insets は明示的に 0 にする
-            windowInsets = WindowInsets(0, 0, 0, 0),
+            // 上: ステータスバー回避は TopAppBar 側だけで行い、余白責務を 1 か所に統一する
+            windowInsets = WindowInsets.statusBars.only(WindowInsetsSides.Top),
             navigationIcon = {
                 Box(
                     modifier = Modifier
@@ -68,10 +59,6 @@ fun SettingsTopAppBar(
             title = {
                 Box(
                     modifier = Modifier
-                        // DEBUG top-gap probe start
-                        .topGapProbeOverlay(TopGapProbeActualContentColor)
-                        .topGapProbeBounds("SettingsTopAppBar.titleParent")
-                        // DEBUG top-gap probe end
                         .fillMaxHeight()
                         .wrapContentHeight(Alignment.CenterVertically)
                 ) {
@@ -94,13 +81,7 @@ fun SimpleScreenTopBarContentWrapper(
 ) {
     Box(
         modifier = modifier
-            // DEBUG top-gap probe start
-            .topGapProbeOverlay(TopGapProbeActualContentColor)
-            .topGapProbeBounds("SimpleScreenTopBarContentWrapper.windowInsetsPadding")
-            // DEBUG top-gap probe end
             .fillMaxHeight()
-            // 上: Sprite Editor 側の安全域適用は現状維持しつつ、共通 TopBar の復旧を優先する
-            .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
             .wrapContentHeight(Alignment.CenterVertically),
         contentAlignment = contentAlignment,
     ) {
