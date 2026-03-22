@@ -3643,6 +3643,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
+    val density = LocalDensity.current
+
     // [非dp] 下: IME の insets(インセット)に関係
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
 
