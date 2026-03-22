@@ -139,11 +139,11 @@ fun About(
     ) { paddingValues ->
         Box(
             modifier = Modifier
-                // 上：Scaffold の余白をそのまま適用する
+                .fillMaxSize()
+                // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
                 .padding(paddingValues)
                 // Scaffold の Insets はこの階層で消費し、内部スクロールへ重ねない
-                .consumeWindowInsets(paddingValues)
-                .fillMaxSize(),
+                .consumeWindowInsets(paddingValues),
         ) {
             if (isLandscape) {
                 Box(

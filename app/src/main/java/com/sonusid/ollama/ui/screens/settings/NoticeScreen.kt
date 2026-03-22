@@ -86,7 +86,7 @@ fun NoticeScreen(navController: NavController) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 上：ScaffoldのinnerPaddingをそのまま適用
+                // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
                 .padding(innerPadding)
                 // Scaffold の Insets はこの階層で消費し、本文側へ二重適用しない
                 .consumeWindowInsets(innerPadding),
