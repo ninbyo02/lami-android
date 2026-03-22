@@ -3877,6 +3877,7 @@ fun SpriteSettingsScreen(navController: NavController) {
     val onPrev: () -> Unit = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 }
     val onNext: () -> Unit = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 }
 
+    // Phase 2 では単純画面の方針整理を優先し、この画面は複雑な下部操作/独自 Insets を維持して調査のみに留める
     Scaffold(
         topBar = {
             Box(

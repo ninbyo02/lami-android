@@ -500,6 +500,7 @@ fun SpriteEditorScreen(navController: NavController) {
     }
 
     Scaffold(
+        // 左右の安全領域は Scaffold で受け、上は TopAppBar 側に寄せる
         contentWindowInsets = SimpleScreenHorizontalInsets,
         topBar = {
             Box(
@@ -511,6 +512,7 @@ fun SpriteEditorScreen(navController: NavController) {
                     .zIndex(1f)
             ) {
                 TopAppBar(
+                    // 上端余白の重複を防ぐため、TopAppBar 側の Insets は 0 に固定する
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
                         Box(
@@ -545,12 +547,12 @@ fun SpriteEditorScreen(navController: NavController) {
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                // 上下: Scaffold の内側余白を適用
+                // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
+                .fillMaxSize()
+                // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
                 .padding(innerPadding)
                 // Scaffold の Insets はこの階層で消費し、下位レイアウトへ重複させない
-                .consumeWindowInsets(innerPadding)
-                // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
-                .fillMaxSize(),
+                .consumeWindowInsets(innerPadding),
         ) {
             val state = editorState
             Column(
