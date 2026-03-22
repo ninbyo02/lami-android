@@ -4078,9 +4078,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 }
                             }
                         }
-                        val contentTopGap = 0.dp
-                        // [dp] 上: TabRow の帯/位置を固定するため、コンテンツ側で上余白を調整
-                        Spacer(modifier = Modifier.height(contentTopGap))
                         Box(
                             modifier = Modifier
                                 // [非dp] 横: 画面全体 の fillMaxWidth(制約)に関係
@@ -5567,10 +5564,6 @@ private fun ReadyAnimationTab(
                 .fillMaxSize()
         ) {
             previewContent(Modifier.fillMaxWidth())
-            // [dp] 縦: プレビュー の間隔(間隔)に関係
-            // 提案: 上余白が残る場合は A: Spacer削除 / B: 0〜2dpに縮小 / C: SpriteTab.ANIM のみに限定（現状相当）
-            // 安全: C（調整タブへ影響させず、アニメタブ内の間隔だけを最小変更で調整できるため）
-            Spacer(modifier = Modifier.height(0.dp))
             formContent(Modifier)
         }
     }
