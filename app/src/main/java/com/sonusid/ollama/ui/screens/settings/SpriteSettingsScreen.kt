@@ -8,7 +8,6 @@ import android.content.res.Configuration
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -3886,66 +3885,87 @@ fun SpriteSettingsScreen(navController: NavController) {
                     // 上: ステータスバー回避は親 Box にだけ適用して TopBar 本体は単純化する
                     .statusBarsPadding()
                     .fillMaxWidth()
-                    // 上: TopBar 背景はステータスバー背後までつなげて描画する
-                    .background(MaterialTheme.colorScheme.surface)
                     .zIndex(1f)
             ) {
                 TopAppBar(
                     title = {
-                        Text(
-                            text = "Sprite Settings",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
+                        ) {
+                            Text(
+                                text = "Sprite Settings",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { onBackRequested() }) {
-                            Icon(
-                                painter = painterResource(R.drawable.back),
-                                contentDescription = "戻る",
-                                modifier = Modifier.size(24.dp)
-                            )
+                        Box(
+                            modifier = Modifier
+                                .width(56.dp)
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            IconButton(onClick = { onBackRequested() }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.back),
+                                    contentDescription = "戻る",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     },
                     actions = {
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationApply()
-                                    SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        when (selectedTab) {
+                                            SpriteTab.ANIM -> onAnimationApply()
+                                            SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Refresh,
+                                        contentDescription = "プレビュー更新"
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        when (selectedTab) {
+                                            SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
+                                            SpriteTab.ADJUST -> copySpriteSheetConfig()
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.ContentCopy,
+                                        contentDescription = "コピー"
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        when (selectedTab) {
+                                            SpriteTab.ANIM -> onAnimationSave()
+                                            SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Save,
+                                        contentDescription = "保存"
+                                    )
                                 }
                             }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = "プレビュー更新"
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
-                                    SpriteTab.ADJUST -> copySpriteSheetConfig()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "コピー"
-                            )
-                        }
-                        IconButton(
-                            onClick = {
-                                when (selectedTab) {
-                                    SpriteTab.ANIM -> onAnimationSave()
-                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Save,
-                                contentDescription = "保存"
-                            )
                         }
                     },
                     // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
