@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.union
@@ -3882,6 +3883,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         topBar = {
             Box(
                 modifier = Modifier
+                    // 上: ステータスバー回避は親 Box にだけ適用して TopBar 本体は単純化する
+                    .statusBarsPadding()
                     .fillMaxWidth()
                     // 上: TopBar 背景はステータスバー背後までつなげて描画する
                     .background(MaterialTheme.colorScheme.surface)
@@ -3889,83 +3892,60 @@ fun SpriteSettingsScreen(navController: NavController) {
             ) {
                 TopAppBar(
                     title = {
-                        SimpleScreenTopBarContentWrapper(
-                            modifier = Modifier
-                                // 上: title だけに安全域を移し、見た目基準はそのまま維持する
-                                .offset(y = SimpleScreenTopBarVisualNudgeDp)
-                        ) {
-                            Text(
-                                text = "Sprite Settings",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        Text(
+                            text = "Sprite Settings",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { onBackRequested() }) {
+                            Icon(
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "戻る",
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     },
-                    navigationIcon = {
-                        SimpleScreenTopBarContentWrapper(
-                            modifier = Modifier
-                                .width(56.dp)
-                                // 上: 戻るアイコンだけに安全域を移し、操作位置は維持する
-                                .offset(y = SimpleScreenTopBarVisualNudgeDp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { onBackRequested() }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.back),
-                                    contentDescription = "戻る",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    },
                     actions = {
-                        SimpleScreenTopBarContentWrapper(
-                            modifier = Modifier
-                                // 上: 右アクション群だけに安全域を移し、背景は上端まで描画する
-                                .offset(y = SimpleScreenTopBarVisualNudgeDp),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        when (selectedTab) {
-                                            SpriteTab.ANIM -> onAnimationApply()
-                                            SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = "プレビュー更新"
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        when (selectedTab) {
-                                            SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
-                                            SpriteTab.ADJUST -> copySpriteSheetConfig()
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ContentCopy,
-                                        contentDescription = "コピー"
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        when (selectedTab) {
-                                            SpriteTab.ANIM -> onAnimationSave()
-                                            SpriteTab.ADJUST -> saveSpriteSheetConfig()
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Save,
-                                        contentDescription = "保存"
-                                    }
+                        IconButton(
+                            onClick = {
+                                when (selectedTab) {
+                                    SpriteTab.ANIM -> onAnimationApply()
+                                    SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
                                 }
                             }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "プレビュー更新"
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                when (selectedTab) {
+                                    SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
+                                    SpriteTab.ADJUST -> copySpriteSheetConfig()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "コピー"
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                when (selectedTab) {
+                                    SpriteTab.ANIM -> onAnimationSave()
+                                    SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Save,
+                                contentDescription = "保存"
+                            )
                         }
                     },
                     // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
