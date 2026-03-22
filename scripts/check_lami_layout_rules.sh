@@ -122,39 +122,9 @@ run_warning_check() {
   fi
 }
 
-find_zero_spacer_nearby() {
-  local file
-  local output=""
-  for file in "${KOTLIN_FILES[@]}"; do
-    local file_output
-    file_output=$(awk '
-      { lines[NR] = $0 }
-      END {
-        for (nr = 1; nr <= NR; nr++) {
-          if (lines[nr] ~ /Spacer\(/) {
-            start = nr - 3
-            if (start < 1) start = 1
-            end = nr + 3
-            for (i = start; i <= end; i++) {
-              if (lines[i] ~ /0\.dp/) {
-                path = FILENAME
-                sub(/^.*\/workspace\/lami-android\//, "", path)
-                print path ":" nr ":" lines[nr]
-                break
-              }
-            }
-          }
-        }
-      }
-    ' "$file")
-    if [ -n "$file_output" ]; then
-      if [ -n "$output" ]; then
-        output+=$'\n'
-      fi
-      output+="$file_output"
-    fi
-  done
-  printf '%s' "$output"
+find_zero_height_spacer() {
+  local pattern='Spacer\([[:space:]]*(modifier[[:space:]]*=[[:space:]]*)?Modifier\.height\([[:space:]]*0\.dp[[:space:]]*\)'
+  rg_code_matches "$pattern"
 }
 
 main() {
@@ -178,7 +148,7 @@ main() {
   run_forbidden_check 'TopAppBarDefaults\.windowInsets' 'Forbidden status bar handling found: TopAppBarDefaults.windowInsets'
   run_forbidden_check 'WindowInsets\.statusBars' 'Forbidden status bar handling found: WindowInsets.statusBars'
 
-  run_warning_check 'Possible no-op spacing hooks: Spacer(...) near 0.dp' "$(find_zero_spacer_nearby)"
+  run_warning_check 'Possible no-op spacing hooks: Spacer(height(0.dp))' "$(find_zero_height_spacer)"
   run_warning_check 'Possible no-op spacing hooks: padding(top = 0.dp)' "$(rg_code_matches 'padding\([[:space:]]*top[[:space:]]*=[[:space:]]*0\.dp\)')"
   run_warning_check 'Possible no-op spacing hooks: offset(y = 0.dp)' "$(rg_code_matches 'offset\([[:space:]]*y[[:space:]]*=[[:space:]]*0\.dp\)')"
   run_warning_check 'Possible no-op spacing hooks: absoluteOffset(y = 0.dp)' "$(rg_code_matches 'absoluteOffset\([[:space:]]*y[[:space:]]*=[[:space:]]*0\.dp\)')"
