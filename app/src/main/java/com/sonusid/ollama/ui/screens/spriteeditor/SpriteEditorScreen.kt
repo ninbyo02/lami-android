@@ -33,8 +33,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.width
@@ -118,8 +118,6 @@ import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
-import com.sonusid.ollama.ui.screens.settings.SimpleScreenTopBarContentWrapper
-import com.sonusid.ollama.ui.screens.settings.SimpleScreenTopBarVisualNudgeDp
 import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -506,20 +504,20 @@ fun SpriteEditorScreen(navController: NavController) {
         topBar = {
             Box(
                 modifier = Modifier
+                    // 上: ステータスバー回避は外側 Box でだけ行う
+                    .statusBarsPadding()
                     .fillMaxWidth()
-                    // 上: TopBar 背景はステータスバー背後までつなげて描画する
-                    .background(MaterialTheme.colorScheme.surface)
                     .zIndex(1f)
             ) {
                 TopAppBar(
                     // 上端余白の重複を防ぐため、TopAppBar 側の Insets は 0 に固定する
                     windowInsets = WindowInsets(0, 0, 0, 0),
                     navigationIcon = {
-                        SimpleScreenTopBarContentWrapper(
+                        Box(
                             modifier = Modifier
                                 .width(56.dp)
-                                // 上: 戻る操作だけに安全域を移し、48dp bar 自体は維持する
-                                .offset(y = SimpleScreenTopBarVisualNudgeDp),
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             IconButton(onClick = { requestCloseEditor() }) {
@@ -532,10 +530,10 @@ fun SpriteEditorScreen(navController: NavController) {
                         }
                     },
                     title = {
-                        SimpleScreenTopBarContentWrapper(
+                        Box(
                             modifier = Modifier
-                                // 上: title だけに安全域を移し、単純画面TopBarの見た目をそろえる
-                                .offset(y = SimpleScreenTopBarVisualNudgeDp)
+                                .fillMaxHeight()
+                                .wrapContentHeight(Alignment.CenterVertically)
                         ) {
                             Text("Sprite Editor")
                         }
