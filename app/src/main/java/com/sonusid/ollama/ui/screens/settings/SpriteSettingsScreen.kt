@@ -181,7 +181,6 @@ internal object SpriteSettingsSessionSpriteOverride {
 }
 
 private val SpriteSettingsTabRowHeight = 32.dp
-private val SpriteSettingsTopBarVisualNudgeDp = (-1).dp
 private val AdjustStatusToControlsSpacing = 12.dp
 private val PreviewHeaderNudgeDp = (-2).dp
 private val PreviewHeaderRightExtraNudgeDp = (-2).dp
@@ -3895,8 +3894,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
-                                // 上: status bar 安全域は維持しつつ見た目の上余白だけを最小限だけ詰める
-                                .offset(y = SpriteSettingsTopBarVisualNudgeDp)
+                                // 上: status bar 安全域は維持しつつ見た目の上余白だけを共通基準で最小限だけ詰める
+                                .offset(y = SimpleScreenTopBarVisualNudgeDp)
                         ) {
                             Text(
                                 text = "Sprite Settings",
@@ -3911,8 +3910,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                                 .width(56.dp)
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
-                                // 上: 戻るアイコンもタイトルと同じだけ上へ寄せて見た目の空白を揃える
-                                .offset(y = SpriteSettingsTopBarVisualNudgeDp),
+                                // 上: 戻るアイコンも共通基準でそろえ、TopBar 内の見た目差を減らす
+                                .offset(y = SimpleScreenTopBarVisualNudgeDp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             IconButton(onClick = { onBackRequested() }) {
@@ -3929,8 +3928,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
-                                // 上: 右アクション群も同じだけ寄せて、TopBar 内の見た目余白だけを揃える
-                                .offset(y = SpriteSettingsTopBarVisualNudgeDp),
+                                // 上: 右アクション群も同じ共通基準で寄せて、TopBar 内の見た目余白だけを揃える
+                                .offset(y = SimpleScreenTopBarVisualNudgeDp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(

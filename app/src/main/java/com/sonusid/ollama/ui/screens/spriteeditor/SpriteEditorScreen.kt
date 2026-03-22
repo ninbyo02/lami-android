@@ -119,6 +119,7 @@ import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
+import com.sonusid.ollama.ui.screens.settings.SimpleScreenTopBarVisualNudgeDp
 import com.sonusid.ollama.sprite.compositePreserveTransparency
 import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
 import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
@@ -518,7 +519,9 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .width(56.dp)
                                 .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
+                                .wrapContentHeight(Alignment.CenterVertically)
+                                // 上: bar 高さを変えず、戻る操作だけを共通基準でわずかに上へ寄せる
+                                .offset(y = SimpleScreenTopBarVisualNudgeDp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             IconButton(onClick = { requestCloseEditor() }) {
@@ -535,6 +538,8 @@ fun SpriteEditorScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
+                                // 上: title も同じ共通基準で寄せて、単純画面TopBarの見た目をそろえる
+                                .offset(y = SimpleScreenTopBarVisualNudgeDp)
                         ) {
                             Text("Sprite Editor")
                         }

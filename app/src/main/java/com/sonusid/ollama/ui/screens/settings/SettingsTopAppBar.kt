@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -21,6 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.sonusid.ollama.R
+
+val SimpleScreenTopBarVisualNudgeDp = (-2).dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +46,9 @@ fun SettingsTopAppBar(
                     modifier = Modifier
                         .width(56.dp)
                         .fillMaxHeight()
-                        .wrapContentHeight(Alignment.CenterVertically),
+                        .wrapContentHeight(Alignment.CenterVertically)
+                        // 上: bar 高さは維持したまま、中身だけを安全に少し上へ寄せる
+                        .offset(y = SimpleScreenTopBarVisualNudgeDp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     IconButton(onClick = onBack) {
@@ -59,6 +64,8 @@ fun SettingsTopAppBar(
                     modifier = Modifier
                         .fillMaxHeight()
                         .wrapContentHeight(Alignment.CenterVertically)
+                        // 上: title も同じ基準で揃え、画面ごとの差を抑える
+                        .offset(y = SimpleScreenTopBarVisualNudgeDp)
                 ) {
                     Text(stringResource(titleResId))
                 }
@@ -70,4 +77,3 @@ fun SettingsTopAppBar(
         )
     }
 }
-
