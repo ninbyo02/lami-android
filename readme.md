@@ -145,6 +145,10 @@ We welcome contributions! Feel free to **fork the repository** and submit **pull
 - Ensure UI/UX consistency with Jetpack Compose.
 - Keep performance optimizations in mind.
 
+## UIドキュメント
+
+- `docs/ui/LAMI_STANDARD_LAYOUT.md`: Lami 標準の画面密度・余白・Insets 設計ガイド。
+
 ## 開発環境セットアップ
 
 ローカルでの確認と自動化フローに参加するための最小手順です。
