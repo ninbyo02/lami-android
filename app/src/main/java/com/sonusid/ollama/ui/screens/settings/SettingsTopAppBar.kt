@@ -30,9 +30,7 @@ fun SettingsTopAppBar(
 ) {
     Box(
         modifier = Modifier
-            // [dp] 縦: Settings 画面と同じ AppBar 高さに揃える
-            .height(48.dp)
-            // 上: edge-to-edge 移行時も status bar 回避は TopAppBar 側で担う
+            // 上: edge-to-edge 移行時も status bar 回避は TopAppBar コンテナ側で担う
             .statusBarsPadding()
             .fillMaxWidth()
             .zIndex(1f)
@@ -65,7 +63,10 @@ fun SettingsTopAppBar(
                     Text(stringResource(titleResId))
                 }
             },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
+                .fillMaxWidth()
+                .height(48.dp),
         )
     }
 }
