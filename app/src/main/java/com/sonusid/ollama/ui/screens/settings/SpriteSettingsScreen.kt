@@ -3883,15 +3883,24 @@ fun SpriteSettingsScreen(navController: NavController) {
         topBar = {
             Box(
                 modifier = Modifier
+                    // DEBUG top-gap probe start
+                    .topGapProbeOverlay(TopGapProbeTopBarColor)
+                    .topGapProbeBounds("SpriteSettings.topBarRoot")
+                    // DEBUG top-gap probe end
                     // 上: ステータスバー回避は親 Box にだけ適用して TopBar 本体は単純化する
                     .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
             ) {
+                TopGapProbeLog("SpriteSettings.topBar.windowInsets=WindowInsets(0,0,0,0)")
                 TopAppBar(
                     title = {
                         Box(
                             modifier = Modifier
+                                // DEBUG top-gap probe start
+                                .topGapProbeOverlay(TopGapProbeActualContentColor)
+                                .topGapProbeBounds("SpriteSettings.topBarTitleParent")
+                                // DEBUG top-gap probe end
                                 .fillMaxHeight()
                                 .wrapContentHeight(Alignment.CenterVertically)
                         ) {
@@ -3984,6 +3993,10 @@ fun SpriteSettingsScreen(navController: NavController) {
         Box(
             // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
             modifier = Modifier
+                // DEBUG top-gap probe start
+                .topGapProbeOverlay(TopGapProbeContentColor)
+                .topGapProbeBounds("SpriteSettings.contentRoot")
+                // DEBUG top-gap probe end
                 .fillMaxSize()
                 // [非dp] 四方向: Scaffold の innerPadding を Box で受ける(インセット)
                 .padding(innerPadding)
@@ -4002,6 +4015,10 @@ fun SpriteSettingsScreen(navController: NavController) {
             Column(
                 // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
                 modifier = Modifier
+                    // DEBUG top-gap probe start
+                    .topGapProbeOverlay(TopGapProbeActualContentColor)
+                    .topGapProbeBounds("SpriteSettings.firstContent")
+                    // DEBUG top-gap probe end
                     .fillMaxSize()
             ) {
                 Surface(
