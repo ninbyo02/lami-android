@@ -3,12 +3,9 @@ package com.sonusid.ollama.ui.screens.settings
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +33,7 @@ import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.common.TopFadeOverlay
 import kotlinx.coroutines.Dispatchers
@@ -67,11 +65,6 @@ fun NoticeScreen(navController: NavController) {
         }
     }
 
-    // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
-    val scaffoldInsets = WindowInsets.systemBars.only(
-        WindowInsetsSides.Horizontal,
-    )
-
     LaunchedEffect(Unit) {
         noticeText = withContext(Dispatchers.IO) {
             context.resources.openRawResource(R.raw.notice).bufferedReader().use { it.readText() }
@@ -82,7 +75,7 @@ fun NoticeScreen(navController: NavController) {
 
     Scaffold(
         containerColor = scaffoldBg,
-        contentWindowInsets = scaffoldInsets,
+        contentWindowInsets = SimpleScreenHorizontalInsets,
         topBar = {
             SettingsTopAppBar(
                 titleResId = R.string.notice_title,
@@ -94,7 +87,9 @@ fun NoticeScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 // 上：ScaffoldのinnerPaddingをそのまま適用
-                .padding(innerPadding),
+                .padding(innerPadding)
+                // Scaffold の Insets はこの階層で消費し、本文側へ二重適用しない
+                .consumeWindowInsets(innerPadding),
         ) {
             Box(
                 modifier = Modifier

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -68,7 +70,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -93,6 +94,7 @@ import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
@@ -243,17 +245,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
 
     val horizontalPadding = 16.dp
     val verticalPadding = 12.dp
-
     val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
-    // 上端は TopAppBar 側で制御し、Scaffold は左右の安全領域のみ適用する
-    val scaffoldInsets = WindowInsets(
-        left = systemBarInsets.getLeft(density, layoutDirection),
-        top = 0,
-        right = systemBarInsets.getRight(density, layoutDirection),
-        bottom = 0
-    )
     val imeBottomDp = WindowInsets.ime.asPaddingValues(density).calculateBottomPadding()
     val navBottomDp = WindowInsets.navigationBars.asPaddingValues(density).calculateBottomPadding()
     val bottomDp = (imeBottomDp - navBottomDp).coerceAtLeast(0.dp)
@@ -293,12 +285,14 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         modifier = Modifier.testTag("settingsScreenRoot"),
         containerColor = scaffoldBg,
         // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
-        contentWindowInsets = scaffoldInsets,
+        contentWindowInsets = SimpleScreenHorizontalInsets,
         topBar = {
             Box(
                 modifier = Modifier
                     // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
                     .height(48.dp)
+                    // 上: edge-to-edge 移行時も status bar 回避は TopAppBar 側で担う
+                    .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
             ) {
@@ -341,6 +335,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 .fillMaxSize()
                 // Scaffold の描画領域（TopAppBar 下）に座標系を統一する
                 .padding(paddingValues)
+                // Scaffold の Insets はこの階層で消費し、子で二重適用しない
+                .consumeWindowInsets(paddingValues)
         ) {
             LazyColumn(
                 state = listState,

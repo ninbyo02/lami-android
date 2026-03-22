@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ElevatedCard
@@ -34,8 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -52,6 +49,7 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.components.LamiSprite
@@ -91,20 +89,9 @@ fun About(
         viewModel?.animationEpochMs?.collectAsState(initial = 0L)?.value ?: 0L
     val isLandscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    val systemBarInsets = WindowInsets.systemBars
     val clipboardManager = LocalClipboardManager.current
     val snackbarHostState = LocalAppSnackbarHostState.current
     val scope = rememberCoroutineScope()
-
-    // 左右の安全領域は維持し、上は TopAppBar 側で処理する
-    val scaffoldInsets = WindowInsets(
-        left = systemBarInsets.getLeft(density, layoutDirection),
-        top = 0,
-        right = systemBarInsets.getRight(density, layoutDirection),
-        bottom = 0,
-    )
 
     val licenseLine1 = stringResource(R.string.about_license_line1)
     val licenseLine2 = stringResource(R.string.about_license_line2)
@@ -142,7 +129,7 @@ fun About(
 
     Scaffold(
         // 左右の安全領域は維持し、上は TopAppBar 側で処理する
-        contentWindowInsets = scaffoldInsets,
+        contentWindowInsets = SimpleScreenHorizontalInsets,
         topBar = {
             SettingsTopAppBar(
                 titleResId = R.string.about,
@@ -154,6 +141,8 @@ fun About(
             modifier = Modifier
                 // 上：Scaffold の余白をそのまま適用する
                 .padding(paddingValues)
+                // Scaffold の Insets はこの階層で消費し、内部スクロールへ重ねない
+                .consumeWindowInsets(paddingValues)
                 .fillMaxSize(),
         ) {
             if (isLandscape) {
