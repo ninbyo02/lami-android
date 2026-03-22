@@ -1,4 +1,4 @@
-# Lami Standard Layout Guideline
+# Lami Standard Layout Guideline（Lami標準画面ガイドライン）
 
 ## Purpose
 
@@ -14,6 +14,9 @@
 - 既存実装を機械的に一律置換すること
 
 ## Core philosophy
+
+Compose / Material の標準余白は汎用的な画面設計を前提にしており、高密度で操作中心の Lami UI では広すぎる場合があります。
+そのため Lami では、視認性を保ちながら実機調整済みのやや詰めた密度を標準の判断基準として扱います。
 
 - Compose 標準よりも、Lami の実機調整結果を優先する
 - 情報密度と視認性を両立する
@@ -103,7 +106,8 @@ Scaffold(
 
 ### ChatScreen
 
-Chat 系画面は会話体験・ヘッダー表現・入力欄との関係が強く、Settings 系と同じ密度に縛らない。
+Chat 系画面は会話体験・グラデーション・重なり表現・入力欄・初期状態 UI との関係が強く、独自レイアウトを採ることがあります。
+そのため Settings 系標準を機械的には適用せず、体験全体を優先して判断します。
 
 ### immersive UI
 
