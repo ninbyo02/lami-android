@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -639,12 +638,10 @@ fun Home(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(topAppBarContainerColor)
-                    // 上：チャット画面ヘッダーだけでステータスバー回避を担い、本文との二重適用を防ぐ
-                    .statusBarsPadding()
             ) {
                 TopAppBar(
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = topAppBarContainerColor),
-                    // TopAppBar 自体の自動 Insets は無効化し、親 Box 側でのみ安全領域を制御する
+                    // TopAppBar の自動 Insets は無効化し、余白発生を防ぐ
                     windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
             title = {
                 Row(
