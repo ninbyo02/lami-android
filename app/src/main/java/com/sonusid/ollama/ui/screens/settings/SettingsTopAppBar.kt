@@ -21,8 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.sonusid.ollama.R
 
-val SimpleScreenTopBarVisualNudgeDp = 0.dp
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsTopAppBar(
