@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.UiState
@@ -50,65 +51,74 @@ fun Chats(navController: NavController, viewModel: OllamaViewModel) {
         // 上部空白を 0dp に固定するため、Scaffold の Insets を無効化
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
-        TopAppBar(
-            // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
-            windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    // アバター下端がTopAppBarに接して見えないよう下余白を統一
-                    modifier = Modifier.padding(bottom = 4.dp)
-                ) {
-                    HeaderAvatar(
-                        baseUrl = baseUrl,
-                        selectedModel = selectedModel,
-                        lastError = lastError,
-                        lamiStatus = lamiStatusState.value,
-                        lamiState = lamiUiState.state,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
-                        },
-                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                        openControlRequestKey = openLamiControlRequestKey,
-                    )
-                    // ヘッダー内の最小間隔だけ確保して左余白を増やさない
-                    Spacer(modifier = Modifier.size(2.dp))
-                    LamiHeaderStatus(
-                        baseUrl = baseUrl,
-                        selectedModel = selectedModel,
-                        lastError = lastError,
-                        lamiStatus = lamiStatusState.value,
-                        lamiState = lamiUiState.state,
-                        availableModels = availableModels,
-                        onSelectModel = { modelName ->
-                            viewModel.onUserInteraction()
-                            viewModel.updateSelectedModel(modelName)
-                        },
-                        onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                        showAvatar = false,
-                        onOpenControl = {
-                            viewModel.onUserInteraction()
-                            openLamiControlRequestKey += 1
-                        },
-                    )
-                }
-            },
-            actions = {
-                    IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.settings),
-                            contentDescription = "settings",
-                            modifier = Modifier.size(26.dp)
-                        )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(1f)
+            ) {
+                TopAppBar(
+                    // 上部空白を 0dp に固定するため、TopAppBar の Insets を無効化
+                    windowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            // アバター下端がTopAppBarに接して見えないよう下余白を統一
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            HeaderAvatar(
+                                baseUrl = baseUrl,
+                                selectedModel = selectedModel,
+                                lastError = lastError,
+                                lamiStatus = lamiStatusState.value,
+                                lamiState = lamiUiState.state,
+                                availableModels = availableModels,
+                                onSelectModel = { modelName ->
+                                    viewModel.onUserInteraction()
+                                    viewModel.updateSelectedModel(modelName)
+                                },
+                                onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                                debugOverlayEnabled = false,
+                                syncEpochMs = animationEpochMs,
+                                openControlRequestKey = openLamiControlRequestKey,
+                            )
+                            // ヘッダー内の最小間隔だけ確保して左余白を増やさない
+                            Spacer(modifier = Modifier.size(2.dp))
+                            LamiHeaderStatus(
+                                baseUrl = baseUrl,
+                                selectedModel = selectedModel,
+                                lastError = lastError,
+                                lamiStatus = lamiStatusState.value,
+                                lamiState = lamiUiState.state,
+                                availableModels = availableModels,
+                                onSelectModel = { modelName ->
+                                    viewModel.onUserInteraction()
+                                    viewModel.updateSelectedModel(modelName)
+                                },
+                                onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
+                                debugOverlayEnabled = false,
+                                syncEpochMs = animationEpochMs,
+                                showAvatar = false,
+                                onOpenControl = {
+                                    viewModel.onUserInteraction()
+                                    openLamiControlRequestKey += 1
+                                },
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { navController.navigate(Routes.SETTINGS) }) {
+                            Icon(
+                                painter = painterResource(R.drawable.settings),
+                                contentDescription = "settings",
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
                     }
-                }
-            )
+                )
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(
