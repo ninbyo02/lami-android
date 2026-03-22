@@ -1,17 +1,21 @@
 package com.sonusid.ollama.ui.screens.settings
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.background
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -33,21 +37,19 @@ fun SettingsTopAppBar(
 ) {
     Box(
         modifier = Modifier
-            // 上: edge-to-edge 移行時も status bar 回避は TopAppBar コンテナ側で担う
-            .statusBarsPadding()
             .fillMaxWidth()
+            // 上: TopBar 背景はステータスバー背後までつなげて描画する
+            .background(MaterialTheme.colorScheme.surface)
             .zIndex(1f)
     ) {
         TopAppBar(
             // Settings 画面と同様に TopAppBar 側の Insets は 0 に統一する
-            windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+            windowInsets = WindowInsets(0, 0, 0, 0),
             navigationIcon = {
-                Box(
+                SimpleScreenTopBarContentWrapper(
                     modifier = Modifier
                         .width(56.dp)
-                        .fillMaxHeight()
-                        .wrapContentHeight(Alignment.CenterVertically)
-                        // 上: bar 高さは維持したまま、中身だけを安全に少し上へ寄せる
+                        // 上: 戻る操作だけに安全域を適用し、背景コンテナは押し下げない
                         .offset(y = SimpleScreenTopBarVisualNudgeDp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -60,11 +62,9 @@ fun SettingsTopAppBar(
                 }
             },
             title = {
-                Box(
+                SimpleScreenTopBarContentWrapper(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .wrapContentHeight(Alignment.CenterVertically)
-                        // 上: title も同じ基準で揃え、画面ごとの差を抑える
+                        // 上: title だけに安全域を適用し、見た目の基準を維持する
                         .offset(y = SimpleScreenTopBarVisualNudgeDp)
                 ) {
                     Text(stringResource(titleResId))
@@ -75,5 +75,23 @@ fun SettingsTopAppBar(
                 .fillMaxWidth()
                 .height(48.dp),
         )
+    }
+}
+
+@Composable
+fun SimpleScreenTopBarContentWrapper(
+    modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.CenterStart,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            // 上: 操作要素だけにステータスバー安全域を適用する
+            .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
+            .wrapContentHeight(Alignment.CenterVertically),
+        contentAlignment = contentAlignment,
+    ) {
+        content()
     }
 }
