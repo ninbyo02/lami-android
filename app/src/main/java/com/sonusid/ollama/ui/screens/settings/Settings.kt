@@ -289,9 +289,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         topBar = {
             Box(
                 modifier = Modifier
-                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
-                    .height(48.dp)
-                    // 上: edge-to-edge 移行時も status bar 回避は TopAppBar 側で担う
+                    // 上: edge-to-edge 移行時も status bar 回避は TopAppBar コンテナ側で担う
                     .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
@@ -325,7 +323,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             Text("Settings")
                         }
                     },
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
+                        .fillMaxWidth()
+                        .height(48.dp)
                 )
             }
         }
