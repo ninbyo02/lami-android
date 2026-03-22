@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.union
@@ -3882,8 +3883,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         topBar = {
             Box(
                 modifier = Modifier
-                    // [dp] 縦: TopAppBar 直下の余白を詰めるため高さを固定
-                    .height(48.dp)
+                    // 上: edge-to-edge 維持のため status bar 回避は TopAppBar コンテナ側で担う
+                    .statusBarsPadding()
                     .fillMaxWidth()
                     .zIndex(1f)
             ) {
@@ -3961,7 +3962,10 @@ fun SpriteSettingsScreen(navController: NavController) {
                     },
                     // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
                     windowInsets = WindowInsets(0, 0, 0, 0),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        // [dp] 縦: TopAppBar 本体の描画領域は 48.dp に固定する
+                        .fillMaxWidth()
+                        .height(48.dp)
                 )
             }
         },
