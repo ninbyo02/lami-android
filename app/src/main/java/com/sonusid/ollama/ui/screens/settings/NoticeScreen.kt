@@ -85,6 +85,10 @@ fun NoticeScreen(navController: NavController) {
     ) { innerPadding ->
         Box(
             modifier = Modifier
+                // DEBUG top-gap probe start
+                .topGapProbeOverlay(TopGapProbeContentColor)
+                .topGapProbeBounds("Notice.contentRoot")
+                // DEBUG top-gap probe end
                 .fillMaxSize()
                 // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
                 .padding(innerPadding)
@@ -93,6 +97,10 @@ fun NoticeScreen(navController: NavController) {
         ) {
             Box(
                 modifier = Modifier
+                    // DEBUG top-gap probe start
+                    .topGapProbeOverlay(TopGapProbeActualContentColor)
+                    .topGapProbeBounds("Notice.firstContent")
+                    // DEBUG top-gap probe end
                     .fillMaxSize()
                     // 左右：長文可読性を保つ最小限の余白（先頭余白は詰める）
                     .padding(start = 16.dp, end = 16.dp)

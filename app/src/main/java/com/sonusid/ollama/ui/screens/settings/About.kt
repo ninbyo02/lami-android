@@ -139,6 +139,10 @@ fun About(
     ) { paddingValues ->
         Box(
             modifier = Modifier
+                // DEBUG top-gap probe start
+                .topGapProbeOverlay(TopGapProbeContentColor)
+                .topGapProbeBounds("About.contentRoot")
+                // DEBUG top-gap probe end
                 .fillMaxSize()
                 // 上下左右: Scaffold と TopBar が決めた描画領域に本文を揃える
                 .padding(paddingValues)
@@ -148,6 +152,10 @@ fun About(
             if (isLandscape) {
                 Box(
                     modifier = Modifier
+                        // DEBUG top-gap probe start
+                        .topGapProbeOverlay(TopGapProbeActualContentColor)
+                        .topGapProbeBounds("About.firstContent")
+                        // DEBUG top-gap probe end
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
                 ) {
