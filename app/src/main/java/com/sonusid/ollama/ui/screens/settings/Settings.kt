@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -94,7 +93,6 @@ import com.sonusid.ollama.db.entity.BaseUrl
 import com.sonusid.ollama.db.repository.BaseUrlRepository
 import com.sonusid.ollama.db.repository.ModelPreferenceRepository
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.common.BottomFadeOverlay
@@ -284,51 +282,43 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     Scaffold(
         modifier = Modifier.testTag("settingsScreenRoot"),
         containerColor = scaffoldBg,
-        // 上端の安全領域は TopAppBar 側で処理し、Scaffold は左右のみ適用する
-        contentWindowInsets = SimpleScreenHorizontalInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Box(
+            TopAppBar(
+                // 上端余白の責務は Scaffold/content に寄せ、TopAppBar 自身は 0 inset に固定する
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                navigationIcon = {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        IconButton(onClick = { onBackRequested() }) {
+                            Icon(
+                                painterResource(R.drawable.back),
+                                "exit",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                },
+                title = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically)
+                    ) {
+                        Text("Settings")
+                    }
+                },
                 modifier = Modifier
-                    // 上: edge-to-edge 移行時も status bar 回避は TopAppBar コンテナ側で担う
-                    .statusBarsPadding()
+                    // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
                     .fillMaxWidth()
-                    .zIndex(1f)
-            ) {
-                TopAppBar(
-                    // 上端余白の重複を防ぐため、TopAppBar 側の Insets は明示的に 0 にする
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    navigationIcon = {
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { onBackRequested() }) {
-                                Icon(
-                                    painterResource(R.drawable.back),
-                                    "exit",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    },
-                    title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        ) {
-                            Text("Settings")
-                        }
-                    },
-                    modifier = Modifier
-                        // [dp] 縦: TopAppBar 本体の描画領域は従来どおり 48.dp に保つ
-                        .fillMaxWidth()
-                        .height(48.dp)
-                )
-            }
+                    .height(48.dp)
+            )
         }
     ) { paddingValues ->
         Box(

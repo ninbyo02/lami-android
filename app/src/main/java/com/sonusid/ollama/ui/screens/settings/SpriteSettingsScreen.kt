@@ -3643,17 +3643,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         }
     }
 
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
     // [非dp] 下: IME の insets(インセット)に関係
     val imeVisible = WindowInsets.ime.getBottom(density) > 0
-    // [非dp] 四方向: 上左右のみ systemBars を維持し、下の inset は 0 に統一
-    val spriteScreenContentInsets = WindowInsets(
-        left = WindowInsets.systemBars.getLeft(density, layoutDirection),
-        top = WindowInsets.systemBars.getTop(density),
-        right = WindowInsets.systemBars.getRight(density, layoutDirection),
-        bottom = 0
-    )
 
     val onAnimationApply: () -> Unit = onAnimationApply@{
         val validatedBase = validateBaseInputs(selectedAnimation) ?: run {
@@ -3878,108 +3869,99 @@ fun SpriteSettingsScreen(navController: NavController) {
     val onPrev: () -> Unit = { selectedNumber = if (selectedNumber <= 1) 9 else selectedNumber - 1 }
     val onNext: () -> Unit = { selectedNumber = if (selectedNumber >= 9) 1 else selectedNumber + 1 }
 
-    // Phase 2 では単純画面の方針整理を優先し、この画面は複雑な下部操作/独自 Insets を維持して調査のみに留める
     Scaffold(
         topBar = {
-            Box(
-                modifier = Modifier
-                    // 上: ステータスバー回避は親 Box にだけ適用して TopBar 本体は単純化する
-                    .statusBarsPadding()
-                    .fillMaxWidth()
-                    .zIndex(1f)
-            ) {
-                TopAppBar(
-                    title = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically)
-                        ) {
-                            Text(
-                                text = "Sprite Settings",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+            TopAppBar(
+                title = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically)
+                    ) {
+                        Text(
+                            text = "Sprite Settings",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                navigationIcon = {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        IconButton(onClick = { onBackRequested() }) {
+                            Icon(
+                                painter = painterResource(R.drawable.back),
+                                contentDescription = "戻る",
+                                modifier = Modifier.size(24.dp)
                             )
                         }
-                    },
-                    navigationIcon = {
-                        Box(
-                            modifier = Modifier
-                                .width(56.dp)
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            IconButton(onClick = { onBackRequested() }) {
+                    }
+                },
+                actions = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .wrapContentHeight(Alignment.CenterVertically),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    when (selectedTab) {
+                                        SpriteTab.ANIM -> onAnimationApply()
+                                        SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
+                                    }
+                                }
+                            ) {
                                 Icon(
-                                    painter = painterResource(R.drawable.back),
-                                    contentDescription = "戻る",
-                                    modifier = Modifier.size(24.dp)
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "プレビュー更新"
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    when (selectedTab) {
+                                        SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
+                                        SpriteTab.ADJUST -> copySpriteSheetConfig()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentCopy,
+                                    contentDescription = "コピー"
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    when (selectedTab) {
+                                        SpriteTab.ANIM -> onAnimationSave()
+                                        SpriteTab.ADJUST -> saveSpriteSheetConfig()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Save,
+                                    contentDescription = "保存"
                                 )
                             }
                         }
-                    },
-                    actions = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .wrapContentHeight(Alignment.CenterVertically),
-                            contentAlignment = Alignment.CenterEnd
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        when (selectedTab) {
-                                            SpriteTab.ANIM -> onAnimationApply()
-                                            SpriteTab.ADJUST -> showTopSnackbarSuccess("プレビューに適用しました")
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Refresh,
-                                        contentDescription = "プレビュー更新"
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        when (selectedTab) {
-                                            SpriteTab.ANIM -> copyPerStateJsonFromDataStoreOrFallback()
-                                            SpriteTab.ADJUST -> copySpriteSheetConfig()
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ContentCopy,
-                                        contentDescription = "コピー"
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        when (selectedTab) {
-                                            SpriteTab.ANIM -> onAnimationSave()
-                                            SpriteTab.ADJUST -> saveSpriteSheetConfig()
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Save,
-                                        contentDescription = "保存"
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    // 上: Settings 画面と揃えるため TopAppBar のデフォルト inset を無効化
-                    windowInsets = WindowInsets(0, 0, 0, 0),
-                    modifier = Modifier
-                        // [dp] 縦: TopAppBar 本体の描画領域は 48.dp に固定する
-                        .fillMaxWidth()
-                        .height(48.dp)
-                )
-            }
+                    }
+                },
+                // 上: Settings 系で共通化するため TopAppBar のデフォルト inset は無効化する
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                modifier = Modifier
+                    // [dp] 縦: TopAppBar 本体の描画領域は 48.dp に固定する
+                    .fillMaxWidth()
+                    .height(48.dp)
+            )
         },
-        // 下: Sprite Settings 画面下の空白を抑えるため bottom inset は除外
-        contentWindowInsets = spriteScreenContentInsets
+        // Settings 系では Scaffold 自体は Insets を受けず、返却される innerPadding のみを本文へ渡す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         Box(
             // [非dp] 縦横: 画面全体 の fillMaxSize(制約)に関係
@@ -3987,6 +3969,8 @@ fun SpriteSettingsScreen(navController: NavController) {
                 .fillMaxSize()
                 // [非dp] 四方向: Scaffold の innerPadding を Box で受ける(インセット)
                 .padding(innerPadding)
+                // Scaffold の Insets はこの階層で消費し、下位レイアウトへ重複させない
+                .consumeWindowInsets(innerPadding)
         ) {
             val contentPadding = PaddingValues(
                 // [dp] 左右: 画面全体 の余白(余白)に関係

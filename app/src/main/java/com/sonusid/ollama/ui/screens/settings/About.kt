@@ -49,7 +49,6 @@ import com.sonusid.ollama.BuildConfig
 import com.sonusid.ollama.R
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.SimpleScreenHorizontalInsets
 import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.theme.LamiTypographyTokens
 import com.sonusid.ollama.ui.components.LamiSprite
@@ -128,8 +127,8 @@ fun About(
     }
 
     Scaffold(
-        // 左右の安全領域は維持し、上は TopAppBar 側で処理する
-        contentWindowInsets = SimpleScreenHorizontalInsets,
+        // Settings 系では Scaffold 自体は Insets を受けず、topBar/content の座標だけを返す
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             SettingsTopAppBar(
                 titleResId = R.string.about,
