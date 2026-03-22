@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.sonusid.ollama.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +32,7 @@ fun SettingsTopAppBar(
             // [dp] 縦: Settings 画面と同じ AppBar 高さに揃える
             .height(48.dp)
             .fillMaxWidth()
+            .zIndex(1f)
     ) {
         TopAppBar(
             // Settings 画面と同様に TopAppBar 側の Insets は 0 に統一する

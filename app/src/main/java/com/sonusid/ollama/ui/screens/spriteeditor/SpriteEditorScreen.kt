@@ -112,6 +112,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
@@ -516,6 +517,7 @@ fun SpriteEditorScreen(navController: NavController) {
                 modifier = Modifier
                     .height(48.dp)
                     .fillMaxWidth()
+                    .zIndex(1f)
             ) {
                 TopAppBar(
                     windowInsets = WindowInsets(0, 0, 0, 0),
