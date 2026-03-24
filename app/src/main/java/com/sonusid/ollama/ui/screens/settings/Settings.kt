@@ -402,8 +402,6 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // 上下の余白を除去してスライダーを値ラベルに密着させる
-                                .padding(top = 0.dp)
                         ) {
                             val activeTrackColor = MaterialTheme.colorScheme.primary
                             val inactiveTrackColor =
