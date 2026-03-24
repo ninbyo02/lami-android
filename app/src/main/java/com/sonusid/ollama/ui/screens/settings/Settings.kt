@@ -510,6 +510,15 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 }
             }
             item {
+                Card {
+                    SettingsNavRowItem(
+                        headline = "ローカル基本モデル",
+                        supporting = "未設定",
+                        leadingIcon = null,
+                    )
+                }
+            }
+            item {
                 CardSectionHeader(
                     title = "サーバー設定",
                     description = "接続するLLMサーバーのURLと接続状態を管理します",
