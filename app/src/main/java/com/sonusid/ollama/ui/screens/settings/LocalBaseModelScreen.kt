@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -167,6 +168,25 @@ fun LocalBaseModelScreen(navController: NavController) {
                     ) {
                         Text(text = stringResource(R.string.local_base_model_select_button))
                     }
+                    if (importState == LocalModelImportState.Imported) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    importState = LocalModelImportState.Importing
+                                    clearImportedLocalModel(
+                                        filePath = savedFilePath,
+                                        settingsPreferences = settingsPreferences,
+                                    )
+                                    importedFileDisplayName = null
+                                    importState = LocalModelImportState.Unset
+                                }
+                            },
+                            enabled = importState == LocalModelImportState.Imported,
+                        ) {
+                            Text(text = stringResource(R.string.local_base_model_clear_button))
+                        }
+                    }
                 }
             }
         }
@@ -232,4 +252,19 @@ private fun resolveDisplayName(context: Context, uri: Uri): String? {
 private fun sanitizeFileName(name: String): String {
     val sanitized = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
     return sanitized.ifBlank { "local_model" }
+}
+
+private suspend fun clearImportedLocalModel(
+    filePath: String?,
+    settingsPreferences: SettingsPreferences,
+) = withContext(Dispatchers.IO) {
+    if (!filePath.isNullOrBlank()) {
+        runCatching {
+            val modelFile = File(filePath)
+            if (modelFile.exists()) {
+                modelFile.delete()
+            }
+        }
+    }
+    settingsPreferences.clearLocalBaseModelInfo()
 }
