@@ -33,4 +33,6 @@
     <string name="sprite_preview_status_label">選択中ステータス: %1$s</string>
     <string name="sprite_preview_status_hint">ステータスを変更するにはステータスタブを開いてください。</string>
     <string name="sprite_preview_status_open_tab">ステータスを変更</string>
+    <string name="local_base_model_title">ローカル基本モデル</string>
+    <string name="local_base_model_placeholder">準備中</string>
 </resources>

@@ -522,6 +522,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         headline = "ローカル基本モデル",
                         supporting = "未設定",
                         leadingIcon = null,
+                        onClick = { navgationController.navigate(SettingsRoute.LocalBaseModel.route) },
                     )
                 }
             }
