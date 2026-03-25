@@ -620,6 +620,14 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun getValidLocalBaseModelPathOrNull(): String? {
+        val preferences = context.dataStore.data.first()
+        return resolveValidLocalBaseModelPathOrNull(
+            displayName = preferences[localBaseModelDisplayNameKey],
+            filePath = preferences[localBaseModelFilePathKey],
+        )
+    }
+
     suspend fun clearLocalBaseModelInfo() {
         context.dataStore.edit { preferences ->
             preferences.remove(localBaseModelDisplayNameKey)
@@ -2107,6 +2115,26 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.THINKING -> spriteAnimationJsonThinkingKey
         SpriteState.ERROR -> spriteAnimationJsonErrorKey
         SpriteState.OFFLINE -> spriteAnimationJsonOfflineKey
+    }
+
+    private fun resolveValidLocalBaseModelPathOrNull(
+        displayName: String?,
+        filePath: String?,
+    ): String? {
+        if (displayName.isNullOrBlank() || filePath.isNullOrBlank()) return null
+        if (!displayName.endsWith(".litertlm", ignoreCase = true)) return null
+        return runCatching {
+            val modelFile = File(filePath)
+            if (
+                modelFile.isFile &&
+                modelFile.length() > 0L &&
+                modelFile.name.endsWith(".litertlm", ignoreCase = true)
+            ) {
+                modelFile.absolutePath
+            } else {
+                null
+            }
+        }.getOrNull()
     }
 
     private companion object {
