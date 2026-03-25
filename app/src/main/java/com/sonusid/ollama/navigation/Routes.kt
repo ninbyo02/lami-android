@@ -14,6 +14,7 @@ object Routes {
     const val NOTICE = "notice"
     const val SPRITE_SETTINGS = "settings/sprite_settings"
     const val SPRITE_EDITOR = "settings/sprite_editor"
+    const val LOCAL_BASE_MODEL = "settings/local_base_model"
 
     fun chat(chatId: Int): String = "$CHAT/$chatId"
 
@@ -31,5 +32,9 @@ sealed interface SettingsRoute {
 
     data object SpriteEditor : SettingsRoute {
         override val route: String = Routes.SPRITE_EDITOR
+    }
+
+    data object LocalBaseModel : SettingsRoute {
+        override val route: String = Routes.LOCAL_BASE_MODEL
     }
 }
