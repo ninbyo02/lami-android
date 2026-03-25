@@ -138,6 +138,7 @@ import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
 import com.sonusid.ollama.ui.components.HeaderAvatar
+import com.sonusid.ollama.ui.components.InferenceTarget
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
 import com.sonusid.ollama.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import com.sonusid.ollama.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
@@ -242,6 +243,7 @@ fun Home(
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.SERVER) }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
     // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
@@ -671,6 +673,10 @@ fun Home(
                                 viewModel.updateSelectedModel(modelName)
                             },
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                            selectedInferenceTarget = selectedInferenceTarget,
+                            onSelectInferenceTarget = { target ->
+                                selectedInferenceTarget = target
+                            },
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
                             openControlRequestKey = openLamiControlRequestKey,
@@ -925,45 +931,53 @@ fun Home(
                                                 return@IconButton
                                             }
 
-                                            val currentChatId = effectiveChatId
-                                            if (currentChatId != null) {
-                                                val requestPrompt = userPrompt
-                                                val requestAttachmentUris = selectedImageUris
-                                                pendingAssistantImageInputCount = requestAttachmentUris.size
-                                                if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
-                                                    placeholder = "I'm thinking ... "
-                                                    toggle = true
-                                                }
-                                                ttsController.stop()
-                                                viewModel.stopTtsPlayback()
-                                                prompt = requestPrompt
-                                                viewModel.sendPrompt(
-                                                    prompt = requestPrompt,
-                                                    model = selectedModel,
-                                                    attachmentUris = requestAttachmentUris,
-                                                    context = context.applicationContext,
-                                                    onAttachmentPrepared = { savedAttachmentUriStrings ->
-                                                        if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
-                                                            val attachmentJson = savedAttachmentUriStrings
-                                                                ?.takeIf { it.isNotEmpty() }
-                                                                ?.toAttachmentUriStringsJson()
-                                                            viewModel.insert(
-                                                                Message(
-                                                                    chatId = currentChatId,
-                                                                    message = requestPrompt,
-                                                                    isSendbyMe = true,
-                                                                    attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
-                                                                    attachmentUriStringsJson = attachmentJson,
-                                                                )
-                                                            )
+                                            when (selectedInferenceTarget) {
+                                                InferenceTarget.SERVER -> {
+                                                    val currentChatId = effectiveChatId
+                                                    if (currentChatId != null) {
+                                                        val requestPrompt = userPrompt
+                                                        val requestAttachmentUris = selectedImageUris
+                                                        pendingAssistantImageInputCount = requestAttachmentUris.size
+                                                        if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
+                                                            placeholder = "I'm thinking ... "
+                                                            toggle = true
                                                         }
-                                                    },
-                                                )
-                                                prompt = ""
-                                                userPrompt = ""
-                                                selectedImageUriStrings = emptyList()
-                                            } else {
-                                                placeholder = "Setting up a new chat ..."
+                                                        ttsController.stop()
+                                                        viewModel.stopTtsPlayback()
+                                                        prompt = requestPrompt
+                                                        viewModel.sendPrompt(
+                                                            prompt = requestPrompt,
+                                                            model = selectedModel,
+                                                            attachmentUris = requestAttachmentUris,
+                                                            context = context.applicationContext,
+                                                            onAttachmentPrepared = { savedAttachmentUriStrings ->
+                                                                if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
+                                                                    val attachmentJson = savedAttachmentUriStrings
+                                                                        ?.takeIf { it.isNotEmpty() }
+                                                                        ?.toAttachmentUriStringsJson()
+                                                                    viewModel.insert(
+                                                                        Message(
+                                                                            chatId = currentChatId,
+                                                                            message = requestPrompt,
+                                                                            isSendbyMe = true,
+                                                                            attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
+                                                                            attachmentUriStringsJson = attachmentJson,
+                                                                        )
+                                                                    )
+                                                                }
+                                                            },
+                                                        )
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                        selectedImageUriStrings = emptyList()
+                                                    } else {
+                                                        placeholder = "Setting up a new chat ..."
+                                                    }
+                                                }
+
+                                                InferenceTarget.LOCAL -> {
+                                                    Log.i("ChatScreen", "LOCAL inference path placeholder reached. Server send is skipped.")
+                                                }
                                             }
                                         },
                                         modifier = Modifier

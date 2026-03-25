@@ -114,6 +114,8 @@ fun LamiAvatar(
     maxAvatarSize: Dp = 64.dp,
     onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
+    selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
+    onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     openControlRequestKey: Int = 0,
@@ -192,10 +194,9 @@ fun LamiAvatar(
             false
         }
     }
-    var selectedInferenceTarget by remember { mutableStateOf(InferenceTarget.SERVER) }
     LaunchedEffect(isLocalBaseModelAvailable) {
         if (!isLocalBaseModelAvailable && selectedInferenceTarget == InferenceTarget.LOCAL) {
-            selectedInferenceTarget = InferenceTarget.SERVER
+            onSelectInferenceTarget(InferenceTarget.SERVER)
         }
     }
 
@@ -409,7 +410,7 @@ fun LamiAvatar(
                             selectedTarget = selectedInferenceTarget,
                             isLocalTargetEnabled = isLocalBaseModelAvailable,
                             onSelectTarget = { target ->
-                                selectedInferenceTarget = target
+                                onSelectInferenceTarget(target)
                             },
                         )
                     }
@@ -498,7 +499,7 @@ fun LamiAvatar(
     }
 }
 
-private enum class InferenceTarget {
+enum class InferenceTarget {
     SERVER,
     LOCAL,
 }
