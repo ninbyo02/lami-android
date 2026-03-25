@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -189,6 +190,12 @@ fun LamiAvatar(
             settingsPreferences.getValidLocalBaseModelPathOrNull() != null
         } else {
             false
+        }
+    }
+    var selectedInferenceTarget by remember { mutableStateOf(InferenceTarget.SERVER) }
+    LaunchedEffect(isLocalBaseModelAvailable) {
+        if (!isLocalBaseModelAvailable && selectedInferenceTarget == InferenceTarget.LOCAL) {
+            selectedInferenceTarget = InferenceTarget.SERVER
         }
     }
 
@@ -398,6 +405,15 @@ fun LamiAvatar(
                         )
                     }
                     item {
+                        InferenceTargetSelectorRow(
+                            selectedTarget = selectedInferenceTarget,
+                            isLocalTargetEnabled = isLocalBaseModelAvailable,
+                            onSelectTarget = { target ->
+                                selectedInferenceTarget = target
+                            },
+                        )
+                    }
+                    item {
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant
                         )
@@ -480,6 +496,11 @@ fun LamiAvatar(
             }
         }
     }
+}
+
+private enum class InferenceTarget {
+    SERVER,
+    LOCAL,
 }
 
 
@@ -567,6 +588,61 @@ private fun ConnectionSummaryStatusRow(
             maxLines = 1,
             modifier = Modifier.alignByBaseline(),
         )
+    }
+}
+
+@Composable
+private fun InferenceTargetSelectorRow(
+    selectedTarget: InferenceTarget,
+    isLocalTargetEnabled: Boolean,
+    onSelectTarget: (InferenceTarget) -> Unit,
+) {
+    val options = remember {
+        listOf(
+            InferenceTarget.SERVER to "サーバー",
+            InferenceTarget.LOCAL to "ローカル",
+        )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ConnectionSummaryRowStartPadding)
+            .selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "推論先",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+        )
+        options.forEach { (target, label) ->
+            val enabled = target != InferenceTarget.LOCAL || isLocalTargetEnabled
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = selectedTarget == target,
+                        enabled = enabled,
+                        onClick = { onSelectTarget(target) },
+                        role = Role.RadioButton,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = selectedTarget == target,
+                    onClick = null,
+                    enabled = enabled,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
     }
 }
 
