@@ -510,6 +510,13 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 }
             }
             item {
+                CardSectionHeader(
+                    title = "ローカルモデル",
+                    description = "端末内で使用する基本モデルを設定します",
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+            }
+            item {
                 Card {
                     SettingsNavRowItem(
                         headline = "ローカル基本モデル",
