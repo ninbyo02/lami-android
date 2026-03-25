@@ -69,17 +69,13 @@ fun LocalBaseModelScreen(navController: NavController) {
 
         val displayName = savedDisplayName
         val filePath = savedFilePath
-        if (displayName.isNullOrBlank() || filePath.isNullOrBlank()) {
-            importedFileDisplayName = null
-            importState = LocalModelImportState.Unset
-            return@LaunchedEffect
-        }
-
-        if (File(filePath).isFile) {
+        if (isValidSavedLocalModelInfo(displayName = displayName, filePath = filePath)) {
             importedFileDisplayName = displayName
             importState = LocalModelImportState.Imported
         } else {
-            settingsPreferences.clearLocalBaseModelInfo()
+            if (!displayName.isNullOrBlank() || !filePath.isNullOrBlank()) {
+                settingsPreferences.clearLocalBaseModelInfo()
+            }
             importedFileDisplayName = null
             importState = LocalModelImportState.Unset
         }
@@ -260,6 +256,18 @@ private fun resolveDisplayName(context: Context, uri: Uri): String? {
 private fun isLitertlmDisplayName(displayName: String?): Boolean {
     if (displayName.isNullOrBlank()) return false
     return displayName.endsWith(".litertlm", ignoreCase = true)
+}
+
+private fun isValidSavedLocalModelInfo(displayName: String?, filePath: String?): Boolean {
+    if (displayName.isNullOrBlank() || filePath.isNullOrBlank()) return false
+    if (!displayName.endsWith(".litertlm", ignoreCase = true)) return false
+
+    return runCatching {
+        val modelFile = File(filePath)
+        modelFile.isFile &&
+            modelFile.length() > 0L &&
+            modelFile.name.endsWith(".litertlm", ignoreCase = true)
+    }.getOrDefault(false)
 }
 
 private fun sanitizeFileName(name: String): String {
