@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.sonusid.ollama.R
@@ -48,21 +49,21 @@ fun LocalBaseModelScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var importState by remember { mutableStateOf(LocalModelImportState.Unset) }
-    var importedFileName by remember { mutableStateOf<String?>(null) }
+    var importedFileDisplayName by remember { mutableStateOf<String?>(null) }
 
     val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val previousState = importState
-        val previousFileName = importedFileName
+        val previousFileDisplayName = importedFileDisplayName
 
         scope.launch {
             importState = LocalModelImportState.Importing
-            val copiedFileName = importLocalModelToAppStorage(context, uri)
-            if (copiedFileName != null) {
-                importedFileName = copiedFileName
+            val importedDisplayName = importLocalModelToAppStorage(context, uri)
+            if (importedDisplayName != null) {
+                importedFileDisplayName = importedDisplayName
                 importState = LocalModelImportState.Imported
             } else {
-                importedFileName = previousFileName
+                importedFileDisplayName = previousFileDisplayName
                 importState = previousState
             }
         }
@@ -112,13 +113,18 @@ fun LocalBaseModelScreen(navController: NavController) {
                         },
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    if (importState == LocalModelImportState.Imported && importedFileName != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = importedFileName.orEmpty(),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (importState == LocalModelImportState.Imported) {
+                            importedFileDisplayName.orEmpty()
+                        } else {
+                            ""
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        minLines = 1,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
@@ -172,7 +178,7 @@ private suspend fun importLocalModelToAppStorage(context: Context, uri: Uri): St
             return@runCatching null
         }
 
-        targetFile.name
+        displayName
     }.getOrNull()
 }
 
