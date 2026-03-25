@@ -89,6 +89,8 @@ fun LocalBaseModelScreen(navController: NavController) {
         if (uri == null) return@rememberLauncherForActivityResult
         val previousState = importState
         val previousFileDisplayName = importedFileDisplayName
+        val displayName = resolveDisplayName(context, uri)
+        if (!isLitertlmDisplayName(displayName)) return@rememberLauncherForActivityResult
 
         scope.launch {
             importState = LocalModelImportState.Importing
@@ -253,6 +255,11 @@ private fun resolveDisplayName(context: Context, uri: Uri): String? {
         if (nameIndex == -1 || !cursor.moveToFirst()) return@use null
         cursor.getString(nameIndex)
     }
+}
+
+private fun isLitertlmDisplayName(displayName: String?): Boolean {
+    if (displayName.isNullOrBlank()) return false
+    return displayName.endsWith(".litertlm", ignoreCase = true)
 }
 
 private fun sanitizeFileName(name: String): String {
