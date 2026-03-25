@@ -20,6 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,12 +46,41 @@ private enum class LocalModelImportState {
     Imported,
 }
 
+private data class LocalModelImportResult(
+    val displayName: String,
+    val filePath: String,
+)
+
 @Composable
 fun LocalBaseModelScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val settingsPreferences = remember(context) { SettingsPreferences(context) }
     var importState by remember { mutableStateOf(LocalModelImportState.Unset) }
     var importedFileDisplayName by remember { mutableStateOf<String?>(null) }
+    val savedDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
+    val savedFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
+
+    LaunchedEffect(savedDisplayName, savedFilePath, importState) {
+        if (importState == LocalModelImportState.Importing) return@LaunchedEffect
+
+        val displayName = savedDisplayName
+        val filePath = savedFilePath
+        if (displayName.isNullOrBlank() || filePath.isNullOrBlank()) {
+            importedFileDisplayName = null
+            importState = LocalModelImportState.Unset
+            return@LaunchedEffect
+        }
+
+        if (File(filePath).isFile) {
+            importedFileDisplayName = displayName
+            importState = LocalModelImportState.Imported
+        } else {
+            settingsPreferences.clearLocalBaseModelInfo()
+            importedFileDisplayName = null
+            importState = LocalModelImportState.Unset
+        }
+    }
 
     val openDocumentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -58,9 +89,13 @@ fun LocalBaseModelScreen(navController: NavController) {
 
         scope.launch {
             importState = LocalModelImportState.Importing
-            val importedDisplayName = importLocalModelToAppStorage(context, uri)
-            if (importedDisplayName != null) {
-                importedFileDisplayName = importedDisplayName
+            val importedResult = importLocalModelToAppStorage(context, uri)
+            if (importedResult != null) {
+                settingsPreferences.saveLocalBaseModelInfo(
+                    displayName = importedResult.displayName,
+                    filePath = importedResult.filePath,
+                )
+                importedFileDisplayName = importedResult.displayName
                 importState = LocalModelImportState.Imported
             } else {
                 importedFileDisplayName = previousFileDisplayName
@@ -138,7 +173,7 @@ fun LocalBaseModelScreen(navController: NavController) {
     }
 }
 
-private suspend fun importLocalModelToAppStorage(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+private suspend fun importLocalModelToAppStorage(context: Context, uri: Uri): LocalModelImportResult? = withContext(Dispatchers.IO) {
     runCatching {
         val modelsDir = File(context.filesDir, "local_models")
         if (!modelsDir.exists() && !modelsDir.mkdirs()) {
@@ -178,7 +213,10 @@ private suspend fun importLocalModelToAppStorage(context: Context, uri: Uri): St
             return@runCatching null
         }
 
-        displayName
+        LocalModelImportResult(
+            displayName = displayName,
+            filePath = targetFile.absolutePath,
+        )
     }.getOrNull()
 }
 
