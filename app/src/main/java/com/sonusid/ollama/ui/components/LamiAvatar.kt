@@ -181,6 +181,16 @@ fun LamiAvatar(
     }
     val latencyQualityLevel = remember(latencyMs) { latencyMsToQualityLevel(latencyMs) }
     val latencyText = remember(latencyMs) { formatLatencyText(latencyMs) }
+    val isLocalBaseModelAvailable by produceState(
+        initialValue = false,
+        showSheet,
+    ) {
+        value = if (showSheet) {
+            settingsPreferences.getValidLocalBaseModelPathOrNull() != null
+        } else {
+            false
+        }
+    }
 
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive, fallbackMessage) {
         lastUpdated = formatter.format(Date())
@@ -367,6 +377,18 @@ fun LamiAvatar(
                         StatusInfoItem(
                             label = "最終更新",
                             value = lastUpdated,
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
+                        StatusInfoItem(
+                            label = "ローカル基本モデル",
+                            value = if (isLocalBaseModelAvailable) "利用可能" else "未設定",
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
