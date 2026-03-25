@@ -37,6 +37,7 @@
     <string name="local_base_model_placeholder">準備中</string>
     <string name="local_base_model_status_label">現在の状態</string>
     <string name="local_base_model_status_unset">未設定</string>
-    <string name="local_base_model_status_selected">選択済み</string>
+    <string name="local_base_model_status_importing">取り込み中</string>
+    <string name="local_base_model_status_imported">取り込み済み</string>
     <string name="local_base_model_select_button">モデルファイルを選択</string>
 </resources>
