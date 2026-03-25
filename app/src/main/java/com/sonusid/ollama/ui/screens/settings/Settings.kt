@@ -161,6 +161,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
     val savedLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
+    val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
+        .collectAsState(initial = null)
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -520,7 +522,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                 Card {
                     SettingsNavRowItem(
                         headline = "ローカル基本モデル",
-                        supporting = "未設定",
+                        supporting = localBaseModelDisplayName?.takeIf { it.isNotBlank() } ?: "未設定",
                         leadingIcon = null,
                         onClick = { navgationController.navigate(SettingsRoute.LocalBaseModel.route) },
                     )
