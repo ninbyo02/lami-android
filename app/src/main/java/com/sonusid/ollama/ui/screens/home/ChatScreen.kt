@@ -137,6 +137,7 @@ import com.sonusid.ollama.db.entity.TitleSource
 import com.sonusid.ollama.navigation.Routes
 import com.sonusid.ollama.tts.AndroidTtsController
 import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.InferenceTarget
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
@@ -988,6 +989,8 @@ fun Home(
                                                             message = "ローカル推論は準備中です",
                                                             duration = SnackbarDuration.Short,
                                                         )
+                                                        delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                        snackbarHostState.currentSnackbarData?.dismiss()
                                                     }
                                                 }
                                             }
