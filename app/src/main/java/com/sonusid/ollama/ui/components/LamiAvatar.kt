@@ -184,18 +184,18 @@ fun LamiAvatar(
     }
     val latencyQualityLevel = remember(latencyMs) { latencyMsToQualityLevel(latencyMs) }
     val latencyText = remember(latencyMs) { formatLatencyText(latencyMs) }
-    val isLocalBaseModelAvailable by produceState(
-        initialValue = false,
+    val isLocalBaseModelAvailable by produceState<Boolean?>(
+        initialValue = null,
         showSheet,
     ) {
         value = if (showSheet) {
             settingsPreferences.getValidLocalBaseModelPathOrNull() != null
         } else {
-            false
+            null
         }
     }
     LaunchedEffect(isLocalBaseModelAvailable) {
-        if (!isLocalBaseModelAvailable && selectedInferenceTarget == InferenceTarget.LOCAL) {
+        if (isLocalBaseModelAvailable == false && selectedInferenceTarget == InferenceTarget.LOCAL) {
             onSelectInferenceTarget(InferenceTarget.SERVER)
         }
     }
@@ -396,7 +396,7 @@ fun LamiAvatar(
                     item {
                         StatusInfoItem(
                             label = "ローカル基本モデル",
-                            value = if (isLocalBaseModelAvailable) "利用可能" else "未設定",
+                            value = if (isLocalBaseModelAvailable == true) "利用可能" else "未設定",
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp,
@@ -408,7 +408,7 @@ fun LamiAvatar(
                     item {
                         InferenceTargetSelectorRow(
                             selectedTarget = selectedInferenceTarget,
-                            isLocalTargetEnabled = isLocalBaseModelAvailable,
+                            isLocalTargetEnabled = isLocalBaseModelAvailable == true,
                             onSelectTarget = { target ->
                                 onSelectInferenceTarget(target)
                             },
