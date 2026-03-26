@@ -977,6 +977,13 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     Log.i("ChatScreen", "LOCAL inference path placeholder reached. Server send is skipped.")
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                                        snackbarHostState.showSnackbar(
+                                                            message = "ローカル推論は準備中です",
+                                                            duration = SnackbarDuration.Short,
+                                                        )
+                                                    }
                                                 }
                                             }
                                         },
