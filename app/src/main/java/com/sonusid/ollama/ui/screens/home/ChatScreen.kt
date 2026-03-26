@@ -1,5 +1,6 @@
 package com.sonusid.ollama.ui.screens.home
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.widget.ImageView
@@ -166,6 +167,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.json.JSONArray
+import java.io.File
 import java.util.Locale
 import kotlinx.coroutines.yield
 import kotlin.math.roundToInt
@@ -997,6 +999,7 @@ fun Home(
                                                     coroutineScope.launch {
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                         val initializedState = initializeLocalInferenceEngineEntry(
+                                                            context = context.applicationContext,
                                                             settingsPreferences = settingsPreferences,
                                                             localBaseModelFilePath = localBaseModelFilePath,
                                                         )
@@ -1011,7 +1014,7 @@ fun Home(
                                                             message = when (initializedState) {
                                                                 LocalInferenceEngineState.READY -> "ローカル推論を利用可能です"
                                                                 LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
-                                                                LocalInferenceEngineState.ERROR -> "ローカル推論エンジンの初期化に失敗しました"
+                                                                LocalInferenceEngineState.ERROR -> "ローカル推論エンジンのロードに失敗しました"
                                                                 LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
                                                             },
                                                             duration = SnackbarDuration.Short,
@@ -1632,19 +1635,93 @@ fun Home(
 }
 
 private suspend fun initializeLocalInferenceEngineEntry(
+    context: Context,
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
 ): LocalInferenceEngineState {
-    val validLocalBaseModelPath = runCatching {
+    val modelPath = resolveLocalBaseModelPathOrNull(
+        settingsPreferences = settingsPreferences,
+        localBaseModelFilePath = localBaseModelFilePath,
+    ) ?: return LocalInferenceEngineState.UNINITIALIZED
+
+    return if (loadLocalInferenceEngine(context = context, modelPath = modelPath)) {
+        LocalInferenceEngineState.READY
+    } else {
+        LocalInferenceEngineState.ERROR
+    }
+}
+
+private suspend fun resolveLocalBaseModelPathOrNull(
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+): String? {
+    val validPathFromSettings = runCatching {
         settingsPreferences.getValidLocalBaseModelPathOrNull()
     }.getOrElse {
-        return LocalInferenceEngineState.ERROR
+        Log.e("ChatScreen", "Failed to resolve valid local base model path from settings", it)
+        return null
     }
-    return when {
-        validLocalBaseModelPath != null -> LocalInferenceEngineState.READY
-        localBaseModelFilePath.isNullOrBlank() -> LocalInferenceEngineState.UNINITIALIZED
-        else -> LocalInferenceEngineState.ERROR
+    if (validPathFromSettings != null) {
+        return validPathFromSettings
     }
+
+    val fallbackPath = localBaseModelFilePath?.takeIf { it.isNotBlank() } ?: return null
+    val fallbackFile = File(fallbackPath)
+    return fallbackPath.takeIf {
+        fallbackFile.isFile &&
+            fallbackFile.canRead() &&
+            fallbackFile.name.endsWith(".litertlm", ignoreCase = true)
+    }
+}
+
+private fun loadLocalInferenceEngine(
+    context: Context,
+    modelPath: String,
+): Boolean {
+    val modelFile = File(modelPath)
+    if (!modelFile.isFile || !modelFile.canRead()) {
+        Log.w("ChatScreen", "Local model file is not readable. path=$modelPath")
+        return false
+    }
+
+    return runCatching {
+        tryLoadLiteRtLmViaReflection(context = context, modelPath = modelPath)
+    }.getOrElse {
+        Log.e("ChatScreen", "Failed to load local inference engine. path=$modelPath", it)
+        false
+    }
+}
+
+private fun tryLoadLiteRtLmViaReflection(
+    context: Context,
+    modelPath: String,
+): Boolean {
+    val llmInferenceClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
+    }.getOrNull() ?: run {
+        Log.w("ChatScreen", "LiteRT-LM API is not connected in this build.")
+        return false
+    }
+
+    val created = runCatching {
+        val createFromFileMethod = llmInferenceClass.methods.firstOrNull { method ->
+            method.name == "createFromFile" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == Context::class.java &&
+                method.parameterTypes[1] == String::class.java
+        }
+        createFromFileMethod?.invoke(null, context, modelPath)
+    }.getOrNull()
+
+    if (created == null) {
+        Log.w("ChatScreen", "LiteRT-LM createFromFile API was not found.")
+        return false
+    }
+
+    runCatching {
+        (created as? AutoCloseable)?.close()
+    }
+    return true
 }
 
 @Composable
