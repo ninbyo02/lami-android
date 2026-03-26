@@ -194,6 +194,12 @@ fun LamiAvatar(
             null
         }
     }
+    val localInferenceEngineState by produceState(
+        initialValue = LocalInferenceEngineState.UNINITIALIZED,
+        isLocalBaseModelAvailable,
+    ) {
+        value = resolveLocalInferenceEngineState(isLocalBaseModelAvailable == true)
+    }
     LaunchedEffect(isLocalBaseModelAvailable) {
         if (isLocalBaseModelAvailable == false && selectedInferenceTarget == InferenceTarget.LOCAL) {
             onSelectInferenceTarget(InferenceTarget.SERVER)
@@ -406,6 +412,23 @@ fun LamiAvatar(
                         )
                     }
                     item {
+                        StatusInfoItem(
+                            label = "ローカル推論エンジン",
+                            value = when (localInferenceEngineState) {
+                                LocalInferenceEngineState.UNINITIALIZED -> "未初期化"
+                                LocalInferenceEngineState.READY -> "利用可能"
+                                LocalInferenceEngineState.PREPARING -> "未初期化"
+                                LocalInferenceEngineState.ERROR -> "未初期化"
+                            },
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
                         InferenceTargetSelectorRow(
                             selectedTarget = selectedInferenceTarget,
                             isLocalTargetEnabled = isLocalBaseModelAvailable == true,
@@ -502,6 +525,23 @@ fun LamiAvatar(
 enum class InferenceTarget {
     SERVER,
     LOCAL,
+}
+
+enum class LocalInferenceEngineState {
+    UNINITIALIZED,
+    PREPARING,
+    READY,
+    ERROR,
+}
+
+private fun resolveLocalInferenceEngineState(
+    isLocalBaseModelAvailable: Boolean,
+): LocalInferenceEngineState {
+    return if (isLocalBaseModelAvailable) {
+        LocalInferenceEngineState.READY
+    } else {
+        LocalInferenceEngineState.UNINITIALIZED
+    }
 }
 
 
