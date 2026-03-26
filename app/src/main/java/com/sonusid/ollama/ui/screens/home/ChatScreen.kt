@@ -1628,6 +1628,8 @@ fun Home(
         }
     }
 }
+}
+}
 
 private suspend fun initializeLocalInferenceEngineEntry(
     settingsPreferences: SettingsPreferences,
