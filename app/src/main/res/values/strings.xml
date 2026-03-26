@@ -33,4 +33,12 @@
     <string name="sprite_preview_status_label">選択中ステータス: %1$s</string>
     <string name="sprite_preview_status_hint">ステータスを変更するにはステータスタブを開いてください。</string>
     <string name="sprite_preview_status_open_tab">ステータスを変更</string>
+    <string name="local_base_model_title">ローカル基本モデル</string>
+    <string name="local_base_model_placeholder">準備中</string>
+    <string name="local_base_model_status_label">現在の状態</string>
+    <string name="local_base_model_status_unset">未設定</string>
+    <string name="local_base_model_status_importing">取り込み中</string>
+    <string name="local_base_model_status_imported">取り込み済み</string>
+    <string name="local_base_model_select_button">選択</string>
+    <string name="local_base_model_clear_button">解除</string>
 </resources>

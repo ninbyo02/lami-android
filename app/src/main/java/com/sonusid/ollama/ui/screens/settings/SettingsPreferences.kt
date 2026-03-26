@@ -297,6 +297,8 @@ class SettingsPreferences(private val context: Context) {
     private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
     private val ttsPitchKey = floatPreferencesKey("tts_pitch")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
+    private val localBaseModelDisplayNameKey = stringPreferencesKey("local_base_model_display_name")
+    private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -419,6 +421,14 @@ class SettingsPreferences(private val context: Context) {
     val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->
         (preferences[chatLamiAvatarSizeDpKey] ?: DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
             .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
+    }
+
+    val localBaseModelDisplayNameFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[localBaseModelDisplayNameKey]
+    }
+
+    val localBaseModelFilePathFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[localBaseModelFilePathKey]
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -600,6 +610,28 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveSpriteSheetConfig(config: SpriteSheetConfig) {
         context.dataStore.edit { preferences ->
             preferences[spriteSheetConfigKey] = config.toJson()
+        }
+    }
+
+    suspend fun saveLocalBaseModelInfo(displayName: String, filePath: String) {
+        context.dataStore.edit { preferences ->
+            preferences[localBaseModelDisplayNameKey] = displayName
+            preferences[localBaseModelFilePathKey] = filePath
+        }
+    }
+
+    suspend fun getValidLocalBaseModelPathOrNull(): String? {
+        val preferences = context.dataStore.data.first()
+        return resolveValidLocalBaseModelPathOrNull(
+            displayName = preferences[localBaseModelDisplayNameKey],
+            filePath = preferences[localBaseModelFilePathKey],
+        )
+    }
+
+    suspend fun clearLocalBaseModelInfo() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(localBaseModelDisplayNameKey)
+            preferences.remove(localBaseModelFilePathKey)
         }
     }
 
@@ -2083,6 +2115,26 @@ class SettingsPreferences(private val context: Context) {
         SpriteState.THINKING -> spriteAnimationJsonThinkingKey
         SpriteState.ERROR -> spriteAnimationJsonErrorKey
         SpriteState.OFFLINE -> spriteAnimationJsonOfflineKey
+    }
+
+    private fun resolveValidLocalBaseModelPathOrNull(
+        displayName: String?,
+        filePath: String?,
+    ): String? {
+        if (displayName.isNullOrBlank() || filePath.isNullOrBlank()) return null
+        if (!displayName.endsWith(".litertlm", ignoreCase = true)) return null
+        return runCatching {
+            val modelFile = File(filePath)
+            if (
+                modelFile.isFile &&
+                modelFile.length() > 0L &&
+                modelFile.name.endsWith(".litertlm", ignoreCase = true)
+            ) {
+                modelFile.absolutePath
+            } else {
+                null
+            }
+        }.getOrNull()
     }
 
     private companion object {

@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -113,6 +114,8 @@ fun LamiAvatar(
     maxAvatarSize: Dp = 64.dp,
     onSelectModel: (String) -> Unit = {},
     onNavigateSettings: (() -> Unit)? = null,
+    selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
+    onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     openControlRequestKey: Int = 0,
@@ -181,6 +184,21 @@ fun LamiAvatar(
     }
     val latencyQualityLevel = remember(latencyMs) { latencyMsToQualityLevel(latencyMs) }
     val latencyText = remember(latencyMs) { formatLatencyText(latencyMs) }
+    val isLocalBaseModelAvailable by produceState<Boolean?>(
+        initialValue = null,
+        showSheet,
+    ) {
+        value = if (showSheet) {
+            settingsPreferences.getValidLocalBaseModelPathOrNull() != null
+        } else {
+            null
+        }
+    }
+    LaunchedEffect(isLocalBaseModelAvailable) {
+        if (isLocalBaseModelAvailable == false && selectedInferenceTarget == InferenceTarget.LOCAL) {
+            onSelectInferenceTarget(InferenceTarget.SERVER)
+        }
+    }
 
     LaunchedEffect(baseUrl, selectedModel, lastError, fallbackActive, fallbackMessage) {
         lastUpdated = formatter.format(Date())
@@ -376,6 +394,27 @@ fun LamiAvatar(
                         )
                     }
                     item {
+                        StatusInfoItem(
+                            label = "ローカル基本モデル",
+                            value = if (isLocalBaseModelAvailable == true) "利用可能" else "未設定",
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
+                        InferenceTargetSelectorRow(
+                            selectedTarget = selectedInferenceTarget,
+                            isLocalTargetEnabled = isLocalBaseModelAvailable == true,
+                            onSelectTarget = { target ->
+                                onSelectInferenceTarget(target)
+                            },
+                        )
+                    }
+                    item {
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant
                         )
@@ -458,6 +497,11 @@ fun LamiAvatar(
             }
         }
     }
+}
+
+enum class InferenceTarget {
+    SERVER,
+    LOCAL,
 }
 
 
@@ -545,6 +589,61 @@ private fun ConnectionSummaryStatusRow(
             maxLines = 1,
             modifier = Modifier.alignByBaseline(),
         )
+    }
+}
+
+@Composable
+private fun InferenceTargetSelectorRow(
+    selectedTarget: InferenceTarget,
+    isLocalTargetEnabled: Boolean,
+    onSelectTarget: (InferenceTarget) -> Unit,
+) {
+    val options = remember {
+        listOf(
+            InferenceTarget.SERVER to "サーバー",
+            InferenceTarget.LOCAL to "ローカル",
+        )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = ConnectionSummaryRowStartPadding)
+            .selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "推論先",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+        )
+        options.forEach { (target, label) ->
+            val enabled = target != InferenceTarget.LOCAL || isLocalTargetEnabled
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = selectedTarget == target,
+                        enabled = enabled,
+                        onClick = { onSelectTarget(target) },
+                        role = Role.RadioButton,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(
+                    selected = selectedTarget == target,
+                    onClick = null,
+                    enabled = enabled,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
     }
 }
 
