@@ -684,10 +684,10 @@ fun Home(
                     }
                     // ヘッダー内の最小間隔だけ確保して左余白を増やさない
                     Spacer(modifier = Modifier.size(2.dp))
-                    LamiHeaderStatus(
-                        baseUrl = baseUrl,
-                        selectedModel = selectedModel,
-                        lastError = errorMessage,
+                        LamiHeaderStatus(
+                            baseUrl = baseUrl,
+                            selectedModel = selectedModel,
+                            lastError = errorMessage,
                         lamiStatus = lamiAnimationStatus,
                         lamiState = lamiUiState.state,
                         availableModels = availableModels,
@@ -695,10 +695,14 @@ fun Home(
                             viewModel.onUserInteraction()
                             viewModel.updateSelectedModel(modelName)
                         },
-                        onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
-                        debugOverlayEnabled = false,
-                        syncEpochMs = animationEpochMs,
-                        initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
+                            onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
+                            selectedInferenceTarget = selectedInferenceTarget,
+                            onSelectInferenceTarget = { target ->
+                                selectedInferenceTarget = target
+                            },
+                            debugOverlayEnabled = false,
+                            syncEpochMs = animationEpochMs,
+                            initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
                         minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
                         maxAvatarSize = MAX_CHAT_LAMI_AVATAR_SIZE_DP.dp,
                         // title 内で HeaderAvatar を表示しているため二重表示を防ぐ
@@ -931,6 +935,7 @@ fun Home(
                                                 return@IconButton
                                             }
 
+                                            Log.i("ChatScreen", "send entry selectedInferenceTarget=$selectedInferenceTarget")
                                             when (selectedInferenceTarget) {
                                                 InferenceTarget.SERVER -> {
                                                     val currentChatId = effectiveChatId
