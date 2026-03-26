@@ -1009,7 +1009,7 @@ fun Home(
                                                         }
                                                         snackbarHostState.showSnackbar(
                                                             message = when (initializedState) {
-                                                                LocalInferenceEngineState.READY -> "ローカル推論エンジンを初期化しました"
+                                                                LocalInferenceEngineState.READY -> "ローカル推論を利用可能です"
                                                                 LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
                                                                 LocalInferenceEngineState.ERROR -> "ローカル推論エンジンの初期化に失敗しました"
                                                                 LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
