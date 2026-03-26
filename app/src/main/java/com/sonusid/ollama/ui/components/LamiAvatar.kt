@@ -116,6 +116,7 @@ fun LamiAvatar(
     onNavigateSettings: (() -> Unit)? = null,
     selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
     onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
+    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     openControlRequestKey: Int = 0,
@@ -193,12 +194,6 @@ fun LamiAvatar(
         } else {
             null
         }
-    }
-    val localInferenceEngineState by produceState(
-        initialValue = LocalInferenceEngineState.UNINITIALIZED,
-        isLocalBaseModelAvailable,
-    ) {
-        value = resolveLocalInferenceEngineState(isLocalBaseModelAvailable == true)
     }
     LaunchedEffect(isLocalBaseModelAvailable) {
         if (isLocalBaseModelAvailable == false && selectedInferenceTarget == InferenceTarget.LOCAL) {
@@ -416,9 +411,9 @@ fun LamiAvatar(
                             label = "ローカル推論エンジン",
                             value = when (localInferenceEngineState) {
                                 LocalInferenceEngineState.UNINITIALIZED -> "未初期化"
+                                LocalInferenceEngineState.PREPARING -> "準備中"
                                 LocalInferenceEngineState.READY -> "利用可能"
-                                LocalInferenceEngineState.PREPARING -> "未初期化"
-                                LocalInferenceEngineState.ERROR -> "未初期化"
+                                LocalInferenceEngineState.ERROR -> "エラー"
                             },
                             valueStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -532,16 +527,6 @@ enum class LocalInferenceEngineState {
     PREPARING,
     READY,
     ERROR,
-}
-
-private fun resolveLocalInferenceEngineState(
-    isLocalBaseModelAvailable: Boolean,
-): LocalInferenceEngineState {
-    return if (isLocalBaseModelAvailable) {
-        LocalInferenceEngineState.READY
-    } else {
-        LocalInferenceEngineState.UNINITIALIZED
-    }
 }
 
 

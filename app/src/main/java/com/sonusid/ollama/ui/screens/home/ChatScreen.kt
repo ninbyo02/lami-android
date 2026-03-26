@@ -141,6 +141,7 @@ import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.InferenceTarget
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.components.LocalInferenceEngineState
 import com.sonusid.ollama.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import com.sonusid.ollama.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import com.sonusid.ollama.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
@@ -245,11 +246,20 @@ fun Home(
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.SERVER) }
+    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
+    var localInferenceEngineState by rememberSaveable {
+        mutableStateOf(LocalInferenceEngineState.UNINITIALIZED)
+    }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
     // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    LaunchedEffect(localBaseModelFilePath) {
+        if (localBaseModelFilePath.isNullOrBlank()) {
+            localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
+        }
+    }
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
     ) { uris ->
@@ -678,6 +688,7 @@ fun Home(
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                             },
+                            localInferenceEngineState = localInferenceEngineState,
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
                             openControlRequestKey = openLamiControlRequestKey,
@@ -701,6 +712,7 @@ fun Home(
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                             },
+                            localInferenceEngineState = localInferenceEngineState,
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
@@ -982,15 +994,26 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
-                                                    Log.i("ChatScreen", "LOCAL inference path placeholder reached. Server send is skipped.")
                                                     coroutineScope.launch {
+                                                        localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                        val initializedState = initializeLocalInferenceEngineEntry(
+                                                            settingsPreferences = settingsPreferences,
+                                                            localBaseModelFilePath = localBaseModelFilePath,
+                                                        )
+                                                        localInferenceEngineState = initializedState
+                                                        Log.i("ChatScreen", "LOCAL inference initialize entry completed. state=$initializedState")
                                                         snackbarHostState.currentSnackbarData?.dismiss()
                                                         val dismissJob = launch {
                                                             delay(PROJECT_SNACKBAR_SHORT_MS)
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                         }
                                                         snackbarHostState.showSnackbar(
-                                                            message = "ローカル推論は準備中です",
+                                                            message = when (initializedState) {
+                                                                LocalInferenceEngineState.READY -> "ローカル推論エンジンを初期化しました"
+                                                                LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                LocalInferenceEngineState.ERROR -> "ローカル推論エンジンの初期化に失敗しました"
+                                                                LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
+                                                            },
                                                             duration = SnackbarDuration.Short,
                                                         )
                                                         dismissJob.cancel()
@@ -1606,10 +1629,21 @@ fun Home(
     }
 }
 
+private suspend fun initializeLocalInferenceEngineEntry(
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+): LocalInferenceEngineState {
+    val validLocalBaseModelPath = runCatching {
+        settingsPreferences.getValidLocalBaseModelPathOrNull()
+    }.getOrElse {
+        return LocalInferenceEngineState.ERROR
+    }
+    return when {
+        validLocalBaseModelPath != null -> LocalInferenceEngineState.READY
+        localBaseModelFilePath.isNullOrBlank() -> LocalInferenceEngineState.UNINITIALIZED
+        else -> LocalInferenceEngineState.ERROR
+    }
 }
-
-}
-
 
 @Composable
 private fun AssistantStreamingIndicator() {
