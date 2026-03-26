@@ -985,12 +985,15 @@ fun Home(
                                                     Log.i("ChatScreen", "LOCAL inference path placeholder reached. Server send is skipped.")
                                                     coroutineScope.launch {
                                                         snackbarHostState.currentSnackbarData?.dismiss()
+                                                        val dismissJob = launch {
+                                                            delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                        }
                                                         snackbarHostState.showSnackbar(
                                                             message = "ローカル推論は準備中です",
                                                             duration = SnackbarDuration.Short,
                                                         )
-                                                        delay(PROJECT_SNACKBAR_SHORT_MS)
-                                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                                        dismissJob.cancel()
                                                     }
                                                 }
                                             }
