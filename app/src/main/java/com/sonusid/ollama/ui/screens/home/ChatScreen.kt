@@ -168,6 +168,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import java.io.File
 import java.util.Locale
@@ -197,6 +198,7 @@ private val SpriteMessageGap = 16.dp
 private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
+private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -1016,16 +1018,19 @@ fun Home(
                                                     coroutineScope.launch {
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                         val initializationResult = withContext(Dispatchers.IO) {
-                                                            initializeLocalInferenceEngineEntry(
-                                                                context = context.applicationContext,
-                                                                settingsPreferences = settingsPreferences,
-                                                                localBaseModelFilePath = localBaseModelFilePath,
-                                                            )
+                                                            withTimeoutOrNull(LOCAL_INIT_TIMEOUT_MS) {
+                                                                initializeLocalInferenceEngineEntry(
+                                                                    context = context.applicationContext,
+                                                                    settingsPreferences = settingsPreferences,
+                                                                    localBaseModelFilePath = localBaseModelFilePath,
+                                                                )
+                                                            }
                                                         }
-                                                        localInferenceEngineState = initializationResult.state
+                                                        localInferenceEngineState = initializationResult?.state
+                                                            ?: LocalInferenceEngineState.ERROR
                                                         Log.i(
                                                             "ChatScreen",
-                                                            "LOCAL inference initialize entry completed. state=${initializationResult.state}, probe=${initializationResult.probeResult}",
+                                                            "LOCAL inference initialize entry completed. state=${initializationResult?.state ?: LocalInferenceEngineState.ERROR}, probe=${initializationResult?.probeResult}, timedOut=${initializationResult == null}",
                                                         )
                                                         snackbarHostState.currentSnackbarData?.dismiss()
                                                         val dismissJob = launch {
@@ -1033,7 +1038,8 @@ fun Home(
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                         }
                                                         snackbarHostState.showSnackbar(
-                                                            message = when (initializationResult.state) {
+                                                            message = when (initializationResult?.state) {
+                                                                null -> "ローカル推論エンジンの確認がタイムアウトしました"
                                                                 LocalInferenceEngineState.READY -> "ローカル推論を利用可能です"
                                                                 LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
                                                                 LocalInferenceEngineState.ERROR -> when (initializationResult.probeResult) {
