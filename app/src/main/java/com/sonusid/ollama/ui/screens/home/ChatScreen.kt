@@ -194,6 +194,7 @@ private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
+private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 
 private enum class TopPaddingMode {
     NewConversation,
@@ -1014,7 +1015,7 @@ fun Home(
                                                             message = when (initializedState) {
                                                                 LocalInferenceEngineState.READY -> "ローカル推論を利用可能です"
                                                                 LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
-                                                                LocalInferenceEngineState.ERROR -> "ローカル推論エンジンのロードに失敗しました"
+                                                                LocalInferenceEngineState.ERROR -> "ローカル推論エンジンの確認に失敗しました"
                                                                 LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
                                                             },
                                                             duration = SnackbarDuration.Short,
@@ -1718,10 +1719,45 @@ private fun tryLoadLiteRtLmViaReflection(
         return false
     }
 
-    runCatching {
-        (created as? AutoCloseable)?.close()
+    return try {
+        tryCheckLiteRtLmGenerateViaReflection(created)
+    } finally {
+        runCatching {
+            (created as? AutoCloseable)?.close()
+        }
     }
-    return true
+}
+
+private fun tryCheckLiteRtLmGenerateViaReflection(
+    inferenceInstance: Any,
+): Boolean {
+    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+    val candidateMethods = candidateMethodNames.flatMap { methodName ->
+        inferenceInstance.javaClass.methods.filter { method ->
+            method.name == methodName &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        }
+    }
+    if (candidateMethods.isEmpty()) {
+        Log.w("ChatScreen", "LiteRT-LM generate-like API was not found for one-shot probe.")
+        return false
+    }
+
+    candidateMethods.forEach { method ->
+        val invoked = runCatching {
+            method.invoke(inferenceInstance, LOCAL_INFERENCE_PROBE_PROMPT)
+        }.onFailure {
+            Log.w("ChatScreen", "LiteRT-LM generate probe failed on ${method.name}(String)", it)
+        }.isSuccess
+        if (invoked) {
+            Log.i("ChatScreen", "LiteRT-LM generate probe passed on ${method.name}(String)")
+            return true
+        }
+    }
+
+    Log.w("ChatScreen", "LiteRT-LM generate probe failed for all candidates.")
+    return false
 }
 
 @Composable
