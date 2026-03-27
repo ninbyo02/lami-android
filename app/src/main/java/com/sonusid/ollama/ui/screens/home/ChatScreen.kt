@@ -163,9 +163,11 @@ import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
 import java.util.Locale
@@ -1013,11 +1015,13 @@ fun Home(
                                                 InferenceTarget.LOCAL -> {
                                                     coroutineScope.launch {
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
-                                                        val initializationResult = initializeLocalInferenceEngineEntry(
-                                                            context = context.applicationContext,
-                                                            settingsPreferences = settingsPreferences,
-                                                            localBaseModelFilePath = localBaseModelFilePath,
-                                                        )
+                                                        val initializationResult = withContext(Dispatchers.IO) {
+                                                            initializeLocalInferenceEngineEntry(
+                                                                context = context.applicationContext,
+                                                                settingsPreferences = settingsPreferences,
+                                                                localBaseModelFilePath = localBaseModelFilePath,
+                                                            )
+                                                        }
                                                         localInferenceEngineState = initializationResult.state
                                                         Log.i(
                                                             "ChatScreen",
