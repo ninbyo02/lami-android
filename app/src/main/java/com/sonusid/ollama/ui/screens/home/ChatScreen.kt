@@ -1733,25 +1733,39 @@ private fun tryLoadLiteRtLmViaReflection(
         return LocalLiteRtProbeResult.API_NOT_CONNECTED
     }
 
-    val createFromFileMethod = llmInferenceClass.methods.firstOrNull { method ->
-        method.name == "createFromFile" &&
+    val createFromOptionsMethod = llmInferenceClass.methods.firstOrNull { method ->
+        method.name == "createFromOptions" &&
             method.parameterTypes.size == 2 &&
-            method.parameterTypes[0] == Context::class.java &&
-            method.parameterTypes[1] == String::class.java
+            method.parameterTypes[0] == Context::class.java
     } ?: run {
-        Log.w("ChatScreen", "LiteRT-LM createFromFile(Context, String) method not found.")
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions(Context, Options) method not found.")
         return LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND
     }
+    Log.i("ChatScreen", "LiteRT-LM createFromOptions found: ${createFromOptionsMethod.toGenericString()}")
 
-    val created = runCatching {
-        createFromFileMethod.invoke(null, context, modelPath)
+    val optionsClass = createFromOptionsMethod.parameterTypes[1]
+    Log.i("ChatScreen", "LiteRT-LM options class: ${optionsClass.name}")
+    val options = runCatching {
+        buildLiteRtOptionsViaReflection(optionsClass = optionsClass, modelPath = modelPath)
     }.getOrElse { throwable ->
-        Log.e("ChatScreen", "LiteRT-LM createFromFile invocation failed.", throwable)
+        if (throwable is NoSuchMethodException) {
+            Log.w("ChatScreen", "LiteRT-LM options/builder method not found.", throwable)
+            return LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND
+        }
+        Log.e("ChatScreen", "LiteRT-LM options build failed.", throwable)
         return LocalLiteRtProbeResult.CREATE_FAILED
     }
 
+    val created = runCatching {
+        createFromOptionsMethod.invoke(null, context, options)
+    }.getOrElse { throwable ->
+        Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed.", throwable)
+        return LocalLiteRtProbeResult.CREATE_FAILED
+    }
+    Log.i("ChatScreen", "LiteRT-LM createFromOptions invoke succeeded.")
+
     if (created == null) {
-        Log.w("ChatScreen", "LiteRT-LM createFromFile returned null instance.")
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance.")
         return LocalLiteRtProbeResult.CREATE_FAILED
     }
 
@@ -1762,6 +1776,64 @@ private fun tryLoadLiteRtLmViaReflection(
             (created as? AutoCloseable)?.close()
         }
     }
+}
+
+@Throws(NoSuchMethodException::class)
+private fun buildLiteRtOptionsViaReflection(
+    optionsClass: Class<*>,
+    modelPath: String,
+): Any {
+    val builder = optionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }?.let { method ->
+        Log.i("ChatScreen", "LiteRT-LM builder factory found: ${method.toGenericString()}")
+        runCatching { method.invoke(null) }.getOrElse { throwable ->
+            throw IllegalStateException("LiteRT-LM builder() invoke failed.", throwable)
+        }
+    } ?: run {
+        val builderClass = optionsClass.declaredClasses.firstOrNull { it.simpleName == "Builder" }
+            ?: throw NoSuchMethodException("LiteRT-LM Options.Builder class not found.")
+        Log.i("ChatScreen", "LiteRT-LM builder class found: ${builderClass.name}")
+        val constructor = builderClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() }
+            ?: throw NoSuchMethodException("LiteRT-LM Options.Builder() constructor not found.")
+        runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrElse { throwable ->
+            throw IllegalStateException("LiteRT-LM Options.Builder() invoke failed.", throwable)
+        }
+    }
+
+    val builderClass = builder.javaClass
+    val modelPathSetter = listOf("setModelPath", "setModelFilePath", "setLlmModelPath")
+        .firstNotNullOfOrNull { methodName ->
+            builderClass.methods.firstOrNull { method ->
+                method.name == methodName &&
+                    method.parameterTypes.size == 1 &&
+                    method.parameterTypes[0] == String::class.java
+            }
+        } ?: throw NoSuchMethodException("LiteRT-LM modelPath setter not found.")
+    Log.i("ChatScreen", "LiteRT-LM modelPath setter found: ${modelPathSetter.toGenericString()}")
+
+    val configuredBuilder = runCatching {
+        modelPathSetter.invoke(builder, modelPath) ?: builder
+    }.getOrElse { throwable ->
+        throw IllegalStateException("LiteRT-LM modelPath setter invoke failed.", throwable)
+    }
+
+    val buildMethod = configuredBuilder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: throw NoSuchMethodException("LiteRT-LM build() method not found.")
+
+    val builtOptions = runCatching {
+        buildMethod.invoke(configuredBuilder)
+    }.getOrElse { throwable ->
+        throw IllegalStateException("LiteRT-LM build() invoke failed.", throwable)
+    } ?: throw IllegalStateException("LiteRT-LM build() returned null.")
+    Log.i("ChatScreen", "LiteRT-LM options build succeeded.")
+    return builtOptions
 }
 
 private fun tryCheckLiteRtLmGenerateViaReflection(
