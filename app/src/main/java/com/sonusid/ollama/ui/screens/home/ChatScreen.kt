@@ -196,6 +196,20 @@ private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 
+private enum class LocalLiteRtProbeResult {
+    SUCCESS,
+    API_NOT_CONNECTED,
+    CREATE_METHOD_NOT_FOUND,
+    CREATE_FAILED,
+    GENERATE_METHOD_NOT_FOUND,
+    GENERATE_FAILED,
+}
+
+private data class LocalInferenceInitializationResult(
+    val state: LocalInferenceEngineState,
+    val probeResult: LocalLiteRtProbeResult?,
+)
+
 private enum class TopPaddingMode {
     NewConversation,
     ExistingConversation,
@@ -999,23 +1013,33 @@ fun Home(
                                                 InferenceTarget.LOCAL -> {
                                                     coroutineScope.launch {
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
-                                                        val initializedState = initializeLocalInferenceEngineEntry(
+                                                        val initializationResult = initializeLocalInferenceEngineEntry(
                                                             context = context.applicationContext,
                                                             settingsPreferences = settingsPreferences,
                                                             localBaseModelFilePath = localBaseModelFilePath,
                                                         )
-                                                        localInferenceEngineState = initializedState
-                                                        Log.i("ChatScreen", "LOCAL inference initialize entry completed. state=$initializedState")
+                                                        localInferenceEngineState = initializationResult.state
+                                                        Log.i(
+                                                            "ChatScreen",
+                                                            "LOCAL inference initialize entry completed. state=${initializationResult.state}, probe=${initializationResult.probeResult}",
+                                                        )
                                                         snackbarHostState.currentSnackbarData?.dismiss()
                                                         val dismissJob = launch {
                                                             delay(PROJECT_SNACKBAR_SHORT_MS)
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                         }
                                                         snackbarHostState.showSnackbar(
-                                                            message = when (initializedState) {
+                                                            message = when (initializationResult.state) {
                                                                 LocalInferenceEngineState.READY -> "ローカル推論を利用可能です"
                                                                 LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
-                                                                LocalInferenceEngineState.ERROR -> "ローカル推論エンジンの確認に失敗しました"
+                                                                LocalInferenceEngineState.ERROR -> when (initializationResult.probeResult) {
+                                                                    LocalLiteRtProbeResult.API_NOT_CONNECTED -> "ローカル推論機能がこのビルドに含まれていません"
+                                                                    LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND -> "ローカル推論エンジンのロード方式に対応していません"
+                                                                    LocalLiteRtProbeResult.CREATE_FAILED -> "ローカル基本モデルの読み込みに失敗しました"
+                                                                    LocalLiteRtProbeResult.GENERATE_METHOD_NOT_FOUND -> "ローカル推論エンジンの生成APIに対応していません"
+                                                                    LocalLiteRtProbeResult.GENERATE_FAILED -> "ローカル推論エンジンの確認に失敗しました"
+                                                                    else -> "ローカル推論エンジンの確認に失敗しました"
+                                                                }
                                                                 LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
                                                             },
                                                             duration = SnackbarDuration.Short,
@@ -1639,17 +1663,22 @@ private suspend fun initializeLocalInferenceEngineEntry(
     context: Context,
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
-): LocalInferenceEngineState {
+): LocalInferenceInitializationResult {
     val modelPath = resolveLocalBaseModelPathOrNull(
         settingsPreferences = settingsPreferences,
         localBaseModelFilePath = localBaseModelFilePath,
-    ) ?: return LocalInferenceEngineState.UNINITIALIZED
+    ) ?: return LocalInferenceInitializationResult(
+        state = LocalInferenceEngineState.UNINITIALIZED,
+        probeResult = null,
+    )
 
-    return if (loadLocalInferenceEngine(context = context, modelPath = modelPath)) {
+    val probeResult = loadLocalInferenceEngine(context = context, modelPath = modelPath)
+    val state = if (probeResult == LocalLiteRtProbeResult.SUCCESS) {
         LocalInferenceEngineState.READY
     } else {
         LocalInferenceEngineState.ERROR
     }
+    return LocalInferenceInitializationResult(state = state, probeResult = probeResult)
 }
 
 private suspend fun resolveLocalBaseModelPathOrNull(
@@ -1678,45 +1707,52 @@ private suspend fun resolveLocalBaseModelPathOrNull(
 private fun loadLocalInferenceEngine(
     context: Context,
     modelPath: String,
-): Boolean {
+): LocalLiteRtProbeResult {
     val modelFile = File(modelPath)
     if (!modelFile.isFile || !modelFile.canRead()) {
         Log.w("ChatScreen", "Local model file is not readable. path=$modelPath")
-        return false
+        return LocalLiteRtProbeResult.CREATE_FAILED
     }
 
     return runCatching {
         tryLoadLiteRtLmViaReflection(context = context, modelPath = modelPath)
     }.getOrElse {
         Log.e("ChatScreen", "Failed to load local inference engine. path=$modelPath", it)
-        false
+        LocalLiteRtProbeResult.CREATE_FAILED
     }
 }
 
 private fun tryLoadLiteRtLmViaReflection(
     context: Context,
     modelPath: String,
-): Boolean {
+): LocalLiteRtProbeResult {
     val llmInferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
-    }.getOrNull() ?: run {
-        Log.w("ChatScreen", "LiteRT-LM API is not connected in this build.")
-        return false
+    }.getOrElse { throwable ->
+        Log.w("ChatScreen", "LiteRT-LM class not found: API is not connected in this build.", throwable)
+        return LocalLiteRtProbeResult.API_NOT_CONNECTED
+    }
+
+    val createFromFileMethod = llmInferenceClass.methods.firstOrNull { method ->
+        method.name == "createFromFile" &&
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes[0] == Context::class.java &&
+            method.parameterTypes[1] == String::class.java
+    } ?: run {
+        Log.w("ChatScreen", "LiteRT-LM createFromFile(Context, String) method not found.")
+        return LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND
     }
 
     val created = runCatching {
-        val createFromFileMethod = llmInferenceClass.methods.firstOrNull { method ->
-            method.name == "createFromFile" &&
-                method.parameterTypes.size == 2 &&
-                method.parameterTypes[0] == Context::class.java &&
-                method.parameterTypes[1] == String::class.java
-        }
-        createFromFileMethod?.invoke(null, context, modelPath)
-    }.getOrNull()
+        createFromFileMethod.invoke(null, context, modelPath)
+    }.getOrElse { throwable ->
+        Log.e("ChatScreen", "LiteRT-LM createFromFile invocation failed.", throwable)
+        return LocalLiteRtProbeResult.CREATE_FAILED
+    }
 
     if (created == null) {
-        Log.w("ChatScreen", "LiteRT-LM createFromFile API was not found.")
-        return false
+        Log.w("ChatScreen", "LiteRT-LM createFromFile returned null instance.")
+        return LocalLiteRtProbeResult.CREATE_FAILED
     }
 
     return try {
@@ -1730,7 +1766,7 @@ private fun tryLoadLiteRtLmViaReflection(
 
 private fun tryCheckLiteRtLmGenerateViaReflection(
     inferenceInstance: Any,
-): Boolean {
+): LocalLiteRtProbeResult {
     val candidateMethodNames = listOf("generateResponse", "generate", "infer")
     val candidateMethods = candidateMethodNames.flatMap { methodName ->
         inferenceInstance.javaClass.methods.filter { method ->
@@ -1740,24 +1776,24 @@ private fun tryCheckLiteRtLmGenerateViaReflection(
         }
     }
     if (candidateMethods.isEmpty()) {
-        Log.w("ChatScreen", "LiteRT-LM generate-like API was not found for one-shot probe.")
-        return false
+        Log.w("ChatScreen", "LiteRT-LM generate-like method not found. candidates=$candidateMethodNames")
+        return LocalLiteRtProbeResult.GENERATE_METHOD_NOT_FOUND
     }
 
     candidateMethods.forEach { method ->
         val invoked = runCatching {
             method.invoke(inferenceInstance, LOCAL_INFERENCE_PROBE_PROMPT)
-        }.onFailure {
-            Log.w("ChatScreen", "LiteRT-LM generate probe failed on ${method.name}(String)", it)
+        }.onFailure { throwable ->
+            Log.w("ChatScreen", "LiteRT-LM generate probe failed on ${method.name}(String)", throwable)
         }.isSuccess
         if (invoked) {
             Log.i("ChatScreen", "LiteRT-LM generate probe passed on ${method.name}(String)")
-            return true
+            return LocalLiteRtProbeResult.SUCCESS
         }
     }
 
-    Log.w("ChatScreen", "LiteRT-LM generate probe failed for all candidates.")
-    return false
+    Log.e("ChatScreen", "LiteRT-LM generate probe failed for all candidate methods.")
+    return LocalLiteRtProbeResult.GENERATE_FAILED
 }
 
 @Composable
