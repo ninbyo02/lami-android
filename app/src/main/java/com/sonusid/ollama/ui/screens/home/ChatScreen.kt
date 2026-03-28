@@ -270,6 +270,12 @@ private data class LocalInferenceTrace(
     val listenerApiSignature: String? = null,
     val sessionApiProbeResult: LocalStreamingApiProbeResult? = null,
     val sessionApiSignature: String? = null,
+    val sessionGenerateSignature: String? = null,
+    val sessionAsyncSignature: String? = null,
+    val sessionStreamingSignature: String? = null,
+    val sessionTokenSignature: String? = null,
+    val sessionListenerSignature: String? = null,
+    val sessionLifecycleSignature: String? = null,
 )
 
 private data class LocalLiteRtGeneratedResponse(
@@ -2037,6 +2043,7 @@ private fun generateLiteRtResponseViaReflection(
     val listenerProbe = findSetResultListenerCandidate(inferenceClass = inferenceInstance.javaClass)
     val asyncProbe = findGenerateResponseAsyncCandidate(inferenceClass = inferenceInstance.javaClass)
     val sessionProbe = findSessionApiCandidate(inferenceClass = inferenceInstance.javaClass)
+    val sessionMethodInventory = inspectLlmInferenceSessionMethods()
     trace = trace.copy(
         streamingCandidateDetected = streamingCandidateDetected,
         listenerApiProbeResult = listenerProbe.result,
@@ -2045,6 +2052,12 @@ private fun generateLiteRtResponseViaReflection(
         asyncApiSignature = asyncProbe.signature,
         sessionApiProbeResult = sessionProbe.result,
         sessionApiSignature = sessionProbe.signature,
+        sessionGenerateSignature = sessionMethodInventory.generateSignature,
+        sessionAsyncSignature = sessionMethodInventory.asyncSignature,
+        sessionStreamingSignature = sessionMethodInventory.streamingSignature,
+        sessionTokenSignature = sessionMethodInventory.tokenSignature,
+        sessionListenerSignature = sessionMethodInventory.listenerSignature,
+        sessionLifecycleSignature = sessionMethodInventory.lifecycleSignature,
     )
     return try {
         generateLiteRtStringResponseOnceViaReflection(
@@ -2288,6 +2301,40 @@ private data class LocalStreamingApiProbeOutcome(
     val result: LocalStreamingApiProbeResult,
     val signature: String? = null,
 )
+
+private data class SessionMethodInventory(
+    val generateSignature: String? = null,
+    val asyncSignature: String? = null,
+    val streamingSignature: String? = null,
+    val tokenSignature: String? = null,
+    val listenerSignature: String? = null,
+    val lifecycleSignature: String? = null,
+)
+
+private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
+    val sessionClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
+    }.getOrNull() ?: return SessionMethodInventory()
+    val methods = sessionClass.methods.toList()
+
+    fun firstSignatureMatching(vararg keywords: String): String? {
+        val found = methods.firstOrNull { method ->
+            val lowerName = method.name.lowercase(Locale.ROOT)
+            keywords.any { keyword -> lowerName.contains(keyword) }
+        } ?: return null
+        val parameterTypes = found.parameterTypes.joinToString(prefix = "[", postfix = "]") { it.simpleName }
+        return "${found.name} $parameterTypes :: ${found.toGenericString()}"
+    }
+
+    return SessionMethodInventory(
+        generateSignature = firstSignatureMatching("generate", "response", "result"),
+        asyncSignature = firstSignatureMatching("async"),
+        streamingSignature = firstSignatureMatching("stream", "partial", "chunk"),
+        tokenSignature = firstSignatureMatching("token"),
+        listenerSignature = firstSignatureMatching("listener", "callback"),
+        lifecycleSignature = firstSignatureMatching("close", "reset"),
+    )
+}
 
 private fun findSetResultListenerCandidate(
     inferenceClass: Class<*>,
@@ -3053,6 +3100,60 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionSignature", value = trace.sessionApiSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionGenerateApi",
+                value = if (trace.sessionGenerateSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionGenerateSignature", value = trace.sessionGenerateSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionAsyncApi",
+                value = if (trace.sessionAsyncSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionAsyncSignature", value = trace.sessionAsyncSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionStreamingApi",
+                value = if (trace.sessionStreamingSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionStreamingSignature", value = trace.sessionStreamingSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionTokenApi",
+                value = if (trace.sessionTokenSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionTokenSignature", value = trace.sessionTokenSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionListenerApi",
+                value = if (trace.sessionListenerSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionListenerSignature", value = trace.sessionListenerSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionLifecycleApi",
+                value = if (trace.sessionLifecycleSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionLifecycleSignature", value = trace.sessionLifecycleSignature ?: "—"),
             InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
             InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
             InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),
