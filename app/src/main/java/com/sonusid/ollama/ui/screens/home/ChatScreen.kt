@@ -1596,7 +1596,7 @@ fun Home(
                                 ) {
                                     item(key = "local_responding_indicator") {
                                         PlainAssistantMessage(
-                                            message = "Responding...",
+                                            message = "応答中...",
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
                                         )
                                     }
