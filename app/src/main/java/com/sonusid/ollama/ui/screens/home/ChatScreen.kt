@@ -222,6 +222,46 @@ private data class LocalInferenceInitializationResult(
 private data class LocalInferenceRunResult(
     val state: LocalInferenceEngineState,
     val response: String? = null,
+    val trace: LocalInferenceTrace = LocalInferenceTrace(),
+)
+
+private enum class LocalStatsAvailability {
+    AVAILABLE_NOW,
+    DERIVABLE_NOW,
+    API_CANDIDATE_ONLY,
+    NOT_FOUND,
+}
+
+private data class LocalStatsCandidateProbe(
+    val availability: LocalStatsAvailability,
+    val signature: String? = null,
+    val returnTypeName: String? = null,
+    val valueSummary: String? = null,
+)
+
+private data class LocalInferenceTrace(
+    val createMethodSignature: String? = null,
+    val optionsBuildPath: String? = null,
+    val generateMethodSignature: String? = null,
+    val streamingCandidateDetected: Boolean? = null,
+    val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val loadTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val promptEvalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val evalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val firstTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val estimatedTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+)
+
+private data class LocalLiteRtGeneratedResponse(
+    val response: String? = null,
+    val trace: LocalInferenceTrace = LocalInferenceTrace(),
+)
+
+private data class LocalLiteRtOptionsBuildResult(
+    val options: Any,
+    val buildPath: String,
 )
 
 private enum class TopPaddingMode {
@@ -1093,17 +1133,25 @@ fun Home(
                                                             }
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
+                                                            val localGenerationTimeMs =
+                                                                (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
+                                                            val inventoryState = runResult?.state ?: LocalInferenceEngineState.ERROR
+                                                            val inventoryResponseChars = runResult?.response?.length ?: -1
+                                                            val timedOut = runResult == null
                                                             Log.i(
                                                                 "ChatScreen",
                                                                 "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, responseLength=${runResult?.response?.length ?: -1}, responseHead=${runResult?.response?.take(80)}, timedOut=${runResult == null}",
                                                             )
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL stats inventory: generationTimeMs=$localGenerationTimeMs, responseChars=$inventoryResponseChars, state=$inventoryState, timedOut=$timedOut, responseBlank=${runResult?.response.isNullOrBlank()}, streamingCandidate=${runResult?.trace?.streamingCandidateDetected}, createPath=${runResult?.trace?.createMethodSignature != null}, optionsBuildPath=${runResult?.trace?.optionsBuildPath}, generateMethod=${runResult?.trace?.generateMethodSignature}",
+                                                            )
+                                                            logLocalStatsInventoryClassification(runResult = runResult)
                                                             if (
                                                                 runResult?.state == LocalInferenceEngineState.READY &&
                                                                 !runResult.response.isNullOrBlank()
                                                             ) {
                                                                 val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
-                                                                val localGenerationTimeMs =
-                                                                    (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
                                                                 Log.i(
                                                                     "ChatScreen",
                                                                     "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
@@ -1791,17 +1839,22 @@ private suspend fun runLocalInferenceOnceEntry(
         localBaseModelFilePath = localBaseModelFilePath,
     ) ?: return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
 
-    val response = generateLiteRtResponseViaReflection(
+    val generated = generateLiteRtResponseViaReflection(
         context = context,
         modelPath = modelPath,
         prompt = prompt,
     )
+    val response = generated.response
     return if (response.isNullOrBlank()) {
-        LocalInferenceRunResult(state = LocalInferenceEngineState.ERROR)
+        LocalInferenceRunResult(
+            state = LocalInferenceEngineState.ERROR,
+            trace = generated.trace,
+        )
     } else {
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.READY,
             response = response,
+            trace = generated.trace,
         )
     }
 }
@@ -1914,12 +1967,13 @@ private fun generateLiteRtResponseViaReflection(
     context: Context,
     modelPath: String,
     prompt: String,
-): String? {
+): LocalLiteRtGeneratedResponse {
+    var trace = LocalInferenceTrace()
     val llmInferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
     }.getOrElse { throwable ->
         Log.w("ChatScreen", "LiteRT-LM class not found for response generation.", throwable)
-        return null
+        return LocalLiteRtGeneratedResponse(trace = trace)
     }
 
     val createFromOptionsMethod = llmInferenceClass.methods.firstOrNull { method ->
@@ -1928,32 +1982,37 @@ private fun generateLiteRtResponseViaReflection(
             method.parameterTypes[0] == Context::class.java
     } ?: run {
         Log.w("ChatScreen", "LiteRT-LM createFromOptions(Context, Options) method not found for response generation.")
-        return null
+        return LocalLiteRtGeneratedResponse(trace = trace)
     }
-    val options = runCatching {
+    trace = trace.copy(createMethodSignature = createFromOptionsMethod.toGenericString())
+    val optionsBuildResult = runCatching {
         buildLiteRtOptionsViaReflection(
             optionsClass = createFromOptionsMethod.parameterTypes[1],
             modelPath = modelPath,
         )
     }.getOrElse { throwable ->
         Log.e("ChatScreen", "LiteRT-LM options build failed for response generation.", throwable)
-        return null
+        return LocalLiteRtGeneratedResponse(trace = trace)
     }
+    trace = trace.copy(optionsBuildPath = optionsBuildResult.buildPath)
 
     val inferenceInstance = runCatching {
-        createFromOptionsMethod.invoke(null, context, options)
+        createFromOptionsMethod.invoke(null, context, optionsBuildResult.options)
     }.getOrElse { throwable ->
         Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed for response generation.", throwable)
-        return null
+        return LocalLiteRtGeneratedResponse(trace = trace)
     } ?: run {
         Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance for response generation.")
-        return null
+        return LocalLiteRtGeneratedResponse(trace = trace)
     }
 
+    val streamingCandidateDetected = probeLiteRtStreamingApiViaReflection()
+    trace = trace.copy(streamingCandidateDetected = streamingCandidateDetected)
     return try {
         generateLiteRtStringResponseOnceViaReflection(
             inferenceInstance = inferenceInstance,
             prompt = prompt,
+            trace = trace,
         )
     } finally {
         runCatching {
@@ -1966,7 +2025,8 @@ private fun generateLiteRtResponseViaReflection(
 private fun buildLiteRtOptionsViaReflection(
     optionsClass: Class<*>,
     modelPath: String,
-): Any {
+): LocalLiteRtOptionsBuildResult {
+    var buildPath = "builderMethod"
     val builder = optionsClass.methods.firstOrNull { method ->
         method.name == "builder" &&
             method.parameterTypes.isEmpty() &&
@@ -1977,6 +2037,7 @@ private fun buildLiteRtOptionsViaReflection(
             throw IllegalStateException("LiteRT-LM builder() invoke failed.", throwable)
         }
     } ?: run {
+        buildPath = "builderConstructor"
         val builderClass = optionsClass.declaredClasses.firstOrNull { it.simpleName == "Builder" }
             ?: throw NoSuchMethodException("LiteRT-LM Options.Builder class not found.")
         Log.i("ChatScreen", "LiteRT-LM builder class found: ${builderClass.name}")
@@ -2137,7 +2198,7 @@ private fun buildLiteRtOptionsViaReflection(
         throw IllegalStateException("LiteRT-LM build() invoke failed.", throwable)
     } ?: throw IllegalStateException("LiteRT-LM build() returned null.")
     Log.i("ChatScreen", "LiteRT-LM options build succeeded.")
-    return builtOptions
+    return LocalLiteRtOptionsBuildResult(options = builtOptions, buildPath = buildPath)
 }
 
 private fun probeLiteRtStreamingApiViaReflection(): Boolean {
@@ -2220,7 +2281,8 @@ private fun tryCheckLiteRtLmGenerateViaReflection(
 private fun generateLiteRtStringResponseOnceViaReflection(
     inferenceInstance: Any,
     prompt: String,
-): String? {
+    trace: LocalInferenceTrace,
+): LocalLiteRtGeneratedResponse {
     val candidateMethodNames = listOf("generateResponse", "generate", "infer")
     val candidateMethods = candidateMethodNames.flatMap { methodName ->
         inferenceInstance.javaClass.methods.filter { method ->
@@ -2231,7 +2293,8 @@ private fun generateLiteRtStringResponseOnceViaReflection(
     }
     if (candidateMethods.isEmpty()) {
         Log.w("ChatScreen", "LiteRT-LM generate-like method not found for response generation.")
-        return null
+        val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
+        return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
     }
 
     candidateMethods.forEach { method ->
@@ -2241,12 +2304,181 @@ private fun generateLiteRtStringResponseOnceViaReflection(
             Log.w("ChatScreen", "LiteRT-LM generate invocation failed on ${method.name}(String)", throwable)
         }.getOrNull()
         when (result) {
-            is String -> return result
-            is CharSequence -> return result.toString()
+            is String -> {
+                val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
+                    .merge(probeLocalStatsCandidates(inferenceInstance))
+                return LocalLiteRtGeneratedResponse(response = result, trace = inventoryTrace)
+            }
+            is CharSequence -> {
+                val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
+                    .merge(probeLocalStatsCandidates(inferenceInstance))
+                return LocalLiteRtGeneratedResponse(response = result.toString(), trace = inventoryTrace)
+            }
         }
     }
     Log.e("ChatScreen", "LiteRT-LM string response generation failed for all candidate methods.")
+    val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
+    return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
+}
+
+private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenceTrace {
+    return copy(
+        modelNameProbe = if (modelNameProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.modelNameProbe else modelNameProbe,
+        finishReasonProbe = if (finishReasonProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.finishReasonProbe else finishReasonProbe,
+        outputTokenProbe = if (outputTokenProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.outputTokenProbe else outputTokenProbe,
+        loadTimeProbe = if (loadTimeProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.loadTimeProbe else loadTimeProbe,
+        promptEvalTimeProbe = if (promptEvalTimeProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.promptEvalTimeProbe else promptEvalTimeProbe,
+        evalTimeProbe = if (evalTimeProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.evalTimeProbe else evalTimeProbe,
+        firstTokenProbe = if (firstTokenProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.firstTokenProbe else firstTokenProbe,
+        estimatedTokenProbe = if (estimatedTokenProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.estimatedTokenProbe else estimatedTokenProbe,
+    )
+}
+
+private fun probeLocalStatsCandidates(
+    inferenceInstance: Any,
+): LocalInferenceTrace {
+    val metadataRoot = findAndInvokeNoArgMethodByNames(
+        target = inferenceInstance,
+        candidateNames = listOf("getMetadata", "metadata", "getResult", "result", "getSession", "session"),
+        label = "metadataRoot",
+    )?.value
+    val primaryTarget = metadataRoot ?: inferenceInstance
+    return LocalInferenceTrace(
+        modelNameProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "modelName",
+            candidateNames = listOf("getModelName", "modelName", "getModel", "model"),
+        ),
+        finishReasonProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "finishReason",
+            candidateNames = listOf("getFinishReason", "finishReason", "getDoneReason", "doneReason"),
+        ),
+        outputTokenProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "outputTokens",
+            candidateNames = listOf("getOutputTokenCount", "outputTokenCount", "getCompletionTokens", "completionTokens", "getEvalCount", "evalCount"),
+        ),
+        loadTimeProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "loadTime",
+            candidateNames = listOf("getLoadDuration", "loadDuration", "getLoadTimeMs", "loadTimeMs"),
+        ),
+        promptEvalTimeProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "promptEvalTime",
+            candidateNames = listOf("getPromptEvalDuration", "promptEvalDuration", "getPromptEvalTimeMs", "promptEvalTimeMs"),
+        ),
+        evalTimeProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "evalTime",
+            candidateNames = listOf("getEvalDuration", "evalDuration", "getGenerationDuration", "generationDuration"),
+        ),
+        firstTokenProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "firstToken",
+            candidateNames = listOf("getTimeToFirstTokenMs", "timeToFirstTokenMs", "getFirstToken", "firstToken"),
+        ),
+        estimatedTokenProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "estimatedTokenCount",
+            candidateNames = listOf("getEstimatedTokenCount", "estimatedTokenCount", "getTokenCount", "tokenCount"),
+        ),
+    )
+}
+
+private data class LocalInvokedMethodResult(
+    val signature: String,
+    val returnTypeName: String,
+    val value: Any?,
+)
+
+private fun findAndInvokeNoArgMethodByNames(
+    target: Any,
+    candidateNames: List<String>,
+    label: String,
+): LocalInvokedMethodResult? {
+    candidateNames.forEach { candidateName ->
+        val method = target.javaClass.methods.firstOrNull { reflectedMethod ->
+            reflectedMethod.name.equals(candidateName, ignoreCase = true) &&
+                reflectedMethod.parameterTypes.isEmpty()
+        } ?: return@forEach
+        val signature = method.toGenericString()
+        Log.i("ChatScreen", "LOCAL stats candidate method found: label=$label signature=$signature")
+        val invoked = runCatching { method.invoke(target) }.onFailure { throwable ->
+            Log.w("ChatScreen", "LOCAL stats candidate invoke failed: label=$label signature=$signature", throwable)
+        }.getOrNull()
+        return LocalInvokedMethodResult(
+            signature = signature,
+            returnTypeName = method.returnType.name,
+            value = invoked,
+        )
+    }
     return null
+}
+
+private fun probeSingleCandidate(
+    target: Any,
+    label: String,
+    candidateNames: List<String>,
+): LocalStatsCandidateProbe {
+    val invoked = findAndInvokeNoArgMethodByNames(target, candidateNames, label)
+        ?: return LocalStatsCandidateProbe(availability = LocalStatsAvailability.NOT_FOUND)
+    val availability = if (invoked.value != null) {
+        LocalStatsAvailability.AVAILABLE_NOW
+    } else {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    }
+    return LocalStatsCandidateProbe(
+        availability = availability,
+        signature = invoked.signature,
+        returnTypeName = invoked.returnTypeName,
+        valueSummary = invoked.value?.toString(),
+    )
+}
+
+private fun logLocalStatsInventoryClassification(runResult: LocalInferenceRunResult?) {
+    val trace = runResult?.trace ?: LocalInferenceTrace()
+    val responseAvailability = if (runResult?.response != null) {
+        LocalStatsAvailability.DERIVABLE_NOW
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val generationAvailability = if (runResult != null) {
+        LocalStatsAvailability.AVAILABLE_NOW
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val timeoutAvailability = LocalStatsAvailability.AVAILABLE_NOW
+    val initializationAvailability = LocalStatsAvailability.AVAILABLE_NOW
+    val streamingAvailability = when (trace.streamingCandidateDetected) {
+        true -> LocalStatsAvailability.API_CANDIDATE_ONLY
+        false -> LocalStatsAvailability.NOT_FOUND
+        null -> LocalStatsAvailability.NOT_FOUND
+    }
+    val generateMethodAvailability = if (trace.generateMethodSignature != null) {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val createPathAvailability = if (trace.createMethodSignature != null) {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val optionsBuildPathAvailability = if (trace.optionsBuildPath != null) {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    Log.i(
+        "ChatScreen",
+        "LOCAL stats availability: responseTimeMs=$generationAvailability, responseCharCount=$responseAvailability, modelName=${trace.modelNameProbe.availability}, finishReason=${trace.finishReasonProbe.availability}, timeoutFlag=$timeoutAvailability, initState=$initializationAvailability, streamingProbe=$streamingAvailability, generateMethod=$generateMethodAvailability, createPath=$createPathAvailability, optionsBuildPath=$optionsBuildPathAvailability, firstToken=${trace.firstTokenProbe.availability}, loadTime=${trace.loadTimeProbe.availability}, promptEvalTime=${trace.promptEvalTimeProbe.availability}, outputTokenCount=${trace.outputTokenProbe.availability}, estimatedTokenCount=${trace.estimatedTokenProbe.availability}",
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL stats signatures: modelName=${trace.modelNameProbe.signature}, finishReason=${trace.finishReasonProbe.signature}, outputTokens=${trace.outputTokenProbe.signature}, loadTime=${trace.loadTimeProbe.signature}, promptEval=${trace.promptEvalTimeProbe.signature}, evalTime=${trace.evalTimeProbe.signature}, firstToken=${trace.firstTokenProbe.signature}, estimatedTokens=${trace.estimatedTokenProbe.signature}",
+    )
 }
 
 @Composable
