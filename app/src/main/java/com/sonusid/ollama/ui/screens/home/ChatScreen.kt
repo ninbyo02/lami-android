@@ -2654,7 +2654,7 @@ internal fun buildInferenceSummarySections(stats: InferenceStats): List<Inferenc
                     emphasizeValue = true,
                 ),
                 InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
-            ),
+            )
         },
     ),
 )
