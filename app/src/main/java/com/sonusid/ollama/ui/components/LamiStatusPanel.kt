@@ -130,7 +130,7 @@ fun rememberLamiStatusUi(
     }
 
     val stateLabel = when (lamiState) {
-        is LamiState.Speaking -> "Responding..."
+        is LamiState.Speaking -> "応答中..."
         LamiState.Thinking -> "Thinking..."
         LamiState.Idle -> null
         else -> null
