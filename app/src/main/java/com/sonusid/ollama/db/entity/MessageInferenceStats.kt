@@ -54,5 +54,6 @@ fun Message.toInferenceStats(): InferenceStats? {
         model = modelName,
         modelLabel = modelName,
         completionTokens = completionTokens,
+        responseCharCount = message.length,
     )
 }

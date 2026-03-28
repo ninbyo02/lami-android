@@ -39,4 +39,5 @@ data class InferenceStats(
     val modelLabel: String? = null,
     val completionTokens: Int? = null,
     val deviceLabel: String? = null,
+    val responseCharCount: Int? = null,
 )
