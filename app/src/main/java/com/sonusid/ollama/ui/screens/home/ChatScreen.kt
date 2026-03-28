@@ -755,6 +755,14 @@ fun Home(
                             viewModel.onUserInteraction()
                             openLamiControlRequestKey += 1
                         },
+                        statusTitleOverride = if (
+                            selectedInferenceTarget == InferenceTarget.LOCAL &&
+                                isLocalInferenceRunning
+                        ) {
+                            "Responding..."
+                        } else {
+                            null
+                        },
                     )
                 }
             },
