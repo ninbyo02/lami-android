@@ -202,6 +202,7 @@ private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 private const val LOCAL_INIT_TIMEOUT_MS = 3000L
+private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -215,6 +216,11 @@ private enum class LocalLiteRtProbeResult {
 private data class LocalInferenceInitializationResult(
     val state: LocalInferenceEngineState,
     val probeResult: LocalLiteRtProbeResult?,
+)
+
+private data class LocalInferenceRunResult(
+    val state: LocalInferenceEngineState,
+    val response: String? = null,
 )
 
 private enum class TopPaddingMode {
@@ -1019,20 +1025,40 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     coroutineScope.launch {
+                                                        val currentChatId = effectiveChatId
+                                                        if (currentChatId == null) {
+                                                            placeholder = "Setting up a new chat ..."
+                                                            return@launch
+                                                        }
+                                                        if (selectedImageUriStrings.isNotEmpty()) {
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = "ローカル推論では画像入力はまだ未対応です",
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                            return@launch
+                                                        }
+                                                        val requestPrompt = userPrompt
+                                                        if (requestPrompt.isBlank()) {
+                                                            return@launch
+                                                        }
+                                                        ttsController.stop()
+                                                        viewModel.stopTtsPlayback()
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
-                                                        val initializationResult = withContext(Dispatchers.IO) {
+                                                        val runResult = withContext(Dispatchers.IO) {
                                                             val executor = Executors.newSingleThreadExecutor()
-                                                            val future = executor.submit<LocalInferenceInitializationResult> {
+                                                            val future = executor.submit<LocalInferenceRunResult> {
                                                                 runBlocking {
-                                                                    initializeLocalInferenceEngineEntry(
+                                                                    runLocalInferenceOnceEntry(
                                                                         context = context.applicationContext,
                                                                         settingsPreferences = settingsPreferences,
                                                                         localBaseModelFilePath = localBaseModelFilePath,
+                                                                        prompt = requestPrompt,
                                                                     )
                                                                 }
                                                             }
                                                             try {
-                                                                future.get(LOCAL_INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                                                                future.get(LOCAL_GENERATE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                                                             } catch (timeout: TimeoutException) {
                                                                 null
                                                             } finally {
@@ -1040,30 +1066,45 @@ fun Home(
                                                                 executor.shutdownNow()
                                                             }
                                                         }
-                                                        localInferenceEngineState = initializationResult?.state
+                                                        localInferenceEngineState = runResult?.state
                                                             ?: LocalInferenceEngineState.ERROR
                                                         Log.i(
                                                             "ChatScreen",
-                                                            "LOCAL inference initialize entry completed. state=${initializationResult?.state ?: LocalInferenceEngineState.ERROR}, probe=${initializationResult?.probeResult}, timedOut=${initializationResult == null}",
+                                                            "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, timedOut=${runResult == null}",
                                                         )
+                                                        if (
+                                                            runResult?.state == LocalInferenceEngineState.READY &&
+                                                            !runResult.response.isNullOrBlank()
+                                                        ) {
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = currentChatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                )
+                                                            )
+                                                            viewModel.insert(
+                                                                createAssistantMessage(
+                                                                    chatId = currentChatId,
+                                                                    response = runResult.response,
+                                                                )
+                                                            )
+                                                            prompt = ""
+                                                            userPrompt = ""
+                                                            selectedImageUriStrings = emptyList()
+                                                            return@launch
+                                                        }
                                                         snackbarHostState.currentSnackbarData?.dismiss()
                                                         val dismissJob = launch {
                                                             delay(PROJECT_SNACKBAR_SHORT_MS)
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                         }
                                                         snackbarHostState.showSnackbar(
-                                                            message = when (initializationResult?.state) {
+                                                            message = when (runResult?.state) {
                                                                 null -> "ローカル推論エンジンの確認がタイムアウトしました"
-                                                                LocalInferenceEngineState.READY -> "ローカル推論を利用可能です"
+                                                                LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
                                                                 LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
-                                                                LocalInferenceEngineState.ERROR -> when (initializationResult.probeResult) {
-                                                                    LocalLiteRtProbeResult.API_NOT_CONNECTED -> "ローカル推論機能がこのビルドに含まれていません"
-                                                                    LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND -> "ローカル推論エンジンのロード方式に対応していません"
-                                                                    LocalLiteRtProbeResult.CREATE_FAILED -> "ローカル基本モデルの読み込みに失敗しました"
-                                                                    LocalLiteRtProbeResult.GENERATE_METHOD_NOT_FOUND -> "ローカル推論エンジンの生成APIに対応していません"
-                                                                    LocalLiteRtProbeResult.GENERATE_FAILED -> "ローカル推論エンジンの確認に失敗しました"
-                                                                    else -> "ローカル推論エンジンの確認に失敗しました"
-                                                                }
+                                                                LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
                                                                 LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
                                                             },
                                                             duration = SnackbarDuration.Short,
@@ -1705,6 +1746,32 @@ private suspend fun initializeLocalInferenceEngineEntry(
     return LocalInferenceInitializationResult(state = state, probeResult = probeResult)
 }
 
+private suspend fun runLocalInferenceOnceEntry(
+    context: Context,
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+    prompt: String,
+): LocalInferenceRunResult {
+    val modelPath = resolveLocalBaseModelPathOrNull(
+        settingsPreferences = settingsPreferences,
+        localBaseModelFilePath = localBaseModelFilePath,
+    ) ?: return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+
+    val response = generateLiteRtResponseViaReflection(
+        context = context,
+        modelPath = modelPath,
+        prompt = prompt,
+    )
+    return if (response.isNullOrBlank()) {
+        LocalInferenceRunResult(state = LocalInferenceEngineState.ERROR)
+    } else {
+        LocalInferenceRunResult(
+            state = LocalInferenceEngineState.READY,
+            response = response,
+        )
+    }
+}
+
 private suspend fun resolveLocalBaseModelPathOrNull(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
@@ -1798,6 +1865,58 @@ private fun tryLoadLiteRtLmViaReflection(
     } finally {
         runCatching {
             (created as? AutoCloseable)?.close()
+        }
+    }
+}
+
+private fun generateLiteRtResponseViaReflection(
+    context: Context,
+    modelPath: String,
+    prompt: String,
+): String? {
+    val llmInferenceClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
+    }.getOrElse { throwable ->
+        Log.w("ChatScreen", "LiteRT-LM class not found for response generation.", throwable)
+        return null
+    }
+
+    val createFromOptionsMethod = llmInferenceClass.methods.firstOrNull { method ->
+        method.name == "createFromOptions" &&
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes[0] == Context::class.java
+    } ?: run {
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions(Context, Options) method not found for response generation.")
+        return null
+    }
+    val options = runCatching {
+        buildLiteRtOptionsViaReflection(
+            optionsClass = createFromOptionsMethod.parameterTypes[1],
+            modelPath = modelPath,
+        )
+    }.getOrElse { throwable ->
+        Log.e("ChatScreen", "LiteRT-LM options build failed for response generation.", throwable)
+        return null
+    }
+
+    val inferenceInstance = runCatching {
+        createFromOptionsMethod.invoke(null, context, options)
+    }.getOrElse { throwable ->
+        Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed for response generation.", throwable)
+        return null
+    } ?: run {
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance for response generation.")
+        return null
+    }
+
+    return try {
+        generateLiteRtStringResponseOnceViaReflection(
+            inferenceInstance = inferenceInstance,
+            prompt = prompt,
+        )
+    } finally {
+        runCatching {
+            (inferenceInstance as? AutoCloseable)?.close()
         }
     }
 }
@@ -1984,6 +2103,38 @@ private fun tryCheckLiteRtLmGenerateViaReflection(
 
     Log.e("ChatScreen", "LiteRT-LM generate probe failed for all candidate methods.")
     return LocalLiteRtProbeResult.GENERATE_FAILED
+}
+
+private fun generateLiteRtStringResponseOnceViaReflection(
+    inferenceInstance: Any,
+    prompt: String,
+): String? {
+    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+    val candidateMethods = candidateMethodNames.flatMap { methodName ->
+        inferenceInstance.javaClass.methods.filter { method ->
+            method.name == methodName &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        }
+    }
+    if (candidateMethods.isEmpty()) {
+        Log.w("ChatScreen", "LiteRT-LM generate-like method not found for response generation.")
+        return null
+    }
+
+    candidateMethods.forEach { method ->
+        val result = runCatching {
+            method.invoke(inferenceInstance, prompt)
+        }.onFailure { throwable ->
+            Log.w("ChatScreen", "LiteRT-LM generate invocation failed on ${method.name}(String)", throwable)
+        }.getOrNull()
+        when (result) {
+            is String -> return result
+            is CharSequence -> return result.toString()
+        }
+    }
+    Log.e("ChatScreen", "LiteRT-LM string response generation failed for all candidate methods.")
+    return null
 }
 
 @Composable
