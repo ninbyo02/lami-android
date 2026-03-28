@@ -1080,16 +1080,21 @@ fun Home(
                                                             ?: LocalInferenceEngineState.ERROR
                                                         Log.i(
                                                             "ChatScreen",
-                                                            "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, timedOut=${runResult == null}",
+                                                            "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, responseLength=${runResult?.response?.length ?: -1}, responseHead=${runResult?.response?.take(80)}, timedOut=${runResult == null}",
                                                         )
                                                         if (
                                                             runResult?.state == LocalInferenceEngineState.READY &&
                                                             !runResult.response.isNullOrBlank()
                                                         ) {
+                                                            val assistantResponse = runResult.response
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
+                                                            )
                                                             viewModel.insert(
                                                                 createAssistantMessage(
                                                                     chatId = currentChatId,
-                                                                    response = runResult.response,
+                                                                    response = assistantResponse,
                                                                 )
                                                             )
                                                             return@launch
