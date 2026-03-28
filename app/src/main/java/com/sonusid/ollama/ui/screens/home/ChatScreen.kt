@@ -313,6 +313,12 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val streamingResponseText = (uiState as? UiState.Streaming)?.partialText
+    val isLocalRespondingUi =
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+            isLocalInferenceRunning
+    val isServerLoadingUi = uiState is UiState.Loading
+    val headerStatusTitleOverride = if (isLocalRespondingUi) "Responding..." else null
+    val showLocalRespondingAssistantRow = isLocalRespondingUi
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
@@ -755,14 +761,7 @@ fun Home(
                             viewModel.onUserInteraction()
                             openLamiControlRequestKey += 1
                         },
-                        statusTitleOverride = if (
-                            selectedInferenceTarget == InferenceTarget.LOCAL &&
-                                isLocalInferenceRunning
-                        ) {
-                            "Responding..."
-                        } else {
-                            null
-                        },
+                        statusTitleOverride = headerStatusTitleOverride,
                     )
                 }
             },
@@ -1301,7 +1300,7 @@ fun Home(
                         }
                         // LazyColumn tail layout:
                         // [messages...] + [assistant_streaming_indicator?] + [composer_spacer]
-                        val hasLoadingTailItem = uiState is UiState.Loading
+                        val hasLoadingTailItem = isServerLoadingUi
 
                         val lastContentIndex = remember(messagesForList.size, hasLoadingTailItem) {
                             val lastMessageIndex = messagesForList.lastIndex
@@ -1590,10 +1589,7 @@ fun Home(
                                         }
                                     }
                                 }
-                                if (
-                                    selectedInferenceTarget == InferenceTarget.LOCAL &&
-                                    isLocalInferenceRunning
-                                ) {
+                                if (showLocalRespondingAssistantRow) {
                                     item(key = "local_responding_indicator") {
                                         PlainAssistantMessage(
                                             message = "応答中...",
@@ -1601,7 +1597,7 @@ fun Home(
                                         )
                                     }
                                 }
-                                if (uiState is UiState.Loading) {
+                                if (isServerLoadingUi) {
                                     item(key = "assistant_streaming_indicator") {
                                         AssistantStreamingIndicator()
                                     }
