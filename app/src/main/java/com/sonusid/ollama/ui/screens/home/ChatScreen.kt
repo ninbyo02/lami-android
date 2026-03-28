@@ -2069,26 +2069,26 @@ private fun buildLiteRtOptionsViaReflection(
     applyOptionalSetter(
         methodName = "setMaxTokens",
         expectedType = Int::class.java,
-        value = 64,
+        value = 128,
     )
 
     applyOptionalSetter(
         methodName = "setMaxOutputTokens",
         expectedType = Int::class.java,
-        value = 64,
+        value = 128,
     )
 
     // 一部API互換用（念のため）
     applyOptionalSetter(
         methodName = "maxTokens",
         expectedType = Int::class.java,
-        value = 64,
+        value = 128,
     )
 
     applyOptionalSetter(
         methodName = "maxOutputTokens",
         expectedType = Int::class.java,
-        value = 64,
+        value = 128,
     )
 
     val buildMethod = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
