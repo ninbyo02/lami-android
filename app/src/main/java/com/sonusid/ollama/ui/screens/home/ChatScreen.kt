@@ -168,10 +168,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlinx.coroutines.yield
 import kotlin.math.roundToInt
 
@@ -1018,12 +1020,21 @@ fun Home(
                                                     coroutineScope.launch {
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                         val initializationResult = withContext(Dispatchers.IO) {
-                                                            withTimeoutOrNull(LOCAL_INIT_TIMEOUT_MS) {
+                                                            val executor = Executors.newSingleThreadExecutor()
+                                                            val future = executor.submit<LocalInferenceInitializationResult> {
                                                                 initializeLocalInferenceEngineEntry(
                                                                     context = context.applicationContext,
                                                                     settingsPreferences = settingsPreferences,
                                                                     localBaseModelFilePath = localBaseModelFilePath,
                                                                 )
+                                                            }
+                                                            try {
+                                                                future.get(LOCAL_INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                                                            } catch (timeout: TimeoutException) {
+                                                                null
+                                                            } finally {
+                                                                future.cancel(true)
+                                                                executor.shutdownNow()
                                                             }
                                                         }
                                                         localInferenceEngineState = initializationResult?.state
