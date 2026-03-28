@@ -1590,6 +1590,17 @@ fun Home(
                                         }
                                     }
                                 }
+                                if (
+                                    selectedInferenceTarget == InferenceTarget.LOCAL &&
+                                    isLocalInferenceRunning
+                                ) {
+                                    item(key = "local_responding_indicator") {
+                                        PlainAssistantMessage(
+                                            message = "Responding...",
+                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
                                 if (uiState is UiState.Loading) {
                                     item(key = "assistant_streaming_indicator") {
                                         AssistantStreamingIndicator()
