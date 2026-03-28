@@ -759,7 +759,7 @@ fun Home(
                             selectedInferenceTarget == InferenceTarget.LOCAL &&
                                 isLocalInferenceRunning
                         ) {
-                            "応答中..."
+                            "Responding..."
                         } else {
                             null
                         },
@@ -1596,7 +1596,7 @@ fun Home(
                                 ) {
                                     item(key = "local_responding_indicator") {
                                         PlainAssistantMessage(
-                                            message = "応答中...",
+                                            message = "Responding...",
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
                                         )
                                     }
