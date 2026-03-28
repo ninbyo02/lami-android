@@ -1847,12 +1847,106 @@ private fun buildLiteRtOptionsViaReflection(
         throw IllegalStateException("LiteRT-LM modelPath setter invoke failed.", throwable)
     }
 
-    val buildMethod = configuredBuilder.javaClass.methods.firstOrNull { method ->
+    var optionalConfiguredBuilder = configuredBuilder
+    fun applyOptionalSetter(
+        methodName: String,
+        expectedType: Class<*>,
+        value: Any,
+    ) {
+        val setter = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
+            method.name == methodName &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == expectedType
+        }
+        if (setter == null) {
+            Log.i("ChatScreen", "LiteRT-LM optional setter not found: $methodName(${expectedType.simpleName})")
+            return
+        }
+        optionalConfiguredBuilder = runCatching {
+            setter.invoke(optionalConfiguredBuilder, value) ?: optionalConfiguredBuilder
+        }.onSuccess {
+            Log.i("ChatScreen", "LiteRT-LM optional setter applied: $methodName(${expectedType.simpleName})=$value")
+        }.getOrElse { throwable ->
+            Log.w("ChatScreen", "LiteRT-LM optional setter invoke failed: $methodName(${expectedType.simpleName})", throwable)
+            optionalConfiguredBuilder
+        }
+    }
+
+    applyOptionalSetter(methodName = "setMaxTokens", expectedType = Int::class.javaPrimitiveType!!, value = 16)
+    applyOptionalSetter(methodName = "setMaxTokens", expectedType = Int::class.javaObjectType, value = 16)
+    applyOptionalSetter(methodName = "setMaxOutputTokens", expectedType = Int::class.javaPrimitiveType!!, value = 16)
+    applyOptionalSetter(methodName = "setMaxOutputTokens", expectedType = Int::class.javaObjectType, value = 16)
+    applyOptionalSetter(methodName = "setTopK", expectedType = Int::class.javaPrimitiveType!!, value = 1)
+    applyOptionalSetter(methodName = "setTopK", expectedType = Int::class.javaObjectType, value = 1)
+    applyOptionalSetter(methodName = "setTemperature", expectedType = Float::class.javaPrimitiveType!!, value = 0.0f)
+    applyOptionalSetter(methodName = "setTemperature", expectedType = Float::class.javaObjectType, value = 0.0f)
+    applyOptionalSetter(methodName = "setRandomSeed", expectedType = Int::class.javaPrimitiveType!!, value = 1)
+    applyOptionalSetter(methodName = "setRandomSeed", expectedType = Int::class.javaObjectType, value = 1)
+    applyOptionalSetter(
+        methodName = "setEnableVisionModality",
+        expectedType = Boolean::class.javaPrimitiveType!!,
+        value = false,
+    )
+    applyOptionalSetter(
+        methodName = "setEnableVisionModality",
+        expectedType = Boolean::class.javaObjectType,
+        value = false,
+    )
+    applyOptionalSetter(
+        methodName = "setEnableAudioModality",
+        expectedType = Boolean::class.javaPrimitiveType!!,
+        value = false,
+    )
+    applyOptionalSetter(
+        methodName = "setEnableAudioModality",
+        expectedType = Boolean::class.javaObjectType,
+        value = false,
+    )
+
+    listOf("setPreferredBackend", "setBackend", "setPreferredDelegate").forEach { methodName ->
+        val backendLikeSetter = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
+            method.name == methodName && method.parameterTypes.size == 1
+        }
+        when {
+            backendLikeSetter == null -> {
+                Log.i("ChatScreen", "LiteRT-LM optional setter not found: $methodName(?)")
+            }
+            backendLikeSetter.parameterTypes[0] == String::class.java -> {
+                optionalConfiguredBuilder = runCatching {
+                    backendLikeSetter.invoke(optionalConfiguredBuilder, "CPU") ?: optionalConfiguredBuilder
+                }.onSuccess {
+                    Log.i("ChatScreen", "LiteRT-LM optional setter applied: $methodName(String)=CPU")
+                }.getOrElse { throwable ->
+                    Log.w("ChatScreen", "LiteRT-LM optional setter invoke failed: $methodName(String)", throwable)
+                    optionalConfiguredBuilder
+                }
+            }
+            backendLikeSetter.parameterTypes[0] == Int::class.javaPrimitiveType ||
+                backendLikeSetter.parameterTypes[0] == Int::class.javaObjectType -> {
+                optionalConfiguredBuilder = runCatching {
+                    backendLikeSetter.invoke(optionalConfiguredBuilder, 0) ?: optionalConfiguredBuilder
+                }.onSuccess {
+                    Log.i("ChatScreen", "LiteRT-LM optional setter applied: $methodName(Int)=0")
+                }.getOrElse { throwable ->
+                    Log.w("ChatScreen", "LiteRT-LM optional setter invoke failed: $methodName(Int)", throwable)
+                    optionalConfiguredBuilder
+                }
+            }
+            else -> {
+                Log.i(
+                    "ChatScreen",
+                    "LiteRT-LM optional setter skipped: $methodName(${backendLikeSetter.parameterTypes[0].name})",
+                )
+            }
+        }
+    }
+
+    val buildMethod = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
         method.name == "build" && method.parameterTypes.isEmpty()
     } ?: throw NoSuchMethodException("LiteRT-LM build() method not found.")
 
     val builtOptions = runCatching {
-        buildMethod.invoke(configuredBuilder)
+        buildMethod.invoke(optionalConfiguredBuilder)
     }.getOrElse { throwable ->
         throw IllegalStateException("LiteRT-LM build() invoke failed.", throwable)
     } ?: throw IllegalStateException("LiteRT-LM build() returned null.")
