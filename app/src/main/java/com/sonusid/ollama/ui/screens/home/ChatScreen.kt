@@ -2065,6 +2065,32 @@ private fun buildLiteRtOptionsViaReflection(
         }
     }
 
+    // --- generation length tuning (safe optional) ---
+    applyOptionalSetter(
+        methodName = "setMaxTokens",
+        expectedType = Int::class.java,
+        value = 64,
+    )
+
+    applyOptionalSetter(
+        methodName = "setMaxOutputTokens",
+        expectedType = Int::class.java,
+        value = 64,
+    )
+
+    // 一部API互換用（念のため）
+    applyOptionalSetter(
+        methodName = "maxTokens",
+        expectedType = Int::class.java,
+        value = 64,
+    )
+
+    applyOptionalSetter(
+        methodName = "maxOutputTokens",
+        expectedType = Int::class.java,
+        value = 64,
+    )
+
     val buildMethod = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
         method.name == "build" && method.parameterTypes.isEmpty()
     } ?: throw NoSuchMethodException("LiteRT-LM build() method not found.")
