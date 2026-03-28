@@ -2343,9 +2343,12 @@ private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
         ),
         tokenSignature = firstSignatureMatching(includeAny = listOf("token", "tokens")),
         listenerSignature = firstSignatureMatching(includeAny = listOf("listener", "callback")),
-        lifecycleSignature = firstSignatureMatching(
-            includeAny = listOf("close", "reset", "cancel", "stop", "abort"),
-        ),
+        lifecycleSignature =
+            firstSignatureMatching(includeAny = listOf("close"))
+                ?: firstSignatureMatching(includeAny = listOf("reset"))
+                ?: firstSignatureMatching(includeAny = listOf("cancel"))
+                ?: firstSignatureMatching(includeAny = listOf("stop"))
+                ?: firstSignatureMatching(includeAny = listOf("abort")),
     )
 }
 
