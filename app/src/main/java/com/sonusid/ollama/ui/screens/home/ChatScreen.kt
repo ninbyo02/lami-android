@@ -2641,7 +2641,7 @@ internal fun buildInferenceSummarySections(stats: InferenceStats): List<Inferenc
         title = "概要",
         items = if (isLocalMinimalInferenceStats(stats)) {
             listOf(
-                InferenceStatItemUi(label = "応答時間", value = formatGenerationTime(stats) ?: "—"),
+                InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
                 InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"),
             )
         } else {
