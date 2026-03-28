@@ -2316,23 +2316,36 @@ private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
     }.getOrNull() ?: return SessionMethodInventory()
     val methods = sessionClass.methods.toList()
+    val cancelLikeKeywords = listOf("cancel", "close", "stop", "abort")
 
-    fun firstSignatureMatching(vararg keywords: String): String? {
+    fun firstSignatureMatching(includeAny: List<String>, excludeAny: List<String> = emptyList()): String? {
         val found = methods.firstOrNull { method ->
             val lowerName = method.name.lowercase(Locale.ROOT)
-            keywords.any { keyword -> lowerName.contains(keyword) }
+            includeAny.any { keyword -> lowerName.contains(keyword) } &&
+                excludeAny.none { keyword -> lowerName.contains(keyword) }
         } ?: return null
         val parameterTypes = found.parameterTypes.joinToString(prefix = "[", postfix = "]") { it.simpleName }
         return "${found.name} $parameterTypes :: ${found.toGenericString()}"
     }
 
     return SessionMethodInventory(
-        generateSignature = firstSignatureMatching("generate", "response", "result"),
-        asyncSignature = firstSignatureMatching("async"),
-        streamingSignature = firstSignatureMatching("stream", "partial", "chunk"),
-        tokenSignature = firstSignatureMatching("token"),
-        listenerSignature = firstSignatureMatching("listener", "callback"),
-        lifecycleSignature = firstSignatureMatching("close", "reset"),
+        generateSignature = firstSignatureMatching(
+            includeAny = listOf("generate"),
+            excludeAny = cancelLikeKeywords,
+        ),
+        asyncSignature = firstSignatureMatching(
+            includeAny = listOf("async"),
+            excludeAny = cancelLikeKeywords,
+        ),
+        streamingSignature = firstSignatureMatching(
+            includeAny = listOf("stream", "partial", "chunk"),
+            excludeAny = cancelLikeKeywords,
+        ),
+        tokenSignature = firstSignatureMatching(includeAny = listOf("token", "tokens")),
+        listenerSignature = firstSignatureMatching(includeAny = listOf("listener", "callback")),
+        lifecycleSignature = firstSignatureMatching(
+            includeAny = listOf("close", "reset", "cancel", "stop", "abort"),
+        ),
     )
 }
 
