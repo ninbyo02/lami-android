@@ -1042,6 +1042,16 @@ fun Home(
                                                         if (requestPrompt.isBlank()) {
                                                             return@launch
                                                         }
+                                                        viewModel.insert(
+                                                            Message(
+                                                                chatId = currentChatId,
+                                                                message = requestPrompt,
+                                                                isSendbyMe = true,
+                                                            )
+                                                        )
+                                                        prompt = ""
+                                                        userPrompt = ""
+                                                        selectedImageUriStrings = emptyList()
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         localInferenceEngineState = LocalInferenceEngineState.PREPARING
@@ -1077,21 +1087,11 @@ fun Home(
                                                             !runResult.response.isNullOrBlank()
                                                         ) {
                                                             viewModel.insert(
-                                                                Message(
-                                                                    chatId = currentChatId,
-                                                                    message = requestPrompt,
-                                                                    isSendbyMe = true,
-                                                                )
-                                                            )
-                                                            viewModel.insert(
                                                                 createAssistantMessage(
                                                                     chatId = currentChatId,
                                                                     response = runResult.response,
                                                                 )
                                                             )
-                                                            prompt = ""
-                                                            userPrompt = ""
-                                                            selectedImageUriStrings = emptyList()
                                                             return@launch
                                                         }
                                                         snackbarHostState.currentSnackbarData?.dismiss()
