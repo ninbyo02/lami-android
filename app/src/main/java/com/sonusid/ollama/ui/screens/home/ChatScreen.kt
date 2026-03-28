@@ -204,6 +204,9 @@ private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
+private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = false
+private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
+private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -276,6 +279,16 @@ private data class LocalInferenceTrace(
     val sessionTokenSignature: String? = null,
     val sessionListenerSignature: String? = null,
     val sessionLifecycleSignature: String? = null,
+    val sessionAsyncPocAttempted: Boolean = false,
+    val sessionAsyncPocCreateSucceeded: Boolean = false,
+    val sessionAsyncPocMethodSignature: String? = null,
+    val sessionAsyncPocFutureClassName: String? = null,
+    val sessionAsyncPocResponseLength: Int? = null,
+    val sessionAsyncPocResponseHead: String? = null,
+    val sessionAsyncPocCloseSucceeded: Boolean? = null,
+    val sessionAsyncPocErrorStage: String? = null,
+    val sessionAsyncPocErrorClassName: String? = null,
+    val sessionAsyncPocErrorMessage: String? = null,
 )
 
 private data class LocalLiteRtGeneratedResponse(
@@ -2044,6 +2057,9 @@ private fun generateLiteRtResponseViaReflection(
     val asyncProbe = findGenerateResponseAsyncCandidate(inferenceClass = inferenceInstance.javaClass)
     val sessionProbe = findSessionApiCandidate(inferenceClass = inferenceInstance.javaClass)
     val sessionMethodInventory = inspectLlmInferenceSessionMethods()
+    val sessionAsyncPocResult = tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
+        inferenceInstance = inferenceInstance,
+    )
     trace = trace.copy(
         streamingCandidateDetected = streamingCandidateDetected,
         listenerApiProbeResult = listenerProbe.result,
@@ -2058,6 +2074,16 @@ private fun generateLiteRtResponseViaReflection(
         sessionTokenSignature = sessionMethodInventory.tokenSignature,
         sessionListenerSignature = sessionMethodInventory.listenerSignature,
         sessionLifecycleSignature = sessionMethodInventory.lifecycleSignature,
+        sessionAsyncPocAttempted = sessionAsyncPocResult.attempted,
+        sessionAsyncPocCreateSucceeded = sessionAsyncPocResult.createSucceeded,
+        sessionAsyncPocMethodSignature = sessionAsyncPocResult.asyncMethodSignature,
+        sessionAsyncPocFutureClassName = sessionAsyncPocResult.futureClassName,
+        sessionAsyncPocResponseLength = sessionAsyncPocResult.responseLength,
+        sessionAsyncPocResponseHead = sessionAsyncPocResult.responseHead,
+        sessionAsyncPocCloseSucceeded = sessionAsyncPocResult.closeSucceeded,
+        sessionAsyncPocErrorStage = sessionAsyncPocResult.errorStage,
+        sessionAsyncPocErrorClassName = sessionAsyncPocResult.errorClassName,
+        sessionAsyncPocErrorMessage = sessionAsyncPocResult.errorMessage,
     )
     return try {
         generateLiteRtStringResponseOnceViaReflection(
@@ -2311,6 +2337,19 @@ private data class SessionMethodInventory(
     val lifecycleSignature: String? = null,
 )
 
+private data class DevSessionAsyncPocResult(
+    val attempted: Boolean = false,
+    val createSucceeded: Boolean = false,
+    val asyncMethodSignature: String? = null,
+    val futureClassName: String? = null,
+    val responseLength: Int? = null,
+    val responseHead: String? = null,
+    val closeSucceeded: Boolean? = null,
+    val errorStage: String? = null,
+    val errorClassName: String? = null,
+    val errorMessage: String? = null,
+)
+
 private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
     val sessionClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
@@ -2399,6 +2438,141 @@ private fun findSessionApiCandidate(
         result = LocalStreamingApiProbeResult.SESSION_CREATE_FAILED,
         signature = sessionSignature ?: createMethodsOnInference.firstOrNull()?.toGenericString(),
     )
+}
+
+private fun tryCreateLlmInferenceSessionViaReflectionForDev(
+    inferenceInstance: Any,
+): Pair<Any, String?> {
+    val sessionClass = Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
+    val createMethods = sessionClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val createMethod = createMethods.firstOrNull { method ->
+        method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].isAssignableFrom(inferenceInstance.javaClass)
+    } ?: createMethods.firstOrNull { method ->
+        method.parameterTypes.size == 2 &&
+            method.parameterTypes[0].isAssignableFrom(inferenceInstance.javaClass)
+    } ?: throw NoSuchMethodException("LlmInferenceSession.createFromOptions(...) not found")
+
+    val created = when (createMethod.parameterTypes.size) {
+        1 -> createMethod.invoke(null, inferenceInstance)
+        2 -> {
+            val optionsClass = createMethod.parameterTypes[1]
+            val options = buildSessionOptionsViaReflectionForDev(optionsClass)
+            createMethod.invoke(null, inferenceInstance, options)
+        }
+        else -> throw NoSuchMethodException("Unsupported createFromOptions signature: ${createMethod.toGenericString()}")
+    } ?: throw IllegalStateException("LlmInferenceSession.createFromOptions returned null")
+    return created to createMethod.toGenericString()
+}
+
+private fun buildSessionOptionsViaReflectionForDev(
+    optionsClass: Class<*>,
+): Any {
+    val builderFactory = optionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val builder = if (builderFactory != null) {
+        builderFactory.invoke(null)
+    } else {
+        val builderClass = optionsClass.declaredClasses.firstOrNull { it.simpleName == "Builder" }
+            ?: throw NoSuchMethodException("Session options Builder class not found")
+        val constructor = builderClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() }
+            ?: throw NoSuchMethodException("Session options Builder() constructor not found")
+        constructor.isAccessible = true
+        constructor.newInstance()
+    } ?: throw IllegalStateException("Session options builder instance is null")
+
+    val buildMethod = builder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: throw NoSuchMethodException("Session options build() not found")
+    return buildMethod.invoke(builder)
+        ?: throw IllegalStateException("Session options build() returned null")
+}
+
+private fun tryCloseLlmInferenceSessionViaReflection(
+    sessionInstance: Any?,
+): Boolean {
+    if (sessionInstance == null) return false
+    val closeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
+        method.name == "close" && method.parameterTypes.isEmpty()
+    } ?: return false
+    closeMethod.invoke(sessionInstance)
+    return true
+}
+
+private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
+    inferenceInstance: Any,
+): DevSessionAsyncPocResult {
+    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) return DevSessionAsyncPocResult()
+    var sessionInstance: Any? = null
+    var closeSucceeded: Boolean? = null
+    val result = try {
+        val (createdSession, _) = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance)
+        sessionInstance = createdSession
+        val addQueryChunkMethod = createdSession.javaClass.methods.firstOrNull { method ->
+            method.name == "addQueryChunk" &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        } ?: throw NoSuchMethodException("addQueryChunk(String) not found")
+        addQueryChunkMethod.invoke(createdSession, DEV_LLM_SESSION_ASYNC_POC_PROMPT)
+
+        val asyncMethod = createdSession.javaClass.methods.firstOrNull { method ->
+            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
+        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
+        val future = asyncMethod.invoke(createdSession)
+            ?: throw IllegalStateException("generateResponseAsync() returned null")
+
+        val futureClassName = future.javaClass.name
+        val timeoutGetMethod = future.javaClass.methods.firstOrNull { method ->
+            method.name == "get" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == Long::class.javaPrimitiveType &&
+                method.parameterTypes[1] == TimeUnit::class.java
+        }
+        val responseAny = if (timeoutGetMethod != null) {
+            timeoutGetMethod.invoke(future, DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } else {
+            val getMethod = future.javaClass.methods.firstOrNull { method ->
+                method.name == "get" && method.parameterTypes.isEmpty()
+            } ?: throw NoSuchMethodException("Future get(...) method not found")
+            getMethod.invoke(future)
+        }
+        val responseText = (responseAny as? String) ?: responseAny?.toString()
+        DevSessionAsyncPocResult(
+            attempted = true,
+            createSucceeded = true,
+            asyncMethodSignature = asyncMethod.toGenericString(),
+            futureClassName = futureClassName,
+            responseLength = responseText?.length,
+            responseHead = responseText?.take(60),
+        )
+    } catch (throwable: Throwable) {
+        val root = throwable.cause ?: throwable
+        val stage = when {
+            root.message?.contains("createFromOptions", ignoreCase = true) == true -> "create"
+            root.message?.contains("addQueryChunk", ignoreCase = true) == true -> "addQueryChunk"
+            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
+            root is TimeoutException -> "futureGetTimeout"
+            root.message?.contains("Future get", ignoreCase = true) == true -> "futureGet"
+            else -> "unknown"
+        }
+        DevSessionAsyncPocResult(
+            attempted = true,
+            createSucceeded = sessionInstance != null,
+            errorStage = stage,
+            errorClassName = root.javaClass.name,
+            errorMessage = root.message?.take(120),
+        )
+    } finally {
+        closeSucceeded = runCatching {
+            tryCloseLlmInferenceSessionViaReflection(sessionInstance)
+        }.getOrDefault(false)
+    }
+    return result.copy(closeSucceeded = closeSucceeded)
 }
 
 private fun tryCheckLiteRtLmGenerateViaReflection(
@@ -3170,6 +3344,19 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionLifecycleSignature", value = trace.sessionLifecycleSignature ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocAttempted", value = trace.sessionAsyncPocAttempted.toString()),
+            InferenceStatItemUi(label = "sessionAsyncPocCreate", value = trace.sessionAsyncPocCreateSucceeded.toString()),
+            InferenceStatItemUi(label = "sessionAsyncPocMethod", value = trace.sessionAsyncPocMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocFutureClass", value = trace.sessionAsyncPocFutureClassName ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionAsyncPocResponseLength",
+                value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
+            ),
+            InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorMessage", value = trace.sessionAsyncPocErrorMessage ?: "—"),
             InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
             InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
             InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),
