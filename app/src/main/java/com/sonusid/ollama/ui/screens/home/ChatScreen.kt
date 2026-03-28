@@ -394,6 +394,8 @@ fun Home(
     var activeReplayMessageId by remember { mutableStateOf<Int?>(null) }
     var isReplayPlaying by remember { mutableStateOf(false) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
+    var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
+    var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(ttsController) {
@@ -1146,6 +1148,7 @@ fun Home(
                                                                 "ChatScreen",
                                                                 "LOCAL stats inventory: generationTimeMs=$localGenerationTimeMs, responseChars=$inventoryResponseChars, state=$inventoryState, timedOut=$timedOut, responseBlank=${runResult?.response.isNullOrBlank()}, streamingCandidate=${runResult?.trace?.streamingCandidateDetected}, createPath=${runResult?.trace?.createMethodSignature != null}, optionsBuildPath=${runResult?.trace?.optionsBuildPath}, generateMethod=${runResult?.trace?.generateMethodSignature}",
                                                             )
+                                                            latestLocalTraceForDev = runResult?.trace
                                                             logLocalStatsInventoryClassification(runResult = runResult)
                                                             if (
                                                                 runResult?.state == LocalInferenceEngineState.READY &&
@@ -1635,6 +1638,11 @@ fun Home(
                                                 onInferenceStatsClick = messageInferenceStats?.let {
                                                     {
                                                         selectedInferenceStats = it
+                                                        selectedLocalTraceForDevSheet = if (isLocalMinimalInferenceStats(it)) {
+                                                            latestLocalTraceForDev
+                                                        } else {
+                                                            null
+                                                        }
                                                         showInferenceStatsSheet = true
                                                     }
                                                 },
@@ -1755,9 +1763,10 @@ fun Home(
             onDismissRequest = {
                 showInferenceStatsSheet = false
                 selectedInferenceStats = null
+                selectedLocalTraceForDevSheet = null
             },
         ) {
-            stats?.let { InferenceStatsSheetContent(it) }
+            stats?.let { InferenceStatsSheetContent(it, localTraceForDev = selectedLocalTraceForDevSheet) }
         }
     }
 
@@ -2581,14 +2590,17 @@ internal fun createAssistantMessage(
 }
 
 @Composable
-private fun InferenceStatsSheetContent(stats: InferenceStats) {
+private fun InferenceStatsSheetContent(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace? = null,
+) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
     val sheetContentPadding = 14.dp
     val sectionSpacing = 12.dp
 
-    val sections = buildInferenceSummarySections(stats)
+    val sections = buildInferenceSummarySections(stats, localTraceForDev = localTraceForDev)
     val detailSections = buildInferenceDetailSections(stats)
 
     Column(
@@ -2868,8 +2880,11 @@ internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
     formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
 
 
-internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
-    InferenceStatsSectionUi(
+internal fun buildInferenceSummarySections(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace? = null,
+): List<InferenceStatsSectionUi> {
+    val summarySection = InferenceStatsSectionUi(
         title = "概要",
         items = if (isLocalMinimalInferenceStats(stats)) {
             listOf(
@@ -2888,8 +2903,13 @@ internal fun buildInferenceSummarySections(stats: InferenceStats): List<Inferenc
                 InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
             )
         },
-    ),
-)
+    )
+    val localInventorySection = buildLocalInventorySectionForDev(
+        isLocalMinimal = isLocalMinimalInferenceStats(stats),
+        trace = localTraceForDev,
+    )
+    return listOfNotNull(summarySection, localInventorySection)
+}
 
 private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
     return stats.generationTimeMs != null &&
@@ -2897,6 +2917,31 @@ private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
         stats.outputTokens == null &&
         stats.completionTokens == null &&
         stats.finishReason == null
+}
+
+private fun buildLocalInventorySectionForDev(
+    isLocalMinimal: Boolean,
+    trace: LocalInferenceTrace?,
+): InferenceStatsSectionUi? {
+    if (!isLocalMinimal || trace == null) return null
+    return InferenceStatsSectionUi(
+        title = "LOCAL棚卸し（開発用）",
+        items = listOf(
+            InferenceStatItemUi(label = "modelName", value = trace.modelNameProbe.availability.name),
+            InferenceStatItemUi(label = "finishReason", value = trace.finishReasonProbe.availability.name),
+            InferenceStatItemUi(label = "outputTokens", value = trace.outputTokenProbe.availability.name),
+            InferenceStatItemUi(label = "loadTime", value = trace.loadTimeProbe.availability.name),
+            InferenceStatItemUi(label = "promptEvalTime", value = trace.promptEvalTimeProbe.availability.name),
+            InferenceStatItemUi(label = "firstToken", value = trace.firstTokenProbe.availability.name),
+            InferenceStatItemUi(
+                label = "streamingCandidate",
+                value = trace.streamingCandidateDetected?.toString() ?: "—",
+            ),
+            InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),
+        ),
+    )
 }
 
 internal data class InferenceTimeSegmentUi(
