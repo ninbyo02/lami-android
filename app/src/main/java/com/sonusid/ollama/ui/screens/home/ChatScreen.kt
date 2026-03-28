@@ -172,7 +172,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
-import java.lang.reflect.Proxy
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -2035,13 +2034,9 @@ private fun generateLiteRtResponseViaReflection(
     }
 
     val streamingCandidateDetected = probeLiteRtStreamingApiViaReflection()
-    val listenerProbe = tryProbeSetResultListenerViaReflection(inferenceInstance = inferenceInstance)
-    val asyncProbe = tryProbeGenerateResponseAsyncViaReflection(inferenceInstance = inferenceInstance)
-    val sessionProbe = tryProbeSessionApiViaReflection(
-        context = context,
-        inferenceInstance = inferenceInstance,
-        inferenceOptions = optionsBuildResult.options,
-    )
+    val listenerProbe = findSetResultListenerCandidate(inferenceClass = inferenceInstance.javaClass)
+    val asyncProbe = findGenerateResponseAsyncCandidate(inferenceClass = inferenceInstance.javaClass)
+    val sessionProbe = findSessionApiCandidate(inferenceClass = inferenceInstance.javaClass)
     trace = trace.copy(
         streamingCandidateDetected = streamingCandidateDetected,
         listenerApiProbeResult = listenerProbe.result,
@@ -2294,152 +2289,44 @@ private data class LocalStreamingApiProbeOutcome(
     val signature: String? = null,
 )
 
-private fun tryProbeSetResultListenerViaReflection(
-    inferenceInstance: Any,
+private fun findSetResultListenerCandidate(
+    inferenceClass: Class<*>,
 ): LocalStreamingApiProbeOutcome {
-    val listenerMethod = inferenceInstance.javaClass.methods.firstOrNull { method ->
+    val listenerMethod = inferenceClass.methods.firstOrNull { method ->
         method.name == "setResultListener" && method.parameterTypes.size == 1
     } ?: return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.LISTENER_API_NOT_FOUND)
-
-    val listenerArg = buildListenerProbeArgument(listenerMethod.parameterTypes[0])
-        ?: return LocalStreamingApiProbeOutcome(
-            result = LocalStreamingApiProbeResult.LISTENER_INVOKE_FAILED,
-            signature = listenerMethod.toGenericString(),
-        )
-
-    return runCatching {
-        listenerMethod.invoke(inferenceInstance, listenerArg)
-        LocalStreamingApiProbeOutcome(
-            result = LocalStreamingApiProbeResult.LISTENER_INVOKE_SUCCEEDED,
-            signature = listenerMethod.toGenericString(),
-        )
-    }.getOrElse { throwable ->
-        Log.w("ChatScreen", "LiteRT-LM setResultListener probe invoke failed.", throwable)
-        LocalStreamingApiProbeOutcome(
-            result = LocalStreamingApiProbeResult.LISTENER_INVOKE_FAILED,
-            signature = listenerMethod.toGenericString(),
-        )
-    }
+    return LocalStreamingApiProbeOutcome(
+        result = LocalStreamingApiProbeResult.LISTENER_INVOKE_FAILED,
+        signature = listenerMethod.toGenericString(),
+    )
 }
 
-private fun buildListenerProbeArgument(listenerType: Class<*>): Any? {
-    if (!listenerType.isInterface) {
-        Log.w("ChatScreen", "LiteRT-LM setResultListener probe skipped: listenerType is not interface. type=${listenerType.name}")
-        return null
-    }
-    return runCatching {
-        Proxy.newProxyInstance(
-            listenerType.classLoader,
-            arrayOf(listenerType),
-        ) { _, method, _ ->
-            when (method.returnType) {
-                java.lang.Boolean.TYPE -> false
-                java.lang.Integer.TYPE -> 0
-                java.lang.Long.TYPE -> 0L
-                java.lang.Float.TYPE -> 0.0f
-                java.lang.Double.TYPE -> 0.0
-                java.lang.Void.TYPE -> null
-                else -> null
-            }
-        }
-    }.getOrElse { throwable ->
-        Log.w("ChatScreen", "LiteRT-LM setResultListener probe proxy creation failed.", throwable)
-        null
-    }
-}
-
-private fun tryProbeGenerateResponseAsyncViaReflection(
-    inferenceInstance: Any,
+private fun findGenerateResponseAsyncCandidate(
+    inferenceClass: Class<*>,
 ): LocalStreamingApiProbeOutcome {
-    val asyncMethod = inferenceInstance.javaClass.methods.firstOrNull { method ->
+    val asyncMethod = inferenceClass.methods.firstOrNull { method ->
         method.name == "generateResponseAsync" &&
             method.parameterTypes.isNotEmpty() &&
             method.parameterTypes[0] == String::class.java
     } ?: return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.ASYNC_API_NOT_FOUND)
 
-    val args = buildAsyncProbeArguments(asyncMethod.parameterTypes) ?: return LocalStreamingApiProbeOutcome(
+    return LocalStreamingApiProbeOutcome(
         result = LocalStreamingApiProbeResult.ASYNC_INVOKE_FAILED,
         signature = asyncMethod.toGenericString(),
     )
-
-    return runCatching {
-        asyncMethod.invoke(inferenceInstance, *args)
-        LocalStreamingApiProbeOutcome(
-            result = LocalStreamingApiProbeResult.ASYNC_INVOKE_SUCCEEDED,
-            signature = asyncMethod.toGenericString(),
-        )
-    }.getOrElse { throwable ->
-        Log.w("ChatScreen", "LiteRT-LM generateResponseAsync probe invoke failed.", throwable)
-        LocalStreamingApiProbeOutcome(
-            result = LocalStreamingApiProbeResult.ASYNC_INVOKE_FAILED,
-            signature = asyncMethod.toGenericString(),
-        )
-    }
 }
 
-private fun buildAsyncProbeArguments(parameterTypes: Array<Class<*>>): Array<Any?>? {
-    val args = arrayOfNulls<Any?>(parameterTypes.size)
-    args[0] = LOCAL_INFERENCE_PROBE_PROMPT
-    parameterTypes.drop(1).forEachIndexed { index, type ->
-        val argIndex = index + 1
-        args[argIndex] = when {
-            type == java.lang.Boolean.TYPE -> false
-            type == java.lang.Integer.TYPE -> 0
-            type == java.lang.Long.TYPE -> 0L
-            type == java.lang.Float.TYPE -> 0.0f
-            type == java.lang.Double.TYPE -> 0.0
-            type == java.lang.Short.TYPE -> 0.toShort()
-            type == java.lang.Byte.TYPE -> 0.toByte()
-            type == java.lang.Character.TYPE -> '\u0000'
-            !type.isPrimitive -> null
-            else -> return null
-        }
-    }
-    return args
-}
-
-private fun tryProbeSessionApiViaReflection(
-    context: Context,
-    inferenceInstance: Any,
-    inferenceOptions: Any,
+private fun findSessionApiCandidate(
+    inferenceClass: Class<*>,
 ): LocalStreamingApiProbeOutcome {
     val sessionClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
     }.getOrNull()
-    val createMethodsOnInference = inferenceInstance.javaClass.methods.filter { method ->
+    val createMethodsOnInference = inferenceClass.methods.filter { method ->
         method.name == "createSession" || method.name == "createSessionFromOptions"
     }
     if (sessionClass == null && createMethodsOnInference.isEmpty()) {
         return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.SESSION_API_NOT_FOUND)
-    }
-
-    createMethodsOnInference.forEach { createMethod ->
-        val args = buildSessionCreateArguments(createMethod.parameterTypes, context, inferenceOptions)
-            ?: return@forEach
-        val outcome = runCatching {
-            val created = createMethod.invoke(inferenceInstance, *args)
-            if (created == null) {
-                LocalStreamingApiProbeOutcome(
-                    result = LocalStreamingApiProbeResult.SESSION_CREATE_FAILED,
-                    signature = createMethod.toGenericString(),
-                )
-            } else {
-                runCatching { (created as? AutoCloseable)?.close() }
-                LocalStreamingApiProbeOutcome(
-                    result = LocalStreamingApiProbeResult.SESSION_CREATE_SUCCEEDED,
-                    signature = createMethod.toGenericString(),
-                )
-            }
-        }.getOrElse { throwable ->
-            Log.w("ChatScreen", "LiteRT-LM session create probe invoke failed.", throwable)
-            LocalStreamingApiProbeOutcome(
-                result = LocalStreamingApiProbeResult.SESSION_CREATE_FAILED,
-                signature = createMethod.toGenericString(),
-            )
-        }
-        if (outcome.result == LocalStreamingApiProbeResult.SESSION_CREATE_SUCCEEDED) {
-            return outcome
-        }
     }
 
     val sessionSignature = sessionClass?.methods?.firstOrNull { method ->
@@ -2449,29 +2336,6 @@ private fun tryProbeSessionApiViaReflection(
         result = LocalStreamingApiProbeResult.SESSION_CREATE_FAILED,
         signature = sessionSignature ?: createMethodsOnInference.firstOrNull()?.toGenericString(),
     )
-}
-
-private fun buildSessionCreateArguments(
-    parameterTypes: Array<Class<*>>,
-    context: Context,
-    inferenceOptions: Any,
-): Array<Any?>? {
-    return parameterTypes.map { parameterType ->
-        when {
-            parameterType.isInstance(context) -> context
-            parameterType.isInstance(inferenceOptions) -> inferenceOptions
-            !parameterType.isPrimitive -> null
-            parameterType == java.lang.Boolean.TYPE -> false
-            parameterType == java.lang.Integer.TYPE -> 0
-            parameterType == java.lang.Long.TYPE -> 0L
-            parameterType == java.lang.Float.TYPE -> 0.0f
-            parameterType == java.lang.Double.TYPE -> 0.0
-            parameterType == java.lang.Short.TYPE -> 0.toShort()
-            parameterType == java.lang.Byte.TYPE -> 0.toByte()
-            parameterType == java.lang.Character.TYPE -> '\u0000'
-            else -> return null
-        }
-    }.toTypedArray()
 }
 
 private fun tryCheckLiteRtLmGenerateViaReflection(
@@ -3162,11 +3026,32 @@ private fun buildLocalInventorySectionForDev(
                 label = "streamingCandidate",
                 value = trace.streamingCandidateDetected?.toString() ?: "—",
             ),
-            InferenceStatItemUi(label = "asyncApi", value = trace.asyncApiProbeResult?.name ?: "—"),
+            InferenceStatItemUi(
+                label = "asyncApi",
+                value = if (trace.asyncApiSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
             InferenceStatItemUi(label = "asyncSignature", value = trace.asyncApiSignature ?: "—"),
-            InferenceStatItemUi(label = "listenerApi", value = trace.listenerApiProbeResult?.name ?: "—"),
+            InferenceStatItemUi(
+                label = "listenerApi",
+                value = if (trace.listenerApiSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
             InferenceStatItemUi(label = "listenerSignature", value = trace.listenerApiSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionApi", value = trace.sessionApiProbeResult?.name ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionApi",
+                value = if (trace.sessionApiSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
             InferenceStatItemUi(label = "sessionSignature", value = trace.sessionApiSignature ?: "—"),
             InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
             InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
