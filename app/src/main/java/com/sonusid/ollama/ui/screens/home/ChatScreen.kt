@@ -276,6 +276,7 @@ fun Home(
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.SERVER) }
+    var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
     var localInferenceEngineState by rememberSaveable {
         mutableStateOf(LocalInferenceEngineState.UNINITIALIZED)
@@ -964,7 +965,9 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()),
+                                        enabled = !selectedModel.isNullOrBlank() &&
+                                            (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()) &&
+                                            !(selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning),
                                         onClick = {
                                             viewModel.onUserInteraction()
                                             if (selectedModel.isNullOrBlank()) {
@@ -1025,96 +1028,102 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     coroutineScope.launch {
-                                                        val currentChatId = effectiveChatId
-                                                        if (currentChatId == null) {
-                                                            placeholder = "Setting up a new chat ..."
-                                                            return@launch
-                                                        }
-                                                        if (selectedImageUriStrings.isNotEmpty()) {
-                                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                                            snackbarHostState.showSnackbar(
-                                                                message = "ローカル推論では画像入力はまだ未対応です",
-                                                                duration = SnackbarDuration.Short,
-                                                            )
-                                                            return@launch
-                                                        }
-                                                        val requestPrompt = userPrompt
-                                                        if (requestPrompt.isBlank()) {
-                                                            return@launch
-                                                        }
-                                                        viewModel.insert(
-                                                            Message(
-                                                                chatId = currentChatId,
-                                                                message = requestPrompt,
-                                                                isSendbyMe = true,
-                                                            )
-                                                        )
-                                                        prompt = ""
-                                                        userPrompt = ""
-                                                        selectedImageUriStrings = emptyList()
-                                                        ttsController.stop()
-                                                        viewModel.stopTtsPlayback()
-                                                        localInferenceEngineState = LocalInferenceEngineState.PREPARING
-                                                        val runResult = withContext(Dispatchers.IO) {
-                                                            val executor = Executors.newSingleThreadExecutor()
-                                                            val future = executor.submit<LocalInferenceRunResult> {
-                                                                runBlocking {
-                                                                    runLocalInferenceOnceEntry(
-                                                                        context = context.applicationContext,
-                                                                        settingsPreferences = settingsPreferences,
-                                                                        localBaseModelFilePath = localBaseModelFilePath,
-                                                                        prompt = requestPrompt,
-                                                                    )
-                                                                }
+                                                        if (isLocalInferenceRunning) return@launch
+                                                        isLocalInferenceRunning = true
+                                                        try {
+                                                            val currentChatId = effectiveChatId
+                                                            if (currentChatId == null) {
+                                                                placeholder = "Setting up a new chat ..."
+                                                                return@launch
                                                             }
-                                                            try {
-                                                                future.get(LOCAL_GENERATE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                                                            } catch (timeout: TimeoutException) {
-                                                                null
-                                                            } finally {
-                                                                future.cancel(true)
-                                                                executor.shutdownNow()
+                                                            if (selectedImageUriStrings.isNotEmpty()) {
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "ローカル推論では画像入力はまだ未対応です",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                                return@launch
                                                             }
-                                                        }
-                                                        localInferenceEngineState = runResult?.state
-                                                            ?: LocalInferenceEngineState.ERROR
-                                                        Log.i(
-                                                            "ChatScreen",
-                                                            "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, responseLength=${runResult?.response?.length ?: -1}, responseHead=${runResult?.response?.take(80)}, timedOut=${runResult == null}",
-                                                        )
-                                                        if (
-                                                            runResult?.state == LocalInferenceEngineState.READY &&
-                                                            !runResult.response.isNullOrBlank()
-                                                        ) {
-                                                            val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
-                                                            Log.i(
-                                                                "ChatScreen",
-                                                                "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
-                                                            )
+                                                            val requestPrompt = userPrompt
+                                                            if (requestPrompt.isBlank()) {
+                                                                return@launch
+                                                            }
                                                             viewModel.insert(
-                                                                createAssistantMessage(
+                                                                Message(
                                                                     chatId = currentChatId,
-                                                                    response = assistantResponse,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
                                                                 )
                                                             )
-                                                            return@launch
-                                                        }
-                                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                                        val dismissJob = launch {
-                                                            delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                            prompt = ""
+                                                            userPrompt = ""
+                                                            selectedImageUriStrings = emptyList()
+                                                            ttsController.stop()
+                                                            viewModel.stopTtsPlayback()
+                                                            localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            val runResult = withContext(Dispatchers.IO) {
+                                                                val executor = Executors.newSingleThreadExecutor()
+                                                                val future = executor.submit<LocalInferenceRunResult> {
+                                                                    runBlocking {
+                                                                        runLocalInferenceOnceEntry(
+                                                                            context = context.applicationContext,
+                                                                            settingsPreferences = settingsPreferences,
+                                                                            localBaseModelFilePath = localBaseModelFilePath,
+                                                                            prompt = requestPrompt,
+                                                                        )
+                                                                    }
+                                                                }
+                                                                try {
+                                                                    future.get(LOCAL_GENERATE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                                                                } catch (timeout: TimeoutException) {
+                                                                    null
+                                                                } finally {
+                                                                    future.cancel(true)
+                                                                    executor.shutdownNow()
+                                                                }
+                                                            }
+                                                            localInferenceEngineState = runResult?.state
+                                                                ?: LocalInferenceEngineState.ERROR
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, responseLength=${runResult?.response?.length ?: -1}, responseHead=${runResult?.response?.take(80)}, timedOut=${runResult == null}",
+                                                            )
+                                                            if (
+                                                                runResult?.state == LocalInferenceEngineState.READY &&
+                                                                !runResult.response.isNullOrBlank()
+                                                            ) {
+                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
+                                                                Log.i(
+                                                                    "ChatScreen",
+                                                                    "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
+                                                                )
+                                                                viewModel.insert(
+                                                                    createAssistantMessage(
+                                                                        chatId = currentChatId,
+                                                                        response = assistantResponse,
+                                                                    )
+                                                                )
+                                                                return@launch
+                                                            }
                                                             snackbarHostState.currentSnackbarData?.dismiss()
+                                                            val dismissJob = launch {
+                                                                delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                            }
+                                                            snackbarHostState.showSnackbar(
+                                                                message = when (runResult?.state) {
+                                                                    null -> "ローカル推論エンジンの確認がタイムアウトしました"
+                                                                    LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
+                                                                    LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                    LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
+                                                                    LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
+                                                                },
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                            dismissJob.cancel()
+                                                        } finally {
+                                                            isLocalInferenceRunning = false
                                                         }
-                                                        snackbarHostState.showSnackbar(
-                                                            message = when (runResult?.state) {
-                                                                null -> "ローカル推論エンジンの確認がタイムアウトしました"
-                                                                LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
-                                                                LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
-                                                                LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
-                                                                LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
-                                                            },
-                                                            duration = SnackbarDuration.Short,
-                                                        )
-                                                        dismissJob.cancel()
                                                     }
                                                 }
                                             }
