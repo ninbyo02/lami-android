@@ -163,6 +163,7 @@ import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
@@ -1022,11 +1023,13 @@ fun Home(
                                                         val initializationResult = withContext(Dispatchers.IO) {
                                                             val executor = Executors.newSingleThreadExecutor()
                                                             val future = executor.submit<LocalInferenceInitializationResult> {
-                                                                initializeLocalInferenceEngineEntry(
-                                                                    context = context.applicationContext,
-                                                                    settingsPreferences = settingsPreferences,
-                                                                    localBaseModelFilePath = localBaseModelFilePath,
-                                                                )
+                                                                runBlocking {
+                                                                    initializeLocalInferenceEngineEntry(
+                                                                        context = context.applicationContext,
+                                                                        settingsPreferences = settingsPreferences,
+                                                                        localBaseModelFilePath = localBaseModelFilePath,
+                                                                    )
+                                                                }
                                                             }
                                                             try {
                                                                 future.get(LOCAL_INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
