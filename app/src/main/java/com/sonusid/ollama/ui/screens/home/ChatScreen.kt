@@ -2,6 +2,7 @@ package com.sonusid.ollama.ui.screens.home
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -1068,6 +1069,7 @@ fun Home(
                                                             ttsController.stop()
                                                             viewModel.stopTtsPlayback()
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                             val runResult = withContext(Dispatchers.IO) {
                                                                 val executor = Executors.newSingleThreadExecutor()
                                                                 val future = executor.submit<LocalInferenceRunResult> {
@@ -1100,6 +1102,8 @@ fun Home(
                                                                 !runResult.response.isNullOrBlank()
                                                             ) {
                                                                 val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
+                                                                val localGenerationTimeMs =
+                                                                    (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
                                                                 Log.i(
                                                                     "ChatScreen",
                                                                     "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
@@ -1108,6 +1112,7 @@ fun Home(
                                                                     createAssistantMessage(
                                                                         chatId = currentChatId,
                                                                         response = assistantResponse,
+                                                                        generationTimeMs = localGenerationTimeMs,
                                                                     )
                                                                 )
                                                                 return@launch
@@ -2314,6 +2319,7 @@ internal fun createAssistantMessage(
     response: String,
     latestInferenceStats: InferenceStats? = null,
     imageInputCount: Int? = null,
+    generationTimeMs: Long? = null,
 ): Message {
     val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
     val inputTokens = latestInferenceStats?.inputTokens
@@ -2324,7 +2330,8 @@ internal fun createAssistantMessage(
         chatId = chatId,
         isSendbyMe = false,
         completionTokens = outputTokens,
-        generationTimeMs = latestInferenceStats?.generationTimeMs
+        generationTimeMs = generationTimeMs
+            ?: latestInferenceStats?.generationTimeMs
             ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
         evalDurationNs = latestInferenceStats?.evalDurationNs,
         loadDurationNs = latestInferenceStats?.modelLoadDurationNs,
@@ -2632,18 +2639,33 @@ internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
 internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
     InferenceStatsSectionUi(
         title = "概要",
-        items = listOf(
-            InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
-            InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
-            InferenceStatItemUi(
-                label = "生成速度",
-                value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
-                emphasizeValue = true,
+        items = if (isLocalMinimalInferenceStats(stats)) {
+            listOf(
+                InferenceStatItemUi(label = "応答時間", value = formatGenerationTime(stats) ?: "—"),
+                InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"),
+            )
+        } else {
+            listOf(
+                InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
+                InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
+                InferenceStatItemUi(
+                    label = "生成速度",
+                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                    emphasizeValue = true,
+                ),
+                InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
             ),
-            InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
-        ),
+        },
     ),
 )
+
+private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
+    return stats.generationTimeMs != null &&
+        stats.evalDurationNs == null &&
+        stats.outputTokens == null &&
+        stats.completionTokens == null &&
+        stats.finishReason == null
+}
 
 internal data class InferenceTimeSegmentUi(
     val label: String,
