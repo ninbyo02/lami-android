@@ -1889,6 +1889,13 @@ private fun tryLoadLiteRtLmViaReflection(
         return LocalLiteRtProbeResult.CREATE_FAILED
     }
 
+    val hasStreamingApiCandidate = probeLiteRtStreamingApiViaReflection()
+    if (hasStreamingApiCandidate) {
+        Log.i("ChatScreen", "LiteRT-LM streaming API candidate detected via reflection probe.")
+    } else {
+        Log.i("ChatScreen", "LiteRT-LM streaming API candidate not detected in this build.")
+    }
+
     return try {
         tryCheckLiteRtLmGenerateViaReflection(created)
     } finally {
@@ -2126,6 +2133,51 @@ private fun buildLiteRtOptionsViaReflection(
     } ?: throw IllegalStateException("LiteRT-LM build() returned null.")
     Log.i("ChatScreen", "LiteRT-LM options build succeeded.")
     return builtOptions
+}
+
+private fun probeLiteRtStreamingApiViaReflection(): Boolean {
+    val candidateMethodNames = listOf(
+        "generateResponseAsync",
+        "setResultListener",
+        "setProgressListener",
+        "addResultListener",
+        "createSession",
+        "createSessionFromOptions",
+    )
+    val targetClassNames = listOf(
+        "com.google.mediapipe.tasks.genai.llminference.LlmInference",
+        "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession",
+    )
+    val detectedSignatures = mutableListOf<String>()
+
+    targetClassNames.forEach { className ->
+        val targetClass = runCatching { Class.forName(className) }.onFailure { throwable ->
+            Log.i("ChatScreen", "LiteRT-LM streaming probe skipped class=$className", throwable)
+        }.getOrNull() ?: return@forEach
+
+        val classMethods = targetClass.methods
+        candidateMethodNames.forEach { candidateMethodName ->
+            val method = classMethods.firstOrNull { it.name == candidateMethodName } ?: return@forEach
+            val parameterTypeNames = method.parameterTypes.joinToString(prefix = "[", postfix = "]") { it.name }
+            val signature = method.toGenericString()
+            Log.i(
+                "ChatScreen",
+                "LiteRT-LM streaming candidate class=${targetClass.name}, method=${method.name}, parameterTypes=$parameterTypeNames, signature=$signature",
+            )
+            detectedSignatures += signature
+        }
+    }
+
+    if (detectedSignatures.isEmpty()) {
+        Log.i(
+            "ChatScreen",
+            "LiteRT-LM streaming probe completed: no candidate methods found. candidates=$candidateMethodNames",
+        )
+        return false
+    }
+
+    Log.i("ChatScreen", "LiteRT-LM streaming probe completed: detected=${detectedSignatures.size}")
+    return true
 }
 
 private fun tryCheckLiteRtLmGenerateViaReflection(
