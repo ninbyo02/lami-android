@@ -1086,7 +1086,7 @@ fun Home(
                                                             runResult?.state == LocalInferenceEngineState.READY &&
                                                             !runResult.response.isNullOrBlank()
                                                         ) {
-                                                            val assistantResponse = runResult.response
+                                                            val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
                                                             Log.i(
                                                                 "ChatScreen",
                                                                 "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
@@ -2221,6 +2221,16 @@ private fun InferenceStatsSection(
         )
         content()
     }
+}
+
+private fun sanitizeLocalAssistantResponse(raw: String): String {
+    return raw
+        .replace("<end_of_turn>", "")
+        .replace("<eot>", "")
+        .replace("<|eot_id|>", "")
+        .replace("<|end_of_text|>", "")
+        .replace(Regex("\n{3,}"), "\n\n")
+        .trim()
 }
 
 internal fun createAssistantMessage(
