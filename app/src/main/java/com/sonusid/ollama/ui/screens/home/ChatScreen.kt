@@ -2880,7 +2880,7 @@ internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
     formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
 
 
-internal fun buildInferenceSummarySections(
+private fun buildInferenceSummarySections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
 ): List<InferenceStatsSectionUi> {
