@@ -1220,6 +1220,11 @@ fun Home(
                                                                     createAssistantMessage(
                                                                         chatId = currentChatId,
                                                                         response = assistantResponse,
+                                                                        latestInferenceStats = buildLocalInferenceStatsFromTrace(
+                                                                            trace = runResult.trace,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                            responseCharCount = assistantResponse.length,
+                                                                        ),
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
                                                                 )
@@ -3149,6 +3154,47 @@ private fun sanitizeLocalAssistantResponse(raw: String): String {
         .replace("<|end_of_text|>", "")
         .replace(Regex("\n{3,}"), "\n\n")
         .trim()
+}
+
+private fun LocalStatsCandidateProbe.intValueOrNull(): Int? {
+    if (availability == LocalStatsAvailability.NOT_FOUND) return null
+    return valueSummary?.toIntOrNull()
+}
+
+private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
+    if (availability == LocalStatsAvailability.NOT_FOUND) return null
+    return valueSummary
+}
+
+private fun buildLocalInferenceStatsFromTrace(
+    trace: LocalInferenceTrace,
+    generationTimeMs: Long,
+    responseCharCount: Int,
+): InferenceStats? {
+    val existingInputTokens: Int? = null
+    val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
+    val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
+    val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
+    val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
+    val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
+    val modelName = trace.modelNameProbe.stringValueOrNull()
+    val finishReason = trace.finishReasonProbe.stringValueOrNull()
+    val hasStats = modelName != null ||
+        finishReason != null ||
+        inputTokens != null ||
+        outputTokens != null ||
+        totalTokens != null
+    if (!hasStats) return null
+    return InferenceStats(
+        modelName = modelName,
+        inputTokens = inputTokens,
+        outputTokens = outputTokens,
+        totalTokens = totalTokens,
+        completionTokens = outputTokens,
+        finishReason = finishReason,
+        generationTimeMs = generationTimeMs,
+        responseCharCount = responseCharCount,
+    )
 }
 
 internal fun createAssistantMessage(
