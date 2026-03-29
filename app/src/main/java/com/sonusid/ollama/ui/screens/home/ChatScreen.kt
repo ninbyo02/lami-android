@@ -1226,7 +1226,6 @@ fun Home(
                                                                             responseCharCount = assistantResponse.length,
                                                                             responseText = assistantResponse,
                                                                             fallbackTimeToFirstTokenMs = localGenerationTimeMs,
-                                                                            fallbackModelName = selectedModel,
                                                                         ),
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
@@ -3198,7 +3197,6 @@ private fun buildLocalInferenceStatsFromTrace(
     responseCharCount: Int,
     responseText: String? = null,
     fallbackTimeToFirstTokenMs: Long? = null,
-    fallbackModelName: String? = null,
 ): InferenceStats? {
     val existingInputTokens: Int? = null
     val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
@@ -3232,9 +3230,7 @@ private fun buildLocalInferenceStatsFromTrace(
             outputTokens = outputTokens,
             generationTimeMs = generationTimeMs,
         )
-    val modelName =
-        trace.modelNameProbe.stringValueOrNull()
-            ?: fallbackModelName?.trim()?.takeIf { it.isNotBlank() }
+    val modelName = trace.modelNameProbe.stringValueOrNull()
     val finishReason = buildLocalFinishReasonOrNull(
         existingFinishReason = trace.finishReasonProbe.stringValueOrNull(),
         responseText = responseText,
