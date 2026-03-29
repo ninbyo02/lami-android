@@ -13,6 +13,7 @@ data class Message(
     val attachmentUriStringsJson: String? = null,
     val completionTokens: Int? = null,
     val generationTimeMs: Long? = null,
+    val generationDurationNs: Long? = null,
     val evalDurationNs: Long? = null,
     val loadDurationNs: Long? = null,
     val promptEvalDurationNs: Long? = null,
