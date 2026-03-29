@@ -2505,6 +2505,24 @@ private fun tryCloseLlmInferenceSessionViaReflection(
     return true
 }
 
+private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
+    val normalized = raw
+        .replace("<end_of_turn>", "")
+        .replace("\r\n", "\n")
+    val compactBlankLines = normalized.replace(Regex("\n{3,}"), "\n\n")
+    val cleanedLines = buildList {
+        var previous: String? = null
+        compactBlankLines.lines().forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed == previous && trimmed.isNotEmpty()) return@forEach
+            add(trimmed)
+            previous = trimmed
+        }
+    }
+    val sanitized = cleanedLines.joinToString("\n").trim()
+    return sanitized.ifEmpty { raw.trim() }
+}
+
 private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
     inferenceInstance: Any,
 ): DevSessionAsyncPocResult {
@@ -2542,14 +2560,15 @@ private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
             } ?: throw NoSuchMethodException("Future get(...) method not found")
             getMethod.invoke(future)
         }
-        val responseText = (responseAny as? String) ?: responseAny?.toString()
+        val rawResponseText = (responseAny as? String) ?: responseAny?.toString()
+        val sanitizedResponseText = rawResponseText?.let(::sanitizeDevSessionAsyncPocResponse)
         DevSessionAsyncPocResult(
             attempted = true,
             createSucceeded = true,
             asyncMethodSignature = asyncMethod.toGenericString(),
             futureClassName = futureClassName,
-            responseLength = responseText?.length,
-            responseHead = responseText?.take(60),
+            responseLength = sanitizedResponseText?.length,
+            responseHead = sanitizedResponseText?.take(60),
         )
     } catch (throwable: Throwable) {
         val root = throwable.cause ?: throwable
