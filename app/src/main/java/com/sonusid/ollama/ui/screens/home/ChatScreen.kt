@@ -206,6 +206,8 @@ private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
 // DEV専用のsession async PoCは通常経路保護のためデフォルトで無効化する。
 private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = false
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC = "session-async-poc"
 private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
 private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 
@@ -2791,9 +2793,9 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
                     selectedResponse == sessionAsyncPocResult.responseText
                 ) {
-                    "session-async-poc"
+                    LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC
                 } else {
-                    "one-shot"
+                    LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
                 }
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = selectedResponseSource,
@@ -2832,9 +2834,9 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
                     selectedResponse == sessionAsyncPocResult.responseText
                 ) {
-                    "session-async-poc"
+                    LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC
                 } else {
-                    "one-shot"
+                    LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
                 }
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = selectedResponseSource,
