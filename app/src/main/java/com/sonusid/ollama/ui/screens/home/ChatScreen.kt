@@ -2091,6 +2091,7 @@ private fun generateLiteRtResponseViaReflection(
             inferenceInstance = inferenceInstance,
             prompt = prompt,
             trace = trace,
+            sessionAsyncPocResult = sessionAsyncPocResult,
         )
     } finally {
         runCatching {
@@ -2343,6 +2344,7 @@ private data class DevSessionAsyncPocResult(
     val createSucceeded: Boolean = false,
     val asyncMethodSignature: String? = null,
     val futureClassName: String? = null,
+    val responseText: String? = null,
     val responseLength: Int? = null,
     val responseHead: String? = null,
     val closeSucceeded: Boolean? = null,
@@ -2567,6 +2569,7 @@ private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
             createSucceeded = true,
             asyncMethodSignature = asyncMethod.toGenericString(),
             futureClassName = futureClassName,
+            responseText = sanitizedResponseText,
             responseLength = sanitizedResponseText?.length,
             responseHead = sanitizedResponseText?.take(60),
         )
@@ -2631,6 +2634,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
     inferenceInstance: Any,
     prompt: String,
     trace: LocalInferenceTrace,
+    sessionAsyncPocResult: DevSessionAsyncPocResult = DevSessionAsyncPocResult(),
 ): LocalLiteRtGeneratedResponse {
     val candidateMethodNames = listOf("generateResponse", "generate", "infer")
     val candidateMethods = candidateMethodNames.flatMap { methodName ->
@@ -2656,12 +2660,23 @@ private fun generateLiteRtStringResponseOnceViaReflection(
             is String -> {
                 val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
                     .merge(probeLocalStatsCandidates(inferenceInstance))
-                return LocalLiteRtGeneratedResponse(response = result, trace = inventoryTrace)
+                val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+                    sessionAsyncPocResult.responseText?.takeIf { it.isNotBlank() } ?: result
+                } else {
+                    result
+                }
+                return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
             is CharSequence -> {
                 val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
                     .merge(probeLocalStatsCandidates(inferenceInstance))
-                return LocalLiteRtGeneratedResponse(response = result.toString(), trace = inventoryTrace)
+                val oneShotResponse = result.toString()
+                val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+                    sessionAsyncPocResult.responseText?.takeIf { it.isNotBlank() } ?: oneShotResponse
+                } else {
+                    oneShotResponse
+                }
+                return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
         }
     }
