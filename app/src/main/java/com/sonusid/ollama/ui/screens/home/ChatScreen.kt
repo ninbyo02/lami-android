@@ -3257,7 +3257,8 @@ internal fun createAssistantMessage(
         generationTimeMs = generationTimeMs
             ?: latestInferenceStats?.generationTimeMs
             ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
-        evalDurationNs = latestInferenceStats?.evalDurationNs ?: latestInferenceStats?.generationDurationNs,
+        generationDurationNs = latestInferenceStats?.generationDurationNs,
+        evalDurationNs = latestInferenceStats?.evalDurationNs,
         loadDurationNs = latestInferenceStats?.modelLoadDurationNs,
         promptEvalDurationNs = latestInferenceStats?.promptEvalDurationNs,
         modelName = latestInferenceStats?.modelName ?: latestInferenceStats?.model,

@@ -8,6 +8,7 @@ import com.sonusid.ollama.ui.model.InferenceStats
 fun Message.isInferenceStatsMissing(): Boolean {
     return completionTokens == null &&
         generationTimeMs == null &&
+        generationDurationNs == null &&
         evalDurationNs == null &&
         loadDurationNs == null &&
         promptEvalDurationNs == null &&
@@ -45,7 +46,7 @@ fun Message.toInferenceStats(): InferenceStats? {
         generationTimeMs = generationTimeMs,
         modelLoadDurationNs = loadDurationNs,
         promptEvalDurationNs = promptEvalDurationNs,
-        generationDurationNs = evalDurationNs,
+        generationDurationNs = generationDurationNs ?: evalDurationNs,
         evalDurationNs = evalDurationNs,
         finishReason = finishReason,
         timeToFirstTokenMs = timeToFirstTokenMs,
