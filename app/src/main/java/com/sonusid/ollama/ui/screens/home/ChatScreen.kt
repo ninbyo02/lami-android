@@ -3166,6 +3166,15 @@ private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
     return valueSummary
 }
 
+private fun buildLocalTokensPerSecondOrNull(
+    outputTokens: Int?,
+    generationTimeMs: Long,
+): Double? {
+    if (outputTokens == null || outputTokens < 0 || generationTimeMs <= 0L) return null
+    val tokensPerSecond = outputTokens * 1000.0 / generationTimeMs
+    return tokensPerSecond.takeIf { it.isFinite() }
+}
+
 private fun buildLocalInferenceStatsFromTrace(
     trace: LocalInferenceTrace,
     generationTimeMs: Long,
@@ -3177,6 +3186,12 @@ private fun buildLocalInferenceStatsFromTrace(
     val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
     val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
     val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
+    val existingTokensPerSecond: Double? = null
+    val tokensPerSecond = existingTokensPerSecond
+        ?: buildLocalTokensPerSecondOrNull(
+            outputTokens = outputTokens,
+            generationTimeMs = generationTimeMs,
+        )
     val modelName = trace.modelNameProbe.stringValueOrNull()
     val finishReason = trace.finishReasonProbe.stringValueOrNull()
     val hasStats = modelName != null ||
@@ -3190,6 +3205,7 @@ private fun buildLocalInferenceStatsFromTrace(
         inputTokens = inputTokens,
         outputTokens = outputTokens,
         totalTokens = totalTokens,
+        tokensPerSecond = tokensPerSecond,
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
