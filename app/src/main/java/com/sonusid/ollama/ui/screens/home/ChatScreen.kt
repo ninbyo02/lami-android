@@ -3819,7 +3819,14 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
         items = listOf(
             InferenceStatItemUi(label = "モデルロード時間", value = formatModelLoadDuration(stats) ?: "—"),
             InferenceStatItemUi(label = "入力評価時間", value = formatPromptEvalDuration(stats) ?: "—"),
-            InferenceStatItemUi(label = "生成時間", value = formatGenerationDuration(stats) ?: "—"),
+            InferenceStatItemUi(
+                label = "生成時間",
+                value = if (stats.generationDurationNs == null && stats.evalDurationNs == null) {
+                    "—"
+                } else {
+                    formatGenerationDuration(stats) ?: "—"
+                },
+            ),
         ),
     ),
     InferenceStatsSectionUi(
