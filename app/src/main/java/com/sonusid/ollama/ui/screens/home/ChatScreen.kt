@@ -2525,6 +2525,36 @@ private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
     return sanitized.ifEmpty { raw.trim() }
 }
 
+
+private fun shouldUseDevSessionAsyncPocResponse(
+    prompt: String,
+    pocResponse: String,
+    oneShotResponse: String,
+): Boolean {
+    val trimmedResponse = pocResponse.trim()
+    if (trimmedResponse.isBlank()) return false
+    if (trimmedResponse.contains("<end_of_turn>")) return false
+    if (trimmedResponse.length > maxOf(oneShotResponse.length * 2, 120)) return false
+
+    val nonBlankLines = trimmedResponse.lines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+    if (nonBlankLines.size > 3) return false
+    if (nonBlankLines.distinct().size != nonBlankLines.size) return false
+
+    val shortAnswerKeywords = listOf("短く", "最短", "一言", "簡潔", "短文", "短く答えて", "短く回答")
+    if (shortAnswerKeywords.any { prompt.contains(it) }) {
+        val sentenceCount = trimmedResponse
+            .split("。", "!", "！", "?", "？")
+            .map { it.trim() }
+            .count { it.isNotEmpty() }
+        if (sentenceCount > 2) return false
+        if (trimmedResponse.length > 40) return false
+    }
+
+    return true
+}
+
 private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
     inferenceInstance: Any,
 ): DevSessionAsyncPocResult {
@@ -2661,7 +2691,19 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
                     .merge(probeLocalStatsCandidates(inferenceInstance))
                 val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
-                    sessionAsyncPocResult.responseText?.takeIf { it.isNotBlank() } ?: result
+                    val pocResponse = sessionAsyncPocResult.responseText
+                    if (
+                        pocResponse != null &&
+                        shouldUseDevSessionAsyncPocResponse(
+                            prompt = prompt,
+                            pocResponse = pocResponse,
+                            oneShotResponse = result,
+                        )
+                    ) {
+                        pocResponse
+                    } else {
+                        result
+                    }
                 } else {
                     result
                 }
@@ -2672,7 +2714,19 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     .merge(probeLocalStatsCandidates(inferenceInstance))
                 val oneShotResponse = result.toString()
                 val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
-                    sessionAsyncPocResult.responseText?.takeIf { it.isNotBlank() } ?: oneShotResponse
+                    val pocResponse = sessionAsyncPocResult.responseText
+                    if (
+                        pocResponse != null &&
+                        shouldUseDevSessionAsyncPocResponse(
+                            prompt = prompt,
+                            pocResponse = pocResponse,
+                            oneShotResponse = oneShotResponse,
+                        )
+                    ) {
+                        pocResponse
+                    } else {
+                        oneShotResponse
+                    }
                 } else {
                     oneShotResponse
                 }
