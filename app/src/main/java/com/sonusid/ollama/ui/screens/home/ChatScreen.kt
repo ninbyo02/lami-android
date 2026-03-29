@@ -280,6 +280,11 @@ private data class LocalInferenceTrace(
     val sessionAsyncSignature: String? = null,
     val sessionStreamingSignature: String? = null,
     val sessionTokenSignature: String? = null,
+    val sessionPromptTokens: Int? = null,
+    val sessionResponseTokens: Int? = null,
+    val sessionTotalTokens: Int? = null,
+    val sessionTokenProbeErrorStage: String? = null,
+    val sessionTokenProbeErrorClassName: String? = null,
     val sessionListenerSignature: String? = null,
     val sessionLifecycleSignature: String? = null,
     val sessionAsyncPocAttempted: Boolean = false,
@@ -296,6 +301,14 @@ private data class LocalInferenceTrace(
     val sessionAsyncPocErrorStage: String? = null,
     val sessionAsyncPocErrorClassName: String? = null,
     val sessionAsyncPocErrorMessage: String? = null,
+)
+
+private data class LocalSessionTokenProbeResult(
+    val promptTokens: Int? = null,
+    val responseTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val errorStage: String? = null,
+    val errorClassName: String? = null,
 )
 
 private data class LocalLiteRtGeneratedResponse(
@@ -2513,6 +2526,40 @@ private fun tryCloseLlmInferenceSessionViaReflection(
     return true
 }
 
+private fun tryProbeLlmSessionTokensViaReflection(
+    inferenceInstance: Any,
+    prompt: String,
+    response: String,
+): LocalSessionTokenProbeResult {
+    var sessionInstance: Any? = null
+    return try {
+        sessionInstance = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance).first
+        val sizeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
+            method.name == "sizeInTokens" &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        } ?: return LocalSessionTokenProbeResult(errorStage = "size_method_not_found")
+        val promptTokens = (sizeMethod.invoke(sessionInstance, prompt) as? Number)?.toInt()
+            ?: return LocalSessionTokenProbeResult(errorStage = "prompt_result_not_number")
+        val responseTokens = (sizeMethod.invoke(sessionInstance, response) as? Number)?.toInt()
+            ?: return LocalSessionTokenProbeResult(errorStage = "response_result_not_number")
+        LocalSessionTokenProbeResult(
+            promptTokens = promptTokens,
+            responseTokens = responseTokens,
+            totalTokens = promptTokens + responseTokens,
+        )
+    } catch (throwable: Throwable) {
+        LocalSessionTokenProbeResult(
+            errorStage = "exception",
+            errorClassName = throwable.javaClass.name,
+        )
+    } finally {
+        runCatching {
+            tryCloseLlmInferenceSessionViaReflection(sessionInstance)
+        }
+    }
+}
+
 private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
     val normalized = raw
         .replace("<end_of_turn>", "")
@@ -2819,6 +2866,18 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     selectedAssistantResponseSource = responseSelection.source,
                     selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
                 )
+                val tokenProbe = tryProbeLlmSessionTokensViaReflection(
+                    inferenceInstance = inferenceInstance,
+                    prompt = prompt,
+                    response = responseSelection.responseText,
+                )
+                inventoryTrace = inventoryTrace.copy(
+                    sessionPromptTokens = tokenProbe.promptTokens,
+                    sessionResponseTokens = tokenProbe.responseTokens,
+                    sessionTotalTokens = tokenProbe.totalTokens,
+                    sessionTokenProbeErrorStage = tokenProbe.errorStage,
+                    sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
+                )
                 return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
             }
             is CharSequence -> {
@@ -2839,6 +2898,18 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = responseSelection.source,
                     selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                )
+                val tokenProbe = tryProbeLlmSessionTokensViaReflection(
+                    inferenceInstance = inferenceInstance,
+                    prompt = prompt,
+                    response = responseSelection.responseText,
+                )
+                inventoryTrace = inventoryTrace.copy(
+                    sessionPromptTokens = tokenProbe.promptTokens,
+                    sessionResponseTokens = tokenProbe.responseTokens,
+                    sessionTotalTokens = tokenProbe.totalTokens,
+                    sessionTokenProbeErrorStage = tokenProbe.errorStage,
+                    sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
                 )
                 return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
             }
@@ -3544,6 +3615,11 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionTokenSignature", value = trace.sessionTokenSignature ?: "—"),
+            InferenceStatItemUi(label = "sessionPromptTokens", value = trace.sessionPromptTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionResponseTokens", value = trace.sessionResponseTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionTotalTokens", value = trace.sessionTotalTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionTokenProbeErrorStage", value = trace.sessionTokenProbeErrorStage ?: "—"),
+            InferenceStatItemUi(label = "sessionTokenProbeErrorClass", value = trace.sessionTokenProbeErrorClassName ?: "—"),
             InferenceStatItemUi(
                 label = "sessionListenerApi",
                 value = if (trace.sessionListenerSignature != null) {
