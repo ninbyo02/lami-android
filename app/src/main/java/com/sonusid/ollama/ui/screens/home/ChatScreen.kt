@@ -1224,6 +1224,7 @@ fun Home(
                                                                             trace = runResult.trace,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                             responseCharCount = assistantResponse.length,
+                                                                            fallbackTimeToFirstTokenMs = localGenerationTimeMs,
                                                                         ),
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
@@ -3161,6 +3162,11 @@ private fun LocalStatsCandidateProbe.intValueOrNull(): Int? {
     return valueSummary?.toIntOrNull()
 }
 
+private fun LocalStatsCandidateProbe.longValueOrNull(): Long? {
+    if (availability == LocalStatsAvailability.NOT_FOUND) return null
+    return valueSummary?.toLongOrNull()
+}
+
 private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
     if (availability == LocalStatsAvailability.NOT_FOUND) return null
     return valueSummary
@@ -3179,10 +3185,13 @@ private fun buildLocalInferenceStatsFromTrace(
     trace: LocalInferenceTrace,
     generationTimeMs: Long,
     responseCharCount: Int,
+    fallbackTimeToFirstTokenMs: Long? = null,
 ): InferenceStats? {
     val existingInputTokens: Int? = null
     val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
     val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
+    val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
+    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
     val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
     val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
     val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
@@ -3209,6 +3218,7 @@ private fun buildLocalInferenceStatsFromTrace(
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
+        timeToFirstTokenMs = timeToFirstTokenMs,
         responseCharCount = responseCharCount,
     )
 }
