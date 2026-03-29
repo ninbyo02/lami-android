@@ -2630,6 +2630,44 @@ private fun shouldUseDevSessionAsyncPocResponse(
     return true
 }
 
+
+private data class LocalAssistantResponseSelection(
+    val responseText: String,
+    val source: String,
+)
+
+private fun selectLocalAssistantResponse(
+    prompt: String,
+    oneShotResponse: String,
+    sessionAsyncPocResult: DevSessionAsyncPocResult,
+): LocalAssistantResponseSelection {
+    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+        return LocalAssistantResponseSelection(
+            responseText = oneShotResponse,
+            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+        )
+    }
+    val pocResponse = sessionAsyncPocResult.responseText
+    val shouldUsePocResponse =
+        pocResponse != null &&
+            shouldUseDevSessionAsyncPocResponse(
+                prompt = prompt,
+                pocResponse = pocResponse,
+                oneShotResponse = oneShotResponse,
+            )
+    return if (shouldUsePocResponse) {
+        LocalAssistantResponseSelection(
+            responseText = pocResponse,
+            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC,
+        )
+    } else {
+        LocalAssistantResponseSelection(
+            responseText = oneShotResponse,
+            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+        )
+    }
+}
+
 private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
     inferenceInstance: Any,
 ): DevSessionAsyncPocResult {
@@ -2772,36 +2810,16 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
                 )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
-                val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
-                    val pocResponse = sessionAsyncPocResult.responseText
-                    if (
-                        pocResponse != null &&
-                        shouldUseDevSessionAsyncPocResponse(
-                            prompt = prompt,
-                            pocResponse = pocResponse,
-                            oneShotResponse = oneShotResponse,
-                        )
-                    ) {
-                        pocResponse
-                    } else {
-                        oneShotResponse
-                    }
-                } else {
-                    oneShotResponse
-                }
-                val selectedResponseSource = if (
-                    ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
-                    selectedResponse == sessionAsyncPocResult.responseText
-                ) {
-                    LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC
-                } else {
-                    LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
-                }
-                inventoryTrace = inventoryTrace.copy(
-                    selectedAssistantResponseSource = selectedResponseSource,
-                    selectedAssistantResponseHead = sanitizeDebugTraceHead(selectedResponse),
+                val responseSelection = selectLocalAssistantResponse(
+                    prompt = prompt,
+                    oneShotResponse = oneShotResponse,
+                    sessionAsyncPocResult = sessionAsyncPocResult,
                 )
-                return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
+                inventoryTrace = inventoryTrace.copy(
+                    selectedAssistantResponseSource = responseSelection.source,
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                )
+                return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
             }
             is CharSequence -> {
                 val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result.toString())
@@ -2813,36 +2831,16 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
                 )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
-                val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
-                    val pocResponse = sessionAsyncPocResult.responseText
-                    if (
-                        pocResponse != null &&
-                        shouldUseDevSessionAsyncPocResponse(
-                            prompt = prompt,
-                            pocResponse = pocResponse,
-                            oneShotResponse = oneShotResponse,
-                        )
-                    ) {
-                        pocResponse
-                    } else {
-                        oneShotResponse
-                    }
-                } else {
-                    oneShotResponse
-                }
-                val selectedResponseSource = if (
-                    ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
-                    selectedResponse == sessionAsyncPocResult.responseText
-                ) {
-                    LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC
-                } else {
-                    LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
-                }
-                inventoryTrace = inventoryTrace.copy(
-                    selectedAssistantResponseSource = selectedResponseSource,
-                    selectedAssistantResponseHead = sanitizeDebugTraceHead(selectedResponse),
+                val responseSelection = selectLocalAssistantResponse(
+                    prompt = prompt,
+                    oneShotResponse = oneShotResponse,
+                    sessionAsyncPocResult = sessionAsyncPocResult,
                 )
-                return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
+                inventoryTrace = inventoryTrace.copy(
+                    selectedAssistantResponseSource = responseSelection.source,
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                )
+                return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
             }
         }
     }
