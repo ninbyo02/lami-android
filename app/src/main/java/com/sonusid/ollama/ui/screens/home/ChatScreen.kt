@@ -1224,6 +1224,7 @@ fun Home(
                                                                             trace = runResult.trace,
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                             responseCharCount = assistantResponse.length,
+                                                                            responseText = assistantResponse,
                                                                             fallbackTimeToFirstTokenMs = localGenerationTimeMs,
                                                                         ),
                                                                         generationTimeMs = localGenerationTimeMs,
@@ -3194,6 +3195,7 @@ private fun buildLocalInferenceStatsFromTrace(
     trace: LocalInferenceTrace,
     generationTimeMs: Long,
     responseCharCount: Int,
+    responseText: String? = null,
     fallbackTimeToFirstTokenMs: Long? = null,
 ): InferenceStats? {
     val existingInputTokens: Int? = null
@@ -3229,7 +3231,10 @@ private fun buildLocalInferenceStatsFromTrace(
             generationTimeMs = generationTimeMs,
         )
     val modelName = trace.modelNameProbe.stringValueOrNull()
-    val finishReason = trace.finishReasonProbe.stringValueOrNull()
+    val finishReason = buildLocalFinishReasonOrNull(
+        existingFinishReason = trace.finishReasonProbe.stringValueOrNull(),
+        responseText = responseText,
+    )
     val hasStats = modelName != null ||
         finishReason != null ||
         inputTokens != null ||
@@ -3250,6 +3255,15 @@ private fun buildLocalInferenceStatsFromTrace(
         timeToFirstTokenMs = timeToFirstTokenMs,
         responseCharCount = responseCharCount,
     )
+}
+
+private fun buildLocalFinishReasonOrNull(
+    existingFinishReason: String?,
+    responseText: String?,
+): String? {
+    val normalizedExisting = existingFinishReason?.trim()?.takeIf { it.isNotBlank() }
+    if (normalizedExisting != null) return normalizedExisting
+    return if (responseText.isNullOrBlank()) null else "stop"
 }
 
 internal fun createAssistantMessage(
