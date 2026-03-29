@@ -2536,6 +2536,42 @@ private fun sanitizeDebugTraceHead(raw: String?): String? {
     return base.take(80)
 }
 
+private fun sanitizeOneShotShortAnswerResponse(prompt: String, raw: String): String {
+    val shortAnswerKeywords = listOf(
+        "短く", "短文", "一言", "最短", "簡潔", "短く答えて", "短く回答",
+        "答えだけ", "回答だけ", "一語", "一行", "すぐ答えて", "端的に",
+        "簡単に", "シンプルに", "手短に",
+    )
+    if (!shortAnswerKeywords.any { prompt.contains(it) }) return raw
+
+    return runCatching {
+        val normalized = sanitizeDevSessionAsyncPocResponse(raw)
+        val segments = normalized
+            .split("。", "!", "！", "?", "？", "\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (segments.isEmpty()) return@runCatching raw
+
+        val shortDirectAnswer = segments.firstOrNull { candidate ->
+            Regex("^\\d+(です)?。?$").matches(candidate)
+        }
+        if (shortDirectAnswer != null) return@runCatching shortDirectAnswer
+
+        val emojiRegex = Regex("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]")
+        val sanitized = segments.firstOrNull { candidate ->
+            candidate.length <= 20 &&
+                !emojiRegex.containsMatchIn(candidate) &&
+                !candidate.contains("ありがとうございます") &&
+                !candidate.contains("かしこまり") &&
+                !candidate.contains("承知") &&
+                !candidate.contains("算数") &&
+                !candidate.contains("問題") &&
+                !candidate.contains("ですね")
+        }
+        sanitized ?: raw
+    }.getOrDefault(raw)
+}
+
 
 private fun shouldUseDevSessionAsyncPocResponse(
     prompt: String,
@@ -2725,7 +2761,8 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         }.getOrNull()
         when (result) {
             is String -> {
-                val oneShotResponseHead = sanitizeDebugTraceHead(result)
+                val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result)
+                val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
                 val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
@@ -2740,15 +2777,15 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                         shouldUseDevSessionAsyncPocResponse(
                             prompt = prompt,
                             pocResponse = pocResponse,
-                            oneShotResponse = result,
+                            oneShotResponse = oneShotResponse,
                         )
                     ) {
                         pocResponse
                     } else {
-                        result
+                        oneShotResponse
                     }
                 } else {
-                    result
+                    oneShotResponse
                 }
                 val selectedResponseSource = if (
                     ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
@@ -2765,7 +2802,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
             is CharSequence -> {
-                val oneShotResponse = result.toString()
+                val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result.toString())
                 val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
                 val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
