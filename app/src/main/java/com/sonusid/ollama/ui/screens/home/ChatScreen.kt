@@ -286,6 +286,10 @@ private data class LocalInferenceTrace(
     val sessionAsyncPocFutureClassName: String? = null,
     val sessionAsyncPocResponseLength: Int? = null,
     val sessionAsyncPocResponseHead: String? = null,
+    val selectedAssistantResponseSource: String? = null,
+    val selectedAssistantResponseHead: String? = null,
+    val oneShotResponseHead: String? = null,
+    val sessionAsyncPocSelectedCandidateHead: String? = null,
     val sessionAsyncPocCloseSucceeded: Boolean? = null,
     val sessionAsyncPocErrorStage: String? = null,
     val sessionAsyncPocErrorClassName: String? = null,
@@ -2714,7 +2718,13 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         }.getOrNull()
         when (result) {
             is String -> {
-                val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
+                val oneShotResponseHead = result.take(80)
+                val sessionAsyncPocCandidateHead = sessionAsyncPocResult.responseText?.take(80)
+                var inventoryTrace = trace.copy(
+                    generateMethodSignature = method.toGenericString(),
+                    oneShotResponseHead = oneShotResponseHead,
+                    sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
+                )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
                 val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
                     val pocResponse = sessionAsyncPocResult.responseText
@@ -2733,12 +2743,30 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 } else {
                     result
                 }
+                val selectedResponseSource = if (
+                    ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
+                    selectedResponse == sessionAsyncPocResult.responseText
+                ) {
+                    "session-async-poc"
+                } else {
+                    "one-shot"
+                }
+                inventoryTrace = inventoryTrace.copy(
+                    selectedAssistantResponseSource = selectedResponseSource,
+                    selectedAssistantResponseHead = selectedResponse.take(80),
+                )
                 return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
             is CharSequence -> {
-                val inventoryTrace = trace.copy(generateMethodSignature = method.toGenericString())
-                    .merge(probeLocalStatsCandidates(inferenceInstance))
                 val oneShotResponse = result.toString()
+                val oneShotResponseHead = oneShotResponse.take(80)
+                val sessionAsyncPocCandidateHead = sessionAsyncPocResult.responseText?.take(80)
+                var inventoryTrace = trace.copy(
+                    generateMethodSignature = method.toGenericString(),
+                    oneShotResponseHead = oneShotResponseHead,
+                    sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
+                )
+                    .merge(probeLocalStatsCandidates(inferenceInstance))
                 val selectedResponse = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
                     val pocResponse = sessionAsyncPocResult.responseText
                     if (
@@ -2756,6 +2784,18 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 } else {
                     oneShotResponse
                 }
+                val selectedResponseSource = if (
+                    ENABLE_DEV_LLM_SESSION_ASYNC_POC &&
+                    selectedResponse == sessionAsyncPocResult.responseText
+                ) {
+                    "session-async-poc"
+                } else {
+                    "one-shot"
+                }
+                inventoryTrace = inventoryTrace.copy(
+                    selectedAssistantResponseSource = selectedResponseSource,
+                    selectedAssistantResponseHead = selectedResponse.take(80),
+                )
                 return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
         }
@@ -3468,6 +3508,10 @@ private fun buildLocalInventorySectionForDev(
                 value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
             ),
             InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
+            InferenceStatItemUi(label = "assistantResponseSource", value = trace.selectedAssistantResponseSource ?: "—"),
+            InferenceStatItemUi(label = "selectedAssistantResponseHead", value = trace.selectedAssistantResponseHead ?: "—"),
+            InferenceStatItemUi(label = "oneShotResponseHead", value = trace.oneShotResponseHead ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocCandidateHead", value = trace.sessionAsyncPocSelectedCandidateHead ?: "—"),
             InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
             InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
             InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
