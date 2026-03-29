@@ -3449,6 +3449,25 @@ private fun buildLocalInventorySectionForDev(
     trace: LocalInferenceTrace?,
 ): InferenceStatsSectionUi? {
     if (!isLocalMinimal || trace == null) return null
+    val sessionAsyncPocDetailItems = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+        listOf(
+            InferenceStatItemUi(label = "sessionAsyncPocAttempted", value = trace.sessionAsyncPocAttempted.toString()),
+            InferenceStatItemUi(label = "sessionAsyncPocCreate", value = trace.sessionAsyncPocCreateSucceeded.toString()),
+            InferenceStatItemUi(label = "sessionAsyncPocMethod", value = trace.sessionAsyncPocMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocFutureClass", value = trace.sessionAsyncPocFutureClassName ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionAsyncPocResponseLength",
+                value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
+            ),
+            InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorMessage", value = trace.sessionAsyncPocErrorMessage ?: "—"),
+        )
+    } else {
+        emptyList()
+    }
     return InferenceStatsSectionUi(
         title = "LOCAL棚卸し（開発用）",
         items = listOf(
@@ -3543,23 +3562,12 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionLifecycleSignature", value = trace.sessionLifecycleSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocAttempted", value = trace.sessionAsyncPocAttempted.toString()),
-            InferenceStatItemUi(label = "sessionAsyncPocCreate", value = trace.sessionAsyncPocCreateSucceeded.toString()),
-            InferenceStatItemUi(label = "sessionAsyncPocMethod", value = trace.sessionAsyncPocMethodSignature ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocFutureClass", value = trace.sessionAsyncPocFutureClassName ?: "—"),
-            InferenceStatItemUi(
-                label = "sessionAsyncPocResponseLength",
-                value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
-            ),
-            InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocEnabled", value = ENABLE_DEV_LLM_SESSION_ASYNC_POC.toString()),
+        ) + sessionAsyncPocDetailItems + listOf(
             InferenceStatItemUi(label = "assistantResponseSource", value = trace.selectedAssistantResponseSource ?: "—"),
             InferenceStatItemUi(label = "selectedAssistantResponseHead", value = trace.selectedAssistantResponseHead ?: "—"),
             InferenceStatItemUi(label = "oneShotResponseHead", value = trace.oneShotResponseHead ?: "—"),
             InferenceStatItemUi(label = "sessionAsyncPocCandidateHead", value = trace.sessionAsyncPocSelectedCandidateHead ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
-            InferenceStatItemUi(label = "sessionAsyncPocErrorMessage", value = trace.sessionAsyncPocErrorMessage ?: "—"),
             InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
             InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
             InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),
