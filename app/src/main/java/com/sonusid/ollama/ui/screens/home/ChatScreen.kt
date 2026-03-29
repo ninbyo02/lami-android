@@ -3201,11 +3201,24 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
     val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
     val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
     val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
         generationTimeMs = generationTimeMs,
         timeToFirstTokenMs = timeToFirstTokenMs,
     )?.times(1_000_000L)
+    val fallbackPromptEvalNs =
+        if (existingPromptEvalNs != null && existingPromptEvalNs >= 0L) {
+            existingPromptEvalNs
+        } else {
+            val evalNs = existingGenerationDurationNs
+            val genNs = fallbackGenerationDurationNs
+            if (evalNs != null && genNs != null) {
+                (evalNs - genNs).coerceAtLeast(0L)
+            } else {
+                null
+            }
+        }
     val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
     val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
     val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
@@ -3233,6 +3246,7 @@ private fun buildLocalInferenceStatsFromTrace(
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
         generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
+        promptEvalDurationNs = fallbackPromptEvalNs,
         timeToFirstTokenMs = timeToFirstTokenMs,
         responseCharCount = responseCharCount,
     )
