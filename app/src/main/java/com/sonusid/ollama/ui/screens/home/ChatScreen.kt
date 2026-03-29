@@ -2532,6 +2532,7 @@ private fun shouldUseDevSessionAsyncPocResponse(
     oneShotResponse: String,
 ): Boolean {
     val trimmedResponse = pocResponse.trim()
+    val trimmedOneShotResponse = oneShotResponse.trim()
     if (trimmedResponse.isBlank()) return false
     if (trimmedResponse.contains("<end_of_turn>")) return false
     if (trimmedResponse.length > maxOf(oneShotResponse.length * 2, 120)) return false
@@ -2542,14 +2543,39 @@ private fun shouldUseDevSessionAsyncPocResponse(
     if (nonBlankLines.size > 3) return false
     if (nonBlankLines.distinct().size != nonBlankLines.size) return false
 
-    val shortAnswerKeywords = listOf("短く", "最短", "一言", "簡潔", "短文", "短く答えて", "短く回答")
-    if (shortAnswerKeywords.any { prompt.contains(it) }) {
-        val sentenceCount = trimmedResponse
-            .split("。", "!", "！", "?", "？")
-            .map { it.trim() }
-            .count { it.isNotEmpty() }
-        if (sentenceCount > 2) return false
-        if (trimmedResponse.length > 40) return false
+    val shortAnswerKeywords = listOf(
+        "短く", "短文", "一言", "最短", "簡潔", "短く答えて", "短く回答",
+        "答えだけ", "回答だけ", "一語", "一行", "すぐ答えて", "端的に",
+    )
+    val repeatedFeatureTokens = listOf("答えは", "算数", "ですね", "2です", "ありがとうございます")
+    val hasRepeatedFeatureToken = repeatedFeatureTokens.any { token ->
+        Regex(Regex.escape(token)).findAll(trimmedResponse).count() >= 2
+    }
+    val sentenceCount = trimmedResponse
+        .split("。", "!", "！", "?", "？")
+        .map { it.trim() }
+        .count { it.isNotEmpty() }
+    val shortPhrases = trimmedResponse
+        .split("\n", "。", "!", "！", "?", "？", "、", ",", "　", " ")
+        .map { it.trim() }
+        .filter { it.length in 2..8 }
+    val hasRepeatedShortPhrase = shortPhrases.groupingBy { it }.eachCount().any { it.value >= 2 }
+    if (hasRepeatedFeatureToken || hasRepeatedShortPhrase) return false
+
+    val isShortAnswerPrompt = shortAnswerKeywords.any { prompt.contains(it) }
+    if (isShortAnswerPrompt) {
+        val hasEmoji = Regex("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]").containsMatchIn(trimmedResponse)
+        val forbiddenPolitePhrases = listOf(
+            "かしこまり", "承知", "ありがとうございます", "算数", "問題",
+            "お手伝い", "お答え", "ですね", "ます",
+        )
+        if (trimmedResponse.contains("<end_of_turn>")) return false
+        if (trimmedResponse.contains('\n')) return false
+        if (trimmedResponse.length > 12) return false
+        if (sentenceCount > 1) return false
+        if (hasEmoji) return false
+        if (forbiddenPolitePhrases.any { trimmedResponse.contains(it) }) return false
+        if (trimmedOneShotResponse.isNotEmpty() && trimmedResponse.length > trimmedOneShotResponse.length) return false
     }
 
     return true
