@@ -2529,6 +2529,13 @@ private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
     return sanitized.ifEmpty { raw.trim() }
 }
 
+private fun sanitizeDebugTraceHead(raw: String?): String? {
+    if (raw == null) return null
+    val sanitized = sanitizeDevSessionAsyncPocResponse(raw)
+    val base = if (sanitized.isNotEmpty()) sanitized else raw.trim()
+    return base.take(80)
+}
+
 
 private fun shouldUseDevSessionAsyncPocResponse(
     prompt: String,
@@ -2718,8 +2725,8 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         }.getOrNull()
         when (result) {
             is String -> {
-                val oneShotResponseHead = result.take(80)
-                val sessionAsyncPocCandidateHead = sessionAsyncPocResult.responseText?.take(80)
+                val oneShotResponseHead = sanitizeDebugTraceHead(result)
+                val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
                     oneShotResponseHead = oneShotResponseHead,
@@ -2753,14 +2760,14 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 }
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = selectedResponseSource,
-                    selectedAssistantResponseHead = selectedResponse.take(80),
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(selectedResponse),
                 )
                 return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
             is CharSequence -> {
                 val oneShotResponse = result.toString()
-                val oneShotResponseHead = oneShotResponse.take(80)
-                val sessionAsyncPocCandidateHead = sessionAsyncPocResult.responseText?.take(80)
+                val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
+                val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
                     oneShotResponseHead = oneShotResponseHead,
@@ -2794,7 +2801,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 }
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = selectedResponseSource,
-                    selectedAssistantResponseHead = selectedResponse.take(80),
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(selectedResponse),
                 )
                 return LocalLiteRtGeneratedResponse(response = selectedResponse, trace = inventoryTrace)
             }
