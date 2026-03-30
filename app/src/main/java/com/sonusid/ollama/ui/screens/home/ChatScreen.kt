@@ -3604,7 +3604,7 @@ private fun buildInferenceSummarySections(
     localTraceForDev: LocalInferenceTrace? = null,
 ): List<InferenceStatsSectionUi> {
     val isLocalMinimal = isLocalMinimalInferenceStats(stats)
-    val localSourceSummaryText = if (isLocalMinimal && localTraceForDev != null) {
+    val localSourceSummaryText = if (localTraceForDev != null) {
         buildLocalSourceSummaryText(trace = localTraceForDev, stats = stats)
     } else {
         null
@@ -3618,16 +3618,22 @@ private fun buildInferenceSummarySections(
             }
         }
     } else {
-        listOf(
-            InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
-            InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
-            InferenceStatItemUi(
-                label = "生成速度",
-                value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
-                emphasizeValue = true,
-            ),
-            InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
-        )
+        buildList {
+            add(InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"))
+            add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
+            add(
+                InferenceStatItemUi(
+                    label = "生成速度",
+                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                    emphasizeValue = true,
+                )
+            )
+            add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+
+            if (localSourceSummaryText != null) {
+                add(InferenceStatItemUi(label = "採用元", value = localSourceSummaryText))
+            }
+        }
     }
     val summarySection = InferenceStatsSectionUi(
         title = "概要",
