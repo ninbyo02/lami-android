@@ -3626,6 +3626,7 @@ private fun buildInferenceSummarySections(
     val localInventorySection = buildLocalInventorySectionForDev(
         isLocalMinimal = isLocalMinimalInferenceStats(stats),
         trace = localTraceForDev,
+        stats = stats,
     )
     return listOfNotNull(summarySection, localInventorySection)
 }
@@ -3638,9 +3639,71 @@ private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
         stats.finishReason == null
 }
 
+
+private fun resolveLocalSourceItemsForDev(
+    trace: LocalInferenceTrace,
+    stats: InferenceStats,
+): List<InferenceStatItemUi> {
+    val modelNameSource = when {
+        trace.modelNameProbe.stringValueOrNull() != null -> "probe"
+        !trace.localModelDisplayName.isNullOrBlank() -> "trace-local-display-name"
+        else -> "unavailable"
+    }
+    val finishReasonSource = when {
+        trace.finishReasonProbe.stringValueOrNull() != null -> "probe"
+        !stats.finishReason.isNullOrBlank() -> "trace-finishReason-fallback"
+        else -> "unavailable"
+    }
+    val outputTokenSource = when {
+        trace.outputTokenProbe.intValueOrNull() != null -> "probe-output"
+        trace.sessionResponseTokens != null -> "session-output"
+        else -> "unavailable"
+    }
+    val totalTokenSource = when {
+        trace.estimatedTokenProbe.intValueOrNull() != null -> "probe-total"
+        trace.sessionTotalTokens != null -> "session-total"
+        else -> "unavailable"
+    }
+    val firstTokenSource = when {
+        trace.firstTokenProbe.longValueOrNull() != null -> "probe-first-token"
+        stats.timeToFirstTokenMs != null -> "fallback-generationTimeMs"
+        else -> "unavailable"
+    }
+    val generationDurationSource = when {
+        trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-eval"
+        stats.generationDurationNs != null -> "derived-from-total-minus-first"
+        else -> "unavailable"
+    }
+    val promptEvalDurationSource = when {
+        trace.promptEvalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-prompt-eval"
+        stats.promptEvalDurationNs != null -> "derived-from-eval-minus-generation"
+        else -> "unavailable"
+    }
+    val tokensPerSecondSource = if (buildLocalTokensPerSecondOrNull(
+            outputTokens = stats.outputTokens,
+            generationTimeMs = stats.generationTimeMs ?: 0L,
+        ) != null
+    ) {
+        "derived-from-output-and-generationTimeMs"
+    } else {
+        "unavailable"
+    }
+    return listOf(
+        InferenceStatItemUi(label = "modelNameSource", value = modelNameSource),
+        InferenceStatItemUi(label = "finishReasonSource", value = finishReasonSource),
+        InferenceStatItemUi(label = "outputTokenSource", value = outputTokenSource),
+        InferenceStatItemUi(label = "totalTokenSource", value = totalTokenSource),
+        InferenceStatItemUi(label = "firstTokenSource", value = firstTokenSource),
+        InferenceStatItemUi(label = "generationDurationSource", value = generationDurationSource),
+        InferenceStatItemUi(label = "promptEvalDurationSource", value = promptEvalDurationSource),
+        InferenceStatItemUi(label = "tokensPerSecondSource", value = tokensPerSecondSource),
+    )
+}
+
 private fun buildLocalInventorySectionForDev(
     isLocalMinimal: Boolean,
     trace: LocalInferenceTrace?,
+    stats: InferenceStats,
 ): InferenceStatsSectionUi? {
     if (!isLocalMinimal || trace == null) return null
     val rawProbeComparisonItems = listOf(
@@ -3652,6 +3715,10 @@ private fun buildLocalInventorySectionForDev(
         InferenceStatItemUi(label = "rawSessionPromptTokens", value = trace.sessionPromptTokens?.toString() ?: "—"),
         InferenceStatItemUi(label = "rawSessionResponseTokens", value = trace.sessionResponseTokens?.toString() ?: "—"),
         InferenceStatItemUi(label = "rawSessionTotalTokens", value = trace.sessionTotalTokens?.toString() ?: "—"),
+    )
+    val fallbackSourceItems = resolveLocalSourceItemsForDev(
+        trace = trace,
+        stats = stats,
     )
     val sessionAsyncPocDetailItems = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
         listOf(
@@ -3748,7 +3815,7 @@ private fun buildLocalInventorySectionForDev(
                 },
             ),
             InferenceStatItemUi(label = "sessionTokenSignature", value = trace.sessionTokenSignature ?: "—"),
-        ) + rawProbeComparisonItems + listOf(
+        ) + rawProbeComparisonItems + fallbackSourceItems + listOf(
             InferenceStatItemUi(label = "sessionPromptTokens", value = trace.sessionPromptTokens?.toString() ?: "—"),
             InferenceStatItemUi(label = "sessionResponseTokens", value = trace.sessionResponseTokens?.toString() ?: "—"),
             InferenceStatItemUi(label = "sessionTotalTokens", value = trace.sessionTotalTokens?.toString() ?: "—"),
