@@ -262,6 +262,7 @@ private data class LocalInferenceTrace(
     val optionsBuildPath: String? = null,
     val generateMethodSignature: String? = null,
     val streamingCandidateDetected: Boolean? = null,
+    val localModelDisplayName: String? = null,
     val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -376,6 +377,7 @@ fun Home(
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.SERVER) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
+    val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
     var localInferenceEngineState by rememberSaveable {
         mutableStateOf(LocalInferenceEngineState.UNINITIALIZED)
     }
@@ -1177,6 +1179,7 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             settingsPreferences = settingsPreferences,
                                                                             localBaseModelFilePath = localBaseModelFilePath,
+                                                                            localBaseModelDisplayName = localBaseModelDisplayName,
                                                                             prompt = requestPrompt,
                                                                         )
                                                                     }
@@ -1905,6 +1908,7 @@ private suspend fun runLocalInferenceOnceEntry(
     context: Context,
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
+    localBaseModelDisplayName: String?,
     prompt: String,
 ): LocalInferenceRunResult {
     val modelPath = resolveLocalBaseModelPathOrNull(
@@ -1915,6 +1919,7 @@ private suspend fun runLocalInferenceOnceEntry(
     val generated = generateLiteRtResponseViaReflection(
         context = context,
         modelPath = modelPath,
+        localModelDisplayName = localBaseModelDisplayName,
         prompt = prompt,
     )
     val response = generated.response
@@ -2039,9 +2044,10 @@ private fun tryLoadLiteRtLmViaReflection(
 private fun generateLiteRtResponseViaReflection(
     context: Context,
     modelPath: String,
+    localModelDisplayName: String?,
     prompt: String,
 ): LocalLiteRtGeneratedResponse {
-    var trace = LocalInferenceTrace()
+    var trace = LocalInferenceTrace(localModelDisplayName = localModelDisplayName)
     val llmInferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
     }.getOrElse { throwable ->
@@ -3231,6 +3237,7 @@ private fun buildLocalInferenceStatsFromTrace(
             generationTimeMs = generationTimeMs,
         )
     val modelName = trace.modelNameProbe.stringValueOrNull()
+        ?: trace.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
     val finishReason = buildLocalFinishReasonOrNull(
         existingFinishReason = trace.finishReasonProbe.stringValueOrNull(),
         responseText = responseText,
