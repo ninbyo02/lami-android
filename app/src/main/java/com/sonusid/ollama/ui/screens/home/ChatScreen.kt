@@ -3603,28 +3603,38 @@ private fun buildInferenceSummarySections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
 ): List<InferenceStatsSectionUi> {
+    val isLocalMinimal = isLocalMinimalInferenceStats(stats)
+    val localSourceSummaryText = if (isLocalMinimal && localTraceForDev != null) {
+        buildLocalSourceSummaryText(trace = localTraceForDev, stats = stats)
+    } else {
+        null
+    }
+    val summaryItems = if (isLocalMinimal) {
+        buildList {
+            add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
+            add(InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"))
+            if (localSourceSummaryText != null) {
+                add(InferenceStatItemUi(label = "採用元", value = localSourceSummaryText))
+            }
+        }
+    } else {
+        listOf(
+            InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
+            InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
+            InferenceStatItemUi(
+                label = "生成速度",
+                value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                emphasizeValue = true,
+            ),
+            InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
+        )
+    }
     val summarySection = InferenceStatsSectionUi(
         title = "概要",
-        items = if (isLocalMinimalInferenceStats(stats)) {
-            listOf(
-                InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"),
-                InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"),
-            )
-        } else {
-            listOf(
-                InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
-                InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
-                InferenceStatItemUi(
-                    label = "生成速度",
-                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
-                    emphasizeValue = true,
-                ),
-                InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
-            )
-        },
+        items = summaryItems,
     )
     val localInventorySection = buildLocalInventorySectionForDev(
-        isLocalMinimal = isLocalMinimalInferenceStats(stats),
+        isLocalMinimal = isLocalMinimal,
         trace = localTraceForDev,
         stats = stats,
     )
@@ -3637,6 +3647,40 @@ private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
         stats.outputTokens == null &&
         stats.completionTokens == null &&
         stats.finishReason == null
+}
+
+
+private fun shortenLocalSourceLabelForSummary(raw: String?): String? {
+    if (raw.isNullOrBlank() || raw == "unavailable") return null
+    return when {
+        raw == "probe" || raw.startsWith("probe-") -> "probe"
+        raw == "session" || raw.startsWith("session-") -> "session"
+        raw == "trace-local-display-name" -> "trace"
+        raw == "trace-finishReason-fallback" -> "fallback"
+        raw == "derived-from-total-minus-first" -> "fallback"
+        raw == "derived-from-eval-minus-generation" -> "fallback"
+        raw == "fallback-generationTimeMs" -> "fallback"
+        raw == "derived-from-output-and-generationTimeMs" -> "fallback"
+        else -> null
+    }
+}
+
+private fun buildLocalSourceSummaryText(
+    trace: LocalInferenceTrace,
+    stats: InferenceStats,
+): String? {
+    val sourceByLabel = resolveLocalSourceItemsForDev(trace = trace, stats = stats)
+        .associate { it.label to shortenLocalSourceLabelForSummary(it.value) }
+
+    val summaryParts = listOfNotNull(
+        sourceByLabel["modelNameSource"]?.let { "model:$it" },
+        sourceByLabel["finishReasonSource"]?.let { "finish:$it" },
+        sourceByLabel["outputTokenSource"]?.let { "out:$it" },
+        sourceByLabel["totalTokenSource"]?.let { "total:$it" },
+        sourceByLabel["tokensPerSecondSource"]?.let { "tps:$it" },
+    )
+
+    return summaryParts.takeIf { it.isNotEmpty() }?.joinToString(separator = " / ")
 }
 
 
