@@ -4012,7 +4012,7 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
             InferenceStatItemUi(
                 label = "推論時間",
                 value = withProbeStateLabel(
-                    value = formatDurationNsAsSeconds(stats.evalDurationNs),
+                    value = formatProbeDurationForUi(stats.evalDurationNs),
                     state = if (stats.evalDurationNs != null) "取得済み" else "未取得",
                 ),
             ),
@@ -4025,6 +4025,14 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
         ),
     ),
 )
+
+private fun formatProbeDurationForUi(durationNs: Long?): String {
+    val safeDurationNs = durationNs ?: return "—"
+    if (safeDurationNs < 0L) return "—"
+    val seconds = safeDurationNs / 1_000_000_000.0
+    if (seconds > 0.0 && seconds < 0.1) return "<0.1 s"
+    return String.format(Locale.US, "%.1f s", seconds)
+}
 
 private fun withProbeStateLabel(value: String?, state: String): String =
     "${value ?: "—"}（$state）"
