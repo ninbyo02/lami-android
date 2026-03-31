@@ -30,6 +30,7 @@ data class InferenceStats(
     val timeToFirstTokenMs: Long? = null,
     // 添付画像の枚数。入力トークンとは別指標として扱う。
     val imageInputCount: Int? = null,
+    val localSourceSummary: String? = null,
     val contextTokensUsed: Int? = null,
     val contextWindow: Int? = null,
     val contextUsageRatio: Double? = null,

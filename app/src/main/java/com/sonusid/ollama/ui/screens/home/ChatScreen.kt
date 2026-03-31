@@ -1215,6 +1215,17 @@ fun Home(
                                                                 !runResult.response.isNullOrBlank()
                                                             ) {
                                                                 val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
+                                                                val localInferenceStats = buildLocalInferenceStatsFromTrace(
+                                                                    trace = runResult.trace,
+                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                    responseCharCount = assistantResponse.length,
+                                                                    responseText = assistantResponse,
+                                                                    fallbackTimeToFirstTokenMs = localGenerationTimeMs,
+                                                                )
+                                                                val localSourceSummary = buildLocalSourceSummaryText(
+                                                                    trace = runResult.trace,
+                                                                    stats = localInferenceStats,
+                                                                )
                                                                 Log.i(
                                                                     "ChatScreen",
                                                                     "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
@@ -1223,13 +1234,8 @@ fun Home(
                                                                     createAssistantMessage(
                                                                         chatId = currentChatId,
                                                                         response = assistantResponse,
-                                                                        latestInferenceStats = buildLocalInferenceStatsFromTrace(
-                                                                            trace = runResult.trace,
-                                                                            generationTimeMs = localGenerationTimeMs,
-                                                                            responseCharCount = assistantResponse.length,
-                                                                            responseText = assistantResponse,
-                                                                            fallbackTimeToFirstTokenMs = localGenerationTimeMs,
-                                                                        ),
+                                                                        latestInferenceStats = localInferenceStats,
+                                                                        localSourceSummary = localSourceSummary,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
                                                                 )
@@ -3274,6 +3280,7 @@ internal fun createAssistantMessage(
     response: String,
     latestInferenceStats: InferenceStats? = null,
     imageInputCount: Int? = null,
+    localSourceSummary: String? = null,
     generationTimeMs: Long? = null,
 ): Message {
     val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
@@ -3301,6 +3308,7 @@ internal fun createAssistantMessage(
         timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,
         // 画像入力数は添付画像の枚数。入力トークンとは別メトリクスとして保存する。
         imageInputCount = imageInputCount ?: latestInferenceStats?.imageInputCount,
+        localSourceSummary = localSourceSummary ?: latestInferenceStats?.localSourceSummary,
     )
 }
 
@@ -3600,11 +3608,12 @@ private fun buildInferenceSummarySections(
     localTraceForDev: LocalInferenceTrace? = null,
 ): List<InferenceStatsSectionUi> {
     val isLocalMinimal = isLocalMinimalInferenceStats(stats)
-    val localSourceSummaryText = if (localTraceForDev != null) {
-        buildLocalSourceSummaryText(trace = localTraceForDev, stats = stats)
-    } else {
-        null
-    }
+    val localSourceSummaryText = stats.localSourceSummary
+        ?: if (localTraceForDev != null) {
+            buildLocalSourceSummaryText(trace = localTraceForDev, stats = stats)
+        } else {
+            null
+        }
     val summaryItems = if (isLocalMinimal) {
         buildList {
             add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))

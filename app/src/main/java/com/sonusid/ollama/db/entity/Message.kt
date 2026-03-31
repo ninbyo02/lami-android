@@ -25,4 +25,5 @@ data class Message(
     val finishReason: String? = null,
     val timeToFirstTokenMs: Long? = null,
     val imageInputCount: Int? = null,
+    val localSourceSummary: String? = null,
 )
