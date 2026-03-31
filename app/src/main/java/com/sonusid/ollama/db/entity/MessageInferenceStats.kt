@@ -49,6 +49,7 @@ fun Message.toInferenceStats(): InferenceStats? {
         generationDurationNs = generationDurationNs ?: evalDurationNs,
         evalDurationNs = evalDurationNs,
         finishReason = finishReason,
+        localSourceSummary = localSourceSummary,
         timeToFirstTokenMs = timeToFirstTokenMs,
         imageInputCount = imageInputCount,
         // 互換項目（段階移行用）。

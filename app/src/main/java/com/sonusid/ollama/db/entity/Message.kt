@@ -23,6 +23,7 @@ data class Message(
     val tokensPerSecond: Double? = null,
     val inferenceTimeSec: Double? = null,
     val finishReason: String? = null,
+    val localSourceSummary: String? = null,
     val timeToFirstTokenMs: Long? = null,
     val imageInputCount: Int? = null,
 )
