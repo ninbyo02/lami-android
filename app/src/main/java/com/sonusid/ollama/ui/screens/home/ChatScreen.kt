@@ -3211,6 +3211,7 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
     val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
     val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
+    val existingLoadDurationNs = trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
     val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
     val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
         generationTimeMs = generationTimeMs,
@@ -3259,6 +3260,7 @@ private fun buildLocalInferenceStatsFromTrace(
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
         generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
+        modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
         timeToFirstTokenMs = timeToFirstTokenMs,
         responseCharCount = responseCharCount,
