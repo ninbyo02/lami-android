@@ -2981,12 +2981,52 @@ private fun probeLocalStatsCandidates(
         loadTimeProbe = probeSingleCandidate(
             target = primaryTarget,
             label = "loadTime",
-            candidateNames = listOf("getLoadDuration", "loadDuration", "getLoadTimeMs", "loadTimeMs"),
+            candidateNames = listOf(
+                "getLoadDuration",
+                "loadDuration",
+                "getLoadTimeMs",
+                "loadTimeMs",
+                "getLoadDurationNs",
+                "loadDurationNs",
+                "getLoadDurationMs",
+                "loadDurationMs",
+                "getModelLoadDuration",
+                "modelLoadDuration",
+                "getModelLoadDurationNs",
+                "modelLoadDurationNs",
+                "getModelLoadTimeMs",
+                "modelLoadTimeMs",
+                "getPrefillDuration",
+                "prefillDuration",
+                "getPrefillDurationNs",
+                "prefillDurationNs",
+                "getInitializationDuration",
+                "initializationDuration",
+            ),
         ),
         promptEvalTimeProbe = probeSingleCandidate(
             target = primaryTarget,
             label = "promptEvalTime",
-            candidateNames = listOf("getPromptEvalDuration", "promptEvalDuration", "getPromptEvalTimeMs", "promptEvalTimeMs"),
+            candidateNames = listOf(
+                "getPromptEvalDuration",
+                "promptEvalDuration",
+                "getPromptEvalTimeMs",
+                "promptEvalTimeMs",
+                "getPromptEvalDurationNs",
+                "promptEvalDurationNs",
+                "getPromptEvalDurationMs",
+                "promptEvalDurationMs",
+                "getPromptProcessingDuration",
+                "promptProcessingDuration",
+                "getInputEvalDuration",
+                "inputEvalDuration",
+                "getInputEvalDurationNs",
+                "inputEvalDurationNs",
+                "getPrefillDuration",
+                "prefillDuration",
+                "getPrefillDurationNs",
+                "prefillDurationNs",
+            ),
         ),
         evalTimeProbe = probeSingleCandidate(
             target = primaryTarget,
@@ -3097,6 +3137,10 @@ private fun logLocalStatsInventoryClassification(runResult: LocalInferenceRunRes
     Log.i(
         "ChatScreen",
         "LOCAL stats signatures: modelName=${trace.modelNameProbe.signature}, finishReason=${trace.finishReasonProbe.signature}, outputTokens=${trace.outputTokenProbe.signature}, loadTime=${trace.loadTimeProbe.signature}, promptEval=${trace.promptEvalTimeProbe.signature}, evalTime=${trace.evalTimeProbe.signature}, firstToken=${trace.firstTokenProbe.signature}, estimatedTokens=${trace.estimatedTokenProbe.signature}",
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL load/prompt details: loadAvailability=${trace.loadTimeProbe.availability}, loadSignature=${trace.loadTimeProbe.signature}, loadRaw=${trace.loadTimeProbe.valueSummary}, loadParsed=${trace.loadTimeProbe.longValueOrNull()}, promptAvailability=${trace.promptEvalTimeProbe.availability}, promptSignature=${trace.promptEvalTimeProbe.signature}, promptRaw=${trace.promptEvalTimeProbe.valueSummary}, promptParsed=${trace.promptEvalTimeProbe.longValueOrNull()}",
     )
 }
 
