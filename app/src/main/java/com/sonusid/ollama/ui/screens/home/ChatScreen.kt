@@ -3983,16 +3983,38 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
     ),
     InferenceStatsSectionUi(
         title = "バックエンド時間詳細",
-        items = listOf(
-            InferenceStatItemUi(label = "モデルロード時間", value = formatModelLoadDuration(stats) ?: "—"),
-            InferenceStatItemUi(label = "入力評価時間", value = formatPromptEvalDuration(stats) ?: "—"),
+        items = listOfNotNull(
+            InferenceStatItemUi(
+                label = "モデルロード時間",
+                value = withProbeStateLabel(
+                    value = formatModelLoadDuration(stats),
+                    state = if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
+            InferenceStatItemUi(
+                label = "入力評価時間",
+                value = withProbeStateLabel(
+                    value = formatPromptEvalDuration(stats),
+                    state = if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                ),
+            ),
             InferenceStatItemUi(
                 label = "生成時間",
-                value = if (stats.generationDurationNs == null && stats.evalDurationNs == null) {
-                    "—"
-                } else {
-                    formatGenerationDuration(stats) ?: "—"
-                },
+                value = withProbeStateLabel(
+                    value = formatGenerationDuration(stats),
+                    state = when {
+                        stats.generationDurationNs != null -> "取得済み"
+                        stats.evalDurationNs != null -> "fallback"
+                        else -> "未取得"
+                    },
+                ),
+            ),
+            InferenceStatItemUi(
+                label = "推論時間",
+                value = withProbeStateLabel(
+                    value = formatDurationNsAsSeconds(stats.evalDurationNs),
+                    state = if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                ),
             ),
         ),
     ),
@@ -4003,6 +4025,9 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
         ),
     ),
 )
+
+private fun withProbeStateLabel(value: String?, state: String): String =
+    "${value ?: "—"}（$state）"
 
 internal data class InferenceStatsSectionUi(
     val title: String,
