@@ -1705,11 +1705,7 @@ fun Home(
                                                 onInferenceStatsClick = messageInferenceStats?.let {
                                                     {
                                                         selectedInferenceStats = it
-                                                        selectedLocalTraceForDevSheet = if (isLocalMinimalInferenceStats(it)) {
-                                                            latestLocalTraceForDev
-                                                        } else {
-                                                            null
-                                                        }
+                                                        selectedLocalTraceForDevSheet = latestLocalTraceForDev
                                                         showInferenceStatsSheet = true
                                                     }
                                                 },
