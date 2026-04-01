@@ -268,6 +268,7 @@ private data class LocalInferenceTrace(
     val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val loadTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val wallClockLoadDurationNs: Long? = null,
+    val wallClockTotalInferenceDurationNs: Long? = null,
     val promptEvalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val evalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val firstTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -2859,11 +2860,13 @@ private fun generateLiteRtStringResponseOnceViaReflection(
     }
 
     candidateMethods.forEach { method ->
+        val generateStartNs = SystemClock.elapsedRealtimeNanos()
         val result = runCatching {
             method.invoke(inferenceInstance, prompt)
         }.onFailure { throwable ->
             Log.w("ChatScreen", "LiteRT-LM generate invocation failed on ${method.name}(String)", throwable)
         }.getOrNull()
+        val wallClockTotalInferenceDurationNs = (SystemClock.elapsedRealtimeNanos() - generateStartNs).coerceAtLeast(0L)
         when (result) {
             is String -> {
                 val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result)
@@ -2871,6 +2874,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
+                    wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
                     oneShotResponseHead = oneShotResponseHead,
                     sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
                 )
@@ -2904,6 +2908,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                 val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
                 var inventoryTrace = trace.copy(
                     generateMethodSignature = method.toGenericString(),
+                    wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
                     oneShotResponseHead = oneShotResponseHead,
                     sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
                 )
@@ -3258,6 +3263,8 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
     val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
+    val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
     val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
@@ -3271,7 +3278,7 @@ private fun buildLocalInferenceStatsFromTrace(
         if (existingPromptEvalNs != null && existingPromptEvalNs >= 0L) {
             existingPromptEvalNs
         } else {
-            val evalNs = existingGenerationDurationNs
+            val evalNs = totalInferenceDurationNs
             val genNs = fallbackGenerationDurationNs
             if (evalNs != null && genNs != null) {
                 (evalNs - genNs).coerceAtLeast(0L)
@@ -3310,6 +3317,7 @@ private fun buildLocalInferenceStatsFromTrace(
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
         generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
+        evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
         timeToFirstTokenMs = timeToFirstTokenMs,
