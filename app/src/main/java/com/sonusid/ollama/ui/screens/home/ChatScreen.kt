@@ -2124,6 +2124,14 @@ private fun generateLiteRtResponseViaReflection(
         sessionAsyncPocErrorClassName = sessionAsyncPocResult.errorClassName,
         sessionAsyncPocErrorMessage = sessionAsyncPocResult.errorMessage,
     )
+    Log.i(
+        "ChatScreen",
+        "LOCAL streaming probe: detected=$streamingCandidateDetected, listener=${trace.listenerApiProbeResult}, async=${trace.asyncApiProbeResult}, session=${trace.sessionApiProbeResult}",
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL streaming signatures: listener=${trace.listenerApiSignature ?: "—"}, async=${trace.asyncApiSignature ?: "—"}, session=${trace.sessionApiSignature ?: "—"}, sessionGenerate=${trace.sessionGenerateSignature ?: "—"}, sessionAsync=${trace.sessionAsyncSignature ?: "—"}, sessionStreaming=${trace.sessionStreamingSignature ?: "—"}, sessionToken=${trace.sessionTokenSignature ?: "—"}",
+    )
     return try {
         generateLiteRtStringResponseOnceViaReflection(
             inferenceInstance = inferenceInstance,
@@ -2322,6 +2330,13 @@ private fun probeLiteRtStreamingApiViaReflection(): Boolean {
     val candidateMethodNames = listOf(
         "generateResponseAsync",
         "setResultListener",
+        "addListener",
+        "registerListener",
+        "setResponseListener",
+        "setPartialResultListener",
+        "setTokenListener",
+        "sendMessageAsync",
+        "createChat",
         "setProgressListener",
         "addResultListener",
         "createSession",
@@ -2435,8 +2450,23 @@ private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
 private fun findSetResultListenerCandidate(
     inferenceClass: Class<*>,
 ): LocalStreamingApiProbeOutcome {
+    val listenerMethodNames = listOf(
+        "setResultListener",
+        "addResultListener",
+        "addListener",
+        "registerListener",
+        "setResponseListener",
+        "setPartialResultListener",
+        "setTokenListener",
+        "setCallback",
+        "addCallback",
+    )
     val listenerMethod = inferenceClass.methods.firstOrNull { method ->
-        method.name == "setResultListener" && method.parameterTypes.size == 1
+        val lowerName = method.name.lowercase(Locale.ROOT)
+        (listenerMethodNames.any { it.equals(method.name, ignoreCase = true) } ||
+            lowerName.contains("listener") ||
+            lowerName.contains("callback")) &&
+            method.parameterTypes.size == 1
     } ?: return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.LISTENER_API_NOT_FOUND)
     return LocalStreamingApiProbeOutcome(
         result = LocalStreamingApiProbeResult.LISTENER_INVOKE_FAILED,
@@ -2447,10 +2477,21 @@ private fun findSetResultListenerCandidate(
 private fun findGenerateResponseAsyncCandidate(
     inferenceClass: Class<*>,
 ): LocalStreamingApiProbeOutcome {
+    val asyncMethodNames = listOf(
+        "generateResponseAsync",
+        "sendMessageAsync",
+        "chatAsync",
+        "generateAsync",
+    )
     val asyncMethod = inferenceClass.methods.firstOrNull { method ->
-        method.name == "generateResponseAsync" &&
+        val lowerName = method.name.lowercase(Locale.ROOT)
+        val hasAsyncNameHint = asyncMethodNames.any { it.equals(method.name, ignoreCase = true) } ||
+            lowerName.contains("async") ||
+            lowerName.contains("future")
+        hasAsyncNameHint &&
             method.parameterTypes.isNotEmpty() &&
-            method.parameterTypes[0] == String::class.java
+            (method.parameterTypes[0] == String::class.java ||
+                method.parameterTypes[0] == CharSequence::class.java)
     } ?: return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.ASYNC_API_NOT_FOUND)
 
     return LocalStreamingApiProbeOutcome(
@@ -2466,7 +2507,12 @@ private fun findSessionApiCandidate(
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
     }.getOrNull()
     val createMethodsOnInference = inferenceClass.methods.filter { method ->
-        method.name == "createSession" || method.name == "createSessionFromOptions"
+        val lowerName = method.name.lowercase(Locale.ROOT)
+        method.name == "createSession" ||
+            method.name == "createSessionFromOptions" ||
+            method.name == "createChat" ||
+            (lowerName.contains("session") && (lowerName.contains("create") || lowerName.contains("open"))) ||
+            (lowerName.contains("chat") && lowerName.contains("create"))
     }
     if (sessionClass == null && createMethodsOnInference.isEmpty()) {
         return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.SESSION_API_NOT_FOUND)
@@ -3866,6 +3912,10 @@ private fun buildLocalInventorySectionForDev(
             InferenceStatItemUi(label = "firstToken", value = trace.firstTokenProbe.availability.name),
             InferenceStatItemUi(
                 label = "streamingCandidate",
+                value = trace.streamingCandidateDetected?.toString() ?: "—",
+            ),
+            InferenceStatItemUi(
+                label = "streamingCandidateDetected",
                 value = trace.streamingCandidateDetected?.toString() ?: "—",
             ),
             InferenceStatItemUi(
