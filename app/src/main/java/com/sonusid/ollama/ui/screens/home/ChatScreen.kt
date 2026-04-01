@@ -172,6 +172,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -2051,14 +2053,20 @@ private fun generateLiteRtResponseViaReflection(
     prompt: String,
 ): LocalLiteRtGeneratedResponse {
     var trace = LocalInferenceTrace(localModelDisplayName = localModelDisplayName)
+    val modelPathTail = modelPath.substringAfterLast('/')
     Log.i(
         "ChatScreen",
         "LOCAL reflection entry: promptLength=${prompt.length}, model=${localModelDisplayName ?: "null"}",
+    )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "entry promptLength=${prompt.length} model=${localModelDisplayName ?: "null"} modelPathTail=$modelPathTail",
     )
     val llmInferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
     }.getOrElse { throwable ->
         Log.i("ChatScreen", "LOCAL reflection early-return: llm class load failed")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=llm-class-load-failed")
         Log.w("ChatScreen", "LiteRT-LM class not found for response generation.", throwable)
         return LocalLiteRtGeneratedResponse(trace = trace)
     }
@@ -2069,10 +2077,15 @@ private fun generateLiteRtResponseViaReflection(
             method.parameterTypes[0] == Context::class.java
     } ?: run {
         Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions method not found")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-method-not-found")
         Log.w("ChatScreen", "LiteRT-LM createFromOptions(Context, Options) method not found for response generation.")
         return LocalLiteRtGeneratedResponse(trace = trace)
     }
     trace = trace.copy(createMethodSignature = createFromOptionsMethod.toGenericString())
+    appendLocalReflectionTrace(
+        context = context,
+        message = "createFromOptions method signature=${createFromOptionsMethod.toGenericString()}",
+    )
     val optionsBuildResult = runCatching {
         buildLiteRtOptionsViaReflection(
             optionsClass = createFromOptionsMethod.parameterTypes[1],
@@ -2080,28 +2093,37 @@ private fun generateLiteRtResponseViaReflection(
         )
     }.getOrElse { throwable ->
         Log.i("ChatScreen", "LOCAL reflection early-return: options build failed")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=options-build-failed")
         Log.e("ChatScreen", "LiteRT-LM options build failed for response generation.", throwable)
         return LocalLiteRtGeneratedResponse(trace = trace)
     }
     trace = trace.copy(optionsBuildPath = optionsBuildResult.buildPath)
     Log.i("ChatScreen", "LOCAL reflection options-built: buildPath=${optionsBuildResult.buildPath}")
+    appendLocalReflectionTrace(context = context, message = "options-build success path=${optionsBuildResult.buildPath}")
 
     val loadStartNs = SystemClock.elapsedRealtimeNanos()
     Log.i("ChatScreen", "LOCAL reflection before-createFromOptions")
+    appendLocalReflectionTrace(context = context, message = "createFromOptions invoke-start")
     val inferenceInstance = runCatching {
         createFromOptionsMethod.invoke(null, context, optionsBuildResult.options)
     }.getOrElse { throwable ->
         Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions invocation failed")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-invocation-failed")
         Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed for response generation.", throwable)
         return LocalLiteRtGeneratedResponse(trace = trace)
     } ?: run {
         Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions returned null")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-returned-null")
         Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance for response generation.")
         return LocalLiteRtGeneratedResponse(trace = trace)
     }
     Log.i("ChatScreen", "LOCAL reflection after-createFromOptions: inferenceClass=${inferenceInstance.javaClass.name}")
     val wallClockLoadDurationNs = (SystemClock.elapsedRealtimeNanos() - loadStartNs).coerceAtLeast(0L)
     trace = trace.copy(wallClockLoadDurationNs = wallClockLoadDurationNs)
+    appendLocalReflectionTrace(
+        context = context,
+        message = "createFromOptions success inferenceClass=${inferenceInstance.javaClass.name} wallClockLoadDurationNs=$wallClockLoadDurationNs",
+    )
 
     Log.i("ChatScreen", "LOCAL reflection before-streaming-probe")
     val streamingCandidateDetected = probeLiteRtStreamingApiViaReflection()
@@ -2149,8 +2171,13 @@ private fun generateLiteRtResponseViaReflection(
         "ChatScreen",
         "LOCAL streaming signatures: listener=${trace.listenerApiSignature ?: "—"}, async=${trace.asyncApiSignature ?: "—"}, session=${trace.sessionApiSignature ?: "—"}, sessionGenerate=${trace.sessionGenerateSignature ?: "—"}, sessionAsync=${trace.sessionAsyncSignature ?: "—"}, sessionStreaming=${trace.sessionStreamingSignature ?: "—"}, sessionToken=${trace.sessionTokenSignature ?: "—"}",
     )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "streaming-probe detected=$streamingCandidateDetected listener=${trace.listenerApiProbeResult} async=${trace.asyncApiProbeResult} session=${trace.sessionApiProbeResult} listenerSig=${trace.listenerApiSignature ?: "—"} asyncSig=${trace.asyncApiSignature ?: "—"} sessionSig=${trace.sessionApiSignature ?: "—"} sessionGenerateSig=${trace.sessionGenerateSignature ?: "—"} sessionAsyncSig=${trace.sessionAsyncSignature ?: "—"} sessionStreamingSig=${trace.sessionStreamingSignature ?: "—"} sessionTokenSig=${trace.sessionTokenSignature ?: "—"}",
+    )
     return try {
         val generated = generateLiteRtStringResponseOnceViaReflection(
+            context = context,
             inferenceInstance = inferenceInstance,
             prompt = prompt,
             trace = trace,
@@ -2908,6 +2935,7 @@ private fun tryCheckLiteRtLmGenerateViaReflection(
 }
 
 private fun generateLiteRtStringResponseOnceViaReflection(
+    context: Context,
     inferenceInstance: Any,
     prompt: String,
     trace: LocalInferenceTrace,
@@ -2922,14 +2950,17 @@ private fun generateLiteRtStringResponseOnceViaReflection(
             }
     }
     Log.i("ChatScreen", "LOCAL reflection oneshot-entry: candidateMethodCount=${candidateMethods.size}")
+    appendLocalReflectionTrace(context = context, message = "oneshot-entry candidateMethodCount=${candidateMethods.size}")
     if (candidateMethods.isEmpty()) {
         Log.w("ChatScreen", "LiteRT-LM generate-like method not found for response generation.")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=generate-like-method-not-found")
         val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
         return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
     }
 
     candidateMethods.forEach { method ->
         Log.i("ChatScreen", "LOCAL reflection oneshot-try: method=${method.toGenericString()}")
+        appendLocalReflectionTrace(context = context, message = "oneshot-try method=${method.toGenericString()}")
         val generateStartNs = SystemClock.elapsedRealtimeNanos()
         val result = runCatching {
             method.invoke(inferenceInstance, prompt)
@@ -2971,6 +3002,10 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
                 )
                 Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${responseSelection.responseText.length}")
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "oneshot-success method=${method.name} responseLength=${responseSelection.responseText.length}",
+                )
                 return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
             }
             is CharSequence -> {
@@ -3006,14 +3041,35 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
                 )
                 Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${responseSelection.responseText.length}")
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "oneshot-success method=${method.name} responseLength=${responseSelection.responseText.length}",
+                )
                 return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
             }
-            else -> Log.i("ChatScreen", "LOCAL reflection oneshot-null-result: method=${method.name}")
+            else -> {
+                Log.i("ChatScreen", "LOCAL reflection oneshot-null-result: method=${method.name}")
+                appendLocalReflectionTrace(context = context, message = "oneshot-null-result method=${method.name}")
+            }
         }
     }
     Log.e("ChatScreen", "LiteRT-LM string response generation failed for all candidate methods.")
+    appendLocalReflectionTrace(context = context, message = "oneshot-all-candidate-failed")
     val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
     return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
+}
+
+private fun localReflectionTraceLine(message: String): String {
+    val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(Date())
+    return "$timestamp [LOCAL_REFLECTION] $message"
+}
+
+private fun appendLocalReflectionTrace(context: Context, message: String) {
+    runCatching {
+        val traceFile = File(context.filesDir, "debug/local_reflection_trace.log")
+        traceFile.parentFile?.mkdirs()
+        traceFile.appendText(localReflectionTraceLine(message) + "\n", Charsets.UTF_8)
+    }
 }
 
 private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenceTrace {
