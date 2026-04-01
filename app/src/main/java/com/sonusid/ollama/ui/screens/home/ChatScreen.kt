@@ -2171,7 +2171,9 @@ private fun generateLiteRtResponseViaReflection(
     Log.i("ChatScreen", "LOCAL reflection session-probe: result=${sessionProbe.result}, signature=${sessionProbe.signature}")
     val sessionMethodInventory = inspectLlmInferenceSessionMethods()
     val sessionAsyncPocResult = tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
+        context = context,
         inferenceInstance = inferenceInstance,
+        prompt = prompt,
     )
     trace = trace.copy(
         streamingCandidateDetected = streamingCandidateDetected,
@@ -2222,6 +2224,16 @@ private fun generateLiteRtResponseViaReflection(
             "ChatScreen",
             "LOCAL reflection exit: selectedSource=${generated.trace.selectedAssistantResponseSource}, streamingDetected=$streamingCandidateDetected",
         )
+        when (generated.trace.selectedAssistantResponseSource) {
+            LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC exit source=session-async",
+            )
+            else -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC exit source=oneshot-fallback",
+            )
+        }
         generated
     } finally {
         runCatching {
@@ -2865,26 +2877,55 @@ private fun selectLocalAssistantResponse(
 }
 
 private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
+    context: Context,
     inferenceInstance: Any,
+    prompt: String,
 ): DevSessionAsyncPocResult {
-    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) return DevSessionAsyncPocResult()
+    appendLocalReflectionTrace(
+        context = context,
+        message = "DEV_POC entry enabled=$ENABLE_DEV_LLM_SESSION_ASYNC_POC",
+    )
+    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+        appendLocalReflectionTrace(context = context, message = "DEV_POC skipped reason=flag-off")
+        return DevSessionAsyncPocResult()
+    }
+
     var sessionInstance: Any? = null
     var closeSucceeded: Boolean? = null
     val result = try {
-        val (createdSession, _) = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance)
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC create-session-start promptLength=${prompt.length}",
+        )
+        val (createdSession, createMethodSignature) = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance)
         sessionInstance = createdSession
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC create-session-success method=${createMethodSignature ?: "unknown"}",
+        )
+
+        appendLocalReflectionTrace(context = context, message = "DEV_POC add-query-start promptLength=${prompt.length}")
         val addQueryChunkMethod = createdSession.javaClass.methods.firstOrNull { method ->
             method.name == "addQueryChunk" &&
                 method.parameterTypes.size == 1 &&
                 method.parameterTypes[0] == String::class.java
         } ?: throw NoSuchMethodException("addQueryChunk(String) not found")
         addQueryChunkMethod.invoke(createdSession, DEV_LLM_SESSION_ASYNC_POC_PROMPT)
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC add-query-success method=${addQueryChunkMethod.toGenericString()}",
+        )
 
+        appendLocalReflectionTrace(context = context, message = "DEV_POC async-start")
         val asyncMethod = createdSession.javaClass.methods.firstOrNull { method ->
             method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
         } ?: throw NoSuchMethodException("generateResponseAsync() not found")
         val future = asyncMethod.invoke(createdSession)
             ?: throw IllegalStateException("generateResponseAsync() returned null")
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC async-future-created method=${asyncMethod.toGenericString()}",
+        )
 
         val futureClassName = future.javaClass.name
         val timeoutGetMethod = future.javaClass.methods.firstOrNull { method ->
@@ -2903,6 +2944,10 @@ private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
         }
         val rawResponseText = (responseAny as? String) ?: responseAny?.toString()
         val sanitizedResponseText = rawResponseText?.let(::sanitizeDevSessionAsyncPocResponse)
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC async-success responseLength=${sanitizedResponseText?.length ?: 0}",
+        )
         DevSessionAsyncPocResult(
             attempted = true,
             createSucceeded = true,
@@ -2914,7 +2959,18 @@ private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
         )
     } catch (throwable: Throwable) {
         val root = throwable.cause ?: throwable
+        val errorClassSimpleName = if (throwable is java.lang.reflect.InvocationTargetException) {
+            throwable.javaClass.simpleName
+        } else {
+            root.javaClass.simpleName
+        }
+        val errorClassName = if (throwable is java.lang.reflect.InvocationTargetException) {
+            throwable.javaClass.name
+        } else {
+            root.javaClass.name
+        }
         val stage = when {
+            root is ClassNotFoundException -> "create"
             root.message?.contains("createFromOptions", ignoreCase = true) == true -> "create"
             root.message?.contains("addQueryChunk", ignoreCase = true) == true -> "addQueryChunk"
             root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
@@ -2922,16 +2978,46 @@ private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
             root.message?.contains("Future get", ignoreCase = true) == true -> "futureGet"
             else -> "unknown"
         }
+        when (stage) {
+            "create" -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC create-session-failed errorStage=$stage errorClass=$errorClassSimpleName",
+            )
+            "addQueryChunk" -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC add-query-failed errorStage=$stage errorClass=$errorClassSimpleName",
+            )
+            else -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC async-failed errorStage=$stage errorClass=$errorClassSimpleName",
+            )
+        }
         DevSessionAsyncPocResult(
             attempted = true,
             createSucceeded = sessionInstance != null,
             errorStage = stage,
-            errorClassName = root.javaClass.name,
+            errorClassName = errorClassName,
             errorMessage = root.message?.take(120),
         )
     } finally {
+        appendLocalReflectionTrace(context = context, message = "DEV_POC close-start")
         closeSucceeded = runCatching {
             tryCloseLlmInferenceSessionViaReflection(sessionInstance)
+        }.onSuccess { succeeded ->
+            if (succeeded) {
+                appendLocalReflectionTrace(context = context, message = "DEV_POC close-success")
+            } else {
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "DEV_POC close-failed errorStage=close errorClass=CloseMethodNotFoundOrNullSession",
+                )
+            }
+        }.onFailure { throwable ->
+            val root = throwable.cause ?: throwable
+            appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC close-failed errorStage=close errorClass=${root.javaClass.simpleName}",
+            )
         }.getOrDefault(false)
     }
     return result.copy(closeSucceeded = closeSucceeded)
