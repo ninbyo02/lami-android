@@ -4035,59 +4035,59 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     }
 }
 
-internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
-    InferenceStatsSectionUi(
-        title = "トークン",
-        items = listOf(
-            InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
-            InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
-            InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
-        ),
-    ),
-    InferenceStatsSectionUi(
-        title = "バックエンド時間詳細",
-        items = listOfNotNull(
-            InferenceStatItemUi(
-                label = "モデルロード時間",
-                value = withProbeStateLabel(
-                    value = formatModelLoadDuration(stats),
-                    state = if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
-                ),
-            ),
-            InferenceStatItemUi(
-                label = "入力評価時間",
-                value = withProbeStateLabel(
-                    value = formatPromptEvalDuration(stats),
-                    state = if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
-                ),
-            ),
-            InferenceStatItemUi(
-                label = "生成時間",
-                value = withProbeStateLabel(
-                    value = formatGenerationDuration(stats),
-                    state = when {
-                        stats.generationDurationNs != null -> "取得済み"
-                        stats.evalDurationNs != null -> "fallback"
-                        else -> "未取得"
-                    },
-                ),
-            ),
-            InferenceStatItemUi(
-                label = "推論時間",
-                value = withProbeStateLabel(
-                    value = formatProbeDurationForUi(stats.evalDurationNs),
-                    state = if (stats.evalDurationNs != null) "取得済み" else "未取得",
-                ),
+internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> {
+    val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
+
+    return listOf(
+        InferenceStatsSectionUi(
+            title = "トークン",
+            items = listOf(
+                InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
+                InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
+                InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
             ),
         ),
-    ),
-    InferenceStatsSectionUi(
-        title = "補足",
-        items = listOf(
-            InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
+        InferenceStatsSectionUi(
+            title = "バックエンド時間詳細",
+            items = listOfNotNull(
+                InferenceStatItemUi(
+                    label = "モデルロード時間",
+                    value = withProbeStateLabel(
+                        value = formatModelLoadDuration(stats),
+                        state = if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "入力評価時間",
+                    value = withProbeStateLabel(
+                        value = formatPromptEvalDuration(stats),
+                        state = if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "生成時間",
+                    value = withProbeStateLabel(
+                        value = if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                        state = if (hasRealGenerationDuration) "取得済み" else "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "推論時間",
+                    value = withProbeStateLabel(
+                        value = formatProbeDurationForUi(stats.evalDurationNs),
+                        state = if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                    ),
+                ),
+            ),
         ),
-    ),
-)
+        InferenceStatsSectionUi(
+            title = "補足",
+            items = listOf(
+                InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
+            ),
+        ),
+    )
+}
 
 private fun formatProbeDurationForUi(durationNs: Long?): String {
     val safeDurationNs = durationNs ?: return "—"
