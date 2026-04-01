@@ -267,6 +267,7 @@ private data class LocalInferenceTrace(
     val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val loadTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val wallClockLoadDurationNs: Long? = null,
     val promptEvalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val evalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val firstTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -2076,6 +2077,7 @@ private fun generateLiteRtResponseViaReflection(
     }
     trace = trace.copy(optionsBuildPath = optionsBuildResult.buildPath)
 
+    val loadStartNs = SystemClock.elapsedRealtimeNanos()
     val inferenceInstance = runCatching {
         createFromOptionsMethod.invoke(null, context, optionsBuildResult.options)
     }.getOrElse { throwable ->
@@ -2085,6 +2087,8 @@ private fun generateLiteRtResponseViaReflection(
         Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance for response generation.")
         return LocalLiteRtGeneratedResponse(trace = trace)
     }
+    val wallClockLoadDurationNs = (SystemClock.elapsedRealtimeNanos() - loadStartNs).coerceAtLeast(0L)
+    trace = trace.copy(wallClockLoadDurationNs = wallClockLoadDurationNs)
 
     val streamingCandidateDetected = probeLiteRtStreamingApiViaReflection()
     val listenerProbe = findSetResultListenerCandidate(inferenceClass = inferenceInstance.javaClass)
@@ -3255,7 +3259,9 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
     val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
     val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
-    val existingLoadDurationNs = trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
+    val existingLoadDurationNs =
+        wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
     val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
     val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
         generationTimeMs = generationTimeMs,
