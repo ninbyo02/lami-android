@@ -206,8 +206,8 @@ private const val MaxComposerAttachments = 10
 private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
 private const val LOCAL_INIT_TIMEOUT_MS = 3000L
 private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
-// DEV専用のsession async PoCは通常経路保護のためデフォルトで無効化する。
-private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = false
+// DEV専用のsession async PoCは今回のPoC検証のため一時的にON（判定は internal file のみで実施）。
+private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = true
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC = "session-async-poc"
 private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
