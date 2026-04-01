@@ -3980,19 +3980,29 @@ internal data class InferenceTimeBreakdownUi(
 )
 
 internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
-    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L } ?: 0L
-    val prompt = stats.promptEvalDurationNs?.takeIf { it >= 0L } ?: 0L
-    val generation = (stats.generationDurationNs ?: stats.evalDurationNs)?.takeIf { it >= 0L } ?: 0L
-    val total = load + prompt + generation
+    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L }
+    val prompt = stats.promptEvalDurationNs?.takeIf { it >= 0L }
+    val generation = stats.generationDurationNs?.takeIf { it > 0L }
+
+    val segmentSources = buildList {
+        if (load != null) add("ロード" to load)
+        if (prompt != null) add("入力" to prompt)
+        if (generation != null) add("生成" to generation)
+    }
+    val total = segmentSources.sumOf { it.second }
     if (total <= 0L) return null
 
     fun ratio(value: Long): Double = value.toDouble() / total.toDouble()
     return InferenceTimeBreakdownUi(
-        segments = listOf(
-            InferenceTimeSegmentUi("ロード", ratio(load), (ratio(load) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(load)),
-            InferenceTimeSegmentUi("入力", ratio(prompt), (ratio(prompt) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(prompt)),
-            InferenceTimeSegmentUi("生成", ratio(generation), (ratio(generation) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(generation)),
-        ),
+        segments = segmentSources.map { (label, duration) ->
+            val valueRatio = ratio(duration)
+            InferenceTimeSegmentUi(
+                label = label,
+                ratio = valueRatio,
+                percent = (valueRatio * 100).roundToInt(),
+                durationText = formatDurationNsAsSecondsForSheet(duration),
+            )
+        },
     )
 }
 
