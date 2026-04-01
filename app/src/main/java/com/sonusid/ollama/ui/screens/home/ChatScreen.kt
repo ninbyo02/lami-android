@@ -1141,6 +1141,10 @@ fun Home(
 
                                                 InferenceTarget.LOCAL -> {
                                                     coroutineScope.launch {
+                                                        appendLocalReflectionTrace(
+                                                            context = context.applicationContext,
+                                                            message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
+                                                        )
                                                         if (isLocalInferenceRunning) return@launch
                                                         isLocalInferenceRunning = true
                                                         try {
@@ -1175,10 +1179,18 @@ fun Home(
                                                             viewModel.stopTtsPlayback()
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
+                                                            appendLocalReflectionTrace(
+                                                                context = context.applicationContext,
+                                                                message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
+                                                            )
                                                             val runResult = withContext(Dispatchers.IO) {
                                                                 val executor = Executors.newSingleThreadExecutor()
                                                                 val future = executor.submit<LocalInferenceRunResult> {
                                                                     runBlocking {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM before-runLocalInferenceOnceEntry",
+                                                                        )
                                                                         runLocalInferenceOnceEntry(
                                                                             context = context.applicationContext,
                                                                             settingsPreferences = settingsPreferences,
@@ -1232,6 +1244,10 @@ fun Home(
                                                                 Log.i(
                                                                     "ChatScreen",
                                                                     "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
+                                                                )
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = "UPSTREAM before-createAssistantMessage localResponseBlank=${assistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
                                                                 )
                                                                 viewModel.insert(
                                                                     createAssistantMessage(
@@ -1916,11 +1932,26 @@ private suspend fun runLocalInferenceOnceEntry(
     localBaseModelDisplayName: String?,
     prompt: String,
 ): LocalInferenceRunResult {
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
+    )
     val modelPath = resolveLocalBaseModelPathOrNull(
         settingsPreferences = settingsPreferences,
         localBaseModelFilePath = localBaseModelFilePath,
-    ) ?: return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+    ) ?: run {
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM resolved-local-model-path success=false",
+        )
+        return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+    }
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM resolved-local-model-path success=true modelPathTail=${modelPath.substringAfterLast('/')}",
+    )
 
+    appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
     val generated = generateLiteRtResponseViaReflection(
         context = context,
         modelPath = modelPath,
@@ -1928,6 +1959,10 @@ private suspend fun runLocalInferenceOnceEntry(
         prompt = prompt,
     )
     val response = generated.response
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM after-generateLiteRtResponseViaReflection responseNull=${response == null} responseLength=${response?.length ?: -1}",
+    )
     return if (response.isNullOrBlank()) {
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.ERROR,
