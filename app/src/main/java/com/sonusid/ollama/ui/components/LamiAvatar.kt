@@ -116,6 +116,7 @@ fun LamiAvatar(
     onNavigateSettings: (() -> Unit)? = null,
     selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
     onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
+    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     openControlRequestKey: Int = 0,
@@ -406,6 +407,23 @@ fun LamiAvatar(
                         )
                     }
                     item {
+                        StatusInfoItem(
+                            label = "ローカル推論エンジン",
+                            value = when (localInferenceEngineState) {
+                                LocalInferenceEngineState.UNINITIALIZED -> "未初期化"
+                                LocalInferenceEngineState.PREPARING -> "準備中"
+                                LocalInferenceEngineState.READY -> "利用可能"
+                                LocalInferenceEngineState.ERROR -> "エラー"
+                            },
+                            valueStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0.sp,
+                            ),
+                        )
+                    }
+                    item {
                         InferenceTargetSelectorRow(
                             selectedTarget = selectedInferenceTarget,
                             isLocalTargetEnabled = isLocalBaseModelAvailable == true,
@@ -502,6 +520,13 @@ fun LamiAvatar(
 enum class InferenceTarget {
     SERVER,
     LOCAL,
+}
+
+enum class LocalInferenceEngineState {
+    UNINITIALIZED,
+    PREPARING,
+    READY,
+    ERROR,
 }
 
 

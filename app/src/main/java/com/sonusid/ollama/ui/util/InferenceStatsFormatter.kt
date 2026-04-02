@@ -75,8 +75,16 @@ fun formatModelLoadDuration(stats: InferenceStats): String? =
 fun formatPromptEvalDuration(stats: InferenceStats): String? =
     formatDurationNsAsSeconds(stats.promptEvalDurationNs)
 
-fun formatGenerationDuration(stats: InferenceStats): String? =
-    formatDurationNsAsSeconds(stats.generationDurationNs ?: stats.evalDurationNs)
+fun formatGenerationDuration(stats: InferenceStats): String? {
+    val generationDurationNs = stats.generationDurationNs
+    val evalDurationNs = stats.evalDurationNs
+    val durationNs = when {
+        generationDurationNs != null && generationDurationNs >= 0L -> generationDurationNs
+        evalDurationNs != null && evalDurationNs >= 0L -> evalDurationNs
+        else -> null
+    }
+    return formatDurationNsAsSeconds(durationNs)
+}
 
 fun formatOutputTokens(stats: InferenceStats): String? {
     val outputTokens = resolveOutputTokens(stats) ?: return null

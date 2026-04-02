@@ -27,6 +27,7 @@ data class InferenceStats(
     val evalDurationNs: Long? = null,
     // finalChunk の doneReason / finishReason を保存して表示する。
     val finishReason: String? = null,
+    val localSourceSummary: String? = null,
     val timeToFirstTokenMs: Long? = null,
     // 添付画像の枚数。入力トークンとは別指標として扱う。
     val imageInputCount: Int? = null,
@@ -39,4 +40,5 @@ data class InferenceStats(
     val modelLabel: String? = null,
     val completionTokens: Int? = null,
     val deviceLabel: String? = null,
+    val responseCharCount: Int? = null,
 )

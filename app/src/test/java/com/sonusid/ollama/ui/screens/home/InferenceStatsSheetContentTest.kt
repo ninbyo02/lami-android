@@ -129,8 +129,11 @@ class InferenceStatsSheetContentTest {
             sections[0].items.map { it.label },
         )
         assertEquals(listOf("100", "240", "340"), sections[0].items.map { it.value })
-        assertEquals(listOf("モデルロード時間", "入力評価時間", "生成時間"), sections[1].items.map { it.label })
-        assertEquals(listOf("2.0 s", "1.5 s", "3.0 s"), sections[1].items.map { it.value })
+        assertEquals(listOf("モデルロード時間", "入力評価時間", "生成時間", "推論時間"), sections[1].items.map { it.label })
+        assertEquals(
+            listOf("2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
+            sections[1].items.map { it.value },
+        )
         assertEquals(listOf("画像入力"), sections[2].items.map { it.label })
         assertEquals(listOf("2枚"), sections[2].items.map { it.value })
     }
@@ -140,8 +143,20 @@ class InferenceStatsSheetContentTest {
         val sections = buildInferenceDetailSections(InferenceStats())
 
         assertEquals(listOf("—", "—", "—"), sections[0].items.map { it.value })
-        assertEquals(listOf("—", "—", "—"), sections[1].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "—（未取得）"), sections[1].items.map { it.value })
         assertEquals("—", sections[2].items.first().value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections marks generation fallback when using evalDurationNs`() {
+        val sections = buildInferenceDetailSections(
+            InferenceStats(
+                evalDurationNs = 1_200_000_000L,
+            ),
+        )
+
+        assertEquals("1.2 s（fallback）", sections[1].items[2].value)
+        assertEquals("1.2 s（取得済み）", sections[1].items[3].value)
     }
 
     @Test

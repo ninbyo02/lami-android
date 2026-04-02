@@ -36,6 +36,7 @@ fun LamiHeaderStatus(
     onNavigateSettings: () -> Unit,
     selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
     onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
+    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     initialAvatarSize: Dp = 64.dp,
@@ -43,6 +44,7 @@ fun LamiHeaderStatus(
     maxAvatarSize: Dp = 64.dp,
     showAvatar: Boolean = true,
     onOpenControl: () -> Unit = {},
+    statusTitleOverride: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -64,6 +66,7 @@ fun LamiHeaderStatus(
                 onNavigateSettings = onNavigateSettings,
                 selectedInferenceTarget = selectedInferenceTarget,
                 onSelectInferenceTarget = onSelectInferenceTarget,
+                localInferenceEngineState = localInferenceEngineState,
                 debugOverlayEnabled = debugOverlayEnabled,
                 syncEpochMs = syncEpochMs,
                 initialAvatarSize = initialAvatarSize,
@@ -76,6 +79,7 @@ fun LamiHeaderStatus(
             lamiStatus = lamiStatus,
             lamiState = lamiState,
             onOpenControl = onOpenControl,
+            statusTitleOverride = statusTitleOverride,
         )
     }
 }
@@ -92,6 +96,7 @@ fun HeaderAvatar(
     onNavigateSettings: () -> Unit,
     selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
     onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
+    localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
     debugOverlayEnabled: Boolean = true,
     syncEpochMs: Long = 0L,
     initialAvatarSize: Dp = 64.dp,
@@ -121,6 +126,7 @@ fun HeaderAvatar(
         onNavigateSettings = onNavigateSettings,
         selectedInferenceTarget = selectedInferenceTarget,
         onSelectInferenceTarget = onSelectInferenceTarget,
+        localInferenceEngineState = localInferenceEngineState,
         debugOverlayEnabled = debugOverlayEnabled,
         syncEpochMs = syncEpochMs,
         openControlRequestKey = openControlRequestKey,
@@ -136,6 +142,7 @@ fun HeaderStatusText(
     lamiStatus: LamiStatus,
     lamiState: LamiState,
     onOpenControl: () -> Unit,
+    statusTitleOverride: String? = null,
 ) {
     val statusUi = rememberLamiStatusUi(
         status = lamiStatus,
@@ -166,7 +173,7 @@ fun HeaderStatusText(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = statusUi.title,
+                text = statusTitleOverride ?: statusUi.title,
                 style = MaterialTheme.typography.titleSmall,
                 color = statusUi.titleColor,
                 maxLines = 1,

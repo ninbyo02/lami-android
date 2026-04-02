@@ -1,6 +1,8 @@
 package com.sonusid.ollama.ui.screens.home
 
+import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -141,6 +143,7 @@ import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
 import com.sonusid.ollama.ui.components.HeaderAvatar
 import com.sonusid.ollama.ui.components.InferenceTarget
 import com.sonusid.ollama.ui.components.LamiHeaderStatus
+import com.sonusid.ollama.ui.components.LocalInferenceEngineState
 import com.sonusid.ollama.ui.screens.settings.DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP
 import com.sonusid.ollama.ui.screens.settings.MAX_CHAT_LAMI_AVATAR_SIZE_DP
 import com.sonusid.ollama.ui.screens.settings.MIN_CHAT_LAMI_AVATAR_SIZE_DP
@@ -161,11 +164,20 @@ import com.sonusid.ollama.ui.util.formatTokenPerSec
 import com.sonusid.ollama.ui.util.formatTotalTokens
 import com.sonusid.ollama.util.RuntimeFlags
 import com.sonusid.ollama.viewmodels.OllamaViewModel
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlinx.coroutines.yield
 import kotlin.math.roundToInt
 
@@ -191,6 +203,128 @@ private val SpriteMessageGap = 16.dp
 // メッセージ間の縦余白は初回ペアも含めて常に同値で統一する
 private val ChatMessageVerticalGap = 8.dp
 private const val MaxComposerAttachments = 10
+private const val LOCAL_INFERENCE_PROBE_PROMPT = "hi"
+private const val LOCAL_INIT_TIMEOUT_MS = 3000L
+private const val LOCAL_GENERATE_TIMEOUT_MS = 30000L
+// DEV専用のsession async PoCは今回のPoC検証のため一時的にON（判定は internal file のみで実施）。
+private const val ENABLE_DEV_LLM_SESSION_ASYNC_POC = true
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC = "session-async-poc"
+private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
+private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
+
+private enum class LocalLiteRtProbeResult {
+    SUCCESS,
+    API_NOT_CONNECTED,
+    CREATE_METHOD_NOT_FOUND,
+    CREATE_FAILED,
+    GENERATE_METHOD_NOT_FOUND,
+    GENERATE_FAILED,
+}
+
+private data class LocalInferenceInitializationResult(
+    val state: LocalInferenceEngineState,
+    val probeResult: LocalLiteRtProbeResult?,
+)
+
+private data class LocalInferenceRunResult(
+    val state: LocalInferenceEngineState,
+    val response: String? = null,
+    val trace: LocalInferenceTrace = LocalInferenceTrace(),
+)
+
+private enum class LocalStatsAvailability {
+    AVAILABLE_NOW,
+    DERIVABLE_NOW,
+    API_CANDIDATE_ONLY,
+    NOT_FOUND,
+}
+
+private enum class LocalStreamingApiProbeResult {
+    ASYNC_API_NOT_FOUND,
+    LISTENER_API_NOT_FOUND,
+    SESSION_API_NOT_FOUND,
+    ASYNC_INVOKE_FAILED,
+    LISTENER_INVOKE_FAILED,
+    SESSION_CREATE_FAILED,
+    ASYNC_INVOKE_SUCCEEDED,
+    LISTENER_INVOKE_SUCCEEDED,
+    SESSION_CREATE_SUCCEEDED,
+}
+
+private data class LocalStatsCandidateProbe(
+    val availability: LocalStatsAvailability,
+    val signature: String? = null,
+    val returnTypeName: String? = null,
+    val valueSummary: String? = null,
+)
+
+private data class LocalInferenceTrace(
+    val createMethodSignature: String? = null,
+    val optionsBuildPath: String? = null,
+    val generateMethodSignature: String? = null,
+    val streamingCandidateDetected: Boolean? = null,
+    val localModelDisplayName: String? = null,
+    val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val loadTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val wallClockLoadDurationNs: Long? = null,
+    val wallClockTotalInferenceDurationNs: Long? = null,
+    val promptEvalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val evalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val firstTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val estimatedTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
+    val asyncApiProbeResult: LocalStreamingApiProbeResult? = null,
+    val asyncApiSignature: String? = null,
+    val listenerApiProbeResult: LocalStreamingApiProbeResult? = null,
+    val listenerApiSignature: String? = null,
+    val sessionApiProbeResult: LocalStreamingApiProbeResult? = null,
+    val sessionApiSignature: String? = null,
+    val sessionGenerateSignature: String? = null,
+    val sessionAsyncSignature: String? = null,
+    val sessionStreamingSignature: String? = null,
+    val sessionTokenSignature: String? = null,
+    val sessionPromptTokens: Int? = null,
+    val sessionResponseTokens: Int? = null,
+    val sessionTotalTokens: Int? = null,
+    val sessionTokenProbeErrorStage: String? = null,
+    val sessionTokenProbeErrorClassName: String? = null,
+    val sessionListenerSignature: String? = null,
+    val sessionLifecycleSignature: String? = null,
+    val sessionAsyncPocAttempted: Boolean = false,
+    val sessionAsyncPocCreateSucceeded: Boolean = false,
+    val sessionAsyncPocMethodSignature: String? = null,
+    val sessionAsyncPocFutureClassName: String? = null,
+    val sessionAsyncPocResponseLength: Int? = null,
+    val sessionAsyncPocResponseHead: String? = null,
+    val selectedAssistantResponseSource: String? = null,
+    val selectedAssistantResponseHead: String? = null,
+    val oneShotResponseHead: String? = null,
+    val sessionAsyncPocSelectedCandidateHead: String? = null,
+    val sessionAsyncPocCloseSucceeded: Boolean? = null,
+    val sessionAsyncPocErrorStage: String? = null,
+    val sessionAsyncPocErrorClassName: String? = null,
+    val sessionAsyncPocErrorMessage: String? = null,
+)
+
+private data class LocalSessionTokenProbeResult(
+    val promptTokens: Int? = null,
+    val responseTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val errorStage: String? = null,
+    val errorClassName: String? = null,
+)
+
+private data class LocalLiteRtGeneratedResponse(
+    val response: String? = null,
+    val trace: LocalInferenceTrace = LocalInferenceTrace(),
+)
+
+private data class LocalLiteRtOptionsBuildResult(
+    val options: Any,
+    val buildPath: String,
+)
 
 private enum class TopPaddingMode {
     NewConversation,
@@ -245,11 +379,22 @@ fun Home(
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.SERVER) }
+    var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
+    val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
+    val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
+    var localInferenceEngineState by rememberSaveable {
+        mutableStateOf(LocalInferenceEngineState.UNINITIALIZED)
+    }
     // composer fullscreen viewer は回転（構成変更）で閉じないよう Saveable で保持する。
     // Uri は Saveable ではないため String で保持し、表示時に Uri.parse で復元する。
     var composerViewerUriStrings by rememberSaveable { mutableStateOf<List<String>?>(null) }
     var composerViewerInitialIndex by rememberSaveable { mutableStateOf(0) }
     val selectedImageUris = selectedImageUriStrings.map(Uri::parse)
+    LaunchedEffect(localBaseModelFilePath) {
+        if (localBaseModelFilePath.isNullOrBlank()) {
+            localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
+        }
+    }
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MaxComposerAttachments),
     ) { uris ->
@@ -272,6 +417,12 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val streamingResponseText = (uiState as? UiState.Streaming)?.partialText
+    val isLocalRespondingUi =
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+            isLocalInferenceRunning
+    val isServerLoadingUi = uiState is UiState.Loading
+    val headerStatusTitleOverride = if (isLocalRespondingUi) "Responding..." else null
+    val showLocalRespondingAssistantRow = isLocalRespondingUi
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
@@ -306,6 +457,8 @@ fun Home(
     var activeReplayMessageId by remember { mutableStateOf<Int?>(null) }
     var isReplayPlaying by remember { mutableStateOf(false) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
+    var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
+    var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(ttsController) {
@@ -678,6 +831,7 @@ fun Home(
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                             },
+                            localInferenceEngineState = localInferenceEngineState,
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
                             openControlRequestKey = openLamiControlRequestKey,
@@ -701,6 +855,7 @@ fun Home(
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                             },
+                            localInferenceEngineState = localInferenceEngineState,
                             debugOverlayEnabled = false,
                             syncEpochMs = animationEpochMs,
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
@@ -712,6 +867,7 @@ fun Home(
                             viewModel.onUserInteraction()
                             openLamiControlRequestKey += 1
                         },
+                        statusTitleOverride = headerStatusTitleOverride,
                     )
                 }
             },
@@ -922,7 +1078,9 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = !selectedModel.isNullOrBlank() && (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()),
+                                        enabled = !selectedModel.isNullOrBlank() &&
+                                            (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()) &&
+                                            !(selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning),
                                         onClick = {
                                             viewModel.onUserInteraction()
                                             if (selectedModel.isNullOrBlank()) {
@@ -982,18 +1140,145 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
-                                                    Log.i("ChatScreen", "LOCAL inference path placeholder reached. Server send is skipped.")
                                                     coroutineScope.launch {
-                                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                                        val dismissJob = launch {
-                                                            delay(PROJECT_SNACKBAR_SHORT_MS)
-                                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                                        }
-                                                        snackbarHostState.showSnackbar(
-                                                            message = "ローカル推論は準備中です",
-                                                            duration = SnackbarDuration.Short,
+                                                        appendLocalReflectionTrace(
+                                                            context = context.applicationContext,
+                                                            message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
                                                         )
-                                                        dismissJob.cancel()
+                                                        if (isLocalInferenceRunning) return@launch
+                                                        isLocalInferenceRunning = true
+                                                        try {
+                                                            val currentChatId = effectiveChatId
+                                                            if (currentChatId == null) {
+                                                                placeholder = "Setting up a new chat ..."
+                                                                return@launch
+                                                            }
+                                                            if (selectedImageUriStrings.isNotEmpty()) {
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                                snackbarHostState.showSnackbar(
+                                                                    message = "ローカル推論では画像入力はまだ未対応です",
+                                                                    duration = SnackbarDuration.Short,
+                                                                )
+                                                                return@launch
+                                                            }
+                                                            val requestPrompt = userPrompt
+                                                            if (requestPrompt.isBlank()) {
+                                                                return@launch
+                                                            }
+                                                            viewModel.insert(
+                                                                Message(
+                                                                    chatId = currentChatId,
+                                                                    message = requestPrompt,
+                                                                    isSendbyMe = true,
+                                                                )
+                                                            )
+                                                            prompt = ""
+                                                            userPrompt = ""
+                                                            selectedImageUriStrings = emptyList()
+                                                            ttsController.stop()
+                                                            viewModel.stopTtsPlayback()
+                                                            localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            val localRunStartedAtMs = SystemClock.elapsedRealtime()
+                                                            appendLocalReflectionTrace(
+                                                                context = context.applicationContext,
+                                                                message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
+                                                            )
+                                                            val runResult = withContext(Dispatchers.IO) {
+                                                                val executor = Executors.newSingleThreadExecutor()
+                                                                val future = executor.submit<LocalInferenceRunResult> {
+                                                                    runBlocking {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM before-runLocalInferenceOnceEntry",
+                                                                        )
+                                                                        runLocalInferenceOnceEntry(
+                                                                            context = context.applicationContext,
+                                                                            settingsPreferences = settingsPreferences,
+                                                                            localBaseModelFilePath = localBaseModelFilePath,
+                                                                            localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                            prompt = requestPrompt,
+                                                                        )
+                                                                    }
+                                                                }
+                                                                try {
+                                                                    future.get(LOCAL_GENERATE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                                                                } catch (timeout: TimeoutException) {
+                                                                    null
+                                                                } finally {
+                                                                    future.cancel(true)
+                                                                    executor.shutdownNow()
+                                                                }
+                                                            }
+                                                            localInferenceEngineState = runResult?.state
+                                                                ?: LocalInferenceEngineState.ERROR
+                                                            val localGenerationTimeMs =
+                                                                (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
+                                                            val inventoryState = runResult?.state ?: LocalInferenceEngineState.ERROR
+                                                            val inventoryResponseChars = runResult?.response?.length ?: -1
+                                                            val timedOut = runResult == null
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, responseLength=${runResult?.response?.length ?: -1}, responseHead=${runResult?.response?.take(80)}, timedOut=${runResult == null}",
+                                                            )
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL stats inventory: generationTimeMs=$localGenerationTimeMs, responseChars=$inventoryResponseChars, state=$inventoryState, timedOut=$timedOut, responseBlank=${runResult?.response.isNullOrBlank()}, streamingCandidate=${runResult?.trace?.streamingCandidateDetected}, createPath=${runResult?.trace?.createMethodSignature != null}, optionsBuildPath=${runResult?.trace?.optionsBuildPath}, generateMethod=${runResult?.trace?.generateMethodSignature}",
+                                                            )
+                                                            latestLocalTraceForDev = runResult?.trace
+                                                            logLocalStatsInventoryClassification(runResult = runResult)
+                                                            if (
+                                                                runResult?.state == LocalInferenceEngineState.READY &&
+                                                                !runResult.response.isNullOrBlank()
+                                                            ) {
+                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
+                                                                val localStats = buildLocalInferenceStatsFromTrace(
+                                                                    trace = runResult.trace,
+                                                                    generationTimeMs = localGenerationTimeMs,
+                                                                    responseCharCount = assistantResponse.length,
+                                                                    responseText = assistantResponse,
+                                                                    fallbackTimeToFirstTokenMs = localGenerationTimeMs,
+                                                                )
+                                                                val localSourceSummary = localStats?.let {
+                                                                    buildLocalSourceSummaryText(trace = runResult.trace, stats = it)
+                                                                }
+                                                                Log.i(
+                                                                    "ChatScreen",
+                                                                    "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
+                                                                )
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = "UPSTREAM before-createAssistantMessage localResponseBlank=${assistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
+                                                                )
+                                                                viewModel.insert(
+                                                                    createAssistantMessage(
+                                                                        chatId = currentChatId,
+                                                                        response = assistantResponse,
+                                                                        latestInferenceStats = localStats,
+                                                                        localSourceSummary = localSourceSummary,
+                                                                        generationTimeMs = localGenerationTimeMs,
+                                                                    )
+                                                                )
+                                                                return@launch
+                                                            }
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            val dismissJob = launch {
+                                                                delay(PROJECT_SNACKBAR_SHORT_MS)
+                                                                snackbarHostState.currentSnackbarData?.dismiss()
+                                                            }
+                                                            snackbarHostState.showSnackbar(
+                                                                message = when (runResult?.state) {
+                                                                    null -> "ローカル推論エンジンの確認がタイムアウトしました"
+                                                                    LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
+                                                                    LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
+                                                                    LocalInferenceEngineState.ERROR -> "ローカル推論の応答取得に失敗しました"
+                                                                    LocalInferenceEngineState.PREPARING -> "ローカル推論エンジンを準備中です"
+                                                                },
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                            dismissJob.cancel()
+                                                        } finally {
+                                                            isLocalInferenceRunning = false
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1163,7 +1448,7 @@ fun Home(
                         }
                         // LazyColumn tail layout:
                         // [messages...] + [assistant_streaming_indicator?] + [composer_spacer]
-                        val hasLoadingTailItem = uiState is UiState.Loading
+                        val hasLoadingTailItem = isServerLoadingUi
 
                         val lastContentIndex = remember(messagesForList.size, hasLoadingTailItem) {
                             val lastMessageIndex = messagesForList.lastIndex
@@ -1445,6 +1730,7 @@ fun Home(
                                                 onInferenceStatsClick = messageInferenceStats?.let {
                                                     {
                                                         selectedInferenceStats = it
+                                                        selectedLocalTraceForDevSheet = latestLocalTraceForDev
                                                         showInferenceStatsSheet = true
                                                     }
                                                 },
@@ -1452,7 +1738,15 @@ fun Home(
                                         }
                                     }
                                 }
-                                if (uiState is UiState.Loading) {
+                                if (showLocalRespondingAssistantRow) {
+                                    item(key = "local_responding_indicator") {
+                                        PlainAssistantMessage(
+                                            message = "応答中...",
+                                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
+                                        )
+                                    }
+                                }
+                                if (isServerLoadingUi) {
                                     item(key = "assistant_streaming_indicator") {
                                         AssistantStreamingIndicator()
                                     }
@@ -1557,9 +1851,10 @@ fun Home(
             onDismissRequest = {
                 showInferenceStatsSheet = false
                 selectedInferenceStats = null
+                selectedLocalTraceForDevSheet = null
             },
         ) {
-            stats?.let { InferenceStatsSheetContent(it) }
+            stats?.let { InferenceStatsSheetContent(it, localTraceForDev = selectedLocalTraceForDevSheet) }
         }
     }
 
@@ -1605,11 +1900,1508 @@ fun Home(
         }
     }
 }
-
+}
 }
 
+private suspend fun initializeLocalInferenceEngineEntry(
+    context: Context,
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+): LocalInferenceInitializationResult {
+    val modelPath = resolveLocalBaseModelPathOrNull(
+        settingsPreferences = settingsPreferences,
+        localBaseModelFilePath = localBaseModelFilePath,
+    ) ?: return LocalInferenceInitializationResult(
+        state = LocalInferenceEngineState.UNINITIALIZED,
+        probeResult = null,
+    )
+
+    val probeResult = loadLocalInferenceEngine(context = context, modelPath = modelPath)
+    val state = if (probeResult == LocalLiteRtProbeResult.SUCCESS) {
+        LocalInferenceEngineState.READY
+    } else {
+        LocalInferenceEngineState.ERROR
+    }
+    return LocalInferenceInitializationResult(state = state, probeResult = probeResult)
 }
 
+private suspend fun runLocalInferenceOnceEntry(
+    context: Context,
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+    localBaseModelDisplayName: String?,
+    prompt: String,
+): LocalInferenceRunResult {
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
+    )
+    val modelPath = resolveLocalBaseModelPathOrNull(
+        settingsPreferences = settingsPreferences,
+        localBaseModelFilePath = localBaseModelFilePath,
+    ) ?: run {
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM resolved-local-model-path success=false",
+        )
+        return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+    }
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM resolved-local-model-path success=true modelPathTail=${modelPath.substringAfterLast('/')}",
+    )
+
+    appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
+    val generated = generateLiteRtResponseViaReflection(
+        context = context,
+        modelPath = modelPath,
+        localModelDisplayName = localBaseModelDisplayName,
+        prompt = prompt,
+    )
+    val response = generated.response
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM after-generateLiteRtResponseViaReflection responseNull=${response == null} responseLength=${response?.length ?: -1}",
+    )
+    return if (response.isNullOrBlank()) {
+        LocalInferenceRunResult(
+            state = LocalInferenceEngineState.ERROR,
+            trace = generated.trace,
+        )
+    } else {
+        LocalInferenceRunResult(
+            state = LocalInferenceEngineState.READY,
+            response = response,
+            trace = generated.trace,
+        )
+    }
+}
+
+private suspend fun resolveLocalBaseModelPathOrNull(
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+): String? {
+    val validPathFromSettings = runCatching {
+        settingsPreferences.getValidLocalBaseModelPathOrNull()
+    }.getOrElse {
+        Log.e("ChatScreen", "Failed to resolve valid local base model path from settings", it)
+        return null
+    }
+    if (validPathFromSettings != null) {
+        return validPathFromSettings
+    }
+
+    val fallbackPath = localBaseModelFilePath?.takeIf { it.isNotBlank() } ?: return null
+    val fallbackFile = File(fallbackPath)
+    return fallbackPath.takeIf {
+        fallbackFile.isFile &&
+            fallbackFile.canRead() &&
+            fallbackFile.name.endsWith(".litertlm", ignoreCase = true)
+    }
+}
+
+private fun loadLocalInferenceEngine(
+    context: Context,
+    modelPath: String,
+): LocalLiteRtProbeResult {
+    val modelFile = File(modelPath)
+    if (!modelFile.isFile || !modelFile.canRead()) {
+        Log.w("ChatScreen", "Local model file is not readable. path=$modelPath")
+        return LocalLiteRtProbeResult.CREATE_FAILED
+    }
+
+    return runCatching {
+        tryLoadLiteRtLmViaReflection(context = context, modelPath = modelPath)
+    }.getOrElse {
+        Log.e("ChatScreen", "Failed to load local inference engine. path=$modelPath", it)
+        LocalLiteRtProbeResult.CREATE_FAILED
+    }
+}
+
+private fun tryLoadLiteRtLmViaReflection(
+    context: Context,
+    modelPath: String,
+): LocalLiteRtProbeResult {
+    val llmInferenceClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
+    }.getOrElse { throwable ->
+        Log.w("ChatScreen", "LiteRT-LM class not found: API is not connected in this build.", throwable)
+        return LocalLiteRtProbeResult.API_NOT_CONNECTED
+    }
+
+    val createFromOptionsMethod = llmInferenceClass.methods.firstOrNull { method ->
+        method.name == "createFromOptions" &&
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes[0] == Context::class.java
+    } ?: run {
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions(Context, Options) method not found.")
+        return LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND
+    }
+    Log.i("ChatScreen", "LiteRT-LM createFromOptions found: ${createFromOptionsMethod.toGenericString()}")
+
+    val optionsClass = createFromOptionsMethod.parameterTypes[1]
+    Log.i("ChatScreen", "LiteRT-LM options class: ${optionsClass.name}")
+    val options = runCatching {
+        buildLiteRtOptionsViaReflection(optionsClass = optionsClass, modelPath = modelPath)
+    }.getOrElse { throwable ->
+        if (throwable is NoSuchMethodException) {
+            Log.w("ChatScreen", "LiteRT-LM options/builder method not found.", throwable)
+            return LocalLiteRtProbeResult.CREATE_METHOD_NOT_FOUND
+        }
+        Log.e("ChatScreen", "LiteRT-LM options build failed.", throwable)
+        return LocalLiteRtProbeResult.CREATE_FAILED
+    }
+
+    val created = runCatching {
+        createFromOptionsMethod.invoke(null, context, options)
+    }.getOrElse { throwable ->
+        Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed.", throwable)
+        return LocalLiteRtProbeResult.CREATE_FAILED
+    }
+    Log.i("ChatScreen", "LiteRT-LM createFromOptions invoke succeeded.")
+
+    if (created == null) {
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance.")
+        return LocalLiteRtProbeResult.CREATE_FAILED
+    }
+
+    val hasStreamingApiCandidate = probeLiteRtStreamingApiViaReflection()
+    if (hasStreamingApiCandidate) {
+        Log.i("ChatScreen", "LiteRT-LM streaming API candidate detected via reflection probe.")
+    } else {
+        Log.i("ChatScreen", "LiteRT-LM streaming API candidate not detected in this build.")
+    }
+
+    return try {
+        tryCheckLiteRtLmGenerateViaReflection(created)
+    } finally {
+        runCatching {
+            (created as? AutoCloseable)?.close()
+        }
+    }
+}
+
+private fun generateLiteRtResponseViaReflection(
+    context: Context,
+    modelPath: String,
+    localModelDisplayName: String?,
+    prompt: String,
+): LocalLiteRtGeneratedResponse {
+    var trace = LocalInferenceTrace(localModelDisplayName = localModelDisplayName)
+    val modelPathTail = modelPath.substringAfterLast('/')
+    Log.i(
+        "ChatScreen",
+        "LOCAL reflection entry: promptLength=${prompt.length}, model=${localModelDisplayName ?: "null"}",
+    )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "entry promptLength=${prompt.length} model=${localModelDisplayName ?: "null"} modelPathTail=$modelPathTail",
+    )
+    val llmInferenceClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
+    }.getOrElse { throwable ->
+        Log.i("ChatScreen", "LOCAL reflection early-return: llm class load failed")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=llm-class-load-failed")
+        Log.w("ChatScreen", "LiteRT-LM class not found for response generation.", throwable)
+        return LocalLiteRtGeneratedResponse(trace = trace)
+    }
+
+    val createFromOptionsMethod = llmInferenceClass.methods.firstOrNull { method ->
+        method.name == "createFromOptions" &&
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes[0] == Context::class.java
+    } ?: run {
+        Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions method not found")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-method-not-found")
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions(Context, Options) method not found for response generation.")
+        return LocalLiteRtGeneratedResponse(trace = trace)
+    }
+    trace = trace.copy(createMethodSignature = createFromOptionsMethod.toGenericString())
+    appendLocalReflectionTrace(
+        context = context,
+        message = "createFromOptions method signature=${createFromOptionsMethod.toGenericString()}",
+    )
+    val optionsBuildResult = runCatching {
+        buildLiteRtOptionsViaReflection(
+            optionsClass = createFromOptionsMethod.parameterTypes[1],
+            modelPath = modelPath,
+        )
+    }.getOrElse { throwable ->
+        Log.i("ChatScreen", "LOCAL reflection early-return: options build failed")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=options-build-failed")
+        Log.e("ChatScreen", "LiteRT-LM options build failed for response generation.", throwable)
+        return LocalLiteRtGeneratedResponse(trace = trace)
+    }
+    trace = trace.copy(optionsBuildPath = optionsBuildResult.buildPath)
+    Log.i("ChatScreen", "LOCAL reflection options-built: buildPath=${optionsBuildResult.buildPath}")
+    appendLocalReflectionTrace(context = context, message = "options-build success path=${optionsBuildResult.buildPath}")
+
+    val loadStartNs = SystemClock.elapsedRealtimeNanos()
+    Log.i("ChatScreen", "LOCAL reflection before-createFromOptions")
+    appendLocalReflectionTrace(context = context, message = "createFromOptions invoke-start")
+    val inferenceInstance = runCatching {
+        createFromOptionsMethod.invoke(null, context, optionsBuildResult.options)
+    }.getOrElse { throwable ->
+        Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions invocation failed")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-invocation-failed")
+        Log.e("ChatScreen", "LiteRT-LM createFromOptions invocation failed for response generation.", throwable)
+        return LocalLiteRtGeneratedResponse(trace = trace)
+    } ?: run {
+        Log.i("ChatScreen", "LOCAL reflection early-return: createFromOptions returned null")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=createFromOptions-returned-null")
+        Log.w("ChatScreen", "LiteRT-LM createFromOptions returned null instance for response generation.")
+        return LocalLiteRtGeneratedResponse(trace = trace)
+    }
+    Log.i("ChatScreen", "LOCAL reflection after-createFromOptions: inferenceClass=${inferenceInstance.javaClass.name}")
+    val wallClockLoadDurationNs = (SystemClock.elapsedRealtimeNanos() - loadStartNs).coerceAtLeast(0L)
+    trace = trace.copy(wallClockLoadDurationNs = wallClockLoadDurationNs)
+    appendLocalReflectionTrace(
+        context = context,
+        message = "createFromOptions success inferenceClass=${inferenceInstance.javaClass.name} wallClockLoadDurationNs=$wallClockLoadDurationNs",
+    )
+
+    Log.i("ChatScreen", "LOCAL reflection before-streaming-probe")
+    val streamingCandidateDetected = probeLiteRtStreamingApiViaReflection()
+    Log.i("ChatScreen", "LOCAL reflection after-streaming-probe: detected=$streamingCandidateDetected")
+    val listenerProbe = findSetResultListenerCandidate(inferenceClass = inferenceInstance.javaClass)
+    Log.i("ChatScreen", "LOCAL reflection listener-probe: result=${listenerProbe.result}, signature=${listenerProbe.signature}")
+    val asyncProbe = findGenerateResponseAsyncCandidate(inferenceClass = inferenceInstance.javaClass)
+    Log.i("ChatScreen", "LOCAL reflection async-probe: result=${asyncProbe.result}, signature=${asyncProbe.signature}")
+    val sessionProbe = findSessionApiCandidate(inferenceClass = inferenceInstance.javaClass)
+    Log.i("ChatScreen", "LOCAL reflection session-probe: result=${sessionProbe.result}, signature=${sessionProbe.signature}")
+    val sessionMethodInventory = inspectLlmInferenceSessionMethods()
+    val sessionAsyncPocResult = tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
+        context = context,
+        inferenceInstance = inferenceInstance,
+        prompt = prompt,
+    )
+    trace = trace.copy(
+        streamingCandidateDetected = streamingCandidateDetected,
+        listenerApiProbeResult = listenerProbe.result,
+        listenerApiSignature = listenerProbe.signature,
+        asyncApiProbeResult = asyncProbe.result,
+        asyncApiSignature = asyncProbe.signature,
+        sessionApiProbeResult = sessionProbe.result,
+        sessionApiSignature = sessionProbe.signature,
+        sessionGenerateSignature = sessionMethodInventory.generateSignature,
+        sessionAsyncSignature = sessionMethodInventory.asyncSignature,
+        sessionStreamingSignature = sessionMethodInventory.streamingSignature,
+        sessionTokenSignature = sessionMethodInventory.tokenSignature,
+        sessionListenerSignature = sessionMethodInventory.listenerSignature,
+        sessionLifecycleSignature = sessionMethodInventory.lifecycleSignature,
+        sessionAsyncPocAttempted = sessionAsyncPocResult.attempted,
+        sessionAsyncPocCreateSucceeded = sessionAsyncPocResult.createSucceeded,
+        sessionAsyncPocMethodSignature = sessionAsyncPocResult.asyncMethodSignature,
+        sessionAsyncPocFutureClassName = sessionAsyncPocResult.futureClassName,
+        sessionAsyncPocResponseLength = sessionAsyncPocResult.responseLength,
+        sessionAsyncPocResponseHead = sessionAsyncPocResult.responseHead,
+        sessionAsyncPocCloseSucceeded = sessionAsyncPocResult.closeSucceeded,
+        sessionAsyncPocErrorStage = sessionAsyncPocResult.errorStage,
+        sessionAsyncPocErrorClassName = sessionAsyncPocResult.errorClassName,
+        sessionAsyncPocErrorMessage = sessionAsyncPocResult.errorMessage,
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL streaming probe: detected=$streamingCandidateDetected, listener=${trace.listenerApiProbeResult}, async=${trace.asyncApiProbeResult}, session=${trace.sessionApiProbeResult}",
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL streaming signatures: listener=${trace.listenerApiSignature ?: "—"}, async=${trace.asyncApiSignature ?: "—"}, session=${trace.sessionApiSignature ?: "—"}, sessionGenerate=${trace.sessionGenerateSignature ?: "—"}, sessionAsync=${trace.sessionAsyncSignature ?: "—"}, sessionStreaming=${trace.sessionStreamingSignature ?: "—"}, sessionToken=${trace.sessionTokenSignature ?: "—"}",
+    )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "streaming-probe detected=$streamingCandidateDetected listener=${trace.listenerApiProbeResult} async=${trace.asyncApiProbeResult} session=${trace.sessionApiProbeResult} listenerSig=${trace.listenerApiSignature ?: "—"} asyncSig=${trace.asyncApiSignature ?: "—"} sessionSig=${trace.sessionApiSignature ?: "—"} sessionGenerateSig=${trace.sessionGenerateSignature ?: "—"} sessionAsyncSig=${trace.sessionAsyncSignature ?: "—"} sessionStreamingSig=${trace.sessionStreamingSignature ?: "—"} sessionTokenSig=${trace.sessionTokenSignature ?: "—"}",
+    )
+    return try {
+        val generated = generateLiteRtStringResponseOnceViaReflection(
+            context = context,
+            inferenceInstance = inferenceInstance,
+            prompt = prompt,
+            trace = trace,
+            sessionAsyncPocResult = sessionAsyncPocResult,
+        )
+        Log.i(
+            "ChatScreen",
+            "LOCAL reflection exit: selectedSource=${generated.trace.selectedAssistantResponseSource}, streamingDetected=$streamingCandidateDetected",
+        )
+        when (generated.trace.selectedAssistantResponseSource) {
+            LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC exit source=session-async",
+            )
+            else -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC exit source=oneshot-fallback",
+            )
+        }
+        generated
+    } finally {
+        runCatching {
+            (inferenceInstance as? AutoCloseable)?.close()
+        }
+    }
+}
+
+@Throws(NoSuchMethodException::class)
+private fun buildLiteRtOptionsViaReflection(
+    optionsClass: Class<*>,
+    modelPath: String,
+): LocalLiteRtOptionsBuildResult {
+    var buildPath = "builderMethod"
+    val builder = optionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }?.let { method ->
+        Log.i("ChatScreen", "LiteRT-LM builder factory found: ${method.toGenericString()}")
+        runCatching { method.invoke(null) }.getOrElse { throwable ->
+            throw IllegalStateException("LiteRT-LM builder() invoke failed.", throwable)
+        }
+    } ?: run {
+        buildPath = "builderConstructor"
+        val builderClass = optionsClass.declaredClasses.firstOrNull { it.simpleName == "Builder" }
+            ?: throw NoSuchMethodException("LiteRT-LM Options.Builder class not found.")
+        Log.i("ChatScreen", "LiteRT-LM builder class found: ${builderClass.name}")
+        val constructor = builderClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() }
+            ?: throw NoSuchMethodException("LiteRT-LM Options.Builder() constructor not found.")
+        runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrElse { throwable ->
+            throw IllegalStateException("LiteRT-LM Options.Builder() invoke failed.", throwable)
+        }
+    }
+
+    val builderClass = builder.javaClass
+    val modelPathSetter = listOf("setModelPath", "setModelFilePath", "setLlmModelPath")
+        .firstNotNullOfOrNull { methodName ->
+            builderClass.methods.firstOrNull { method ->
+                method.name == methodName &&
+                    method.parameterTypes.size == 1 &&
+                    method.parameterTypes[0] == String::class.java
+            }
+        } ?: throw NoSuchMethodException("LiteRT-LM modelPath setter not found.")
+    Log.i("ChatScreen", "LiteRT-LM modelPath setter found: ${modelPathSetter.toGenericString()}")
+
+    val configuredBuilder = runCatching {
+        modelPathSetter.invoke(builder, modelPath) ?: builder
+    }.getOrElse { throwable ->
+        throw IllegalStateException("LiteRT-LM modelPath setter invoke failed.", throwable)
+    }
+
+    var optionalConfiguredBuilder = configuredBuilder
+    fun applyOptionalSetter(
+        methodName: String,
+        expectedType: Class<*>,
+        value: Any,
+    ) {
+        val setter = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
+            method.name == methodName &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == expectedType
+        }
+        if (setter == null) {
+            Log.i("ChatScreen", "LiteRT-LM optional setter not found: $methodName(${expectedType.simpleName})")
+            return
+        }
+        optionalConfiguredBuilder = runCatching {
+            setter.invoke(optionalConfiguredBuilder, value) ?: optionalConfiguredBuilder
+        }.onSuccess {
+            Log.i("ChatScreen", "LiteRT-LM optional setter applied: $methodName(${expectedType.simpleName})=$value")
+        }.getOrElse { throwable ->
+            Log.w("ChatScreen", "LiteRT-LM optional setter invoke failed: $methodName(${expectedType.simpleName})", throwable)
+            optionalConfiguredBuilder
+        }
+    }
+
+    applyOptionalSetter(methodName = "setMaxTokens", expectedType = Int::class.javaPrimitiveType!!, value = 16)
+    applyOptionalSetter(methodName = "setMaxTokens", expectedType = Int::class.javaObjectType, value = 16)
+    applyOptionalSetter(methodName = "setMaxOutputTokens", expectedType = Int::class.javaPrimitiveType!!, value = 16)
+    applyOptionalSetter(methodName = "setMaxOutputTokens", expectedType = Int::class.javaObjectType, value = 16)
+    applyOptionalSetter(methodName = "setTopK", expectedType = Int::class.javaPrimitiveType!!, value = 1)
+    applyOptionalSetter(methodName = "setTopK", expectedType = Int::class.javaObjectType, value = 1)
+    applyOptionalSetter(methodName = "setTemperature", expectedType = Float::class.javaPrimitiveType!!, value = 0.0f)
+    applyOptionalSetter(methodName = "setTemperature", expectedType = Float::class.javaObjectType, value = 0.0f)
+    applyOptionalSetter(methodName = "setRandomSeed", expectedType = Int::class.javaPrimitiveType!!, value = 1)
+    applyOptionalSetter(methodName = "setRandomSeed", expectedType = Int::class.javaObjectType, value = 1)
+    applyOptionalSetter(
+        methodName = "setEnableVisionModality",
+        expectedType = Boolean::class.javaPrimitiveType!!,
+        value = false,
+    )
+    applyOptionalSetter(
+        methodName = "setEnableVisionModality",
+        expectedType = Boolean::class.javaObjectType,
+        value = false,
+    )
+    applyOptionalSetter(
+        methodName = "setEnableAudioModality",
+        expectedType = Boolean::class.javaPrimitiveType!!,
+        value = false,
+    )
+    applyOptionalSetter(
+        methodName = "setEnableAudioModality",
+        expectedType = Boolean::class.javaObjectType,
+        value = false,
+    )
+
+    listOf("setPreferredBackend", "setBackend", "setPreferredDelegate").forEach { methodName ->
+        val backendLikeSetter = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
+            method.name == methodName && method.parameterTypes.size == 1
+        }
+        when {
+            backendLikeSetter == null -> {
+                Log.i("ChatScreen", "LiteRT-LM optional setter not found: $methodName(?)")
+            }
+            backendLikeSetter.parameterTypes[0] == String::class.java -> {
+                optionalConfiguredBuilder = runCatching {
+                    backendLikeSetter.invoke(optionalConfiguredBuilder, "CPU") ?: optionalConfiguredBuilder
+                }.onSuccess {
+                    Log.i("ChatScreen", "LiteRT-LM optional setter applied: $methodName(String)=CPU")
+                }.getOrElse { throwable ->
+                    Log.w("ChatScreen", "LiteRT-LM optional setter invoke failed: $methodName(String)", throwable)
+                    optionalConfiguredBuilder
+                }
+            }
+            backendLikeSetter.parameterTypes[0] == Int::class.javaPrimitiveType ||
+                backendLikeSetter.parameterTypes[0] == Int::class.javaObjectType -> {
+                optionalConfiguredBuilder = runCatching {
+                    backendLikeSetter.invoke(optionalConfiguredBuilder, 0) ?: optionalConfiguredBuilder
+                }.onSuccess {
+                    Log.i("ChatScreen", "LiteRT-LM optional setter applied: $methodName(Int)=0")
+                }.getOrElse { throwable ->
+                    Log.w("ChatScreen", "LiteRT-LM optional setter invoke failed: $methodName(Int)", throwable)
+                    optionalConfiguredBuilder
+                }
+            }
+            else -> {
+                Log.i(
+                    "ChatScreen",
+                    "LiteRT-LM optional setter skipped: $methodName(${backendLikeSetter.parameterTypes[0].name})",
+                )
+            }
+        }
+    }
+
+    // --- generation length tuning (safe optional) ---
+    applyOptionalSetter(
+        methodName = "setMaxTokens",
+        expectedType = Int::class.java,
+        value = 128,
+    )
+
+    applyOptionalSetter(
+        methodName = "setMaxOutputTokens",
+        expectedType = Int::class.java,
+        value = 128,
+    )
+
+    // 一部API互換用（念のため）
+    applyOptionalSetter(
+        methodName = "maxTokens",
+        expectedType = Int::class.java,
+        value = 128,
+    )
+
+    applyOptionalSetter(
+        methodName = "maxOutputTokens",
+        expectedType = Int::class.java,
+        value = 128,
+    )
+
+    val buildMethod = optionalConfiguredBuilder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: throw NoSuchMethodException("LiteRT-LM build() method not found.")
+
+    val builtOptions = runCatching {
+        buildMethod.invoke(optionalConfiguredBuilder)
+    }.getOrElse { throwable ->
+        throw IllegalStateException("LiteRT-LM build() invoke failed.", throwable)
+    } ?: throw IllegalStateException("LiteRT-LM build() returned null.")
+    Log.i("ChatScreen", "LiteRT-LM options build succeeded.")
+    return LocalLiteRtOptionsBuildResult(options = builtOptions, buildPath = buildPath)
+}
+
+private fun probeLiteRtStreamingApiViaReflection(): Boolean {
+    val candidateMethodNames = listOf(
+        "generateResponseAsync",
+        "setResultListener",
+        "addListener",
+        "registerListener",
+        "setResponseListener",
+        "setPartialResultListener",
+        "setTokenListener",
+        "sendMessageAsync",
+        "createChat",
+        "setProgressListener",
+        "addResultListener",
+        "createSession",
+        "createSessionFromOptions",
+    )
+    val targetClassNames = listOf(
+        "com.google.mediapipe.tasks.genai.llminference.LlmInference",
+        "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession",
+    )
+    val detectedSignatures = mutableListOf<String>()
+
+    targetClassNames.forEach { className ->
+        val targetClass = runCatching { Class.forName(className) }.onFailure { throwable ->
+            Log.i("ChatScreen", "LiteRT-LM streaming probe skipped class=$className", throwable)
+        }.getOrNull() ?: return@forEach
+
+        val classMethods = targetClass.methods
+        candidateMethodNames.forEach { candidateMethodName ->
+            val method = classMethods.firstOrNull { it.name == candidateMethodName } ?: return@forEach
+            val parameterTypeNames = method.parameterTypes.joinToString(prefix = "[", postfix = "]") { it.name }
+            val signature = method.toGenericString()
+            Log.i(
+                "ChatScreen",
+                "LiteRT-LM streaming candidate class=${targetClass.name}, method=${method.name}, parameterTypes=$parameterTypeNames, signature=$signature",
+            )
+            detectedSignatures += signature
+        }
+    }
+
+    if (detectedSignatures.isEmpty()) {
+        Log.i(
+            "ChatScreen",
+            "LiteRT-LM streaming probe completed: no candidate methods found. candidates=$candidateMethodNames",
+        )
+        return false
+    }
+
+    Log.i("ChatScreen", "LiteRT-LM streaming probe completed: detected=${detectedSignatures.size}")
+    return true
+}
+
+private data class LocalStreamingApiProbeOutcome(
+    val result: LocalStreamingApiProbeResult,
+    val signature: String? = null,
+)
+
+private data class SessionMethodInventory(
+    val generateSignature: String? = null,
+    val asyncSignature: String? = null,
+    val streamingSignature: String? = null,
+    val tokenSignature: String? = null,
+    val listenerSignature: String? = null,
+    val lifecycleSignature: String? = null,
+)
+
+private data class DevSessionAsyncPocResult(
+    val attempted: Boolean = false,
+    val createSucceeded: Boolean = false,
+    val asyncMethodSignature: String? = null,
+    val futureClassName: String? = null,
+    val responseText: String? = null,
+    val responseLength: Int? = null,
+    val responseHead: String? = null,
+    val closeSucceeded: Boolean? = null,
+    val errorStage: String? = null,
+    val errorClassName: String? = null,
+    val errorMessage: String? = null,
+)
+
+private fun inspectLlmInferenceSessionMethods(): SessionMethodInventory {
+    val sessionClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
+    }.getOrNull() ?: return SessionMethodInventory()
+    val methods = sessionClass.methods.toList()
+    val cancelLikeKeywords = listOf("cancel", "close", "stop", "abort")
+
+    fun firstSignatureMatching(includeAny: List<String>, excludeAny: List<String> = emptyList()): String? {
+        val found = methods.firstOrNull { method ->
+            val lowerName = method.name.lowercase(Locale.ROOT)
+            includeAny.any { keyword -> lowerName.contains(keyword) } &&
+                excludeAny.none { keyword -> lowerName.contains(keyword) }
+        } ?: return null
+        val parameterTypes = found.parameterTypes.joinToString(prefix = "[", postfix = "]") { it.simpleName }
+        return "${found.name} $parameterTypes :: ${found.toGenericString()}"
+    }
+
+    return SessionMethodInventory(
+        generateSignature = firstSignatureMatching(
+            includeAny = listOf("generate"),
+            excludeAny = cancelLikeKeywords,
+        ),
+        asyncSignature = firstSignatureMatching(
+            includeAny = listOf("async"),
+            excludeAny = cancelLikeKeywords,
+        ),
+        streamingSignature = firstSignatureMatching(
+            includeAny = listOf("stream", "partial", "chunk"),
+            excludeAny = cancelLikeKeywords,
+        ),
+        tokenSignature = firstSignatureMatching(includeAny = listOf("token", "tokens")),
+        listenerSignature = firstSignatureMatching(includeAny = listOf("listener", "callback")),
+        lifecycleSignature =
+            firstSignatureMatching(includeAny = listOf("close"))
+                ?: firstSignatureMatching(includeAny = listOf("reset"))
+                ?: firstSignatureMatching(includeAny = listOf("cancel"))
+                ?: firstSignatureMatching(includeAny = listOf("stop"))
+                ?: firstSignatureMatching(includeAny = listOf("abort")),
+    )
+}
+
+private fun findSetResultListenerCandidate(
+    inferenceClass: Class<*>,
+): LocalStreamingApiProbeOutcome {
+    val listenerMethodNames = listOf(
+        "setResultListener",
+        "addResultListener",
+        "addListener",
+        "registerListener",
+        "setResponseListener",
+        "setPartialResultListener",
+        "setTokenListener",
+        "setCallback",
+        "addCallback",
+    )
+    val listenerMethod = inferenceClass.methods.firstOrNull { method ->
+        val lowerName = method.name.lowercase(Locale.ROOT)
+        (listenerMethodNames.any { it.equals(method.name, ignoreCase = true) } ||
+            lowerName.contains("listener") ||
+            lowerName.contains("callback")) &&
+            method.parameterTypes.size == 1
+    } ?: return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.LISTENER_API_NOT_FOUND)
+    return LocalStreamingApiProbeOutcome(
+        result = LocalStreamingApiProbeResult.LISTENER_INVOKE_FAILED,
+        signature = listenerMethod.toGenericString(),
+    )
+}
+
+private fun findGenerateResponseAsyncCandidate(
+    inferenceClass: Class<*>,
+): LocalStreamingApiProbeOutcome {
+    val asyncMethodNames = listOf(
+        "generateResponseAsync",
+        "sendMessageAsync",
+        "chatAsync",
+        "generateAsync",
+    )
+    val asyncMethod = inferenceClass.methods.firstOrNull { method ->
+        val lowerName = method.name.lowercase(Locale.ROOT)
+        val hasAsyncNameHint = asyncMethodNames.any { it.equals(method.name, ignoreCase = true) } ||
+            lowerName.contains("async") ||
+            lowerName.contains("future")
+        hasAsyncNameHint &&
+            method.parameterTypes.isNotEmpty() &&
+            (method.parameterTypes[0] == String::class.java ||
+                method.parameterTypes[0] == CharSequence::class.java)
+    } ?: return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.ASYNC_API_NOT_FOUND)
+
+    return LocalStreamingApiProbeOutcome(
+        result = LocalStreamingApiProbeResult.ASYNC_INVOKE_FAILED,
+        signature = asyncMethod.toGenericString(),
+    )
+}
+
+private fun findSessionApiCandidate(
+    inferenceClass: Class<*>,
+): LocalStreamingApiProbeOutcome {
+    val sessionClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
+    }.getOrNull()
+    val createMethodsOnInference = inferenceClass.methods.filter { method ->
+        val lowerName = method.name.lowercase(Locale.ROOT)
+        method.name == "createSession" ||
+            method.name == "createSessionFromOptions" ||
+            method.name == "createChat" ||
+            (lowerName.contains("session") && (lowerName.contains("create") || lowerName.contains("open"))) ||
+            (lowerName.contains("chat") && lowerName.contains("create"))
+    }
+    if (sessionClass == null && createMethodsOnInference.isEmpty()) {
+        return LocalStreamingApiProbeOutcome(LocalStreamingApiProbeResult.SESSION_API_NOT_FOUND)
+    }
+
+    val sessionSignature = sessionClass?.methods?.firstOrNull { method ->
+        method.name == "createFromOptions" || method.name == "create"
+    }?.toGenericString()
+    return LocalStreamingApiProbeOutcome(
+        result = LocalStreamingApiProbeResult.SESSION_CREATE_FAILED,
+        signature = sessionSignature ?: createMethodsOnInference.firstOrNull()?.toGenericString(),
+    )
+}
+
+private fun tryCreateLlmInferenceSessionViaReflectionForDev(
+    inferenceInstance: Any,
+): Pair<Any, String?> {
+    val sessionClass = Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
+    val createMethods = sessionClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val createMethod = createMethods.firstOrNull { method ->
+        method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].isAssignableFrom(inferenceInstance.javaClass)
+    } ?: createMethods.firstOrNull { method ->
+        method.parameterTypes.size == 2 &&
+            method.parameterTypes[0].isAssignableFrom(inferenceInstance.javaClass)
+    } ?: throw NoSuchMethodException("LlmInferenceSession.createFromOptions(...) not found")
+
+    val created = when (createMethod.parameterTypes.size) {
+        1 -> createMethod.invoke(null, inferenceInstance)
+        2 -> {
+            val optionsClass = createMethod.parameterTypes[1]
+            val options = buildSessionOptionsViaReflectionForDev(optionsClass)
+            createMethod.invoke(null, inferenceInstance, options)
+        }
+        else -> throw NoSuchMethodException("Unsupported createFromOptions signature: ${createMethod.toGenericString()}")
+    } ?: throw IllegalStateException("LlmInferenceSession.createFromOptions returned null")
+    return created to createMethod.toGenericString()
+}
+
+private fun buildSessionOptionsViaReflectionForDev(
+    optionsClass: Class<*>,
+): Any {
+    val builderFactory = optionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val builder = if (builderFactory != null) {
+        builderFactory.invoke(null)
+    } else {
+        val builderClass = optionsClass.declaredClasses.firstOrNull { it.simpleName == "Builder" }
+            ?: throw NoSuchMethodException("Session options Builder class not found")
+        val constructor = builderClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() }
+            ?: throw NoSuchMethodException("Session options Builder() constructor not found")
+        constructor.isAccessible = true
+        constructor.newInstance()
+    } ?: throw IllegalStateException("Session options builder instance is null")
+
+    val buildMethod = builder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: throw NoSuchMethodException("Session options build() not found")
+    return buildMethod.invoke(builder)
+        ?: throw IllegalStateException("Session options build() returned null")
+}
+
+private fun tryCloseLlmInferenceSessionViaReflection(
+    sessionInstance: Any?,
+): Boolean {
+    if (sessionInstance == null) return false
+    val closeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
+        method.name == "close" && method.parameterTypes.isEmpty()
+    } ?: return false
+    closeMethod.invoke(sessionInstance)
+    return true
+}
+
+private fun tryProbeLlmSessionTokensViaReflection(
+    inferenceInstance: Any,
+    prompt: String,
+    response: String,
+): LocalSessionTokenProbeResult {
+    var sessionInstance: Any? = null
+    return try {
+        sessionInstance = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance).first
+        val sizeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
+            method.name == "sizeInTokens" &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        } ?: return LocalSessionTokenProbeResult(errorStage = "size_method_not_found")
+        val promptTokens = (sizeMethod.invoke(sessionInstance, prompt) as? Number)?.toInt()
+            ?: return LocalSessionTokenProbeResult(errorStage = "prompt_result_not_number")
+        val responseTokens = (sizeMethod.invoke(sessionInstance, response) as? Number)?.toInt()
+            ?: return LocalSessionTokenProbeResult(errorStage = "response_result_not_number")
+        LocalSessionTokenProbeResult(
+            promptTokens = promptTokens,
+            responseTokens = responseTokens,
+            totalTokens = promptTokens + responseTokens,
+        )
+    } catch (throwable: Throwable) {
+        LocalSessionTokenProbeResult(
+            errorStage = "exception",
+            errorClassName = throwable.javaClass.name,
+        )
+    } finally {
+        runCatching {
+            tryCloseLlmInferenceSessionViaReflection(sessionInstance)
+        }
+    }
+}
+
+private fun sanitizeDevSessionAsyncPocResponse(raw: String): String {
+    val normalized = raw
+        .replace("<end_of_turn>", "")
+        .replace("\r\n", "\n")
+    val compactBlankLines = normalized.replace(Regex("\n{3,}"), "\n\n")
+    val cleanedLines = buildList {
+        var previous: String? = null
+        compactBlankLines.lines().forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed == previous && trimmed.isNotEmpty()) return@forEach
+            add(trimmed)
+            previous = trimmed
+        }
+    }
+    val sanitized = cleanedLines.joinToString("\n").trim()
+    return sanitized.ifEmpty { raw.trim() }
+}
+
+private fun sanitizeDebugTraceHead(raw: String?): String? {
+    if (raw == null) return null
+    val sanitized = sanitizeDevSessionAsyncPocResponse(raw)
+    val base = if (sanitized.isNotEmpty()) sanitized else raw.trim()
+    return base.take(80)
+}
+
+private fun sanitizeOneShotShortAnswerResponse(prompt: String, raw: String): String {
+    val shortAnswerKeywords = listOf(
+        "短く", "短文", "一言", "最短", "簡潔", "短く答えて", "短く回答",
+        "答えだけ", "回答だけ", "一語", "一行", "すぐ答えて", "端的に",
+        "簡単に", "シンプルに", "手短に",
+    )
+    if (!shortAnswerKeywords.any { prompt.contains(it) }) return raw
+
+    return runCatching {
+        val normalized = sanitizeDevSessionAsyncPocResponse(raw)
+        val segments = normalized
+            .split("。", "!", "！", "?", "？", "\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (segments.isEmpty()) return@runCatching raw
+
+        val shortDirectAnswer = segments.firstOrNull { candidate ->
+            Regex("^\\d+(です)?。?$").matches(candidate)
+        }
+        if (shortDirectAnswer != null) return@runCatching shortDirectAnswer
+
+        val emojiRegex = Regex("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]")
+        val sanitized = segments.firstOrNull { candidate ->
+            candidate.length <= 20 &&
+                !emojiRegex.containsMatchIn(candidate) &&
+                !candidate.contains("ありがとうございます") &&
+                !candidate.contains("かしこまり") &&
+                !candidate.contains("承知") &&
+                !candidate.contains("算数") &&
+                !candidate.contains("問題") &&
+                !candidate.contains("ですね")
+        }
+        sanitized ?: raw
+    }.getOrDefault(raw)
+}
+
+
+private fun shouldUseDevSessionAsyncPocResponse(
+    prompt: String,
+    pocResponse: String,
+    oneShotResponse: String,
+): Boolean {
+    val trimmedResponse = pocResponse.trim()
+    val trimmedOneShotResponse = oneShotResponse.trim()
+    if (trimmedResponse.isBlank()) return false
+    if (trimmedResponse.contains("<end_of_turn>")) return false
+    if (trimmedResponse.length > maxOf(oneShotResponse.length * 2, 120)) return false
+
+    val nonBlankLines = trimmedResponse.lines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+    if (nonBlankLines.size > 3) return false
+    if (nonBlankLines.distinct().size != nonBlankLines.size) return false
+
+    val shortAnswerKeywords = listOf(
+        "短く", "短文", "一言", "最短", "簡潔", "短く答えて", "短く回答",
+        "答えだけ", "回答だけ", "一語", "一行", "すぐ答えて", "端的に",
+    )
+    val repeatedFeatureTokens = listOf("答えは", "算数", "ですね", "2です", "ありがとうございます")
+    val hasRepeatedFeatureToken = repeatedFeatureTokens.any { token ->
+        Regex(Regex.escape(token)).findAll(trimmedResponse).count() >= 2
+    }
+    val sentenceCount = trimmedResponse
+        .split("。", "!", "！", "?", "？")
+        .map { it.trim() }
+        .count { it.isNotEmpty() }
+    val shortPhrases = trimmedResponse
+        .split("\n", "。", "!", "！", "?", "？", "、", ",", "　", " ")
+        .map { it.trim() }
+        .filter { it.length in 2..8 }
+    val hasRepeatedShortPhrase = shortPhrases.groupingBy { it }.eachCount().any { it.value >= 2 }
+    if (hasRepeatedFeatureToken || hasRepeatedShortPhrase) return false
+
+    val isShortAnswerPrompt = shortAnswerKeywords.any { prompt.contains(it) }
+    if (isShortAnswerPrompt) {
+        val hasEmoji = Regex("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]").containsMatchIn(trimmedResponse)
+        val forbiddenPolitePhrases = listOf(
+            "かしこまり", "承知", "ありがとうございます", "算数", "問題",
+            "お手伝い", "お答え", "ですね", "ます",
+        )
+        if (trimmedResponse.contains("<end_of_turn>")) return false
+        if (trimmedResponse.contains('\n')) return false
+        if (trimmedResponse.length > 12) return false
+        if (sentenceCount > 1) return false
+        if (hasEmoji) return false
+        if (forbiddenPolitePhrases.any { trimmedResponse.contains(it) }) return false
+        if (trimmedOneShotResponse.isNotEmpty() && trimmedResponse.length > trimmedOneShotResponse.length) return false
+    }
+
+    return true
+}
+
+
+private data class LocalAssistantResponseSelection(
+    val responseText: String,
+    val source: String,
+)
+
+private fun selectLocalAssistantResponse(
+    prompt: String,
+    oneShotResponse: String,
+    sessionAsyncPocResult: DevSessionAsyncPocResult,
+): LocalAssistantResponseSelection {
+    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+        return LocalAssistantResponseSelection(
+            responseText = oneShotResponse,
+            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+        )
+    }
+    val pocResponse = sessionAsyncPocResult.responseText
+    val shouldUsePocResponse =
+        pocResponse != null &&
+            shouldUseDevSessionAsyncPocResponse(
+                prompt = prompt,
+                pocResponse = pocResponse,
+                oneShotResponse = oneShotResponse,
+            )
+    return if (shouldUsePocResponse) {
+        LocalAssistantResponseSelection(
+            responseText = pocResponse,
+            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC,
+        )
+    } else {
+        LocalAssistantResponseSelection(
+            responseText = oneShotResponse,
+            source = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+        )
+    }
+}
+
+private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
+    context: Context,
+    inferenceInstance: Any,
+    prompt: String,
+): DevSessionAsyncPocResult {
+    appendLocalReflectionTrace(
+        context = context,
+        message = "DEV_POC entry enabled=$ENABLE_DEV_LLM_SESSION_ASYNC_POC",
+    )
+    if (!ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+        appendLocalReflectionTrace(context = context, message = "DEV_POC skipped reason=flag-off")
+        return DevSessionAsyncPocResult()
+    }
+
+    var sessionInstance: Any? = null
+    var closeSucceeded: Boolean? = null
+    val result = try {
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC create-session-start promptLength=${prompt.length}",
+        )
+        val (createdSession, createMethodSignature) = tryCreateLlmInferenceSessionViaReflectionForDev(inferenceInstance)
+        sessionInstance = createdSession
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC create-session-success method=${createMethodSignature ?: "unknown"}",
+        )
+
+        appendLocalReflectionTrace(context = context, message = "DEV_POC add-query-start promptLength=${prompt.length}")
+        val addQueryChunkMethod = createdSession.javaClass.methods.firstOrNull { method ->
+            method.name == "addQueryChunk" &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        } ?: throw NoSuchMethodException("addQueryChunk(String) not found")
+        addQueryChunkMethod.invoke(createdSession, DEV_LLM_SESSION_ASYNC_POC_PROMPT)
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC add-query-success method=${addQueryChunkMethod.toGenericString()}",
+        )
+
+        appendLocalReflectionTrace(context = context, message = "DEV_POC async-start")
+        val asyncMethod = createdSession.javaClass.methods.firstOrNull { method ->
+            method.name == "generateResponseAsync" && method.parameterTypes.isEmpty()
+        } ?: throw NoSuchMethodException("generateResponseAsync() not found")
+        val future = asyncMethod.invoke(createdSession)
+            ?: throw IllegalStateException("generateResponseAsync() returned null")
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC async-future-created method=${asyncMethod.toGenericString()}",
+        )
+
+        val futureClassName = future.javaClass.name
+        val timeoutGetMethod = future.javaClass.methods.firstOrNull { method ->
+            method.name == "get" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == Long::class.javaPrimitiveType &&
+                method.parameterTypes[1] == TimeUnit::class.java
+        }
+        val responseAny = if (timeoutGetMethod != null) {
+            timeoutGetMethod.invoke(future, DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } else {
+            val getMethod = future.javaClass.methods.firstOrNull { method ->
+                method.name == "get" && method.parameterTypes.isEmpty()
+            } ?: throw NoSuchMethodException("Future get(...) method not found")
+            getMethod.invoke(future)
+        }
+        val rawResponseText = (responseAny as? String) ?: responseAny?.toString()
+        val sanitizedResponseText = rawResponseText?.let(::sanitizeDevSessionAsyncPocResponse)
+        appendLocalReflectionTrace(
+            context = context,
+            message = "DEV_POC async-success responseLength=${sanitizedResponseText?.length ?: 0}",
+        )
+        DevSessionAsyncPocResult(
+            attempted = true,
+            createSucceeded = true,
+            asyncMethodSignature = asyncMethod.toGenericString(),
+            futureClassName = futureClassName,
+            responseText = sanitizedResponseText,
+            responseLength = sanitizedResponseText?.length,
+            responseHead = sanitizedResponseText?.take(60),
+        )
+    } catch (throwable: Throwable) {
+        val root = throwable.cause ?: throwable
+        val errorClassSimpleName = if (throwable is java.lang.reflect.InvocationTargetException) {
+            throwable.javaClass.simpleName
+        } else {
+            root.javaClass.simpleName
+        }
+        val errorClassName = if (throwable is java.lang.reflect.InvocationTargetException) {
+            throwable.javaClass.name
+        } else {
+            root.javaClass.name
+        }
+        val stage = when {
+            root is ClassNotFoundException -> "create"
+            root.message?.contains("createFromOptions", ignoreCase = true) == true -> "create"
+            root.message?.contains("addQueryChunk", ignoreCase = true) == true -> "addQueryChunk"
+            root.message?.contains("generateResponseAsync", ignoreCase = true) == true -> "generateResponseAsync"
+            root is TimeoutException -> "futureGetTimeout"
+            root.message?.contains("Future get", ignoreCase = true) == true -> "futureGet"
+            else -> "unknown"
+        }
+        when (stage) {
+            "create" -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC create-session-failed errorStage=$stage errorClass=$errorClassSimpleName",
+            )
+            "addQueryChunk" -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC add-query-failed errorStage=$stage errorClass=$errorClassSimpleName",
+            )
+            else -> appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC async-failed errorStage=$stage errorClass=$errorClassSimpleName",
+            )
+        }
+        DevSessionAsyncPocResult(
+            attempted = true,
+            createSucceeded = sessionInstance != null,
+            errorStage = stage,
+            errorClassName = errorClassName,
+            errorMessage = root.message?.take(120),
+        )
+    } finally {
+        appendLocalReflectionTrace(context = context, message = "DEV_POC close-start")
+        closeSucceeded = runCatching {
+            tryCloseLlmInferenceSessionViaReflection(sessionInstance)
+        }.onSuccess { succeeded ->
+            if (succeeded) {
+                appendLocalReflectionTrace(context = context, message = "DEV_POC close-success")
+            } else {
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "DEV_POC close-failed errorStage=close errorClass=CloseMethodNotFoundOrNullSession",
+                )
+            }
+        }.onFailure { throwable ->
+            val root = throwable.cause ?: throwable
+            appendLocalReflectionTrace(
+                context = context,
+                message = "DEV_POC close-failed errorStage=close errorClass=${root.javaClass.simpleName}",
+            )
+        }.getOrDefault(false)
+    }
+    return result.copy(closeSucceeded = closeSucceeded)
+}
+
+private fun tryCheckLiteRtLmGenerateViaReflection(
+    inferenceInstance: Any,
+): LocalLiteRtProbeResult {
+    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+    val candidateMethods = candidateMethodNames.flatMap { methodName ->
+        inferenceInstance.javaClass.methods.filter { method ->
+            method.name == methodName &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+        }
+    }
+    if (candidateMethods.isEmpty()) {
+        Log.w("ChatScreen", "LiteRT-LM generate-like method not found. candidates=$candidateMethodNames")
+        return LocalLiteRtProbeResult.GENERATE_METHOD_NOT_FOUND
+    }
+
+    candidateMethods.forEach { method ->
+        val invoked = runCatching {
+            method.invoke(inferenceInstance, LOCAL_INFERENCE_PROBE_PROMPT)
+        }.onFailure { throwable ->
+            Log.w("ChatScreen", "LiteRT-LM generate probe failed on ${method.name}(String)", throwable)
+        }.isSuccess
+        if (invoked) {
+            Log.i("ChatScreen", "LiteRT-LM generate probe passed on ${method.name}(String)")
+            return LocalLiteRtProbeResult.SUCCESS
+        }
+    }
+
+    Log.e("ChatScreen", "LiteRT-LM generate probe failed for all candidate methods.")
+    return LocalLiteRtProbeResult.GENERATE_FAILED
+}
+
+private fun generateLiteRtStringResponseOnceViaReflection(
+    context: Context,
+    inferenceInstance: Any,
+    prompt: String,
+    trace: LocalInferenceTrace,
+    sessionAsyncPocResult: DevSessionAsyncPocResult = DevSessionAsyncPocResult(),
+): LocalLiteRtGeneratedResponse {
+    val candidateMethodNames = listOf("generateResponse", "generate", "infer")
+    val candidateMethods = candidateMethodNames.flatMap { methodName ->
+        inferenceInstance.javaClass.methods.filter { method ->
+            method.name == methodName &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0] == String::class.java
+            }
+    }
+    Log.i("ChatScreen", "LOCAL reflection oneshot-entry: candidateMethodCount=${candidateMethods.size}")
+    appendLocalReflectionTrace(context = context, message = "oneshot-entry candidateMethodCount=${candidateMethods.size}")
+    if (candidateMethods.isEmpty()) {
+        Log.w("ChatScreen", "LiteRT-LM generate-like method not found for response generation.")
+        appendLocalReflectionTrace(context = context, message = "early-return reason=generate-like-method-not-found")
+        val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
+        return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
+    }
+
+    candidateMethods.forEach { method ->
+        Log.i("ChatScreen", "LOCAL reflection oneshot-try: method=${method.toGenericString()}")
+        appendLocalReflectionTrace(context = context, message = "oneshot-try method=${method.toGenericString()}")
+        val generateStartNs = SystemClock.elapsedRealtimeNanos()
+        val result = runCatching {
+            method.invoke(inferenceInstance, prompt)
+        }.onFailure { throwable ->
+            Log.w("ChatScreen", "LiteRT-LM generate invocation failed on ${method.name}(String)", throwable)
+        }.getOrNull()
+        val wallClockTotalInferenceDurationNs = (SystemClock.elapsedRealtimeNanos() - generateStartNs).coerceAtLeast(0L)
+        when (result) {
+            is String -> {
+                val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result)
+                val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
+                val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
+                var inventoryTrace = trace.copy(
+                    generateMethodSignature = method.toGenericString(),
+                    wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
+                    oneShotResponseHead = oneShotResponseHead,
+                    sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
+                )
+                    .merge(probeLocalStatsCandidates(inferenceInstance))
+                val responseSelection = selectLocalAssistantResponse(
+                    prompt = prompt,
+                    oneShotResponse = oneShotResponse,
+                    sessionAsyncPocResult = sessionAsyncPocResult,
+                )
+                inventoryTrace = inventoryTrace.copy(
+                    selectedAssistantResponseSource = responseSelection.source,
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                )
+                val tokenProbe = tryProbeLlmSessionTokensViaReflection(
+                    inferenceInstance = inferenceInstance,
+                    prompt = prompt,
+                    response = responseSelection.responseText,
+                )
+                inventoryTrace = inventoryTrace.copy(
+                    sessionPromptTokens = tokenProbe.promptTokens,
+                    sessionResponseTokens = tokenProbe.responseTokens,
+                    sessionTotalTokens = tokenProbe.totalTokens,
+                    sessionTokenProbeErrorStage = tokenProbe.errorStage,
+                    sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
+                )
+                Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${responseSelection.responseText.length}")
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "oneshot-success method=${method.name} responseLength=${responseSelection.responseText.length}",
+                )
+                return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
+            }
+            is CharSequence -> {
+                val oneShotResponse = sanitizeOneShotShortAnswerResponse(prompt = prompt, raw = result.toString())
+                val oneShotResponseHead = sanitizeDebugTraceHead(oneShotResponse)
+                val sessionAsyncPocCandidateHead = sanitizeDebugTraceHead(sessionAsyncPocResult.responseText)
+                var inventoryTrace = trace.copy(
+                    generateMethodSignature = method.toGenericString(),
+                    wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
+                    oneShotResponseHead = oneShotResponseHead,
+                    sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
+                )
+                    .merge(probeLocalStatsCandidates(inferenceInstance))
+                val responseSelection = selectLocalAssistantResponse(
+                    prompt = prompt,
+                    oneShotResponse = oneShotResponse,
+                    sessionAsyncPocResult = sessionAsyncPocResult,
+                )
+                inventoryTrace = inventoryTrace.copy(
+                    selectedAssistantResponseSource = responseSelection.source,
+                    selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                )
+                val tokenProbe = tryProbeLlmSessionTokensViaReflection(
+                    inferenceInstance = inferenceInstance,
+                    prompt = prompt,
+                    response = responseSelection.responseText,
+                )
+                inventoryTrace = inventoryTrace.copy(
+                    sessionPromptTokens = tokenProbe.promptTokens,
+                    sessionResponseTokens = tokenProbe.responseTokens,
+                    sessionTotalTokens = tokenProbe.totalTokens,
+                    sessionTokenProbeErrorStage = tokenProbe.errorStage,
+                    sessionTokenProbeErrorClassName = tokenProbe.errorClassName,
+                )
+                Log.i("ChatScreen", "LOCAL reflection oneshot-success: method=${method.name}, responseLength=${responseSelection.responseText.length}")
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "oneshot-success method=${method.name} responseLength=${responseSelection.responseText.length}",
+                )
+                return LocalLiteRtGeneratedResponse(response = responseSelection.responseText, trace = inventoryTrace)
+            }
+            else -> {
+                Log.i("ChatScreen", "LOCAL reflection oneshot-null-result: method=${method.name}")
+                appendLocalReflectionTrace(context = context, message = "oneshot-null-result method=${method.name}")
+            }
+        }
+    }
+    Log.e("ChatScreen", "LiteRT-LM string response generation failed for all candidate methods.")
+    appendLocalReflectionTrace(context = context, message = "oneshot-all-candidate-failed")
+    val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
+    return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
+}
+
+private fun localReflectionTraceLine(message: String): String {
+    val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()).format(Date())
+    return "$timestamp [LOCAL_REFLECTION] $message"
+}
+
+private fun appendLocalReflectionTrace(context: Context, message: String) {
+    runCatching {
+        val traceFile = File(context.filesDir, "debug/local_reflection_trace.log")
+        traceFile.parentFile?.mkdirs()
+        traceFile.appendText(localReflectionTraceLine(message) + "\n", Charsets.UTF_8)
+    }
+}
+
+private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenceTrace {
+    return copy(
+        modelNameProbe = if (modelNameProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.modelNameProbe else modelNameProbe,
+        finishReasonProbe = if (finishReasonProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.finishReasonProbe else finishReasonProbe,
+        outputTokenProbe = if (outputTokenProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.outputTokenProbe else outputTokenProbe,
+        loadTimeProbe = if (loadTimeProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.loadTimeProbe else loadTimeProbe,
+        promptEvalTimeProbe = if (promptEvalTimeProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.promptEvalTimeProbe else promptEvalTimeProbe,
+        evalTimeProbe = if (evalTimeProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.evalTimeProbe else evalTimeProbe,
+        firstTokenProbe = if (firstTokenProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.firstTokenProbe else firstTokenProbe,
+        estimatedTokenProbe = if (estimatedTokenProbe.availability == LocalStatsAvailability.NOT_FOUND) probe.estimatedTokenProbe else estimatedTokenProbe,
+        asyncApiProbeResult = asyncApiProbeResult ?: probe.asyncApiProbeResult,
+        asyncApiSignature = asyncApiSignature ?: probe.asyncApiSignature,
+        listenerApiProbeResult = listenerApiProbeResult ?: probe.listenerApiProbeResult,
+        listenerApiSignature = listenerApiSignature ?: probe.listenerApiSignature,
+        sessionApiProbeResult = sessionApiProbeResult ?: probe.sessionApiProbeResult,
+        sessionApiSignature = sessionApiSignature ?: probe.sessionApiSignature,
+    )
+}
+
+private fun probeLocalStatsCandidates(
+    inferenceInstance: Any,
+): LocalInferenceTrace {
+    val metadataRoot = findAndInvokeNoArgMethodByNames(
+        target = inferenceInstance,
+        candidateNames = listOf("getMetadata", "metadata", "getResult", "result", "getSession", "session"),
+        label = "metadataRoot",
+    )?.value
+    val primaryTarget = metadataRoot ?: inferenceInstance
+    return LocalInferenceTrace(
+        modelNameProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "modelName",
+            candidateNames = listOf("getModelName", "modelName", "getModel", "model"),
+        ),
+        finishReasonProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "finishReason",
+            candidateNames = listOf("getFinishReason", "finishReason", "getDoneReason", "doneReason"),
+        ),
+        outputTokenProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "outputTokens",
+            candidateNames = listOf("getOutputTokenCount", "outputTokenCount", "getCompletionTokens", "completionTokens", "getEvalCount", "evalCount"),
+        ),
+        loadTimeProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "loadTime",
+            candidateNames = listOf(
+                "getLoadDuration",
+                "loadDuration",
+                "getLoadTimeMs",
+                "loadTimeMs",
+                "getLoadDurationNs",
+                "loadDurationNs",
+                "getLoadDurationMs",
+                "loadDurationMs",
+                "getModelLoadDuration",
+                "modelLoadDuration",
+                "getModelLoadDurationNs",
+                "modelLoadDurationNs",
+                "getModelLoadTimeMs",
+                "modelLoadTimeMs",
+                "getPrefillDuration",
+                "prefillDuration",
+                "getPrefillDurationNs",
+                "prefillDurationNs",
+                "getInitializationDuration",
+                "initializationDuration",
+            ),
+        ),
+        promptEvalTimeProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "promptEvalTime",
+            candidateNames = listOf(
+                "getPromptEvalDuration",
+                "promptEvalDuration",
+                "getPromptEvalTimeMs",
+                "promptEvalTimeMs",
+                "getPromptEvalDurationNs",
+                "promptEvalDurationNs",
+                "getPromptEvalDurationMs",
+                "promptEvalDurationMs",
+                "getPromptProcessingDuration",
+                "promptProcessingDuration",
+                "getInputEvalDuration",
+                "inputEvalDuration",
+                "getInputEvalDurationNs",
+                "inputEvalDurationNs",
+                "getPrefillDuration",
+                "prefillDuration",
+                "getPrefillDurationNs",
+                "prefillDurationNs",
+            ),
+        ),
+        evalTimeProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "evalTime",
+            candidateNames = listOf("getEvalDuration", "evalDuration", "getGenerationDuration", "generationDuration"),
+        ),
+        firstTokenProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "firstToken",
+            candidateNames = listOf("getTimeToFirstTokenMs", "timeToFirstTokenMs", "getFirstToken", "firstToken"),
+        ),
+        estimatedTokenProbe = probeSingleCandidate(
+            target = primaryTarget,
+            label = "estimatedTokenCount",
+            candidateNames = listOf("getEstimatedTokenCount", "estimatedTokenCount", "getTokenCount", "tokenCount"),
+        ),
+    )
+}
+
+private data class LocalInvokedMethodResult(
+    val signature: String,
+    val returnTypeName: String,
+    val value: Any?,
+)
+
+private fun findAndInvokeNoArgMethodByNames(
+    target: Any,
+    candidateNames: List<String>,
+    label: String,
+): LocalInvokedMethodResult? {
+    candidateNames.forEach { candidateName ->
+        val method = target.javaClass.methods.firstOrNull { reflectedMethod ->
+            reflectedMethod.name.equals(candidateName, ignoreCase = true) &&
+                reflectedMethod.parameterTypes.isEmpty()
+        } ?: return@forEach
+        val signature = method.toGenericString()
+        Log.i("ChatScreen", "LOCAL stats candidate method found: label=$label signature=$signature")
+        val invoked = runCatching { method.invoke(target) }.onFailure { throwable ->
+            Log.w("ChatScreen", "LOCAL stats candidate invoke failed: label=$label signature=$signature", throwable)
+        }.getOrNull()
+        return LocalInvokedMethodResult(
+            signature = signature,
+            returnTypeName = method.returnType.name,
+            value = invoked,
+        )
+    }
+    return null
+}
+
+private fun probeSingleCandidate(
+    target: Any,
+    label: String,
+    candidateNames: List<String>,
+): LocalStatsCandidateProbe {
+    val invoked = findAndInvokeNoArgMethodByNames(target, candidateNames, label)
+        ?: return LocalStatsCandidateProbe(availability = LocalStatsAvailability.NOT_FOUND)
+    val availability = if (invoked.value != null) {
+        LocalStatsAvailability.AVAILABLE_NOW
+    } else {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    }
+    return LocalStatsCandidateProbe(
+        availability = availability,
+        signature = invoked.signature,
+        returnTypeName = invoked.returnTypeName,
+        valueSummary = invoked.value?.toString(),
+    )
+}
+
+private fun logLocalStatsInventoryClassification(runResult: LocalInferenceRunResult?) {
+    val trace = runResult?.trace ?: LocalInferenceTrace()
+    val responseAvailability = if (runResult?.response != null) {
+        LocalStatsAvailability.DERIVABLE_NOW
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val generationAvailability = if (runResult != null) {
+        LocalStatsAvailability.AVAILABLE_NOW
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val timeoutAvailability = LocalStatsAvailability.AVAILABLE_NOW
+    val initializationAvailability = LocalStatsAvailability.AVAILABLE_NOW
+    val streamingAvailability = when (trace.streamingCandidateDetected) {
+        true -> LocalStatsAvailability.API_CANDIDATE_ONLY
+        false -> LocalStatsAvailability.NOT_FOUND
+        null -> LocalStatsAvailability.NOT_FOUND
+    }
+    val generateMethodAvailability = if (trace.generateMethodSignature != null) {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val createPathAvailability = if (trace.createMethodSignature != null) {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    val optionsBuildPathAvailability = if (trace.optionsBuildPath != null) {
+        LocalStatsAvailability.API_CANDIDATE_ONLY
+    } else {
+        LocalStatsAvailability.NOT_FOUND
+    }
+    Log.i(
+        "ChatScreen",
+        "LOCAL stats availability: responseTimeMs=$generationAvailability, responseCharCount=$responseAvailability, modelName=${trace.modelNameProbe.availability}, finishReason=${trace.finishReasonProbe.availability}, timeoutFlag=$timeoutAvailability, initState=$initializationAvailability, streamingProbe=$streamingAvailability, generateMethod=$generateMethodAvailability, createPath=$createPathAvailability, optionsBuildPath=$optionsBuildPathAvailability, firstToken=${trace.firstTokenProbe.availability}, loadTime=${trace.loadTimeProbe.availability}, promptEvalTime=${trace.promptEvalTimeProbe.availability}, outputTokenCount=${trace.outputTokenProbe.availability}, estimatedTokenCount=${trace.estimatedTokenProbe.availability}",
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL stats signatures: modelName=${trace.modelNameProbe.signature}, finishReason=${trace.finishReasonProbe.signature}, outputTokens=${trace.outputTokenProbe.signature}, loadTime=${trace.loadTimeProbe.signature}, promptEval=${trace.promptEvalTimeProbe.signature}, evalTime=${trace.evalTimeProbe.signature}, firstToken=${trace.firstTokenProbe.signature}, estimatedTokens=${trace.estimatedTokenProbe.signature}",
+    )
+    Log.i(
+        "ChatScreen",
+        "LOCAL load/prompt details: loadAvailability=${trace.loadTimeProbe.availability}, loadSignature=${trace.loadTimeProbe.signature}, loadRaw=${trace.loadTimeProbe.valueSummary}, loadParsed=${trace.loadTimeProbe.longValueOrNull()}, promptAvailability=${trace.promptEvalTimeProbe.availability}, promptSignature=${trace.promptEvalTimeProbe.signature}, promptRaw=${trace.promptEvalTimeProbe.valueSummary}, promptParsed=${trace.promptEvalTimeProbe.longValueOrNull()}",
+    )
+}
 
 @Composable
 private fun AssistantStreamingIndicator() {
@@ -1666,11 +3458,139 @@ private fun InferenceStatsSection(
     }
 }
 
+private fun sanitizeLocalAssistantResponse(raw: String): String {
+    return raw
+        .replace("<end_of_turn>", "")
+        .replace("<eot>", "")
+        .replace("<|eot_id|>", "")
+        .replace("<|end_of_text|>", "")
+        .replace(Regex("\n{3,}"), "\n\n")
+        .trim()
+}
+
+private fun LocalStatsCandidateProbe.intValueOrNull(): Int? {
+    if (availability == LocalStatsAvailability.NOT_FOUND) return null
+    return valueSummary?.toIntOrNull()
+}
+
+private fun LocalStatsCandidateProbe.longValueOrNull(): Long? {
+    if (availability == LocalStatsAvailability.NOT_FOUND) return null
+    return valueSummary?.toLongOrNull()
+}
+
+private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
+    if (availability == LocalStatsAvailability.NOT_FOUND) return null
+    return valueSummary
+}
+
+private fun buildLocalTokensPerSecondOrNull(
+    outputTokens: Int?,
+    generationTimeMs: Long,
+): Double? {
+    if (outputTokens == null || outputTokens < 0 || generationTimeMs <= 0L) return null
+    val tokensPerSecond = outputTokens * 1000.0 / generationTimeMs
+    return tokensPerSecond.takeIf { it.isFinite() }
+}
+
+private fun buildLocalGenerationOnlyMsOrNull(
+    generationTimeMs: Long,
+    timeToFirstTokenMs: Long?,
+): Long? {
+    val firstTokenMs = timeToFirstTokenMs ?: return null
+    if (generationTimeMs <= 0L || firstTokenMs < 0L) return null
+    return (generationTimeMs - firstTokenMs).coerceAtLeast(0L)
+}
+
+private fun buildLocalInferenceStatsFromTrace(
+    trace: LocalInferenceTrace,
+    generationTimeMs: Long,
+    responseCharCount: Int,
+    responseText: String? = null,
+    fallbackTimeToFirstTokenMs: Long? = null,
+): InferenceStats? {
+    val existingInputTokens: Int? = null
+    val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
+    val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
+    val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
+    val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
+    val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
+    val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
+    val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
+    val existingLoadDurationNs =
+        wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
+    val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
+        generationTimeMs = generationTimeMs,
+        timeToFirstTokenMs = timeToFirstTokenMs,
+    )?.times(1_000_000L)
+    val fallbackPromptEvalNs =
+        if (existingPromptEvalNs != null && existingPromptEvalNs >= 0L) {
+            existingPromptEvalNs
+        } else {
+            val evalNs = totalInferenceDurationNs
+            val genNs = fallbackGenerationDurationNs
+            if (evalNs != null && genNs != null) {
+                (evalNs - genNs).coerceAtLeast(0L)
+            } else {
+                null
+            }
+        }
+    val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
+    val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
+    val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
+    val existingTokensPerSecond: Double? = null
+    val tokensPerSecond = existingTokensPerSecond
+        ?: buildLocalTokensPerSecondOrNull(
+            outputTokens = outputTokens,
+            generationTimeMs = generationTimeMs,
+        )
+    val modelName = trace.modelNameProbe.stringValueOrNull()
+        ?: trace.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
+    val finishReason = buildLocalFinishReasonOrNull(
+        existingFinishReason = trace.finishReasonProbe.stringValueOrNull(),
+        responseText = responseText,
+    )
+    val hasStats = modelName != null ||
+        finishReason != null ||
+        inputTokens != null ||
+        outputTokens != null ||
+        totalTokens != null
+    if (!hasStats) return null
+    return InferenceStats(
+        modelName = modelName,
+        inputTokens = inputTokens,
+        outputTokens = outputTokens,
+        totalTokens = totalTokens,
+        tokensPerSecond = tokensPerSecond,
+        completionTokens = outputTokens,
+        finishReason = finishReason,
+        generationTimeMs = generationTimeMs,
+        generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
+        evalDurationNs = totalInferenceDurationNs,
+        modelLoadDurationNs = existingLoadDurationNs,
+        promptEvalDurationNs = fallbackPromptEvalNs,
+        timeToFirstTokenMs = timeToFirstTokenMs,
+        responseCharCount = responseCharCount,
+    )
+}
+
+private fun buildLocalFinishReasonOrNull(
+    existingFinishReason: String?,
+    responseText: String?,
+): String? {
+    val normalizedExisting = existingFinishReason?.trim()?.takeIf { it.isNotBlank() }
+    if (normalizedExisting != null) return normalizedExisting
+    return if (responseText.isNullOrBlank()) null else "stop"
+}
+
 internal fun createAssistantMessage(
     chatId: Int,
     response: String,
     latestInferenceStats: InferenceStats? = null,
+    localSourceSummary: String? = null,
     imageInputCount: Int? = null,
+    generationTimeMs: Long? = null,
 ): Message {
     val outputTokens = latestInferenceStats?.outputTokens ?: latestInferenceStats?.completionTokens
     val inputTokens = latestInferenceStats?.inputTokens
@@ -1681,8 +3601,10 @@ internal fun createAssistantMessage(
         chatId = chatId,
         isSendbyMe = false,
         completionTokens = outputTokens,
-        generationTimeMs = latestInferenceStats?.generationTimeMs
+        generationTimeMs = generationTimeMs
+            ?: latestInferenceStats?.generationTimeMs
             ?: latestInferenceStats?.inferenceTimeSec?.times(1000.0)?.toLong(),
+        generationDurationNs = latestInferenceStats?.generationDurationNs,
         evalDurationNs = latestInferenceStats?.evalDurationNs,
         loadDurationNs = latestInferenceStats?.modelLoadDurationNs,
         promptEvalDurationNs = latestInferenceStats?.promptEvalDurationNs,
@@ -1692,6 +3614,7 @@ internal fun createAssistantMessage(
         tokensPerSecond = latestInferenceStats?.tokensPerSecond,
         inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
         finishReason = latestInferenceStats?.finishReason,
+        localSourceSummary = localSourceSummary,
         timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,
         // 画像入力数は添付画像の枚数。入力トークンとは別メトリクスとして保存する。
         imageInputCount = imageInputCount ?: latestInferenceStats?.imageInputCount,
@@ -1699,14 +3622,17 @@ internal fun createAssistantMessage(
 }
 
 @Composable
-private fun InferenceStatsSheetContent(stats: InferenceStats) {
+private fun InferenceStatsSheetContent(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace? = null,
+) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val clipboardManager = LocalClipboardManager.current
     val sheetContentPadding = 14.dp
     val sectionSpacing = 12.dp
 
-    val sections = buildInferenceSummarySections(stats)
+    val sections = buildInferenceSummarySections(stats, localTraceForDev = localTraceForDev)
     val detailSections = buildInferenceDetailSections(stats)
 
     Column(
@@ -1986,21 +3912,315 @@ internal fun shouldShowInferenceTimingNote(stats: InferenceStats): Boolean =
     formatTimeToFirstToken(stats) != null || formatInferenceTime(stats) != null
 
 
-internal fun buildInferenceSummarySections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
-    InferenceStatsSectionUi(
+private fun buildInferenceSummarySections(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace? = null,
+): List<InferenceStatsSectionUi> {
+    val isLocalMinimal = isLocalMinimalInferenceStats(stats)
+    val localSourceSummaryText = stats.localSourceSummary
+        ?.takeIf { it.isNotBlank() }
+        ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
+    val summaryItems = if (isLocalMinimal) {
+        buildList {
+            add(InferenceStatItemUi(label = "応答時間", value = formatInferenceTime(stats) ?: "—"))
+            add(InferenceStatItemUi(label = "応答文字数", value = stats.responseCharCount?.toString() ?: "—"))
+            if (localSourceSummaryText != null) {
+                add(InferenceStatItemUi(label = "採用元", value = localSourceSummaryText))
+            }
+        }
+    } else {
+        buildList {
+            add(InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"))
+            add(InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"))
+            add(
+                InferenceStatItemUi(
+                    label = "生成速度",
+                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                    emphasizeValue = true,
+                )
+            )
+            add(InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"))
+
+            if (localSourceSummaryText != null) {
+                add(InferenceStatItemUi(label = "採用元", value = localSourceSummaryText))
+            }
+        }
+    }
+    val summarySection = InferenceStatsSectionUi(
         title = "概要",
-        items = listOf(
-            InferenceStatItemUi(label = "初回受信まで（端末基準）", value = formatTimeToFirstToken(stats) ?: "—"),
-            InferenceStatItemUi(label = "全体完了まで（統計基準）", value = formatInferenceTime(stats) ?: "—"),
+        items = summaryItems,
+    )
+    val localInventorySection = buildLocalInventorySectionForDev(
+        isLocalMinimal = isLocalMinimal,
+        trace = localTraceForDev,
+        stats = stats,
+    )
+    return listOfNotNull(summarySection, localInventorySection)
+}
+
+private fun isLocalMinimalInferenceStats(stats: InferenceStats): Boolean {
+    return stats.generationTimeMs != null &&
+        stats.evalDurationNs == null &&
+        stats.outputTokens == null &&
+        stats.completionTokens == null &&
+        stats.finishReason == null
+}
+
+
+private fun shortenLocalSourceLabelForSummary(raw: String?): String? {
+    if (raw.isNullOrBlank() || raw == "unavailable") return null
+    return when {
+        raw == "probe" || raw.startsWith("probe-") -> "probe"
+        raw == "session" || raw.startsWith("session-") -> "session"
+        raw == "trace-local-display-name" -> "trace"
+        raw == "trace-finishReason-fallback" -> "fallback"
+        raw == "derived-from-total-minus-first" -> "fallback"
+        raw == "derived-from-eval-minus-generation" -> "fallback"
+        raw == "fallback-generationTimeMs" -> "fallback"
+        raw == "derived-from-output-and-generationTimeMs" -> "fallback"
+        else -> null
+    }
+}
+
+private fun buildLocalSourceSummaryText(
+    trace: LocalInferenceTrace,
+    stats: InferenceStats,
+): String? {
+    val sourceByLabel = resolveLocalSourceItemsForDev(trace = trace, stats = stats)
+        .associate { it.label to shortenLocalSourceLabelForSummary(it.value) }
+
+    val summaryParts = listOfNotNull(
+        sourceByLabel["modelNameSource"]?.let { "model:$it" },
+        sourceByLabel["finishReasonSource"]?.let { "finish:$it" },
+        sourceByLabel["outputTokenSource"]?.let { "out:$it" },
+        sourceByLabel["totalTokenSource"]?.let { "total:$it" },
+        sourceByLabel["tokensPerSecondSource"]?.let { "tps:$it" },
+    )
+
+    return summaryParts.takeIf { it.isNotEmpty() }?.joinToString(separator = " / ")
+}
+
+
+private fun resolveLocalSourceItemsForDev(
+    trace: LocalInferenceTrace,
+    stats: InferenceStats,
+): List<InferenceStatItemUi> {
+    val modelNameSource = when {
+        trace.modelNameProbe.stringValueOrNull() != null -> "probe"
+        !trace.localModelDisplayName.isNullOrBlank() -> "trace-local-display-name"
+        else -> "unavailable"
+    }
+    val finishReasonSource = when {
+        trace.finishReasonProbe.stringValueOrNull() != null -> "probe"
+        !stats.finishReason.isNullOrBlank() -> "trace-finishReason-fallback"
+        else -> "unavailable"
+    }
+    val outputTokenSource = when {
+        trace.outputTokenProbe.intValueOrNull() != null -> "probe-output"
+        trace.sessionResponseTokens != null -> "session-output"
+        else -> "unavailable"
+    }
+    val totalTokenSource = when {
+        trace.estimatedTokenProbe.intValueOrNull() != null -> "probe-total"
+        trace.sessionTotalTokens != null -> "session-total"
+        else -> "unavailable"
+    }
+    val firstTokenSource = when {
+        trace.firstTokenProbe.longValueOrNull() != null -> "probe-first-token"
+        stats.timeToFirstTokenMs != null -> "fallback-generationTimeMs"
+        else -> "unavailable"
+    }
+    val generationDurationSource = when {
+        trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-eval"
+        stats.generationDurationNs != null -> "derived-from-total-minus-first"
+        else -> "unavailable"
+    }
+    val promptEvalDurationSource = when {
+        trace.promptEvalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-prompt-eval"
+        stats.promptEvalDurationNs != null -> "derived-from-eval-minus-generation"
+        else -> "unavailable"
+    }
+    val tokensPerSecondSource = if (buildLocalTokensPerSecondOrNull(
+            outputTokens = stats.outputTokens,
+            generationTimeMs = stats.generationTimeMs ?: 0L,
+        ) != null
+    ) {
+        "derived-from-output-and-generationTimeMs"
+    } else {
+        "unavailable"
+    }
+    return listOf(
+        InferenceStatItemUi(label = "modelNameSource", value = modelNameSource),
+        InferenceStatItemUi(label = "finishReasonSource", value = finishReasonSource),
+        InferenceStatItemUi(label = "outputTokenSource", value = outputTokenSource),
+        InferenceStatItemUi(label = "totalTokenSource", value = totalTokenSource),
+        InferenceStatItemUi(label = "firstTokenSource", value = firstTokenSource),
+        InferenceStatItemUi(label = "generationDurationSource", value = generationDurationSource),
+        InferenceStatItemUi(label = "promptEvalDurationSource", value = promptEvalDurationSource),
+        InferenceStatItemUi(label = "tokensPerSecondSource", value = tokensPerSecondSource),
+    )
+}
+
+private fun buildLocalInventorySectionForDev(
+    isLocalMinimal: Boolean,
+    trace: LocalInferenceTrace?,
+    stats: InferenceStats,
+): InferenceStatsSectionUi? {
+    if (!isLocalMinimal || trace == null) return null
+    val rawProbeComparisonItems = listOf(
+        InferenceStatItemUi(label = "rawOutputTokens", value = trace.outputTokenProbe.valueSummary ?: "—"),
+        InferenceStatItemUi(label = "rawEstimatedTokens", value = trace.estimatedTokenProbe.valueSummary ?: "—"),
+        InferenceStatItemUi(label = "rawLoadTime", value = trace.loadTimeProbe.valueSummary ?: "—"),
+        InferenceStatItemUi(label = "rawPromptEvalTime", value = trace.promptEvalTimeProbe.valueSummary ?: "—"),
+        InferenceStatItemUi(label = "rawEvalTime", value = trace.evalTimeProbe.valueSummary ?: "—"),
+        InferenceStatItemUi(label = "rawFirstToken", value = trace.firstTokenProbe.valueSummary ?: "—"),
+        InferenceStatItemUi(label = "parsedLoadTime", value = trace.loadTimeProbe.longValueOrNull()?.toString() ?: "—"),
+        InferenceStatItemUi(label = "parsedPromptEvalTime", value = trace.promptEvalTimeProbe.longValueOrNull()?.toString() ?: "—"),
+        InferenceStatItemUi(label = "rawSessionPromptTokens", value = trace.sessionPromptTokens?.toString() ?: "—"),
+        InferenceStatItemUi(label = "rawSessionResponseTokens", value = trace.sessionResponseTokens?.toString() ?: "—"),
+        InferenceStatItemUi(label = "rawSessionTotalTokens", value = trace.sessionTotalTokens?.toString() ?: "—"),
+    )
+    val fallbackSourceItems = resolveLocalSourceItemsForDev(
+        trace = trace,
+        stats = stats,
+    )
+    val sessionAsyncPocDetailItems = if (ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+        listOf(
+            InferenceStatItemUi(label = "sessionAsyncPocAttempted", value = trace.sessionAsyncPocAttempted.toString()),
+            InferenceStatItemUi(label = "sessionAsyncPocCreate", value = trace.sessionAsyncPocCreateSucceeded.toString()),
+            InferenceStatItemUi(label = "sessionAsyncPocMethod", value = trace.sessionAsyncPocMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocFutureClass", value = trace.sessionAsyncPocFutureClassName ?: "—"),
             InferenceStatItemUi(
-                label = "生成速度",
-                value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
-                emphasizeValue = true,
+                label = "sessionAsyncPocResponseLength",
+                value = trace.sessionAsyncPocResponseLength?.toString() ?: "—",
             ),
-            InferenceStatItemUi(label = "完了理由", value = formatFinishReason(stats) ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocResponseHead", value = trace.sessionAsyncPocResponseHead ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocClose", value = trace.sessionAsyncPocCloseSucceeded?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorStage", value = trace.sessionAsyncPocErrorStage ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorClass", value = trace.sessionAsyncPocErrorClassName ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocErrorMessage", value = trace.sessionAsyncPocErrorMessage ?: "—"),
+        )
+    } else {
+        emptyList()
+    }
+    return InferenceStatsSectionUi(
+        title = "LOCAL棚卸し（開発用）",
+        items = listOf(
+            InferenceStatItemUi(label = "modelName", value = trace.modelNameProbe.availability.name),
+            InferenceStatItemUi(label = "finishReason", value = trace.finishReasonProbe.availability.name),
+            InferenceStatItemUi(label = "outputTokens", value = trace.outputTokenProbe.availability.name),
+            InferenceStatItemUi(label = "loadTime", value = trace.loadTimeProbe.availability.name),
+            InferenceStatItemUi(label = "loadTimeSignature", value = trace.loadTimeProbe.signature ?: "—"),
+            InferenceStatItemUi(label = "promptEvalTime", value = trace.promptEvalTimeProbe.availability.name),
+            InferenceStatItemUi(label = "promptEvalTimeSignature", value = trace.promptEvalTimeProbe.signature ?: "—"),
+            InferenceStatItemUi(label = "firstToken", value = trace.firstTokenProbe.availability.name),
+            InferenceStatItemUi(
+                label = "streamingCandidate",
+                value = trace.streamingCandidateDetected?.toString() ?: "—",
+            ),
+            InferenceStatItemUi(
+                label = "streamingCandidateDetected",
+                value = trace.streamingCandidateDetected?.toString() ?: "—",
+            ),
+            InferenceStatItemUi(
+                label = "asyncApi",
+                value = if (trace.asyncApiSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "asyncSignature", value = trace.asyncApiSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "listenerApi",
+                value = if (trace.listenerApiSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "listenerSignature", value = trace.listenerApiSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionApi",
+                value = if (trace.sessionApiSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionSignature", value = trace.sessionApiSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionGenerateApi",
+                value = if (trace.sessionGenerateSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionGenerateSignature", value = trace.sessionGenerateSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionAsyncApi",
+                value = if (trace.sessionAsyncSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionAsyncSignature", value = trace.sessionAsyncSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionStreamingApi",
+                value = if (trace.sessionStreamingSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionStreamingSignature", value = trace.sessionStreamingSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionTokenApi",
+                value = if (trace.sessionTokenSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionTokenSignature", value = trace.sessionTokenSignature ?: "—"),
+        ) + rawProbeComparisonItems + fallbackSourceItems + listOf(
+            InferenceStatItemUi(label = "sessionPromptTokens", value = trace.sessionPromptTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionResponseTokens", value = trace.sessionResponseTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionTotalTokens", value = trace.sessionTotalTokens?.toString() ?: "—"),
+            InferenceStatItemUi(label = "sessionTokenProbeErrorStage", value = trace.sessionTokenProbeErrorStage ?: "—"),
+            InferenceStatItemUi(label = "sessionTokenProbeErrorClass", value = trace.sessionTokenProbeErrorClassName ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionListenerApi",
+                value = if (trace.sessionListenerSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionListenerSignature", value = trace.sessionListenerSignature ?: "—"),
+            InferenceStatItemUi(
+                label = "sessionLifecycleApi",
+                value = if (trace.sessionLifecycleSignature != null) {
+                    LocalStatsAvailability.API_CANDIDATE_ONLY.name
+                } else {
+                    LocalStatsAvailability.NOT_FOUND.name
+                },
+            ),
+            InferenceStatItemUi(label = "sessionLifecycleSignature", value = trace.sessionLifecycleSignature ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocEnabled", value = ENABLE_DEV_LLM_SESSION_ASYNC_POC.toString()),
+        ) + sessionAsyncPocDetailItems + listOf(
+            InferenceStatItemUi(label = "assistantResponseSource", value = trace.selectedAssistantResponseSource ?: "—"),
+            InferenceStatItemUi(label = "selectedAssistantResponseHead", value = trace.selectedAssistantResponseHead ?: "—"),
+            InferenceStatItemUi(label = "oneShotResponseHead", value = trace.oneShotResponseHead ?: "—"),
+            InferenceStatItemUi(label = "sessionAsyncPocCandidateHead", value = trace.sessionAsyncPocSelectedCandidateHead ?: "—"),
+            InferenceStatItemUi(label = "generateMethod", value = trace.generateMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "createPath", value = trace.createMethodSignature ?: "—"),
+            InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),
         ),
-    ),
-)
+    )
+}
 
 internal data class InferenceTimeSegmentUi(
     val label: String,
@@ -2014,19 +4234,29 @@ internal data class InferenceTimeBreakdownUi(
 )
 
 internal fun buildInferenceTimeBreakdown(stats: InferenceStats): InferenceTimeBreakdownUi? {
-    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L } ?: 0L
-    val prompt = stats.promptEvalDurationNs?.takeIf { it >= 0L } ?: 0L
-    val generation = (stats.generationDurationNs ?: stats.evalDurationNs)?.takeIf { it >= 0L } ?: 0L
-    val total = load + prompt + generation
+    val load = stats.modelLoadDurationNs?.takeIf { it >= 0L }
+    val prompt = stats.promptEvalDurationNs?.takeIf { it >= 0L }
+    val generation = stats.generationDurationNs?.takeIf { it > 0L }
+
+    val segmentSources = buildList {
+        if (load != null) add("ロード" to load)
+        if (prompt != null) add("入力" to prompt)
+        if (generation != null) add("生成" to generation)
+    }
+    val total = segmentSources.sumOf { it.second }
     if (total <= 0L) return null
 
     fun ratio(value: Long): Double = value.toDouble() / total.toDouble()
     return InferenceTimeBreakdownUi(
-        segments = listOf(
-            InferenceTimeSegmentUi("ロード", ratio(load), (ratio(load) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(load)),
-            InferenceTimeSegmentUi("入力", ratio(prompt), (ratio(prompt) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(prompt)),
-            InferenceTimeSegmentUi("生成", ratio(generation), (ratio(generation) * 100).roundToInt(), formatDurationNsAsSecondsForSheet(generation)),
-        ),
+        segments = segmentSources.map { (label, duration) ->
+            val valueRatio = ratio(duration)
+            InferenceTimeSegmentUi(
+                label = label,
+                ratio = valueRatio,
+                percent = (valueRatio * 100).roundToInt(),
+                durationText = formatDurationNsAsSecondsForSheet(duration),
+            )
+        },
     )
 }
 
@@ -2069,30 +4299,70 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     }
 }
 
-internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> = listOf(
-    InferenceStatsSectionUi(
-        title = "トークン",
-        items = listOf(
-            InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
-            InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
-            InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> {
+    val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
+
+    return listOf(
+        InferenceStatsSectionUi(
+            title = "トークン",
+            items = listOf(
+                InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
+                InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
+                InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+            ),
         ),
-    ),
-    InferenceStatsSectionUi(
-        title = "バックエンド時間詳細",
-        items = listOf(
-            InferenceStatItemUi(label = "モデルロード時間", value = formatModelLoadDuration(stats) ?: "—"),
-            InferenceStatItemUi(label = "入力評価時間", value = formatPromptEvalDuration(stats) ?: "—"),
-            InferenceStatItemUi(label = "生成時間", value = formatGenerationDuration(stats) ?: "—"),
+        InferenceStatsSectionUi(
+            title = "バックエンド時間詳細",
+            items = listOfNotNull(
+                InferenceStatItemUi(
+                    label = "モデルロード時間",
+                    value = withProbeStateLabel(
+                        value = formatModelLoadDuration(stats),
+                        state = if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "入力評価時間",
+                    value = withProbeStateLabel(
+                        value = formatPromptEvalDuration(stats),
+                        state = if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "生成時間",
+                    value = withProbeStateLabel(
+                        value = if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                        state = if (hasRealGenerationDuration) "取得済み" else "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "推論時間",
+                    value = withProbeStateLabel(
+                        value = formatProbeDurationForUi(stats.evalDurationNs),
+                        state = if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                    ),
+                ),
+            ),
         ),
-    ),
-    InferenceStatsSectionUi(
-        title = "補足",
-        items = listOf(
-            InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
+        InferenceStatsSectionUi(
+            title = "補足",
+            items = listOf(
+                InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
+            ),
         ),
-    ),
-)
+    )
+}
+
+private fun formatProbeDurationForUi(durationNs: Long?): String {
+    val safeDurationNs = durationNs ?: return "—"
+    if (safeDurationNs < 0L) return "—"
+    val seconds = safeDurationNs / 1_000_000_000.0
+    if (seconds > 0.0 && seconds < 0.1) return "<0.1 s"
+    return String.format(Locale.US, "%.1f s", seconds)
+}
+
+private fun withProbeStateLabel(value: String?, state: String): String =
+    "${value ?: "—"}（$state）"
 
 internal data class InferenceStatsSectionUi(
     val title: String,

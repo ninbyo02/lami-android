@@ -13,6 +13,7 @@ data class Message(
     val attachmentUriStringsJson: String? = null,
     val completionTokens: Int? = null,
     val generationTimeMs: Long? = null,
+    val generationDurationNs: Long? = null,
     val evalDurationNs: Long? = null,
     val loadDurationNs: Long? = null,
     val promptEvalDurationNs: Long? = null,
@@ -22,6 +23,7 @@ data class Message(
     val tokensPerSecond: Double? = null,
     val inferenceTimeSec: Double? = null,
     val finishReason: String? = null,
+    val localSourceSummary: String? = null,
     val timeToFirstTokenMs: Long? = null,
     val imageInputCount: Int? = null,
 )
