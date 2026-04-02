@@ -3290,7 +3290,34 @@ private fun probeLocalStatsCandidates(
         evalTimeProbe = probeSingleCandidate(
             target = primaryTarget,
             label = "evalTime",
-            candidateNames = listOf("getEvalDuration", "evalDuration", "getGenerationDuration", "generationDuration"),
+            candidateNames = listOf(
+                "getEvalDuration",
+                "evalDuration",
+                "getGenerationDuration",
+                "generationDuration",
+                "getDecodeDuration",
+                "decodeDuration",
+                "getDecodeDurationNs",
+                "decodeDurationNs",
+                "getDecodeDurationMs",
+                "decodeDurationMs",
+                "getDecodeTimeNs",
+                "decodeTimeNs",
+                "getDecodeTimeMs",
+                "decodeTimeMs",
+                "getCompletionDuration",
+                "completionDuration",
+                "getCompletionDurationNs",
+                "completionDurationNs",
+                "getCompletionDurationMs",
+                "completionDurationMs",
+                "getCompletionTimeNs",
+                "completionTimeNs",
+                "getCompletionTimeMs",
+                "completionTimeMs",
+                "getResponseDurationNs",
+                "responseDurationNs",
+            ),
         ),
         firstTokenProbe = probeSingleCandidate(
             target = primaryTarget,
@@ -3478,6 +3505,18 @@ private fun LocalStatsCandidateProbe.longValueOrNull(): Long? {
     return valueSummary?.toLongOrNull()
 }
 
+private fun LocalStatsCandidateProbe.durationNsOrNull(): Long? {
+    val rawValue = longValueOrNull() ?: return null
+    if (rawValue < 0L) return null
+    val signatureLower = signature?.lowercase(Locale.ROOT).orEmpty()
+    val isMillisValue =
+        signatureLower.contains("timems") ||
+            signatureLower.contains("durationms") ||
+            signatureLower.contains("millis") ||
+            signatureLower.contains("milliseconds")
+    return if (isMillisValue) rawValue * 1_000_000L else rawValue
+}
+
 private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
     if (availability == LocalStatsAvailability.NOT_FOUND) return null
     return valueSummary
@@ -3512,10 +3551,10 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
     val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
-    val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val existingGenerationDurationNs = trace.evalTimeProbe.durationNsOrNull()
     val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
     val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
-    val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
+    val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
         wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
