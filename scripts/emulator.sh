@@ -34,6 +34,7 @@ Env (can be set via scripts/emulator.env):
   EMU_NO_SNAPSHOT     (default: 1)  # 1 => -no-snapshot
   EMU_WIPE_DATA       (default: 0)  # 1 => -wipe-data
   EMU_GPU_MODE        (default: swiftshader_indirect) # auto|host|swiftshader_indirect
+  EMU_PARTITION_SIZE_MB (default: unset) # e.g. 12288 for 12GB data partition
 
   DISABLE_ANIMATIONS  (default: 0)  # 1 => disable system animations after boot
 
@@ -77,6 +78,7 @@ EMU_HEADLESS="${EMU_HEADLESS:-0}"
 EMU_NO_SNAPSHOT="${EMU_NO_SNAPSHOT:-1}"
 EMU_WIPE_DATA="${EMU_WIPE_DATA:-0}"
 EMU_GPU_MODE="${EMU_GPU_MODE:-swiftshader_indirect}"
+EMU_PARTITION_SIZE_MB="${EMU_PARTITION_SIZE_MB:-}"
 
 DISABLE_ANIMATIONS="${DISABLE_ANIMATIONS:-0}"
 
@@ -137,6 +139,9 @@ build_emu_flags() {
   if [[ -n "${EMU_GPU_MODE:-}" ]]; then
     flags+=" -gpu ${EMU_GPU_MODE}"
   fi
+  if [[ -n "${EMU_PARTITION_SIZE_MB:-}" ]]; then
+    flags+=" -partition-size ${EMU_PARTITION_SIZE_MB}"
+  fi
 
   echo "$flags"
 }
@@ -159,6 +164,7 @@ doctor() {
   log "EMU_PORT=$EMU_PORT"
   log "EMU_SERIAL(default)=$EMU_SERIAL_DEFAULT"
   log "EMU_HEADLESS=$EMU_HEADLESS EMU_NO_SNAPSHOT=$EMU_NO_SNAPSHOT EMU_WIPE_DATA=$EMU_WIPE_DATA EMU_GPU_MODE=$EMU_GPU_MODE"
+  log "EMU_PARTITION_SIZE_MB=${EMU_PARTITION_SIZE_MB:-unset}"
   log "DISABLE_ANIMATIONS=$DISABLE_ANIMATIONS"
   log "EMU_DEVICE_TIMEOUT=$EMU_DEVICE_TIMEOUT EMU_BOOT_TIMEOUT=$EMU_BOOT_TIMEOUT STOP_TIMEOUT=$STOP_TIMEOUT POLL_INTERVAL=$POLL_INTERVAL"
   log "LOG_DIR=$LOG_DIR"
