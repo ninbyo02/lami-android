@@ -422,7 +422,9 @@ fun Home(
             .take(MaxComposerAttachments)
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
-    val streamingResponseText = (uiState as? UiState.Streaming)?.partialText
+    val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
+    var localStreamingResponseText by remember { mutableStateOf<String?>(null) }
+    val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRespondingUi =
         selectedInferenceTarget == InferenceTarget.LOCAL &&
             isLocalInferenceRunning
@@ -1197,6 +1199,7 @@ fun Home(
                                                             ttsController.stop()
                                                             viewModel.stopTtsPlayback()
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            localStreamingResponseText = null
                                                             assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
@@ -1278,6 +1281,12 @@ fun Home(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM before-createAssistantMessage localResponseBlank=${assistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
                                                                 )
+                                                                streamLocalAssistantPreviewTextToUi(
+                                                                    responseText = assistantResponse,
+                                                                    onChunk = { chunk ->
+                                                                        localStreamingResponseText = chunk
+                                                                    },
+                                                                )
                                                                 viewModel.insert(
                                                                     createAssistantMessage(
                                                                         chatId = currentChatId,
@@ -1287,6 +1296,7 @@ fun Home(
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                     )
                                                                 )
+                                                                localStreamingResponseText = null
                                                                 return@launch
                                                             }
                                                             snackbarHostState.currentSnackbarData?.dismiss()
@@ -1306,6 +1316,7 @@ fun Home(
                                                             )
                                                             dismissJob.cancel()
                                                         } finally {
+                                                            localStreamingResponseText = null
                                                             isLocalInferenceRunning = false
                                                         }
                                                     }
@@ -2778,6 +2789,31 @@ private fun sanitizeDebugTraceHead(raw: String?): String? {
     val sanitized = sanitizeDevSessionAsyncPocResponse(raw)
     val base = if (sanitized.isNotEmpty()) sanitized else raw.trim()
     return base.take(80)
+}
+
+private suspend fun streamLocalAssistantPreviewTextToUi(
+    responseText: String,
+    onChunk: (String) -> Unit,
+) {
+    val trimmed = responseText.trim()
+    if (trimmed.isEmpty()) return
+    var previousChunk: String? = null
+    val step = 12
+    var endIndex = step
+    while (endIndex <= trimmed.length) {
+        val chunk = trimmed.substring(0, endIndex)
+        if (chunk.isNotEmpty() && chunk != previousChunk) {
+            onChunk(chunk)
+            previousChunk = chunk
+        }
+        if (endIndex < trimmed.length) {
+            delay(16L)
+        }
+        endIndex += step
+    }
+    if (previousChunk != trimmed) {
+        onChunk(trimmed)
+    }
 }
 
 private fun sanitizeOneShotShortAnswerResponse(prompt: String, raw: String): String {
