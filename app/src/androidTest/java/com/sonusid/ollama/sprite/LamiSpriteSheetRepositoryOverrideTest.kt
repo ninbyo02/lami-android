@@ -1,10 +1,10 @@
-package com.sonusid.ollama.sprite
+package io.github.ninbyo02.lami.sprite
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.test.platform.app.InstrumentationRegistry
-import com.sonusid.ollama.R
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

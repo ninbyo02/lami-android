@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
 import android.util.Log
@@ -10,10 +10,10 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
-import com.sonusid.ollama.BuildConfig
-import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.data.normalize
-import com.sonusid.ollama.tts.AndroidTtsController
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.data.SpriteSheetConfig
+import io.github.ninbyo02.lami.data.normalize
+import io.github.ninbyo02.lami.tts.AndroidTtsController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map

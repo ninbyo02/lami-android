@@ -1,4 +1,4 @@
-package com.sonusid.ollama.db.entity
+package io.github.ninbyo02.lami.db.entity
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

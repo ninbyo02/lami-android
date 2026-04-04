@@ -1,4 +1,4 @@
-package com.sonusid.ollama.data
+package io.github.ninbyo02.lami.data
 
 import android.content.Context
 import android.os.Parcelable

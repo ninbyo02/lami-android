@@ -1,7 +1,7 @@
-package com.sonusid.ollama.db.repository
+package io.github.ninbyo02.lami.db.repository
 
-import com.sonusid.ollama.db.dao.ModelPreferenceDao
-import com.sonusid.ollama.db.entity.SelectedModel
+import io.github.ninbyo02.lami.db.dao.ModelPreferenceDao
+import io.github.ninbyo02.lami.db.entity.SelectedModel
 
 class ModelPreferenceRepository(private val modelPreferenceDao: ModelPreferenceDao) {
     suspend fun getSelectedModel(baseUrl: String): String? =

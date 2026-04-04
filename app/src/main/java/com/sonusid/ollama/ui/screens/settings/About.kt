@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.res.Configuration
 import androidx.compose.foundation.rememberScrollState
@@ -46,18 +46,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.sonusid.ollama.BuildConfig
-import com.sonusid.ollama.R
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
-import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.components.LamiSprite
-import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
-import com.sonusid.ollama.viewmodels.LamiState
-import com.sonusid.ollama.viewmodels.LamiStatus
-import com.sonusid.ollama.viewmodels.LamiUiState
-import com.sonusid.ollama.viewmodels.OllamaViewModel
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
+import io.github.ninbyo02.lami.ui.components.LamiSprite
+import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
+import io.github.ninbyo02.lami.viewmodels.LamiState
+import io.github.ninbyo02.lami.viewmodels.LamiStatus
+import io.github.ninbyo02.lami.viewmodels.LamiUiState
+import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.min
 import kotlinx.coroutines.launch

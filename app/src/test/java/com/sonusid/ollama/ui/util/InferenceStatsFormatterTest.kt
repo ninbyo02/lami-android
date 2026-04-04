@@ -1,6 +1,6 @@
-package com.sonusid.ollama.ui.util
+package io.github.ninbyo02.lami.ui.util
 
-import com.sonusid.ollama.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.model.InferenceStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

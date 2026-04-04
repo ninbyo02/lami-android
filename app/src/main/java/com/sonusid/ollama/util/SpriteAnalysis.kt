@@ -1,4 +1,4 @@
-package com.sonusid.ollama.util
+package io.github.ninbyo02.lami.util
 
 import android.graphics.Bitmap
 import android.graphics.Point

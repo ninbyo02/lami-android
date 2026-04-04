@@ -1,8 +1,8 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.sonusid.ollama.ui.screens.settings.ErrorCause
-import com.sonusid.ollama.viewmodels.resolveErrorKey
+import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
+import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

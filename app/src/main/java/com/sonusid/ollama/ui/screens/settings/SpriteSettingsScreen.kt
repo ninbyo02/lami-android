@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -86,7 +86,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.withFrameNanos
-import com.sonusid.ollama.viewmodels.resolveErrorKey
+import io.github.ninbyo02.lami.viewmodels.resolveErrorKey
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -133,27 +133,27 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavController
-import com.sonusid.ollama.BuildConfig
-import com.sonusid.ollama.R
-import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.data.boxesWithInternalIndex
-import com.sonusid.ollama.data.isUninitialized
-import com.sonusid.ollama.data.toInternalFrameIndex
-import com.sonusid.ollama.data.BoxPosition as SpriteSheetBoxPosition
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.components.ReadyPreviewLayoutState
-import com.sonusid.ollama.ui.components.ReadyPreviewSlot
-import com.sonusid.ollama.ui.components.SpriteFrameRegion
-import com.sonusid.ollama.ui.components.DevMenuSectionHost
-import com.sonusid.ollama.ui.components.drawFramePlaceholder
-import com.sonusid.ollama.ui.components.drawFrameRegion
-import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
-import com.sonusid.ollama.ui.components.rememberNightSpriteColorFilterForDarkTheme
-import com.sonusid.ollama.ui.components.rememberReadyPreviewLayoutState
-import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
-import com.sonusid.ollama.ui.common.TopAppBarHeight
-import com.sonusid.ollama.tts.AndroidTtsController
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.data.SpriteSheetConfig
+import io.github.ninbyo02.lami.data.boxesWithInternalIndex
+import io.github.ninbyo02.lami.data.isUninitialized
+import io.github.ninbyo02.lami.data.toInternalFrameIndex
+import io.github.ninbyo02.lami.data.BoxPosition as SpriteSheetBoxPosition
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.ui.components.ReadyPreviewLayoutState
+import io.github.ninbyo02.lami.ui.components.ReadyPreviewSlot
+import io.github.ninbyo02.lami.ui.components.SpriteFrameRegion
+import io.github.ninbyo02.lami.ui.components.DevMenuSectionHost
+import io.github.ninbyo02.lami.ui.components.drawFramePlaceholder
+import io.github.ninbyo02.lami.ui.components.drawFrameRegion
+import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
+import io.github.ninbyo02.lami.ui.components.rememberNightSpriteColorFilterForDarkTheme
+import io.github.ninbyo02.lami.ui.components.rememberReadyPreviewLayoutState
+import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
+import io.github.ninbyo02.lami.tts.AndroidTtsController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

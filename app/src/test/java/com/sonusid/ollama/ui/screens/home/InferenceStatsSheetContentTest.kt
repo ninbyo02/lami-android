@@ -1,7 +1,7 @@
-package com.sonusid.ollama.ui.screens.home
+package io.github.ninbyo02.lami.ui.screens.home
 
-import com.sonusid.ollama.ui.model.ContextWindowFetchState
-import com.sonusid.ollama.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
+import io.github.ninbyo02.lami.ui.model.InferenceStats
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

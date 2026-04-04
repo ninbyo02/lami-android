@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Color.Companion.Transparent
 import androidx.compose.ui.graphics.lerp
-import com.sonusid.ollama.viewmodels.LamiState
+import io.github.ninbyo02.lami.viewmodels.LamiState
 
 @Composable
 internal fun rememberLamiCharacterBackdropColor(): Color {

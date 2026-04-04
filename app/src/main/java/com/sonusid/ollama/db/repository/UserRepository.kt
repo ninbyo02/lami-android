@@ -1,7 +1,7 @@
-package com.sonusid.ollama.db.repository
+package io.github.ninbyo02.lami.db.repository
 
-import com.sonusid.ollama.db.dao.ChatDao
-import com.sonusid.ollama.db.entity.Chat
+import io.github.ninbyo02.lami.db.dao.ChatDao
+import io.github.ninbyo02.lami.db.entity.Chat
 import kotlinx.coroutines.flow.Flow
 
 class UserRepository(private val chatDao: ChatDao) {

@@ -1,4 +1,4 @@
-package com.sonusid.ollama.tts
+package io.github.ninbyo02.lami.tts
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

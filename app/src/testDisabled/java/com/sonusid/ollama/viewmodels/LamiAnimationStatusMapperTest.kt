@@ -1,6 +1,6 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
-import com.sonusid.ollama.UiState
+import io.github.ninbyo02.lami.UiState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

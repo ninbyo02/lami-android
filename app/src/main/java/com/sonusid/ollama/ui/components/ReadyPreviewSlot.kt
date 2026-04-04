@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box

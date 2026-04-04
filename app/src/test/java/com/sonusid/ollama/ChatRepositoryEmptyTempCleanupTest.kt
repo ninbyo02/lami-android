@@ -1,12 +1,12 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
-import com.sonusid.ollama.db.dao.ChatDao
-import com.sonusid.ollama.db.dao.ChatLatestMessage
-import com.sonusid.ollama.db.dao.MessageDao
-import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.db.entity.Message
-import com.sonusid.ollama.db.entity.TitleSource
-import com.sonusid.ollama.db.repository.ChatRepository
+import io.github.ninbyo02.lami.db.dao.ChatDao
+import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
+import io.github.ninbyo02.lami.db.dao.MessageDao
+import io.github.ninbyo02.lami.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.TitleSource
+import io.github.ninbyo02.lami.db.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest

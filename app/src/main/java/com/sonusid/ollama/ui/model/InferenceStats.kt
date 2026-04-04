@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.model
+package io.github.ninbyo02.lami.ui.model
 
 enum class ContextWindowFetchState {
     LOADING,

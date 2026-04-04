@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
@@ -17,11 +17,11 @@ import androidx.compose.ui.test.up
 
 // 実機向けの3テストのみ実行する例:
 // ./gradlew :app:connectedDebugAndroidTest --no-build-cache \
-//   -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.settings.SpriteSettingsTalkShortPerStateRestoreTest
+//   -Pandroid.testInstrumentationRunnerArguments.class=io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsTalkShortPerStateRestoreTest
 // ./gradlew :app:connectedDebugAndroidTest --no-build-cache \
-//   -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.settings.SpriteSettingsTalkLongPerStateRestoreTest
+//   -Pandroid.testInstrumentationRunnerArguments.class=io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsTalkLongPerStateRestoreTest
 // ./gradlew :app:connectedDebugAndroidTest --no-build-cache \
-//   -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.settings.SpriteSettingsTalkCalmPerStateRestoreTest
+//   -Pandroid.testInstrumentationRunnerArguments.class=io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsTalkCalmPerStateRestoreTest
 fun ComposeTestRule.selectAnimationTypeByAnchor(
     label: String,
     anchorTag: String = "spriteAnimTypeDropdownAnchor",

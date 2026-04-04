@@ -1,4 +1,4 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

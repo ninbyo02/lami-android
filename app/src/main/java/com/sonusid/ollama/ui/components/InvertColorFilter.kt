@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable

@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.common
+package io.github.ninbyo02.lami.ui.common
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.compositionLocalOf

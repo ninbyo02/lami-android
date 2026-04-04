@@ -1,4 +1,4 @@
-package com.sonusid.ollama.db
+package io.github.ninbyo02.lami.db
 
 import android.content.Context
 import androidx.room.Database
@@ -6,10 +6,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.sonusid.ollama.db.dao.BaseUrlDao
-import com.sonusid.ollama.db.dao.ModelPreferenceDao
-import com.sonusid.ollama.db.entity.BaseUrl
-import com.sonusid.ollama.db.entity.SelectedModel
+import io.github.ninbyo02.lami.db.dao.BaseUrlDao
+import io.github.ninbyo02.lami.db.dao.ModelPreferenceDao
+import io.github.ninbyo02.lami.db.entity.BaseUrl
+import io.github.ninbyo02.lami.db.entity.SelectedModel
 
 @Database(entities = [BaseUrl::class, SelectedModel::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {

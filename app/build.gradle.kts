@@ -35,11 +35,11 @@ fun resolveBuildPrNumber(): String {
 
 android {
 
-    namespace = "com.sonusid.ollama"
+    namespace = "io.github.ninbyo02.lami"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.sonusid.ollama"
+        applicationId = "io.github.ninbyo02.lami"
         minSdk = 34
         targetSdk = 35
         versionCode = 1

@@ -1,10 +1,10 @@
-package com.sonusid.ollama.db.dao
+package io.github.ninbyo02.lami.db.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.sonusid.ollama.db.entity.SelectedModel
+import io.github.ninbyo02.lami.db.entity.SelectedModel
 
 @Dao
 interface ModelPreferenceDao {

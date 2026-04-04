@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
 import androidx.activity.compose.setContent
@@ -26,12 +26,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
-import com.sonusid.ollama.MainActivity
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.screens.settings.Settings
-import com.sonusid.ollama.ui.screens.settings.SpriteSettingsScreen
-import com.sonusid.ollama.ui.theme.OllamaTheme
+import io.github.ninbyo02.lami.MainActivity
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.navigation.SettingsRoute
+import io.github.ninbyo02.lami.ui.screens.settings.Settings
+import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsScreen
+import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -42,7 +42,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import com.sonusid.ollama.ui.TestAppWrapper
+import io.github.ninbyo02.lami.ui.TestAppWrapper
 
 class SpriteSettingsInsertionOptionalIntervalTest {
     @get:Rule
@@ -155,7 +155,7 @@ class SpriteSettingsInsertionOptionalIntervalTest {
     @Suppress("UNCHECKED_CAST")
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
         val settingsClass = Class.forName(
-            "com.sonusid.ollama.ui.screens.settings.SettingsPreferencesKt"
+            "io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferencesKt"
         )
         val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
         getter.isAccessible = true

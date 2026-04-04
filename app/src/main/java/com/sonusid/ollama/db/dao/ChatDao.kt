@@ -1,11 +1,11 @@
-package com.sonusid.ollama.db.dao
+package io.github.ninbyo02.lami.db.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.sonusid.ollama.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.Chat
 import kotlinx.coroutines.flow.Flow
 
 @Dao

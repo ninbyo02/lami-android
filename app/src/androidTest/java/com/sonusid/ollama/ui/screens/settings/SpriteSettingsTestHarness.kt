@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import androidx.activity.compose.setContent
 import androidx.activity.ComponentActivity
@@ -15,10 +15,10 @@ import androidx.navigation.compose.NavHost
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.TestAppWrapper
-import com.sonusid.ollama.ui.theme.OllamaTheme
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.navigation.SettingsRoute
+import io.github.ninbyo02.lami.ui.TestAppWrapper
+import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 
 private fun ComposeTestRule.asAndroidRule(): AndroidComposeTestRule<ActivityScenarioRule<out ComponentActivity>, out ComponentActivity> =
     this as AndroidComposeTestRule<ActivityScenarioRule<out ComponentActivity>, out ComponentActivity>

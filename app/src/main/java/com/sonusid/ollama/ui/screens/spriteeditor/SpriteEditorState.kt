@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.spriteeditor
+package io.github.ninbyo02.lami.ui.screens.spriteeditor
 
 import android.graphics.Bitmap
 import androidx.compose.ui.graphics.ImageBitmap

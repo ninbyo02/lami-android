@@ -1,4 +1,4 @@
-package com.sonusid.ollama.sprite
+package io.github.ninbyo02.lami.sprite
 
 import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4

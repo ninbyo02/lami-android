@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -30,12 +30,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.sonusid.ollama.BuildConfig
-import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MAX
-import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MIN
-import com.sonusid.ollama.ui.screens.settings.DevPreviewSettings
-import com.sonusid.ollama.ui.screens.settings.ReadyPreviewUiState
-import com.sonusid.ollama.ui.screens.settings.toJsonObject
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MAX
+import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MIN
+import io.github.ninbyo02.lami.ui.screens.settings.DevPreviewSettings
+import io.github.ninbyo02.lami.ui.screens.settings.ReadyPreviewUiState
+import io.github.ninbyo02.lami.ui.screens.settings.toJsonObject
 import androidx.compose.ui.text.AnnotatedString
 import kotlin.math.abs
 import kotlin.math.round

@@ -1,6 +1,6 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
-import com.sonusid.ollama.navigation.Routes
+import io.github.ninbyo02.lami.navigation.Routes
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

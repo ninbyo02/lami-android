@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.spriteeditor
+package io.github.ninbyo02.lami.ui.screens.spriteeditor
 
 import android.content.Intent
 import android.graphics.Bitmap
@@ -112,14 +112,14 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
-import com.sonusid.ollama.R
-import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
-import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
-import com.sonusid.ollama.sprite.compositePreserveTransparency
-import com.sonusid.ollama.ui.screens.settings.SpriteSettingsSessionSpriteOverride
-import com.sonusid.ollama.ui.components.rememberLamiEditorSpriteBackdropColor
-import com.sonusid.ollama.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import io.github.ninbyo02.lami.sprite.compositePreserveTransparency
+import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsSessionSpriteOverride
+import io.github.ninbyo02.lami.ui.components.rememberLamiEditorSpriteBackdropColor
+import io.github.ninbyo02.lami.ui.screens.spriteeditor.FILL_REGION_TRANSPARENT_ALPHA_THRESHOLD
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay

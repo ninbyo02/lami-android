@@ -1,4 +1,4 @@
-package com.sonusid.ollama.db.dao
+package io.github.ninbyo02.lami.db.dao
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -7,7 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
-import com.sonusid.ollama.db.entity.BaseUrl
+import io.github.ninbyo02.lami.db.entity.BaseUrl
 
 @Dao
 interface BaseUrlDao {

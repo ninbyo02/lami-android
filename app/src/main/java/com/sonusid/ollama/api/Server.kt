@@ -1,8 +1,8 @@
-package com.sonusid.ollama.api
+package io.github.ninbyo02.lami.api
 
-import com.sonusid.ollama.db.entity.BaseUrl
-import com.sonusid.ollama.db.repository.BaseUrlProvider
-import com.sonusid.ollama.db.repository.ModelPreferenceRepository
+import io.github.ninbyo02.lami.db.entity.BaseUrl
+import io.github.ninbyo02.lami.db.repository.BaseUrlProvider
+import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
@@ -10,8 +10,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import android.util.Log
-import com.sonusid.ollama.util.normalizeUrlInput
-import com.sonusid.ollama.util.validateUrlFormat
+import io.github.ninbyo02.lami.util.normalizeUrlInput
+import io.github.ninbyo02.lami.util.validateUrlFormat
 import java.util.concurrent.TimeUnit
 import java.net.URL
 

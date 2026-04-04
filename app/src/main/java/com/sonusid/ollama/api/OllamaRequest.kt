@@ -1,4 +1,4 @@
-package com.sonusid.ollama.api
+package io.github.ninbyo02.lami.api
 
 import retrofit2.http.Body
 import retrofit2.http.Headers

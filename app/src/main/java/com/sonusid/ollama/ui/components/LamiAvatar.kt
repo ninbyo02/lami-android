@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -78,13 +78,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sonusid.ollama.BuildConfig
-import com.sonusid.ollama.R
-import com.sonusid.ollama.api.RetrofitClient
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
-import com.sonusid.ollama.viewmodels.LamiState
-import com.sonusid.ollama.viewmodels.LamiStatus
-import com.sonusid.ollama.viewmodels.ModelInfo
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.api.RetrofitClient
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.viewmodels.LamiState
+import io.github.ninbyo02.lami.viewmodels.LamiStatus
+import io.github.ninbyo02.lami.viewmodels.ModelInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

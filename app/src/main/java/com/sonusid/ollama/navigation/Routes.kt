@@ -1,4 +1,4 @@
-package com.sonusid.ollama.navigation
+package io.github.ninbyo02.lami.navigation
 
 object Routes {
     const val HOME = "home"

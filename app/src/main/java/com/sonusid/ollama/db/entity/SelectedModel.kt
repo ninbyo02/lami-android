@@ -1,4 +1,4 @@
-package com.sonusid.ollama.db.entity
+package io.github.ninbyo02.lami.db.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

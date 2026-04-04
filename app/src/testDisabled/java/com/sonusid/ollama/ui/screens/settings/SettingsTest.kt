@@ -1,13 +1,13 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
-import com.sonusid.ollama.api.BaseUrlInitializationState
-import com.sonusid.ollama.db.dao.BaseUrlDao
-import com.sonusid.ollama.db.entity.BaseUrl
-import com.sonusid.ollama.db.repository.BaseUrlRepository
-import com.sonusid.ollama.db.repository.ModelPreferenceRepository
-import com.sonusid.ollama.db.entity.SelectedModel
-import com.sonusid.ollama.db.dao.ModelPreferenceDao
-import com.sonusid.ollama.util.UrlValidationResult
+import io.github.ninbyo02.lami.api.BaseUrlInitializationState
+import io.github.ninbyo02.lami.db.dao.BaseUrlDao
+import io.github.ninbyo02.lami.db.entity.BaseUrl
+import io.github.ninbyo02.lami.db.repository.BaseUrlRepository
+import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+import io.github.ninbyo02.lami.db.entity.SelectedModel
+import io.github.ninbyo02.lami.db.dao.ModelPreferenceDao
+import io.github.ninbyo02.lami.util.UrlValidationResult
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -1,4 +1,4 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.sonusid.ollama", appContext.packageName)
+        assertEquals("io.github.ninbyo02.lami", appContext.packageName)
     }
 }

@@ -1,4 +1,4 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
 import org.junit.Test
 

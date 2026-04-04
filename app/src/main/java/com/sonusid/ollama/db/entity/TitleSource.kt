@@ -1,4 +1,4 @@
-package com.sonusid.ollama.db.entity
+package io.github.ninbyo02.lami.db.entity
 
 object TitleSource {
     const val TEMP = "TEMP"

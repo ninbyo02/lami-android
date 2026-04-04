@@ -1,4 +1,4 @@
-package com.sonusid.ollama.util
+package io.github.ninbyo02.lami.util
 
 import java.net.MalformedURLException
 import java.net.URL

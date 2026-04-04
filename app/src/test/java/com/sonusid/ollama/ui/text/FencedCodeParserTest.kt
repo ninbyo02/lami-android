@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.text
+package io.github.ninbyo02.lami.ui.text
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

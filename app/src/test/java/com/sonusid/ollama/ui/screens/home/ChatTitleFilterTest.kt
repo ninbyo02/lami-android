@@ -1,6 +1,6 @@
-package com.sonusid.ollama.ui.screens.home
+package io.github.ninbyo02.lami.ui.screens.home
 
-import com.sonusid.ollama.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.Chat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

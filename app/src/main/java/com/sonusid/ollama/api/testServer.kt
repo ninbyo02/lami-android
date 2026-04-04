@@ -1,4 +1,4 @@
-package com.sonusid.ollama.api
+package io.github.ninbyo02.lami.api
 
 import android.util.Log
 import retrofit2.Call

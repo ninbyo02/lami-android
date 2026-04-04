@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -6,13 +6,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.sonusid.ollama.data.BoxPosition
-import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.data.boxesWithInternalIndex
-import com.sonusid.ollama.data.normalize
-import com.sonusid.ollama.data.toInternalFrameIndex
-import com.sonusid.ollama.data.toSpriteBoxes
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.data.BoxPosition
+import io.github.ninbyo02.lami.data.SpriteSheetConfig
+import io.github.ninbyo02.lami.data.boxesWithInternalIndex
+import io.github.ninbyo02.lami.data.normalize
+import io.github.ninbyo02.lami.data.toInternalFrameIndex
+import io.github.ninbyo02.lami.data.toSpriteBoxes
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first

@@ -1,9 +1,9 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.sonusid.ollama.ui.screens.settings.ReadyAnimationSettings
+import io.github.ninbyo02.lami.ui.screens.settings.ReadyAnimationSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout

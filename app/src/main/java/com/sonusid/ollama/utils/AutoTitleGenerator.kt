@@ -1,4 +1,4 @@
-package com.sonusid.ollama.utils
+package io.github.ninbyo02.lami.utils
 
 import java.time.LocalDate
 

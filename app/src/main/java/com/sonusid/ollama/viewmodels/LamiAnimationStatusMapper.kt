@@ -1,6 +1,6 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
-import com.sonusid.ollama.UiState
+import io.github.ninbyo02.lami.UiState
 
 enum class LamiAnimationStatus {
     Idle,

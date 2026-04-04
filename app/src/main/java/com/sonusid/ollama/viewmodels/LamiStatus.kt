@@ -1,4 +1,4 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
 data class GatewayStatusState(
     val isConnecting: Boolean = false,

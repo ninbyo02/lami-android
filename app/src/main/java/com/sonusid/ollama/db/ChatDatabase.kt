@@ -1,4 +1,4 @@
-package com.sonusid.ollama.db
+package io.github.ninbyo02.lami.db
 
 import android.content.Context
 import androidx.room.Database
@@ -6,11 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.sonusid.ollama.db.dao.ChatDao
-import com.sonusid.ollama.db.dao.MessageDao
-import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.db.entity.Message
-import com.sonusid.ollama.db.entity.TitleSource
+import io.github.ninbyo02.lami.db.dao.ChatDao
+import io.github.ninbyo02.lami.db.dao.MessageDao
+import io.github.ninbyo02.lami.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.TitleSource
 
 @Database(entities = [Chat::class, Message::class], version = 11, exportSchema = false)
 abstract class ChatDatabase : RoomDatabase() {

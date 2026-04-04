@@ -1,9 +1,9 @@
-package com.sonusid.ollama.ui.theme
+package io.github.ninbyo02.lami.ui.theme
 
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import com.sonusid.ollama.R
+import io.github.ninbyo02.lami.R
 
 // Define a local font family
 val notoSans = FontFamily(

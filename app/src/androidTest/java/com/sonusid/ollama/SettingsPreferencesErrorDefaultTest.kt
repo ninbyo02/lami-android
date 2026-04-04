@@ -1,10 +1,10 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.sonusid.ollama.ui.screens.settings.InsertionAnimationSettings
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
-import com.sonusid.ollama.ui.screens.settings.SpriteState
+import io.github.ninbyo02.lami.ui.screens.settings.InsertionAnimationSettings
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.ui.screens.settings.SpriteState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals

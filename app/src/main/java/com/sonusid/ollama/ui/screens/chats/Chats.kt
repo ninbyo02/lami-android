@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.chats
+package io.github.ninbyo02.lami.ui.screens.chats
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.*
@@ -17,16 +17,16 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
-import com.sonusid.ollama.R
-import com.sonusid.ollama.UiState
-import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.db.entity.TitleSource
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.components.HeaderAvatar
-import com.sonusid.ollama.ui.components.LamiHeaderStatus
-import com.sonusid.ollama.ui.components.LamiSprite
-import com.sonusid.ollama.ui.components.rememberLamiCharacterBackdropColor
-import com.sonusid.ollama.viewmodels.OllamaViewModel
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.UiState
+import io.github.ninbyo02.lami.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.TitleSource
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.ui.components.HeaderAvatar
+import io.github.ninbyo02.lami.ui.components.LamiHeaderStatus
+import io.github.ninbyo02.lami.ui.components.LamiSprite
+import io.github.ninbyo02.lami.ui.components.rememberLamiCharacterBackdropColor
+import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

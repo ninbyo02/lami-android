@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.home
+package io.github.ninbyo02.lami.ui.screens.home
 
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -76,11 +76,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.sonusid.ollama.ui.common.buildHighlightedCodeAnnotatedString
-import com.sonusid.ollama.ui.model.InferenceStats
-import com.sonusid.ollama.ui.util.buildInferenceSummary
-import com.sonusid.ollama.ui.text.Segment
-import com.sonusid.ollama.ui.text.parseFencedCodeSegments
+import io.github.ninbyo02.lami.ui.common.buildHighlightedCodeAnnotatedString
+import io.github.ninbyo02.lami.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.util.buildInferenceSummary
+import io.github.ninbyo02.lami.ui.text.Segment
+import io.github.ninbyo02.lami.ui.text.parseFencedCodeSegments
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import org.json.JSONArray
 import kotlinx.coroutines.NonCancellable

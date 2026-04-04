@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.theme
+package io.github.ninbyo02.lami.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable

@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import android.graphics.BitmapFactory
 import android.util.Log
@@ -32,17 +32,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
-import com.sonusid.ollama.R
-import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.data.normalize
-import com.sonusid.ollama.sprite.SpriteSheetData
-import com.sonusid.ollama.sprite.SpriteSheetFrameRegion
-import com.sonusid.ollama.sprite.SpriteSheetLoadResult
-import com.sonusid.ollama.sprite.rememberLamiSpriteSheetState
-import com.sonusid.ollama.viewmodels.LamiState
-import com.sonusid.ollama.viewmodels.LamiStatus
-import com.sonusid.ollama.ui.components.mapToLamiSpriteStatus
-import com.sonusid.ollama.ui.components.rememberSpriteFrameMaps
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.data.SpriteSheetConfig
+import io.github.ninbyo02.lami.data.normalize
+import io.github.ninbyo02.lami.sprite.SpriteSheetData
+import io.github.ninbyo02.lami.sprite.SpriteSheetFrameRegion
+import io.github.ninbyo02.lami.sprite.SpriteSheetLoadResult
+import io.github.ninbyo02.lami.sprite.rememberLamiSpriteSheetState
+import io.github.ninbyo02.lami.viewmodels.LamiState
+import io.github.ninbyo02.lami.viewmodels.LamiStatus
+import io.github.ninbyo02.lami.ui.components.mapToLamiSpriteStatus
+import io.github.ninbyo02.lami.ui.components.rememberSpriteFrameMaps
 import kotlin.math.roundToInt
 
 private val DefaultSpriteSheetConfig = SpriteSheetConfig.default3x3()

@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.home
+package io.github.ninbyo02.lami.ui.screens.home
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

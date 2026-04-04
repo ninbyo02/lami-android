@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -8,9 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import com.sonusid.ollama.ui.screens.settings.DevPreviewSettings
-import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MAX
-import com.sonusid.ollama.ui.screens.settings.INFO_X_OFFSET_MIN
+import io.github.ninbyo02.lami.ui.screens.settings.DevPreviewSettings
+import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MAX
+import io.github.ninbyo02.lami.ui.screens.settings.INFO_X_OFFSET_MIN
 
 internal class ReadyPreviewLayoutState(
     cardMaxHeightDp: MutableState<Int>,

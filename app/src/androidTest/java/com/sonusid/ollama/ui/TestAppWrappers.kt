@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui
+package io.github.ninbyo02.lami.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
+import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 
 @Composable
 fun TestAppWrapper(content: @Composable () -> Unit) {

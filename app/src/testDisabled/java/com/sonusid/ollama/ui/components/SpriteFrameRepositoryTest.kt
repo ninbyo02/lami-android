@@ -1,9 +1,9 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.sonusid.ollama.data.SpriteSheetConfig
-import com.sonusid.ollama.ui.screens.debug.SpriteBox
+import io.github.ninbyo02.lami.data.SpriteSheetConfig
+import io.github.ninbyo02.lami.ui.screens.debug.SpriteBox
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

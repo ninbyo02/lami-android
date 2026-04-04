@@ -1,6 +1,6 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
-import com.sonusid.ollama.ui.screens.settings.ErrorCause
+import io.github.ninbyo02.lami.ui.screens.settings.ErrorCause
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

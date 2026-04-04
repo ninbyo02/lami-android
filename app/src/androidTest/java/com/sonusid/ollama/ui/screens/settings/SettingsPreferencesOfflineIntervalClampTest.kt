@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -67,7 +67,7 @@ class SettingsPreferencesOfflineIntervalClampTest {
     @Suppress("UNCHECKED_CAST")
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
         val settingsClass = Class.forName(
-            "com.sonusid.ollama.ui.screens.settings.SettingsPreferencesKt"
+            "io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferencesKt"
         )
         val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
         getter.isAccessible = true

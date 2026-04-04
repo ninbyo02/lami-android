@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import androidx.activity.ComponentActivity
 import android.content.Context
@@ -25,10 +25,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.core.app.ApplicationProvider
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.navigation.SettingsRoute
-import com.sonusid.ollama.ui.theme.OllamaTheme
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.navigation.SettingsRoute
+import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 import androidx.test.espresso.Espresso
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -39,7 +39,7 @@ import org.junit.Before
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
-import com.sonusid.ollama.ui.TestAppWrapper
+import io.github.ninbyo02.lami.ui.TestAppWrapper
 
 class SpriteSettingsScreenDiscardDialogTest {
     @get:Rule
@@ -284,7 +284,7 @@ class SpriteSettingsScreenDiscardDialogTest {
 
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
         val settingsClass = Class.forName(
-            "com.sonusid.ollama.ui.screens.settings.SettingsPreferencesKt"
+            "io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferencesKt"
         )
         val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
         getter.isAccessible = true

@@ -1,4 +1,4 @@
-package com.sonusid.ollama.tts
+package io.github.ninbyo02.lami.tts
 
 import android.content.Context
 import android.os.Handler

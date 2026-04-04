@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,10 +19,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.sonusid.ollama.ui.common.headerAvatarModifier
-import com.sonusid.ollama.viewmodels.LamiState
-import com.sonusid.ollama.viewmodels.LamiStatus
-import com.sonusid.ollama.viewmodels.ModelInfo
+import io.github.ninbyo02.lami.ui.common.headerAvatarModifier
+import io.github.ninbyo02.lami.viewmodels.LamiState
+import io.github.ninbyo02.lami.viewmodels.LamiStatus
+import io.github.ninbyo02.lami.viewmodels.ModelInfo
 
 @Composable
 fun LamiHeaderStatus(

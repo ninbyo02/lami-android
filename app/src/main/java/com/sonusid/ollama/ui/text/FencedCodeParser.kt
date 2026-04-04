@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.text
+package io.github.ninbyo02.lami.ui.text
 
 sealed class Segment {
     data class Text(val text: String) : Segment()

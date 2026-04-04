@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.theme
+package io.github.ninbyo02.lami.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

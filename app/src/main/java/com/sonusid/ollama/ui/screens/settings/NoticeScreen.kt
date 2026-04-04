@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Alignment
@@ -30,12 +30,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.sonusid.ollama.R
-import com.sonusid.ollama.ui.common.BottomFadeOverlay
-import com.sonusid.ollama.ui.theme.LamiTypographyTokens
-import com.sonusid.ollama.ui.common.LocalAppSnackbarHostState
-import com.sonusid.ollama.ui.common.PROJECT_SNACKBAR_SHORT_MS
-import com.sonusid.ollama.ui.common.TopFadeOverlay
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.ui.common.BottomFadeOverlay
+import io.github.ninbyo02.lami.ui.theme.LamiTypographyTokens
+import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
+import io.github.ninbyo02.lami.ui.common.PROJECT_SNACKBAR_SHORT_MS
+import io.github.ninbyo02.lami.ui.common.TopFadeOverlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

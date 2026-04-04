@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.settings
+package io.github.ninbyo02.lami.ui.screens.settings
 
 import android.content.Context
 import androidx.compose.ui.test.hasScrollAction
@@ -13,8 +13,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
-import com.sonusid.ollama.MainActivity
-import com.sonusid.ollama.navigation.SettingsRoute
+import io.github.ninbyo02.lami.MainActivity
+import io.github.ninbyo02.lami.navigation.SettingsRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -132,7 +132,7 @@ class SpriteSettingsTalkCalmPerStateRestoreTest {
     @Suppress("UNCHECKED_CAST")
     private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
         val settingsClass = Class.forName(
-            "com.sonusid.ollama.ui.screens.settings.SettingsPreferencesKt"
+            "io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferencesKt"
         )
         val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
         getter.isAccessible = true

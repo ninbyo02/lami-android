@@ -1,10 +1,10 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.sonusid.ollama.db.repository.ChatRepository
-import com.sonusid.ollama.db.repository.ModelPreferenceRepository
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.db.repository.ChatRepository
+import io.github.ninbyo02.lami.db.repository.ModelPreferenceRepository
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import kotlinx.coroutines.flow.StateFlow
 
 class OllamaViewModelFactory(

@@ -1,4 +1,4 @@
-package com.sonusid.ollama.tts
+package io.github.ninbyo02.lami.tts
 
 object TtsSummaryBuilder {
     fun build(rawDisplayText: String, speechText: String, isError: Boolean = false): String {

@@ -1,6 +1,6 @@
-package com.sonusid.ollama.ui.screens.home
+package io.github.ninbyo02.lami.ui.screens.home
 
-// 実行コマンド: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.sonusid.ollama.ui.screens.home.ChatThreadSwitchNoFlashTest
+// 実行コマンド: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=io.github.ninbyo02.lami.ui.screens.home.ChatThreadSwitchNoFlashTest
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.ComposeTestRule
@@ -9,13 +9,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.sonusid.ollama.MainActivity
-import com.sonusid.ollama.db.ChatDatabase
-import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.db.entity.Message
-import com.sonusid.ollama.navigation.Routes
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
-import com.sonusid.ollama.util.RuntimeFlags
+import io.github.ninbyo02.lami.MainActivity
+import io.github.ninbyo02.lami.db.ChatDatabase
+import io.github.ninbyo02.lami.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.util.RuntimeFlags
 import android.os.SystemClock
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule

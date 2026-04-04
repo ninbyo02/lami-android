@@ -1,7 +1,7 @@
-package com.sonusid.ollama.db.repository
+package io.github.ninbyo02.lami.db.repository
 
-import com.sonusid.ollama.db.dao.BaseUrlDao
-import com.sonusid.ollama.db.entity.BaseUrl
+import io.github.ninbyo02.lami.db.dao.BaseUrlDao
+import io.github.ninbyo02.lami.db.entity.BaseUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

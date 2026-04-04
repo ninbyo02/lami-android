@@ -1,10 +1,10 @@
-package com.sonusid.ollama.sprite
+package io.github.ninbyo02.lami.sprite
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
-import com.sonusid.ollama.ui.screens.settings.SettingsPreferences
+import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
 import java.io.File
 import java.io.FileInputStream
 import androidx.compose.runtime.Composable
@@ -17,8 +17,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.sonusid.ollama.R
-import com.sonusid.ollama.data.SpriteSheetConfig
+import io.github.ninbyo02.lami.R
+import io.github.ninbyo02.lami.data.SpriteSheetConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first

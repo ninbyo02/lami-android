@@ -1,6 +1,6 @@
-package com.sonusid.ollama.ui.util
+package io.github.ninbyo02.lami.ui.util
 
-import com.sonusid.ollama.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.model.InferenceStats
 import java.text.NumberFormat
 import java.util.Locale
 

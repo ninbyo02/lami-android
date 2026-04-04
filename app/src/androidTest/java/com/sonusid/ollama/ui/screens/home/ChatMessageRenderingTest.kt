@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.screens.home
+package io.github.ninbyo02.lami.ui.screens.home
 
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme

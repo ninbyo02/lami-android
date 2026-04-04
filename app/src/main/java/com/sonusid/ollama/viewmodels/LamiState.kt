@@ -1,13 +1,13 @@
-package com.sonusid.ollama.viewmodels
+package io.github.ninbyo02.lami.viewmodels
 
-import com.sonusid.ollama.UiState
-import com.sonusid.ollama.viewmodels.LamiStatus.CONNECTING
-import com.sonusid.ollama.viewmodels.LamiStatus.DEGRADED
-import com.sonusid.ollama.viewmodels.LamiStatus.ERROR
-import com.sonusid.ollama.viewmodels.LamiStatus.NO_MODELS
-import com.sonusid.ollama.viewmodels.LamiStatus.OFFLINE
-import com.sonusid.ollama.viewmodels.LamiStatus.READY
-import com.sonusid.ollama.viewmodels.LamiStatus.TALKING
+import io.github.ninbyo02.lami.UiState
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.CONNECTING
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.DEGRADED
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.ERROR
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.NO_MODELS
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.OFFLINE
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.READY
+import io.github.ninbyo02.lami.viewmodels.LamiStatus.TALKING
 
 sealed interface LamiState {
     data object Idle : LamiState

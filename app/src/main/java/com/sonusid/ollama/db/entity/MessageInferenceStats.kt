@@ -1,6 +1,6 @@
-package com.sonusid.ollama.db.entity
+package io.github.ninbyo02.lami.db.entity
 
-import com.sonusid.ollama.ui.model.InferenceStats
+import io.github.ninbyo02.lami.ui.model.InferenceStats
 
 /**
  * v6 追加列が導入される前に保存された履歴は、統計列がすべて null のまま残る。

@@ -1,6 +1,6 @@
-package com.sonusid.ollama
+package io.github.ninbyo02.lami
 
-import com.sonusid.ollama.utils.AutoTitleGenerator
+import io.github.ninbyo02.lami.utils.AutoTitleGenerator
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate

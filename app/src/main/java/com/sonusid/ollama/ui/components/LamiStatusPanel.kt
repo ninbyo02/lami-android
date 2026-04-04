@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.components
+package io.github.ninbyo02.lami.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
@@ -24,9 +24,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.sonusid.ollama.BuildConfig
-import com.sonusid.ollama.viewmodels.LamiState
-import com.sonusid.ollama.viewmodels.LamiStatus
+import io.github.ninbyo02.lami.BuildConfig
+import io.github.ninbyo02.lami.viewmodels.LamiState
+import io.github.ninbyo02.lami.viewmodels.LamiStatus
 
 data class LamiStatusUi(
     val title: String,

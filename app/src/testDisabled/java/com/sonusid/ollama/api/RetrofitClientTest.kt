@@ -1,7 +1,7 @@
-package com.sonusid.ollama.api
+package io.github.ninbyo02.lami.api
 
-import com.sonusid.ollama.db.entity.BaseUrl
-import com.sonusid.ollama.db.repository.BaseUrlProvider
+import io.github.ninbyo02.lami.db.entity.BaseUrl
+import io.github.ninbyo02.lami.db.repository.BaseUrlProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

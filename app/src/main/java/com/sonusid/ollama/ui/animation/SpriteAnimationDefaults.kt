@@ -1,4 +1,4 @@
-package com.sonusid.ollama.ui.animation
+package io.github.ninbyo02.lami.ui.animation
 
 object SpriteAnimationDefaults {
     data class InsertionPatternDefaults(

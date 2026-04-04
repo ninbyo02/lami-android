@@ -1,12 +1,12 @@
-package com.sonusid.ollama.db.repository
+package io.github.ninbyo02.lami.db.repository
 
-import com.sonusid.ollama.db.dao.ChatDao
-import com.sonusid.ollama.db.dao.ChatLatestMessage
-import com.sonusid.ollama.db.dao.MessageDao
-import com.sonusid.ollama.db.entity.Chat
-import com.sonusid.ollama.db.entity.Message
-import com.sonusid.ollama.db.entity.TitleSource
-import com.sonusid.ollama.utils.AutoTitleGenerator
+import io.github.ninbyo02.lami.db.dao.ChatDao
+import io.github.ninbyo02.lami.db.dao.ChatLatestMessage
+import io.github.ninbyo02.lami.db.dao.MessageDao
+import io.github.ninbyo02.lami.db.entity.Chat
+import io.github.ninbyo02.lami.db.entity.Message
+import io.github.ninbyo02.lami.db.entity.TitleSource
+import io.github.ninbyo02.lami.utils.AutoTitleGenerator
 import kotlinx.coroutines.flow.Flow
 
 class ChatRepository(private val messageDao: MessageDao, private val chatDao: ChatDao) {
