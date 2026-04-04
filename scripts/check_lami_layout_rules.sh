@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TARGETS=(
-  "app/src/main/java/com/sonusid/ollama/ui/screens/settings"
-  "app/src/main/java/com/sonusid/ollama/ui/screens/spriteeditor"
+  "app/src/main/java/io/github/ninbyo02/lami/ui/screens/settings"
+  "app/src/main/java/io/github/ninbyo02/lami/ui/screens/spriteeditor"
 )
 
 fail_count=0
