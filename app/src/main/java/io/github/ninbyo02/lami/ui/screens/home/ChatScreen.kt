@@ -3586,6 +3586,17 @@ private fun buildLocalInferenceStatsFromTrace(
             null
         }
     }
+    val localTraceTotalInferenceDurationNs = run {
+        val start = trace.localTraceStartElapsedRealtimeMs
+        val completed = trace.localTraceCompletedElapsedRealtimeMs
+        if (start != null && completed != null && completed >= start) {
+            (completed - start) * 1_000_000L
+        } else {
+            null
+        }
+    }
+    @Suppress("UNUSED_VARIABLE")
+    val localTraceTotalInferenceDurationNsForNextStep = localTraceTotalInferenceDurationNs
     val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
     val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
     val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
