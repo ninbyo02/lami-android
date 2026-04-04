@@ -309,6 +309,9 @@ private data class LocalInferenceTrace(
     val sessionAsyncPocErrorStage: String? = null,
     val sessionAsyncPocErrorClassName: String? = null,
     val sessionAsyncPocErrorMessage: String? = null,
+    val assistantUpdateCount: Int = 0,
+    val firstNonEmptyAssistantChunkSeen: Boolean = false,
+    val assistantStreamedToUi: Boolean = false,
 )
 
 private data class LocalSessionTokenProbeResult(
@@ -463,6 +466,19 @@ fun Home(
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
+    var assistantUpdateCountForDev by remember { mutableStateOf(0) }
+    var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
+    var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
+        if (!BuildConfig.DEBUG || !isLocalInferenceRunning) return@LaunchedEffect
+        val currentChunk = streamingResponseText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (currentChunk != lastStreamingAssistantChunkForDev) {
+            assistantUpdateCountForDev += 1
+            firstNonEmptyAssistantChunkSeenForDev = true
+            lastStreamingAssistantChunkForDev = currentChunk
+        }
+    }
 
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
@@ -1181,6 +1197,9 @@ fun Home(
                                                             ttsController.stop()
                                                             viewModel.stopTtsPlayback()
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                            assistantUpdateCountForDev = 0
+                                                            firstNonEmptyAssistantChunkSeenForDev = false
+                                                            lastStreamingAssistantChunkForDev = null
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
@@ -1216,33 +1235,40 @@ fun Home(
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =
                                                                 (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
-                                                            val inventoryState = runResult?.state ?: LocalInferenceEngineState.ERROR
-                                                            val inventoryResponseChars = runResult?.response?.length ?: -1
-                                                            val timedOut = runResult == null
+                                                            val runResultWithUiTrace = runResult?.copy(
+                                                                trace = runResult.trace.copy(
+                                                                    assistantUpdateCount = assistantUpdateCountForDev,
+                                                                    firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
+                                                                    assistantStreamedToUi = assistantUpdateCountForDev >= 2,
+                                                                ),
+                                                            )
+                                                            val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
+                                                            val inventoryResponseChars = runResultWithUiTrace?.response?.length ?: -1
+                                                            val timedOut = runResultWithUiTrace == null
                                                             Log.i(
                                                                 "ChatScreen",
-                                                                "LOCAL inference run entry completed. state=${runResult?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResult?.response.isNullOrBlank()}, responseLength=${runResult?.response?.length ?: -1}, responseHead=${runResult?.response?.take(80)}, timedOut=${runResult == null}",
+                                                                "LOCAL inference run entry completed. state=${runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR}, responseBlank=${runResultWithUiTrace?.response.isNullOrBlank()}, responseLength=${runResultWithUiTrace?.response?.length ?: -1}, responseHead=${runResultWithUiTrace?.response?.take(80)}, timedOut=${runResultWithUiTrace == null}",
                                                             )
                                                             Log.i(
                                                                 "ChatScreen",
-                                                                "LOCAL stats inventory: generationTimeMs=$localGenerationTimeMs, responseChars=$inventoryResponseChars, state=$inventoryState, timedOut=$timedOut, responseBlank=${runResult?.response.isNullOrBlank()}, streamingCandidate=${runResult?.trace?.streamingCandidateDetected}, createPath=${runResult?.trace?.createMethodSignature != null}, optionsBuildPath=${runResult?.trace?.optionsBuildPath}, generateMethod=${runResult?.trace?.generateMethodSignature}",
+                                                                "LOCAL stats inventory: generationTimeMs=$localGenerationTimeMs, responseChars=$inventoryResponseChars, state=$inventoryState, timedOut=$timedOut, responseBlank=${runResultWithUiTrace?.response.isNullOrBlank()}, streamingCandidate=${runResultWithUiTrace?.trace?.streamingCandidateDetected}, createPath=${runResultWithUiTrace?.trace?.createMethodSignature != null}, optionsBuildPath=${runResultWithUiTrace?.trace?.optionsBuildPath}, generateMethod=${runResultWithUiTrace?.trace?.generateMethodSignature}",
                                                             )
-                                                            latestLocalTraceForDev = runResult?.trace
-                                                            logLocalStatsInventoryClassification(runResult = runResult)
+                                                            latestLocalTraceForDev = runResultWithUiTrace?.trace
+                                                            logLocalStatsInventoryClassification(runResult = runResultWithUiTrace)
                                                             if (
-                                                                runResult?.state == LocalInferenceEngineState.READY &&
-                                                                !runResult.response.isNullOrBlank()
+                                                                runResultWithUiTrace?.state == LocalInferenceEngineState.READY &&
+                                                                !runResultWithUiTrace.response.isNullOrBlank()
                                                             ) {
-                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResult.response)
+                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResultWithUiTrace.response)
                                                                 val localStats = buildLocalInferenceStatsFromTrace(
-                                                                    trace = runResult.trace,
+                                                                    trace = runResultWithUiTrace.trace,
                                                                     generationTimeMs = localGenerationTimeMs,
                                                                     responseCharCount = assistantResponse.length,
                                                                     responseText = assistantResponse,
                                                                     fallbackTimeToFirstTokenMs = localGenerationTimeMs,
                                                                 )
                                                                 val localSourceSummary = localStats?.let {
-                                                                    buildLocalSourceSummaryText(trace = runResult.trace, stats = it)
+                                                                    buildLocalSourceSummaryText(trace = runResultWithUiTrace.trace, stats = it)
                                                                 }
                                                                 Log.i(
                                                                     "ChatScreen",
@@ -1269,7 +1295,7 @@ fun Home(
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                             }
                                                             snackbarHostState.showSnackbar(
-                                                                message = when (runResult?.state) {
+                                                                message = when (runResultWithUiTrace?.state) {
                                                                     null -> "ローカル推論エンジンの確認がタイムアウトしました"
                                                                     LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
                                                                     LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
@@ -4468,6 +4494,9 @@ private fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "firstToken", value = localTraceForDev.firstTokenProbe.availability.name))
                     add(InferenceStatItemUi(label = "firstTokenSignature", value = localTraceForDev.firstTokenProbe.signature ?: "—"))
                     add(InferenceStatItemUi(label = "rawFirstToken", value = localTraceForDev.firstTokenProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "assistantUpdateCount", value = localTraceForDev.assistantUpdateCount.toString()))
+                    add(InferenceStatItemUi(label = "firstNonEmptyAssistantChunkSeen", value = localTraceForDev.firstNonEmptyAssistantChunkSeen.toString()))
+                    add(InferenceStatItemUi(label = "assistantStreamedToUi", value = localTraceForDev.assistantStreamedToUi.toString()))
                 }
             },
         ),
