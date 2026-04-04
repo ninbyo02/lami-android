@@ -3586,8 +3586,16 @@ private fun buildLocalInferenceStatsFromTrace(
             null
         }
     }
+    val localTraceTotalInferenceDurationNs = run {
+        val start = trace.localTraceStartElapsedRealtimeMs
+        val completed = trace.localTraceCompletedElapsedRealtimeMs
+        if (start != null && completed != null && completed >= start) {
+            (completed - start) * 1_000_000L
+        } else {
+            null
+        }
+    }
     val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
-    val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
     val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
@@ -3597,14 +3605,18 @@ private fun buildLocalInferenceStatsFromTrace(
         generationTimeMs = generationTimeMs,
         timeToFirstTokenMs = timeToFirstTokenMs,
     )?.times(1_000_000L)
+    val generationDurationNs =
+        existingGenerationDurationNs ?: localTraceGenerationDurationNs ?: fallbackGenerationDurationNs
+    val totalInferenceDurationNs =
+        localTraceTotalInferenceDurationNs ?: wallClockTotalInferenceDurationNs ?: existingGenerationDurationNs
     val fallbackPromptEvalNs =
         if (existingPromptEvalNs != null && existingPromptEvalNs >= 0L) {
             existingPromptEvalNs
         } else {
             val evalNs = totalInferenceDurationNs
-            val genNs = fallbackGenerationDurationNs
+            val genNs = generationDurationNs
             if (evalNs != null && genNs != null) {
-                (evalNs - genNs).coerceAtLeast(0L)
+                (evalNs - genNs).takeIf { it > 0L }
             } else {
                 null
             }
@@ -3639,7 +3651,7 @@ private fun buildLocalInferenceStatsFromTrace(
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
-        generationDurationNs = existingGenerationDurationNs ?: localTraceGenerationDurationNs ?: fallbackGenerationDurationNs,
+        generationDurationNs = generationDurationNs,
         evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
@@ -4048,7 +4060,12 @@ private fun shortenLocalSourceLabelForSummary(raw: String?): String? {
         raw == "trace-local-display-name" -> "trace"
         raw == "trace-finishReason-fallback" -> "fallback"
         raw == "derived-from-total-minus-first" -> "fallback"
+        raw == "fallback-generationTimeMs-minus-ttft" -> "fallback"
         raw == "derived-from-eval-minus-generation" -> "fallback"
+        raw == "derived-from-total-minus-generation" -> "fallback"
+        raw == "self-trace-completed-minus-first" -> "trace"
+        raw == "self-trace-completed-minus-start" -> "trace"
+        raw == "wall-clock-total-inference" -> "trace"
         raw == "fallback-generationTimeMs" -> "fallback"
         raw == "derived-from-output-and-generationTimeMs" -> "fallback"
         else -> null
@@ -4107,12 +4124,18 @@ private fun resolveLocalSourceItemsForDev(
     val generationDurationSource = when {
         trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-eval"
         trace.localTraceFirstResponseElapsedRealtimeMs != null && trace.localTraceCompletedElapsedRealtimeMs != null -> "self-trace-completed-minus-first"
-        stats.generationDurationNs != null -> "derived-from-total-minus-first"
+        stats.generationDurationNs != null -> "fallback-generationTimeMs-minus-ttft"
+        else -> "unavailable"
+    }
+    val evalDurationSource = when {
+        trace.localTraceStartElapsedRealtimeMs != null && trace.localTraceCompletedElapsedRealtimeMs != null -> "self-trace-completed-minus-start"
+        trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L } != null -> "wall-clock-total-inference"
+        stats.evalDurationNs != null -> "probe-eval-as-total-fallback"
         else -> "unavailable"
     }
     val promptEvalDurationSource = when {
         trace.promptEvalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-prompt-eval"
-        stats.promptEvalDurationNs != null -> "derived-from-eval-minus-generation"
+        stats.promptEvalDurationNs != null -> "derived-from-total-minus-generation"
         else -> "unavailable"
     }
     val tokensPerSecondSource = if (buildLocalTokensPerSecondOrNull(
@@ -4131,6 +4154,7 @@ private fun resolveLocalSourceItemsForDev(
         InferenceStatItemUi(label = "totalTokenSource", value = totalTokenSource),
         InferenceStatItemUi(label = "firstTokenSource", value = firstTokenSource),
         InferenceStatItemUi(label = "generationDurationSource", value = generationDurationSource),
+        InferenceStatItemUi(label = "evalDurationSource", value = evalDurationSource),
         InferenceStatItemUi(label = "promptEvalDurationSource", value = promptEvalDurationSource),
         InferenceStatItemUi(label = "tokensPerSecondSource", value = tokensPerSecondSource),
     )
