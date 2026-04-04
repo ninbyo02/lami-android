@@ -4344,7 +4344,7 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     }
 }
 
-internal fun buildInferenceDetailSections(
+private fun buildInferenceDetailSections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
 ): List<InferenceStatsSectionUi> {
