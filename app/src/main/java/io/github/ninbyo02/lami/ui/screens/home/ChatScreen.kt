@@ -271,6 +271,9 @@ private data class LocalInferenceTrace(
     val loadTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val wallClockLoadDurationNs: Long? = null,
     val wallClockTotalInferenceDurationNs: Long? = null,
+    val localTraceStartElapsedRealtimeMs: Long? = null,
+    val localTraceFirstResponseElapsedRealtimeMs: Long? = null,
+    val localTraceCompletedElapsedRealtimeMs: Long? = null,
     val promptEvalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val evalTimeProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val firstTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -2087,7 +2090,10 @@ private fun generateLiteRtResponseViaReflection(
     localModelDisplayName: String?,
     prompt: String,
 ): LocalLiteRtGeneratedResponse {
-    var trace = LocalInferenceTrace(localModelDisplayName = localModelDisplayName)
+    var trace = LocalInferenceTrace(
+        localModelDisplayName = localModelDisplayName,
+        localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+    )
     val modelPathTail = modelPath.substringAfterLast('/')
     Log.i(
         "ChatScreen",
@@ -2195,6 +2201,7 @@ private fun generateLiteRtResponseViaReflection(
         sessionAsyncPocFutureClassName = sessionAsyncPocResult.futureClassName,
         sessionAsyncPocResponseLength = sessionAsyncPocResult.responseLength,
         sessionAsyncPocResponseHead = sessionAsyncPocResult.responseHead,
+        localTraceFirstResponseElapsedRealtimeMs = sessionAsyncPocResult.localTraceFirstResponseElapsedRealtimeMs,
         sessionAsyncPocCloseSucceeded = sessionAsyncPocResult.closeSucceeded,
         sessionAsyncPocErrorStage = sessionAsyncPocResult.errorStage,
         sessionAsyncPocErrorClassName = sessionAsyncPocResult.errorClassName,
@@ -2496,6 +2503,7 @@ private data class DevSessionAsyncPocResult(
     val responseText: String? = null,
     val responseLength: Int? = null,
     val responseHead: String? = null,
+    val localTraceFirstResponseElapsedRealtimeMs: Long? = null,
     val closeSucceeded: Boolean? = null,
     val errorStage: String? = null,
     val errorClassName: String? = null,
@@ -2956,6 +2964,8 @@ private fun tryCallLlmInferenceSessionGenerateResponseAsyncForDev(
             responseText = sanitizedResponseText,
             responseLength = sanitizedResponseText?.length,
             responseHead = sanitizedResponseText?.take(60),
+            localTraceFirstResponseElapsedRealtimeMs =
+                if (!sanitizedResponseText.isNullOrBlank()) SystemClock.elapsedRealtime() else null,
         )
     } catch (throwable: Throwable) {
         val root = throwable.cause ?: throwable
@@ -3106,9 +3116,14 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     oneShotResponse = oneShotResponse,
                     sessionAsyncPocResult = sessionAsyncPocResult,
                 )
+                val responseCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime()
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = responseSelection.source,
                     selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                    localTraceFirstResponseElapsedRealtimeMs =
+                        inventoryTrace.localTraceFirstResponseElapsedRealtimeMs
+                            ?: responseCompletedElapsedRealtimeMs.takeIf { responseSelection.responseText.isNotBlank() },
+                    localTraceCompletedElapsedRealtimeMs = responseCompletedElapsedRealtimeMs,
                 )
                 val tokenProbe = tryProbeLlmSessionTokensViaReflection(
                     inferenceInstance = inferenceInstance,
@@ -3145,9 +3160,14 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     oneShotResponse = oneShotResponse,
                     sessionAsyncPocResult = sessionAsyncPocResult,
                 )
+                val responseCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime()
                 inventoryTrace = inventoryTrace.copy(
                     selectedAssistantResponseSource = responseSelection.source,
                     selectedAssistantResponseHead = sanitizeDebugTraceHead(responseSelection.responseText),
+                    localTraceFirstResponseElapsedRealtimeMs =
+                        inventoryTrace.localTraceFirstResponseElapsedRealtimeMs
+                            ?: responseCompletedElapsedRealtimeMs.takeIf { responseSelection.responseText.isNotBlank() },
+                    localTraceCompletedElapsedRealtimeMs = responseCompletedElapsedRealtimeMs,
                 )
                 val tokenProbe = tryProbeLlmSessionTokensViaReflection(
                     inferenceInstance = inferenceInstance,
@@ -3552,13 +3572,27 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
     val existingGenerationDurationNs = trace.evalTimeProbe.durationNsOrNull()
+    val localTraceTimeToFirstTokenMs = run {
+        val start = trace.localTraceStartElapsedRealtimeMs
+        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
+        if (start != null && firstResponse != null && firstResponse >= start) firstResponse - start else null
+    }
+    val localTraceGenerationDurationNs = run {
+        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
+        val completed = trace.localTraceCompletedElapsedRealtimeMs
+        if (firstResponse != null && completed != null && completed >= firstResponse) {
+            (completed - firstResponse) * 1_000_000L
+        } else {
+            null
+        }
+    }
     val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
     val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
     val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
         wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
-    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
+    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: localTraceTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
     val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
         generationTimeMs = generationTimeMs,
         timeToFirstTokenMs = timeToFirstTokenMs,
@@ -3605,7 +3639,7 @@ private fun buildLocalInferenceStatsFromTrace(
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
-        generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
+        generationDurationNs = existingGenerationDurationNs ?: localTraceGenerationDurationNs ?: fallbackGenerationDurationNs,
         evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
@@ -4066,11 +4100,13 @@ private fun resolveLocalSourceItemsForDev(
     }
     val firstTokenSource = when {
         trace.firstTokenProbe.longValueOrNull() != null -> "probe-first-token"
+        trace.localTraceStartElapsedRealtimeMs != null && trace.localTraceFirstResponseElapsedRealtimeMs != null -> "self-trace-first-response"
         stats.timeToFirstTokenMs != null -> "fallback-generationTimeMs"
         else -> "unavailable"
     }
     val generationDurationSource = when {
         trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-eval"
+        trace.localTraceFirstResponseElapsedRealtimeMs != null && trace.localTraceCompletedElapsedRealtimeMs != null -> "self-trace-completed-minus-first"
         stats.generationDurationNs != null -> "derived-from-total-minus-first"
         else -> "unavailable"
     }
