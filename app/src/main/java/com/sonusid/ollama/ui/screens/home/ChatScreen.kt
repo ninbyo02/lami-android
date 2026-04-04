@@ -3290,7 +3290,34 @@ private fun probeLocalStatsCandidates(
         evalTimeProbe = probeSingleCandidate(
             target = primaryTarget,
             label = "evalTime",
-            candidateNames = listOf("getEvalDuration", "evalDuration", "getGenerationDuration", "generationDuration"),
+            candidateNames = listOf(
+                "getEvalDuration",
+                "evalDuration",
+                "getGenerationDuration",
+                "generationDuration",
+                "getDecodeDuration",
+                "decodeDuration",
+                "getDecodeDurationNs",
+                "decodeDurationNs",
+                "getDecodeDurationMs",
+                "decodeDurationMs",
+                "getDecodeTimeNs",
+                "decodeTimeNs",
+                "getDecodeTimeMs",
+                "decodeTimeMs",
+                "getCompletionDuration",
+                "completionDuration",
+                "getCompletionDurationNs",
+                "completionDurationNs",
+                "getCompletionDurationMs",
+                "completionDurationMs",
+                "getCompletionTimeNs",
+                "completionTimeNs",
+                "getCompletionTimeMs",
+                "completionTimeMs",
+                "getResponseDurationNs",
+                "responseDurationNs",
+            ),
         ),
         firstTokenProbe = probeSingleCandidate(
             target = primaryTarget,
@@ -3478,6 +3505,18 @@ private fun LocalStatsCandidateProbe.longValueOrNull(): Long? {
     return valueSummary?.toLongOrNull()
 }
 
+private fun LocalStatsCandidateProbe.durationNsOrNull(): Long? {
+    val rawValue = longValueOrNull() ?: return null
+    if (rawValue < 0L) return null
+    val signatureLower = signature?.lowercase(Locale.ROOT).orEmpty()
+    val isMillisValue =
+        signatureLower.contains("timems") ||
+            signatureLower.contains("durationms") ||
+            signatureLower.contains("millis") ||
+            signatureLower.contains("milliseconds")
+    return if (isMillisValue) rawValue * 1_000_000L else rawValue
+}
+
 private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
     if (availability == LocalStatsAvailability.NOT_FOUND) return null
     return valueSummary
@@ -3512,10 +3551,10 @@ private fun buildLocalInferenceStatsFromTrace(
     val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
     val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
     val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
-    val existingGenerationDurationNs = trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
+    val existingGenerationDurationNs = trace.evalTimeProbe.durationNsOrNull()
     val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
     val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
-    val existingPromptEvalNs = trace.promptEvalTimeProbe.longValueOrNull()
+    val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
         wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
@@ -3633,7 +3672,7 @@ private fun InferenceStatsSheetContent(
     val sectionSpacing = 12.dp
 
     val sections = buildInferenceSummarySections(stats, localTraceForDev = localTraceForDev)
-    val detailSections = buildInferenceDetailSections(stats)
+    val detailSections = buildInferenceDetailSections(stats, localTraceForDev = localTraceForDev)
 
     Column(
         modifier = Modifier
@@ -4109,11 +4148,17 @@ private fun buildLocalInventorySectionForDev(
             InferenceStatItemUi(label = "modelName", value = trace.modelNameProbe.availability.name),
             InferenceStatItemUi(label = "finishReason", value = trace.finishReasonProbe.availability.name),
             InferenceStatItemUi(label = "outputTokens", value = trace.outputTokenProbe.availability.name),
+            InferenceStatItemUi(label = "outputTokensSignature", value = trace.outputTokenProbe.signature ?: "—"),
+            InferenceStatItemUi(label = "estimatedTokens", value = trace.estimatedTokenProbe.availability.name),
+            InferenceStatItemUi(label = "estimatedTokensSignature", value = trace.estimatedTokenProbe.signature ?: "—"),
             InferenceStatItemUi(label = "loadTime", value = trace.loadTimeProbe.availability.name),
             InferenceStatItemUi(label = "loadTimeSignature", value = trace.loadTimeProbe.signature ?: "—"),
             InferenceStatItemUi(label = "promptEvalTime", value = trace.promptEvalTimeProbe.availability.name),
             InferenceStatItemUi(label = "promptEvalTimeSignature", value = trace.promptEvalTimeProbe.signature ?: "—"),
+            InferenceStatItemUi(label = "evalTime", value = trace.evalTimeProbe.availability.name),
+            InferenceStatItemUi(label = "evalTimeSignature", value = trace.evalTimeProbe.signature ?: "—"),
             InferenceStatItemUi(label = "firstToken", value = trace.firstTokenProbe.availability.name),
+            InferenceStatItemUi(label = "firstTokenSignature", value = trace.firstTokenProbe.signature ?: "—"),
             InferenceStatItemUi(
                 label = "streamingCandidate",
                 value = trace.streamingCandidateDetected?.toString() ?: "—",
@@ -4299,7 +4344,10 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     }
 }
 
-internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> {
+private fun buildInferenceDetailSections(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace? = null,
+): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
 
     return listOf(
@@ -4346,9 +4394,23 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
         ),
         InferenceStatsSectionUi(
             title = "補足",
-            items = listOf(
-                InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
-            ),
+            items = buildList {
+                add(InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"))
+                if (localTraceForDev != null && ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+                    add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
+                    add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawEvalTime", value = localTraceForDev.evalTimeProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "outputTokens", value = localTraceForDev.outputTokenProbe.availability.name))
+                    add(InferenceStatItemUi(label = "outputTokensSignature", value = localTraceForDev.outputTokenProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawOutputTokens", value = localTraceForDev.outputTokenProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "estimatedTokens", value = localTraceForDev.estimatedTokenProbe.availability.name))
+                    add(InferenceStatItemUi(label = "estimatedTokensSignature", value = localTraceForDev.estimatedTokenProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawEstimatedTokens", value = localTraceForDev.estimatedTokenProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "firstToken", value = localTraceForDev.firstTokenProbe.availability.name))
+                    add(InferenceStatItemUi(label = "firstTokenSignature", value = localTraceForDev.firstTokenProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawFirstToken", value = localTraceForDev.firstTokenProbe.valueSummary ?: "—"))
+                }
+            },
         ),
     )
 }
