@@ -3586,16 +3586,8 @@ private fun buildLocalInferenceStatsFromTrace(
             null
         }
     }
-    val localTraceTotalInferenceDurationNs = run {
-        val start = trace.localTraceStartElapsedRealtimeMs
-        val completed = trace.localTraceCompletedElapsedRealtimeMs
-        if (start != null && completed != null && completed >= start) {
-            (completed - start) * 1_000_000L
-        } else {
-            null
-        }
-    }
     val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
+    val totalInferenceDurationNs = existingGenerationDurationNs ?: wallClockTotalInferenceDurationNs
     val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
@@ -3605,18 +3597,14 @@ private fun buildLocalInferenceStatsFromTrace(
         generationTimeMs = generationTimeMs,
         timeToFirstTokenMs = timeToFirstTokenMs,
     )?.times(1_000_000L)
-    val generationDurationNs =
-        existingGenerationDurationNs ?: localTraceGenerationDurationNs ?: fallbackGenerationDurationNs
-    val totalInferenceDurationNs =
-        localTraceTotalInferenceDurationNs ?: wallClockTotalInferenceDurationNs ?: existingGenerationDurationNs
     val fallbackPromptEvalNs =
         if (existingPromptEvalNs != null && existingPromptEvalNs >= 0L) {
             existingPromptEvalNs
         } else {
             val evalNs = totalInferenceDurationNs
-            val genNs = generationDurationNs
+            val genNs = fallbackGenerationDurationNs
             if (evalNs != null && genNs != null) {
-                (evalNs - genNs).takeIf { it > 0L }
+                (evalNs - genNs).coerceAtLeast(0L)
             } else {
                 null
             }
@@ -3651,7 +3639,7 @@ private fun buildLocalInferenceStatsFromTrace(
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
-        generationDurationNs = generationDurationNs,
+        generationDurationNs = existingGenerationDurationNs ?: localTraceGenerationDurationNs ?: fallbackGenerationDurationNs,
         evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
