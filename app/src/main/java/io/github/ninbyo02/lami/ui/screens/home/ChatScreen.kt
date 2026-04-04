@@ -3604,7 +3604,7 @@ private fun buildLocalInferenceStatsFromTrace(
             val evalNs = totalInferenceDurationNs
             val genNs = fallbackGenerationDurationNs
             if (evalNs != null && genNs != null) {
-                (evalNs - genNs).coerceAtLeast(0L)
+                (evalNs - genNs).takeIf { it > 0L }
             } else {
                 null
             }
