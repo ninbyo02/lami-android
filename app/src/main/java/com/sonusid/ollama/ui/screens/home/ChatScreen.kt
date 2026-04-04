@@ -3672,7 +3672,7 @@ private fun InferenceStatsSheetContent(
     val sectionSpacing = 12.dp
 
     val sections = buildInferenceSummarySections(stats, localTraceForDev = localTraceForDev)
-    val detailSections = buildInferenceDetailSections(stats)
+    val detailSections = buildInferenceDetailSections(stats, localTraceForDev = localTraceForDev)
 
     Column(
         modifier = Modifier
@@ -4344,7 +4344,10 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
     }
 }
 
-internal fun buildInferenceDetailSections(stats: InferenceStats): List<InferenceStatsSectionUi> {
+internal fun buildInferenceDetailSections(
+    stats: InferenceStats,
+    localTraceForDev: LocalInferenceTrace? = null,
+): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
 
     return listOf(
@@ -4391,9 +4394,23 @@ internal fun buildInferenceDetailSections(stats: InferenceStats): List<Inference
         ),
         InferenceStatsSectionUi(
             title = "補足",
-            items = listOf(
-                InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"),
-            ),
+            items = buildList {
+                add(InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"))
+                if (localTraceForDev != null && ENABLE_DEV_LLM_SESSION_ASYNC_POC) {
+                    add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
+                    add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawEvalTime", value = localTraceForDev.evalTimeProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "outputTokens", value = localTraceForDev.outputTokenProbe.availability.name))
+                    add(InferenceStatItemUi(label = "outputTokensSignature", value = localTraceForDev.outputTokenProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawOutputTokens", value = localTraceForDev.outputTokenProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "estimatedTokens", value = localTraceForDev.estimatedTokenProbe.availability.name))
+                    add(InferenceStatItemUi(label = "estimatedTokensSignature", value = localTraceForDev.estimatedTokenProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawEstimatedTokens", value = localTraceForDev.estimatedTokenProbe.valueSummary ?: "—"))
+                    add(InferenceStatItemUi(label = "firstToken", value = localTraceForDev.firstTokenProbe.availability.name))
+                    add(InferenceStatItemUi(label = "firstTokenSignature", value = localTraceForDev.firstTokenProbe.signature ?: "—"))
+                    add(InferenceStatItemUi(label = "rawFirstToken", value = localTraceForDev.firstTokenProbe.valueSummary ?: "—"))
+                }
+            },
         ),
     )
 }
