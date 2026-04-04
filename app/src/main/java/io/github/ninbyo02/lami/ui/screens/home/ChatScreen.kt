@@ -4064,6 +4064,7 @@ private fun shortenLocalSourceLabelForSummary(raw: String?): String? {
         raw == "self-trace-completed-minus-first" -> "trace"
         raw == "self-trace-completed-minus-start" -> "trace"
         raw == "wall-clock-total-inference" -> "trace"
+        raw == "probe-eval-as-total-fallback" -> "fallback"
         raw == "fallback-generationTimeMs" -> "fallback"
         raw == "derived-from-output-and-generationTimeMs" -> "fallback"
         else -> null
@@ -4081,7 +4082,7 @@ private fun buildLocalSourceSummaryText(
         sourceByLabel["modelNameSource"]?.let { "model:$it" },
         sourceByLabel["finishReasonSource"]?.let { "finish:$it" },
         sourceByLabel["outputTokenSource"]?.let { "out:$it" },
-        sourceByLabel["totalTokenSource"]?.let { "total:$it" },
+        sourceByLabel["evalDurationSource"]?.let { "total:$it" },
         sourceByLabel["tokensPerSecondSource"]?.let { "tps:$it" },
     )
 
