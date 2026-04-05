@@ -1258,46 +1258,59 @@ fun Home(
                                                             )
                                                             latestLocalTraceForDev = runResultWithUiTrace?.trace
                                                             logLocalStatsInventoryClassification(runResult = runResultWithUiTrace)
-                                                            if (
-                                                                runResultWithUiTrace?.state == LocalInferenceEngineState.READY &&
-                                                                !runResultWithUiTrace.response.isNullOrBlank()
-                                                            ) {
-                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResultWithUiTrace.response)
-                                                                val localStats = buildLocalInferenceStatsFromTrace(
-                                                                    trace = runResultWithUiTrace.trace,
-                                                                    generationTimeMs = localGenerationTimeMs,
-                                                                    responseCharCount = assistantResponse.length,
-                                                                    responseText = assistantResponse,
-                                                                    fallbackTimeToFirstTokenMs = localGenerationTimeMs,
-                                                                )
-                                                                val localSourceSummary = localStats?.let {
-                                                                    buildLocalSourceSummaryText(trace = runResultWithUiTrace.trace, stats = it)
-                                                                }
-                                                                Log.i(
-                                                                    "ChatScreen",
-                                                                    "LOCAL assistant insert payload length=${assistantResponse.length}, head=${assistantResponse.take(80)}",
-                                                                )
-                                                                appendLocalReflectionTrace(
-                                                                    context = context.applicationContext,
-                                                                    message = "UPSTREAM before-createAssistantMessage localResponseBlank=${assistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
-                                                                )
-                                                                streamLocalAssistantPreviewTextToUi(
-                                                                    responseText = assistantResponse,
-                                                                    onChunk = { chunk ->
-                                                                        localStreamingResponseText = chunk
-                                                                    },
-                                                                )
-                                                                viewModel.insert(
-                                                                    createAssistantMessage(
-                                                                        chatId = currentChatId,
-                                                                        response = assistantResponse,
-                                                                        latestInferenceStats = localStats,
-                                                                        localSourceSummary = localSourceSummary,
-                                                                        generationTimeMs = localGenerationTimeMs,
+                                                            if (runResultWithUiTrace?.state == LocalInferenceEngineState.READY) {
+                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResultWithUiTrace.response.orEmpty())
+                                                                var resolvedAssistantResponse = assistantResponse
+                                                                if (resolvedAssistantResponse.isBlank()) {
+                                                                    delay(250L)
+                                                                    val fallbackUiResponse = localStreamingResponseText?.trim().orEmpty()
+                                                                    resolvedAssistantResponse = sanitizeLocalAssistantResponse(
+                                                                        assistantResponse.ifBlank { fallbackUiResponse }
                                                                     )
-                                                                )
-                                                                localStreamingResponseText = null
-                                                                return@launch
+                                                                    if (resolvedAssistantResponse.isBlank()) {
+                                                                        Log.e(
+                                                                            "ChatScreen",
+                                                                            "LOCAL blank response after grace: assistantBlank=${assistantResponse.isBlank()}, uiBlank=${fallbackUiResponse.isBlank()}, uiLen=${fallbackUiResponse.length}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
+                                                                        )
+                                                                    }
+                                                                }
+                                                                if (resolvedAssistantResponse.isNotBlank()) {
+                                                                    val localStats = buildLocalInferenceStatsFromTrace(
+                                                                        trace = runResultWithUiTrace.trace,
+                                                                        generationTimeMs = localGenerationTimeMs,
+                                                                        responseCharCount = resolvedAssistantResponse.length,
+                                                                        responseText = resolvedAssistantResponse,
+                                                                        fallbackTimeToFirstTokenMs = localGenerationTimeMs,
+                                                                    )
+                                                                    val localSourceSummary = localStats?.let {
+                                                                        buildLocalSourceSummaryText(trace = runResultWithUiTrace.trace, stats = it)
+                                                                    }
+                                                                    Log.i(
+                                                                        "ChatScreen",
+                                                                        "LOCAL assistant insert payload length=${resolvedAssistantResponse.length}, head=${resolvedAssistantResponse.take(80)}",
+                                                                    )
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM before-createAssistantMessage localResponseBlank=${resolvedAssistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
+                                                                    )
+                                                                    streamLocalAssistantPreviewTextToUi(
+                                                                        responseText = resolvedAssistantResponse,
+                                                                        onChunk = { chunk ->
+                                                                            localStreamingResponseText = chunk
+                                                                        },
+                                                                    )
+                                                                    viewModel.insert(
+                                                                        createAssistantMessage(
+                                                                            chatId = currentChatId,
+                                                                            response = resolvedAssistantResponse,
+                                                                            latestInferenceStats = localStats,
+                                                                            localSourceSummary = localSourceSummary,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                        )
+                                                                    )
+                                                                    localStreamingResponseText = null
+                                                                    return@launch
+                                                                }
                                                             }
                                                             localStreamingResponseText = null
                                                             isLocalInferenceRunning = false
