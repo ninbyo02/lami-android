@@ -1258,8 +1258,32 @@ fun Home(
                                                             )
                                                             latestLocalTraceForDev = runResultWithUiTrace?.trace
                                                             logLocalStatsInventoryClassification(runResult = runResultWithUiTrace)
-                                                            if (runResultWithUiTrace?.state == LocalInferenceEngineState.READY) {
-                                                                val assistantResponse = sanitizeLocalAssistantResponse(runResultWithUiTrace.response.orEmpty())
+                                                            val initialState = runResultWithUiTrace?.state
+                                                            val initialResponse = runResultWithUiTrace?.response.orEmpty()
+                                                            val initialResponseBlank = sanitizeLocalAssistantResponse(initialResponse).isBlank()
+                                                            val needsStateGrace = runResultWithUiTrace == null ||
+                                                                initialState == null ||
+                                                                initialState == LocalInferenceEngineState.PREPARING
+                                                            val resolvedState = if (needsStateGrace) {
+                                                                Log.i(
+                                                                    "ChatScreen",
+                                                                    "LOCAL state grace check before recheck: initialState=$initialState, initialResponseBlank=$initialResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
+                                                                )
+                                                                delay(350L)
+                                                                val recheckedState = runResultWithUiTrace?.state ?: localInferenceEngineState.takeIf {
+                                                                    it == LocalInferenceEngineState.READY || it == LocalInferenceEngineState.PREPARING
+                                                                }
+                                                                val recheckedResponseBlank = sanitizeLocalAssistantResponse(runResultWithUiTrace?.response.orEmpty()).isBlank()
+                                                                Log.i(
+                                                                    "ChatScreen",
+                                                                    "LOCAL state grace check after recheck: recheckedState=$recheckedState, recheckedResponseBlank=$recheckedResponseBlank, timedOut=${runResultWithUiTrace == null}, running=$isLocalInferenceRunning, chatId=$effectiveChatId",
+                                                                )
+                                                                recheckedState
+                                                            } else {
+                                                                initialState
+                                                            }
+                                                            if (resolvedState == LocalInferenceEngineState.READY) {
+                                                                val assistantResponse = sanitizeLocalAssistantResponse(initialResponse)
                                                                 var resolvedAssistantResponse = assistantResponse
                                                                 if (resolvedAssistantResponse.isBlank()) {
                                                                     delay(250L)
@@ -1320,7 +1344,7 @@ fun Home(
                                                                 snackbarHostState.currentSnackbarData?.dismiss()
                                                             }
                                                             snackbarHostState.showSnackbar(
-                                                                message = when (runResultWithUiTrace?.state) {
+                                                                message = when (resolvedState) {
                                                                     null -> "ローカル推論エンジンの確認がタイムアウトしました"
                                                                     LocalInferenceEngineState.READY -> "ローカル推論の応答取得に失敗しました"
                                                                     LocalInferenceEngineState.UNINITIALIZED -> "ローカル基本モデルが未設定です"
