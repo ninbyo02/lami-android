@@ -423,7 +423,7 @@ fun Home(
     }
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
-    var localStreamingResponseText by remember { mutableStateOf<String?>(null) }
+    var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRespondingUi =
         selectedInferenceTarget == InferenceTarget.LOCAL &&
@@ -1299,6 +1299,8 @@ fun Home(
                                                                 localStreamingResponseText = null
                                                                 return@launch
                                                             }
+                                                            localStreamingResponseText = null
+                                                            isLocalInferenceRunning = false
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             val dismissJob = launch {
                                                                 delay(PROJECT_SNACKBAR_SHORT_MS)
@@ -1315,6 +1317,19 @@ fun Home(
                                                                 duration = SnackbarDuration.Short,
                                                             )
                                                             dismissJob.cancel()
+                                                        } catch (exception: Exception) {
+                                                            localStreamingResponseText = null
+                                                            isLocalInferenceRunning = false
+                                                            Log.e(
+                                                                "ChatScreen",
+                                                                "LOCAL inference execution failed",
+                                                                exception,
+                                                            )
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = "ローカル推論の応答取得に失敗しました",
+                                                                duration = SnackbarDuration.Short,
+                                                            )
                                                         } finally {
                                                             localStreamingResponseText = null
                                                             isLocalInferenceRunning = false
@@ -2803,7 +2818,9 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
     while (endIndex <= trimmed.length) {
         val chunk = trimmed.substring(0, endIndex)
         if (chunk.isNotEmpty() && chunk != previousChunk) {
-            onChunk(chunk)
+            withContext(Dispatchers.Main.immediate) {
+                onChunk(chunk)
+            }
             previousChunk = chunk
         }
         if (endIndex < trimmed.length) {
@@ -2812,7 +2829,9 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
         endIndex += step
     }
     if (previousChunk != trimmed) {
-        onChunk(trimmed)
+        withContext(Dispatchers.Main.immediate) {
+            onChunk(trimmed)
+        }
     }
 }
 
