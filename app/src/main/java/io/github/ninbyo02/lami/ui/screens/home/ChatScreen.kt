@@ -1299,15 +1299,17 @@ fun Home(
                                                                     }
                                                                 }
                                                                 if (resolvedAssistantResponse.isNotBlank()) {
+                                                                    val resolvedRunResult = runResultWithUiTrace
+                                                                    val resolvedTrace = resolvedRunResult?.trace
                                                                     val localStats = buildLocalInferenceStatsFromTrace(
-                                                                        trace = runResultWithUiTrace.trace,
+                                                                        trace = resolvedTrace,
                                                                         generationTimeMs = localGenerationTimeMs,
                                                                         responseCharCount = resolvedAssistantResponse.length,
                                                                         responseText = resolvedAssistantResponse,
                                                                         fallbackTimeToFirstTokenMs = localGenerationTimeMs,
                                                                     )
                                                                     val localSourceSummary = localStats?.let {
-                                                                        buildLocalSourceSummaryText(trace = runResultWithUiTrace.trace, stats = it)
+                                                                        buildLocalSourceSummaryText(trace = resolvedTrace, stats = it)
                                                                     }
                                                                     Log.i(
                                                                         "ChatScreen",
