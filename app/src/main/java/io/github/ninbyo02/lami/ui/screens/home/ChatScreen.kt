@@ -434,10 +434,15 @@ fun Home(
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRunningRaw = isLocalInferenceRunning
-    val isServerRunningRaw =
-        remoteRequestJob?.isActive == true ||
-            (toggle && !remoteStopRequested && (uiState is UiState.Loading || uiState is UiState.Streaming))
-    val isAnyInferenceRunningRaw = isLocalRunningRaw || isServerRunningRaw
+    val isServerRunning =
+        !remoteStopRequested &&
+            (
+                remoteRequestJob?.isActive == true ||
+                    uiState is UiState.Loading ||
+                    uiState is UiState.Streaming
+                )
+    val isServerRunningRaw = isServerRunning
+    val isAnyInferenceRunningRaw = isLocalRunningRaw || isServerRunning
     val isLocalTargetSelected = selectedInferenceTarget == InferenceTarget.LOCAL
     val isServerTargetSelected = selectedInferenceTarget == InferenceTarget.SERVER
     val isLocalRespondingUi = isLocalTargetSelected && isLocalRunningRaw
