@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
@@ -168,6 +169,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -424,6 +426,8 @@ fun Home(
     val errorMessage = (uiState as? UiState.Error)?.errorMessage
     val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
     var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
+    var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRespondingUi =
         selectedInferenceTarget == InferenceTarget.LOCAL &&
@@ -1099,11 +1103,22 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = !selectedModel.isNullOrBlank() &&
-                                            (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty()) &&
-                                            !(selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning),
+                                        enabled = if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                            true
+                                        } else {
+                                            !selectedModel.isNullOrBlank() &&
+                                                (userPrompt.isNotEmpty() || selectedImageUriStrings.isNotEmpty())
+                                        },
                                         onClick = {
                                             viewModel.onUserInteraction()
+                                            if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                                localStopRequested = true
+                                                localInferenceJob?.cancel()
+                                                localInferenceJob = null
+                                                localStreamingResponseText = null
+                                                isLocalInferenceRunning = false
+                                                return@IconButton
+                                            }
                                             if (selectedModel.isNullOrBlank()) {
                                                 coroutineScope.launch {
                                                     snackbarHostState.currentSnackbarData?.dismiss()
@@ -1161,12 +1176,15 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
-                                                    coroutineScope.launch {
+                                                    localStopRequested = false
+                                                    localInferenceJob = coroutineScope.launch {
                                                         appendLocalReflectionTrace(
                                                             context = context.applicationContext,
                                                             message = "UPSTREAM local-branch-enter selectedTarget=LOCAL",
                                                         )
                                                         if (isLocalInferenceRunning) return@launch
+                                                        localStopRequested = false
+                                                        localStreamingResponseText = null
                                                         isLocalInferenceRunning = true
                                                         try {
                                                             val currentChatId = effectiveChatId
@@ -1353,12 +1371,23 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM before-createAssistantMessage localResponseBlank=${resolvedAssistantResponse.isBlank()} generationTimeMs=$localGenerationTimeMs",
                                                                     )
+                                                                    if (localStopRequested) {
+                                                                        Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
+                                                                        localStreamingResponseText = null
+                                                                        return@launch
+                                                                    }
                                                                     streamLocalAssistantPreviewTextToUi(
                                                                         responseText = resolvedAssistantResponse,
                                                                         onChunk = { chunk ->
+                                                                            if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
                                                                             localStreamingResponseText = chunk
                                                                         },
                                                                     )
+                                                                    if (localStopRequested) {
+                                                                        Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
+                                                                        localStreamingResponseText = null
+                                                                        return@launch
+                                                                    }
                                                                     viewModel.insert(
                                                                         createAssistantMessage(
                                                                             chatId = currentChatId,
@@ -1409,6 +1438,7 @@ fun Home(
                                                         } finally {
                                                             localStreamingResponseText = null
                                                             isLocalInferenceRunning = false
+                                                            localInferenceJob = null
                                                         }
                                                     }
                                                 }
@@ -1427,8 +1457,16 @@ fun Home(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Filled.ArrowUpward,
-                                                contentDescription = "Send Button",
+                                                imageVector = if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                                    Icons.Filled.Stop
+                                                } else {
+                                                    Icons.Filled.ArrowUpward
+                                                },
+                                                contentDescription = if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                                    "Stop Button"
+                                                } else {
+                                                    "Send Button"
+                                                },
                                                 modifier = Modifier.size(ComposerButtonIconVisualSize)
                                             )
                                         }
