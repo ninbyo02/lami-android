@@ -1470,6 +1470,10 @@ fun Home(
                                                                         localStreamingResponseText = null
                                                                         return@launch
                                                                     }
+                                                                    Log.i(
+                                                                        "ChatScreen",
+                                                                        "LOCAL pseudo-stream start: replay final response text to UI for debug comparison",
+                                                                    )
                                                                     streamLocalAssistantPreviewTextToUi(
                                                                         responseText = resolvedAssistantResponse,
                                                                         onChunk = { chunk ->
@@ -3024,6 +3028,7 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
     val trimmed = responseText.trim()
     if (trimmed.isEmpty()) return
     var previousChunk: String? = null
+    var emittedChunkCount = 0
     val step = 12
     var endIndex = step
     while (endIndex <= trimmed.length) {
@@ -3032,6 +3037,7 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
             withContext(Dispatchers.Main.immediate) {
                 onChunk(chunk)
             }
+            emittedChunkCount += 1
             previousChunk = chunk
         }
         if (endIndex < trimmed.length) {
@@ -3043,6 +3049,13 @@ private suspend fun streamLocalAssistantPreviewTextToUi(
         withContext(Dispatchers.Main.immediate) {
             onChunk(trimmed)
         }
+        emittedChunkCount += 1
+    }
+    if (BuildConfig.DEBUG) {
+        Log.d(
+            "ChatScreen",
+            "LOCAL pseudo-stream complete: emittedChunkCount=$emittedChunkCount, finalLength=${trimmed.length}",
+        )
     }
 }
 
