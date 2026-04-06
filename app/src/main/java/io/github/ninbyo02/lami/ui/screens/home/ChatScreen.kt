@@ -316,6 +316,9 @@ private data class LocalInferenceTrace(
     val assistantStreamedToUi: Boolean = false,
     val realPartialReceived: Boolean = false,
     val realPartialChunkCount: Int = 0,
+    val realPartialHookAttempted: Boolean = false,
+    val realPartialHookAttached: Boolean = false,
+    val realPartialCallbackCount: Int = 0,
 )
 
 private data class LocalSessionTokenProbeResult(
@@ -385,7 +388,7 @@ fun Home(
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
-        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, _ ->
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, onPartial ->
             appendLocalReflectionTrace(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
@@ -396,6 +399,7 @@ fun Home(
                 localBaseModelFilePath = runLocalBaseModelFilePath,
                 localBaseModelDisplayName = runLocalBaseModelDisplayName,
                 prompt = runPrompt,
+                onPartial = onPartial,
             )
         }
     }
@@ -2236,6 +2240,7 @@ private suspend fun runLocalInferenceOnceEntry(
     localBaseModelFilePath: String?,
     localBaseModelDisplayName: String?,
     prompt: String,
+    onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
     appendLocalReflectionTrace(
         context = context,
@@ -2262,6 +2267,7 @@ private suspend fun runLocalInferenceOnceEntry(
         modelPath = modelPath,
         localModelDisplayName = localBaseModelDisplayName,
         prompt = prompt,
+        onPartial = onPartial,
     )
     val response = generated.response
     appendLocalReflectionTrace(
@@ -2391,6 +2397,7 @@ private fun generateLiteRtResponseViaReflection(
     modelPath: String,
     localModelDisplayName: String?,
     prompt: String,
+    onPartial: (String) -> Unit = {},
 ): LocalLiteRtGeneratedResponse {
     var trace = LocalInferenceTrace(
         localModelDisplayName = localModelDisplayName,
@@ -2528,6 +2535,7 @@ private fun generateLiteRtResponseViaReflection(
             prompt = prompt,
             trace = trace,
             sessionAsyncPocResult = sessionAsyncPocResult,
+            onPartial = onPartial,
         )
         Log.i(
             "ChatScreen",
@@ -3411,6 +3419,7 @@ private fun generateLiteRtStringResponseOnceViaReflection(
     prompt: String,
     trace: LocalInferenceTrace,
     sessionAsyncPocResult: DevSessionAsyncPocResult = DevSessionAsyncPocResult(),
+    onPartial: (String) -> Unit = {},
 ): LocalLiteRtGeneratedResponse {
     val candidateMethodNames = listOf("generateResponse", "generate", "infer")
     val candidateMethods = candidateMethodNames.flatMap { methodName ->
@@ -3428,6 +3437,16 @@ private fun generateLiteRtStringResponseOnceViaReflection(
         val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
         return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
     }
+
+    val partialHook = tryAttachSingleListenerPartialHook(
+        inferenceInstance = inferenceInstance,
+        onPartial = onPartial,
+    )
+    val partialHookSnapshot = partialHook.snapshot()
+    appendLocalReflectionTrace(
+        context = context,
+        message = "real-partial-hook attempted=${partialHookSnapshot.attempted} attached=${partialHookSnapshot.attached}",
+    )
 
     candidateMethods.forEach { method ->
         Log.i("ChatScreen", "LOCAL reflection oneshot-try: method=${method.toGenericString()}")
@@ -3449,6 +3468,9 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
                     oneShotResponseHead = oneShotResponseHead,
                     sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
+                    realPartialHookAttempted = partialHookSnapshot.attempted,
+                    realPartialHookAttached = partialHookSnapshot.attached,
+                    realPartialCallbackCount = partialHook.snapshot().callbackCount,
                 )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
                 val responseSelection = selectLocalAssistantResponse(
@@ -3493,6 +3515,9 @@ private fun generateLiteRtStringResponseOnceViaReflection(
                     wallClockTotalInferenceDurationNs = wallClockTotalInferenceDurationNs,
                     oneShotResponseHead = oneShotResponseHead,
                     sessionAsyncPocSelectedCandidateHead = sessionAsyncPocCandidateHead,
+                    realPartialHookAttempted = partialHookSnapshot.attempted,
+                    realPartialHookAttached = partialHookSnapshot.attached,
+                    realPartialCallbackCount = partialHook.snapshot().callbackCount,
                 )
                     .merge(probeLocalStatsCandidates(inferenceInstance))
                 val responseSelection = selectLocalAssistantResponse(
@@ -3536,7 +3561,11 @@ private fun generateLiteRtStringResponseOnceViaReflection(
     }
     Log.e("ChatScreen", "LiteRT-LM string response generation failed for all candidate methods.")
     appendLocalReflectionTrace(context = context, message = "oneshot-all-candidate-failed")
-    val inventoryTrace = trace.merge(probeLocalStatsCandidates(inferenceInstance))
+    val inventoryTrace = trace.copy(
+        realPartialHookAttempted = partialHookSnapshot.attempted,
+        realPartialHookAttached = partialHookSnapshot.attached,
+        realPartialCallbackCount = partialHook.snapshot().callbackCount,
+    ).merge(probeLocalStatsCandidates(inferenceInstance))
     return LocalLiteRtGeneratedResponse(trace = inventoryTrace)
 }
 
