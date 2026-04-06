@@ -372,6 +372,7 @@ fun Home(
     val selectedModel by viewModel.selectedModel.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val lamiAnimationStatus by viewModel.lamiAnimationStatus.collectAsState()
+    val isTtsPlaying by viewModel.isTtsPlaying.collectAsState()
     val animationEpochMs by viewModel.animationEpochMs.collectAsState()
     val latestInferenceStats by viewModel.latestInferenceStats.collectAsState()
     val baseUrl by viewModel.baseUrl.collectAsState()
@@ -465,7 +466,11 @@ fun Home(
     val isLocalRunningUi = isLocalRunningRaw && !isStopRequested
     val isServerRunningUi = isServerRunningRaw && !isStopRequested
     val isInferenceRunningUi = isLocalRunningUi || isServerRunningUi
-    val isHeaderRunningUi = isInferenceRunningUi
+    val isLocalTtsPlayingUi =
+        selectedInferenceTarget == InferenceTarget.LOCAL &&
+            isTtsPlaying &&
+            !isStopRequested
+    val isHeaderRunningUi = isInferenceRunningUi || isLocalTtsPlayingUi
     val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
     val headerStatusTitleOverride = when {
         isHeaderRunningUi -> "Responding..."
@@ -477,7 +482,7 @@ fun Home(
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
     val effectiveLamiStatusForChatUi = when {
-        !isInferenceRunningUi || isStopRequested -> LamiStatus.READY
+        isStopRequested -> LamiStatus.READY
         isServerRunningUi -> lamiStatusForChatUi
         isLocalRunningUi -> when (lamiStatusForChatUi) {
             LamiStatus.READY,
@@ -488,13 +493,18 @@ fun Home(
             -> LamiStatus.CONNECTING
             else -> lamiStatusForChatUi
         }
-        else -> lamiStatusForChatUi
+        isLocalTtsPlayingUi -> LamiStatus.TALKING
+        else -> LamiStatus.READY
     }
     val effectiveLamiHeaderStateForChatUi = when {
-        !isInferenceRunningUi || isStopRequested -> LamiState.Idle
+        isStopRequested -> LamiState.Idle
         isServerRunningUi -> lamiHeaderStateForChatUi
         isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
-        else -> lamiHeaderStateForChatUi
+        isLocalTtsPlayingUi -> {
+            val textLength = (lamiHeaderStateForChatUi as? LamiState.Speaking)?.textLength ?: 0
+            LamiState.Speaking(textLength)
+        }
+        else -> LamiState.Idle
     }
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
