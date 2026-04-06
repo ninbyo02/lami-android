@@ -164,6 +164,7 @@ import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
 import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
 import io.github.ninbyo02.lami.util.RuntimeFlags
+import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
@@ -439,9 +440,12 @@ fun Home(
             toggle &&
             (uiState is UiState.Loading || uiState is UiState.Streaming)
     val isInferenceRunning = isLocalRespondingUi || isServerRespondingUi
-    val isServerLoadingUi = uiState is UiState.Loading
-    val headerStatusTitleOverride = if (isLocalRespondingUi) "Responding..." else null
-    val showLocalRespondingAssistantRow = isLocalRespondingUi
+    val isStopRequested = localStopRequested || remoteStopRequested
+    val isInferenceRunningUi = isInferenceRunning && !isStopRequested
+    val isServerLoadingUi = uiState is UiState.Loading && isInferenceRunningUi
+    val headerStatusTitleOverride = if (isInferenceRunningUi) "Responding..." else null
+    val showLocalRespondingAssistantRow = isLocalRespondingUi && !isStopRequested
+    val lamiStatusForChatUi = if (isStopRequested) LamiStatus.READY else lamiAnimationStatus
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
@@ -876,7 +880,7 @@ fun Home(
                             baseUrl = baseUrl,
                             selectedModel = selectedModel,
                             lastError = errorMessage,
-                            lamiStatus = lamiAnimationStatus,
+                            lamiStatus = lamiStatusForChatUi,
                             lamiState = lamiUiState.state,
                             availableModels = availableModels,
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
@@ -903,7 +907,7 @@ fun Home(
                             baseUrl = baseUrl,
                             selectedModel = selectedModel,
                             lastError = errorMessage,
-                        lamiStatus = lamiAnimationStatus,
+                        lamiStatus = lamiStatusForChatUi,
                         lamiState = lamiUiState.state,
                         availableModels = availableModels,
                         onSelectModel = { modelName ->
@@ -1138,7 +1142,7 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = if (isInferenceRunning) {
+                                        enabled = if (isInferenceRunningUi) {
                                             true
                                         } else {
                                             !selectedModel.isNullOrBlank() &&
@@ -1146,7 +1150,7 @@ fun Home(
                                         },
                                         onClick = {
                                             viewModel.onUserInteraction()
-                                            if (isInferenceRunning) {
+                                            if (isInferenceRunningUi) {
                                                 if (isLocalRespondingUi) {
                                                     localStopRequested = true
                                                     localInferenceJob?.cancel()
@@ -1507,12 +1511,12 @@ fun Home(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = if (isInferenceRunning) {
+                                                imageVector = if (isInferenceRunningUi) {
                                                     Icons.Filled.Stop
                                                 } else {
                                                     Icons.Filled.ArrowUpward
                                                 },
-                                                contentDescription = if (isInferenceRunning) {
+                                                contentDescription = if (isInferenceRunningUi) {
                                                     "Stop Button"
                                                 } else {
                                                     "Send Button"
