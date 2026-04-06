@@ -214,6 +214,7 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT = "one-shot"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC = "session-async-poc"
 private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
 private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -2242,6 +2243,7 @@ private suspend fun runLocalInferenceOnceEntry(
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
+    val localTraceStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
     appendLocalReflectionTrace(
         context = context,
         message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
@@ -2263,8 +2265,52 @@ private suspend fun runLocalInferenceOnceEntry(
     val officialConversationApiProbe = probeLocalOfficialConversationApi()
     appendLocalReflectionTrace(
         context = context,
-        message = "UPSTREAM official-conversation-api available=${officialConversationApiProbe.isAvailable} conversationClass=${officialConversationApiProbe.conversationClassFound} createConversation=${officialConversationApiProbe.createConversationMethodFound} sendMessageAsync=${officialConversationApiProbe.sendMessageAsyncMethodFound} sendMessageAsyncFlow=${officialConversationApiProbe.sendMessageAsyncReturnsFlow} messageClass=${officialConversationApiProbe.messageClassFound}",
+        message = "UPSTREAM official-conversation-api available=${officialConversationApiProbe.isAvailable} namespace=${officialConversationApiProbe.namespace ?: "none"} fallbackNamespaceMatched=${officialConversationApiProbe.fallbackNamespaceMatched} conversationClass=${officialConversationApiProbe.conversationClassFound} createConversation=${officialConversationApiProbe.createConversationMethodFound} sendMessageAsync=${officialConversationApiProbe.sendMessageAsyncMethodFound} sendMessageAsyncFlow=${officialConversationApiProbe.sendMessageAsyncReturnsFlow} messageClass=${officialConversationApiProbe.messageClassFound}",
     )
+    if (officialConversationApiProbe.isAvailable) {
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-flow-streaming attempt",
+        )
+        val officialResult = tryRunOfficialLiteRtFlowStreaming(
+            prompt = prompt,
+            modelPath = modelPath,
+            onPartial = onPartial,
+            appendTrace = { traceMessage ->
+                appendLocalReflectionTrace(context = context, message = traceMessage)
+            },
+        )
+        val officialResponse = officialResult?.response?.trim().orEmpty()
+        val officialSucceeded = officialResponse.isNotBlank()
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-flow-streaming success=$officialSucceeded responseLength=${officialResponse.length} partialCount=${officialResult?.partialCount ?: 0}",
+        )
+        if (officialSucceeded) {
+            return LocalInferenceRunResult(
+                state = LocalInferenceEngineState.READY,
+                response = officialResponse,
+                trace = LocalInferenceTrace(
+                    localModelDisplayName = localBaseModelDisplayName,
+                    localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+                    localTraceFirstResponseElapsedRealtimeMs = officialResult?.firstNonEmptyPartialElapsedRealtimeMs?.let {
+                        localTraceStartElapsedRealtimeMs + it
+                    },
+                    localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW,
+                ),
+            )
+        }
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-flow-streaming fallback reason=empty-or-failed-result",
+        )
+    } else {
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-flow-streaming fallback reason=probe-unavailable",
+        )
+    }
 
     appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
     val generated = generateLiteRtResponseViaReflection(
