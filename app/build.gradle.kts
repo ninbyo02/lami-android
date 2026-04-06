@@ -11,11 +11,11 @@ plugins {
 fun gitShaShort(): String {
     val stdout = ByteArrayOutputStream()
     return try {
-        exec {
+        val result = providers.exec {
             commandLine("git", "rev-parse", "--short=7", "HEAD")
-            standardOutput = stdout
             isIgnoreExitValue = true
         }
+        stdout.write(result.standardOutput.asBytes.get())
         stdout.toString().trim().takeIf { it.isNotBlank() } ?: ""
     } catch (e: Exception) {
         // .git がない配布物などで取得できない場合に備えて空文字にする
@@ -66,15 +66,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
     }
 }
 
