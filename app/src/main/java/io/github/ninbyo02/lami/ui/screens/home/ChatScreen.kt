@@ -1190,6 +1190,8 @@ fun Home(
                                                     localInferenceJob = null
                                                     localStreamingResponseText = null
                                                     isLocalInferenceRunning = false
+                                                    ttsController.stop()
+                                                    viewModel.stopTtsPlayback()
                                                     return@IconButton
                                                 }
                                                 if (isServerRunningRaw) {
@@ -1489,6 +1491,9 @@ fun Home(
                                                                             generationTimeMs = localGenerationTimeMs,
                                                                         )
                                                                     )
+                                                                    if (!localStopRequested && !ttsController.isInCooldown()) {
+                                                                        ttsController.speak(resolvedAssistantResponse)
+                                                                    }
                                                                     localStreamingResponseText = null
                                                                     return@launch
                                                             }
