@@ -1301,16 +1301,26 @@ fun Home(
                                                                 if (resolvedAssistantResponse.isNotBlank()) {
                                                                     val resolvedRunResult = runResultWithUiTrace
                                                                     val resolvedTrace = resolvedRunResult?.trace
-                                                                    val localStats = buildLocalInferenceStatsFromTrace(
-                                                                        trace = resolvedTrace,
-                                                                        generationTimeMs = localGenerationTimeMs,
-                                                                        responseCharCount = resolvedAssistantResponse.length,
-                                                                        responseText = resolvedAssistantResponse,
-                                                                        fallbackTimeToFirstTokenMs = localGenerationTimeMs,
-                                                                    )
-                                                                    val localSourceSummary = localStats?.let {
-                                                                        buildLocalSourceSummaryText(trace = resolvedTrace, stats = it)
+                                                                    val localStats = if (resolvedTrace != null) {
+                                                                        buildLocalInferenceStatsFromTrace(
+                                                                            trace = resolvedTrace,
+                                                                            generationTimeMs = localGenerationTimeMs,
+                                                                            responseCharCount = resolvedAssistantResponse.length,
+                                                                            responseText = resolvedAssistantResponse,
+                                                                            fallbackTimeToFirstTokenMs = localGenerationTimeMs,
+                                                                        )
+                                                                    } else {
+                                                                        null
                                                                     }
+                                                                    val localSourceSummary =
+                                                                        if (resolvedTrace != null && localStats != null) {
+                                                                            buildLocalSourceSummaryText(
+                                                                                trace = resolvedTrace,
+                                                                                stats = localStats,
+                                                                            )
+                                                                        } else {
+                                                                            null
+                                                                        }
                                                                     Log.i(
                                                                         "ChatScreen",
                                                                         "LOCAL assistant insert payload length=${resolvedAssistantResponse.length}, head=${resolvedAssistantResponse.take(80)}",
