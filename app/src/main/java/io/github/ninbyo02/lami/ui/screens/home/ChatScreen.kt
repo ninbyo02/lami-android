@@ -442,21 +442,18 @@ fun Home(
                     uiState is UiState.Streaming
                 )
     val isServerRunningRaw = isServerRunning
-    val isAnyInferenceRunningRaw = isLocalRunningRaw || isServerRunning
-    val isLocalTargetSelected = selectedInferenceTarget == InferenceTarget.LOCAL
-    val isServerTargetSelected = selectedInferenceTarget == InferenceTarget.SERVER
-    val isLocalRespondingUi = isLocalTargetSelected && isLocalRunningRaw
-    val isServerRespondingUi = isServerTargetSelected && isServerRunningRaw
     val isStopRequested = localStopRequested || remoteStopRequested
-    val isInferenceRunningUi = isAnyInferenceRunningRaw && !isStopRequested
+    val isLocalRunningUi = isLocalRunningRaw && !isStopRequested
+    val isServerRunningUi = isServerRunningRaw && !isStopRequested
+    val isInferenceRunningUi = isLocalRunningUi || isServerRunningUi
     val isHeaderRunningUi = isInferenceRunningUi
-    val isServerLoadingUi = uiState is UiState.Loading && isInferenceRunningUi
+    val isServerLoadingUi = uiState is UiState.Loading && isServerRunningUi
     val headerStatusTitleOverride = when {
         isHeaderRunningUi -> "Responding..."
         isStopRequested -> "Ready"
         else -> null
     }
-    val showLocalRespondingAssistantRow = isLocalRespondingUi && !isStopRequested
+    val showLocalRespondingAssistantRow = isLocalRunningUi
     val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
