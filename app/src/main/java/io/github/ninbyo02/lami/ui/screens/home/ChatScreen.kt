@@ -457,6 +457,26 @@ fun Home(
     val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
+    val effectiveLamiStatusForChatUi = when {
+        !isInferenceRunningUi || isStopRequested -> LamiStatus.READY
+        isServerRunningUi -> lamiStatusForChatUi
+        isLocalRunningUi -> when (lamiStatusForChatUi) {
+            LamiStatus.READY,
+            LamiStatus.DEGRADED,
+            LamiStatus.NO_MODELS,
+            LamiStatus.OFFLINE,
+            LamiStatus.ERROR,
+            -> LamiStatus.CONNECTING
+            else -> lamiStatusForChatUi
+        }
+        else -> lamiStatusForChatUi
+    }
+    val effectiveLamiHeaderStateForChatUi = when {
+        !isInferenceRunningUi || isStopRequested -> LamiState.Idle
+        isServerRunningUi -> lamiHeaderStateForChatUi
+        isLocalRunningUi -> if (lamiHeaderStateForChatUi == LamiState.Idle) LamiState.Thinking else lamiHeaderStateForChatUi
+        else -> lamiHeaderStateForChatUi
+    }
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
     val debugTopGradientDownshift = 32.dp
@@ -893,8 +913,8 @@ fun Home(
                             baseUrl = baseUrl,
                             selectedModel = selectedModel,
                             lastError = errorMessage,
-                            lamiStatus = lamiStatusForChatUi,
-                            lamiState = lamiHeaderStateForChatUi,
+                            lamiStatus = effectiveLamiStatusForChatUi,
+                            lamiState = effectiveLamiHeaderStateForChatUi,
                             availableModels = availableModels,
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
                             minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
@@ -920,8 +940,8 @@ fun Home(
                             baseUrl = baseUrl,
                             selectedModel = selectedModel,
                             lastError = errorMessage,
-                        lamiStatus = lamiStatusForChatUi,
-                        lamiState = lamiHeaderStateForChatUi,
+                        lamiStatus = effectiveLamiStatusForChatUi,
+                        lamiState = effectiveLamiHeaderStateForChatUi,
                         availableModels = availableModels,
                         onSelectModel = { modelName ->
                             viewModel.onUserInteraction()
