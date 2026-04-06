@@ -56,6 +56,51 @@ internal class DefaultLocalStreamingRunner<T>(
         }
     }
 }
+internal data class LocalOfficialConversationApiProbeResult(
+    val conversationClassFound: Boolean,
+    val createConversationMethodFound: Boolean,
+    val sendMessageAsyncMethodFound: Boolean,
+    val sendMessageAsyncReturnsFlow: Boolean,
+    val messageClassFound: Boolean,
+) {
+    val isAvailable: Boolean
+        get() =
+            conversationClassFound &&
+                createConversationMethodFound &&
+                sendMessageAsyncMethodFound &&
+                sendMessageAsyncReturnsFlow &&
+                messageClassFound
+}
+
+internal fun probeLocalOfficialConversationApi(): LocalOfficialConversationApiProbeResult {
+    val conversationClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.Conversation")
+    }.getOrNull()
+    val messageClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.Message")
+    }.getOrNull()
+    val llmInferenceClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
+    }.getOrNull()
+
+    val createConversationMethodFound = llmInferenceClass?.methods?.any { method ->
+        method.name == "createConversation" || method.name == "createChat"
+    } == true
+
+    val sendMessageAsyncMethod = conversationClass?.methods?.firstOrNull { method ->
+        method.name == "sendMessageAsync" && method.parameterTypes.isNotEmpty()
+    }
+    val sendMessageAsyncReturnsFlow =
+        sendMessageAsyncMethod?.returnType?.name == "kotlinx.coroutines.flow.Flow"
+
+    return LocalOfficialConversationApiProbeResult(
+        conversationClassFound = conversationClass != null,
+        createConversationMethodFound = createConversationMethodFound,
+        sendMessageAsyncMethodFound = sendMessageAsyncMethod != null,
+        sendMessageAsyncReturnsFlow = sendMessageAsyncReturnsFlow,
+        messageClassFound = messageClass != null,
+    )
+}
 
 internal data class LocalRealPartialHookSnapshot(
     val attempted: Boolean = false,
