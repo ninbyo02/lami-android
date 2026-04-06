@@ -2260,6 +2260,11 @@ private suspend fun runLocalInferenceOnceEntry(
         context = context,
         message = "UPSTREAM resolved-local-model-path success=true modelPathTail=${modelPath.substringAfterLast('/')}",
     )
+    val officialConversationApiProbe = probeLocalOfficialConversationApi()
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM official-conversation-api available=${officialConversationApiProbe.isAvailable} conversationClass=${officialConversationApiProbe.conversationClassFound} createConversation=${officialConversationApiProbe.createConversationMethodFound} sendMessageAsync=${officialConversationApiProbe.sendMessageAsyncMethodFound} sendMessageAsyncFlow=${officialConversationApiProbe.sendMessageAsyncReturnsFlow} messageClass=${officialConversationApiProbe.messageClassFound}",
+    )
 
     appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
     val generated = generateLiteRtResponseViaReflection(
