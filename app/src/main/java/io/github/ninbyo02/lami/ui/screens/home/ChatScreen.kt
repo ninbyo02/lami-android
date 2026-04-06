@@ -1193,6 +1193,8 @@ fun Home(
                                                     localInferenceJob?.cancel()
                                                     localInferenceJob = null
                                                     localStreamingResponseText = null
+                                                    didReceiveRealLocalPartial = false
+                                                    realLocalPartialChunkCount = 0
                                                     isLocalInferenceRunning = false
                                                     ttsController.stop()
                                                     viewModel.stopTtsPlayback()
@@ -1542,6 +1544,8 @@ fun Home(
                                                             dismissJob.cancel()
                                                         } catch (exception: Exception) {
                                                             localStreamingResponseText = null
+                                                            didReceiveRealLocalPartial = false
+                                                            realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
                                                             Log.e(
                                                                 "ChatScreen",
@@ -1555,6 +1559,8 @@ fun Home(
                                                             )
                                                         } finally {
                                                             localStreamingResponseText = null
+                                                            didReceiveRealLocalPartial = false
+                                                            realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
                                                             localInferenceJob = null
                                                         }
