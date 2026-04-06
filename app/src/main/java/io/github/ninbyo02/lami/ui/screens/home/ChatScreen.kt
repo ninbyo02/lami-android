@@ -1196,7 +1196,6 @@ fun Home(
                                                     if (currentChatId != null) {
                                                         val requestPrompt = userPrompt
                                                         val requestAttachmentUris = selectedImageUris
-                                                        remoteStopRequested = false
                                                         pendingAssistantImageInputCount = requestAttachmentUris.size
                                                         if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
                                                             placeholder = "I'm thinking ... "
@@ -1205,6 +1204,7 @@ fun Home(
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         prompt = requestPrompt
+                                                        remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
                                                             try {
                                                                 viewModel.sendPrompt(
