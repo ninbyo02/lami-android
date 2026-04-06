@@ -35,7 +35,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
+import okhttp3.ResponseBody
 import org.json.JSONObject
+import retrofit2.Call
 import kotlin.math.min
 import java.io.File
 import java.io.IOException
@@ -70,6 +72,8 @@ class OllamaViewModel(
     val isTtsPlaying: StateFlow<Boolean> = _isTtsPlaying.asStateFlow()
     private val _latestInferenceStats = MutableStateFlow<InferenceStats?>(null)
     val latestInferenceStats: StateFlow<InferenceStats?> = _latestInferenceStats.asStateFlow()
+    @Volatile
+    private var activeRemoteCall: Call<ResponseBody>? = null
     private val effectiveContextWindowCache = mutableMapOf<String, Int?>()
     private val effectiveContextWindowRequestState = mutableMapOf<String, ContextWindowResolutionState>()
 
@@ -346,75 +350,88 @@ class OllamaViewModel(
         }
     }
 
+    fun cancelRemoteRequest() {
+        val call = activeRemoteCall
+        activeRemoteCall = null
+        call?.cancel()
+    }
+
     private fun collectStreamingResponse(request: OllamaRequest, requestStartedAtMs: Long): StreamingResult {
-        val response = RetrofitClient.instance.generateTextStream(request).execute()
-        if (!response.isSuccessful) {
-            val error = response.errorBody()?.string().orEmpty()
-            throw IOException(error.ifEmpty { "Failed to generate response" })
-        }
+        val call = RetrofitClient.instance.generateTextStream(request)
+        activeRemoteCall = call
+        try {
+            val response = call.execute()
+            if (!response.isSuccessful) {
+                val error = response.errorBody()?.string().orEmpty()
+                throw IOException(error.ifEmpty { "Failed to generate response" })
+            }
 
-        val body = response.body() ?: throw IOException("Empty response")
-        val resultBuilder = StringBuilder()
-        var doneReceived = false
-        val streamingUiUpdateIntervalMs = 80L
-        val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
-        var lastUiUpdateAtMs = 0L
-        var latestFlushedLength = 0
-        var finalChunk: StreamChunk? = null
-        var timeToFirstTokenMs: Long? = null
+            val body = response.body() ?: throw IOException("Empty response")
+            val resultBuilder = StringBuilder()
+            var doneReceived = false
+            val streamingUiUpdateIntervalMs = 80L
+            val priorityFlushChars = setOf('。', '、', '！', '？', '\n')
+            var lastUiUpdateAtMs = 0L
+            var latestFlushedLength = 0
+            var finalChunk: StreamChunk? = null
+            var timeToFirstTokenMs: Long? = null
 
-        body.charStream().buffered().use { reader ->
-            while (true) {
-                val rawLine = reader.readLine() ?: break
-                val line = rawLine.trim()
-                if (line.isEmpty()) {
-                    continue
-                }
-                val chunk = parseStreamingChunk(line)
-                if (shouldCaptureFirstAssistantToken(timeToFirstTokenMs, chunk.text)) {
-                    // assistant 本文の最初の非空トークン受信時刻をアプリ側で確定する。
-                    timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
-                }
-                if (!chunk.text.isNullOrBlank()) {
-                    resultBuilder.append(chunk.text)
-                    val currentText = resultBuilder.toString()
-                    val nowMs = System.currentTimeMillis()
-                    val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
-                    val endsWithPriorityChar =
-                        chunk.text.lastOrNull() in priorityFlushChars ||
-                            currentText.lastOrNull() in priorityFlushChars
-                    if (isIntervalElapsed || endsWithPriorityChar) {
-                        onResponseReceived(currentText.length)
-                        _uiState.value = UiState.Streaming(currentText)
-                        lastUiUpdateAtMs = nowMs
-                        latestFlushedLength = currentText.length
+            body.charStream().buffered().use { reader ->
+                while (true) {
+                    val rawLine = reader.readLine() ?: break
+                    val line = rawLine.trim()
+                    if (line.isEmpty()) {
+                        continue
                     }
-                }
-                if (chunk.done) {
-                    finalChunk = chunk
-                    val currentText = resultBuilder.toString()
-                    if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
-                        onResponseReceived(currentText.length)
-                        _uiState.value = UiState.Streaming(currentText)
-                        latestFlushedLength = currentText.length
+                    val chunk = parseStreamingChunk(line)
+                    if (shouldCaptureFirstAssistantToken(timeToFirstTokenMs, chunk.text)) {
+                        // assistant 本文の最初の非空トークン受信時刻をアプリ側で確定する。
+                        timeToFirstTokenMs = (SystemClock.elapsedRealtime() - requestStartedAtMs).coerceAtLeast(0L)
                     }
-                    doneReceived = true
-                    break
+                    if (!chunk.text.isNullOrBlank()) {
+                        resultBuilder.append(chunk.text)
+                        val currentText = resultBuilder.toString()
+                        val nowMs = System.currentTimeMillis()
+                        val isIntervalElapsed = nowMs - lastUiUpdateAtMs >= streamingUiUpdateIntervalMs
+                        val endsWithPriorityChar =
+                            chunk.text.lastOrNull() in priorityFlushChars ||
+                                currentText.lastOrNull() in priorityFlushChars
+                        if (isIntervalElapsed || endsWithPriorityChar) {
+                            onResponseReceived(currentText.length)
+                            _uiState.value = UiState.Streaming(currentText)
+                            lastUiUpdateAtMs = nowMs
+                            latestFlushedLength = currentText.length
+                        }
+                    }
+                    if (chunk.done) {
+                        finalChunk = chunk
+                        val currentText = resultBuilder.toString()
+                        if (currentText.isNotEmpty() && latestFlushedLength != currentText.length) {
+                            onResponseReceived(currentText.length)
+                            _uiState.value = UiState.Streaming(currentText)
+                            latestFlushedLength = currentText.length
+                        }
+                        doneReceived = true
+                        break
+                    }
                 }
             }
+            if (!doneReceived) {
+                throw IOException("Streaming response ended before done=true")
+            }
+            if (resultBuilder.isEmpty()) {
+                throw IOException("Empty response")
+            }
+            return StreamingResult(
+                text = resultBuilder.toString(),
+                finalChunk = finalChunk,
+                timeToFirstTokenMs = timeToFirstTokenMs,
+            )
+        } finally {
+            if (activeRemoteCall === call) {
+                activeRemoteCall = null
+            }
         }
-
-        if (!doneReceived) {
-            throw IOException("Streaming response ended before done=true")
-        }
-        if (resultBuilder.isEmpty()) {
-            throw IOException("Empty response")
-        }
-        return StreamingResult(
-            text = resultBuilder.toString(),
-            finalChunk = finalChunk,
-            timeToFirstTokenMs = timeToFirstTokenMs,
-        )
     }
 
     private fun parseStreamingChunk(line: String): StreamChunk {
