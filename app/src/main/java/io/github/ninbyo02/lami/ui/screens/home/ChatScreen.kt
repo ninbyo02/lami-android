@@ -669,14 +669,17 @@ fun Home(
         viewModel.moveToIdleIfStale(referenceTime, idleTimeoutMs)
     }
 
-    LaunchedEffect(errorMessage) {
-        if (errorMessage != null) {
-            snackbarHostState.showSnackbar(
-                message = errorMessage,
-                duration = SnackbarDuration.Short,
-                actionLabel = "ERROR"
-            )
+    LaunchedEffect(errorMessage, remoteStopRequested) {
+        if (errorMessage == null) return@LaunchedEffect
+        if (remoteStopRequested && isStopCancellationLikeMessage(errorMessage)) {
+            Log.i("ChatScreen", "Suppressed snackbar for remote stop cancellation: $errorMessage")
+            return@LaunchedEffect
         }
+        snackbarHostState.showSnackbar(
+            message = errorMessage,
+            duration = SnackbarDuration.Short,
+            actionLabel = "ERROR"
+        )
     }
 
     val density = LocalDensity.current
@@ -5069,6 +5072,15 @@ private fun computeLatestUserAnchor(messages: List<Message>): Int {
     } else {
         messages.lastIndex
     }
+}
+
+private fun isStopCancellationLikeMessage(message: String?): Boolean {
+    val text = message?.lowercase().orEmpty()
+    return "socket closed" in text ||
+        "software caused connection abort" in text ||
+        "canceled" in text ||
+        "cancelled" in text ||
+        "stream was reset" in text
 }
 
 
