@@ -144,6 +144,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     modelPath: String,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
+    onFallbackReason: (String) -> Unit = {},
 ): LocalOfficialFlowStreamingResult? {
     val startElapsedMs = SystemClock.elapsedRealtime()
     val attempts = listOf(
@@ -175,14 +176,21 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
+            val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_exception"
+            onFallbackReason(reasonCode)
             appendTrace(
-                "UPSTREAM official-flow-streaming fallback reason=namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
+                "UPSTREAM official-flow-streaming fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
             )
         }.getOrNull()
         if (result != null) return result
     }
     return null
 }
+
+private class OfficialFlowFallbackException(
+    val reasonCode: String,
+    cause: Throwable? = null,
+) : RuntimeException(reasonCode, cause)
 
 private data class LocalOfficialNamespaceSpec(
     val namespace: String,
@@ -208,32 +216,47 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     val engine = createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath) ?: return null
     var conversation: Any? = null
     try {
-        conversation = createOfficialConversation(engine, createConversationMethod)
+        conversation = runCatching {
+            createOfficialConversation(engine, createConversationMethod)
+        }.getOrElse { throwable ->
+            throw OfficialFlowFallbackException("conversation_create_failed", throwable)
+        }
         val sendArgument =
             buildSendMessageArgument(
                 parameterType = sendMessageAsyncMethod.parameterTypes.first(),
                 namespace = spec.namespace,
                 prompt = prompt,
-            ) ?: return null
-        val flowValue = sendMessageAsyncMethod.invoke(conversation, sendArgument)
-        val flow = flowValue as? Flow<*> ?: return null
+            ) ?: throw OfficialFlowFallbackException("send_message_async_unavailable")
+        val flowValue = runCatching {
+            sendMessageAsyncMethod.invoke(conversation, sendArgument)
+        }.getOrElse { throwable ->
+            throw OfficialFlowFallbackException("send_message_async_unavailable", throwable)
+        }
+        val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_unavailable")
         val builder = StringBuilder()
         var partialCount = 0
         var firstPartialMs: Long? = null
         var lastPartial: String? = null
-        flow.collect { message ->
-            val extracted = extractOfficialMessageText(message)?.trim().orEmpty()
-            if (extracted.isBlank() || extracted == lastPartial) return@collect
-            lastPartial = extracted
-            builder.append(extracted)
-            partialCount += 1
-            if (firstPartialMs == null) {
-                firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+        runCatching {
+            flow.collect { message ->
+                val extractedText = extractOfficialMessageText(message)
+                    ?: throw OfficialFlowFallbackException("message_text_extract_failed")
+                val extracted = extractedText.trim()
+                if (extracted.isBlank() || extracted == lastPartial) return@collect
+                lastPartial = extracted
+                builder.append(extracted)
+                partialCount += 1
+                if (firstPartialMs == null) {
+                    firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+                }
+                onPartial(builder.toString())
             }
-            onPartial(builder.toString())
+        }.getOrElse { throwable ->
+            if (throwable is OfficialFlowFallbackException) throw throwable
+            throw OfficialFlowFallbackException("flow_collect_failed", throwable)
         }
         val response = builder.toString().trim()
-        if (response.isBlank()) return null
+        if (response.isBlank()) throw OfficialFlowFallbackException("empty_official_response")
         appendTrace("UPSTREAM official-flow-streaming partial count=$partialCount namespace=${spec.namespace}")
         return LocalOfficialFlowStreamingResult(
             response = response,

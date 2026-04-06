@@ -317,6 +317,11 @@ private data class LocalInferenceTrace(
     val assistantStreamedToUi: Boolean = false,
     val realPartialReceived: Boolean = false,
     val realPartialChunkCount: Int = 0,
+    val officialFlowAttempted: Boolean = false,
+    val officialFlowUsed: Boolean = false,
+    val officialFlowFallbackReason: String? = null,
+    val officialConversationApiAvailable: Boolean? = null,
+    val officialFlowChunkCount: Int = 0,
     val realPartialHookAttempted: Boolean = false,
     val realPartialHookAttached: Boolean = false,
     val realPartialCallbackCount: Int = 0,
@@ -2267,7 +2272,13 @@ private suspend fun runLocalInferenceOnceEntry(
         context = context,
         message = "UPSTREAM official-conversation-api available=${officialConversationApiProbe.isAvailable} namespace=${officialConversationApiProbe.namespace ?: "none"} fallbackNamespaceMatched=${officialConversationApiProbe.fallbackNamespaceMatched} conversationClass=${officialConversationApiProbe.conversationClassFound} createConversation=${officialConversationApiProbe.createConversationMethodFound} sendMessageAsync=${officialConversationApiProbe.sendMessageAsyncMethodFound} sendMessageAsyncFlow=${officialConversationApiProbe.sendMessageAsyncReturnsFlow} messageClass=${officialConversationApiProbe.messageClassFound}",
     )
+    var officialFlowAttempted = false
+    var officialFlowUsed = false
+    var officialFlowFallbackReason: String? = null
+    var officialFlowChunkCount = 0
+
     if (officialConversationApiProbe.isAvailable) {
+        officialFlowAttempted = true
         appendLocalReflectionTrace(
             context = context,
             message = "UPSTREAM official-flow-streaming attempt",
@@ -2279,9 +2290,19 @@ private suspend fun runLocalInferenceOnceEntry(
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
+            onFallbackReason = { reasonCode ->
+                officialFlowFallbackReason = reasonCode
+            },
         )
         val officialResponse = officialResult?.response?.trim().orEmpty()
         val officialSucceeded = officialResponse.isNotBlank()
+        officialFlowUsed = officialSucceeded
+        officialFlowChunkCount = officialResult?.partialCount ?: 0
+        if (officialSucceeded) {
+            officialFlowFallbackReason = null
+        } else if (officialFlowFallbackReason == null) {
+            officialFlowFallbackReason = "empty_official_response"
+        }
         appendLocalReflectionTrace(
             context = context,
             message = "UPSTREAM official-flow-streaming success=$officialSucceeded responseLength=${officialResponse.length} partialCount=${officialResult?.partialCount ?: 0}",
@@ -2298,17 +2319,23 @@ private suspend fun runLocalInferenceOnceEntry(
                     },
                     localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                     selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW,
+                    officialFlowAttempted = officialFlowAttempted,
+                    officialFlowUsed = officialFlowUsed,
+                    officialFlowFallbackReason = officialFlowFallbackReason,
+                    officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+                    officialFlowChunkCount = officialFlowChunkCount,
                 ),
             )
         }
         appendLocalReflectionTrace(
             context = context,
-            message = "UPSTREAM official-flow-streaming fallback reason=empty-or-failed-result",
+            message = "UPSTREAM official-flow-streaming fallback reason=${officialFlowFallbackReason ?: "empty_official_response"}",
         )
     } else {
+        officialFlowFallbackReason = "api_unavailable"
         appendLocalReflectionTrace(
             context = context,
-            message = "UPSTREAM official-flow-streaming fallback reason=probe-unavailable",
+            message = "UPSTREAM official-flow-streaming fallback reason=api_unavailable",
         )
     }
 
@@ -2325,16 +2352,23 @@ private suspend fun runLocalInferenceOnceEntry(
         context = context,
         message = "UPSTREAM after-generateLiteRtResponseViaReflection responseNull=${response == null} responseLength=${response?.length ?: -1}",
     )
+    val traceWithOfficialFlow = generated.trace.copy(
+        officialFlowAttempted = officialFlowAttempted,
+        officialFlowUsed = officialFlowUsed,
+        officialFlowFallbackReason = officialFlowFallbackReason,
+        officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+        officialFlowChunkCount = officialFlowChunkCount,
+    )
     return if (response.isNullOrBlank()) {
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.ERROR,
-            trace = generated.trace,
+            trace = traceWithOfficialFlow,
         )
     } else {
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.READY,
             response = response,
-            trace = generated.trace,
+            trace = traceWithOfficialFlow,
         )
     }
 }
@@ -3649,6 +3683,11 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         listenerApiSignature = listenerApiSignature ?: probe.listenerApiSignature,
         sessionApiProbeResult = sessionApiProbeResult ?: probe.sessionApiProbeResult,
         sessionApiSignature = sessionApiSignature ?: probe.sessionApiSignature,
+        officialFlowAttempted = officialFlowAttempted || probe.officialFlowAttempted,
+        officialFlowUsed = officialFlowUsed || probe.officialFlowUsed,
+        officialFlowFallbackReason = officialFlowFallbackReason ?: probe.officialFlowFallbackReason,
+        officialConversationApiAvailable = officialConversationApiAvailable ?: probe.officialConversationApiAvailable,
+        officialFlowChunkCount = if (officialFlowChunkCount > 0) officialFlowChunkCount else probe.officialFlowChunkCount,
     )
 }
 
@@ -4893,6 +4932,11 @@ private fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "assistantStreamedToUi", value = localTraceForDev.assistantStreamedToUi.toString()))
                     add(InferenceStatItemUi(label = "realPartialReceived", value = localTraceForDev.realPartialReceived.toString()))
                     add(InferenceStatItemUi(label = "realPartialChunkCount", value = localTraceForDev.realPartialChunkCount.toString()))
+                    add(InferenceStatItemUi(label = "officialFlowAttempted", value = localTraceForDev.officialFlowAttempted.toString()))
+                    add(InferenceStatItemUi(label = "officialFlowUsed", value = localTraceForDev.officialFlowUsed.toString()))
+                    add(InferenceStatItemUi(label = "officialFlowFallbackReason", value = localTraceForDev.officialFlowFallbackReason ?: "—"))
+                    add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = localTraceForDev.officialConversationApiAvailable?.toString() ?: "—"))
+                    add(InferenceStatItemUi(label = "officialFlowChunkCount", value = localTraceForDev.officialFlowChunkCount.toString()))
                 }
             },
         ),
