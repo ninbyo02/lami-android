@@ -433,16 +433,17 @@ fun Home(
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
-    val isLocalRespondingUi =
-        selectedInferenceTarget == InferenceTarget.LOCAL &&
-            isLocalInferenceRunning
-    val isServerRespondingUi =
-        selectedInferenceTarget == InferenceTarget.SERVER &&
-            toggle &&
+    val isLocalRunningRaw = isLocalInferenceRunning
+    val isServerRunningRaw =
+        toggle &&
             (uiState is UiState.Loading || uiState is UiState.Streaming)
-    val isInferenceRunning = isLocalRespondingUi || isServerRespondingUi
+    val isAnyInferenceRunningRaw = isLocalRunningRaw || isServerRunningRaw
+    val isLocalTargetSelected = selectedInferenceTarget == InferenceTarget.LOCAL
+    val isServerTargetSelected = selectedInferenceTarget == InferenceTarget.SERVER
+    val isLocalRespondingUi = isLocalTargetSelected && isLocalRunningRaw
+    val isServerRespondingUi = isServerTargetSelected && isServerRunningRaw
     val isStopRequested = localStopRequested || remoteStopRequested
-    val isInferenceRunningUi = isInferenceRunning && !isStopRequested
+    val isInferenceRunningUi = isAnyInferenceRunningRaw && !isStopRequested
     val isHeaderRunningUi = isInferenceRunningUi
     val isServerLoadingUi = uiState is UiState.Loading && isInferenceRunningUi
     val headerStatusTitleOverride = when {
@@ -1158,7 +1159,7 @@ fun Home(
                                         onClick = {
                                             viewModel.onUserInteraction()
                                             if (isInferenceRunningUi) {
-                                                if (isLocalRespondingUi) {
+                                                if (isLocalRunningRaw) {
                                                     localStopRequested = true
                                                     localInferenceJob?.cancel()
                                                     localInferenceJob = null
@@ -1166,7 +1167,7 @@ fun Home(
                                                     isLocalInferenceRunning = false
                                                     return@IconButton
                                                 }
-                                                if (isServerRespondingUi) {
+                                                if (isServerRunningRaw) {
                                                     remoteStopRequested = true
                                                     remoteRequestJob?.cancel()
                                                     remoteRequestJob = null
