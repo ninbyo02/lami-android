@@ -35,10 +35,10 @@ internal class DefaultLocalStreamingRunner<T>(
         val future = executor.submit<T> {
             runBlocking {
                 runInference(
-                    prompt = prompt,
-                    localBaseModelFilePath = localBaseModelFilePath,
-                    localBaseModelDisplayName = localBaseModelDisplayName,
-                    onPartial = onPartial,
+                    prompt,
+                    localBaseModelFilePath,
+                    localBaseModelDisplayName,
+                    onPartial,
                 )
             }
         }
