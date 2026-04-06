@@ -164,6 +164,7 @@ import io.github.ninbyo02.lami.ui.util.formatPromptEvalDuration
 import io.github.ninbyo02.lami.ui.util.formatTokenPerSec
 import io.github.ninbyo02.lami.ui.util.formatTotalTokens
 import io.github.ninbyo02.lami.util.RuntimeFlags
+import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.runBlocking
@@ -442,11 +443,17 @@ fun Home(
     val isInferenceRunning = isLocalRespondingUi || isServerRespondingUi
     val isStopRequested = localStopRequested || remoteStopRequested
     val isInferenceRunningUi = isInferenceRunning && !isStopRequested
+    val isHeaderRunningUi = isInferenceRunningUi
     val isServerLoadingUi = uiState is UiState.Loading && isInferenceRunningUi
-    val headerStatusTitleOverride = if (isInferenceRunningUi) "Responding..." else null
+    val headerStatusTitleOverride = when {
+        isHeaderRunningUi -> "Responding..."
+        isStopRequested -> "Ready"
+        else -> null
+    }
     val showLocalRespondingAssistantRow = isLocalRespondingUi && !isStopRequested
-    val lamiStatusForChatUi = if (isStopRequested) LamiStatus.READY else lamiAnimationStatus
+    val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
+    val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
     // NOTE: debug-only top gradient adjustments. Default OFF.
     val debugTopGradientOrange = false
     val debugTopGradientDownshift = 32.dp
@@ -881,7 +888,7 @@ fun Home(
                             selectedModel = selectedModel,
                             lastError = errorMessage,
                             lamiStatus = lamiStatusForChatUi,
-                            lamiState = lamiUiState.state,
+                            lamiState = lamiHeaderStateForChatUi,
                             availableModels = availableModels,
                             initialAvatarSize = savedChatLamiAvatarSizeDp.dp,
                             minAvatarSize = MIN_CHAT_LAMI_AVATAR_SIZE_DP.dp,
@@ -908,7 +915,7 @@ fun Home(
                             selectedModel = selectedModel,
                             lastError = errorMessage,
                         lamiStatus = lamiStatusForChatUi,
-                        lamiState = lamiUiState.state,
+                        lamiState = lamiHeaderStateForChatUi,
                         availableModels = availableModels,
                         onSelectModel = { modelName ->
                             viewModel.onUserInteraction()
