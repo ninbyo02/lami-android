@@ -434,7 +434,9 @@ fun Home(
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRunningRaw = isLocalInferenceRunning
-    val isServerRunningRaw = remoteRequestJob?.isActive == true
+    val isServerRunningRaw =
+        remoteRequestJob?.isActive == true ||
+            (toggle && !remoteStopRequested && (uiState is UiState.Loading || uiState is UiState.Streaming))
     val isAnyInferenceRunningRaw = isLocalRunningRaw || isServerRunningRaw
     val isLocalTargetSelected = selectedInferenceTarget == InferenceTarget.LOCAL
     val isServerTargetSelected = selectedInferenceTarget == InferenceTarget.SERVER
@@ -1204,28 +1206,32 @@ fun Home(
                                                         viewModel.stopTtsPlayback()
                                                         prompt = requestPrompt
                                                         remoteRequestJob = coroutineScope.launch {
-                                                            viewModel.sendPrompt(
-                                                                prompt = requestPrompt,
-                                                                model = selectedModel,
-                                                                attachmentUris = requestAttachmentUris,
-                                                                context = context.applicationContext,
-                                                                onAttachmentPrepared = { savedAttachmentUriStrings ->
-                                                                    if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
-                                                                        val attachmentJson = savedAttachmentUriStrings
-                                                                            ?.takeIf { it.isNotEmpty() }
-                                                                            ?.toAttachmentUriStringsJson()
-                                                                        viewModel.insert(
-                                                                            Message(
-                                                                                chatId = currentChatId,
-                                                                                message = requestPrompt,
-                                                                                isSendbyMe = true,
-                                                                                attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
-                                                                                attachmentUriStringsJson = attachmentJson,
+                                                            try {
+                                                                viewModel.sendPrompt(
+                                                                    prompt = requestPrompt,
+                                                                    model = selectedModel,
+                                                                    attachmentUris = requestAttachmentUris,
+                                                                    context = context.applicationContext,
+                                                                    onAttachmentPrepared = { savedAttachmentUriStrings ->
+                                                                        if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
+                                                                            val attachmentJson = savedAttachmentUriStrings
+                                                                                ?.takeIf { it.isNotEmpty() }
+                                                                                ?.toAttachmentUriStringsJson()
+                                                                            viewModel.insert(
+                                                                                Message(
+                                                                                    chatId = currentChatId,
+                                                                                    message = requestPrompt,
+                                                                                    isSendbyMe = true,
+                                                                                    attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
+                                                                                    attachmentUriStringsJson = attachmentJson,
+                                                                                )
                                                                             )
-                                                                        )
-                                                                    }
-                                                                },
-                                                            )
+                                                                        }
+                                                                    },
+                                                                )
+                                                            } finally {
+                                                                remoteRequestJob = null
+                                                            }
                                                         }
                                                         prompt = ""
                                                         userPrompt = ""
