@@ -428,10 +428,17 @@ fun Home(
     var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
+    var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRespondingUi =
         selectedInferenceTarget == InferenceTarget.LOCAL &&
             isLocalInferenceRunning
+    val isServerRespondingUi =
+        selectedInferenceTarget == InferenceTarget.SERVER &&
+            toggle &&
+            (uiState is UiState.Loading || uiState is UiState.Streaming)
+    val isInferenceRunning = isLocalRespondingUi || isServerRespondingUi
     val isServerLoadingUi = uiState is UiState.Loading
     val headerStatusTitleOverride = if (isLocalRespondingUi) "Responding..." else null
     val showLocalRespondingAssistantRow = isLocalRespondingUi
@@ -571,6 +578,14 @@ fun Home(
             val currentChatId = effectiveChatId
             when (uiState) {
                 is UiState.Success -> {
+                    if (remoteStopRequested) {
+                        placeholder = "Enter your prompt..."
+                        pendingAssistantImageInputCount = null
+                        toggle = false
+                        remoteRequestJob = null
+                        viewModel.resetUiState()
+                        return@LaunchedEffect
+                    }
                     val response = (uiState as UiState.Success).outputText
                     if (currentChatId != null) {
                         viewModel.insert(
@@ -587,10 +602,20 @@ fun Home(
                     }
                     placeholder = "Enter your prompt..."
                     pendingAssistantImageInputCount = null
+                    toggle = false
+                    remoteRequestJob = null
                     viewModel.resetUiState()
                 }
 
                 is UiState.Error -> {
+                    if (remoteStopRequested) {
+                        placeholder = "Enter your prompt..."
+                        pendingAssistantImageInputCount = null
+                        toggle = false
+                        remoteRequestJob = null
+                        viewModel.resetUiState()
+                        return@LaunchedEffect
+                    }
                     if (currentChatId != null) {
                         viewModel.insert(
                             createAssistantMessage(
@@ -601,10 +626,20 @@ fun Home(
                     }
                     placeholder = "Enter your prompt..."
                     pendingAssistantImageInputCount = null
+                    toggle = false
+                    remoteRequestJob = null
                     viewModel.resetUiState()
                 }
 
-                is UiState.Streaming -> Unit
+                is UiState.Streaming -> {
+                    if (remoteStopRequested) {
+                        placeholder = "Enter your prompt..."
+                        pendingAssistantImageInputCount = null
+                        toggle = false
+                        remoteRequestJob = null
+                        viewModel.resetUiState()
+                    }
+                }
                 else -> Unit
             }
         }
@@ -1103,7 +1138,7 @@ fun Home(
                                     )
 
                                     IconButton(
-                                        enabled = if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                        enabled = if (isInferenceRunning) {
                                             true
                                         } else {
                                             !selectedModel.isNullOrBlank() &&
@@ -1111,13 +1146,25 @@ fun Home(
                                         },
                                         onClick = {
                                             viewModel.onUserInteraction()
-                                            if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
-                                                localStopRequested = true
-                                                localInferenceJob?.cancel()
-                                                localInferenceJob = null
-                                                localStreamingResponseText = null
-                                                isLocalInferenceRunning = false
-                                                return@IconButton
+                                            if (isInferenceRunning) {
+                                                if (isLocalRespondingUi) {
+                                                    localStopRequested = true
+                                                    localInferenceJob?.cancel()
+                                                    localInferenceJob = null
+                                                    localStreamingResponseText = null
+                                                    isLocalInferenceRunning = false
+                                                    return@IconButton
+                                                }
+                                                if (isServerRespondingUi) {
+                                                    remoteStopRequested = true
+                                                    remoteRequestJob?.cancel()
+                                                    remoteRequestJob = null
+                                                    pendingAssistantImageInputCount = null
+                                                    placeholder = "Enter your prompt..."
+                                                    toggle = false
+                                                    viewModel.resetUiState()
+                                                    return@IconButton
+                                                }
                                             }
                                             if (selectedModel.isNullOrBlank()) {
                                                 coroutineScope.launch {
@@ -1137,6 +1184,7 @@ fun Home(
                                                     if (currentChatId != null) {
                                                         val requestPrompt = userPrompt
                                                         val requestAttachmentUris = selectedImageUris
+                                                        remoteStopRequested = false
                                                         pendingAssistantImageInputCount = requestAttachmentUris.size
                                                         if (requestPrompt.isNotEmpty() || requestAttachmentUris.isNotEmpty()) {
                                                             placeholder = "I'm thinking ... "
@@ -1145,28 +1193,30 @@ fun Home(
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         prompt = requestPrompt
-                                                        viewModel.sendPrompt(
-                                                            prompt = requestPrompt,
-                                                            model = selectedModel,
-                                                            attachmentUris = requestAttachmentUris,
-                                                            context = context.applicationContext,
-                                                            onAttachmentPrepared = { savedAttachmentUriStrings ->
-                                                                if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
-                                                                    val attachmentJson = savedAttachmentUriStrings
-                                                                        ?.takeIf { it.isNotEmpty() }
-                                                                        ?.toAttachmentUriStringsJson()
-                                                                    viewModel.insert(
-                                                                        Message(
-                                                                            chatId = currentChatId,
-                                                                            message = requestPrompt,
-                                                                            isSendbyMe = true,
-                                                                            attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
-                                                                            attachmentUriStringsJson = attachmentJson,
+                                                        remoteRequestJob = coroutineScope.launch {
+                                                            viewModel.sendPrompt(
+                                                                prompt = requestPrompt,
+                                                                model = selectedModel,
+                                                                attachmentUris = requestAttachmentUris,
+                                                                context = context.applicationContext,
+                                                                onAttachmentPrepared = { savedAttachmentUriStrings ->
+                                                                    if (requestPrompt.isNotEmpty() || !savedAttachmentUriStrings.isNullOrEmpty()) {
+                                                                        val attachmentJson = savedAttachmentUriStrings
+                                                                            ?.takeIf { it.isNotEmpty() }
+                                                                            ?.toAttachmentUriStringsJson()
+                                                                        viewModel.insert(
+                                                                            Message(
+                                                                                chatId = currentChatId,
+                                                                                message = requestPrompt,
+                                                                                isSendbyMe = true,
+                                                                                attachmentUriString = savedAttachmentUriStrings?.singleOrNull(),
+                                                                                attachmentUriStringsJson = attachmentJson,
+                                                                            )
                                                                         )
-                                                                    )
-                                                                }
-                                                            },
-                                                        )
+                                                                    }
+                                                                },
+                                                            )
+                                                        }
                                                         prompt = ""
                                                         userPrompt = ""
                                                         selectedImageUriStrings = emptyList()
@@ -1457,12 +1507,12 @@ fun Home(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                                imageVector = if (isInferenceRunning) {
                                                     Icons.Filled.Stop
                                                 } else {
                                                     Icons.Filled.ArrowUpward
                                                 },
-                                                contentDescription = if (selectedInferenceTarget == InferenceTarget.LOCAL && isLocalInferenceRunning) {
+                                                contentDescription = if (isInferenceRunning) {
                                                     "Stop Button"
                                                 } else {
                                                     "Send Button"
