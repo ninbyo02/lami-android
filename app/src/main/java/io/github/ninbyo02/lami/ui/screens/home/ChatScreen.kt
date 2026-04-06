@@ -167,7 +167,6 @@ import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
@@ -179,7 +178,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlinx.coroutines.yield
@@ -382,6 +380,23 @@ fun Home(
     val context = LocalContext.current
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
+    }
+    val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
+        DefaultLocalStreamingRunner<LocalInferenceRunResult>(
+            timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, _ ->
+            appendLocalReflectionTrace(
+                context = context.applicationContext,
+                message = "UPSTREAM before-runLocalInferenceOnceEntry",
+            )
+            runLocalInferenceOnceEntry(
+                context = context.applicationContext,
+                settingsPreferences = settingsPreferences,
+                localBaseModelFilePath = runLocalBaseModelFilePath,
+                localBaseModelDisplayName = runLocalBaseModelDisplayName,
+                prompt = runPrompt,
+            )
+        }
     }
     val savedChatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
         initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP,
@@ -1330,32 +1345,19 @@ fun Home(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
-                                                            val runResult = withContext(Dispatchers.IO) {
-                                                                val executor = Executors.newSingleThreadExecutor()
-                                                                val future = executor.submit<LocalInferenceRunResult> {
-                                                                    runBlocking {
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "UPSTREAM before-runLocalInferenceOnceEntry",
-                                                                        )
-                                                                        runLocalInferenceOnceEntry(
-                                                                            context = context.applicationContext,
-                                                                            settingsPreferences = settingsPreferences,
-                                                                            localBaseModelFilePath = localBaseModelFilePath,
-                                                                            localBaseModelDisplayName = localBaseModelDisplayName,
-                                                                            prompt = requestPrompt,
-                                                                        )
-                                                                    }
-                                                                }
-                                                                try {
-                                                                    future.get(LOCAL_GENERATE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                                                                } catch (timeout: TimeoutException) {
-                                                                    null
-                                                                } finally {
-                                                                    future.cancel(true)
-                                                                    executor.shutdownNow()
-                                                                }
-                                                            }
+                                                            val runResult = localStreamingRunner.run(
+                                                                prompt = requestPrompt,
+                                                                localBaseModelFilePath = localBaseModelFilePath,
+                                                                localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                onPartial = { partial ->
+                                                                    if (localStopRequested) return@run
+                                                                    val normalizedPartial = partial.trim()
+                                                                    if (normalizedPartial.isBlank()) return@run
+                                                                    didReceiveRealLocalPartial = true
+                                                                    realLocalPartialChunkCount += 1
+                                                                    localStreamingResponseText = normalizedPartial
+                                                                },
+                                                            )
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =
