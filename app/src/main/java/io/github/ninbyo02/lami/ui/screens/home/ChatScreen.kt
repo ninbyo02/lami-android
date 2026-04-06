@@ -1261,6 +1261,13 @@ fun Home(
                                                             val initialState = runResultWithUiTrace?.state
                                                             val initialResponse = runResultWithUiTrace?.response.orEmpty()
                                                             val initialResponseBlank = sanitizeLocalAssistantResponse(initialResponse).isBlank()
+                                                            val initialTimedOut = runResultWithUiTrace == null
+                                                            val initialResponseLength = initialResponse.length
+                                                            val initialTracePresent = runResultWithUiTrace?.trace != null
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL compare initial: effectiveChatId=$effectiveChatId, initialState=$initialState, initialTimedOut=$initialTimedOut, initialResponseBlank=$initialResponseBlank, initialResponseLength=$initialResponseLength, initialTracePresent=$initialTracePresent, localInferenceEngineState=$localInferenceEngineState, isLocalInferenceRunning=$isLocalInferenceRunning",
+                                                            )
                                                             val needsStateGrace = runResultWithUiTrace == null ||
                                                                 initialState == null ||
                                                                 initialState == LocalInferenceEngineState.PREPARING
@@ -1282,9 +1289,9 @@ fun Home(
                                                             } else {
                                                                 initialState
                                                             }
+                                                            val assistantResponse = sanitizeLocalAssistantResponse(initialResponse)
+                                                            var resolvedAssistantResponse = assistantResponse
                                                             if (resolvedState == LocalInferenceEngineState.READY) {
-                                                                val assistantResponse = sanitizeLocalAssistantResponse(initialResponse)
-                                                                var resolvedAssistantResponse = assistantResponse
                                                                 if (resolvedAssistantResponse.isBlank()) {
                                                                     delay(250L)
                                                                     val fallbackUiResponse = localStreamingResponseText?.trim().orEmpty()
@@ -1298,7 +1305,20 @@ fun Home(
                                                                         )
                                                                     }
                                                                 }
-                                                                if (resolvedAssistantResponse.isNotBlank()) {
+                                                            }
+                                                            val recheckedRunResult = runResultWithUiTrace
+                                                            val recheckedTimedOut = recheckedRunResult == null
+                                                            val recheckedResponseBlank =
+                                                                sanitizeLocalAssistantResponse(recheckedRunResult?.response.orEmpty()).isBlank()
+                                                            val recheckedResponseLength = recheckedRunResult?.response?.length ?: -1
+                                                            val recheckedTracePresent = recheckedRunResult?.trace != null
+                                                            val resolvedAssistantBlank = resolvedAssistantResponse.isBlank()
+                                                            val streamingUiLength = localStreamingResponseText?.length ?: 0
+                                                            Log.i(
+                                                                "ChatScreen",
+                                                                "LOCAL compare recheck: effectiveChatId=$effectiveChatId, recheckedState=$resolvedState, recheckedTimedOut=$recheckedTimedOut, recheckedResponseBlank=$recheckedResponseBlank, recheckedResponseLength=$recheckedResponseLength, recheckedTracePresent=$recheckedTracePresent, resolvedAssistantBlank=$resolvedAssistantBlank, streamingUiLength=$streamingUiLength",
+                                                            )
+                                                            if (resolvedState == LocalInferenceEngineState.READY && resolvedAssistantResponse.isNotBlank()) {
                                                                     val resolvedRunResult = runResultWithUiTrace
                                                                     val resolvedTrace = resolvedRunResult?.trace
                                                                     val localStats = if (resolvedTrace != null) {
@@ -1321,6 +1341,10 @@ fun Home(
                                                                         } else {
                                                                             null
                                                                         }
+                                                                    Log.i(
+                                                                        "ChatScreen",
+                                                                        "LOCAL compare success: successState=$resolvedState, successResponseLength=${resolvedAssistantResponse.length}, tracePresent=${resolvedTrace != null}, localStatsPresent=${localStats != null}, localSourceSummaryPresent=${localSourceSummary != null}, effectiveChatId=$effectiveChatId",
+                                                                    )
                                                                     Log.i(
                                                                         "ChatScreen",
                                                                         "LOCAL assistant insert payload length=${resolvedAssistantResponse.length}, head=${resolvedAssistantResponse.take(80)}",
@@ -1346,10 +1370,13 @@ fun Home(
                                                                     )
                                                                     localStreamingResponseText = null
                                                                     return@launch
-                                                                }
                                                             }
                                                             localStreamingResponseText = null
                                                             isLocalInferenceRunning = false
+                                                            Log.e(
+                                                                "ChatScreen",
+                                                                "LOCAL compare failure: failureState=$resolvedState, failureTimedOut=$recheckedTimedOut, failureResponseBlank=$resolvedAssistantBlank, failureResponseLength=${resolvedAssistantResponse.length}, failureTracePresent=$recheckedTracePresent, effectiveChatId=$effectiveChatId, isLocalInferenceRunning=$isLocalInferenceRunning",
+                                                            )
                                                             snackbarHostState.currentSnackbarData?.dismiss()
                                                             val dismissJob = launch {
                                                                 delay(PROJECT_SNACKBAR_SHORT_MS)
