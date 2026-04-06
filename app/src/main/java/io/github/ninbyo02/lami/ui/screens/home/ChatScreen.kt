@@ -316,6 +316,8 @@ private data class LocalInferenceTrace(
     val assistantUpdateCount: Int = 0,
     val firstNonEmptyAssistantChunkSeen: Boolean = false,
     val assistantStreamedToUi: Boolean = false,
+    val realPartialReceived: Boolean = false,
+    val realPartialChunkCount: Int = 0,
 )
 
 private data class LocalSessionTokenProbeResult(
@@ -429,6 +431,8 @@ fun Home(
     val remoteStreamingResponseText = (uiState as? UiState.Streaming)?.partialText
     var localStreamingResponseText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var localStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
+    var didReceiveRealLocalPartial by remember(effectiveChatId) { mutableStateOf(false) }
+    var realLocalPartialChunkCount by remember(effectiveChatId) { mutableStateOf(0) }
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
@@ -1278,6 +1282,8 @@ fun Home(
                                                         )
                                                         if (isLocalInferenceRunning) return@launch
                                                         localStopRequested = false
+                                                        didReceiveRealLocalPartial = false
+                                                        realLocalPartialChunkCount = 0
                                                         localStreamingResponseText = null
                                                         isLocalInferenceRunning = true
                                                         try {
@@ -1312,6 +1318,8 @@ fun Home(
                                                             viewModel.stopTtsPlayback()
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             localStreamingResponseText = null
+                                                            didReceiveRealLocalPartial = false
+                                                            realLocalPartialChunkCount = 0
                                                             assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
@@ -1355,6 +1363,8 @@ fun Home(
                                                                     assistantUpdateCount = assistantUpdateCountForDev,
                                                                     firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
                                                                     assistantStreamedToUi = assistantUpdateCountForDev >= 2,
+                                                                    realPartialReceived = didReceiveRealLocalPartial,
+                                                                    realPartialChunkCount = realLocalPartialChunkCount,
                                                                 ),
                                                             )
                                                             val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
@@ -1470,17 +1480,24 @@ fun Home(
                                                                         localStreamingResponseText = null
                                                                         return@launch
                                                                     }
-                                                                    Log.i(
-                                                                        "ChatScreen",
-                                                                        "LOCAL pseudo-stream start: replay final response text to UI for debug comparison",
-                                                                    )
-                                                                    streamLocalAssistantPreviewTextToUi(
-                                                                        responseText = resolvedAssistantResponse,
-                                                                        onChunk = { chunk ->
-                                                                            if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
-                                                                            localStreamingResponseText = chunk
-                                                                        },
-                                                                    )
+                                                                    if (!didReceiveRealLocalPartial) {
+                                                                        Log.i(
+                                                                            "ChatScreen",
+                                                                            "LOCAL pseudo-stream start: replay final response text to UI for debug comparison",
+                                                                        )
+                                                                        streamLocalAssistantPreviewTextToUi(
+                                                                            responseText = resolvedAssistantResponse,
+                                                                            onChunk = { chunk ->
+                                                                                if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
+                                                                                localStreamingResponseText = chunk
+                                                                            },
+                                                                        )
+                                                                    } else {
+                                                                        Log.i(
+                                                                            "ChatScreen",
+                                                                            "LOCAL pseudo-stream skipped: real partial already received count=$realLocalPartialChunkCount",
+                                                                        )
+                                                                    }
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         localStreamingResponseText = null
@@ -4776,6 +4793,8 @@ private fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "assistantUpdateCount", value = localTraceForDev.assistantUpdateCount.toString()))
                     add(InferenceStatItemUi(label = "firstNonEmptyAssistantChunkSeen", value = localTraceForDev.firstNonEmptyAssistantChunkSeen.toString()))
                     add(InferenceStatItemUi(label = "assistantStreamedToUi", value = localTraceForDev.assistantStreamedToUi.toString()))
+                    add(InferenceStatItemUi(label = "realPartialReceived", value = localTraceForDev.realPartialReceived.toString()))
+                    add(InferenceStatItemUi(label = "realPartialChunkCount", value = localTraceForDev.realPartialChunkCount.toString()))
                 }
             },
         ),
