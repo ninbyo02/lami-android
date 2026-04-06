@@ -1175,6 +1175,7 @@ fun Home(
                                                 if (isServerRunningRaw) {
                                                     remoteStopRequested = true
                                                     remoteRequestJob?.cancel()
+                                                    viewModel.cancelRemoteRequest()
                                                     remoteRequestJob = null
                                                     pendingAssistantImageInputCount = null
                                                     placeholder = "Enter your prompt..."
