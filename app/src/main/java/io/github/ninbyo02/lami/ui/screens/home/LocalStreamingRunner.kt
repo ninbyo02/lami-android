@@ -1,6 +1,10 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import android.os.SystemClock
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
@@ -271,6 +275,15 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
 ): LocalOfficialFlowStreamingResult? {
+    if (spec.namespace == "com.google.ai.edge.litertlm") {
+        return runOfficialLiteRtLmDirect(
+            prompt = prompt,
+            modelPath = modelPath,
+            startElapsedMs = startElapsedMs,
+            onPartial = onPartial,
+            appendTrace = appendTrace,
+        )
+    }
     safeAppendTrace(appendTrace, "UPSTREAM official-flow start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
     val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
@@ -394,6 +407,13 @@ private fun runOfficialBlockingConversationSingleNamespace(
     modelPath: String,
     appendTrace: (String) -> Unit,
 ): String? {
+    if (spec.namespace == "com.google.ai.edge.litertlm") {
+        return runOfficialLiteRtLmBlocking(
+            prompt = prompt,
+            modelPath = modelPath,
+            appendTrace = appendTrace,
+        )
+    }
     safeAppendTrace(appendTrace, "UPSTREAM official-blocking start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
     val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
@@ -466,6 +486,114 @@ private fun runOfficialBlockingConversationSingleNamespace(
     } finally {
         closeQuietly(conversation)
         closeQuietly(engine)
+    }
+}
+
+private suspend fun runOfficialLiteRtLmDirect(
+    prompt: String,
+    modelPath: String,
+    startElapsedMs: Long,
+    onPartial: (String) -> Unit,
+    appendTrace: (String) -> Unit,
+): LocalOfficialFlowStreamingResult? {
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct start")
+
+    return runCatching {
+        val engine = Engine(
+            EngineConfig(
+                modelPath,
+                Backend.CPU(),
+                Backend.CPU(),
+                Backend.CPU(),
+                null,
+                null,
+            ),
+        )
+
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
+
+        val conversation = engine.createConversation(ConversationConfig())
+
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
+
+        val builder = StringBuilder()
+        var partialCount = 0
+        var firstPartialMs: Long? = null
+
+        val flow = conversation.sendMessageAsync(prompt, emptyMap())
+
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
+
+        flow.collect { message ->
+            val text = message?.toString()?.trim().orEmpty()
+            if (text.isBlank()) return@collect
+
+            builder.append(text)
+            partialCount++
+
+            if (firstPartialMs == null) {
+                firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+            }
+
+            onPartial(builder.toString())
+        }
+
+        if (partialCount <= 0) {
+            throw OfficialFlowFallbackException("no_partial_emitted")
+        }
+
+        val response = builder.toString().trim()
+        if (response.isBlank()) {
+            throw OfficialFlowFallbackException("blank_response")
+        }
+
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct success length=${response.length}")
+
+        LocalOfficialFlowStreamingResult(
+            response = response,
+            partialCount = partialCount,
+            firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+        )
+    }.getOrElse { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM official-direct failed ${throwable.javaClass.simpleName}:${throwable.message}",
+        )
+        null
+    }
+}
+
+private fun runOfficialLiteRtLmBlocking(
+    prompt: String,
+    modelPath: String,
+    appendTrace: (String) -> Unit,
+): String? {
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking start")
+
+    return runCatching {
+        val engine = Engine(
+            EngineConfig(
+                modelPath,
+                Backend.CPU(),
+                Backend.CPU(),
+                Backend.CPU(),
+                null,
+                null,
+            ),
+        )
+
+        val conversation = engine.createConversation(ConversationConfig())
+
+        val response = conversation.sendMessage(prompt, emptyMap())
+            ?.toString()
+            ?.trim()
+
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking success length=${response?.length ?: 0}")
+
+        response?.takeIf { it.isNotBlank() }
+    }.getOrElse {
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking failed ${it.message}")
+        null
     }
 }
 
