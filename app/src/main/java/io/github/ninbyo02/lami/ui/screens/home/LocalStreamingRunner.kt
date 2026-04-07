@@ -194,6 +194,51 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     return null
 }
 
+internal fun tryRunOfficialLiteRtBlockingConversation(
+    prompt: String,
+    modelPath: String,
+    appendTrace: (String) -> Unit = {},
+    onFallbackReason: (String) -> Unit = {},
+): String? {
+    val attempts = listOf(
+        LocalOfficialNamespaceSpec(
+            namespace = "com.google.ai.edge.litertlm",
+            engineClassName = "com.google.ai.edge.litertlm.Engine",
+            optionsCandidates = listOf(
+                "com.google.ai.edge.litertlm.Engine\$Options",
+                "com.google.ai.edge.litertlm.EngineOptions",
+            ),
+        ),
+        LocalOfficialNamespaceSpec(
+            namespace = "com.google.mediapipe.tasks.genai.llminference",
+            engineClassName = "com.google.mediapipe.tasks.genai.llminference.LlmInference",
+            optionsCandidates = listOf(
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions",
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference\$Options",
+            ),
+        ),
+    )
+    attempts.forEach { spec ->
+        val response = runCatching {
+            runOfficialBlockingConversationSingleNamespace(
+                spec = spec,
+                prompt = prompt,
+                modelPath = modelPath,
+            )
+        }.onFailure { throwable ->
+            val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_blocking_exception"
+            runCatching { onFallbackReason(reasonCode) }
+            runCatching {
+                appendTrace(
+                    "UPSTREAM official-blocking fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
+                )
+            }
+        }.getOrNull()
+        if (!response.isNullOrBlank()) return response.trim()
+    }
+    return null
+}
+
 private class OfficialFlowFallbackException(
     val reasonCode: String,
     cause: Throwable? = null,
@@ -273,6 +318,42 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             partialCount = partialCount,
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
         )
+    } finally {
+        closeQuietly(conversation)
+        closeQuietly(engine)
+    }
+}
+
+private fun runOfficialBlockingConversationSingleNamespace(
+    spec: LocalOfficialNamespaceSpec,
+    prompt: String,
+    modelPath: String,
+): String? {
+    val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
+    val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
+    val sendMethod = conversationClass.methods.firstOrNull { method ->
+        (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+    } ?: return null
+    val createConversationMethod =
+        engineClass.methods.firstOrNull { it.name == "createConversation" }
+            ?: throw OfficialFlowFallbackException("conversation_create_failed")
+    val engine = createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+        ?: throw OfficialFlowFallbackException("conversation_create_failed")
+    var conversation: Any? = null
+    try {
+        conversation = createOfficialConversation(engine, createConversationMethod)
+            ?: throw OfficialFlowFallbackException("conversation_create_failed")
+        val sendArgument = buildSendMessageArgument(
+            parameterType = sendMethod.parameterTypes.first(),
+            namespace = spec.namespace,
+            prompt = prompt,
+        ) ?: throw OfficialFlowFallbackException("send_message_missing")
+        val responseValue = runCatching {
+            sendMethod.invoke(conversation, sendArgument)
+        }.getOrElse { throwable ->
+            throw OfficialFlowFallbackException("send_message_missing", throwable)
+        }
+        return extractOfficialMessageText(responseValue)?.trim()?.takeIf { it.isNotBlank() }
     } finally {
         closeQuietly(conversation)
         closeQuietly(engine)

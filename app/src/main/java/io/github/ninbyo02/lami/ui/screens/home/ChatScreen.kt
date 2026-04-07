@@ -215,6 +215,8 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_ASYNC_POC = "session-a
 private const val DEV_LLM_SESSION_ASYNC_POC_PROMPT = "1+1を短く答えてください。"
 private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
+private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -2331,6 +2333,44 @@ private suspend fun runLocalInferenceOnceEntry(
             context = context,
             message = "UPSTREAM official-flow-streaming fallback reason=${officialFlowFallbackReason ?: "empty_official_response"}",
         )
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-blocking attempt",
+        )
+        val blockingResponse = tryRunOfficialLiteRtBlockingConversation(
+            prompt = prompt,
+            modelPath = modelPath,
+            appendTrace = { traceMessage ->
+                appendLocalReflectionTrace(context = context, message = traceMessage)
+            },
+            onFallbackReason = { reasonCode ->
+                if (officialFlowFallbackReason == null) {
+                    officialFlowFallbackReason = reasonCode
+                }
+            },
+        )?.trim().orEmpty()
+        if (blockingResponse.isNotBlank()) {
+            return LocalInferenceRunResult(
+                state = LocalInferenceEngineState.READY,
+                response = blockingResponse,
+                trace = LocalInferenceTrace(
+                    localModelDisplayName = localBaseModelDisplayName,
+                    localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+                    localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                    selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING,
+                    officialFlowAttempted = officialFlowAttempted,
+                    officialFlowUsed = officialFlowUsed,
+                    officialFlowFallbackReason = officialFlowFallbackReason,
+                    officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+                    officialFlowChunkCount = officialFlowChunkCount,
+                ),
+            )
+        }
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM official-blocking fallback reason=${officialFlowFallbackReason ?: "empty_official_response"}",
+        )
     } else {
         officialFlowFallbackReason = "api_unavailable"
         appendLocalReflectionTrace(
@@ -2347,12 +2387,17 @@ private suspend fun runLocalInferenceOnceEntry(
         prompt = prompt,
         onPartial = onPartial,
     )
-    val response = generated.response
+    val response = generated.response?.trim()
     appendLocalReflectionTrace(
         context = context,
         message = "UPSTREAM after-generateLiteRtResponseViaReflection responseNull=${response == null} responseLength=${response?.length ?: -1}",
     )
+    val resolvedSource = when (generated.trace.selectedAssistantResponseSource) {
+        LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT -> LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT
+        else -> LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY
+    }
     val traceWithOfficialFlow = generated.trace.copy(
+        selectedAssistantResponseSource = resolvedSource.takeIf { !response.isNullOrBlank() },
         officialFlowAttempted = officialFlowAttempted,
         officialFlowUsed = officialFlowUsed,
         officialFlowFallbackReason = officialFlowFallbackReason,
