@@ -10,5 +10,6 @@ private fun __compileProbeLiteRtLmTypes(
     conversation: Conversation?,
     message: Message?,
 ) {
-    val _ = listOf(engine, conversation, message)
+    val sink = listOf(engine, conversation, message)
+    check(sink.size >= 0)
 }
