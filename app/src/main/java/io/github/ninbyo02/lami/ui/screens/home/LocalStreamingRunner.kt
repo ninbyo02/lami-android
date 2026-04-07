@@ -504,38 +504,50 @@ private suspend fun runOfficialLiteRtLmDirect(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
 ): LocalOfficialFlowStreamingResult? {
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct start")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=GPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
-        val engine = Engine(
-            EngineConfig(
-                modelPath,
-                Backend.AUTO(),
-                Backend.AUTO(),
-                Backend.AUTO(),
-                null,
-                cacheDirPath,
-            ),
+        val engineConfig = EngineConfig(
+            modelPath = modelPath,
+            backend = Backend.GPU(),
+            visionBackend = Backend.GPU(),
+            audioBackend = Backend.GPU(),
+            maxNumTokens = null,
+            cacheDir = cacheDirPath,
         )
+        val engine = Engine(engineConfig)
 
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
         engine.initialize()
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
         val conversation = engine.createConversation()
-
         safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
-        val text = conversation.sendMessage(prompt)?.toString()?.trim()
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${text?.length ?: -1}")
-        val response = text?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("blank_response")
-        val firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
-        onPartial(response)
 
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct success length=${response.length}")
+        var lastText: String? = null
+        var partialCount = 0
+        var firstPartialMs: Long? = null
+        conversation.sendMessageAsync(prompt).collect { message ->
+            val extractedText = message.contents.toString().trim()
+                .ifBlank { message.toString().trim() }
+            if (extractedText.isNotBlank()) {
+                if (firstPartialMs == null) {
+                    firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+                }
+                lastText = extractedText
+                partialCount += 1
+                onPartial(extractedText)
+            }
+        }
+
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${lastText?.length ?: -1}")
+        val response = lastText?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("blank_response")
 
         LocalOfficialFlowStreamingResult(
             response = response,
-            partialCount = 1,
+            partialCount = partialCount,
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
         )
     }.getOrElse { throwable ->
@@ -553,32 +565,36 @@ private fun runOfficialLiteRtLmBlocking(
     cacheDirPath: String,
     appendTrace: (String) -> Unit,
 ): String? {
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking start")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=GPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
-        val engine = Engine(
-            EngineConfig(
-                modelPath,
-                Backend.AUTO(),
-                Backend.AUTO(),
-                Backend.AUTO(),
-                null,
-                cacheDirPath,
-            ),
+        val engineConfig = EngineConfig(
+            modelPath = modelPath,
+            backend = Backend.GPU(),
+            visionBackend = Backend.GPU(),
+            audioBackend = Backend.GPU(),
+            maxNumTokens = null,
+            cacheDir = cacheDirPath,
         )
+        val engine = Engine(engineConfig)
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
         engine.initialize()
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
         val conversation = engine.createConversation()
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
-        val response = conversation.sendMessage(prompt)
-            ?.toString()
-            ?.trim()
+        val message = conversation.sendMessage(prompt)
+        val response = message.contents.toString().trim()
+            .ifBlank { message.toString().trim() }
 
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking success length=${response?.length ?: 0}")
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
 
-        response?.takeIf { it.isNotBlank() }
+        response.takeIf { it.isNotBlank() }
     }.getOrElse {
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking failed ${it.message}")
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${it.javaClass.simpleName}:${it.message}")
         null
     }
 }
