@@ -505,7 +505,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     appendTrace: (String) -> Unit,
 ): LocalOfficialFlowStreamingResult? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=GPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
@@ -513,7 +513,7 @@ private suspend fun runOfficialLiteRtLmDirect(
             modelPath = modelPath,
             backend = Backend.GPU(),
             visionBackend = Backend.GPU(),
-            audioBackend = Backend.GPU(),
+            audioBackend = Backend.CPU(),
             maxNumTokens = null,
             cacheDir = cacheDirPath,
         )
@@ -566,7 +566,7 @@ private fun runOfficialLiteRtLmBlocking(
     appendTrace: (String) -> Unit,
 ): String? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
-    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=GPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
@@ -574,7 +574,7 @@ private fun runOfficialLiteRtLmBlocking(
             modelPath = modelPath,
             backend = Backend.GPU(),
             visionBackend = Backend.GPU(),
-            audioBackend = Backend.GPU(),
+            audioBackend = Backend.CPU(),
             maxNumTokens = null,
             cacheDir = cacheDirPath,
         )
