@@ -2294,6 +2294,7 @@ private suspend fun runLocalInferenceOnceEntry(
         val officialResult = tryRunOfficialLiteRtFlowStreaming(
             prompt = prompt,
             modelPath = modelPath,
+            cacheDirPath = context.cacheDir.absolutePath,
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
                 onPartial(partial)
@@ -2390,6 +2391,7 @@ private suspend fun runLocalInferenceOnceEntry(
         val blockingResponse = tryRunOfficialLiteRtBlockingConversation(
             prompt = prompt,
             modelPath = modelPath,
+            cacheDirPath = context.cacheDir.absolutePath,
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
