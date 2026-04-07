@@ -274,9 +274,19 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     safeAppendTrace(appendTrace, "UPSTREAM official-flow start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
     val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
-    val sendMessageAsyncMethod =
+    val sendMessageAsyncMethod = if (spec.namespace == "com.google.ai.edge.litertlm") {
+        conversationClass.methods.firstOrNull { method ->
+            method.name == "sendMessageAsync" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == String::class.java &&
+                Map::class.java.isAssignableFrom(method.parameterTypes[1]) &&
+                Flow::class.java.isAssignableFrom(method.returnType)
+        }?.also {
+            safeAppendTrace(appendTrace, "UPSTREAM official-flow selectedMethod=sendMessageAsync(String,Map) namespace=${spec.namespace}")
+        }
+    } else {
         conversationClass.methods.firstOrNull { it.name == "sendMessageAsync" && it.parameterTypes.size == 1 }
-            ?: throw OfficialFlowFallbackException("send_message_async_missing")
+    } ?: throw OfficialFlowFallbackException("send_message_async_missing")
     val createConversationMethod =
         engineClass.methods.firstOrNull { it.name == "createConversation" }
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
@@ -285,20 +295,33 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     var conversation: Any? = null
     try {
         conversation = runCatching {
-            createOfficialConversation(engine, createConversationMethod)
+            createOfficialConversation(
+                engine = engine,
+                createConversationMethod = createConversationMethod,
+                appendTrace = appendTrace,
+            )
         }.getOrElse { throwable ->
             throw OfficialFlowFallbackException("conversation_create_failed", throwable)
         } ?: throw OfficialFlowFallbackException("conversation_create_failed")
-        val sendArgument =
-            buildSendMessageArgument(
-                parameterType = sendMessageAsyncMethod.parameterTypes.first(),
-                namespace = spec.namespace,
-                prompt = prompt,
-            ) ?: throw OfficialFlowFallbackException("send_message_async_missing")
-        val flowValue = runCatching {
-            sendMessageAsyncMethod.invoke(conversation, sendArgument)
-        }.getOrElse { throwable ->
-            throw OfficialFlowFallbackException("send_message_async_missing", throwable)
+        val flowValue = if (spec.namespace == "com.google.ai.edge.litertlm") {
+            safeAppendTrace(appendTrace, "UPSTREAM official-flow invokeArgs=String+emptyMap")
+            runCatching {
+                sendMessageAsyncMethod.invoke(conversation, prompt, emptyMap<String, Any>())
+            }.getOrElse { throwable ->
+                throw OfficialFlowFallbackException("send_message_async_missing", throwable)
+            }
+        } else {
+            val sendArgument =
+                buildSendMessageArgument(
+                    parameterType = sendMessageAsyncMethod.parameterTypes.first(),
+                    namespace = spec.namespace,
+                    prompt = prompt,
+                ) ?: throw OfficialFlowFallbackException("send_message_async_missing")
+            runCatching {
+                sendMessageAsyncMethod.invoke(conversation, sendArgument)
+            }.getOrElse { throwable ->
+                throw OfficialFlowFallbackException("send_message_async_missing", throwable)
+            }
         }
         val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_missing")
         val builder = StringBuilder()
@@ -361,8 +384,19 @@ private fun runOfficialBlockingConversationSingleNamespace(
     safeAppendTrace(appendTrace, "UPSTREAM official-blocking start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
     val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
-    val sendMethod = conversationClass.methods.firstOrNull { method ->
-        (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+    val sendMethod = if (spec.namespace == "com.google.ai.edge.litertlm") {
+        conversationClass.methods.firstOrNull { method ->
+            method.name == "sendMessage" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == String::class.java &&
+                Map::class.java.isAssignableFrom(method.parameterTypes[1])
+        }?.also {
+            safeAppendTrace(appendTrace, "UPSTREAM official-blocking selectedMethod=sendMessage(String,Map) namespace=${spec.namespace}")
+        }
+    } else {
+        conversationClass.methods.firstOrNull { method ->
+            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+        }
     } ?: return null
     val createConversationMethod =
         engineClass.methods.firstOrNull { it.name == "createConversation" }
@@ -371,23 +405,38 @@ private fun runOfficialBlockingConversationSingleNamespace(
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
     try {
-        conversation = createOfficialConversation(engine, createConversationMethod)
+        conversation = createOfficialConversation(
+            engine = engine,
+            createConversationMethod = createConversationMethod,
+            appendTrace = appendTrace,
+        )
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
-        val sendArgument = buildSendMessageArgument(
-            parameterType = sendMethod.parameterTypes.first(),
-            namespace = spec.namespace,
-            prompt = prompt,
-        ) ?: throw OfficialFlowFallbackException("send_message_missing")
-        val responseValue = runCatching {
-            sendMethod.invoke(conversation, sendArgument)
-        }.getOrElse { throwable ->
-            throw OfficialFlowFallbackException("send_message_missing", throwable)
+        val responseValue = if (spec.namespace == "com.google.ai.edge.litertlm") {
+            safeAppendTrace(appendTrace, "UPSTREAM official-blocking invokeArgs=String+emptyMap")
+            runCatching {
+                sendMethod.invoke(conversation, prompt, emptyMap<String, Any>())
+            }.getOrElse { throwable ->
+                throw OfficialFlowFallbackException("send_message_missing", throwable)
+            }
+        } else {
+            val sendArgument = buildSendMessageArgument(
+                parameterType = sendMethod.parameterTypes.first(),
+                namespace = spec.namespace,
+                prompt = prompt,
+            ) ?: throw OfficialFlowFallbackException("send_message_missing")
+            runCatching {
+                sendMethod.invoke(conversation, sendArgument)
+            }.getOrElse { throwable ->
+                throw OfficialFlowFallbackException("send_message_missing", throwable)
+            }
         }
-        return extractOfficialMessageTextWithTrace(
+        val responseText = extractOfficialMessageTextWithTrace(
             path = "official-blocking",
             value = responseValue,
             appendTrace = appendTrace,
         )?.trim()?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("message_extract_failed")
+        safeAppendTrace(appendTrace, "UPSTREAM official-blocking success responseLength=${responseText.length}")
+        return responseText
     } finally {
         closeQuietly(conversation)
         closeQuietly(engine)
@@ -429,8 +478,16 @@ private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
     return runCatching { buildMethod.invoke(builder) }.getOrNull()
 }
 
-private fun createOfficialConversation(engine: Any, createConversationMethod: Method): Any? {
-    return when (createConversationMethod.parameterTypes.size) {
+private fun createOfficialConversation(
+    engine: Any,
+    createConversationMethod: Method,
+    appendTrace: (String) -> Unit,
+): Any? {
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM official-conversation createMethod=${createConversationMethod.name}${createConversationMethod.parameterTypes.joinToString(prefix = "(", postfix = ")") { it.simpleName }}",
+    )
+    val conversation = when (createConversationMethod.parameterTypes.size) {
         0 -> runCatching { createConversationMethod.invoke(engine) }.getOrNull()
         else -> {
             val arg = createConversationMethod.parameterTypes.firstNotNullOfOrNull { parameterType ->
@@ -439,6 +496,11 @@ private fun createOfficialConversation(engine: Any, createConversationMethod: Me
             runCatching { createConversationMethod.invoke(engine, arg) }.getOrNull()
         }
     }
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM official-conversation created class=${conversation?.javaClass?.name ?: "null"}",
+    )
+    return conversation
 }
 
 private fun buildEmptyByBuilder(type: Class<*>): Any? {
