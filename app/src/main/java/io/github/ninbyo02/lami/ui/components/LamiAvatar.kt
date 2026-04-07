@@ -137,7 +137,7 @@ fun LamiAvatar(
         .roundToInt()
         .coerceIn(minAvatarSize.value.roundToInt(), maxAvatarSize.value.roundToInt())
     var avatarSize by rememberSaveable(
-        inputs = arrayOf(minAvatarSize.value, maxAvatarSize.value, clampedInitialSize)
+        inputs = arrayOf<Any>(minAvatarSize.value, maxAvatarSize.value, clampedInitialSize)
     ) {
         mutableStateOf(clampedInitialSize)
     }
