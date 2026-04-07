@@ -290,21 +290,33 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     val createConversationMethod =
         engineClass.methods.firstOrNull { it.name == "createConversation" }
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
-    val engine = createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+    val engine = if (spec.namespace == "com.google.ai.edge.litertlm") {
+        createOfficialLiteRtLmEngineInstance(modelPath = modelPath, appendTrace = appendTrace)
+    } else {
+        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+    }
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
     try {
         conversation = runCatching {
-            createOfficialConversation(
-                engine = engine,
-                createConversationMethod = createConversationMethod,
-                appendTrace = appendTrace,
-            )
+            if (spec.namespace == "com.google.ai.edge.litertlm") {
+                createOfficialLiteRtLmConversation(
+                    engine = engine,
+                    engineClass = engineClass,
+                    appendTrace = appendTrace,
+                )
+            } else {
+                createOfficialConversation(
+                    engine = engine,
+                    createConversationMethod = createConversationMethod,
+                    appendTrace = appendTrace,
+                )
+            }
         }.getOrElse { throwable ->
             throw OfficialFlowFallbackException("conversation_create_failed", throwable)
         } ?: throw OfficialFlowFallbackException("conversation_create_failed")
         val flowValue = if (spec.namespace == "com.google.ai.edge.litertlm") {
-            safeAppendTrace(appendTrace, "UPSTREAM official-flow invokeArgs=String+emptyMap")
+            safeAppendTrace(appendTrace, "UPSTREAM official-flow invoke promptLength=${prompt.length} mapSize=0")
             runCatching {
                 sendMessageAsyncMethod.invoke(conversation, prompt, emptyMap<String, Any>())
             }.getOrElse { throwable ->
@@ -323,6 +335,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                 throw OfficialFlowFallbackException("send_message_async_missing", throwable)
             }
         }
+        safeAppendTrace(appendTrace, "UPSTREAM official-flow flowClass=${flowValue?.javaClass?.name ?: "null"}")
         val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_missing")
         val builder = StringBuilder()
         var partialCount = 0
@@ -401,18 +414,30 @@ private fun runOfficialBlockingConversationSingleNamespace(
     val createConversationMethod =
         engineClass.methods.firstOrNull { it.name == "createConversation" }
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
-    val engine = createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+    val engine = if (spec.namespace == "com.google.ai.edge.litertlm") {
+        createOfficialLiteRtLmEngineInstance(modelPath = modelPath, appendTrace = appendTrace)
+    } else {
+        createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
+    }
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
     try {
-        conversation = createOfficialConversation(
-            engine = engine,
-            createConversationMethod = createConversationMethod,
-            appendTrace = appendTrace,
-        )
+        conversation = if (spec.namespace == "com.google.ai.edge.litertlm") {
+            createOfficialLiteRtLmConversation(
+                engine = engine,
+                engineClass = engineClass,
+                appendTrace = appendTrace,
+            )
+        } else {
+            createOfficialConversation(
+                engine = engine,
+                createConversationMethod = createConversationMethod,
+                appendTrace = appendTrace,
+            )
+        }
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
         val responseValue = if (spec.namespace == "com.google.ai.edge.litertlm") {
-            safeAppendTrace(appendTrace, "UPSTREAM official-blocking invokeArgs=String+emptyMap")
+            safeAppendTrace(appendTrace, "UPSTREAM official-blocking invoke promptLength=${prompt.length} mapSize=0")
             runCatching {
                 sendMethod.invoke(conversation, prompt, emptyMap<String, Any>())
             }.getOrElse { throwable ->
@@ -430,6 +455,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
                 throw OfficialFlowFallbackException("send_message_missing", throwable)
             }
         }
+        safeAppendTrace(appendTrace, "UPSTREAM official-blocking returnClass=${responseValue?.javaClass?.name ?: "null"}")
         val responseText = extractOfficialMessageTextWithTrace(
             path = "official-blocking",
             value = responseValue,
@@ -458,6 +484,44 @@ private fun createOfficialEngineInstance(
     return runCatching { factoryMethod.invoke(null, options) }.getOrNull()
 }
 
+private fun createOfficialLiteRtLmEngineInstance(
+    modelPath: String,
+    appendTrace: (String) -> Unit,
+): Any? {
+    val engineConfig = runCatching {
+        val engineConfigClass = Class.forName("com.google.ai.edge.litertlm.EngineConfig")
+        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
+        val backendValues = backendClass.enumConstants.orEmpty()
+        val backend = backendValues.firstOrNull {
+            (it as? Enum<*>)?.name == "CPU"
+        } ?: backendValues.firstOrNull {
+            (it as? Enum<*>)?.name == "CPU_BACKEND"
+        } ?: backendValues.firstOrNull() ?: return@runCatching null
+        val constructor = engineConfigClass.constructors.firstOrNull { ctor ->
+            ctor.parameterTypes.size == 6 &&
+                ctor.parameterTypes[0] == String::class.java &&
+                ctor.parameterTypes[1] == backendClass &&
+                ctor.parameterTypes[2] == backendClass &&
+                ctor.parameterTypes[3] == backendClass
+        } ?: return@runCatching null
+        constructor.newInstance(modelPath, backend, backend, backend, null, null)
+    }.getOrElse { throwable ->
+        safeAppendTrace(appendTrace, "UPSTREAM official-engine-config create failed ${throwable.javaClass.simpleName}:${throwable.message}")
+        null
+    } ?: return null
+    return runCatching {
+        val engineClass = Class.forName("com.google.ai.edge.litertlm.Engine")
+        val constructor = engineClass.constructors.firstOrNull { ctor ->
+            ctor.parameterTypes.size == 1 &&
+                ctor.parameterTypes[0].name == "com.google.ai.edge.litertlm.EngineConfig"
+        } ?: return@runCatching null
+        constructor.newInstance(engineConfig)
+    }.getOrElse { throwable ->
+        safeAppendTrace(appendTrace, "UPSTREAM official-engine create failed ${throwable.javaClass.simpleName}:${throwable.message}")
+        null
+    }
+}
+
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
     val builderFactory = optionClass.methods.firstOrNull { method ->
         method.name == "builder" && method.parameterTypes.isEmpty()
@@ -476,6 +540,31 @@ private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
         method.name == "build" && method.parameterTypes.isEmpty()
     } ?: return null
     return runCatching { buildMethod.invoke(builder) }.getOrNull()
+}
+
+private fun createOfficialLiteRtLmConversation(
+    engine: Any,
+    engineClass: Class<*>,
+    appendTrace: (String) -> Unit,
+): Any? {
+    val configClassName = "com.google.ai.edge.litertlm.ConversationConfig"
+    safeAppendTrace(appendTrace, "UPSTREAM official-conversation configClass=$configClassName")
+    return runCatching {
+        val configClass = Class.forName(configClassName)
+        val config = configClass.getDeclaredConstructor().newInstance()
+        safeAppendTrace(appendTrace, "UPSTREAM official-conversation configCreated class=${config.javaClass.name}")
+        val createConversationMethod = engineClass.methods.first { method ->
+            method.name == "createConversation" &&
+                method.parameterTypes.size == 1 &&
+                method.parameterTypes[0].name == configClassName
+        }
+        val conversation = createConversationMethod.invoke(engine, config)
+        safeAppendTrace(appendTrace, "UPSTREAM official-conversation created class=${conversation?.javaClass?.name ?: "null"}")
+        conversation
+    }.getOrElse { throwable ->
+        safeAppendTrace(appendTrace, "UPSTREAM official-conversation create failed ${throwable.javaClass.simpleName}:${throwable.message}")
+        null
+    }
 }
 
 private fun createOfficialConversation(
