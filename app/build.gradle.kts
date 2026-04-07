@@ -85,7 +85,7 @@ kotlin {
 dependencies {
     //Variables
     val navVersion = "2.8.6"
-    val roomVersion = "2.6.1"
+    val roomVersion = "2.7.1"
     val markdown = "0.5.6"
 
     //Markdown
