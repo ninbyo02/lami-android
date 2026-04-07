@@ -2278,6 +2278,12 @@ private suspend fun runLocalInferenceOnceEntry(
     var officialFlowUsed = false
     var officialFlowFallbackReason: String? = null
     var officialFlowChunkCount = 0
+    var officialFlowObservedPartialCount = 0
+    val emitFinal: (String?) -> Unit = { result ->
+        if (!result.isNullOrBlank()) {
+            onPartial(result)
+        }
+    }
 
     if (officialConversationApiProbe.isAvailable) {
         officialFlowAttempted = true
@@ -2288,7 +2294,10 @@ private suspend fun runLocalInferenceOnceEntry(
         val officialResult = tryRunOfficialLiteRtFlowStreaming(
             prompt = prompt,
             modelPath = modelPath,
-            onPartial = onPartial,
+            onPartial = { partial ->
+                officialFlowObservedPartialCount += 1
+                onPartial(partial)
+            },
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
@@ -2304,6 +2313,47 @@ private suspend fun runLocalInferenceOnceEntry(
             officialFlowFallbackReason = null
         } else if (officialFlowFallbackReason == null) {
             officialFlowFallbackReason = "empty_official_response"
+        }
+        if (!officialSucceeded && officialFlowObservedPartialCount == 0) {
+            appendLocalReflectionTrace(
+                context = context,
+                message = "UPSTREAM fallback reason=no_partial_emitted",
+            )
+            val fallback = generateLiteRtResponseViaReflection(
+                context = context,
+                modelPath = modelPath,
+                localModelDisplayName = localBaseModelDisplayName,
+                prompt = prompt,
+                onPartial = onPartial,
+            ).response?.trim()
+            if (!fallback.isNullOrBlank()) {
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "UPSTREAM fallback used length=${fallback.length}",
+                )
+                emitFinal(fallback)
+                return LocalInferenceRunResult(
+                    state = LocalInferenceEngineState.READY,
+                    response = fallback,
+                    trace = LocalInferenceTrace(
+                        localModelDisplayName = localBaseModelDisplayName,
+                        localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
+                        localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                        localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                        selectedAssistantResponseSource = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+                        officialFlowAttempted = officialFlowAttempted,
+                        officialFlowUsed = officialFlowUsed,
+                        officialFlowFallbackReason = officialFlowFallbackReason,
+                        officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
+                        officialFlowChunkCount = officialFlowChunkCount,
+                    ),
+                )
+            } else {
+                appendLocalReflectionTrace(
+                    context = context,
+                    message = "UPSTREAM fallback failed blankOrNull",
+                )
+            }
         }
         appendLocalReflectionTrace(
             context = context,
@@ -2413,6 +2463,7 @@ private suspend fun runLocalInferenceOnceEntry(
         officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
         officialFlowChunkCount = officialFlowChunkCount,
     )
+    emitFinal(response)
     return if (response.isNullOrBlank()) {
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.ERROR,
