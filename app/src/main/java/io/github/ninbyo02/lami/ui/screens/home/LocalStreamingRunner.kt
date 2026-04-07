@@ -2,7 +2,6 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.os.SystemClock
 import com.google.ai.edge.litertlm.Backend
-import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.flow.Flow
@@ -160,6 +159,7 @@ private val OFFICIAL_TEXT_CANDIDATES = listOf(
 internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     prompt: String,
     modelPath: String,
+    cacheDirPath: String,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
@@ -190,6 +190,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 spec = spec,
                 prompt = prompt,
                 modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
                 startElapsedMs = startElapsedMs,
                 onPartial = onPartial,
                 appendTrace = appendTrace,
@@ -214,6 +215,7 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
 internal fun tryRunOfficialLiteRtBlockingConversation(
     prompt: String,
     modelPath: String,
+    cacheDirPath: String,
     appendTrace: (String) -> Unit = {},
     onFallbackReason: (String) -> Unit = {},
 ): String? {
@@ -241,6 +243,7 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 spec = spec,
                 prompt = prompt,
                 modelPath = modelPath,
+                cacheDirPath = cacheDirPath,
                 appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
@@ -271,6 +274,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
     prompt: String,
     modelPath: String,
+    cacheDirPath: String,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -279,6 +283,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         return runOfficialLiteRtLmDirect(
             prompt = prompt,
             modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
             startElapsedMs = startElapsedMs,
             onPartial = onPartial,
             appendTrace = appendTrace,
@@ -405,12 +410,14 @@ private fun runOfficialBlockingConversationSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
     prompt: String,
     modelPath: String,
+    cacheDirPath: String,
     appendTrace: (String) -> Unit,
 ): String? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
         return runOfficialLiteRtLmBlocking(
             prompt = prompt,
             modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
             appendTrace = appendTrace,
         )
     }
@@ -492,6 +499,7 @@ private fun runOfficialBlockingConversationSingleNamespace(
 private suspend fun runOfficialLiteRtLmDirect(
     prompt: String,
     modelPath: String,
+    cacheDirPath: String,
     startElapsedMs: Long,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
@@ -502,56 +510,32 @@ private suspend fun runOfficialLiteRtLmDirect(
         val engine = Engine(
             EngineConfig(
                 modelPath,
-                Backend.CPU(),
-                Backend.CPU(),
-                Backend.CPU(),
+                Backend.AUTO(),
+                Backend.AUTO(),
+                Backend.AUTO(),
                 null,
-                null,
+                cacheDirPath,
             ),
         )
 
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
+        engine.initialize()
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
-        val conversation = engine.createConversation(ConversationConfig())
+        val conversation = engine.createConversation()
 
         safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
-
-        val builder = StringBuilder()
-        var partialCount = 0
-        var firstPartialMs: Long? = null
-
-        val flow = conversation.sendMessageAsync(prompt, emptyMap())
-
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct flowStart")
-
-        flow.collect { message ->
-            val text = message?.toString()?.trim().orEmpty()
-            if (text.isBlank()) return@collect
-
-            builder.append(text)
-            partialCount++
-
-            if (firstPartialMs == null) {
-                firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
-            }
-
-            onPartial(builder.toString())
-        }
-
-        if (partialCount <= 0) {
-            throw OfficialFlowFallbackException("no_partial_emitted")
-        }
-
-        val response = builder.toString().trim()
-        if (response.isBlank()) {
-            throw OfficialFlowFallbackException("blank_response")
-        }
+        val text = conversation.sendMessage(prompt)?.toString()?.trim()
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${text?.length ?: -1}")
+        val response = text?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("blank_response")
+        val firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+        onPartial(response)
 
         safeAppendTrace(appendTrace, "UPSTREAM official-direct success length=${response.length}")
 
         LocalOfficialFlowStreamingResult(
             response = response,
-            partialCount = partialCount,
+            partialCount = 1,
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
         )
     }.getOrElse { throwable ->
@@ -566,6 +550,7 @@ private suspend fun runOfficialLiteRtLmDirect(
 private fun runOfficialLiteRtLmBlocking(
     prompt: String,
     modelPath: String,
+    cacheDirPath: String,
     appendTrace: (String) -> Unit,
 ): String? {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct-blocking start")
@@ -574,17 +559,18 @@ private fun runOfficialLiteRtLmBlocking(
         val engine = Engine(
             EngineConfig(
                 modelPath,
-                Backend.CPU(),
-                Backend.CPU(),
-                Backend.CPU(),
+                Backend.AUTO(),
+                Backend.AUTO(),
+                Backend.AUTO(),
                 null,
-                null,
+                cacheDirPath,
             ),
         )
+        engine.initialize()
 
-        val conversation = engine.createConversation(ConversationConfig())
+        val conversation = engine.createConversation()
 
-        val response = conversation.sendMessage(prompt, emptyMap())
+        val response = conversation.sendMessage(prompt)
             ?.toString()
             ?.trim()
 
