@@ -139,6 +139,20 @@ internal data class LocalOfficialFlowStreamingResult(
     val firstNonEmptyPartialElapsedRealtimeMs: Long?,
 )
 
+private val OFFICIAL_TEXT_CANDIDATES = listOf(
+    "text",
+    "getText",
+    "content",
+    "getContent",
+    "result",
+    "getResult",
+    "token",
+    "getToken",
+    "parts",
+    "getParts",
+    "toString",
+)
+
 internal suspend fun tryRunOfficialLiteRtFlowStreaming(
     prompt: String,
     modelPath: String,
@@ -180,11 +194,10 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_exception"
             fallbackReasonReported = true
             runCatching { onFallbackReason(reasonCode) }
-            runCatching {
-                appendTrace(
-                    "UPSTREAM official-flow-streaming fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
-                )
-            }
+            safeAppendTrace(
+                appendTrace = appendTrace,
+                message = "UPSTREAM official-flow fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
+            )
         }.getOrNull()
         if (result != null) return result
     }
@@ -224,15 +237,15 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 spec = spec,
                 prompt = prompt,
                 modelPath = modelPath,
+                appendTrace = appendTrace,
             )
         }.onFailure { throwable ->
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_blocking_exception"
             runCatching { onFallbackReason(reasonCode) }
-            runCatching {
-                appendTrace(
-                    "UPSTREAM official-blocking fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
-                )
-            }
+            safeAppendTrace(
+                appendTrace = appendTrace,
+                message = "UPSTREAM official-blocking fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
+            )
         }.getOrNull()
         if (!response.isNullOrBlank()) return response.trim()
     }
@@ -258,6 +271,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit,
 ): LocalOfficialFlowStreamingResult? {
+    safeAppendTrace(appendTrace, "UPSTREAM official-flow start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
     val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
     val sendMessageAsyncMethod =
@@ -289,16 +303,28 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         val flow = flowValue as? Flow<*> ?: throw OfficialFlowFallbackException("send_message_async_missing")
         val builder = StringBuilder()
         var partialCount = 0
+        var extractFailureCount = 0
         var firstPartialMs: Long? = null
         var lastPartial: String? = null
         runCatching {
             flow.collect { message ->
-                val extractedText = extractOfficialMessageText(message)
-                    ?: throw OfficialFlowFallbackException("message_text_extract_failed")
-                val extracted = extractedText.trim()
+                safeAppendTrace(
+                    appendTrace = appendTrace,
+                    message = "UPSTREAM official-flow chunkClass=${message?.javaClass?.name ?: "null"}",
+                )
+                val extractedText = extractOfficialMessageTextWithTrace(
+                    path = "official-flow",
+                    value = message,
+                    appendTrace = appendTrace,
+                )
+                val extracted = extractedText?.trim().orEmpty()
+                if (extracted.isBlank()) {
+                    extractFailureCount += 1
+                    return@collect
+                }
                 if (extracted.isBlank() || extracted == lastPartial) return@collect
                 lastPartial = extracted
-                builder.append(extractedText)
+                builder.append(extracted)
                 partialCount += 1
                 if (firstPartialMs == null) {
                     firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
@@ -309,10 +335,12 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             if (throwable is OfficialFlowFallbackException) throw throwable
             throw OfficialFlowFallbackException("flow_collect_failed", throwable)
         }
-        if (partialCount <= 0) throw OfficialFlowFallbackException("no_partial_emitted")
+        if (partialCount <= 0) {
+            throw OfficialFlowFallbackException(if (extractFailureCount > 0) "message_extract_failed" else "no_partial_emitted")
+        }
         val response = builder.toString().trim()
-        if (response.isBlank()) throw OfficialFlowFallbackException("empty_official_response")
-        appendTrace("UPSTREAM official-flow-streaming partial count=$partialCount namespace=${spec.namespace}")
+        if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
+        safeAppendTrace(appendTrace, "UPSTREAM official-flow extracted length=${response.length} partialCount=$partialCount namespace=${spec.namespace}")
         return LocalOfficialFlowStreamingResult(
             response = response,
             partialCount = partialCount,
@@ -328,7 +356,9 @@ private fun runOfficialBlockingConversationSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
     prompt: String,
     modelPath: String,
+    appendTrace: (String) -> Unit,
 ): String? {
+    safeAppendTrace(appendTrace, "UPSTREAM official-blocking start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
     val conversationClass = runCatching { Class.forName("${spec.namespace}.Conversation") }.getOrNull() ?: return null
     val sendMethod = conversationClass.methods.firstOrNull { method ->
@@ -353,7 +383,11 @@ private fun runOfficialBlockingConversationSingleNamespace(
         }.getOrElse { throwable ->
             throw OfficialFlowFallbackException("send_message_missing", throwable)
         }
-        return extractOfficialMessageText(responseValue)?.trim()?.takeIf { it.isNotBlank() }
+        return extractOfficialMessageTextWithTrace(
+            path = "official-blocking",
+            value = responseValue,
+            appendTrace = appendTrace,
+        )?.trim()?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("message_extract_failed")
     } finally {
         closeQuietly(conversation)
         closeQuietly(engine)
@@ -455,18 +489,7 @@ private fun extractOfficialMessageText(value: Any?): String? {
             extractOfficialMessageText(nested)?.takeIf { it.isNotBlank() }?.let { return it }
         }
     }
-    val getterNames = listOf(
-        "getText",
-        "text",
-        "getContent",
-        "content",
-        "getResult",
-        "result",
-        "getToken",
-        "token",
-        "getParts",
-        "parts",
-    )
+    val getterNames = OFFICIAL_TEXT_CANDIDATES.filterNot { it == "toString" }
     getterNames.forEach { getterName ->
         val method = value.javaClass.methods.firstOrNull { it.name == getterName && it.parameterTypes.isEmpty() } ?: return@forEach
         val extracted = runCatching { extractOfficialMessageText(method.invoke(value)) }.getOrNull()
@@ -479,7 +502,56 @@ private fun extractOfficialMessageText(value: Any?): String? {
         val extracted = runCatching { extractOfficialMessageText(method.invoke(value)) }.getOrNull()
         if (!extracted.isNullOrBlank()) return extracted
     }
-    return value.toString().takeIf { it.isNotBlank() }
+    val toStringValue = value.toString()
+    return toStringValue.takeIf { isMeaningfulToStringFallback(value, it) }
+}
+
+private fun extractOfficialMessageTextWithTrace(
+    path: String,
+    value: Any?,
+    appendTrace: (String) -> Unit,
+): String? {
+    safeAppendTrace(appendTrace, "UPSTREAM $path returnClass=${value?.javaClass?.name ?: "null"}")
+    safeAppendTrace(appendTrace, "UPSTREAM extract-text path=$path candidates=$OFFICIAL_TEXT_CANDIDATES")
+    OFFICIAL_TEXT_CANDIDATES.forEach { candidate ->
+        val candidateValue = when (candidate) {
+            "toString" -> value?.toString()
+            else -> value?.javaClass?.methods?.firstOrNull {
+                it.name == candidate && it.parameterTypes.isEmpty()
+            }?.let { method ->
+                runCatching { method.invoke(value) }.getOrNull()
+            }
+        }
+        val extracted = runCatching { extractOfficialMessageText(candidateValue) }.getOrNull()?.trim()
+        if (!extracted.isNullOrBlank()) {
+            if (candidate == "toString" && value != null && !isMeaningfulToStringFallback(value, extracted)) {
+                safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=blank")
+                return@forEach
+            }
+            safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=nonBlank length=${extracted.length}")
+            safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=${extracted.length}")
+            return extracted
+        }
+        val resultLabel = if (candidateValue == null) "null" else "blank"
+        safeAppendTrace(appendTrace, "UPSTREAM extract-text candidate=$candidate result=$resultLabel")
+    }
+    safeAppendTrace(appendTrace, "UPSTREAM $path extracted length=0")
+    return null
+}
+
+private fun isMeaningfulToStringFallback(source: Any, value: String): Boolean {
+    val trimmed = value.trim()
+    if (trimmed.isBlank()) return false
+    if (trimmed == source.javaClass.name || trimmed == source.javaClass.simpleName) return false
+    val identityPattern = "^${Regex.escape(source.javaClass.name)}@[0-9a-fA-F]+$".toRegex()
+    return !identityPattern.matches(trimmed)
+}
+
+private fun safeAppendTrace(
+    appendTrace: (String) -> Unit,
+    message: String,
+) {
+    runCatching { appendTrace(message) }
 }
 
 private fun closeQuietly(target: Any?) {

@@ -2379,6 +2379,7 @@ private suspend fun runLocalInferenceOnceEntry(
         )
     }
 
+    appendLocalReflectionTrace(context = context, message = "UPSTREAM legacy start")
     appendLocalReflectionTrace(context = context, message = "UPSTREAM before-generateLiteRtResponseViaReflection")
     val generated = generateLiteRtResponseViaReflection(
         context = context,
@@ -2387,7 +2388,15 @@ private suspend fun runLocalInferenceOnceEntry(
         prompt = prompt,
         onPartial = onPartial,
     )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM legacy returnClass=${generated.response?.javaClass?.name ?: "null"} rawLength=${generated.response?.length ?: -1}",
+    )
     val response = generated.response?.trim()
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM legacy sanitizedLength=${response?.length ?: -1} selectedFinalLength=${response?.length ?: 0} blankOrNull=${response.isNullOrBlank()}",
+    )
     appendLocalReflectionTrace(
         context = context,
         message = "UPSTREAM after-generateLiteRtResponseViaReflection responseNull=${response == null} responseLength=${response?.length ?: -1}",
