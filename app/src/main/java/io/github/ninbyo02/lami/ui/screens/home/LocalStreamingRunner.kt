@@ -179,15 +179,17 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
         }.onFailure { throwable ->
             val reasonCode = (throwable as? OfficialFlowFallbackException)?.reasonCode ?: "official_exception"
             fallbackReasonReported = true
-            onFallbackReason(reasonCode)
-            appendTrace(
-                "UPSTREAM official-flow-streaming fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
-            )
+            runCatching { onFallbackReason(reasonCode) }
+            runCatching {
+                appendTrace(
+                    "UPSTREAM official-flow-streaming fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
+                )
+            }
         }.getOrNull()
         if (result != null) return result
     }
     if (!fallbackReasonReported) {
-        onFallbackReason("no_partial_emitted")
+        runCatching { onFallbackReason("no_partial_emitted") }
     }
     return null
 }
