@@ -665,14 +665,15 @@ fun Home(
                     }
                     val response = (uiState as UiState.Success).outputText
                     if (currentChatId != null) {
-                        viewModel.insert(
-                            createAssistantMessage(
-                                chatId = currentChatId,
-                                response = response,
-                                latestInferenceStats = latestInferenceStats,
-                                imageInputCount = pendingAssistantImageInputCount,
-                            )
+                        val assistantMessage = createAssistantMessage(
+                            chatId = currentChatId,
+                            response = response,
+                            latestInferenceStats = latestInferenceStats,
+                            imageInputCount = pendingAssistantImageInputCount,
                         )
+                        val insertedAssistantId =
+                            viewModel.insertAssistantMessageAndReturnId(assistantMessage).toInt()
+                        currentSpeakingAssistantMessageId = insertedAssistantId
                     }
                     if (!ttsController.isInCooldown()) {
                         ttsController.speak(response)
@@ -1544,15 +1545,16 @@ fun Home(
                                                                         localStreamingResponseText = null
                                                                         return@launch
                                                                     }
-                                                                    viewModel.insert(
-                                                                        createAssistantMessage(
-                                                                            chatId = currentChatId,
-                                                                            response = resolvedAssistantResponse,
-                                                                            latestInferenceStats = localStats,
-                                                                            localSourceSummary = localSourceSummary,
-                                                                            generationTimeMs = localGenerationTimeMs,
-                                                                        )
+                                                                    val assistantMessage = createAssistantMessage(
+                                                                        chatId = currentChatId,
+                                                                        response = resolvedAssistantResponse,
+                                                                        latestInferenceStats = localStats,
+                                                                        localSourceSummary = localSourceSummary,
+                                                                        generationTimeMs = localGenerationTimeMs,
                                                                     )
+                                                                    val insertedAssistantId =
+                                                                        viewModel.insertAssistantMessageAndReturnId(assistantMessage).toInt()
+                                                                    currentSpeakingAssistantMessageId = insertedAssistantId
                                                                     if (!localStopRequested && !ttsController.isInCooldown()) {
                                                                         ttsController.speak(resolvedAssistantResponse)
                                                                     }

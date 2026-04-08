@@ -50,15 +50,15 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
         messageDao.insertMessage(message)
     }
 
-    suspend fun insertAssistantMessageAndAutoTitle(message: Message) {
-        messageDao.insertMessage(message)
+    suspend fun insertAssistantMessageAndAutoTitleAndReturnId(message: Message): Long {
+        val insertedId = messageDao.insertMessageAndReturnId(message)
         if (message.isSendbyMe) {
-            return
+            return insertedId
         }
 
-        val chat = chatDao.getChatById(message.chatId) ?: return
+        val chat = chatDao.getChatById(message.chatId) ?: return insertedId
         if (chat.titleSource != TitleSource.TEMP) {
-            return
+            return insertedId
         }
 
         val seedMessage = messageDao.getFirstUserMessage(message.chatId)?.message
@@ -71,6 +71,11 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
             newSource = TitleSource.AUTO,
             expectedSource = TitleSource.TEMP
         )
+        return insertedId
+    }
+
+    suspend fun insertAssistantMessageAndAutoTitle(message: Message) {
+        insertAssistantMessageAndAutoTitleAndReturnId(message)
     }
 
     suspend fun delete(message: Message) {

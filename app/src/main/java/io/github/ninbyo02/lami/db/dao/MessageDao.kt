@@ -13,6 +13,9 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: Message)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessageAndReturnId(message: Message): Long
+
     @Query("SELECT * FROM chat_table WHERE chatId = :chatId ")
     fun getAllMessages(chatId: Int): Flow<List<Message>>
 
