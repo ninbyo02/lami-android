@@ -580,13 +580,6 @@ fun Home(
         }
     }
 
-    LaunchedEffect(effectiveChatId, isInferenceRunningUi, streamingResponseText) {
-        if (!isInferenceRunningUi) return@LaunchedEffect
-        val currentChatId = effectiveChatId ?: return@LaunchedEffect
-        val partialText = streamingResponseText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
-        upsertStreamingAssistantPlaceholder(chatId = currentChatId, response = partialText)
-    }
-
     fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
         streamingSpeechBuffer = ""
         streamingSpeechLastConsumedLength = 0
@@ -625,6 +618,13 @@ fun Home(
         currentSpeakingAssistantMessageId = existingId
         Log.i("ChatScreen", "STREAM placeholder updated id=$existingId len=${normalizedResponse.length}")
         return existingId
+    }
+
+    LaunchedEffect(effectiveChatId, isInferenceRunningUi, streamingResponseText) {
+        if (!isInferenceRunningUi) return@LaunchedEffect
+        val currentChatId = effectiveChatId ?: return@LaunchedEffect
+        val partialText = streamingResponseText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        upsertStreamingAssistantPlaceholder(chatId = currentChatId, response = partialText)
     }
 
     suspend fun finalizeStreamingAssistantMessage(
