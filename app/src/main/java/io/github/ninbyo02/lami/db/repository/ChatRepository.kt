@@ -50,6 +50,14 @@ class ChatRepository(private val messageDao: MessageDao, private val chatDao: Ch
         messageDao.insertMessage(message)
     }
 
+    suspend fun getMessageById(messageId: Int): Message? {
+        return messageDao.getMessageById(messageId)
+    }
+
+    suspend fun updateMessage(message: Message) {
+        messageDao.updateMessage(message)
+    }
+
     suspend fun insertAssistantMessageAndAutoTitleAndReturnId(message: Message): Long {
         val insertedId = messageDao.insertMessageAndReturnId(message)
         if (message.isSendbyMe) {
