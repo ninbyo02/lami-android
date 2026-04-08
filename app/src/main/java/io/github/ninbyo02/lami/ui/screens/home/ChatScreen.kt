@@ -217,6 +217,7 @@ private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
+private const val STREAMING_ASSISTANT_MESSAGE_ID = 0
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -560,6 +561,7 @@ fun Home(
     var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
     var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var isStreamingSentencePlaybackActive by remember(effectiveChatId) { mutableStateOf(false) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -578,17 +580,24 @@ fun Home(
         }
     }
 
-    fun resetStreamingSpeechState() {
+    fun resetStreamingSpeechState(clearPlaybackFlag: Boolean = true) {
         streamingSpeechBuffer = ""
         streamingSpeechLastConsumedLength = 0
         streamingSpeechStartedForMessageId = null
+        if (clearPlaybackFlag) {
+            isStreamingSentencePlaybackActive = false
+        }
     }
 
     fun normalizeStreamingSpeakText(rawText: String): String {
-        val trimmed = rawText.trim()
-        if (trimmed.length < 2) return ""
-        if (trimmed.all { it == '`' || it.isWhitespace() }) return ""
-        return trimmed
+        val normalized = rawText
+            .replace("*", "")
+            .replace("`", "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (normalized.length < 2) return ""
+        if (normalized.all { !it.isLetterOrDigit() }) return ""
+        return normalized
     }
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
@@ -603,6 +612,8 @@ fun Home(
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
         val normalized = normalizeStreamingSpeakText(speakTarget)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
+            currentSpeakingAssistantMessageId = STREAMING_ASSISTANT_MESSAGE_ID
+            isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
         }
         streamingSpeechLastConsumedLength += sentenceBreakIndex + 1
@@ -613,6 +624,8 @@ fun Home(
         val remaining = fullText.substring(safeConsumed)
         val normalized = normalizeStreamingSpeakText(remaining)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
+            currentSpeakingAssistantMessageId = STREAMING_ASSISTANT_MESSAGE_ID
+            isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
         }
     }
@@ -633,7 +646,8 @@ fun Home(
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
-            if (!isPlaying) {
+            if (!isPlaying && !(isStreamingSentencePlaybackActive && isInferenceRunningUi)) {
+                isStreamingSentencePlaybackActive = false
                 currentSpeakingAssistantMessageId = null
             }
         }
@@ -738,7 +752,7 @@ fun Home(
                     }
                     if (devEnableStreamingSentenceTts) {
                         speakStreamingTailIfNeeded(response)
-                        resetStreamingSpeechState()
+                        resetStreamingSpeechState(clearPlaybackFlag = false)
                     } else if (!ttsController.isInCooldown()) {
                         ttsController.speak(response)
                     }
@@ -1635,7 +1649,7 @@ fun Home(
                                                                     streamingSpeechStartedForMessageId = insertedAssistantId
                                                                     if (devEnableStreamingSentenceTts && !localStopRequested) {
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
-                                                                        resetStreamingSpeechState()
+                                                                        resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (!localStopRequested && !ttsController.isInCooldown()) {
                                                                         ttsController.speak(resolvedAssistantResponse)
                                                                     }
@@ -2131,13 +2145,16 @@ fun Home(
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
-                                                isReplaying = isTtsSpeaking && currentSpeakingAssistantMessageId == message.messageID,
+                                                isReplaying = (isTtsSpeaking || isStreamingSentencePlaybackActive) &&
+                                                    currentSpeakingAssistantMessageId == message.messageID,
                                                 onReplayClick = {
+                                                    isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
                                                     ttsController.stop()
+                                                    resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
                                                 },
                                                 onCopyAllClick = {
