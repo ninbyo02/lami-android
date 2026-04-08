@@ -83,6 +83,7 @@ import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.R
@@ -163,6 +164,8 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
         .collectAsState(initial = null)
+    val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow
+        .collectAsState(initial = false)
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -509,6 +512,21 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                             scope.launch { settingsPreferences.updateDynamicColor(enabled) }
                         }
                     )
+                }
+                if (BuildConfig.DEBUG) {
+                    // 開発者向け実験機能のため、DEBUGビルドのみ表示する
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Card {
+                        SettingsToggleRowItem(
+                            headline = "文区切りストリーミングTTS",
+                            supporting = "応答生成中に、文の区切りごとに順次読み上げます（開発者向け）",
+                            leadingIcon = null,
+                            checked = devEnableStreamingSentenceTts,
+                            onCheckedChange = { enabled ->
+                                scope.launch { settingsPreferences.setDevEnableStreamingSentenceTts(enabled) }
+                            }
+                        )
+                    }
                 }
             }
             item {
