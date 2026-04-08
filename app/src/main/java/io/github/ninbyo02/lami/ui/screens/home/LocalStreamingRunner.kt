@@ -526,24 +526,28 @@ private suspend fun runOfficialLiteRtLmDirect(
         val conversation = engine.createConversation()
         safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
-        var lastText: String? = null
+        val builder = StringBuilder()
+        var lastChunk: String? = null
         var partialCount = 0
         var firstPartialMs: Long? = null
         conversation.sendMessageAsync(prompt).collect { message ->
             val extractedText = message.contents.toString().trim()
                 .ifBlank { message.toString().trim() }
             if (extractedText.isNotBlank()) {
+                if (extractedText == lastChunk) return@collect
+                lastChunk = extractedText
+                builder.append(extractedText)
                 if (firstPartialMs == null) {
                     firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                 }
-                lastText = extractedText
                 partialCount += 1
-                onPartial(extractedText)
+                onPartial(builder.toString())
             }
         }
 
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${lastText?.length ?: -1}")
-        val response = lastText?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("blank_response")
+        val response = builder.toString().trim()
+        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
+        if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
 
         LocalOfficialFlowStreamingResult(
             response = response,
