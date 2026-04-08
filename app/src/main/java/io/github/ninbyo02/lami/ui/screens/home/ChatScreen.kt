@@ -416,6 +416,7 @@ fun Home(
     )
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
+    val isTtsSpeaking by ttsController.isSpeaking.collectAsState()
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
     val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
@@ -552,8 +553,7 @@ fun Home(
         filterChatsByTitle(sortedChats, chatSearchQuery)
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
-    var activeReplayMessageId by remember { mutableStateOf<Int?>(null) }
-    var isReplayPlaying by remember { mutableStateOf(false) }
+    var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -575,15 +575,13 @@ fun Home(
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
-            isReplayPlaying = isPlaying
             if (!isPlaying) {
-                activeReplayMessageId = null
+                currentSpeakingAssistantMessageId = null
             }
         }
         onDispose {
             viewModel.stopTtsPlayback()
-            activeReplayMessageId = null
-            isReplayPlaying = false
+            currentSpeakingAssistantMessageId = null
             ttsController.shutdown()
         }
     }
@@ -2048,14 +2046,14 @@ fun Home(
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
-                                                isReplaying = isReplayPlaying && activeReplayMessageId == message.messageID,
+                                                isReplaying = isTtsSpeaking && currentSpeakingAssistantMessageId == message.messageID,
                                                 onReplayClick = {
-                                                    activeReplayMessageId = message.messageID
+                                                    currentSpeakingAssistantMessageId = message.messageID
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
                                                     ttsController.stop()
-                                                    activeReplayMessageId = null
+                                                    currentSpeakingAssistantMessageId = null
                                                 },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
