@@ -167,6 +167,14 @@ class OllamaViewModel(
         }
     }
 
+    suspend fun updateMessage(message: Message) {
+        chatRepository.updateMessage(message)
+    }
+
+    suspend fun getMessageById(messageId: Int): Message? {
+        return chatRepository.getMessageById(messageId)
+    }
+
     fun insertChat(chat: Chat) {
         viewModelScope.launch {
             insertChatAndReturnId(chat)
