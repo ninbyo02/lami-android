@@ -1,0 +1,193 @@
+package io.github.ninbyo02.lami.ui.screens.settings
+
+import android.content.Context
+import androidx.activity.compose.setContent
+import androidx.compose.ui.semantics.SemanticsConfiguration
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.test.core.app.ApplicationProvider
+import io.github.ninbyo02.lami.MainActivity
+import io.github.ninbyo02.lami.navigation.Routes
+import io.github.ninbyo02.lami.navigation.SettingsRoute
+import io.github.ninbyo02.lami.ui.screens.settings.Settings
+import io.github.ninbyo02.lami.ui.screens.settings.SpriteSettingsScreen
+import io.github.ninbyo02.lami.ui.theme.OllamaTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import io.github.ninbyo02.lami.ui.TestAppWrapper
+
+class SpriteSettingsTalkLongPerStateRestoreTest {
+    @get:Rule
+    val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun clearPreferences() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dataStore = accessSettingsDataStore(context)
+        runBlockingIo {
+            dataStore.edit { preferences ->
+                preferences.clear()
+            }
+        }
+    }
+
+    @Test
+    fun talkLongInterval_usesPerStateJson_afterRecreate() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = SettingsPreferences(context)
+        val expectedSnapshot = PerStateAnimationSnapshot(
+            animationKey = "TalkLong",
+            intervalMs = 234,
+            frames = listOf(2, 1, 0),
+        )
+        runBlockingIo {
+            prefs.saveSpriteAnimationJson(
+                SpriteState.TALK_LONG,
+                buildTalkLongPerStateJson(intervalMs = 234, frames = expectedSnapshot.frames)
+            )
+            prefs.saveLastRoute(SettingsRoute.SpriteSettings.route)
+        }
+
+        recreateToSpriteSettings()
+        ensureAnimTabSelected()
+        selectAnimationType("TalkLong")
+        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkLong")
+        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_LONG, "TalkLong")
+        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_LONG, expectedSnapshot)
+
+        recreateToSpriteSettings()
+        ensureAnimTabSelected()
+        selectAnimationType("TalkLong")
+        composeTestRule.waitUntilLastSelectedAnimationType(context, "TalkLong")
+        composeTestRule.waitUntilSelectedKeyPersisted(context, SpriteState.TALK_LONG, "TalkLong")
+        composeTestRule.waitUntilPerStateAnimationSnapshot(context, SpriteState.TALK_LONG, expectedSnapshot)
+    }
+
+    private fun selectAnimationType(label: String) {
+        composeTestRule.selectAnimationTypeByAnchor(
+            label = label,
+            ensureAnimTabSelected = { ensureAnimTabSelected() },
+            waitForNodeWithTag = { tag, timeout -> composeTestRule.awaitNodeWithTag(tag, timeout) },
+            scrollToAnimationDropdownAnchor = { anchorTag -> scrollToAnimationDropdownAnchor(anchorTag) },
+        )
+        composeTestRule.waitForIdle()
+    }
+
+    private fun scrollToAnimationDropdownAnchor(anchorTag: String) {
+        composeTestRule.awaitNodeWithTag("spriteAnimList")
+        val scrolled = runCatching {
+            composeTestRule.onAllNodes(hasScrollAction(), useUnmergedTree = true)[0]
+                .performScrollToNode(hasTestTag(anchorTag))
+            true
+        }.getOrDefault(false)
+        if (scrolled) {
+            return
+        }
+        val startTime = System.currentTimeMillis()
+        val maxIndex = 30
+        val listNode = composeTestRule.onNodeWithTag("spriteAnimList")
+        for (index in 0..maxIndex) {
+            runCatching { listNode.performScrollToIndex(index) }
+            composeTestRule.waitForIdle()
+            if (hasNodeWithTag(anchorTag)) {
+                return
+            }
+            if (System.currentTimeMillis() - startTime > 10_000) {
+                return
+            }
+        }
+    }
+
+    private fun ensureAnimTabSelected() {
+        composeTestRule.awaitNodeWithTag("spriteTabAnim")
+        val tabNode = composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        val isSelected = tabNode.config.contains(SemanticsProperties.Selected) &&
+            tabNode.config[SemanticsProperties.Selected] == true
+        if (!isSelected) {
+            composeTestRule.onNodeWithTag("spriteTabAnim", useUnmergedTree = true).performClick()
+            composeTestRule.waitForIdle()
+        }
+    }
+
+    private fun runBlockingIo(block: suspend () -> Unit) {
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                block()
+            }
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun accessSettingsDataStore(context: Context): DataStore<Preferences> {
+        val settingsClass = Class.forName(
+            "io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferencesKt"
+        )
+        val getter = settingsClass.getDeclaredMethod("getDataStore", Context::class.java)
+        getter.isAccessible = true
+        return getter.invoke(null, context) as DataStore<Preferences>
+    }
+
+    private fun recreateToSpriteSettings() {
+        composeTestRule.recreateAndAwaitTag("spriteTabAnim")
+    }
+
+    private fun hasNodeWithTag(tag: String): Boolean {
+        val unmergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag, useUnmergedTree = true).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        if (unmergedCount > 0) {
+            return true
+        }
+        val mergedCount = runCatching {
+            composeTestRule.onAllNodesWithTag(tag).fetchSemanticsNodes().size
+        }.getOrDefault(0)
+        return mergedCount > 0
+    }
+
+    private fun buildTalkLongPerStateJson(intervalMs: Int, frames: List<Int>): String {
+        val baseObject = JSONObject()
+            .put("frames", JSONArray(frames))
+            .put("intervalMs", intervalMs)
+        val insertionObject = JSONObject()
+            .put("enabled", false)
+            .put("patterns", JSONArray())
+            .put("intervalMs", 130)
+            .put("everyNLoops", 1)
+            .put("probabilityPercent", 50)
+            .put("cooldownLoops", 0)
+            .put("exclusive", false)
+        val metaObject = JSONObject()
+            .put("defaultVersion", 4)
+            .put("userModified", true)
+        return JSONObject()
+            .put("animationKey", "TalkLong")
+            .put("base", baseObject)
+            .put("insertion", insertionObject)
+            // V4対応の meta を付与して既定上書きを回避する。
+            .put("meta", metaObject)
+            .toString()
+    }
+
+}

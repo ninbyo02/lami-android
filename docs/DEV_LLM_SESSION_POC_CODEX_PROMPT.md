@@ -30,7 +30,7 @@
 ```bash
 rg -n "LlmInferenceSession|createFromOptions|addQueryChunk|generateResponseAsync|DEV" app/src/main
 rg -n "tryCreateLlmInferenceSessionViaReflectionForDev|tryCallLlmInferenceSessionGenerateResponseAsyncForDev" app/src/main
-nl -ba app/src/main/java/com/sonusid/ollama/ui/screens/home/ChatScreen.kt | sed -n '2520,2960p'
+nl -ba app/src/main/java/io/github/ninbyo02/lami/ui/screens/home/ChatScreen.kt | sed -n '2520,2960p'
 ```
 
 ## 3. 実装方針

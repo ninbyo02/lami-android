@@ -11,11 +11,11 @@ plugins {
 fun gitShaShort(): String {
     val stdout = ByteArrayOutputStream()
     return try {
-        exec {
+        val result = providers.exec {
             commandLine("git", "rev-parse", "--short=7", "HEAD")
-            standardOutput = stdout
             isIgnoreExitValue = true
         }
+        stdout.write(result.standardOutput.asBytes.get())
         stdout.toString().trim().takeIf { it.isNotBlank() } ?: ""
     } catch (e: Exception) {
         // .git がない配布物などで取得できない場合に備えて空文字にする
@@ -35,11 +35,11 @@ fun resolveBuildPrNumber(): String {
 
 android {
 
-    namespace = "com.sonusid.ollama"
+    namespace = "io.github.ninbyo02.lami"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.sonusid.ollama"
+        applicationId = "io.github.ninbyo02.lami"
         minSdk = 34
         targetSdk = 35
         versionCode = 1
@@ -66,9 +66,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -78,11 +75,17 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
+
 
 dependencies {
     //Variables
     val navVersion = "2.8.6"
-    val roomVersion = "2.6.1"
+    val roomVersion = "2.7.1"
     val markdown = "0.5.6"
 
     //Markdown
@@ -108,7 +111,7 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    implementation("com.google.mediapipe:tasks-genai:0.10.33")
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.10.0")
     
 
     //Generated
