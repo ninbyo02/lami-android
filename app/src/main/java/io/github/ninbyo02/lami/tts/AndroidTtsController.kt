@@ -76,7 +76,7 @@ class AndroidTtsController(context: Context) {
                 val pendingText = pendingSpeakText
                 pendingSpeakText = null
                 if (!pendingText.isNullOrEmpty()) {
-                    speakInternal(pendingText)
+                    speakInternal(pendingText, TextToSpeech.QUEUE_FLUSH)
                 }
             } else {
                 isReady = false
