@@ -91,20 +91,11 @@ class AndroidTtsController(context: Context) {
     }
 
     fun speak(text: String) {
-        val cleanedSpeechText = SpeechTextBuilder.build(text)
-        val finalSpeechText = TtsSummaryBuilder.build(
-            rawDisplayText = text,
-            speechText = cleanedSpeechText,
-            isError = false
-        ).trim()
-        if (finalSpeechText.isEmpty()) {
-            return
-        }
-        if (!isReady) {
-            pendingSpeakText = finalSpeechText
-            return
-        }
-        speakInternal(finalSpeechText)
+        speakWithQueueMode(text, TextToSpeech.QUEUE_FLUSH)
+    }
+
+    fun speakQueued(text: String) {
+        speakWithQueueMode(text, TextToSpeech.QUEUE_ADD)
     }
 
     fun speakReferencePhrase() {
@@ -136,11 +127,32 @@ class AndroidTtsController(context: Context) {
         currentPitch = pitch.coerceIn(MIN_PITCH, MAX_PITCH)
     }
 
-    private fun speakInternal(text: String) {
+    private fun speakWithQueueMode(text: String, queueMode: Int) {
+        val cleanedSpeechText = SpeechTextBuilder.build(text)
+        val finalSpeechText = TtsSummaryBuilder.build(
+            rawDisplayText = text,
+            speechText = cleanedSpeechText,
+            isError = false
+        ).trim()
+        if (finalSpeechText.isEmpty()) {
+            return
+        }
+        if (!isReady) {
+            pendingSpeakText = if (queueMode == TextToSpeech.QUEUE_ADD && !pendingSpeakText.isNullOrBlank()) {
+                "${pendingSpeakText.orEmpty()} $finalSpeechText".trim()
+            } else {
+                finalSpeechText
+            }
+            return
+        }
+        speakInternal(finalSpeechText, queueMode)
+    }
+
+    private fun speakInternal(text: String, queueMode: Int) {
         runCatching {
             tts?.setSpeechRate(currentSpeechRate)
             tts?.setPitch(currentPitch)
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
+            tts?.speak(text, queueMode, null, nextUtteranceId())
         }.onFailure {
             notifyPlaybackState(false)
         }

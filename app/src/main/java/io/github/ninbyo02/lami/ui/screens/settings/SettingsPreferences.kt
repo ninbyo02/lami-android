@@ -297,6 +297,7 @@ class SettingsPreferences(private val context: Context) {
     private val lastRouteKey = stringPreferencesKey("last_route")
     private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
     private val ttsPitchKey = floatPreferencesKey("tts_pitch")
+    private val devEnableStreamingSentenceTtsKey = booleanPreferencesKey("dev_enable_streaming_sentence_tts")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
     private val localBaseModelDisplayNameKey = stringPreferencesKey("local_base_model_display_name")
     private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
@@ -418,6 +419,10 @@ class SettingsPreferences(private val context: Context) {
     val ttsPitchFlow: Flow<Float> = context.dataStore.data.map { preferences ->
         (preferences[ttsPitchKey] ?: AndroidTtsController.DEFAULT_PITCH)
             .coerceIn(AndroidTtsController.MIN_PITCH, AndroidTtsController.MAX_PITCH)
+    }
+
+    val devEnableStreamingSentenceTtsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[devEnableStreamingSentenceTtsKey] ?: false
     }
 
     val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -1143,6 +1148,12 @@ class SettingsPreferences(private val context: Context) {
                 AndroidTtsController.MIN_PITCH,
                 AndroidTtsController.MAX_PITCH,
             )
+        }
+    }
+
+    suspend fun setDevEnableStreamingSentenceTts(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[devEnableStreamingSentenceTtsKey] = value
         }
     }
 

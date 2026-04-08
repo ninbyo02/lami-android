@@ -414,6 +414,9 @@ fun Home(
     val savedChatLamiAvatarSizeDp by settingsPreferences.chatLamiAvatarSizeDpFlow.collectAsState(
         initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP,
     )
+    val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
+        initial = false,
+    )
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     val isTtsSpeaking by ttsController.isSpeaking.collectAsState()
@@ -554,6 +557,9 @@ fun Home(
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
+    var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
+    var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
+    var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -572,6 +578,58 @@ fun Home(
         }
     }
 
+    fun resetStreamingSpeechState() {
+        streamingSpeechBuffer = ""
+        streamingSpeechLastConsumedLength = 0
+        streamingSpeechStartedForMessageId = null
+    }
+
+    fun normalizeStreamingSpeakText(rawText: String): String {
+        val trimmed = rawText.trim()
+        if (trimmed.length < 2) return ""
+        if (trimmed.all { it == '`' || it.isWhitespace() }) return ""
+        return trimmed
+    }
+
+    fun consumeStreamingSentenceAndSpeak(fullText: String) {
+        if (fullText.length < streamingSpeechLastConsumedLength) {
+            streamingSpeechLastConsumedLength = 0
+        }
+        streamingSpeechBuffer = fullText
+        if (streamingSpeechLastConsumedLength >= fullText.length) return
+        val remaining = fullText.substring(streamingSpeechLastConsumedLength)
+        val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
+        if (sentenceBreakIndex < 0) return
+        val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
+        val normalized = normalizeStreamingSpeakText(speakTarget)
+        if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
+            ttsController.speakQueued(normalized)
+        }
+        streamingSpeechLastConsumedLength += sentenceBreakIndex + 1
+    }
+
+    fun speakStreamingTailIfNeeded(fullText: String) {
+        val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
+        val remaining = fullText.substring(safeConsumed)
+        val normalized = normalizeStreamingSpeakText(remaining)
+        if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
+            ttsController.speakQueued(normalized)
+        }
+    }
+
+    LaunchedEffect(devEnableStreamingSentenceTts, isInferenceRunningUi, streamingResponseText) {
+        if (!devEnableStreamingSentenceTts || !isInferenceRunningUi) return@LaunchedEffect
+        val fullText = streamingResponseText ?: return@LaunchedEffect
+        if (fullText.isBlank()) return@LaunchedEffect
+        consumeStreamingSentenceAndSpeak(fullText)
+    }
+
+    LaunchedEffect(devEnableStreamingSentenceTts) {
+        if (!devEnableStreamingSentenceTts) {
+            resetStreamingSpeechState()
+        }
+    }
+
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
@@ -582,11 +640,13 @@ fun Home(
         onDispose {
             viewModel.stopTtsPlayback()
             currentSpeakingAssistantMessageId = null
+            resetStreamingSpeechState()
             ttsController.shutdown()
         }
     }
 
     LaunchedEffect(chatId) {
+        resetStreamingSpeechState()
         if (chatId != null) {
             suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
@@ -674,14 +734,19 @@ fun Home(
                         val insertedAssistantId =
                             viewModel.insertAssistantMessageAndReturnId(assistantMessage).toInt()
                         currentSpeakingAssistantMessageId = insertedAssistantId
+                        streamingSpeechStartedForMessageId = insertedAssistantId
                     }
-                    if (!ttsController.isInCooldown()) {
+                    if (devEnableStreamingSentenceTts) {
+                        speakStreamingTailIfNeeded(response)
+                        resetStreamingSpeechState()
+                    } else if (!ttsController.isInCooldown()) {
                         ttsController.speak(response)
                     }
                     placeholder = "Enter your prompt..."
                     pendingAssistantImageInputCount = null
                     toggle = false
                     remoteRequestJob = null
+                    resetStreamingSpeechState()
                     viewModel.resetUiState()
                 }
 
@@ -706,6 +771,7 @@ fun Home(
                     pendingAssistantImageInputCount = null
                     toggle = false
                     remoteRequestJob = null
+                    resetStreamingSpeechState()
                     viewModel.resetUiState()
                 }
 
@@ -715,6 +781,7 @@ fun Home(
                         pendingAssistantImageInputCount = null
                         toggle = false
                         remoteRequestJob = null
+                        resetStreamingSpeechState()
                         viewModel.resetUiState()
                     }
                 }
@@ -1245,6 +1312,8 @@ fun Home(
                                                     isLocalInferenceRunning = false
                                                     ttsController.stop()
                                                     viewModel.stopTtsPlayback()
+                                                    resetStreamingSpeechState()
+                                                    currentSpeakingAssistantMessageId = null
                                                     return@IconButton
                                                 }
                                                 if (isServerRunningRaw) {
@@ -1255,6 +1324,10 @@ fun Home(
                                                     pendingAssistantImageInputCount = null
                                                     placeholder = "Enter your prompt..."
                                                     toggle = false
+                                                    ttsController.stop()
+                                                    viewModel.stopTtsPlayback()
+                                                    resetStreamingSpeechState()
+                                                    currentSpeakingAssistantMessageId = null
                                                     viewModel.resetUiState()
                                                     return@IconButton
                                                 }
@@ -1282,6 +1355,7 @@ fun Home(
                                                             placeholder = "I'm thinking ... "
                                                             toggle = true
                                                         }
+                                                        resetStreamingSpeechState()
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         prompt = requestPrompt
@@ -1365,6 +1439,7 @@ fun Home(
                                                             selectedImageUriStrings = emptyList()
                                                             ttsController.stop()
                                                             viewModel.stopTtsPlayback()
+                                                            resetStreamingSpeechState()
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             localStreamingResponseText = null
                                                             didReceiveRealLocalPartial = false
@@ -1520,6 +1595,7 @@ fun Home(
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
                                                                         localStreamingResponseText = null
+                                                                        resetStreamingSpeechState()
                                                                         return@launch
                                                                     }
                                                                     if (!didReceiveRealLocalPartial) {
@@ -1543,6 +1619,7 @@ fun Home(
                                                                     if (localStopRequested) {
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         localStreamingResponseText = null
+                                                                        resetStreamingSpeechState()
                                                                         return@launch
                                                                     }
                                                                     val assistantMessage = createAssistantMessage(
@@ -1555,7 +1632,11 @@ fun Home(
                                                                     val insertedAssistantId =
                                                                         viewModel.insertAssistantMessageAndReturnId(assistantMessage).toInt()
                                                                     currentSpeakingAssistantMessageId = insertedAssistantId
-                                                                    if (!localStopRequested && !ttsController.isInCooldown()) {
+                                                                    streamingSpeechStartedForMessageId = insertedAssistantId
+                                                                    if (devEnableStreamingSentenceTts && !localStopRequested) {
+                                                                        speakStreamingTailIfNeeded(resolvedAssistantResponse)
+                                                                        resetStreamingSpeechState()
+                                                                    } else if (!localStopRequested && !ttsController.isInCooldown()) {
                                                                         ttsController.speak(resolvedAssistantResponse)
                                                                     }
                                                                     localStreamingResponseText = null
@@ -1585,6 +1666,7 @@ fun Home(
                                                             dismissJob.cancel()
                                                         } catch (exception: Exception) {
                                                             localStreamingResponseText = null
+                                                            resetStreamingSpeechState()
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
@@ -1600,6 +1682,7 @@ fun Home(
                                                             )
                                                         } finally {
                                                             localStreamingResponseText = null
+                                                            resetStreamingSpeechState()
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
