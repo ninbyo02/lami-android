@@ -1480,7 +1480,7 @@ fun Home(
                                                                     } else {
                                                                         null
                                                                     }
-                                                                    val localSourceSummary =
+                                                                    val rawSourceSummary =
                                                                         if (resolvedTrace != null && localStats != null) {
                                                                             buildLocalSourceSummaryText(
                                                                                 trace = resolvedTrace,
@@ -1488,6 +1488,12 @@ fun Home(
                                                                             )
                                                                         } else {
                                                                             null
+                                                                        }
+                                                                    val localSourceSummary =
+                                                                        if (resolvedTrace?.officialFlowUsed == true) {
+                                                                            "official-flow"
+                                                                        } else {
+                                                                            rawSourceSummary
                                                                         }
                                                                     Log.i(
                                                                         "ChatScreen",
