@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.data.SpriteSheetConfig
 import io.github.ninbyo02.lami.data.normalize
+import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -299,6 +300,7 @@ class SettingsPreferences(private val context: Context) {
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
     private val localBaseModelDisplayNameKey = stringPreferencesKey("local_base_model_display_name")
     private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
+    private val inferenceTargetKey = stringPreferencesKey("inference_target")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -429,6 +431,13 @@ class SettingsPreferences(private val context: Context) {
 
     val localBaseModelFilePathFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[localBaseModelFilePathKey]
+    }
+
+    val inferenceTargetFlow: Flow<InferenceTarget> = context.dataStore.data.map { preferences ->
+        val stored = preferences[inferenceTargetKey]
+        runCatching {
+            InferenceTarget.valueOf(stored.orEmpty())
+        }.getOrDefault(InferenceTarget.LOCAL)
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -632,6 +641,12 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences.remove(localBaseModelDisplayNameKey)
             preferences.remove(localBaseModelFilePathKey)
+        }
+    }
+
+    suspend fun saveInferenceTarget(target: InferenceTarget) {
+        context.dataStore.edit { preferences ->
+            preferences[inferenceTargetKey] = target.name
         }
     }
 

@@ -418,10 +418,14 @@ fun Home(
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     var selectedImageUriStrings by rememberSaveable { mutableStateOf<List<String>>(emptyList()) }
     var pendingAssistantImageInputCount by rememberSaveable { mutableStateOf<Int?>(null) }
-    var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.SERVER) }
+    val savedInferenceTarget by settingsPreferences.inferenceTargetFlow.collectAsState(initial = InferenceTarget.LOCAL)
+    var selectedInferenceTarget by rememberSaveable { mutableStateOf(InferenceTarget.LOCAL) }
     var isLocalInferenceRunning by rememberSaveable { mutableStateOf(false) }
     val localBaseModelFilePath by settingsPreferences.localBaseModelFilePathFlow.collectAsState(initial = null)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
+    LaunchedEffect(savedInferenceTarget) {
+        selectedInferenceTarget = savedInferenceTarget
+    }
     var localInferenceEngineState by rememberSaveable {
         mutableStateOf(LocalInferenceEngineState.UNINITIALIZED)
     }
@@ -968,6 +972,9 @@ fun Home(
                             selectedInferenceTarget = selectedInferenceTarget,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
+                                coroutineScope.launch {
+                                    settingsPreferences.saveInferenceTarget(target)
+                                }
                             },
                             localInferenceEngineState = localInferenceEngineState,
                             debugOverlayEnabled = false,
@@ -993,6 +1000,9 @@ fun Home(
                             localBaseModelDisplayName = localBaseModelDisplayName,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
+                                coroutineScope.launch {
+                                    settingsPreferences.saveInferenceTarget(target)
+                                }
                             },
                             localInferenceEngineState = localInferenceEngineState,
                             debugOverlayEnabled = false,
