@@ -990,6 +990,7 @@ fun Home(
                         },
                             onNavigateSettings = { navHostController.navigate(Routes.SETTINGS) },
                             selectedInferenceTarget = selectedInferenceTarget,
+                            localBaseModelDisplayName = localBaseModelDisplayName,
                             onSelectInferenceTarget = { target ->
                                 selectedInferenceTarget = target
                             },
