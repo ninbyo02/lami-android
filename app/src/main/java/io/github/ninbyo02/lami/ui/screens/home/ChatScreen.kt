@@ -217,7 +217,6 @@ private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
-private const val STREAMING_ASSISTANT_MESSAGE_ID = 0
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -612,7 +611,7 @@ fun Home(
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
         val normalized = normalizeStreamingSpeakText(speakTarget)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
-            currentSpeakingAssistantMessageId = STREAMING_ASSISTANT_MESSAGE_ID
+            currentSpeakingAssistantMessageId = streamingSpeechStartedForMessageId
             isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
         }
@@ -624,7 +623,7 @@ fun Home(
         val remaining = fullText.substring(safeConsumed)
         val normalized = normalizeStreamingSpeakText(remaining)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
-            currentSpeakingAssistantMessageId = STREAMING_ASSISTANT_MESSAGE_ID
+            currentSpeakingAssistantMessageId = streamingSpeechStartedForMessageId
             isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
         }
