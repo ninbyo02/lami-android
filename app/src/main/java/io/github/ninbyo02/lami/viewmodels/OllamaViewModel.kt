@@ -158,6 +158,15 @@ class OllamaViewModel(
         }
     }
 
+    suspend fun insertAssistantMessageAndReturnId(message: Message): Long {
+        return if (message.isSendbyMe) {
+            chatRepository.insert(message)
+            message.messageID.toLong()
+        } else {
+            chatRepository.insertAssistantMessageAndAutoTitleAndReturnId(message)
+        }
+    }
+
     fun insertChat(chat: Chat) {
         viewModelScope.launch {
             insertChatAndReturnId(chat)
