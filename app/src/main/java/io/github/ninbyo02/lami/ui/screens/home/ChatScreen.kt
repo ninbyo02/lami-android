@@ -566,6 +566,8 @@ fun Home(
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var isStreamingSentencePlaybackActive by remember(effectiveChatId) { mutableStateOf(false) }
     var pendingStopButtonOwnerClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var suppressReplayAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var pendingReplaySuppressClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -820,6 +822,9 @@ fun Home(
             viewModel.stopTtsPlayback()
             pendingStopButtonOwnerClearJob?.cancel()
             pendingStopButtonOwnerClearJob = null
+            pendingReplaySuppressClearJob?.cancel()
+            pendingReplaySuppressClearJob = null
+            suppressReplayAssistantMessageId = null
             currentSpeakingAssistantMessageId = null
             stopButtonOwnerAssistantMessageId = null
             resetStreamingSpeechState()
@@ -830,6 +835,9 @@ fun Home(
     LaunchedEffect(chatId) {
         pendingStopButtonOwnerClearJob?.cancel()
         pendingStopButtonOwnerClearJob = null
+        pendingReplaySuppressClearJob?.cancel()
+        pendingReplaySuppressClearJob = null
+        suppressReplayAssistantMessageId = null
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
         resetStreamingSpeechState()
@@ -2376,17 +2384,30 @@ fun Home(
                                                 showMessageActions = true,
                                                 isReplaying = stopButtonOwnerAssistantMessageId == message.messageID,
                                                 onReplayClick = {
+                                                    if (suppressReplayAssistantMessageId == message.messageID) {
+                                                        return@PlainAssistantMessage
+                                                    }
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
+                                                    pendingReplaySuppressClearJob?.cancel()
+                                                    suppressReplayAssistantMessageId = message.messageID
+
                                                     ttsController.stop()
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
                                                     stopButtonOwnerAssistantMessageId = null
+
+                                                    pendingReplaySuppressClearJob = coroutineScope.launch {
+                                                        delay(300)
+                                                        if (suppressReplayAssistantMessageId == message.messageID) {
+                                                            suppressReplayAssistantMessageId = null
+                                                        }
+                                                    }
                                                 },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
