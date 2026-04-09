@@ -568,6 +568,7 @@ fun Home(
     var pendingStopButtonOwnerClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var suppressReplayAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var pendingReplaySuppressClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var isTtsStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -747,6 +748,7 @@ fun Home(
     }
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
+        if (isTtsStopRequested) return
         if (fullText.length < streamingSpeechLastConsumedLength) {
             streamingSpeechLastConsumedLength = 0
         }
@@ -769,6 +771,7 @@ fun Home(
     }
 
     fun speakStreamingTailIfNeeded(fullText: String) {
+        if (isTtsStopRequested) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
         val remaining = fullText.substring(safeConsumed)
         val normalized = normalizeStreamingSpeakText(remaining)
@@ -936,7 +939,7 @@ fun Home(
                     if (devEnableStreamingSentenceTts) {
                         speakStreamingTailIfNeeded(response)
                         resetStreamingSpeechState(clearPlaybackFlag = false)
-                    } else if (!ttsController.isInCooldown()) {
+                    } else if (!isTtsStopRequested && !ttsController.isInCooldown()) {
                         ttsController.speak(response)
                     }
                     placeholder = "Enter your prompt..."
@@ -1522,6 +1525,7 @@ fun Home(
                                                     didReceiveRealLocalPartial = false
                                                     realLocalPartialChunkCount = 0
                                                     isLocalInferenceRunning = false
+                                                    isTtsStopRequested = true
                                                     ttsController.stop()
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
@@ -1538,6 +1542,7 @@ fun Home(
                                                     pendingAssistantImageInputCount = null
                                                     placeholder = "Enter your prompt..."
                                                     toggle = false
+                                                    isTtsStopRequested = true
                                                     ttsController.stop()
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
@@ -1572,6 +1577,7 @@ fun Home(
                                                             toggle = true
                                                         }
                                                         resetStreamingSpeechState()
+                                                        isTtsStopRequested = true
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         currentSpeakingAssistantMessageId = null
@@ -1655,6 +1661,7 @@ fun Home(
                                                             prompt = ""
                                                             userPrompt = ""
                                                             selectedImageUriStrings = emptyList()
+                                                            isTtsStopRequested = true
                                                             ttsController.stop()
                                                             viewModel.stopTtsPlayback()
                                                             resetStreamingSpeechState()
@@ -1875,7 +1882,7 @@ fun Home(
                                                                     if (devEnableStreamingSentenceTts && !localStopRequested) {
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
-                                                                    } else if (!localStopRequested && !ttsController.isInCooldown()) {
+                                                                    } else if (!localStopRequested && !isTtsStopRequested && !ttsController.isInCooldown()) {
                                                                         ttsController.speak(resolvedAssistantResponse)
                                                                     }
                                                                     localStreamingResponseText = null
@@ -2388,14 +2395,18 @@ fun Home(
                                                         return@PlainAssistantMessage
                                                     }
                                                     isStreamingSentencePlaybackActive = false
+                                                    isTtsStopRequested = false
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
-                                                    ttsController.speak(message.message)
+                                                    if (!isTtsStopRequested) {
+                                                        ttsController.speak(message.message)
+                                                    }
                                                 },
                                                 onStopReplayClick = {
                                                     pendingReplaySuppressClearJob?.cancel()
                                                     suppressReplayAssistantMessageId = message.messageID
 
+                                                    isTtsStopRequested = true
                                                     ttsController.stop()
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
