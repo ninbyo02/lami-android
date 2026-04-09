@@ -168,10 +168,12 @@ import io.github.ninbyo02.lami.viewmodels.LamiState
 import io.github.ninbyo02.lami.viewmodels.LamiStatus
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
@@ -570,6 +572,7 @@ fun Home(
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
         if (!BuildConfig.DEBUG || !isLocalInferenceRunning) return@LaunchedEffect
@@ -643,11 +646,10 @@ fun Home(
         return existingId
     }
 
-    LaunchedEffect(effectiveChatId, isInferenceRunningUi, streamingResponseText) {
-        if (!isInferenceRunningUi) return@LaunchedEffect
-        val currentChatId = effectiveChatId ?: return@LaunchedEffect
-        val partialText = streamingResponseText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
-        upsertStreamingAssistantPlaceholder(chatId = currentChatId, response = partialText)
+    suspend fun upsertStreamingAssistantPlaceholderSerialized(chatId: Int, response: String): Int? {
+        return streamingAssistantPersistMutex.withLock {
+            upsertStreamingAssistantPlaceholder(chatId = chatId, response = response)
+        }
     }
 
     suspend fun finalizeStreamingAssistantMessage(
@@ -705,6 +707,26 @@ fun Home(
         lastPersistedStreamingAssistantText = normalizedResponse
         logStreamTrace("STREAM final update id=$existingId")
         return existingId
+    }
+
+    suspend fun finalizeStreamingAssistantMessageSerialized(
+        chatId: Int,
+        response: String,
+        latestInferenceStats: InferenceStats? = null,
+        localSourceSummary: String? = null,
+        imageInputCount: Int? = null,
+        generationTimeMs: Long? = null,
+    ): Int? {
+        return streamingAssistantPersistMutex.withLock {
+            finalizeStreamingAssistantMessage(
+                chatId = chatId,
+                response = response,
+                latestInferenceStats = latestInferenceStats,
+                localSourceSummary = localSourceSummary,
+                imageInputCount = imageInputCount,
+                generationTimeMs = generationTimeMs,
+            )
+        }
     }
 
     fun normalizeStreamingSpeakText(rawText: String): String {
@@ -859,7 +881,7 @@ fun Home(
                     }
                     val response = (uiState as UiState.Success).outputText
                     if (currentChatId != null) {
-                        val assistantId = finalizeStreamingAssistantMessage(
+                        val assistantId = finalizeStreamingAssistantMessageSerialized(
                             chatId = currentChatId,
                             response = response,
                             latestInferenceStats = latestInferenceStats,
@@ -896,7 +918,7 @@ fun Home(
                         return@LaunchedEffect
                     }
                     if (currentChatId != null) {
-                        val assistantId = finalizeStreamingAssistantMessage(
+                        val assistantId = finalizeStreamingAssistantMessageSerialized(
                             chatId = currentChatId,
                             response = (uiState as UiState.Error).errorMessage,
                         )
@@ -923,6 +945,14 @@ fun Home(
                         resetStreamingSpeechState()
                         resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
+                    } else {
+                        val partialText = (uiState as UiState.Streaming).partialText.trim()
+                        if (currentChatId != null && partialText.isNotBlank()) {
+                            upsertStreamingAssistantPlaceholderSerialized(
+                                chatId = currentChatId,
+                                response = partialText,
+                            )
+                        }
                     }
                 }
                 else -> Unit
@@ -1498,7 +1528,6 @@ fun Home(
                                                             toggle = true
                                                         }
                                                         resetStreamingSpeechState()
-                                                        resetStreamingAssistantPlaceholderId(reason = "remote-start")
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         prompt = requestPrompt
@@ -1551,7 +1580,6 @@ fun Home(
                                                         didReceiveRealLocalPartial = false
                                                         realLocalPartialChunkCount = 0
                                                         localStreamingResponseText = null
-                                                        resetStreamingAssistantPlaceholderId(reason = "local-start")
                                                         isLocalInferenceRunning = true
                                                         try {
                                                             val currentChatId = effectiveChatId
@@ -1607,6 +1635,13 @@ fun Home(
                                                                     didReceiveRealLocalPartial = true
                                                                     realLocalPartialChunkCount += 1
                                                                     localStreamingResponseText = normalizedPartial
+                                                                    coroutineScope.launch {
+                                                                        if (localStopRequested) return@launch
+                                                                        upsertStreamingAssistantPlaceholderSerialized(
+                                                                            chatId = currentChatId,
+                                                                            response = normalizedPartial,
+                                                                        )
+                                                                    }
                                                                 },
                                                             )
                                                             localInferenceEngineState = runResult?.state
@@ -1753,6 +1788,15 @@ fun Home(
                                                                             onChunk = { chunk ->
                                                                                 if (localStopRequested) return@streamLocalAssistantPreviewTextToUi
                                                                                 localStreamingResponseText = chunk
+                                                                                val normalizedChunk = chunk.trim()
+                                                                                if (normalizedChunk.isBlank()) return@streamLocalAssistantPreviewTextToUi
+                                                                                coroutineScope.launch {
+                                                                                    if (localStopRequested) return@launch
+                                                                                    upsertStreamingAssistantPlaceholderSerialized(
+                                                                                        chatId = currentChatId,
+                                                                                        response = normalizedChunk,
+                                                                                    )
+                                                                                }
                                                                             },
                                                                         )
                                                                     } else {
@@ -1768,7 +1812,7 @@ fun Home(
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
                                                                     }
-                                                                    val assistantId = finalizeStreamingAssistantMessage(
+                                                                    val assistantId = finalizeStreamingAssistantMessageSerialized(
                                                                         chatId = currentChatId,
                                                                         response = resolvedAssistantResponse,
                                                                         latestInferenceStats = localStats,
