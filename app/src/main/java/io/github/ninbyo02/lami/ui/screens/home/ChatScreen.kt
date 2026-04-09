@@ -560,10 +560,12 @@ fun Home(
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
+    var stopButtonOwnerAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
     var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var isStreamingSentencePlaybackActive by remember(effectiveChatId) { mutableStateOf(false) }
+    var pendingStopButtonOwnerClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -626,6 +628,7 @@ fun Home(
             lastPersistedStreamingAssistantText = normalizedResponse
             streamingSpeechStartedForMessageId = insertedId
             currentSpeakingAssistantMessageId = insertedId
+            stopButtonOwnerAssistantMessageId = insertedId
             logStreamTrace("STREAM placeholder insert id=$insertedId")
             return insertedId
         }
@@ -642,6 +645,7 @@ fun Home(
         lastPersistedStreamingAssistantText = normalizedResponse
         streamingSpeechStartedForMessageId = existingId
         currentSpeakingAssistantMessageId = existingId
+        stopButtonOwnerAssistantMessageId = existingId
         logStreamTrace("STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
         return existingId
     }
@@ -752,7 +756,10 @@ fun Home(
         val speakTarget = remaining.substring(0, sentenceBreakIndex + 1)
         val normalized = normalizeStreamingSpeakText(speakTarget)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
-            currentSpeakingAssistantMessageId = streamingSpeechStartedForMessageId
+            streamingSpeechStartedForMessageId?.let { messageId ->
+                currentSpeakingAssistantMessageId = messageId
+                stopButtonOwnerAssistantMessageId = messageId
+            }
             isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
         }
@@ -764,7 +771,10 @@ fun Home(
         val remaining = fullText.substring(safeConsumed)
         val normalized = normalizeStreamingSpeakText(remaining)
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
-            currentSpeakingAssistantMessageId = streamingSpeechStartedForMessageId
+            streamingSpeechStartedForMessageId?.let { messageId ->
+                currentSpeakingAssistantMessageId = messageId
+                stopButtonOwnerAssistantMessageId = messageId
+            }
             isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
         }
@@ -786,20 +796,42 @@ fun Home(
     DisposableEffect(ttsController) {
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
-            if (!isPlaying && !(isStreamingSentencePlaybackActive && isInferenceRunningUi)) {
-                isStreamingSentencePlaybackActive = false
+            if (isPlaying) {
+                pendingStopButtonOwnerClearJob?.cancel()
+                pendingStopButtonOwnerClearJob = null
+                return@setOnPlaybackStateChanged
+            }
+            if (!isPlaying) {
                 currentSpeakingAssistantMessageId = null
+                if (isStreamingSentencePlaybackActive && isInferenceRunningUi) {
+                    return@setOnPlaybackStateChanged
+                }
+                pendingStopButtonOwnerClearJob?.cancel()
+                pendingStopButtonOwnerClearJob = coroutineScope.launch {
+                    delay(220)
+                    if (!isTtsSpeaking && !isInferenceRunningUi) {
+                        isStreamingSentencePlaybackActive = false
+                        stopButtonOwnerAssistantMessageId = null
+                    }
+                }
             }
         }
         onDispose {
             viewModel.stopTtsPlayback()
+            pendingStopButtonOwnerClearJob?.cancel()
+            pendingStopButtonOwnerClearJob = null
             currentSpeakingAssistantMessageId = null
+            stopButtonOwnerAssistantMessageId = null
             resetStreamingSpeechState()
             ttsController.shutdown()
         }
     }
 
     LaunchedEffect(chatId) {
+        pendingStopButtonOwnerClearJob?.cancel()
+        pendingStopButtonOwnerClearJob = null
+        currentSpeakingAssistantMessageId = null
+        stopButtonOwnerAssistantMessageId = null
         resetStreamingSpeechState()
         resetStreamingAssistantPlaceholderId(reason = "chat-change")
         if (chatId != null) {
@@ -890,6 +922,7 @@ fun Home(
                         if (assistantId != null) {
                             currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
+                            stopButtonOwnerAssistantMessageId = assistantId
                         }
                     }
                     if (devEnableStreamingSentenceTts) {
@@ -925,6 +958,7 @@ fun Home(
                         if (assistantId != null) {
                             currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
+                            stopButtonOwnerAssistantMessageId = assistantId
                         }
                     }
                     placeholder = "Enter your prompt..."
@@ -1484,6 +1518,7 @@ fun Home(
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
+                                                    stopButtonOwnerAssistantMessageId = null
                                                     resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     return@IconButton
                                                 }
@@ -1499,6 +1534,7 @@ fun Home(
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
+                                                    stopButtonOwnerAssistantMessageId = null
                                                     resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     viewModel.resetUiState()
                                                     return@IconButton
@@ -1530,6 +1566,8 @@ fun Home(
                                                         resetStreamingSpeechState()
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
+                                                        currentSpeakingAssistantMessageId = null
+                                                        stopButtonOwnerAssistantMessageId = null
                                                         prompt = requestPrompt
                                                         remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
@@ -1612,6 +1650,8 @@ fun Home(
                                                             ttsController.stop()
                                                             viewModel.stopTtsPlayback()
                                                             resetStreamingSpeechState()
+                                                            currentSpeakingAssistantMessageId = null
+                                                            stopButtonOwnerAssistantMessageId = null
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             localStreamingResponseText = null
                                                             didReceiveRealLocalPartial = false
@@ -1822,6 +1862,7 @@ fun Home(
                                                                     if (assistantId != null) {
                                                                         currentSpeakingAssistantMessageId = assistantId
                                                                         streamingSpeechStartedForMessageId = assistantId
+                                                                        stopButtonOwnerAssistantMessageId = assistantId
                                                                     }
                                                                     if (devEnableStreamingSentenceTts && !localStopRequested) {
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
@@ -2333,17 +2374,19 @@ fun Home(
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
-                                                isReplaying = (isTtsSpeaking || isStreamingSentencePlaybackActive) &&
-                                                    currentSpeakingAssistantMessageId == message.messageID,
+                                                isReplaying = stopButtonOwnerAssistantMessageId == message.messageID,
                                                 onReplayClick = {
                                                     isStreamingSentencePlaybackActive = false
                                                     currentSpeakingAssistantMessageId = message.messageID
+                                                    stopButtonOwnerAssistantMessageId = message.messageID
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
                                                     ttsController.stop()
+                                                    viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
+                                                    stopButtonOwnerAssistantMessageId = null
                                                 },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
