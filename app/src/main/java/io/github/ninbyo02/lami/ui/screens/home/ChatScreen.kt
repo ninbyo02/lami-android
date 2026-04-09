@@ -868,18 +868,13 @@ fun Home(
                         return@LaunchedEffect
                     }
                     if (currentChatId != null) {
-                        if (streamingAssistantMessageId != null) {
-                            finalizeStreamingAssistantMessage(
-                                chatId = currentChatId,
-                                response = (uiState as UiState.Error).errorMessage,
-                            )
-                        } else {
-                            viewModel.insert(
-                                createAssistantMessage(
-                                    chatId = currentChatId,
-                                    response = (uiState as UiState.Error).errorMessage,
-                                )
-                            )
+                        val assistantId = finalizeStreamingAssistantMessage(
+                            chatId = currentChatId,
+                            response = (uiState as UiState.Error).errorMessage,
+                        )
+                        if (assistantId != null) {
+                            currentSpeakingAssistantMessageId = assistantId
+                            streamingSpeechStartedForMessageId = assistantId
                         }
                     }
                     placeholder = "Enter your prompt..."
