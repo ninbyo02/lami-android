@@ -593,7 +593,9 @@ fun Home(
     fun resetStreamingAssistantPlaceholderId(reason: String) {
         val previousId = streamingAssistantMessageId
         if (previousId != null) {
-            Log.i("ChatScreen", "STREAM reset placeholder id from $previousId to null reason=$reason")
+            val msg = "STREAM reset placeholder id from $previousId to null reason=$reason"
+            Log.i("ChatScreen", msg)
+            appendLocalReflectionTrace(context, msg)
         }
         streamingAssistantMessageId = null
         lastPersistedStreamingAssistantText = null
@@ -605,7 +607,9 @@ fun Home(
 
         val existingId = streamingAssistantMessageId
         if (existingId != null && lastPersistedStreamingAssistantText == normalizedResponse) {
-            Log.i("ChatScreen", "STREAM placeholder skip sameText")
+            val msg = "STREAM placeholder skip sameText"
+            Log.i("ChatScreen", msg)
+            appendLocalReflectionTrace(context, msg)
             return existingId
         }
         if (existingId == null) {
@@ -618,14 +622,18 @@ fun Home(
             lastPersistedStreamingAssistantText = normalizedResponse
             streamingSpeechStartedForMessageId = insertedId
             currentSpeakingAssistantMessageId = insertedId
-            Log.i("ChatScreen", "STREAM placeholder insert id=$insertedId")
+            val msg = "STREAM placeholder insert id=$insertedId"
+            Log.i("ChatScreen", msg)
+            appendLocalReflectionTrace(context, msg)
             return insertedId
         }
 
         val existingMessage = viewModel.getMessageById(existingId)
         if (existingMessage?.message == normalizedResponse) {
             lastPersistedStreamingAssistantText = normalizedResponse
-            Log.i("ChatScreen", "STREAM placeholder skip sameText")
+            val msg = "STREAM placeholder skip sameText"
+            Log.i("ChatScreen", msg)
+            appendLocalReflectionTrace(context, msg)
             return existingId
         }
         val updateTarget = existingMessage?.copy(message = normalizedResponse)
@@ -634,7 +642,9 @@ fun Home(
         lastPersistedStreamingAssistantText = normalizedResponse
         streamingSpeechStartedForMessageId = existingId
         currentSpeakingAssistantMessageId = existingId
-        Log.i("ChatScreen", "STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
+        val msg = "STREAM placeholder update id=$existingId len=${normalizedResponse.length}"
+        Log.i("ChatScreen", msg)
+        appendLocalReflectionTrace(context, msg)
         return existingId
     }
 
@@ -665,11 +675,15 @@ fun Home(
             generationTimeMs = generationTimeMs,
         )
         val existingId = streamingAssistantMessageId
-        Log.i("ChatScreen", "STREAM final path existingId=$existingId")
+        val msg = "STREAM final path existingId=$existingId"
+        Log.i("ChatScreen", msg)
+        appendLocalReflectionTrace(context, msg)
         if (existingId == null) {
             val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
             lastPersistedStreamingAssistantText = normalizedResponse
-            Log.i("ChatScreen", "STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
+            val msg = "STREAM final insert id=$insertedId fallbackNoPlaceholder=true"
+            Log.i("ChatScreen", msg)
+            appendLocalReflectionTrace(context, msg)
             return insertedId
         }
 
@@ -698,7 +712,9 @@ fun Home(
         }
         viewModel.updateMessage(updatedMessage)
         lastPersistedStreamingAssistantText = normalizedResponse
-        Log.i("ChatScreen", "STREAM final update id=$existingId")
+        val msg = "STREAM final update id=$existingId"
+        Log.i("ChatScreen", msg)
+        appendLocalReflectionTrace(context, msg)
         return existingId
     }
 
@@ -1977,7 +1993,9 @@ fun Home(
                     streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
-                    Log.i("ChatScreen", "STREAM ui transient row enabled")
+                    val msg = "STREAM ui transient row enabled"
+                    Log.i("ChatScreen", msg)
+                    appendLocalReflectionTrace(context, msg)
                     messagesForListBase + Message(
                         chatId = currentChatId,
                         message = streamingResponseText,
