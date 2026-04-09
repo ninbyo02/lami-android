@@ -569,6 +569,7 @@ fun Home(
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
+    var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(isLocalInferenceRunning, streamingResponseText) {
         if (!BuildConfig.DEBUG || !isLocalInferenceRunning) return@LaunchedEffect
@@ -595,6 +596,7 @@ fun Home(
             Log.i("ChatScreen", "STREAM reset placeholder id from $previousId to null reason=$reason")
         }
         streamingAssistantMessageId = null
+        lastPersistedStreamingAssistantText = null
     }
 
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
@@ -602,6 +604,10 @@ fun Home(
         if (normalizedResponse.isBlank()) return streamingAssistantMessageId
 
         val existingId = streamingAssistantMessageId
+        if (existingId != null && lastPersistedStreamingAssistantText == normalizedResponse) {
+            Log.i("ChatScreen", "STREAM placeholder skip sameText")
+            return existingId
+        }
         if (existingId == null) {
             val placeholderMessage = createAssistantMessage(
                 chatId = chatId,
@@ -609,22 +615,26 @@ fun Home(
             )
             val insertedId = viewModel.insertAssistantMessageAndReturnId(placeholderMessage).toInt()
             streamingAssistantMessageId = insertedId
+            lastPersistedStreamingAssistantText = normalizedResponse
             streamingSpeechStartedForMessageId = insertedId
             currentSpeakingAssistantMessageId = insertedId
-            Log.i("ChatScreen", "STREAM placeholder inserted id=$insertedId")
+            Log.i("ChatScreen", "STREAM placeholder insert id=$insertedId")
             return insertedId
         }
 
         val existingMessage = viewModel.getMessageById(existingId)
         if (existingMessage?.message == normalizedResponse) {
+            lastPersistedStreamingAssistantText = normalizedResponse
+            Log.i("ChatScreen", "STREAM placeholder skip sameText")
             return existingId
         }
         val updateTarget = existingMessage?.copy(message = normalizedResponse)
             ?: createAssistantMessage(chatId = chatId, response = normalizedResponse).copy(messageID = existingId)
         viewModel.updateMessage(updateTarget)
+        lastPersistedStreamingAssistantText = normalizedResponse
         streamingSpeechStartedForMessageId = existingId
         currentSpeakingAssistantMessageId = existingId
-        Log.i("ChatScreen", "STREAM placeholder updated id=$existingId len=${normalizedResponse.length}")
+        Log.i("ChatScreen", "STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
         return existingId
     }
 
@@ -644,7 +654,7 @@ fun Home(
         generationTimeMs: Long? = null,
     ): Int? {
         val normalizedResponse = response.trim()
-        if (normalizedResponse.isBlank()) return null
+        if (normalizedResponse.isBlank()) return streamingAssistantMessageId
 
         val finalPayload = createAssistantMessage(
             chatId = chatId,
@@ -655,9 +665,11 @@ fun Home(
             generationTimeMs = generationTimeMs,
         )
         val existingId = streamingAssistantMessageId
+        Log.i("ChatScreen", "STREAM final path existingId=$existingId")
         if (existingId == null) {
             val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
-            Log.i("ChatScreen", "STREAM final insert fallback id=$insertedId len=${normalizedResponse.length}")
+            lastPersistedStreamingAssistantText = normalizedResponse
+            Log.i("ChatScreen", "STREAM final insert id=$insertedId fallbackNoPlaceholder=true")
             return insertedId
         }
 
@@ -685,7 +697,8 @@ fun Home(
             finalPayload.copy(messageID = existingId)
         }
         viewModel.updateMessage(updatedMessage)
-        Log.i("ChatScreen", "STREAM final update id=$existingId len=${normalizedResponse.length}")
+        lastPersistedStreamingAssistantText = normalizedResponse
+        Log.i("ChatScreen", "STREAM final update id=$existingId")
         return existingId
     }
 
@@ -1964,21 +1977,20 @@ fun Home(
                     streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
+                    Log.i("ChatScreen", "STREAM ui transient row enabled")
                     messagesForListBase + Message(
                         chatId = currentChatId,
                         message = streamingResponseText,
                         isSendbyMe = false,
                     )
                 } else {
-                    messagesForListBase
-                }
-                LaunchedEffect(streamingAssistantMessageId, streamingResponseText) {
                     if (streamingAssistantMessageId != null && !streamingResponseText.isNullOrBlank()) {
                         Log.i(
                             "ChatScreen",
-                            "STREAM ui streaming bubble suppressed because placeholder exists id=$streamingAssistantMessageId",
+                            "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
                         )
                     }
+                    messagesForListBase
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
