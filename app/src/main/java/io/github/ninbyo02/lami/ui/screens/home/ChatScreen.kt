@@ -472,6 +472,7 @@ fun Home(
     var localInferenceJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRunningRaw = isLocalInferenceRunning
     val isServerRunning =
@@ -497,7 +498,7 @@ fun Home(
         isStopRequested -> "Ready"
         else -> null
     }
-    val showLocalRespondingAssistantRow = isLocalRunningUi
+    val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
     val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
@@ -557,7 +558,6 @@ fun Home(
     }
     var latestMessagePreviewByChatId by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var currentSpeakingAssistantMessageId by remember { mutableStateOf<Int?>(null) }
-    var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var streamingSpeechBuffer by remember(effectiveChatId) { mutableStateOf("") }
     var streamingSpeechLastConsumedLength by remember(effectiveChatId) { mutableStateOf(0) }
     var streamingSpeechStartedForMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
@@ -587,6 +587,14 @@ fun Home(
         if (clearPlaybackFlag) {
             isStreamingSentencePlaybackActive = false
         }
+    }
+
+    fun resetStreamingAssistantPlaceholderId(reason: String) {
+        val previousId = streamingAssistantMessageId
+        if (previousId != null) {
+            Log.i("ChatScreen", "STREAM reset placeholder id from $previousId to null reason=$reason")
+        }
+        streamingAssistantMessageId = null
     }
 
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
@@ -648,7 +656,9 @@ fun Home(
         )
         val existingId = streamingAssistantMessageId
         if (existingId == null) {
-            return viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
+            val insertedId = viewModel.insertAssistantMessageAndReturnId(finalPayload).toInt()
+            Log.i("ChatScreen", "STREAM final insert fallback id=$insertedId len=${normalizedResponse.length}")
+            return insertedId
         }
 
         val existingMessage = viewModel.getMessageById(existingId)
@@ -675,7 +685,7 @@ fun Home(
             finalPayload.copy(messageID = existingId)
         }
         viewModel.updateMessage(updatedMessage)
-        Log.i("ChatScreen", "STREAM final update id=$existingId")
+        Log.i("ChatScreen", "STREAM final update id=$existingId len=${normalizedResponse.length}")
         return existingId
     }
 
@@ -751,7 +761,7 @@ fun Home(
 
     LaunchedEffect(chatId) {
         resetStreamingSpeechState()
-        streamingAssistantMessageId = null
+        resetStreamingAssistantPlaceholderId(reason = "chat-change")
         if (chatId != null) {
             suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
@@ -825,7 +835,7 @@ fun Home(
                         pendingAssistantImageInputCount = null
                         toggle = false
                         remoteRequestJob = null
-                        streamingAssistantMessageId = null
+                        resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
                         return@LaunchedEffect
                     }
@@ -853,7 +863,7 @@ fun Home(
                     toggle = false
                     remoteRequestJob = null
                     resetStreamingSpeechState()
-                    streamingAssistantMessageId = null
+                    resetStreamingAssistantPlaceholderId(reason = "success")
                     viewModel.resetUiState()
                 }
 
@@ -863,7 +873,7 @@ fun Home(
                         pendingAssistantImageInputCount = null
                         toggle = false
                         remoteRequestJob = null
-                        streamingAssistantMessageId = null
+                        resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
                         return@LaunchedEffect
                     }
@@ -882,7 +892,7 @@ fun Home(
                     toggle = false
                     remoteRequestJob = null
                     resetStreamingSpeechState()
-                    streamingAssistantMessageId = null
+                    resetStreamingAssistantPlaceholderId(reason = "error")
                     viewModel.resetUiState()
                 }
 
@@ -893,7 +903,7 @@ fun Home(
                         toggle = false
                         remoteRequestJob = null
                         resetStreamingSpeechState()
-                        streamingAssistantMessageId = null
+                        resetStreamingAssistantPlaceholderId(reason = "stop")
                         viewModel.resetUiState()
                     }
                 }
@@ -1426,7 +1436,7 @@ fun Home(
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
-                                                    streamingAssistantMessageId = null
+                                                    resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     return@IconButton
                                                 }
                                                 if (isServerRunningRaw) {
@@ -1441,7 +1451,7 @@ fun Home(
                                                     viewModel.stopTtsPlayback()
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
-                                                    streamingAssistantMessageId = null
+                                                    resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     viewModel.resetUiState()
                                                     return@IconButton
                                                 }
@@ -1470,7 +1480,7 @@ fun Home(
                                                             toggle = true
                                                         }
                                                         resetStreamingSpeechState()
-                                                        streamingAssistantMessageId = null
+                                                        resetStreamingAssistantPlaceholderId(reason = "remote-start")
                                                         ttsController.stop()
                                                         viewModel.stopTtsPlayback()
                                                         prompt = requestPrompt
@@ -1523,7 +1533,7 @@ fun Home(
                                                         didReceiveRealLocalPartial = false
                                                         realLocalPartialChunkCount = 0
                                                         localStreamingResponseText = null
-                                                        streamingAssistantMessageId = null
+                                                        resetStreamingAssistantPlaceholderId(reason = "local-start")
                                                         isLocalInferenceRunning = true
                                                         try {
                                                             val currentChatId = effectiveChatId
@@ -1712,7 +1722,7 @@ fun Home(
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before stream")
                                                                         localStreamingResponseText = null
                                                                         resetStreamingSpeechState()
-                                                                        streamingAssistantMessageId = null
+                                                                        resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
                                                                     }
                                                                     if (!didReceiveRealLocalPartial) {
@@ -1737,7 +1747,7 @@ fun Home(
                                                                         Log.i("ChatScreen", "LOCAL stop requested: suppress assistant apply before insert")
                                                                         localStreamingResponseText = null
                                                                         resetStreamingSpeechState()
-                                                                        streamingAssistantMessageId = null
+                                                                        resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
                                                                     }
                                                                     val assistantId = finalizeStreamingAssistantMessage(
@@ -1758,11 +1768,11 @@ fun Home(
                                                                         ttsController.speak(resolvedAssistantResponse)
                                                                     }
                                                                     localStreamingResponseText = null
-                                                                    streamingAssistantMessageId = null
+                                                                    resetStreamingAssistantPlaceholderId(reason = "success")
                                                                     return@launch
                                                             }
                                                             localStreamingResponseText = null
-                                                            streamingAssistantMessageId = null
+                                                            resetStreamingAssistantPlaceholderId(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             Log.e(
                                                                 "ChatScreen",
@@ -1787,7 +1797,7 @@ fun Home(
                                                         } catch (exception: Exception) {
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
-                                                            streamingAssistantMessageId = null
+                                                            resetStreamingAssistantPlaceholderId(reason = "error")
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
@@ -1804,7 +1814,7 @@ fun Home(
                                                         } finally {
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
-                                                            streamingAssistantMessageId = null
+                                                            resetStreamingAssistantPlaceholderId(reason = "local-finish")
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
@@ -1951,6 +1961,7 @@ fun Home(
                 val messagesForListBase: List<Message> = allChatsOrNull
                 val messagesForList: List<Message> = if (
                     currentChatId != null &&
+                    streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
                     messagesForListBase + Message(
@@ -1960,6 +1971,14 @@ fun Home(
                     )
                 } else {
                     messagesForListBase
+                }
+                LaunchedEffect(streamingAssistantMessageId, streamingResponseText) {
+                    if (streamingAssistantMessageId != null && !streamingResponseText.isNullOrBlank()) {
+                        Log.i(
+                            "ChatScreen",
+                            "STREAM ui streaming bubble suppressed because placeholder exists id=$streamingAssistantMessageId",
+                        )
+                    }
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
                     if (!BuildConfig.DEBUG) return@LaunchedEffect
