@@ -606,6 +606,60 @@ fun Home(
         }
     }
 
+    fun stopTtsWithCleanup(
+        suppressedMessageId: Int?,
+        armTapGuards: Boolean,
+    ) {
+        suppressedTtsAssistantMessageId = suppressedMessageId
+
+        ttsController.stop()
+        viewModel.stopTtsPlayback()
+        resetStreamingSpeechState()
+        currentSpeakingAssistantMessageId = null
+        stopButtonOwnerAssistantMessageId = null
+
+        pendingStopUiCooldownClearJob?.cancel()
+        pendingStopUiCooldownClearJob = null
+        pendingReplaySuppressClearJob?.cancel()
+        pendingReplaySuppressClearJob = null
+
+        if (armTapGuards) {
+            ttsTapGuardEpoch += 1
+            val guardEpoch = ttsTapGuardEpoch
+
+            if (suppressedMessageId != null) {
+                stopUiCooldownAssistantMessageId = suppressedMessageId
+                suppressReplayAssistantMessageId = suppressedMessageId
+
+                pendingStopUiCooldownClearJob = coroutineScope.launch {
+                    delay(250)
+                    if (
+                        ttsTapGuardEpoch == guardEpoch &&
+                        stopUiCooldownAssistantMessageId == suppressedMessageId
+                    ) {
+                        stopUiCooldownAssistantMessageId = null
+                    }
+                }
+
+                pendingReplaySuppressClearJob = coroutineScope.launch {
+                    delay(300)
+                    if (
+                        ttsTapGuardEpoch == guardEpoch &&
+                        suppressReplayAssistantMessageId == suppressedMessageId
+                    ) {
+                        suppressReplayAssistantMessageId = null
+                    }
+                }
+            } else {
+                stopUiCooldownAssistantMessageId = null
+                suppressReplayAssistantMessageId = null
+            }
+        } else {
+            stopUiCooldownAssistantMessageId = null
+            suppressReplayAssistantMessageId = null
+        }
+    }
+
     fun resetStreamingAssistantPlaceholderId(reason: String) {
         val previousId = streamingAssistantMessageId
         if (previousId != null) {
@@ -1553,15 +1607,12 @@ fun Home(
                                                     didReceiveRealLocalPartial = false
                                                     realLocalPartialChunkCount = 0
                                                     isLocalInferenceRunning = false
-                                                    suppressedTtsAssistantMessageId =
-                                                        stopButtonOwnerAssistantMessageId
+                                                    stopTtsWithCleanup(
+                                                        suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                             ?: currentSpeakingAssistantMessageId
-                                                            ?: streamingSpeechStartedForMessageId
-                                                    ttsController.stop()
-                                                    viewModel.stopTtsPlayback()
-                                                    resetStreamingSpeechState()
-                                                    currentSpeakingAssistantMessageId = null
-                                                    stopButtonOwnerAssistantMessageId = null
+                                                            ?: streamingSpeechStartedForMessageId,
+                                                        armTapGuards = false,
+                                                    )
                                                     resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     return@IconButton
                                                 }
@@ -1573,15 +1624,12 @@ fun Home(
                                                     pendingAssistantImageInputCount = null
                                                     placeholder = "Enter your prompt..."
                                                     toggle = false
-                                                    suppressedTtsAssistantMessageId =
-                                                        stopButtonOwnerAssistantMessageId
+                                                    stopTtsWithCleanup(
+                                                        suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                             ?: currentSpeakingAssistantMessageId
-                                                            ?: streamingSpeechStartedForMessageId
-                                                    ttsController.stop()
-                                                    viewModel.stopTtsPlayback()
-                                                    resetStreamingSpeechState()
-                                                    currentSpeakingAssistantMessageId = null
-                                                    stopButtonOwnerAssistantMessageId = null
+                                                            ?: streamingSpeechStartedForMessageId,
+                                                        armTapGuards = false,
+                                                    )
                                                     resetStreamingAssistantPlaceholderId(reason = "stop")
                                                     viewModel.resetUiState()
                                                     return@IconButton
@@ -1610,15 +1658,12 @@ fun Home(
                                                             placeholder = "I'm thinking ... "
                                                             toggle = true
                                                         }
-                                                        resetStreamingSpeechState()
-                                                        suppressedTtsAssistantMessageId =
-                                                            stopButtonOwnerAssistantMessageId
+                                                        stopTtsWithCleanup(
+                                                            suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                 ?: currentSpeakingAssistantMessageId
-                                                                ?: streamingSpeechStartedForMessageId
-                                                        ttsController.stop()
-                                                        viewModel.stopTtsPlayback()
-                                                        currentSpeakingAssistantMessageId = null
-                                                        stopButtonOwnerAssistantMessageId = null
+                                                                ?: streamingSpeechStartedForMessageId,
+                                                            armTapGuards = false,
+                                                        )
                                                         prompt = requestPrompt
                                                         remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
@@ -1698,15 +1743,12 @@ fun Home(
                                                             prompt = ""
                                                             userPrompt = ""
                                                             selectedImageUriStrings = emptyList()
-                                                            suppressedTtsAssistantMessageId =
-                                                                stopButtonOwnerAssistantMessageId
+                                                            stopTtsWithCleanup(
+                                                                suppressedMessageId = stopButtonOwnerAssistantMessageId
                                                                     ?: currentSpeakingAssistantMessageId
-                                                                    ?: streamingSpeechStartedForMessageId
-                                                            ttsController.stop()
-                                                            viewModel.stopTtsPlayback()
-                                                            resetStreamingSpeechState()
-                                                            currentSpeakingAssistantMessageId = null
-                                                            stopButtonOwnerAssistantMessageId = null
+                                                                    ?: streamingSpeechStartedForMessageId,
+                                                                armTapGuards = false,
+                                                            )
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             localStreamingResponseText = null
                                                             didReceiveRealLocalPartial = false
@@ -2468,42 +2510,10 @@ fun Home(
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
-                                                    ttsTapGuardEpoch += 1
-                                                    val guardEpoch = ttsTapGuardEpoch
-
-                                                    pendingStopUiCooldownClearJob?.cancel()
-                                                    stopUiCooldownAssistantMessageId = message.messageID
-
-                                                    pendingReplaySuppressClearJob?.cancel()
-                                                    pendingReplaySuppressClearJob = null
-                                                    suppressReplayAssistantMessageId = message.messageID
-
-                                                    suppressedTtsAssistantMessageId = message.messageID
-                                                    ttsController.stop()
-                                                    viewModel.stopTtsPlayback()
-                                                    resetStreamingSpeechState()
-                                                    currentSpeakingAssistantMessageId = null
-                                                    stopButtonOwnerAssistantMessageId = null
-
-                                                    pendingStopUiCooldownClearJob = coroutineScope.launch {
-                                                        delay(250)
-                                                        if (
-                                                            ttsTapGuardEpoch == guardEpoch &&
-                                                            stopUiCooldownAssistantMessageId == message.messageID
-                                                        ) {
-                                                            stopUiCooldownAssistantMessageId = null
-                                                        }
-                                                    }
-
-                                                    pendingReplaySuppressClearJob = coroutineScope.launch {
-                                                        delay(300)
-                                                        if (
-                                                            ttsTapGuardEpoch == guardEpoch &&
-                                                            suppressReplayAssistantMessageId == message.messageID
-                                                        ) {
-                                                            suppressReplayAssistantMessageId = null
-                                                        }
-                                                    }
+                                                    stopTtsWithCleanup(
+                                                        suppressedMessageId = message.messageID,
+                                                        armTapGuards = true,
+                                                    )
                                                 },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
