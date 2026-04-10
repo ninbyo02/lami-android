@@ -612,6 +612,10 @@ fun Home(
         lastPersistedStreamingAssistantText = null
     }
 
+    fun isTtsSuppressedForAssistant(messageId: Int?): Boolean {
+        return messageId != null && suppressedTtsAssistantMessageId == messageId
+    }
+
     suspend fun upsertStreamingAssistantPlaceholder(chatId: Int, response: String): Int? {
         val normalizedResponse = response.trim()
         if (normalizedResponse.isBlank()) return streamingAssistantMessageId
@@ -749,10 +753,6 @@ fun Home(
         if (normalized.length < 2) return ""
         if (normalized.all { !it.isLetterOrDigit() }) return ""
         return normalized
-    }
-
-    fun isTtsSuppressedForAssistant(messageId: Int?): Boolean {
-        return messageId != null && suppressedTtsAssistantMessageId == messageId
     }
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
