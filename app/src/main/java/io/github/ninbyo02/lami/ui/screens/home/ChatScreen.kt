@@ -571,6 +571,7 @@ fun Home(
     var stopUiCooldownAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var pendingStopUiCooldownClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var suppressedTtsAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var ttsTapGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -2445,6 +2446,19 @@ fun Home(
                                                     if (stopUiCooldownAssistantMessageId == message.messageID) {
                                                         return@PlainAssistantMessage
                                                     }
+
+                                                    pendingStopUiCooldownClearJob?.cancel()
+                                                    pendingStopUiCooldownClearJob = null
+                                                    if (stopUiCooldownAssistantMessageId == message.messageID) {
+                                                        stopUiCooldownAssistantMessageId = null
+                                                    }
+
+                                                    pendingReplaySuppressClearJob?.cancel()
+                                                    pendingReplaySuppressClearJob = null
+                                                    if (suppressReplayAssistantMessageId == message.messageID) {
+                                                        suppressReplayAssistantMessageId = null
+                                                    }
+
                                                     if (suppressedTtsAssistantMessageId == message.messageID) {
                                                         suppressedTtsAssistantMessageId = null
                                                     }
@@ -2454,6 +2468,9 @@ fun Home(
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
+                                                    ttsTapGuardEpoch += 1
+                                                    val guardEpoch = ttsTapGuardEpoch
+
                                                     pendingStopUiCooldownClearJob?.cancel()
                                                     stopUiCooldownAssistantMessageId = message.messageID
 
@@ -2470,14 +2487,20 @@ fun Home(
 
                                                     pendingStopUiCooldownClearJob = coroutineScope.launch {
                                                         delay(250)
-                                                        if (stopUiCooldownAssistantMessageId == message.messageID) {
+                                                        if (
+                                                            ttsTapGuardEpoch == guardEpoch &&
+                                                            stopUiCooldownAssistantMessageId == message.messageID
+                                                        ) {
                                                             stopUiCooldownAssistantMessageId = null
                                                         }
                                                     }
 
                                                     pendingReplaySuppressClearJob = coroutineScope.launch {
                                                         delay(300)
-                                                        if (suppressReplayAssistantMessageId == message.messageID) {
+                                                        if (
+                                                            ttsTapGuardEpoch == guardEpoch &&
+                                                            suppressReplayAssistantMessageId == message.messageID
+                                                        ) {
                                                             suppressReplayAssistantMessageId = null
                                                         }
                                                     }
