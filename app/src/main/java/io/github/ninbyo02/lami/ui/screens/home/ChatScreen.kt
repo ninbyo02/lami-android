@@ -631,7 +631,9 @@ fun Home(
             lastPersistedStreamingAssistantText = normalizedResponse
             streamingSpeechStartedForMessageId = insertedId
             currentSpeakingAssistantMessageId = insertedId
-            stopButtonOwnerAssistantMessageId = insertedId
+            if (!isTtsSuppressedForAssistant(insertedId)) {
+                stopButtonOwnerAssistantMessageId = insertedId
+            }
             logStreamTrace("STREAM placeholder insert id=$insertedId")
             return insertedId
         }
@@ -648,7 +650,9 @@ fun Home(
         lastPersistedStreamingAssistantText = normalizedResponse
         streamingSpeechStartedForMessageId = existingId
         currentSpeakingAssistantMessageId = existingId
-        stopButtonOwnerAssistantMessageId = existingId
+        if (!isTtsSuppressedForAssistant(existingId)) {
+            stopButtonOwnerAssistantMessageId = existingId
+        }
         logStreamTrace("STREAM placeholder update id=$existingId len=${normalizedResponse.length}")
         return existingId
     }
@@ -747,6 +751,10 @@ fun Home(
         return normalized
     }
 
+    fun isTtsSuppressedForAssistant(messageId: Int?): Boolean {
+        return messageId != null && suppressedTtsAssistantMessageId == messageId
+    }
+
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
@@ -763,7 +771,9 @@ fun Home(
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
-                stopButtonOwnerAssistantMessageId = messageId
+                if (!isTtsSuppressedForAssistant(messageId)) {
+                    stopButtonOwnerAssistantMessageId = messageId
+                }
             }
             isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
@@ -780,7 +790,9 @@ fun Home(
         if (normalized.isNotEmpty() && !ttsController.isInCooldown()) {
             streamingSpeechStartedForMessageId?.let { messageId ->
                 currentSpeakingAssistantMessageId = messageId
-                stopButtonOwnerAssistantMessageId = messageId
+                if (!isTtsSuppressedForAssistant(messageId)) {
+                    stopButtonOwnerAssistantMessageId = messageId
+                }
             }
             isStreamingSentencePlaybackActive = true
             ttsController.speakQueued(normalized)
@@ -936,7 +948,9 @@ fun Home(
                         if (assistantId != null) {
                             currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
-                            stopButtonOwnerAssistantMessageId = assistantId
+                            if (!isTtsSuppressedForAssistant(assistantId)) {
+                                stopButtonOwnerAssistantMessageId = assistantId
+                            }
                         }
                     }
                     if (devEnableStreamingSentenceTts) {
@@ -972,7 +986,9 @@ fun Home(
                         if (assistantId != null) {
                             currentSpeakingAssistantMessageId = assistantId
                             streamingSpeechStartedForMessageId = assistantId
-                            stopButtonOwnerAssistantMessageId = assistantId
+                            if (!isTtsSuppressedForAssistant(assistantId)) {
+                                stopButtonOwnerAssistantMessageId = assistantId
+                            }
                         }
                     }
                     placeholder = "Enter your prompt..."
@@ -1892,7 +1908,9 @@ fun Home(
                                                                     if (assistantId != null) {
                                                                         currentSpeakingAssistantMessageId = assistantId
                                                                         streamingSpeechStartedForMessageId = assistantId
-                                                                        stopButtonOwnerAssistantMessageId = assistantId
+                                                                        if (!isTtsSuppressedForAssistant(assistantId)) {
+                                                                            stopButtonOwnerAssistantMessageId = assistantId
+                                                                        }
                                                                     }
                                                                     if (devEnableStreamingSentenceTts && !localStopRequested) {
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
