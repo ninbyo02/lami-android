@@ -568,6 +568,8 @@ fun Home(
     var pendingStopButtonOwnerClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var suppressReplayAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var pendingReplaySuppressClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
+    var stopUiCooldownAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var pendingStopUiCooldownClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var suppressedTtsAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -841,7 +843,10 @@ fun Home(
             pendingStopButtonOwnerClearJob = null
             pendingReplaySuppressClearJob?.cancel()
             pendingReplaySuppressClearJob = null
+            pendingStopUiCooldownClearJob?.cancel()
+            pendingStopUiCooldownClearJob = null
             suppressReplayAssistantMessageId = null
+            stopUiCooldownAssistantMessageId = null
             currentSpeakingAssistantMessageId = null
             stopButtonOwnerAssistantMessageId = null
             resetStreamingSpeechState()
@@ -854,7 +859,10 @@ fun Home(
         pendingStopButtonOwnerClearJob = null
         pendingReplaySuppressClearJob?.cancel()
         pendingReplaySuppressClearJob = null
+        pendingStopUiCooldownClearJob?.cancel()
+        pendingStopUiCooldownClearJob = null
         suppressReplayAssistantMessageId = null
+        stopUiCooldownAssistantMessageId = null
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
         resetStreamingSpeechState()
@@ -2427,9 +2435,14 @@ fun Home(
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
-                                                isReplaying = stopButtonOwnerAssistantMessageId == message.messageID,
+                                                isReplaying =
+                                                    stopButtonOwnerAssistantMessageId == message.messageID ||
+                                                        stopUiCooldownAssistantMessageId == message.messageID,
                                                 onReplayClick = {
                                                     if (suppressReplayAssistantMessageId == message.messageID) {
+                                                        return@PlainAssistantMessage
+                                                    }
+                                                    if (stopUiCooldownAssistantMessageId == message.messageID) {
                                                         return@PlainAssistantMessage
                                                     }
                                                     if (suppressedTtsAssistantMessageId == message.messageID) {
@@ -2441,7 +2454,11 @@ fun Home(
                                                     ttsController.speak(message.message)
                                                 },
                                                 onStopReplayClick = {
+                                                    pendingStopUiCooldownClearJob?.cancel()
+                                                    stopUiCooldownAssistantMessageId = message.messageID
+
                                                     pendingReplaySuppressClearJob?.cancel()
+                                                    pendingReplaySuppressClearJob = null
                                                     suppressReplayAssistantMessageId = message.messageID
 
                                                     suppressedTtsAssistantMessageId = message.messageID
@@ -2450,6 +2467,13 @@ fun Home(
                                                     resetStreamingSpeechState()
                                                     currentSpeakingAssistantMessageId = null
                                                     stopButtonOwnerAssistantMessageId = null
+
+                                                    pendingStopUiCooldownClearJob = coroutineScope.launch {
+                                                        delay(250)
+                                                        if (stopUiCooldownAssistantMessageId == message.messageID) {
+                                                            stopUiCooldownAssistantMessageId = null
+                                                        }
+                                                    }
 
                                                     pendingReplaySuppressClearJob = coroutineScope.launch {
                                                         delay(300)
