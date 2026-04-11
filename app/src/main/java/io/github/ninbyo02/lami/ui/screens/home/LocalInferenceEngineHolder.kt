@@ -14,7 +14,7 @@ internal data class HeldLocalEngine(
     val createdAtElapsedMs: Long,
     var lastUsedAtElapsedMs: Long,
     var useCount: Int,
-    val closeEngine: () -> Unit,
+    val closeEngine: (((String) -> Unit)?) -> Unit,
 )
 
 internal class LocalInferenceEngineHolder(
@@ -30,7 +30,11 @@ internal class LocalInferenceEngineHolder(
         val current = held
         if (current != null && current.modelPath == modelPath) {
             if (current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
-                runCatching { current.closeEngine() }
+                val engineClassName = current.engineInstance.javaClass.name
+                appendTrace?.invoke(
+                    "UPSTREAM held-engine close-start reason=reuse-limit class=$engineClassName useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${current.modelPath.substringAfterLast('/')}",
+                )
+                runCatching { current.closeEngine(appendTrace) }
                 held = null
                 appendTrace?.invoke(
                     "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${modelPath.substringAfterLast('/')}",
@@ -46,7 +50,11 @@ internal class LocalInferenceEngineHolder(
         }
 
         if (current != null && current.modelPath != modelPath) {
-            runCatching { current.closeEngine() }
+            val engineClassName = current.engineInstance.javaClass.name
+            appendTrace?.invoke(
+                "UPSTREAM held-engine close-start reason=model-changed class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+            )
+            runCatching { current.closeEngine(appendTrace) }
             held = null
             appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
         }
@@ -65,19 +73,30 @@ internal class LocalInferenceEngineHolder(
         created
     }
 
-    suspend fun clear() {
+    suspend fun clear(appendTrace: ((String) -> Unit)? = null) {
         mutex.withLock {
             val current = held ?: return@withLock
-            runCatching { current.closeEngine() }
+            val engineClassName = current.engineInstance.javaClass.name
+            appendTrace?.invoke(
+                "UPSTREAM held-engine close-start reason=clear class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+            )
+            runCatching { current.closeEngine(appendTrace) }
             held = null
         }
     }
 
-    suspend fun clearIfModelChanged(newModelPath: String) {
+    suspend fun clearIfModelChanged(
+        newModelPath: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
         mutex.withLock {
             val current = held ?: return@withLock
             if (current.modelPath == newModelPath) return@withLock
-            runCatching { current.closeEngine() }
+            val engineClassName = current.engineInstance.javaClass.name
+            appendTrace?.invoke(
+                "UPSTREAM held-engine close-start reason=clear-model-changed class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+            )
+            runCatching { current.closeEngine(appendTrace) }
             held = null
         }
     }
