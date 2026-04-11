@@ -5924,7 +5924,7 @@ private fun buildInferenceDetailSections(
         }
     }
 
-    return listOf(
+    return listOfNotNull(
         InferenceStatsSectionUi(
             title = "トークン",
             items = listOf(
