@@ -1833,7 +1833,7 @@ fun Home(
                                                                                 message = message,
                                                                             )
                                                                         },
-                                                                    )
+                                                                    )?.toLocalInferenceRunResult()
                                                                 } ?: localStreamingRunner.run(
                                                                     prompt = requestPrompt,
                                                                     localBaseModelFilePath = localBaseModelFilePath,
@@ -3032,6 +3032,24 @@ private suspend fun runLocalInferenceOnceEntry(
             trace = traceWithOfficialFlow,
         )
     }
+}
+
+private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunResult {
+    val resolvedState = if (responseText.isNotBlank()) {
+        LocalInferenceEngineState.READY
+    } else {
+        LocalInferenceEngineState.ERROR
+    }
+    return LocalInferenceRunResult(
+        state = resolvedState,
+        response = responseText,
+        trace = LocalInferenceTrace(
+            localTraceFirstResponseElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
+            officialFlowUsed = officialFlowUsed,
+            officialConversationApiAvailable = namespace.isNotBlank(),
+            officialFlowChunkCount = partialCount,
+        ),
+    )
 }
 
 private suspend fun resolveLocalBaseModelPathOrNull(
