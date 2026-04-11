@@ -3110,13 +3110,14 @@ private suspend fun runLocalInferenceOnceEntry(
                 context = context,
                 message = "UPSTREAM fallback reason=no_partial_emitted",
             )
-            val fallback = generateLiteRtResponseViaReflection(
+            val fallbackGenerated = generateLiteRtResponseViaReflection(
                 context = context,
                 modelPath = modelPath,
                 localModelDisplayName = localBaseModelDisplayName,
                 prompt = prompt,
                 onPartial = onPartial,
-            ).response?.trim()
+            )
+            val fallback = fallbackGenerated.response?.trim()
             if (!fallback.isNullOrBlank()) {
                 appendLocalReflectionTrace(
                     context = context,
@@ -3138,7 +3139,7 @@ private suspend fun runLocalInferenceOnceEntry(
                         officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                         officialFlowChunkCount = officialFlowChunkCount,
                         ),
-                    closeLifecycleSummary = generated.closeLifecycleSummary,
+                    closeLifecycleSummary = fallbackGenerated.closeLifecycleSummary,
                 )
             } else {
                 appendLocalReflectionTrace(
