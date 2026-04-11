@@ -378,7 +378,7 @@ internal fun createReusableLocalInferenceEngine(
             createdAtElapsedMs = createdAt,
             lastUsedAtElapsedMs = createdAt,
             useCount = 0,
-            closeEngine = { closeQuietly(officialEngine) },
+            closeEngine = { trace -> closeQuietly(officialEngine, trace) },
         )
     }
 
@@ -405,7 +405,7 @@ internal fun createReusableLocalInferenceEngine(
         createdAtElapsedMs = createdAt,
         lastUsedAtElapsedMs = createdAt,
         useCount = 0,
-        closeEngine = { closeQuietly(inferenceInstance) },
+        closeEngine = { trace -> closeQuietly(inferenceInstance, trace) },
     )
 }
 
