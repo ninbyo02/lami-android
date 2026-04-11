@@ -52,6 +52,14 @@ internal class DefaultLocalStreamingRunner<T>(
     }
 }
 
+
+internal data class ReusableLocalEngineCreateDiagnostic(
+    val engine: HeldLocalEngine?,
+    val stage: String?,
+    val className: String?,
+    val message: String?,
+)
+
 internal data class HeldEngineRunResult(
     val responseText: String,
     val firstPartialElapsedRealtimeMs: Long?,
@@ -360,18 +368,39 @@ internal fun createReusableLocalInferenceEngine(
     context: android.content.Context,
     modelPath: String,
     appendTrace: ((String) -> Unit)? = null,
-): HeldLocalEngine? {
+): HeldLocalEngine? = createReusableLocalInferenceEngineWithDiagnostic(
+    context = context,
+    modelPath = modelPath,
+    appendTrace = appendTrace,
+).engine
+
+internal fun createReusableLocalInferenceEngineWithDiagnostic(
+    context: android.content.Context,
+    modelPath: String,
+    appendTrace: ((String) -> Unit)? = null,
+): ReusableLocalEngineCreateDiagnostic {
     val safeTrace: (String) -> Unit = { message ->
         runCatching { appendTrace?.invoke(message) }
     }
+    var stage = "official-create-engine"
     val createdAt = SystemClock.elapsedRealtime()
-    val officialEngine = createOfficialLiteRtLmEngineInstance(
-        modelPath = modelPath,
-        appendTrace = safeTrace,
-    )
+    val officialEngine = runCatching {
+        createOfficialLiteRtLmEngineInstance(
+            modelPath = modelPath,
+            appendTrace = safeTrace,
+        )
+    }.getOrElse { throwable ->
+        val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = className,
+            message = (throwable.message ?: "official create engine failed").take(200),
+        )
+    }
+    stage = if (officialEngine != null) "official-engine-created" else "official-engine-null"
     if (officialEngine != null) {
-        safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.ai.edge.litertlm")
-        return HeldLocalEngine(
+        val held = HeldLocalEngine(
             modelPath = modelPath,
             engineInstance = officialEngine,
             namespace = "com.google.ai.edge.litertlm",
@@ -380,25 +409,98 @@ internal fun createReusableLocalInferenceEngine(
             useCount = 0,
             closeEngine = { trace -> closeQuietly(officialEngine, trace) },
         )
+        stage = "held-engine-store"
+        safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.ai.edge.litertlm")
+        stage = "success"
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = held,
+            stage = stage,
+            className = null,
+            message = null,
+        )
     }
 
+    stage = "mediapipe-find-class"
     val inferenceClass = runCatching {
         Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
-    }.getOrNull() ?: return null
+    }.getOrElse { throwable ->
+        stage = "mediapipe-class-missing"
+        val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = className,
+            message = (throwable.message ?: "LlmInference class not found").take(200),
+        )
+    }
+
+    stage = "mediapipe-find-createFromOptions"
     val createFromOptionsMethod = inferenceClass.methods.firstOrNull { method ->
         method.name == "createFromOptions" &&
             method.parameterTypes.size == 2 &&
             method.parameterTypes[0] == android.content.Context::class.java
-    } ?: return null
-    val options = buildOptionsObject(
-        optionClass = createFromOptionsMethod.parameterTypes[1],
-        modelPath = modelPath,
-    ) ?: return null
+    }
+    if (createFromOptionsMethod == null) {
+        stage = "mediapipe-createFromOptions-missing"
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = "NoSuchMethod",
+            message = "createFromOptions(Context, Options) not found".take(200),
+        )
+    }
+
+    stage = "mediapipe-build-options"
+    val options = runCatching {
+        buildOptionsObject(
+            optionClass = createFromOptionsMethod.parameterTypes[1],
+            modelPath = modelPath,
+        )
+    }.getOrElse { throwable ->
+        stage = "mediapipe-build-options-failed"
+        val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = className,
+            message = (throwable.message ?: "build options failed").take(200),
+        )
+    }
+    if (options == null) {
+        stage = "mediapipe-build-options-failed"
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = "ReturnedNull",
+            message = "buildOptionsObject returned null".take(200),
+        )
+    }
+
+    stage = "mediapipe-invoke-createFromOptions"
     val inferenceInstance = runCatching {
         createFromOptionsMethod.invoke(null, context, options)
-    }.getOrNull() ?: return null
-    safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.mediapipe.tasks.genai.llminference")
-    return HeldLocalEngine(
+    }.getOrElse { throwable ->
+        stage = "mediapipe-createFromOptions-threw"
+        val root = throwable.cause ?: throwable
+        val className = root.javaClass.simpleName.ifBlank { root.javaClass.name }
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = className,
+            message = (root.message ?: "createFromOptions invocation failed").take(200),
+        )
+    }
+    if (inferenceInstance == null) {
+        stage = "mediapipe-createFromOptions-returned-null"
+        return ReusableLocalEngineCreateDiagnostic(
+            engine = null,
+            stage = stage,
+            className = "ReturnedNull",
+            message = "createFromOptions returned null".take(200),
+        )
+    }
+
+    val held = HeldLocalEngine(
         modelPath = modelPath,
         engineInstance = inferenceInstance,
         namespace = "com.google.mediapipe.tasks.genai.llminference",
@@ -406,6 +508,15 @@ internal fun createReusableLocalInferenceEngine(
         lastUsedAtElapsedMs = createdAt,
         useCount = 0,
         closeEngine = { trace -> closeQuietly(inferenceInstance, trace) },
+    )
+    stage = "held-engine-store"
+    safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.mediapipe.tasks.genai.llminference")
+    stage = "success"
+    return ReusableLocalEngineCreateDiagnostic(
+        engine = held,
+        stage = stage,
+        className = null,
+        message = null,
     )
 }
 

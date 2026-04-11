@@ -66,11 +66,15 @@ internal class LocalInferenceEngineHolder(
             appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
         }
 
-        val created = createReusableLocalInferenceEngine(
+        val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
             context = appContext,
             modelPath = modelPath,
             appendTrace = appendTrace,
-        ) ?: throw IllegalStateException("Failed to create local inference engine. modelPath=$modelPath")
+        )
+        val created = createdDiagnostic.engine
+            ?: throw IllegalStateException(
+                "Failed to create local inference engine. modelPath=$modelPath stage=${createdDiagnostic.stage} class=${createdDiagnostic.className} message=${createdDiagnostic.message}",
+            )
         created.useCount += 1
         created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
         appendTrace?.invoke(
@@ -131,20 +135,26 @@ internal class LocalInferenceEngineHolder(
             }
 
             failureStage = "create-reusable-engine"
-            val created = createReusableLocalInferenceEngine(
+            val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
                 context = appContext,
                 modelPath = modelPath,
                 appendTrace = appendTrace,
             )
+            appendTrace?.invoke(
+                "UPSTREAM held-create-diagnostic stage=${createdDiagnostic.stage ?: "unknown"} class=${createdDiagnostic.className ?: "none"} message=${createdDiagnostic.message ?: "none"}",
+            )
+            val created = createdDiagnostic.engine
             if (created == null) {
-                val failMessage = "createReusableLocalInferenceEngine returned null"
+                val failStage = createdDiagnostic.stage ?: "create-reusable-engine"
+                val failClass = createdDiagnostic.className ?: "ReturnedNull"
+                val failMessage = (createdDiagnostic.message ?: "createReusableLocalInferenceEngine returned null").take(200)
                 appendTrace?.invoke(
-                    "UPSTREAM held-acquire-diagnostic fail stage=create-reusable-engine class=ReturnedNull message=$failMessage",
+                    "UPSTREAM held-acquire-diagnostic fail stage=$failStage class=$failClass message=$failMessage",
                 )
                 return@withLock HeldEngineAcquireDiagnosticResult(
                     engine = null,
-                    failureStage = "create-reusable-engine",
-                    failureClassName = "ReturnedNull",
+                    failureStage = failStage,
+                    failureClassName = failClass,
                     failureMessage = failMessage,
                 )
             }

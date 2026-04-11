@@ -2831,7 +2831,8 @@ fun Home(
                                         Text(
                                             text = it,
                                             fontSize = 10.sp,
-                                            color = Color.Gray
+                                            lineHeight = 12.sp,
+                                            color = Color.Gray.copy(alpha = 0.8f)
                                         )
                                     }
 
@@ -2840,7 +2841,8 @@ fun Home(
                                         Text(
                                             text = it,
                                             fontSize = 10.sp,
-                                            color = Color.Red
+                                            lineHeight = 12.sp,
+                                            color = Color.Red.copy(alpha = 0.85f)
                                         )
                                     }
                                 }
