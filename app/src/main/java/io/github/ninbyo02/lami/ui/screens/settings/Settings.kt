@@ -509,6 +509,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         supporting = "システムカラーに合わせて配色を自動調整します",
                         leadingIcon = null,
                         checked = settingsData.useDynamicColor,
+                        enabled = true,
                         onCheckedChange = { enabled ->
                             scope.launch { settingsPreferences.updateDynamicColor(enabled) }
                         }
@@ -527,6 +528,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         supporting = "OFFにすると回答の読み上げを行いません",
                         leadingIcon = null,
                         checked = ttsEnabled,
+                        enabled = true,
                         onCheckedChange = { enabled ->
                             scope.launch { settingsPreferences.setTtsEnabled(enabled) }
                         }
