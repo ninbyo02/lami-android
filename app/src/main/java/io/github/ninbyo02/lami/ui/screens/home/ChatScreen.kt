@@ -944,14 +944,6 @@ fun Home(
             ttsController.shutdown()
         }
     }
-    DisposableEffect(localInferenceEngineHolder) {
-        onDispose {
-            coroutineScope.launch {
-                localInferenceEngineHolder.clear()
-            }
-        }
-    }
-
     LaunchedEffect(chatId) {
         pendingStopButtonOwnerClearJob?.cancel()
         pendingStopButtonOwnerClearJob = null
@@ -1924,6 +1916,7 @@ fun Home(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-acquire success namespace=${held.namespace} modelPathTail=$modelPathTail engineClass=${held::class.java.name}",
                                                                     )
+                                                                    devDebugText = null
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
@@ -1959,6 +1952,7 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run success responseLength=${heldRunResult.responseText.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.officialFlowUsed} namespace=${heldRunResult.namespace}",
                                                                         )
+                                                                        devDebugText = null
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run final source=${if (heldRunResult.officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${heldRunResult.closeLifecycleSummary?.path ?: "none"}",
