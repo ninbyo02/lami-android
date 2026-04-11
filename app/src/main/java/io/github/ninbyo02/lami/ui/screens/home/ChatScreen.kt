@@ -572,6 +572,7 @@ fun Home(
     var pendingStopUiCooldownClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var suppressedTtsAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var ttsTapGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
+    var streamingGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
@@ -618,6 +619,8 @@ fun Home(
         currentSpeakingAssistantMessageId = null
         stopButtonOwnerAssistantMessageId = null
 
+        pendingStopButtonOwnerClearJob?.cancel()
+        pendingStopButtonOwnerClearJob = null
         pendingStopUiCooldownClearJob?.cancel()
         pendingStopUiCooldownClearJob = null
         pendingReplaySuppressClearJob?.cancel()
@@ -661,6 +664,7 @@ fun Home(
     }
 
     fun resetStreamingAssistantPlaceholderId(reason: String) {
+        streamingGuardEpoch += 1
         val previousId = streamingAssistantMessageId
         if (previousId != null) {
             logStreamTrace("STREAM reset placeholder id from $previousId to null reason=$reason")
@@ -1769,10 +1773,12 @@ fun Home(
                                                                     if (localStopRequested) return@run
                                                                     val normalizedPartial = partial.trim()
                                                                     if (normalizedPartial.isBlank()) return@run
+                                                                    val guardEpoch = streamingGuardEpoch
                                                                     didReceiveRealLocalPartial = true
                                                                     realLocalPartialChunkCount += 1
                                                                     localStreamingResponseText = normalizedPartial
                                                                     coroutineScope.launch {
+                                                                        if (guardEpoch != streamingGuardEpoch) return@launch
                                                                         if (localStopRequested) return@launch
                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                             chatId = currentChatId,
@@ -1927,7 +1933,9 @@ fun Home(
                                                                                 localStreamingResponseText = chunk
                                                                                 val normalizedChunk = chunk.trim()
                                                                                 if (normalizedChunk.isBlank()) return@streamLocalAssistantPreviewTextToUi
+                                                                                val guardEpoch = streamingGuardEpoch
                                                                                 coroutineScope.launch {
+                                                                                    if (guardEpoch != streamingGuardEpoch) return@launch
                                                                                     if (localStopRequested) return@launch
                                                                                     upsertStreamingAssistantPlaceholderSerialized(
                                                                                         chatId = currentChatId,
