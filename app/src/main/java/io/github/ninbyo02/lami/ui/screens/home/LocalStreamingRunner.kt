@@ -97,16 +97,17 @@ internal suspend fun runWithHeldEngine(
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
     val engine = heldEngine.engineInstance
-    var heldFlowFinallyReached = false
-    var heldFlowCloseOutcome: RunCloseTargetOutcome? = null
 
+    var heldFlowCloseOutcome: RunCloseTargetOutcome? = null
+    var heldFlowResponse: String? = null
+    var heldFlowPartialCount = 0
+    var heldFlowFirstPartialElapsedRealtimeMs: Long? = null
     runWithConversation(
         engine = engine,
         namespace = namespace,
         appendTrace = appendTrace,
-        closeSummaryPath = "held-flow",
+        closeSummaryPath = "held-official-flow",
         onConversationClosed = { outcome ->
-            heldFlowFinallyReached = true
             heldFlowCloseOutcome = outcome
         },
     ) { conversation ->
@@ -123,8 +124,6 @@ internal suspend fun runWithHeldEngine(
         val flow = flowValue as? Flow<*> ?: return@runWithConversation null
         val builder = StringBuilder()
         var lastPartial: String? = null
-        var partialCount = 0
-        var firstPartialElapsedRealtimeMs: Long? = null
         flow.collect { message ->
             if (!currentCoroutineContext().isActive) return@collect
             val extracted = extractOfficialMessageTextWithTrace(
@@ -134,39 +133,73 @@ internal suspend fun runWithHeldEngine(
             )?.trim().orEmpty()
             if (extracted.isBlank() || extracted == lastPartial) return@collect
             lastPartial = extracted
-            partialCount += 1
-            if (firstPartialElapsedRealtimeMs == null) {
-                firstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+            heldFlowPartialCount += 1
+            if (heldFlowFirstPartialElapsedRealtimeMs == null) {
+                heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
             }
             builder.append(extracted)
             onPartial(builder.toString())
         }
-        val response = builder.toString().trim().takeIf { it.isNotBlank() } ?: return@runWithConversation null
-        HeldEngineRunResult(
-            responseText = response,
-            firstPartialElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
-            partialCount = partialCount,
-            namespace = namespace ?: "unknown",
-            officialFlowUsed = true,
-            closeLifecycleSummary = RunCloseLifecycleSummary(
-                path = "held-official-flow",
-                successReturned = true,
-                conversationOutcome = heldFlowCloseOutcome,
-                notes = if (heldFlowFinallyReached) null else "finally_not_reached",
+        heldFlowResponse = builder.toString().trim().takeIf { it.isNotBlank() }
+        heldFlowResponse
+    }
+    heldFlowResponse?.let { response ->
+        val closeSummary = RunCloseLifecycleSummary(
+            path = "held-official-flow",
+            successReturned = true,
+            conversationOutcome = heldFlowCloseOutcome ?: RunCloseTargetOutcome(
+                label = "conversation",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
+            sessionOutcome = RunCloseTargetOutcome(
+                label = "session",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
+            engineOutcome = RunCloseTargetOutcome(
+                label = "engine",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
             ),
         )
-    }?.let { return it }
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
+        )
+        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.conversationOutcome ?: RunCloseTargetOutcome("conversation", null, null, "none", null, null))
+        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.sessionOutcome ?: RunCloseTargetOutcome("session", null, null, "none", null, null))
+        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.engineOutcome ?: RunCloseTargetOutcome("engine", null, null, "none", null, null))
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-run final source=held-official-flow closePath=${closeSummary.path}",
+        )
+        return HeldEngineRunResult(
+            responseText = response,
+            firstPartialElapsedRealtimeMs = heldFlowFirstPartialElapsedRealtimeMs,
+            partialCount = heldFlowPartialCount,
+            namespace = namespace ?: "unknown",
+            officialFlowUsed = true,
+            closeLifecycleSummary = closeSummary,
+        )
+    }
 
-    var heldBlockingFinallyReached = false
     var heldBlockingCloseOutcome: RunCloseTargetOutcome? = null
-
-    runWithConversation(
+    val heldBlockingResponse = runWithConversation(
         engine = engine,
         namespace = namespace,
         appendTrace = appendTrace,
-        closeSummaryPath = "held-blocking",
+        closeSummaryPath = "held-official-blocking",
         onConversationClosed = { outcome ->
-            heldBlockingFinallyReached = true
             heldBlockingCloseOutcome = outcome
         },
     ) { conversation ->
@@ -185,20 +218,55 @@ internal suspend fun runWithHeldEngine(
             value = value,
             appendTrace = appendTrace,
         )?.trim()?.takeIf { it.isNotBlank() }
-    }?.let { response ->
+    }
+    heldBlockingResponse?.let { response ->
         onPartial(response)
+        val closeSummary = RunCloseLifecycleSummary(
+            path = "held-official-blocking",
+            successReturned = true,
+            conversationOutcome = heldBlockingCloseOutcome ?: RunCloseTargetOutcome(
+                label = "conversation",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
+            sessionOutcome = RunCloseTargetOutcome(
+                label = "session",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
+            engineOutcome = RunCloseTargetOutcome(
+                label = "engine",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
+        )
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
+        )
+        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.conversationOutcome ?: RunCloseTargetOutcome("conversation", null, null, "none", null, null))
+        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.sessionOutcome ?: RunCloseTargetOutcome("session", null, null, "none", null, null))
+        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.engineOutcome ?: RunCloseTargetOutcome("engine", null, null, "none", null, null))
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-run final source=held-official-blocking closePath=${closeSummary.path}",
+        )
         return HeldEngineRunResult(
             responseText = response,
             firstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime(),
             partialCount = 1,
             namespace = namespace ?: "unknown",
             officialFlowUsed = false,
-            closeLifecycleSummary = RunCloseLifecycleSummary(
-                path = "held-official-blocking",
-                successReturned = true,
-                conversationOutcome = heldBlockingCloseOutcome,
-                notes = if (heldBlockingFinallyReached) null else "finally_not_reached",
-            ),
+            closeLifecycleSummary = closeSummary,
         )
     }
 
@@ -289,6 +357,11 @@ internal data class LocalOfficialBlockingResult(
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
+private data class LocalOfficialDirectBlockingResult(
+    val response: String?,
+    val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
+)
+
 private fun ensureCloseLifecycleSummary(
     summary: RunCloseLifecycleSummary?,
     path: String,
@@ -363,13 +436,18 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
             )
         }.getOrNull()
         if (result != null) {
-            return result.copy(
+            val resolvedResult = result.copy(
                 closeLifecycleSummary = ensureCloseLifecycleSummary(
                     summary = result.closeLifecycleSummary,
                     path = "fallback-official-flow",
                     successReturned = true,
                 ),
             )
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM official-flow final source=official-flow closePath=${resolvedResult.closeLifecycleSummary?.path ?: "fallback-official-flow"}",
+            )
+            return resolvedResult
         }
     }
     if (!fallbackReasonReported) {
@@ -421,13 +499,18 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
             )
         }.getOrNull()
         if (!response?.response.isNullOrBlank()) {
-            return response.copy(
+            val resolvedResponse = response.copy(
                 closeLifecycleSummary = ensureCloseLifecycleSummary(
                     summary = response.closeLifecycleSummary,
                     path = "fallback-official-blocking",
                     successReturned = true,
                 ),
             )
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM official-blocking final source=official-blocking closePath=${resolvedResponse.closeLifecycleSummary?.path ?: "fallback-official-blocking"}",
+            )
+            return resolvedResponse
         }
     }
     return null
@@ -904,11 +987,20 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             successReturned = successReached,
             engineOutcome = engineCloseOutcome,
             conversationOutcome = conversationCloseOutcome,
+            sessionOutcome = RunCloseTargetOutcome(
+                label = "session",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
         )
         safeAppendTrace(
             appendTrace,
             "UPSTREAM close-summary path=${summary.path} successReturned=${summary.successReturned}",
         )
+        summary.sessionOutcome?.let { emitCloseSummaryTrace(appendTrace, summary.path, it) }
         finalResult = finalResult?.copy(closeLifecycleSummary = summary)
     }
     return finalResult
@@ -922,18 +1014,18 @@ private fun runOfficialBlockingConversationSingleNamespace(
     appendTrace: (String) -> Unit,
 ): LocalOfficialBlockingResult? {
     if (spec.namespace == "com.google.ai.edge.litertlm") {
-        val response = runOfficialLiteRtLmBlocking(
+        val result = runOfficialLiteRtLmBlocking(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = cacheDirPath,
             appendTrace = appendTrace,
         )
         return LocalOfficialBlockingResult(
-            response = response,
+            response = result.response,
             closeLifecycleSummary = ensureCloseLifecycleSummary(
-                summary = null,
+                summary = result.closeLifecycleSummary,
                 path = "fallback-official-blocking",
-                successReturned = !response.isNullOrBlank(),
+                successReturned = !result.response.isNullOrBlank(),
             ),
         )
     }
@@ -1030,11 +1122,20 @@ private fun runOfficialBlockingConversationSingleNamespace(
             successReturned = successReached,
             engineOutcome = engineCloseOutcome,
             conversationOutcome = conversationCloseOutcome,
+            sessionOutcome = RunCloseTargetOutcome(
+                label = "session",
+                targetClassName = null,
+                strategy = null,
+                status = "none",
+                errorClassName = null,
+                message = null,
+            ),
         )
         safeAppendTrace(
             appendTrace,
             "UPSTREAM close-summary path=${summary.path} successReturned=${summary.successReturned}",
         )
+        summary.sessionOutcome?.let { emitCloseSummaryTrace(appendTrace, summary.path, it) }
         closeSummary = summary
     }
     return LocalOfficialBlockingResult(
@@ -1064,48 +1165,82 @@ private suspend fun runOfficialLiteRtLmDirect(
             maxNumTokens = null,
             cacheDir = cacheDirPath,
         )
-        val engine = Engine(engineConfig)
+        var engine: Engine? = null
+        var conversation: Any? = null
+        var successReached = false
+        var result: LocalOfficialFlowStreamingResult? = null
+        try {
+            engine = Engine(engineConfig)
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
+            engine.initialize()
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
-        engine.initialize()
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
+            conversation = engine.createConversation()
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
-        val conversation = engine.createConversation()
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
-
-        val builder = StringBuilder()
-        var lastChunk: String? = null
-        var partialCount = 0
-        var firstPartialMs: Long? = null
-        conversation.sendMessageAsync(prompt).collect { message ->
-            val extractedText = message.contents.toString().trim()
-                .ifBlank { message.toString().trim() }
-            if (extractedText.isNotBlank()) {
-                if (extractedText == lastChunk) return@collect
-                lastChunk = extractedText
-                builder.append(extractedText)
-                if (firstPartialMs == null) {
-                    firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+            val builder = StringBuilder()
+            var lastChunk: String? = null
+            var partialCount = 0
+            var firstPartialMs: Long? = null
+            conversation.sendMessageAsync(prompt).collect { message ->
+                val extractedText = message.contents.toString().trim()
+                    .ifBlank { message.toString().trim() }
+                if (extractedText.isNotBlank()) {
+                    if (extractedText == lastChunk) return@collect
+                    lastChunk = extractedText
+                    builder.append(extractedText)
+                    if (firstPartialMs == null) {
+                        firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
+                    }
+                    partialCount += 1
+                    onPartial(builder.toString())
                 }
-                partialCount += 1
-                onPartial(builder.toString())
             }
-        }
 
-        val response = builder.toString().trim()
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
-        if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
-
-        LocalOfficialFlowStreamingResult(
-            response = response,
-            partialCount = partialCount,
-            firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
-            closeLifecycleSummary = ensureCloseLifecycleSummary(
-                summary = null,
+            val response = builder.toString().trim()
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
+            if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
+            successReached = true
+            result = LocalOfficialFlowStreamingResult(
+                response = response,
+                partialCount = partialCount,
+                firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+            )
+        } finally {
+            val conversationCloseOutcome = tryCloseWithOutcome(
+                label = "conversation",
+                target = conversation,
+                appendTrace = appendTrace,
                 path = "fallback-official-flow",
-                successReturned = true,
-            ),
-        )
+            )
+            val engineCloseOutcome = tryCloseWithOutcome(
+                label = "engine",
+                target = engine,
+                appendTrace = appendTrace,
+                path = "fallback-official-flow",
+            )
+            val closeSummary = RunCloseLifecycleSummary(
+                path = "fallback-official-flow",
+                successReturned = successReached,
+                conversationOutcome = conversationCloseOutcome,
+                engineOutcome = engineCloseOutcome,
+                sessionOutcome = RunCloseTargetOutcome(
+                    label = "session",
+                    targetClassName = null,
+                    strategy = null,
+                    status = "none",
+                    errorClassName = null,
+                    message = null,
+                ),
+            )
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
+            )
+            closeSummary.sessionOutcome?.let { emitCloseSummaryTrace(appendTrace, closeSummary.path, it) }
+            result = result?.copy(closeLifecycleSummary = closeSummary)
+        }
+        result
     }.getOrElse { throwable ->
         safeAppendTrace(
             appendTrace,
@@ -1120,7 +1255,7 @@ private fun runOfficialLiteRtLmBlocking(
     modelPath: String,
     cacheDirPath: String,
     appendTrace: (String) -> Unit,
-): String? {
+): LocalOfficialDirectBlockingResult {
     safeAppendTrace(appendTrace, "UPSTREAM official-direct blockingStart")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
@@ -1134,24 +1269,67 @@ private fun runOfficialLiteRtLmBlocking(
             maxNumTokens = null,
             cacheDir = cacheDirPath,
         )
-        val engine = Engine(engineConfig)
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
-        engine.initialize()
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
+        var engine: Engine? = null
+        var conversation: Any? = null
+        var successReached = false
+        var responseText: String? = null
+        var closeSummary: RunCloseLifecycleSummary? = null
+        try {
+            engine = Engine(engineConfig)
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct engineCreated")
+            engine.initialize()
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct engineInitialized")
 
-        val conversation = engine.createConversation()
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
+            conversation = engine.createConversation()
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
-        val message = conversation.sendMessage(prompt)
-        val response = message.contents.toString().trim()
-            .ifBlank { message.toString().trim() }
+            val message = conversation.sendMessage(prompt)
+            val response = message.contents.toString().trim()
+                .ifBlank { message.toString().trim() }
 
-        safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
-
-        response.takeIf { it.isNotBlank() }
+            safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
+            responseText = response.takeIf { it.isNotBlank() }
+            successReached = !responseText.isNullOrBlank()
+        } finally {
+            val conversationCloseOutcome = tryCloseWithOutcome(
+                label = "conversation",
+                target = conversation,
+                appendTrace = appendTrace,
+                path = "fallback-official-blocking",
+            )
+            val engineCloseOutcome = tryCloseWithOutcome(
+                label = "engine",
+                target = engine,
+                appendTrace = appendTrace,
+                path = "fallback-official-blocking",
+            )
+            closeSummary = RunCloseLifecycleSummary(
+                path = "fallback-official-blocking",
+                successReturned = successReached,
+                conversationOutcome = conversationCloseOutcome,
+                engineOutcome = engineCloseOutcome,
+                sessionOutcome = RunCloseTargetOutcome(
+                    label = "session",
+                    targetClassName = null,
+                    strategy = null,
+                    status = "none",
+                    errorClassName = null,
+                    message = null,
+                ),
+            )
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
+            )
+            closeSummary.sessionOutcome?.let { emitCloseSummaryTrace(appendTrace, closeSummary.path, it) }
+        }
+        LocalOfficialDirectBlockingResult(
+            response = responseText,
+            closeLifecycleSummary = closeSummary,
+        )
     }.getOrElse {
         safeAppendTrace(appendTrace, "UPSTREAM official-direct failed ${it.javaClass.simpleName}:${it.message}")
-        null
+        LocalOfficialDirectBlockingResult(response = null)
     }
 }
 
