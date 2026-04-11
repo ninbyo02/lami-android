@@ -1819,14 +1819,16 @@ fun Home(
                                                             } else {
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
+                                                                var heldAcquireFailureStage: String? = null
+                                                                var heldAcquireFailureClassName: String? = null
+                                                                var heldAcquireFailureMessage: String? = null
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
                                                                 )
-                                                                val heldEngine = runCatching {
-                                                                    localInferenceEngineHolder.acquireOrCreate(
+                                                                val heldEngine = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                    val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                         modelPath = resolvedModelPath,
-                                                                        context = context.applicationContext,
                                                                         appendTrace = { message ->
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,
@@ -1834,35 +1836,51 @@ fun Home(
                                                                             )
                                                                         },
                                                                     )
-                                                                }.getOrElse {
-                                                                    appendLocalReflectionTrace(
-                                                                        context = context.applicationContext,
-                                                                        message = "HELD ACQUIRE ERROR: ${it.message}",
-                                                                    )
-                                                                    if (!useHeldPathOnlyForDev) {
+                                                                    heldAcquireFailureStage = diagnosticResult.failureStage
+                                                                    heldAcquireFailureClassName = diagnosticResult.failureClassName
+                                                                    heldAcquireFailureMessage = diagnosticResult.failureMessage
+                                                                    if (!useHeldPathOnlyForDev && diagnosticResult.engine == null) {
                                                                         legacyFallbackReason = "held-acquire-failed"
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
                                                                         )
                                                                     }
-                                                                    null
+                                                                    diagnosticResult.engine
+                                                                } else {
+                                                                    runCatching {
+                                                                        localInferenceEngineHolder.acquireOrCreate(
+                                                                            modelPath = resolvedModelPath,
+                                                                            context = context.applicationContext,
+                                                                            appendTrace = { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context.applicationContext,
+                                                                                    message = message,
+                                                                                )
+                                                                            },
+                                                                        )
+                                                                    }.getOrElse {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "HELD ACQUIRE ERROR: ${it.message}",
+                                                                        )
+                                                                        if (!useHeldPathOnlyForDev) {
+                                                                            legacyFallbackReason = "held-acquire-failed"
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                            )
+                                                                        }
+                                                                        null
+                                                                    }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
                                                                     devDebugText = buildString {
                                                                         append("HELD ACQUIRE FAILED\n")
                                                                         append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("reason=heldEngine is null\n")
-                                                                        append("hint=engine not created or acquire failed\n")
-                                                                    }
-                                                                }
-                                                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine != null) {
-                                                                    devHeldStateText = buildString {
-                                                                        append("HELD ENGINE STATE\n")
-                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("heldExists=true\n")
-                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
-                                                                        append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
+                                                                        append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
+                                                                        append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
+                                                                        append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
                                                                     }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
@@ -1870,14 +1888,6 @@ fun Home(
                                                                         append("HELD ENGINE STATE\n")
                                                                         append("modelPath=").append(resolvedModelPath).append("\n")
                                                                         append("heldExists=").append(heldEngine != null).append("\n")
-                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
-                                                                    }
-                                                                }
-                                                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine != null) {
-                                                                    devHeldStateText = buildString {
-                                                                        append("HELD ENGINE STATE\n")
-                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
-                                                                        append("heldExists=true\n")
                                                                         append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
                                                                         append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                     }
