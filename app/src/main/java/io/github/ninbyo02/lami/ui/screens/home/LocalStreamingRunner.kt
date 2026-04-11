@@ -122,7 +122,7 @@ internal suspend fun runWithHeldEngine(
             responseText = response,
             firstPartialElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
             partialCount = partialCount,
-            namespace = namespace,
+            namespace = namespace ?: "unknown",
             officialFlowUsed = true,
         )
     }
@@ -153,7 +153,7 @@ internal suspend fun runWithHeldEngine(
             responseText = response,
             firstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime(),
             partialCount = 1,
-            namespace = namespace,
+            namespace = namespace ?: "unknown",
             officialFlowUsed = false,
         )
     }
