@@ -69,20 +69,23 @@ internal data class HeldEngineRunResult(
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
-internal data class CloseAttemptOutcome(
+internal data class RunCloseTargetOutcome(
     val label: String,
-    val targetClassName: String,
-    val attempted: Boolean,
-    val success: Boolean?,
+    val targetClassName: String?,
     val strategy: String?,
-    val detail: String?,
+    val status: String,
+    val errorClassName: String?,
+    val message: String?,
 )
 
 internal data class RunCloseLifecycleSummary(
     val path: String,
-    val successReached: Boolean,
-    val finallyReached: Boolean,
-    val outcomes: List<CloseAttemptOutcome>,
+    val successReturned: Boolean,
+    val engineOutcome: RunCloseTargetOutcome? = null,
+    val conversationOutcome: RunCloseTargetOutcome? = null,
+    val sessionOutcome: RunCloseTargetOutcome? = null,
+    val inferenceOutcome: RunCloseTargetOutcome? = null,
+    val notes: String? = null,
 )
 
 internal suspend fun runWithHeldEngine(
@@ -95,7 +98,7 @@ internal suspend fun runWithHeldEngine(
     val namespace = heldEngine.namespace
     val engine = heldEngine.engineInstance
     var heldFlowFinallyReached = false
-    var heldFlowCloseOutcome: CloseAttemptOutcome? = null
+    var heldFlowCloseOutcome: RunCloseTargetOutcome? = null
 
     runWithConversation(
         engine = engine,
@@ -146,16 +149,16 @@ internal suspend fun runWithHeldEngine(
             namespace = namespace ?: "unknown",
             officialFlowUsed = true,
             closeLifecycleSummary = RunCloseLifecycleSummary(
-                path = "held-flow",
-                successReached = true,
-                finallyReached = heldFlowFinallyReached,
-                outcomes = listOfNotNull(heldFlowCloseOutcome),
+                path = "held-official-flow",
+                successReturned = true,
+                conversationOutcome = heldFlowCloseOutcome,
+                notes = if (heldFlowFinallyReached) null else "finally_not_reached",
             ),
         )
     }?.let { return it }
 
     var heldBlockingFinallyReached = false
-    var heldBlockingCloseOutcome: CloseAttemptOutcome? = null
+    var heldBlockingCloseOutcome: RunCloseTargetOutcome? = null
 
     runWithConversation(
         engine = engine,
@@ -191,10 +194,10 @@ internal suspend fun runWithHeldEngine(
             namespace = namespace ?: "unknown",
             officialFlowUsed = false,
             closeLifecycleSummary = RunCloseLifecycleSummary(
-                path = "held-blocking",
-                successReached = true,
-                finallyReached = heldBlockingFinallyReached,
-                outcomes = listOfNotNull(heldBlockingCloseOutcome),
+                path = "held-official-blocking",
+                successReturned = true,
+                conversationOutcome = heldBlockingCloseOutcome,
+                notes = if (heldBlockingFinallyReached) null else "finally_not_reached",
             ),
         )
     }
@@ -575,7 +578,7 @@ private suspend fun <T> runWithConversation(
     namespace: String?,
     appendTrace: (String) -> Unit,
     closeSummaryPath: String? = null,
-    onConversationClosed: ((CloseAttemptOutcome) -> Unit)? = null,
+    onConversationClosed: ((RunCloseTargetOutcome) -> Unit)? = null,
     block: suspend (conversation: Any) -> T?,
 ): T? {
     var conversation: Any? = null
@@ -593,10 +596,10 @@ private suspend fun <T> runWithConversation(
             "UPSTREAM held-conversation close-start class=${conversation?.javaClass?.name ?: "null"}",
         )
         val outcome = tryCloseWithOutcome(
+            label = "conversation",
             target = conversation,
             appendTrace = appendTrace,
             path = closeSummaryPath,
-            label = "conversation",
         )
         onConversationClosed?.invoke(outcome)
     }
@@ -766,7 +769,8 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
     var successReached = false
-    val closeOutcomes = mutableListOf<CloseAttemptOutcome>()
+    var conversationCloseOutcome: RunCloseTargetOutcome? = null
+    var engineCloseOutcome: RunCloseTargetOutcome? = null
     var finalResult: LocalOfficialFlowStreamingResult? = null
     try {
         conversation = runCatching {
@@ -856,27 +860,27 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
         )
     } finally {
-        closeOutcomes += tryCloseWithOutcome(
+        conversationCloseOutcome = tryCloseWithOutcome(
+            label = "conversation",
             target = conversation,
             appendTrace = appendTrace,
-            path = "official-flow",
-            label = "conversation",
+            path = "fallback-official-flow",
         )
-        closeOutcomes += tryCloseWithOutcome(
+        engineCloseOutcome = tryCloseWithOutcome(
+            label = "engine",
             target = engine,
             appendTrace = appendTrace,
-            path = "official-flow",
-            label = "engine",
+            path = "fallback-official-flow",
         )
         val summary = RunCloseLifecycleSummary(
-            path = "official-flow",
-            successReached = successReached,
-            finallyReached = true,
-            outcomes = closeOutcomes,
+            path = "fallback-official-flow",
+            successReturned = successReached,
+            engineOutcome = engineCloseOutcome,
+            conversationOutcome = conversationCloseOutcome,
         )
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM close-summary path=${summary.path} successReached=${summary.successReached} finallyReached=${summary.finallyReached} outcomes=${summary.outcomes.size}",
+            "UPSTREAM close-summary path=${summary.path} successReturned=${summary.successReturned}",
         )
         finalResult = finalResult?.copy(closeLifecycleSummary = summary)
     }
@@ -927,7 +931,8 @@ private fun runOfficialBlockingConversationSingleNamespace(
         ?: throw OfficialFlowFallbackException("conversation_create_failed")
     var conversation: Any? = null
     var successReached = false
-    val closeOutcomes = mutableListOf<CloseAttemptOutcome>()
+    var conversationCloseOutcome: RunCloseTargetOutcome? = null
+    var engineCloseOutcome: RunCloseTargetOutcome? = null
     var finalResponse: String? = null
     var closeSummary: RunCloseLifecycleSummary? = null
     try {
@@ -974,27 +979,27 @@ private fun runOfficialBlockingConversationSingleNamespace(
         successReached = true
         finalResponse = responseText
     } finally {
-        closeOutcomes += tryCloseWithOutcome(
+        conversationCloseOutcome = tryCloseWithOutcome(
+            label = "conversation",
             target = conversation,
             appendTrace = appendTrace,
-            path = "official-blocking",
-            label = "conversation",
+            path = "fallback-official-blocking",
         )
-        closeOutcomes += tryCloseWithOutcome(
+        engineCloseOutcome = tryCloseWithOutcome(
+            label = "engine",
             target = engine,
             appendTrace = appendTrace,
-            path = "official-blocking",
-            label = "engine",
+            path = "fallback-official-blocking",
         )
         val summary = RunCloseLifecycleSummary(
-            path = "official-blocking",
-            successReached = successReached,
-            finallyReached = true,
-            outcomes = closeOutcomes,
+            path = "fallback-official-blocking",
+            successReturned = successReached,
+            engineOutcome = engineCloseOutcome,
+            conversationOutcome = conversationCloseOutcome,
         )
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM close-summary path=${summary.path} successReached=${summary.successReached} finallyReached=${summary.finallyReached} outcomes=${summary.outcomes.size}",
+            "UPSTREAM close-summary path=${summary.path} successReturned=${summary.successReturned}",
         )
         closeSummary = summary
     }
@@ -1352,28 +1357,28 @@ private fun closeQuietly(
     appendTrace: ((String) -> Unit)? = null,
 ) {
     tryCloseWithOutcome(
+        label = "target",
         target = target,
         appendTrace = appendTrace,
         path = null,
-        label = null,
     )
 }
 
-private fun tryCloseWithOutcome(
+internal fun tryCloseWithOutcome(
+    label: String,
     target: Any?,
     appendTrace: ((String) -> Unit)? = null,
     path: String? = null,
-    label: String? = null,
-): CloseAttemptOutcome {
-    val targetClass = target?.javaClass?.name ?: "null"
+): RunCloseTargetOutcome {
+    val targetClass = target?.javaClass?.name
     if (target == null) {
-        val outcome = CloseAttemptOutcome(
-            label = label ?: "target",
+        val outcome = RunCloseTargetOutcome(
+            label = label,
             targetClassName = targetClass,
-            attempted = false,
-            success = null,
-            strategy = "none",
-            detail = null,
+            strategy = null,
+            status = "none",
+            errorClassName = null,
+            message = null,
         )
         appendTrace?.let { trace ->
             path?.let { emitCloseSummaryTrace(trace, it, outcome) }
@@ -1387,13 +1392,13 @@ private fun tryCloseWithOutcome(
                     runCatching {
                         appendTrace?.invoke("UPSTREAM closeQuietly targetClass=$targetClass strategy=AutoCloseable.close success")
                     }
-                    val outcome = CloseAttemptOutcome(
-                        label = label ?: "target",
+                    val outcome = RunCloseTargetOutcome(
+                        label = label,
                         targetClassName = targetClass,
-                        attempted = true,
-                        success = true,
+                        status = "success",
                         strategy = "AutoCloseable.close",
-                        detail = null,
+                        errorClassName = null,
+                        message = null,
                     )
                     appendTrace?.let { trace ->
                         path?.let { emitCloseSummaryTrace(trace, it, outcome) }
@@ -1406,13 +1411,13 @@ private fun tryCloseWithOutcome(
                             "UPSTREAM closeQuietly targetClass=$targetClass strategy=AutoCloseable.close failed ${throwable.javaClass.simpleName}",
                         )
                     }
-                    val outcome = CloseAttemptOutcome(
-                        label = label ?: "target",
+                    val outcome = RunCloseTargetOutcome(
+                        label = label,
                         targetClassName = targetClass,
-                        attempted = true,
-                        success = false,
+                        status = "failed",
                         strategy = "AutoCloseable.close",
-                        detail = throwable.javaClass.simpleName,
+                        errorClassName = throwable.javaClass.name,
+                        message = throwable.message?.take(120),
                     )
                     appendTrace?.let { trace ->
                         path?.let { emitCloseSummaryTrace(trace, it, outcome) }
@@ -1429,13 +1434,13 @@ private fun tryCloseWithOutcome(
         runCatching {
             appendTrace?.invoke("UPSTREAM closeQuietly targetClass=$targetClass strategy=none")
         }
-        val outcome = CloseAttemptOutcome(
-            label = label ?: "target",
+        val outcome = RunCloseTargetOutcome(
+            label = label,
             targetClassName = targetClass,
-            attempted = false,
-            success = null,
-            strategy = "none",
-            detail = null,
+            strategy = null,
+            status = "skipped",
+            errorClassName = null,
+            message = null,
         )
         appendTrace?.let { trace ->
             path?.let { emitCloseSummaryTrace(trace, it, outcome) }
@@ -1449,13 +1454,13 @@ private fun tryCloseWithOutcome(
                 runCatching {
                     appendTrace?.invoke("UPSTREAM closeQuietly targetClass=$targetClass strategy=$strategyName success")
                 }
-                val outcome = CloseAttemptOutcome(
-                    label = label ?: "target",
+                val outcome = RunCloseTargetOutcome(
+                    label = label,
                     targetClassName = targetClass,
-                    attempted = true,
-                    success = true,
+                    status = "success",
                     strategy = strategyName,
-                    detail = null,
+                    errorClassName = null,
+                    message = null,
                 )
                 appendTrace?.let { trace ->
                     path?.let { emitCloseSummaryTrace(trace, it, outcome) }
@@ -1468,13 +1473,13 @@ private fun tryCloseWithOutcome(
                         "UPSTREAM closeQuietly targetClass=$targetClass strategy=$strategyName failed ${throwable.javaClass.simpleName}",
                     )
                 }
-                val outcome = CloseAttemptOutcome(
-                    label = label ?: "target",
+                val outcome = RunCloseTargetOutcome(
+                    label = label,
                     targetClassName = targetClass,
-                    attempted = true,
-                    success = false,
+                    status = "failed",
                     strategy = strategyName,
-                    detail = throwable.javaClass.simpleName,
+                    errorClassName = throwable.javaClass.name,
+                    message = throwable.message?.take(120),
                 )
                 appendTrace?.let { trace ->
                     path?.let { emitCloseSummaryTrace(trace, it, outcome) }
@@ -1487,11 +1492,11 @@ private fun tryCloseWithOutcome(
 private fun emitCloseSummaryTrace(
     appendTrace: (String) -> Unit,
     path: String,
-    outcome: CloseAttemptOutcome,
+    outcome: RunCloseTargetOutcome,
 ) {
     safeAppendTrace(
         appendTrace,
-        "UPSTREAM close-summary path=$path label=${outcome.label} attempted=${outcome.attempted} success=${outcome.success} strategy=${outcome.strategy ?: "none"} targetClass=${outcome.targetClassName} detail=${outcome.detail ?: "none"}",
+        "UPSTREAM close-summary path=$path label=${outcome.label} status=${outcome.status} strategy=${outcome.strategy ?: "none"} class=${outcome.targetClassName ?: "null"} error=${outcome.errorClassName ?: "none"} message=${outcome.message ?: "none"}",
     )
 }
 

@@ -2065,7 +2065,13 @@ fun Home(
                                                                 ),
                                                             )
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                devCloseLifecycleText = buildCloseLifecycleText(runResultWithUiTrace?.closeLifecycleSummary)
+                                                                devCloseLifecycleText = when (runResultWithUiTrace?.state) {
+                                                                    LocalInferenceEngineState.READY -> {
+                                                                        buildCloseLifecycleText(runResultWithUiTrace.closeLifecycleSummary)
+                                                                            ?: "CLOSE LIFECYCLE\nsummary=none"
+                                                                    }
+                                                                    else -> "CLOSE LIFECYCLE\nsummary=none"
+                                                                }
                                                             }
                                                             val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
                                                             val inventoryResponseChars = runResultWithUiTrace?.response?.length ?: -1
@@ -3298,20 +3304,30 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
 
 private fun buildCloseLifecycleText(summary: RunCloseLifecycleSummary?): String? {
     if (summary == null) return null
+    fun formatOutcome(label: String, outcome: RunCloseTargetOutcome?): String {
+        if (outcome == null) return "$label=status=none"
+        return buildString {
+            append(label).append("=status=").append(outcome.status)
+            append(" strategy=").append(outcome.strategy ?: "none")
+            append(" class=").append(outcome.targetClassName ?: "null")
+            if (!outcome.errorClassName.isNullOrBlank()) {
+                append(" error=").append(outcome.errorClassName)
+            }
+            if (!outcome.message.isNullOrBlank()) {
+                append(" message=").append(outcome.message)
+            }
+        }
+    }
     return buildString {
         append("CLOSE LIFECYCLE\n")
         append("path=").append(summary.path).append("\n")
-        append("successReached=").append(summary.successReached).append("\n")
-        append("finallyReached=").append(summary.finallyReached)
-        summary.outcomes.forEach { outcome ->
-            append("\n")
-            append("close[").append(outcome.label).append("]=")
-            append("attempted:").append(outcome.attempted).append(" ")
-            append("success:").append(outcome.success).append(" ")
-            append("strategy:").append(outcome.strategy ?: "none")
-            if (!outcome.detail.isNullOrBlank()) {
-                append(" detail:").append(outcome.detail)
-            }
+        append("successReturned=").append(summary.successReturned).append("\n")
+        append(formatOutcome("conversation", summary.conversationOutcome)).append("\n")
+        append(formatOutcome("engine", summary.engineOutcome)).append("\n")
+        append(formatOutcome("session", summary.sessionOutcome)).append("\n")
+        append(formatOutcome("inference", summary.inferenceOutcome))
+        summary.notes?.takeIf { it.isNotBlank() }?.let { note ->
+            append("\nnotes=").append(note)
         }
     }
 }
@@ -3570,14 +3586,7 @@ private fun generateLiteRtResponseViaReflection(
     )
     var successReached = false
     var generatedResponse: LocalLiteRtGeneratedResponse? = null
-    var closeOutcome = CloseAttemptOutcome(
-        label = "inferenceInstance",
-        targetClassName = inferenceInstance.javaClass.name,
-        attempted = false,
-        success = null,
-        strategy = "none",
-        detail = null,
-    )
+    var closeOutcome: RunCloseTargetOutcome? = null
     try {
         val generated = generateLiteRtStringResponseOnceViaReflection(
             context = context,
@@ -3604,65 +3613,31 @@ private fun generateLiteRtResponseViaReflection(
         successReached = true
         generatedResponse = generated
     } finally {
-        closeOutcome = runCatching {
-            val closeable = inferenceInstance as? AutoCloseable
-            if (closeable == null) {
-                CloseAttemptOutcome(
-                    label = "inferenceInstance",
-                    targetClassName = inferenceInstance.javaClass.name,
-                    attempted = false,
-                    success = null,
-                    strategy = "none",
-                    detail = null,
-                )
-            } else {
-                runCatching { closeable.close() }.fold(
-                    onSuccess = {
-                        CloseAttemptOutcome(
-                            label = "inferenceInstance",
-                            targetClassName = inferenceInstance.javaClass.name,
-                            attempted = true,
-                            success = true,
-                            strategy = "AutoCloseable.close",
-                            detail = null,
-                        )
-                    },
-                    onFailure = { throwable ->
-                        CloseAttemptOutcome(
-                            label = "inferenceInstance",
-                            targetClassName = inferenceInstance.javaClass.name,
-                            attempted = true,
-                            success = false,
-                            strategy = "AutoCloseable.close",
-                            detail = throwable.javaClass.simpleName,
-                        )
-                    },
-                )
-            }
-        }.getOrElse { throwable ->
-            CloseAttemptOutcome(
-                label = "inferenceInstance",
-                targetClassName = inferenceInstance.javaClass.name,
-                attempted = true,
-                success = false,
-                strategy = "AutoCloseable.close",
-                detail = throwable.javaClass.simpleName,
-            )
-        }
-        appendLocalReflectionTrace(
-            context = context,
-            message = "UPSTREAM close-summary path=legacy-oneshot label=${closeOutcome.label} attempted=${closeOutcome.attempted} success=${closeOutcome.success} strategy=${closeOutcome.strategy ?: "none"} targetClass=${closeOutcome.targetClassName} detail=${closeOutcome.detail ?: "none"}",
+        closeOutcome = tryCloseWithOutcome(
+            label = "inference",
+            target = inferenceInstance,
+            appendTrace = { traceMessage ->
+                appendLocalReflectionTrace(context = context, message = traceMessage)
+            },
+            path = "legacy-reflection",
         )
     }
     val closeSummary = RunCloseLifecycleSummary(
-        path = "legacy-oneshot",
-        successReached = successReached,
-        finallyReached = true,
-        outcomes = listOf(closeOutcome),
+        path = "legacy-reflection",
+        successReturned = successReached,
+        sessionOutcome = RunCloseTargetOutcome(
+            label = "session",
+            targetClassName = null,
+            strategy = null,
+            status = "none",
+            errorClassName = null,
+            message = null,
+        ),
+        inferenceOutcome = closeOutcome,
     )
     appendLocalReflectionTrace(
         context = context,
-        message = "UPSTREAM close-summary path=legacy-oneshot successReached=${closeSummary.successReached} finallyReached=${closeSummary.finallyReached} outcomes=${closeSummary.outcomes.size}",
+        message = "UPSTREAM close-summary path=legacy-reflection successReturned=${closeSummary.successReturned}",
     )
     val generatedResult = generatedResponse ?: LocalLiteRtGeneratedResponse(trace = trace)
     return generatedResult.copy(closeLifecycleSummary = closeSummary)
