@@ -219,6 +219,7 @@ private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
+private const val DEV_UI_DEBUG_MODE = true
 private const val DEV_USE_HELD_PATH_ONLY = true
 
 private enum class LocalLiteRtProbeResult {
@@ -485,6 +486,8 @@ fun Home(
     var remoteStopRequested by remember(effectiveChatId) { mutableStateOf(false) }
     var remoteRequestJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
+    var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRunningRaw = isLocalInferenceRunning
     val isServerRunning =
@@ -1848,6 +1851,14 @@ fun Home(
                                                                     Log.e("ChatScreen", "Failed to acquire local held engine", it)
                                                                     null
                                                                 }
+                                                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                    devHeldStateText = buildString {
+                                                                        append("HELD ENGINE STATE\n")
+                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                        append("heldExists=").append(heldEngine != null).append("\n")
+                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                    }
+                                                                }
                                                                 heldEngine?.let { held ->
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
@@ -1947,6 +1958,16 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-only fail reason=acquire-failed",
                                                                         )
+                                                                        if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                            val failReason = buildString {
+                                                                                append("DEV HELD FAILURE\n")
+                                                                                append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                                append("held=").append(heldEngine != null).append("\n")
+                                                                                append("conversation=").append(conversation != null).append("\n")
+                                                                                append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                            }
+                                                                            devDebugText = failReason
+                                                                        }
                                                                         return@run LocalInferenceRunResult(
                                                                             state = LocalInferenceEngineState.ERROR,
                                                                             response = "DEV held path failure: acquire failed",
@@ -2760,6 +2781,32 @@ fun Home(
                                 item(key = "composer_spacer") {
                                     // IME 表示中でも末尾メッセージへ到達できるよう、既存の IME 分だけ末尾余白へ加算する
                                     Spacer(modifier = Modifier.height(ComposerMinHeight + ComposerBottomGapHeight + bottomDp))
+                                }
+                            }
+
+                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                ) {
+
+                                    devHeldStateText?.let {
+                                        Text(
+                                            text = it,
+                                            fontSize = 10.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+
+                                    devDebugText?.let {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = it,
+                                            fontSize = 10.sp,
+                                            color = Color.Red
+                                        )
+                                    }
                                 }
                             }
 
