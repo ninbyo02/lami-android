@@ -1851,12 +1851,38 @@ fun Home(
                                                                     Log.e("ChatScreen", "Failed to acquire local held engine", it)
                                                                     null
                                                                 }
+                                                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
+                                                                    devDebugText = buildString {
+                                                                        append("HELD ACQUIRE FAILED\n")
+                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                        append("reason=heldEngine is null\n")
+                                                                        append("hint=engine not created or acquire failed\n")
+                                                                    }
+                                                                }
+                                                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine != null) {
+                                                                    devHeldStateText = buildString {
+                                                                        append("HELD ENGINE STATE\n")
+                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                        append("heldExists=true\n")
+                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                        append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
+                                                                    }
+                                                                }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                     devHeldStateText = buildString {
                                                                         append("HELD ENGINE STATE\n")
                                                                         append("modelPath=").append(resolvedModelPath).append("\n")
                                                                         append("heldExists=").append(heldEngine != null).append("\n")
                                                                         append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                    }
+                                                                }
+                                                                if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine != null) {
+                                                                    devHeldStateText = buildString {
+                                                                        append("HELD ENGINE STATE\n")
+                                                                        append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                        append("heldExists=true\n")
+                                                                        append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
+                                                                        append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                     }
                                                                 }
                                                                 heldEngine?.let { held ->
