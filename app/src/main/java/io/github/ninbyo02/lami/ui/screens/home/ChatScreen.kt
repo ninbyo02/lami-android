@@ -992,6 +992,7 @@ fun Home(
     LaunchedEffect(uiState, effectiveChatId) {
         if (toggle) {
             val currentChatId = effectiveChatId
+            val guardEpoch = streamingGuardEpoch
             when (uiState) {
                 is UiState.Success -> {
                     if (remoteStopRequested) {
@@ -1006,6 +1007,7 @@ fun Home(
                     val response = (uiState as UiState.Success).outputText
                     var assistantId: Int? = null
                     if (currentChatId != null) {
+                        if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
                         assistantId = finalizeStreamingAssistantMessageSerialized(
                             chatId = currentChatId,
                             response = response,
@@ -1046,6 +1048,7 @@ fun Home(
                         return@LaunchedEffect
                     }
                     if (currentChatId != null) {
+                        if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
                         val assistantId = finalizeStreamingAssistantMessageSerialized(
                             chatId = currentChatId,
                             response = (uiState as UiState.Error).errorMessage,
@@ -1079,6 +1082,7 @@ fun Home(
                     } else {
                         val partialText = (uiState as UiState.Streaming).partialText.trim()
                         if (currentChatId != null && partialText.isNotBlank()) {
+                            if (guardEpoch != streamingGuardEpoch) return@LaunchedEffect
                             upsertStreamingAssistantPlaceholderSerialized(
                                 chatId = currentChatId,
                                 response = partialText,
@@ -1760,6 +1764,7 @@ fun Home(
                                                             assistantUpdateCountForDev = 0
                                                             firstNonEmptyAssistantChunkSeenForDev = false
                                                             lastStreamingAssistantChunkForDev = null
+                                                            val localRunGuardEpoch = streamingGuardEpoch
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
@@ -1773,12 +1778,11 @@ fun Home(
                                                                     if (localStopRequested) return@run
                                                                     val normalizedPartial = partial.trim()
                                                                     if (normalizedPartial.isBlank()) return@run
-                                                                    val guardEpoch = streamingGuardEpoch
                                                                     didReceiveRealLocalPartial = true
                                                                     realLocalPartialChunkCount += 1
                                                                     localStreamingResponseText = normalizedPartial
                                                                     coroutineScope.launch {
-                                                                        if (guardEpoch != streamingGuardEpoch) return@launch
+                                                                        if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                         if (localStopRequested) return@launch
                                                                         upsertStreamingAssistantPlaceholderSerialized(
                                                                             chatId = currentChatId,
@@ -1933,9 +1937,8 @@ fun Home(
                                                                                 localStreamingResponseText = chunk
                                                                                 val normalizedChunk = chunk.trim()
                                                                                 if (normalizedChunk.isBlank()) return@streamLocalAssistantPreviewTextToUi
-                                                                                val guardEpoch = streamingGuardEpoch
                                                                                 coroutineScope.launch {
-                                                                                    if (guardEpoch != streamingGuardEpoch) return@launch
+                                                                                    if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                                     if (localStopRequested) return@launch
                                                                                     upsertStreamingAssistantPlaceholderSerialized(
                                                                                         chatId = currentChatId,
@@ -1957,6 +1960,7 @@ fun Home(
                                                                         resetStreamingAssistantPlaceholderId(reason = "stop")
                                                                         return@launch
                                                                     }
+                                                                    if (localRunGuardEpoch != streamingGuardEpoch) return@launch
                                                                     val assistantId = finalizeStreamingAssistantMessageSerialized(
                                                                         chatId = currentChatId,
                                                                         response = resolvedAssistantResponse,
