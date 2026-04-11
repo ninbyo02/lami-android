@@ -1963,7 +1963,7 @@ fun Home(
                                                                                 append("DEV HELD FAILURE\n")
                                                                                 append("modelPath=").append(resolvedModelPath).append("\n")
                                                                                 append("held=").append(heldEngine != null).append("\n")
-                                                                                append("conversation=").append(conversation != null).append("\n")
+                                                                                append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
                                                                                 append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
                                                                             }
                                                                             devDebugText = failReason
