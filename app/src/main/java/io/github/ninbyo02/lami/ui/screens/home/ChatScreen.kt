@@ -5932,6 +5932,7 @@ private fun buildInferenceDetailSections(
     )
 
     return listOfNotNull(
+        devDiagnosticSummarySection,
         InferenceStatsSectionUi(
             title = "トークン",
             items = listOf(
@@ -6003,7 +6004,6 @@ private fun buildInferenceDetailSections(
                 }
             },
         ),
-        devDiagnosticSummarySection,
         InferenceStatsSectionUi(
             title = "DEV診断",
             items = devSectionItems,
@@ -6018,21 +6018,40 @@ private fun buildDevDiagnosticSummarySection(
     devCloseLifecycleText: String?,
     devDebugText: String?,
 ): InferenceStatsSectionUi? {
-    if (trace == null && devHeldStateText.isNullOrBlank() && devCloseLifecycleText.isNullOrBlank() && devDebugText.isNullOrBlank()) {
+    if (
+        trace == null &&
+        stats.modelName.isNullOrBlank() &&
+        devHeldStateText.isNullOrBlank() &&
+        devCloseLifecycleText.isNullOrBlank() &&
+        devDebugText.isNullOrBlank()
+    ) {
         return null
     }
+    val items = listOf(
+        InferenceStatItemUi(label = "実行経路", value = resolveDevSummaryExecutionPath(stats, trace)),
+        InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)),
+        InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)),
+        InferenceStatItemUi(label = "held engine再利用", value = resolveDevSummaryEngineReuse(devHeldStateText)),
+        InferenceStatItemUi(label = "held engine状態", value = resolveDevSummaryHeldState(devHeldStateText)),
+        InferenceStatItemUi(label = "close結果", value = resolveDevSummaryCloseStatus(devCloseLifecycleText)),
+        InferenceStatItemUi(label = "失敗要約", value = resolveDevSummaryFailure(devDebugText)),
+    )
+    if (items.all { it.value == "—" || it.value == "不明" }) return null
     return InferenceStatsSectionUi(
         title = "DEV診断サマリー",
-        items = listOf(
-            InferenceStatItemUi(label = "実行経路", value = trace?.selectedAssistantResponseSource ?: "—"),
-            InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)),
-            InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)),
-            InferenceStatItemUi(label = "held engine再利用", value = resolveDevSummaryEngineReuse(devHeldStateText)),
-            InferenceStatItemUi(label = "held engine状態", value = resolveDevSummaryHeldState(devHeldStateText)),
-            InferenceStatItemUi(label = "close結果", value = resolveDevSummaryCloseStatus(devCloseLifecycleText)),
-            InferenceStatItemUi(label = "失敗要約", value = resolveDevSummaryFailure(devDebugText)),
-        ),
+        items = items,
     )
+}
+
+private fun resolveDevSummaryExecutionPath(
+    stats: InferenceStats,
+    trace: LocalInferenceTrace?,
+): String {
+    val source = trace?.selectedAssistantResponseSource?.trim()?.takeIf { it.isNotBlank() }
+    if (source != null) return source
+    val localSourceSummary = stats.localSourceSummary?.trim()?.takeIf { it.isNotBlank() }
+    if (localSourceSummary != null) return localSourceSummary
+    return "unknown"
 }
 
 private fun resolveDevSummaryModelName(
@@ -6048,9 +6067,10 @@ private fun resolveDevSummaryModelResolution(
     stats: InferenceStats,
     trace: LocalInferenceTrace?,
 ): String {
+    val modelName = stats.modelName?.trim()?.takeIf { it.isNotBlank() }
+    val traceModel = trace?.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
     return when {
-        !stats.modelName.isNullOrBlank() -> "設定モデル使用"
-        !trace?.localModelDisplayName.isNullOrBlank() -> "保存トレース由来"
+        modelName != null && (traceModel == null || modelName == traceModel) -> "設定モデル使用"
         else -> "不明"
     }
 }
@@ -6058,8 +6078,10 @@ private fun resolveDevSummaryModelResolution(
 private fun resolveDevSummaryEngineReuse(devHeldStateText: String?): String {
     val heldExists = devHeldStateText.devLineValue("heldExists")?.toBooleanStrictOrNull()
     val useCount = devHeldStateText.devLineValue("useCount")?.toIntOrNull()
+    val heldHash = devHeldStateText.devLineValue("heldHash")
     return when {
         heldExists == true && useCount != null && useCount >= 1 -> "再利用あり"
+        heldExists == true && !heldHash.isNullOrBlank() && heldHash != "null" -> "再利用あり"
         heldExists == false -> "再利用なし"
         heldExists == true && useCount == 0 -> "再利用なし"
         heldExists == true -> "再利用あり"
@@ -6089,11 +6111,14 @@ private fun resolveDevSummaryFailure(devDebugText: String?): String {
     val stage = devDebugText.devLineValue("stage")
     val errorClass = devDebugText.devLineValue("class")
     val message = devDebugText.devLineValue("message")
-    return listOfNotNull(stage, errorClass, message?.take(40))
+    val primary = listOfNotNull(stage, errorClass)
         .filter { it.isNotBlank() }
-        .take(2)
-        .joinToString(" / ")
-        .ifBlank { "—" }
+    if (primary.isNotEmpty()) return primary.take(2).joinToString(" / ")
+    return message
+        ?.takeIf { it.isNotBlank() }
+        ?.take(40)
+        ?.let { if (it.length < (message.length)) "$it…" else it }
+        ?: "—"
 }
 
 private fun String?.devLineValue(key: String): String? {
