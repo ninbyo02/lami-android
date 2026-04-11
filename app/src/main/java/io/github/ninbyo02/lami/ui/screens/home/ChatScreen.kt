@@ -1867,7 +1867,7 @@ fun Home(
                                                                     if (heldRunResult != null) {
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
-                                                                            message = "UPSTREAM held-run success responseLength=${heldRunResult.response.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.usedOfficialFlow} namespace=${heldRunResult.namespace}",
+                                                                            message = "UPSTREAM held-run success responseLength=${heldRunResult.responseText.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.officialFlowUsed} namespace=${heldRunResult.namespace}",
                                                                         )
                                                                         heldRunResult.toLocalInferenceRunResult()
                                                                     } else {
@@ -1907,7 +1907,7 @@ fun Home(
                                                                         )
                                                                         appendLocalReflectionTrace(
                                                                             context = context.applicationContext,
-                                                                            message = "UPSTREAM legacy-run finish state=${legacyRunResult.state} responseLength=${legacyRunResult.response?.length ?: -1}",
+                                                                            message = "UPSTREAM legacy-run finish state=${legacyRunResult?.state ?: "null"} responseLength=${legacyRunResult?.response?.length ?: -1}",
                                                                         )
                                                                         legacyRunResult
                                                                     }
@@ -1946,7 +1946,7 @@ fun Home(
                                                                     )
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
-                                                                        message = "UPSTREAM legacy-run finish state=${legacyRunResult.state} responseLength=${legacyRunResult.response?.length ?: -1}",
+                                                                        message = "UPSTREAM legacy-run finish state=${legacyRunResult?.state ?: "null"} responseLength=${legacyRunResult?.response?.length ?: -1}",
                                                                     )
                                                                     legacyRunResult
                                                                 }
