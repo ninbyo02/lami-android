@@ -2863,44 +2863,6 @@ fun Home(
                                 }
                             }
 
-                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(8.dp)
-                                ) {
-
-                                    devHeldStateText?.let {
-                                        Text(
-                                            text = it,
-                                            fontSize = 10.sp,
-                                            lineHeight = 12.sp,
-                                            color = Color.Gray.copy(alpha = 0.8f)
-                                        )
-                                    }
-
-                                    devCloseLifecycleText?.let {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = it,
-                                            fontSize = 10.sp,
-                                            lineHeight = 12.sp,
-                                            color = Color.Gray.copy(alpha = 0.8f)
-                                        )
-                                    }
-
-                                    devDebugText?.let {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = it,
-                                            fontSize = 10.sp,
-                                            lineHeight = 12.sp,
-                                            color = Color.Red.copy(alpha = 0.85f)
-                                        )
-                                    }
-                                }
-                            }
-
                             if (shouldShowScrollToBottomFab) {
                                 SmallFloatingActionButton(
                                     onClick = {
@@ -2998,7 +2960,15 @@ fun Home(
                 selectedLocalTraceForDevSheet = null
             },
         ) {
-            stats?.let { InferenceStatsSheetContent(it, localTraceForDev = selectedLocalTraceForDevSheet) }
+            stats?.let {
+                InferenceStatsSheetContent(
+                    stats = it,
+                    localTraceForDev = selectedLocalTraceForDevSheet,
+                    devHeldStateText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
+                    devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
+                    devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
+                )
+            }
         }
     }
 
@@ -5230,6 +5200,9 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
+    devHeldStateText: String? = null,
+    devCloseLifecycleText: String? = null,
+    devDebugText: String? = null,
 ) {
     var isDetailExpanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -5238,7 +5211,13 @@ private fun InferenceStatsSheetContent(
     val sectionSpacing = 12.dp
 
     val sections = buildInferenceSummarySections(stats, localTraceForDev = localTraceForDev)
-    val detailSections = buildInferenceDetailSections(stats, localTraceForDev = localTraceForDev)
+    val detailSections = buildInferenceDetailSections(
+        stats = stats,
+        localTraceForDev = localTraceForDev,
+        devHeldStateText = devHeldStateText,
+        devCloseLifecycleText = devCloseLifecycleText,
+        devDebugText = devDebugText,
+    )
 
     Column(
         modifier = Modifier
@@ -5928,8 +5907,22 @@ internal fun buildContextUsageUi(stats: InferenceStats): ContextUsageUi? {
 private fun buildInferenceDetailSections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
+    devHeldStateText: String? = null,
+    devCloseLifecycleText: String? = null,
+    devDebugText: String? = null,
 ): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
+    val devSectionItems = buildList {
+        devHeldStateText?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "Held Engine State", value = it))
+        }
+        devCloseLifecycleText?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "Close Lifecycle", value = it))
+        }
+        devDebugText?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "Failure / Debug", value = it))
+        }
+    }
 
     return listOf(
         InferenceStatsSectionUi(
@@ -6003,6 +5996,10 @@ private fun buildInferenceDetailSections(
                 }
             },
         ),
+        InferenceStatsSectionUi(
+            title = "DEV診断",
+            items = devSectionItems,
+        ).takeIf { it.items.isNotEmpty() },
     )
 }
 
