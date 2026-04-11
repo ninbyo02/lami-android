@@ -426,6 +426,9 @@ fun Home(
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow.collectAsState(
         initial = false,
     )
+    val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(
+        initial = true,
+    )
     val clipboardManager = LocalClipboardManager.current
     val ttsController = remember { AndroidTtsController(context.applicationContext) }
     val isTtsSpeaking by ttsController.isSpeaking.collectAsState()
@@ -833,6 +836,7 @@ fun Home(
     }
 
     fun consumeStreamingSentenceAndSpeak(fullText: String) {
+        if (!ttsEnabled) return
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         if (fullText.length < streamingSpeechLastConsumedLength) {
@@ -859,6 +863,7 @@ fun Home(
     }
 
     fun speakStreamingTailIfNeeded(fullText: String) {
+        if (!ttsEnabled) return
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && suppressedTtsAssistantMessageId == targetMessageId) return
         val safeConsumed = streamingSpeechLastConsumedLength.coerceIn(0, fullText.length)
@@ -876,16 +881,27 @@ fun Home(
         }
     }
 
-    LaunchedEffect(devEnableStreamingSentenceTts, isInferenceRunningUi, streamingResponseText) {
-        if (!devEnableStreamingSentenceTts || !isInferenceRunningUi) return@LaunchedEffect
+    val effectiveStreamingSentenceTtsEnabled = ttsEnabled && devEnableStreamingSentenceTts
+
+    LaunchedEffect(effectiveStreamingSentenceTtsEnabled, isInferenceRunningUi, streamingResponseText) {
+        if (!effectiveStreamingSentenceTtsEnabled || !isInferenceRunningUi) return@LaunchedEffect
         val fullText = streamingResponseText ?: return@LaunchedEffect
         if (fullText.isBlank()) return@LaunchedEffect
         consumeStreamingSentenceAndSpeak(fullText)
     }
 
-    LaunchedEffect(devEnableStreamingSentenceTts) {
-        if (!devEnableStreamingSentenceTts) {
+    LaunchedEffect(effectiveStreamingSentenceTtsEnabled) {
+        if (!effectiveStreamingSentenceTtsEnabled) {
             resetStreamingSpeechState()
+        }
+    }
+
+    LaunchedEffect(ttsEnabled) {
+        if (!ttsEnabled) {
+            stopTtsWithCleanup(
+                suppressedMessageId = null,
+                armTapGuards = false,
+            )
         }
     }
 
@@ -1045,10 +1061,15 @@ fun Home(
                             }
                         }
                     }
-                    if (devEnableStreamingSentenceTts) {
+                    if (effectiveStreamingSentenceTtsEnabled) {
                         speakStreamingTailIfNeeded(response)
                         resetStreamingSpeechState(clearPlaybackFlag = false)
-                    } else if (assistantId != null && suppressedTtsAssistantMessageId != assistantId && !ttsController.isInCooldown()) {
+                    } else if (
+                        ttsEnabled &&
+                        assistantId != null &&
+                        suppressedTtsAssistantMessageId != assistantId &&
+                        !ttsController.isInCooldown()
+                    ) {
                         ttsController.speak(response)
                     }
                     placeholder = "Enter your prompt..."
@@ -2243,10 +2264,11 @@ fun Home(
                                                                             stopButtonOwnerAssistantMessageId = assistantId
                                                                         }
                                                                     }
-                                                                    if (devEnableStreamingSentenceTts && !localStopRequested) {
+                                                                    if (effectiveStreamingSentenceTtsEnabled && !localStopRequested) {
                                                                         speakStreamingTailIfNeeded(resolvedAssistantResponse)
                                                                         resetStreamingSpeechState(clearPlaybackFlag = false)
                                                                     } else if (
+                                                                        ttsEnabled &&
                                                                         !localStopRequested &&
                                                                         assistantId != null &&
                                                                         suppressedTtsAssistantMessageId != assistantId &&
@@ -2761,7 +2783,8 @@ fun Home(
                                                 isReplaying =
                                                     stopButtonOwnerAssistantMessageId == message.messageID ||
                                                         stopUiCooldownAssistantMessageId == message.messageID,
-                                                onReplayClick = {
+                                                onReplayClick = if (ttsEnabled) {
+                                                    {
                                                     if (suppressReplayAssistantMessageId == message.messageID) {
                                                         return@PlainAssistantMessage
                                                     }
@@ -2790,12 +2813,19 @@ fun Home(
                                                     currentSpeakingAssistantMessageId = message.messageID
                                                     stopButtonOwnerAssistantMessageId = message.messageID
                                                     ttsController.speak(message.message)
+                                                }
+                                                } else {
+                                                    null
                                                 },
-                                                onStopReplayClick = {
+                                                onStopReplayClick = if (ttsEnabled) {
+                                                    {
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = message.messageID,
                                                         armTapGuards = true,
                                                     )
+                                                }
+                                                } else {
+                                                    null
                                                 },
                                                 onCopyAllClick = {
                                                     clipboardManager.setText(AnnotatedString(message.message))
