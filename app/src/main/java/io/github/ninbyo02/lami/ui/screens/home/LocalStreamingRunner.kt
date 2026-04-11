@@ -583,103 +583,12 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
         )
     }
 
-    stage = "mediapipe-find-class"
-    val inferenceClass = runCatching {
-        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
-    }.getOrElse { throwable ->
-        stage = "mediapipe-class-missing"
-        val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
-        return ReusableLocalEngineCreateDiagnostic(
-            engine = null,
-            stage = stage,
-            className = className,
-            message = (throwable.message ?: "LlmInference class not found").take(200),
-        )
-    }
-
-    stage = "mediapipe-find-createFromOptions"
-    val createFromOptionsMethod = inferenceClass.methods.firstOrNull { method ->
-        method.name == "createFromOptions" &&
-            method.parameterTypes.size == 2 &&
-            method.parameterTypes[0] == android.content.Context::class.java
-    }
-    if (createFromOptionsMethod == null) {
-        stage = "mediapipe-createFromOptions-missing"
-        return ReusableLocalEngineCreateDiagnostic(
-            engine = null,
-            stage = stage,
-            className = "NoSuchMethod",
-            message = "createFromOptions(Context, Options) not found".take(200),
-        )
-    }
-
-    stage = "mediapipe-build-options"
-    val options = runCatching {
-        buildOptionsObject(
-            optionClass = createFromOptionsMethod.parameterTypes[1],
-            modelPath = modelPath,
-        )
-    }.getOrElse { throwable ->
-        stage = "mediapipe-build-options-failed"
-        val className = throwable.javaClass.simpleName.ifBlank { throwable.javaClass.name }
-        return ReusableLocalEngineCreateDiagnostic(
-            engine = null,
-            stage = stage,
-            className = className,
-            message = (throwable.message ?: "build options failed").take(200),
-        )
-    }
-    if (options == null) {
-        stage = "mediapipe-build-options-failed"
-        return ReusableLocalEngineCreateDiagnostic(
-            engine = null,
-            stage = stage,
-            className = "ReturnedNull",
-            message = "buildOptionsObject returned null".take(200),
-        )
-    }
-
-    stage = "mediapipe-invoke-createFromOptions"
-    val inferenceInstance = runCatching {
-        createFromOptionsMethod.invoke(null, context, options)
-    }.getOrElse { throwable ->
-        stage = "mediapipe-createFromOptions-threw"
-        val root = throwable.cause ?: throwable
-        val className = root.javaClass.simpleName.ifBlank { root.javaClass.name }
-        return ReusableLocalEngineCreateDiagnostic(
-            engine = null,
-            stage = stage,
-            className = className,
-            message = (root.message ?: "createFromOptions invocation failed").take(200),
-        )
-    }
-    if (inferenceInstance == null) {
-        stage = "mediapipe-createFromOptions-returned-null"
-        return ReusableLocalEngineCreateDiagnostic(
-            engine = null,
-            stage = stage,
-            className = "ReturnedNull",
-            message = "createFromOptions returned null".take(200),
-        )
-    }
-
-    val held = HeldLocalEngine(
-        modelPath = modelPath,
-        engineInstance = inferenceInstance,
-        namespace = "com.google.mediapipe.tasks.genai.llminference",
-        createdAtElapsedMs = createdAt,
-        lastUsedAtElapsedMs = createdAt,
-        useCount = 0,
-        closeEngine = { trace -> closeQuietly(inferenceInstance, trace) },
-    )
-    stage = "held-engine-store"
-    safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.mediapipe.tasks.genai.llminference")
-    stage = "success"
+    stage = "official-engine-null"
     return ReusableLocalEngineCreateDiagnostic(
-        engine = held,
+        engine = null,
         stage = stage,
-        className = null,
-        message = null,
+        className = "ReturnedNull",
+        message = "official litertlm engine returned null".take(200),
     )
 }
 
