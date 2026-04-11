@@ -3145,7 +3145,10 @@ private suspend fun runLocalInferenceOnceEntry(
                         officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                         officialFlowChunkCount = officialFlowChunkCount,
                         ),
-                    closeLifecycleSummary = fallbackGenerated.closeLifecycleSummary,
+                    closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                        summary = fallbackGenerated.closeLifecycleSummary,
+                        path = "chat-fallback-official-flow-success",
+                    ),
                 )
             } else {
                 appendLocalReflectionTrace(
@@ -3159,9 +3162,9 @@ private suspend fun runLocalInferenceOnceEntry(
             message = "UPSTREAM official-flow-streaming success=$officialSucceeded responseLength=${officialResponse.length} partialCount=${officialResult?.partialCount ?: 0}",
         )
         if (officialSucceeded) {
-            return LocalInferenceRunResult(
-                state = LocalInferenceEngineState.READY,
-                response = officialResponse,
+                return LocalInferenceRunResult(
+                    state = LocalInferenceEngineState.READY,
+                    response = officialResponse,
                 trace = LocalInferenceTrace(
                     localModelDisplayName = localBaseModelDisplayName,
                     localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
@@ -3176,7 +3179,10 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
                 ),
-                closeLifecycleSummary = officialResult?.closeLifecycleSummary,
+                closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                    summary = officialResult?.closeLifecycleSummary,
+                    path = "chat-official-flow-success",
+                ),
             )
         }
         appendLocalReflectionTrace(
@@ -3217,7 +3223,10 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
                 ),
-                closeLifecycleSummary = blockingResult?.closeLifecycleSummary,
+                closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                    summary = blockingResult?.closeLifecycleSummary,
+                    path = "chat-official-blocking-success",
+                ),
             )
         }
         appendLocalReflectionTrace(
@@ -3278,7 +3287,10 @@ private suspend fun runLocalInferenceOnceEntry(
             state = LocalInferenceEngineState.READY,
             response = response,
             trace = traceWithOfficialFlow,
-            closeLifecycleSummary = generated.closeLifecycleSummary,
+            closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
+                summary = generated.closeLifecycleSummary,
+                path = "chat-legacy-success",
+            ),
         )
     }
 }
@@ -3298,7 +3310,24 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
         ),
-        closeLifecycleSummary = closeLifecycleSummary,
+        closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
+            ensureSuccessCloseLifecycleSummary(
+                summary = closeLifecycleSummary,
+                path = if (officialFlowUsed) "chat-held-official-flow-success" else "chat-held-official-blocking-success",
+            )
+        } else {
+            closeLifecycleSummary
+        },
+    )
+}
+
+private fun ensureSuccessCloseLifecycleSummary(
+    summary: RunCloseLifecycleSummary?,
+    path: String,
+): RunCloseLifecycleSummary {
+    return summary ?: RunCloseLifecycleSummary(
+        path = path,
+        successReturned = true,
     )
 }
 
