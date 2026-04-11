@@ -7,14 +7,13 @@ import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.Locale
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -42,24 +41,13 @@ internal class DefaultLocalStreamingRunner<T>(
         localBaseModelDisplayName: String?,
         onPartial: (String) -> Unit,
     ): T? = withContext(Dispatchers.IO) {
-        val executor = Executors.newSingleThreadExecutor()
-        val future = executor.submit<T> {
-            runBlocking {
-                runInference(
-                    prompt,
-                    localBaseModelFilePath,
-                    localBaseModelDisplayName,
-                    onPartial,
-                )
-            }
-        }
-        try {
-            future.get(timeoutMs, TimeUnit.MILLISECONDS)
-        } catch (_: TimeoutException) {
-            null
-        } finally {
-            future.cancel(true)
-            executor.shutdownNow()
+        withTimeoutOrNull(timeoutMs) {
+            runInference(
+                prompt,
+                localBaseModelFilePath,
+                localBaseModelDisplayName,
+                onPartial,
+            )
         }
     }
 }
@@ -103,6 +91,7 @@ internal suspend fun runWithHeldEngine(
         var partialCount = 0
         var firstPartialElapsedRealtimeMs: Long? = null
         flow.collect { message ->
+            if (!currentCoroutineContext().isActive) return@collect
             val extracted = extractOfficialMessageTextWithTrace(
                 path = "held-engine-flow",
                 value = message,
@@ -620,6 +609,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         var lastPartial: String? = null
         runCatching {
             flow.collect { message ->
+                if (!currentCoroutineContext().isActive) return@collect
                 safeAppendTrace(
                     appendTrace = appendTrace,
                     message = "UPSTREAM official-flow chunkClass=${message?.javaClass?.name ?: "null"}",
