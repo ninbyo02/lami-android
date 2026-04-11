@@ -168,6 +168,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
     val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(initial = true)
     val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow
         .collectAsState(initial = false)
+    val effectiveSentenceStreamingTtsChecked = ttsEnabled && devEnableStreamingSentenceTts
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -547,7 +548,7 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                                 "音声読み上げがOFFのため変更できません"
                             },
                             leadingIcon = null,
-                            checked = devEnableStreamingSentenceTts,
+                            checked = effectiveSentenceStreamingTtsChecked,
                             enabled = ttsEnabled,
                             switchColors = SwitchDefaults.colors(
                                 disabledUncheckedThumbColor = MaterialTheme.colorScheme.outline,
