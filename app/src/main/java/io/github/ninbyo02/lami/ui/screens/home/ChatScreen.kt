@@ -1837,16 +1837,38 @@ fun Home(
                                                                 fun createHeldEngine(
                                                                     context: Context,
                                                                     modelPath: String,
-                                                                ) = createReusableLocalInferenceEngine(
-                                                                    context = context,
-                                                                    modelPath = modelPath,
-                                                                    appendTrace = { message ->
+                                                                ) : ReusableLocalInferenceEngine? {
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context,
+                                                                        message = "HELD CREATE START modelPath=${modelPath.takeLast(40)}",
+                                                                    )
+
+                                                                    return try {
+                                                                        val engine = createReusableLocalInferenceEngine(
+                                                                            context = context,
+                                                                            modelPath = modelPath,
+                                                                            appendTrace = { message ->
+                                                                                appendLocalReflectionTrace(
+                                                                                    context = context,
+                                                                                    message = message,
+                                                                                )
+                                                                            },
+                                                                        )
+
                                                                         appendLocalReflectionTrace(
                                                                             context = context,
-                                                                            message = message,
+                                                                            message = "HELD CREATE SUCCESS hash=${engine.hashCode()}",
                                                                         )
-                                                                    },
-                                                                )
+
+                                                                        engine
+                                                                    } catch (e: Throwable) {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context,
+                                                                            message = "HELD CREATE ERROR: ${e.message}",
+                                                                        )
+                                                                        null
+                                                                    }
+                                                                }
 
                                                                 var heldEngine = runCatching {
                                                                     acquireHeldEngine(
@@ -1871,6 +1893,10 @@ fun Home(
                                                                     null
                                                                 }
                                                                 if (heldEngine == null) {
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "TRY CREATE HELD ENGINE",
+                                                                    )
                                                                     val created = runCatching {
                                                                         createHeldEngine(
                                                                             context = context.applicationContext,
