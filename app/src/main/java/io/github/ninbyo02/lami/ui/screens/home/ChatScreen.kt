@@ -1791,8 +1791,18 @@ fun Home(
                                                                 localBaseModelFilePath = localBaseModelFilePath,
                                                             )
                                                             val runResult = if (resolvedModelPath == null) {
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = "UPSTREAM held-skip reason=model-path-unresolved",
+                                                                )
                                                                 LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
                                                             } else {
+                                                                val modelPathTail = resolvedModelPath.substringAfterLast('/')
+                                                                var legacyFallbackReason: String? = null
+                                                                appendLocalReflectionTrace(
+                                                                    context = context.applicationContext,
+                                                                    message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
+                                                                )
                                                                 val heldEngine = runCatching {
                                                                     localInferenceEngineHolder.acquire(
                                                                         modelPath = resolvedModelPath,
@@ -1804,11 +1814,31 @@ fun Home(
                                                                         },
                                                                     )
                                                                 }.getOrElse {
+                                                                    val errorMessageHead = (it.message ?: "")
+                                                                        .replace('\n', ' ')
+                                                                        .take(120)
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM held-acquire failed error=${it::class.java.simpleName}:$errorMessageHead",
+                                                                    )
+                                                                    legacyFallbackReason = "held-acquire-failed"
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                    )
                                                                     Log.e("ChatScreen", "Failed to acquire local held engine", it)
                                                                     null
                                                                 }
                                                                 heldEngine?.let { held ->
-                                                                    runWithHeldEngine(
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM held-acquire success modelPathTail=$modelPathTail engineClass=${held::class.java.name} namespace=${held.namespace}",
+                                                                    )
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM held-run start modelPathTail=$modelPathTail",
+                                                                    )
+                                                                    val heldRunResult = runWithHeldEngine(
                                                                         heldEngine = held,
                                                                         prompt = requestPrompt,
                                                                         onPartial = { partial ->
@@ -1833,28 +1863,93 @@ fun Home(
                                                                                 message = message,
                                                                             )
                                                                         },
-                                                                    )?.toLocalInferenceRunResult()
-                                                                } ?: localStreamingRunner.run(
-                                                                    prompt = requestPrompt,
-                                                                    localBaseModelFilePath = localBaseModelFilePath,
-                                                                    localBaseModelDisplayName = localBaseModelDisplayName,
-                                                                    onPartial = { partial ->
-                                                                        if (localStopRequested) return@run
-                                                                        val normalizedPartial = partial.trim()
-                                                                        if (normalizedPartial.isBlank()) return@run
-                                                                        didReceiveRealLocalPartial = true
-                                                                        realLocalPartialChunkCount += 1
-                                                                        localStreamingResponseText = normalizedPartial
-                                                                        coroutineScope.launch {
-                                                                            if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                            if (localStopRequested) return@launch
-                                                                            upsertStreamingAssistantPlaceholderSerialized(
-                                                                                chatId = currentChatId,
-                                                                                response = normalizedPartial,
-                                                                            )
-                                                                        }
-                                                                    },
-                                                                )
+                                                                    )
+                                                                    if (heldRunResult != null) {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM held-run success responseLength=${heldRunResult.response.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.usedOfficialFlow} namespace=${heldRunResult.namespace}",
+                                                                        )
+                                                                        heldRunResult.toLocalInferenceRunResult()
+                                                                    } else {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM held-run null",
+                                                                        )
+                                                                        legacyFallbackReason = "held-run-null"
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                        )
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM legacy-run start reason=$legacyFallbackReason",
+                                                                        )
+                                                                        val legacyRunResult = localStreamingRunner.run(
+                                                                            prompt = requestPrompt,
+                                                                            localBaseModelFilePath = localBaseModelFilePath,
+                                                                            localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                            onPartial = legacyPartial@{ partial ->
+                                                                                if (localStopRequested) return@legacyPartial
+                                                                                val normalizedPartial = partial.trim()
+                                                                                if (normalizedPartial.isBlank()) return@legacyPartial
+                                                                                didReceiveRealLocalPartial = true
+                                                                                realLocalPartialChunkCount += 1
+                                                                                localStreamingResponseText = normalizedPartial
+                                                                                coroutineScope.launch {
+                                                                                    if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                                    if (localStopRequested) return@launch
+                                                                                    upsertStreamingAssistantPlaceholderSerialized(
+                                                                                        chatId = currentChatId,
+                                                                                        response = normalizedPartial,
+                                                                                    )
+                                                                                }
+                                                                            },
+                                                                        )
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM legacy-run finish state=${legacyRunResult.state} responseLength=${legacyRunResult.response?.length ?: -1}",
+                                                                        )
+                                                                        legacyRunResult
+                                                                    }
+                                                                } ?: run {
+                                                                    if (legacyFallbackReason == null) {
+                                                                        legacyFallbackReason = "held-not-attempted"
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                        )
+                                                                    }
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM legacy-run start reason=$legacyFallbackReason",
+                                                                    )
+                                                                    val legacyRunResult = localStreamingRunner.run(
+                                                                        prompt = requestPrompt,
+                                                                        localBaseModelFilePath = localBaseModelFilePath,
+                                                                        localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                        onPartial = legacyPartial@{ partial ->
+                                                                            if (localStopRequested) return@legacyPartial
+                                                                            val normalizedPartial = partial.trim()
+                                                                            if (normalizedPartial.isBlank()) return@legacyPartial
+                                                                            didReceiveRealLocalPartial = true
+                                                                            realLocalPartialChunkCount += 1
+                                                                            localStreamingResponseText = normalizedPartial
+                                                                            coroutineScope.launch {
+                                                                                if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                                if (localStopRequested) return@launch
+                                                                                upsertStreamingAssistantPlaceholderSerialized(
+                                                                                    chatId = currentChatId,
+                                                                                    response = normalizedPartial,
+                                                                                )
+                                                                            }
+                                                                        },
+                                                                    )
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM legacy-run finish state=${legacyRunResult.state} responseLength=${legacyRunResult.response?.length ?: -1}",
+                                                                    )
+                                                                    legacyRunResult
+                                                                }
                                                             }
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
