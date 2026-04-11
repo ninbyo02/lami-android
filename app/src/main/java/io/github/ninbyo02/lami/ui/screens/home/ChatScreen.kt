@@ -395,6 +395,9 @@ fun Home(
     val settingsPreferences = remember(context.applicationContext) {
         SettingsPreferences(context.applicationContext)
     }
+    val localInferenceEngineHolder = remember(context.applicationContext) {
+        LocalInferenceEngineHolder(context.applicationContext)
+    }
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
@@ -443,6 +446,12 @@ fun Home(
     LaunchedEffect(localBaseModelFilePath) {
         if (localBaseModelFilePath.isNullOrBlank()) {
             localInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED
+        }
+        val path = localBaseModelFilePath?.takeIf { it.isNotBlank() }
+        if (path != null) {
+            localInferenceEngineHolder.clearIfModelChanged(path)
+        } else {
+            localInferenceEngineHolder.clear()
         }
     }
     val pickImageLauncher = rememberLauncherForActivityResult(
@@ -910,6 +919,13 @@ fun Home(
             stopButtonOwnerAssistantMessageId = null
             resetStreamingSpeechState()
             ttsController.shutdown()
+        }
+    }
+    DisposableEffect(localInferenceEngineHolder) {
+        onDispose {
+            coroutineScope.launch {
+                localInferenceEngineHolder.clear()
+            }
         }
     }
 
@@ -1770,27 +1786,76 @@ fun Home(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
-                                                            val runResult = localStreamingRunner.run(
-                                                                prompt = requestPrompt,
+                                                            val resolvedModelPath = resolveLocalBaseModelPathOrNull(
+                                                                settingsPreferences = settingsPreferences,
                                                                 localBaseModelFilePath = localBaseModelFilePath,
-                                                                localBaseModelDisplayName = localBaseModelDisplayName,
-                                                                onPartial = { partial ->
-                                                                    if (localStopRequested) return@run
-                                                                    val normalizedPartial = partial.trim()
-                                                                    if (normalizedPartial.isBlank()) return@run
-                                                                    didReceiveRealLocalPartial = true
-                                                                    realLocalPartialChunkCount += 1
-                                                                    localStreamingResponseText = normalizedPartial
-                                                                    coroutineScope.launch {
-                                                                        if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                        if (localStopRequested) return@launch
-                                                                        upsertStreamingAssistantPlaceholderSerialized(
-                                                                            chatId = currentChatId,
-                                                                            response = normalizedPartial,
-                                                                        )
-                                                                    }
-                                                                },
                                                             )
+                                                            val runResult = if (resolvedModelPath == null) {
+                                                                LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+                                                            } else {
+                                                                val heldEngine = runCatching {
+                                                                    localInferenceEngineHolder.acquire(
+                                                                        modelPath = resolvedModelPath,
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                }.getOrElse {
+                                                                    Log.e("ChatScreen", "Failed to acquire local held engine", it)
+                                                                    null
+                                                                }
+                                                                heldEngine?.let { held ->
+                                                                    runWithHeldEngine(
+                                                                        heldEngine = held,
+                                                                        prompt = requestPrompt,
+                                                                        onPartial = { partial ->
+                                                                            if (localStopRequested) return@runWithHeldEngine
+                                                                            val normalizedPartial = partial.trim()
+                                                                            if (normalizedPartial.isBlank()) return@runWithHeldEngine
+                                                                            didReceiveRealLocalPartial = true
+                                                                            realLocalPartialChunkCount += 1
+                                                                            localStreamingResponseText = normalizedPartial
+                                                                            coroutineScope.launch {
+                                                                                if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                                if (localStopRequested) return@launch
+                                                                                upsertStreamingAssistantPlaceholderSerialized(
+                                                                                    chatId = currentChatId,
+                                                                                    response = normalizedPartial,
+                                                                                )
+                                                                            }
+                                                                        },
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
+                                                                    )
+                                                                } ?: localStreamingRunner.run(
+                                                                    prompt = requestPrompt,
+                                                                    localBaseModelFilePath = localBaseModelFilePath,
+                                                                    localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                    onPartial = { partial ->
+                                                                        if (localStopRequested) return@run
+                                                                        val normalizedPartial = partial.trim()
+                                                                        if (normalizedPartial.isBlank()) return@run
+                                                                        didReceiveRealLocalPartial = true
+                                                                        realLocalPartialChunkCount += 1
+                                                                        localStreamingResponseText = normalizedPartial
+                                                                        coroutineScope.launch {
+                                                                            if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                            if (localStopRequested) return@launch
+                                                                            upsertStreamingAssistantPlaceholderSerialized(
+                                                                                chatId = currentChatId,
+                                                                                response = normalizedPartial,
+                                                                            )
+                                                                        }
+                                                                    },
+                                                                )
+                                                            }
                                                             localInferenceEngineState = runResult?.state
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =

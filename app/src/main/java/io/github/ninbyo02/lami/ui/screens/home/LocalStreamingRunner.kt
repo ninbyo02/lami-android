@@ -63,6 +63,84 @@ internal class DefaultLocalStreamingRunner<T>(
         }
     }
 }
+
+internal suspend fun runWithHeldEngine(
+    heldEngine: HeldLocalEngine,
+    prompt: String,
+    onPartial: (String) -> Unit,
+    appendTrace: (String) -> Unit = {},
+): LocalInferenceRunResult? {
+    heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+    val namespace = heldEngine.namespace
+    val engine = heldEngine.engineInstance
+
+    runWithConversation(
+        engine = engine,
+        namespace = namespace,
+        appendTrace = appendTrace,
+    ) { conversation ->
+        val sendMessageAsyncMethod = findSendMessageAsyncMethod(
+            conversationClass = conversation.javaClass,
+            namespace = namespace,
+        ) ?: return@runWithConversation null
+        val flowValue = invokeSendMessageAsync(
+            conversation = conversation,
+            method = sendMessageAsyncMethod,
+            namespace = namespace,
+            prompt = prompt,
+        ) ?: return@runWithConversation null
+        val flow = flowValue as? Flow<*> ?: return@runWithConversation null
+        val builder = StringBuilder()
+        var lastPartial: String? = null
+        flow.collect { message ->
+            val extracted = extractOfficialMessageTextWithTrace(
+                path = "held-engine-flow",
+                value = message,
+                appendTrace = appendTrace,
+            )?.trim().orEmpty()
+            if (extracted.isBlank() || extracted == lastPartial) return@collect
+            lastPartial = extracted
+            builder.append(extracted)
+            onPartial(builder.toString())
+        }
+        builder.toString().trim().takeIf { it.isNotBlank() }
+    }?.let { response ->
+        return LocalInferenceRunResult(
+            state = LocalInferenceEngineState.READY,
+            response = response,
+        )
+    }
+
+    runWithConversation(
+        engine = engine,
+        namespace = namespace,
+        appendTrace = appendTrace,
+    ) { conversation ->
+        val sendMethod = findBlockingSendMethod(
+            conversationClass = conversation.javaClass,
+            namespace = namespace,
+        ) ?: return@runWithConversation null
+        val value = invokeBlockingSend(
+            conversation = conversation,
+            method = sendMethod,
+            namespace = namespace,
+            prompt = prompt,
+        ) ?: return@runWithConversation null
+        extractOfficialMessageTextWithTrace(
+            path = "held-engine-blocking",
+            value = value,
+            appendTrace = appendTrace,
+        )?.trim()?.takeIf { it.isNotBlank() }
+    }?.let { response ->
+        onPartial(response)
+        return LocalInferenceRunResult(
+            state = LocalInferenceEngineState.READY,
+            response = response,
+        )
+    }
+
+    return null
+}
 internal data class LocalOfficialConversationApiProbeResult(
     val namespace: String?,
     val conversationClassFound: Boolean,
@@ -269,6 +347,167 @@ private data class LocalOfficialNamespaceSpec(
     val engineClassName: String,
     val optionsCandidates: List<String>,
 )
+
+internal fun createReusableLocalInferenceEngine(
+    context: android.content.Context,
+    modelPath: String,
+    appendTrace: ((String) -> Unit)? = null,
+): HeldLocalEngine? {
+    val safeTrace: (String) -> Unit = { message ->
+        runCatching { appendTrace?.invoke(message) }
+    }
+    val createdAt = SystemClock.elapsedRealtime()
+    val officialEngine = createOfficialLiteRtLmEngineInstance(
+        modelPath = modelPath,
+        appendTrace = safeTrace,
+    )
+    if (officialEngine != null) {
+        safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.ai.edge.litertlm")
+        return HeldLocalEngine(
+            modelPath = modelPath,
+            engineInstance = officialEngine,
+            namespace = "com.google.ai.edge.litertlm",
+            createdAtElapsedMs = createdAt,
+            lastUsedAtElapsedMs = createdAt,
+            closeEngine = { closeQuietly(officialEngine) },
+        )
+    }
+
+    val inferenceClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInference")
+    }.getOrNull() ?: return null
+    val createFromOptionsMethod = inferenceClass.methods.firstOrNull { method ->
+        method.name == "createFromOptions" &&
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes[0] == android.content.Context::class.java
+    } ?: return null
+    val options = buildOptionsObject(
+        optionClass = createFromOptionsMethod.parameterTypes[1],
+        modelPath = modelPath,
+    ) ?: return null
+    val inferenceInstance = runCatching {
+        createFromOptionsMethod.invoke(null, context, options)
+    }.getOrNull() ?: return null
+    safeAppendTrace(safeTrace, "UPSTREAM held-engine created namespace=com.google.mediapipe.tasks.genai.llminference")
+    return HeldLocalEngine(
+        modelPath = modelPath,
+        engineInstance = inferenceInstance,
+        namespace = "com.google.mediapipe.tasks.genai.llminference",
+        createdAtElapsedMs = createdAt,
+        lastUsedAtElapsedMs = createdAt,
+        closeEngine = { closeQuietly(inferenceInstance) },
+    )
+}
+
+private suspend fun <T> runWithConversation(
+    engine: Any,
+    namespace: String?,
+    appendTrace: (String) -> Unit,
+    block: suspend (conversation: Any) -> T?,
+): T? {
+    var conversation: Any? = null
+    return try {
+        conversation = createConversationForHeldEngine(engine = engine, namespace = namespace, appendTrace = appendTrace)
+        if (conversation == null) return null
+        block(conversation)
+    } finally {
+        closeQuietly(conversation)
+    }
+}
+
+private fun createConversationForHeldEngine(
+    engine: Any,
+    namespace: String?,
+    appendTrace: (String) -> Unit,
+): Any? {
+    if (namespace == "com.google.ai.edge.litertlm") {
+        return createOfficialLiteRtLmConversation(
+            engine = engine,
+            engineClass = engine.javaClass,
+            appendTrace = appendTrace,
+        )
+    }
+    val method = engine.javaClass.methods.firstOrNull { it.name == "createConversation" } ?: return null
+    return createOfficialConversation(
+        engine = engine,
+        createConversationMethod = method,
+        appendTrace = appendTrace,
+    )
+}
+
+private fun findSendMessageAsyncMethod(
+    conversationClass: Class<*>,
+    namespace: String?,
+): Method? {
+    return if (namespace == "com.google.ai.edge.litertlm") {
+        conversationClass.methods.firstOrNull { method ->
+            method.name == "sendMessageAsync" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == String::class.java &&
+                Map::class.java.isAssignableFrom(method.parameterTypes[1])
+        }
+    } else {
+        conversationClass.methods.firstOrNull { it.name == "sendMessageAsync" && it.parameterTypes.size == 1 }
+    }
+}
+
+private fun invokeSendMessageAsync(
+    conversation: Any,
+    method: Method,
+    namespace: String?,
+    prompt: String,
+): Any? {
+    return runCatching {
+        if (namespace == "com.google.ai.edge.litertlm") {
+            method.invoke(conversation, prompt, emptyMap<String, Any>())
+        } else {
+            val argument = buildSendMessageArgument(
+                parameterType = method.parameterTypes.first(),
+                namespace = namespace ?: "com.google.mediapipe.tasks.genai.llminference",
+                prompt = prompt,
+            ) ?: return null
+            method.invoke(conversation, argument)
+        }
+    }.getOrNull()
+}
+
+private fun findBlockingSendMethod(
+    conversationClass: Class<*>,
+    namespace: String?,
+): Method? {
+    return if (namespace == "com.google.ai.edge.litertlm") {
+        conversationClass.methods.firstOrNull { method ->
+            method.name == "sendMessage" &&
+                method.parameterTypes.size == 2 &&
+                method.parameterTypes[0] == String::class.java &&
+                Map::class.java.isAssignableFrom(method.parameterTypes[1])
+        }
+    } else {
+        conversationClass.methods.firstOrNull { method ->
+            (method.name == "sendMessage" || method.name == "generateResponse") && method.parameterTypes.size == 1
+        }
+    }
+}
+
+private fun invokeBlockingSend(
+    conversation: Any,
+    method: Method,
+    namespace: String?,
+    prompt: String,
+): Any? {
+    return runCatching {
+        if (namespace == "com.google.ai.edge.litertlm") {
+            method.invoke(conversation, prompt, emptyMap<String, Any>())
+        } else {
+            val argument = buildSendMessageArgument(
+                parameterType = method.parameterTypes.first(),
+                namespace = namespace ?: "com.google.mediapipe.tasks.genai.llminference",
+                prompt = prompt,
+            ) ?: return null
+            method.invoke(conversation, argument)
+        }
+    }.getOrNull()
+}
 
 private suspend fun runOfficialFlowStreamingSingleNamespace(
     spec: LocalOfficialNamespaceSpec,
