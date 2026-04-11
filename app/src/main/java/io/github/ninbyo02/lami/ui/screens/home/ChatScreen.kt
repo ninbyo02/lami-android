@@ -1838,6 +1838,7 @@ fun Home(
                                                                 var heldAcquireFailureStage: String? = null
                                                                 var heldAcquireFailureClassName: String? = null
                                                                 var heldAcquireFailureMessage: String? = null
+                                                                var heldOfficialHelperProgress: String? = null
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
@@ -1846,6 +1847,9 @@ fun Home(
                                                                     val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
                                                                         modelPath = resolvedModelPath,
                                                                         appendTrace = { message ->
+                                                                            if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
+                                                                                heldOfficialHelperProgress = message
+                                                                            }
                                                                             appendLocalReflectionTrace(
                                                                                 context = context.applicationContext,
                                                                                 message = message,
@@ -1900,6 +1904,7 @@ fun Home(
                                                                         append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
                                                                         append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
                                                                         append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
+                                                                        append("helper=").append(heldOfficialHelperProgress ?: "not-started").append("\n")
                                                                     }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
