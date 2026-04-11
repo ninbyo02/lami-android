@@ -46,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -540,10 +541,19 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                     Card {
                         SettingsToggleRowItem(
                             headline = "文区切りストリーミングTTS",
-                            supporting = "応答生成中に、文の区切りごとに順次読み上げます（開発者向け）",
+                            supporting = if (ttsEnabled) {
+                                "応答生成中に、文の区切りごとに順次読み上げます（開発者向け）"
+                            } else {
+                                "音声読み上げがOFFのため変更できません"
+                            },
                             leadingIcon = null,
                             checked = devEnableStreamingSentenceTts,
                             enabled = ttsEnabled,
+                            switchColors = SwitchDefaults.colors(
+                                disabledUncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                disabledUncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledUncheckedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
                             onCheckedChange = { enabled ->
                                 scope.launch { settingsPreferences.setDevEnableStreamingSentenceTts(enabled) }
                             }
