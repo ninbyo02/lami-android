@@ -2489,6 +2489,8 @@ fun Home(
                                                         return@PlainAssistantMessage
                                                     }
 
+                                                    ttsTapGuardEpoch += 1
+
                                                     pendingStopUiCooldownClearJob?.cancel()
                                                     pendingStopUiCooldownClearJob = null
                                                     if (stopUiCooldownAssistantMessageId == message.messageID) {
