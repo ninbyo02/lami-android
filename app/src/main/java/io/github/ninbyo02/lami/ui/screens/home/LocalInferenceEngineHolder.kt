@@ -27,8 +27,31 @@ internal data class HeldEngineAcquireDiagnosticResult(
 internal class LocalInferenceEngineHolder(
     private val appContext: Context,
 ) {
+    private data class HeldConversation(
+        val chatId: Int,
+        val engineModelPath: String,
+        val engineGeneration: Long,
+        val conversation: Any,
+        val namespace: String?,
+    )
+
+    companion object {
+        @Volatile
+        private var instance: LocalInferenceEngineHolder? = null
+
+        fun getInstance(appContext: Context): LocalInferenceEngineHolder {
+            return instance ?: synchronized(this) {
+                instance ?: LocalInferenceEngineHolder(appContext.applicationContext).also { created ->
+                    instance = created
+                }
+            }
+        }
+    }
+
     private val mutex = Mutex()
     private var held: HeldLocalEngine? = null
+    private val heldConversationsByChatId = mutableMapOf<Int, HeldConversation>()
+    private var heldEngineGeneration: Long = 0L
 
     suspend fun acquire(
         modelPath: String,
@@ -43,6 +66,7 @@ internal class LocalInferenceEngineHolder(
                 )
                 runCatching { current.closeEngine(appendTrace) }
                 held = null
+                clearAllConversationsLocked(reason = "reuse-limit", appendTrace = appendTrace)
                 appendTrace?.invoke(
                     "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${modelPath.substringAfterLast('/')}",
                 )
@@ -63,6 +87,7 @@ internal class LocalInferenceEngineHolder(
             )
             runCatching { current.closeEngine(appendTrace) }
             held = null
+            clearAllConversationsLocked(reason = "model-changed", appendTrace = appendTrace)
             appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
         }
 
@@ -80,6 +105,8 @@ internal class LocalInferenceEngineHolder(
         appendTrace?.invoke(
             "UPSTREAM held-engine create-success modelPathTail=${modelPath.substringAfterLast('/')} useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
         )
+        heldEngineGeneration += 1
+        clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
         held = created
         created
     }
@@ -102,6 +129,7 @@ internal class LocalInferenceEngineHolder(
                     )
                     current.closeEngine(appendTrace)
                     held = null
+                    clearAllConversationsLocked(reason = "recycle-close", appendTrace = appendTrace)
                     appendTrace?.invoke(
                         "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=$modelPathTail",
                     )
@@ -131,6 +159,7 @@ internal class LocalInferenceEngineHolder(
                 )
                 current.closeEngine(appendTrace)
                 held = null
+                clearAllConversationsLocked(reason = "model-changed", appendTrace = appendTrace)
                 appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
             }
 
@@ -164,6 +193,8 @@ internal class LocalInferenceEngineHolder(
                 "UPSTREAM held-engine create-success modelPathTail=$modelPathTail useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
             )
             failureStage = "store-held"
+            heldEngineGeneration += 1
+            clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
             held = created
             appendTrace?.invoke(
                 "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",
@@ -199,6 +230,7 @@ internal class LocalInferenceEngineHolder(
             )
             runCatching { current.closeEngine(appendTrace) }
             held = null
+            clearAllConversationsLocked(reason = "clear", appendTrace = appendTrace)
         }
     }
 
@@ -215,6 +247,82 @@ internal class LocalInferenceEngineHolder(
             )
             runCatching { current.closeEngine(appendTrace) }
             held = null
+            clearAllConversationsLocked(reason = "clear-model-changed", appendTrace = appendTrace)
+        }
+    }
+
+    suspend fun acquireConversation(
+        chatId: Int,
+        heldEngine: HeldLocalEngine,
+        appendTrace: ((String) -> Unit)? = null,
+        createConversation: (engine: Any, namespace: String?) -> Any?,
+    ): Any? = mutex.withLock {
+        val existing = heldConversationsByChatId[chatId]
+        if (
+            existing != null &&
+            existing.engineGeneration == heldEngineGeneration &&
+            existing.engineModelPath == heldEngine.modelPath
+        ) {
+            appendTrace?.invoke("UPSTREAM held-conversation reuse-hit chatId=$chatId")
+            return@withLock existing.conversation
+        }
+        if (existing != null) {
+            closeConversationLocked(chatId = chatId, reason = "chat-recreate", appendTrace = appendTrace)
+        }
+        val created = createConversation(heldEngine.engineInstance, heldEngine.namespace)
+        if (created != null) {
+            heldConversationsByChatId[chatId] = HeldConversation(
+                chatId = chatId,
+                engineModelPath = heldEngine.modelPath,
+                engineGeneration = heldEngineGeneration,
+                conversation = created,
+                namespace = heldEngine.namespace,
+            )
+            appendTrace?.invoke("UPSTREAM held-conversation create-store chatId=$chatId")
+        }
+        created
+    }
+
+    suspend fun resetConversation(
+        chatId: Int,
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            closeConversationLocked(chatId = chatId, reason = reason, appendTrace = appendTrace)
+        }
+    }
+
+    private fun clearAllConversationsLocked(
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val chatIds = heldConversationsByChatId.keys.toList()
+        chatIds.forEach { chatId ->
+            closeConversationLocked(chatId = chatId, reason = reason, appendTrace = appendTrace)
+        }
+    }
+
+    private fun closeConversationLocked(
+        chatId: Int,
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val session = heldConversationsByChatId.remove(chatId) ?: return
+        appendTrace?.invoke("UPSTREAM held-conversation close-start chatId=$chatId reason=$reason class=${session.conversation.javaClass.name}")
+        closeTargetQuietly(session.conversation)
+        appendTrace?.invoke("UPSTREAM held-conversation cleared chatId=$chatId reason=$reason")
+    }
+
+    private fun closeTargetQuietly(target: Any?) {
+        if (target == null) return
+        runCatching {
+            val closeMethod = target.javaClass.methods.firstOrNull { method ->
+                method.name == "close" && method.parameterTypes.isEmpty()
+            } ?: target.javaClass.methods.firstOrNull { method ->
+                method.name == "shutdown" && method.parameterTypes.isEmpty()
+            }
+            closeMethod?.invoke(target)
         }
     }
 }

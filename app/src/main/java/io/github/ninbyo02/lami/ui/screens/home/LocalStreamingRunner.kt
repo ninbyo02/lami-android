@@ -90,38 +90,41 @@ internal data class RunCloseLifecycleSummary(
 
 internal suspend fun runWithHeldEngine(
     heldEngine: HeldLocalEngine,
+    engineHolder: LocalInferenceEngineHolder,
+    chatId: Int,
     prompt: String,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
-    val engine = heldEngine.engineInstance
+    val conversation = engineHolder.acquireConversation(
+        chatId = chatId,
+        heldEngine = heldEngine,
+        appendTrace = appendTrace,
+    ) { engine, resolvedNamespace ->
+        createConversationForHeldEngine(
+            engine = engine,
+            namespace = resolvedNamespace,
+            appendTrace = appendTrace,
+        )
+    } ?: return null
 
-    var heldFlowCloseOutcome: RunCloseTargetOutcome? = null
     var heldFlowResponse: String? = null
     var heldFlowPartialCount = 0
     var heldFlowFirstPartialElapsedRealtimeMs: Long? = null
-    runWithConversation(
-        engine = engine,
-        namespace = namespace,
-        appendTrace = appendTrace,
-        closeSummaryPath = "held-official-flow",
-        onConversationClosed = { outcome ->
-            heldFlowCloseOutcome = outcome
-        },
-    ) { conversation ->
+    runCatching {
         val sendMessageAsyncMethod = findSendMessageAsyncMethod(
             conversationClass = conversation.javaClass,
             namespace = namespace,
-        ) ?: return@runWithConversation null
+        ) ?: return@runCatching null
         val flowValue = invokeSendMessageAsync(
             conversation = conversation,
             method = sendMessageAsyncMethod,
             namespace = namespace,
             prompt = prompt,
-        ) ?: return@runWithConversation null
-        val flow = flowValue as? Flow<*> ?: return@runWithConversation null
+        ) ?: return@runCatching null
+        val flow = flowValue as? Flow<*> ?: return@runCatching null
         val builder = StringBuilder()
         var lastPartial: String? = null
         flow.collect { message ->
@@ -142,19 +145,24 @@ internal suspend fun runWithHeldEngine(
         }
         heldFlowResponse = builder.toString().trim().takeIf { it.isNotBlank() }
         heldFlowResponse
+    }.getOrElse { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-run flow-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
+        )
+        engineHolder.resetConversation(
+            chatId = chatId,
+            reason = "run-error",
+            appendTrace = appendTrace,
+        )
+        null
     }
     heldFlowResponse?.let { response ->
         val closeSummary = RunCloseLifecycleSummary(
             path = "held-official-flow",
             successReturned = true,
-            conversationOutcome = heldFlowCloseOutcome ?: RunCloseTargetOutcome(
-                label = "conversation",
-                targetClassName = null,
-                strategy = null,
-                status = "none",
-                errorClassName = null,
-                message = null,
-            ),
+            // official flow 準拠で Conversation は chatId ごとに保持し、stop/error 時のみ破棄する。
+            conversationOutcome = RunCloseTargetOutcome("conversation", conversation.javaClass.name, "held", "retained", null, null),
             sessionOutcome = RunCloseTargetOutcome(
                 label = "session",
                 targetClassName = null,
@@ -193,45 +201,40 @@ internal suspend fun runWithHeldEngine(
         )
     }
 
-    var heldBlockingCloseOutcome: RunCloseTargetOutcome? = null
-    val heldBlockingResponse = runWithConversation(
-        engine = engine,
-        namespace = namespace,
-        appendTrace = appendTrace,
-        closeSummaryPath = "held-official-blocking",
-        onConversationClosed = { outcome ->
-            heldBlockingCloseOutcome = outcome
-        },
-    ) { conversation ->
+    val heldBlockingResponse = runCatching {
         val sendMethod = findBlockingSendMethod(
             conversationClass = conversation.javaClass,
             namespace = namespace,
-        ) ?: return@runWithConversation null
+        ) ?: return@runCatching null
         val value = invokeBlockingSend(
             conversation = conversation,
             method = sendMethod,
             namespace = namespace,
             prompt = prompt,
-        ) ?: return@runWithConversation null
+        ) ?: return@runCatching null
         extractOfficialMessageTextWithTrace(
             path = "held-engine-blocking",
             value = value,
             appendTrace = appendTrace,
         )?.trim()?.takeIf { it.isNotBlank() }
+    }.getOrElse { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-run blocking-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
+        )
+        engineHolder.resetConversation(
+            chatId = chatId,
+            reason = "run-error",
+            appendTrace = appendTrace,
+        )
+        null
     }
     heldBlockingResponse?.let { response ->
         onPartial(response)
         val closeSummary = RunCloseLifecycleSummary(
             path = "held-official-blocking",
             successReturned = true,
-            conversationOutcome = heldBlockingCloseOutcome ?: RunCloseTargetOutcome(
-                label = "conversation",
-                targetClassName = null,
-                strategy = null,
-                status = "none",
-                errorClassName = null,
-                message = null,
-            ),
+            conversationOutcome = RunCloseTargetOutcome("conversation", conversation.javaClass.name, "held", "retained", null, null),
             sessionOutcome = RunCloseTargetOutcome(
                 label = "session",
                 targetClassName = null,
@@ -270,6 +273,11 @@ internal suspend fun runWithHeldEngine(
         )
     }
 
+    engineHolder.resetConversation(
+        chatId = chatId,
+        reason = "empty-response",
+        appendTrace = appendTrace,
+    )
     return null
 }
 internal data class LocalOfficialConversationApiProbeResult(

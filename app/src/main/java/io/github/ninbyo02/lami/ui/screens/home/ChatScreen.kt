@@ -400,7 +400,7 @@ fun Home(
         SettingsPreferences(context.applicationContext)
     }
     val localInferenceEngineHolder = remember(context.applicationContext) {
-        LocalInferenceEngineHolder(context.applicationContext)
+        LocalInferenceEngineHolder.getInstance(context.applicationContext)
     }
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
@@ -441,6 +441,16 @@ fun Home(
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow.collectAsState(initial = null)
     LaunchedEffect(savedInferenceTarget) {
         selectedInferenceTarget = savedInferenceTarget
+    }
+    LaunchedEffect(selectedInferenceTarget, effectiveChatId) {
+        if (selectedInferenceTarget != InferenceTarget.LOCAL) {
+            effectiveChatId?.let { currentChatId ->
+                localInferenceEngineHolder.resetConversation(
+                    chatId = currentChatId,
+                    reason = "backend-changed",
+                )
+            }
+        }
     }
     var localInferenceEngineState by rememberSaveable {
         mutableStateOf(LocalInferenceEngineState.UNINITIALIZED)
@@ -957,6 +967,12 @@ fun Home(
         stopButtonOwnerAssistantMessageId = null
         resetStreamingSpeechState()
         resetStreamingAssistantPlaceholderId(reason = "chat-change")
+        effectiveChatId?.let { currentChatId ->
+            localInferenceEngineHolder.resetConversation(
+                chatId = currentChatId,
+                reason = "chat-change",
+            )
+        }
         if (chatId != null) {
             suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
@@ -1647,6 +1663,14 @@ fun Home(
                                                     localStopRequested = true
                                                     localInferenceJob?.cancel()
                                                     localInferenceJob = null
+                                                    effectiveChatId?.let { currentChatId ->
+                                                        coroutineScope.launch {
+                                                            localInferenceEngineHolder.resetConversation(
+                                                                chatId = currentChatId,
+                                                                reason = "stop",
+                                                            )
+                                                        }
+                                                    }
                                                     localStreamingResponseText = null
                                                     didReceiveRealLocalPartial = false
                                                     realLocalPartialChunkCount = 0
@@ -1928,6 +1952,8 @@ fun Home(
                                                                     )
                                                                     val heldRunResult = runWithHeldEngine(
                                                                         heldEngine = held,
+                                                                        engineHolder = localInferenceEngineHolder,
+                                                                        chatId = currentChatId,
                                                                         prompt = requestPrompt,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
@@ -2282,6 +2308,10 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
                                                             isLocalInferenceRunning = false
+                                                            localInferenceEngineHolder.resetConversation(
+                                                                chatId = currentChatId,
+                                                                reason = "error",
+                                                            )
                                                             Log.e(
                                                                 "ChatScreen",
                                                                 "LOCAL compare failure: failureState=$resolvedState, failureTimedOut=$recheckedTimedOut, failureResponseBlank=$resolvedAssistantBlank, failureResponseLength=${resolvedAssistantResponse.length}, failureTracePresent=$recheckedTracePresent, effectiveChatId=$effectiveChatId, isLocalInferenceRunning=$isLocalInferenceRunning",
@@ -2306,6 +2336,10 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
+                                                            localInferenceEngineHolder.resetConversation(
+                                                                chatId = currentChatId,
+                                                                reason = "error",
+                                                            )
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
