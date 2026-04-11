@@ -377,6 +377,7 @@ internal fun createReusableLocalInferenceEngine(
             namespace = "com.google.ai.edge.litertlm",
             createdAtElapsedMs = createdAt,
             lastUsedAtElapsedMs = createdAt,
+            useCount = 0,
             closeEngine = { closeQuietly(officialEngine) },
         )
     }
@@ -403,6 +404,7 @@ internal fun createReusableLocalInferenceEngine(
         namespace = "com.google.mediapipe.tasks.genai.llminference",
         createdAtElapsedMs = createdAt,
         lastUsedAtElapsedMs = createdAt,
+        useCount = 0,
         closeEngine = { closeQuietly(inferenceInstance) },
     )
 }

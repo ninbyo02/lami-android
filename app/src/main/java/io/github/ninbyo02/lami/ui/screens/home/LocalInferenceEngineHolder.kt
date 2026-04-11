@@ -5,12 +5,15 @@ import android.os.SystemClock
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
+
 internal data class HeldLocalEngine(
     val modelPath: String,
     val engineInstance: Any,
     val namespace: String?,
     val createdAtElapsedMs: Long,
     var lastUsedAtElapsedMs: Long,
+    var useCount: Int,
     val closeEngine: () -> Unit,
 )
 
@@ -26,9 +29,20 @@ internal class LocalInferenceEngineHolder(
     ): HeldLocalEngine = mutex.withLock {
         val current = held
         if (current != null && current.modelPath == modelPath) {
-            current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
-            appendTrace?.invoke("UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')}")
-            return@withLock current
+            if (current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
+                runCatching { current.closeEngine() }
+                held = null
+                appendTrace?.invoke(
+                    "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${modelPath.substringAfterLast('/')}",
+                )
+            } else {
+                current.useCount += 1
+                current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+                appendTrace?.invoke(
+                    "UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')} useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
+                )
+                return@withLock current
+            }
         }
 
         if (current != null && current.modelPath != modelPath) {
@@ -42,7 +56,11 @@ internal class LocalInferenceEngineHolder(
             modelPath = modelPath,
             appendTrace = appendTrace,
         ) ?: throw IllegalStateException("Failed to create local inference engine. modelPath=$modelPath")
+        created.useCount += 1
         created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+        appendTrace?.invoke(
+            "UPSTREAM held-engine create-success modelPathTail=${modelPath.substringAfterLast('/')} useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
+        )
         held = created
         created
     }
