@@ -665,7 +665,7 @@ fun PlainAssistantMessage(
                             modifier = Modifier.size(16.dp)
                         )
                     }
-                } else {
+                } else if (onReplayClick != null) {
                     IconButton(
                         onClick = { onReplayClick?.invoke() },
                         modifier = Modifier.size(48.dp)
