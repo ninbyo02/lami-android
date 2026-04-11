@@ -2336,10 +2336,12 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            localInferenceEngineHolder.resetConversation(
-                                                                chatId = currentChatId,
-                                                                reason = "error",
-                                                            )
+                                                            effectiveChatId?.let { chatId ->
+                                                                localInferenceEngineHolder.resetConversation(
+                                                                    chatId = chatId,
+                                                                    reason = "error",
+                                                                )
+                                                            }
                                                             didReceiveRealLocalPartial = false
                                                             realLocalPartialChunkCount = 0
                                                             isLocalInferenceRunning = false
