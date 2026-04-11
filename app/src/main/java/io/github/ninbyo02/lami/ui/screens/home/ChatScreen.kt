@@ -240,6 +240,7 @@ private data class LocalInferenceRunResult(
     val state: LocalInferenceEngineState,
     val response: String? = null,
     val trace: LocalInferenceTrace = LocalInferenceTrace(),
+    val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
 private enum class LocalStatsAvailability {
@@ -344,6 +345,7 @@ private data class LocalSessionTokenProbeResult(
 private data class LocalLiteRtGeneratedResponse(
     val response: String? = null,
     val trace: LocalInferenceTrace = LocalInferenceTrace(),
+    val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
 private data class LocalLiteRtOptionsBuildResult(
@@ -488,6 +490,7 @@ fun Home(
     var streamingAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var devDebugText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     var devHeldStateText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
+    var devCloseLifecycleText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingResponseText = localStreamingResponseText ?: remoteStreamingResponseText
     val isLocalRunningRaw = isLocalInferenceRunning
     val isServerRunning =
@@ -2061,6 +2064,9 @@ fun Home(
                                                                     realPartialChunkCount = realLocalPartialChunkCount,
                                                                 ),
                                                             )
+                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+                                                                devCloseLifecycleText = buildCloseLifecycleText(runResultWithUiTrace?.closeLifecycleSummary)
+                                                            }
                                                             val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
                                                             val inventoryResponseChars = runResultWithUiTrace?.response?.length ?: -1
                                                             val timedOut = runResultWithUiTrace == null
@@ -2836,6 +2842,16 @@ fun Home(
                                         )
                                     }
 
+                                    devCloseLifecycleText?.let {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = it,
+                                            fontSize = 10.sp,
+                                            lineHeight = 12.sp,
+                                            color = Color.Gray.copy(alpha = 0.8f)
+                                        )
+                                    }
+
                                     devDebugText?.let {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
@@ -3121,7 +3137,8 @@ private suspend fun runLocalInferenceOnceEntry(
                         officialFlowFallbackReason = officialFlowFallbackReason,
                         officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                         officialFlowChunkCount = officialFlowChunkCount,
-                    ),
+                        ),
+                    closeLifecycleSummary = generated.closeLifecycleSummary,
                 )
             } else {
                 appendLocalReflectionTrace(
@@ -3152,6 +3169,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
                 ),
+                closeLifecycleSummary = officialResult?.closeLifecycleSummary,
             )
         }
         appendLocalReflectionTrace(
@@ -3162,7 +3180,7 @@ private suspend fun runLocalInferenceOnceEntry(
             context = context,
             message = "UPSTREAM official-blocking attempt",
         )
-        val blockingResponse = tryRunOfficialLiteRtBlockingConversation(
+        val blockingResult = tryRunOfficialLiteRtBlockingConversation(
             prompt = prompt,
             modelPath = modelPath,
             cacheDirPath = context.cacheDir.absolutePath,
@@ -3174,7 +3192,8 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = reasonCode
                 }
             },
-        )?.trim().orEmpty()
+        )
+        val blockingResponse = blockingResult?.response?.trim().orEmpty()
         if (blockingResponse.isNotBlank()) {
             return LocalInferenceRunResult(
                 state = LocalInferenceEngineState.READY,
@@ -3191,6 +3210,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
                 ),
+                closeLifecycleSummary = blockingResult?.closeLifecycleSummary,
             )
         }
         appendLocalReflectionTrace(
@@ -3244,12 +3264,14 @@ private suspend fun runLocalInferenceOnceEntry(
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.ERROR,
             trace = traceWithOfficialFlow,
+            closeLifecycleSummary = generated.closeLifecycleSummary,
         )
     } else {
         LocalInferenceRunResult(
             state = LocalInferenceEngineState.READY,
             response = response,
             trace = traceWithOfficialFlow,
+            closeLifecycleSummary = generated.closeLifecycleSummary,
         )
     }
 }
@@ -3269,7 +3291,28 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
         ),
+        closeLifecycleSummary = closeLifecycleSummary,
     )
+}
+
+private fun buildCloseLifecycleText(summary: RunCloseLifecycleSummary?): String? {
+    if (summary == null) return null
+    return buildString {
+        append("CLOSE LIFECYCLE\n")
+        append("path=").append(summary.path).append("\n")
+        append("successReached=").append(summary.successReached).append("\n")
+        append("finallyReached=").append(summary.finallyReached)
+        summary.outcomes.forEach { outcome ->
+            append("\n")
+            append("close[").append(outcome.label).append("]=")
+            append("attempted:").append(outcome.attempted).append(" ")
+            append("success:").append(outcome.success).append(" ")
+            append("strategy:").append(outcome.strategy ?: "none")
+            if (!outcome.detail.isNullOrBlank()) {
+                append(" detail:").append(outcome.detail)
+            }
+        }
+    }
 }
 
 @Suppress("UNUSED_PARAMETER")
@@ -3524,7 +3567,17 @@ private fun generateLiteRtResponseViaReflection(
         context = context,
         message = "streaming-probe detected=$streamingCandidateDetected listener=${trace.listenerApiProbeResult} async=${trace.asyncApiProbeResult} session=${trace.sessionApiProbeResult} listenerSig=${trace.listenerApiSignature ?: "—"} asyncSig=${trace.asyncApiSignature ?: "—"} sessionSig=${trace.sessionApiSignature ?: "—"} sessionGenerateSig=${trace.sessionGenerateSignature ?: "—"} sessionAsyncSig=${trace.sessionAsyncSignature ?: "—"} sessionStreamingSig=${trace.sessionStreamingSignature ?: "—"} sessionTokenSig=${trace.sessionTokenSignature ?: "—"}",
     )
-    return try {
+    var successReached = false
+    var generatedResponse: LocalLiteRtGeneratedResponse? = null
+    var closeOutcome = CloseAttemptOutcome(
+        label = "inferenceInstance",
+        targetClassName = inferenceInstance.javaClass.name,
+        attempted = false,
+        success = null,
+        strategy = "none",
+        detail = null,
+    )
+    try {
         val generated = generateLiteRtStringResponseOnceViaReflection(
             context = context,
             inferenceInstance = inferenceInstance,
@@ -3547,12 +3600,71 @@ private fun generateLiteRtResponseViaReflection(
                 message = "DEV_POC exit source=oneshot-fallback",
             )
         }
-        generated
+        successReached = true
+        generatedResponse = generated
     } finally {
-        runCatching {
-            (inferenceInstance as? AutoCloseable)?.close()
+        closeOutcome = runCatching {
+            val closeable = inferenceInstance as? AutoCloseable
+            if (closeable == null) {
+                CloseAttemptOutcome(
+                    label = "inferenceInstance",
+                    targetClassName = inferenceInstance.javaClass.name,
+                    attempted = false,
+                    success = null,
+                    strategy = "none",
+                    detail = null,
+                )
+            } else {
+                runCatching { closeable.close() }.fold(
+                    onSuccess = {
+                        CloseAttemptOutcome(
+                            label = "inferenceInstance",
+                            targetClassName = inferenceInstance.javaClass.name,
+                            attempted = true,
+                            success = true,
+                            strategy = "AutoCloseable.close",
+                            detail = null,
+                        )
+                    },
+                    onFailure = { throwable ->
+                        CloseAttemptOutcome(
+                            label = "inferenceInstance",
+                            targetClassName = inferenceInstance.javaClass.name,
+                            attempted = true,
+                            success = false,
+                            strategy = "AutoCloseable.close",
+                            detail = throwable.javaClass.simpleName,
+                        )
+                    },
+                )
+            }
+        }.getOrElse { throwable ->
+            CloseAttemptOutcome(
+                label = "inferenceInstance",
+                targetClassName = inferenceInstance.javaClass.name,
+                attempted = true,
+                success = false,
+                strategy = "AutoCloseable.close",
+                detail = throwable.javaClass.simpleName,
+            )
         }
+        appendLocalReflectionTrace(
+            context = context,
+            message = "UPSTREAM close-summary path=legacy-oneshot label=${closeOutcome.label} attempted=${closeOutcome.attempted} success=${closeOutcome.success} strategy=${closeOutcome.strategy ?: "none"} targetClass=${closeOutcome.targetClassName} detail=${closeOutcome.detail ?: "none"}",
+        )
     }
+    val closeSummary = RunCloseLifecycleSummary(
+        path = "legacy-oneshot",
+        successReached = successReached,
+        finallyReached = true,
+        outcomes = listOf(closeOutcome),
+    )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM close-summary path=legacy-oneshot successReached=${closeSummary.successReached} finallyReached=${closeSummary.finallyReached} outcomes=${closeSummary.outcomes.size}",
+    )
+    val generatedResult = generatedResponse ?: LocalLiteRtGeneratedResponse(trace = trace)
+    return generatedResult.copy(closeLifecycleSummary = closeSummary)
 }
 
 @Throws(NoSuchMethodException::class)
