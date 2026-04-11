@@ -2777,13 +2777,15 @@ fun Home(
                                             val messageInferenceStats =
                                                 // 推論統計は保存済み assistant message の値のみを表示する。
                                                 message.toInferenceStats()
+                                            val canShowTtsActions = ttsEnabled
                                             PlainAssistantMessage(
                                                 message = message.message,
                                                 showMessageActions = true,
                                                 isReplaying =
-                                                    stopButtonOwnerAssistantMessageId == message.messageID ||
-                                                        stopUiCooldownAssistantMessageId == message.messageID,
-                                                onReplayClick = if (ttsEnabled) {
+                                                    canShowTtsActions &&
+                                                        (stopButtonOwnerAssistantMessageId == message.messageID ||
+                                                            stopUiCooldownAssistantMessageId == message.messageID),
+                                                onReplayClick = if (canShowTtsActions) {
                                                     {
                                                     if (suppressReplayAssistantMessageId == message.messageID) {
                                                         return@PlainAssistantMessage
@@ -2817,7 +2819,7 @@ fun Home(
                                                 } else {
                                                     null
                                                 },
-                                                onStopReplayClick = if (ttsEnabled) {
+                                                onStopReplayClick = if (canShowTtsActions) {
                                                     {
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = message.messageID,

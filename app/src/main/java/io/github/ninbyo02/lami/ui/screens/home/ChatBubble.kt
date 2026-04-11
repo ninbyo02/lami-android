@@ -654,7 +654,7 @@ fun PlainAssistantMessage(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isReplaying) {
+                if (isReplaying && onStopReplayClick != null) {
                     IconButton(
                         onClick = { onStopReplayClick?.invoke() },
                         modifier = Modifier.size(48.dp)
