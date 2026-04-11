@@ -1823,15 +1823,34 @@ fun Home(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
                                                                 )
-                                                                val heldEngine = runCatching {
-                                                                    localInferenceEngineHolder.acquire(
+                                                                suspend fun acquireHeldEngine(
+                                                                    modelPath: String,
+                                                                ) = localInferenceEngineHolder.acquire(
+                                                                    modelPath = modelPath,
+                                                                    appendTrace = { message ->
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = message,
+                                                                        )
+                                                                    },
+                                                                )
+                                                                fun createHeldEngine(
+                                                                    context: Context,
+                                                                    modelPath: String,
+                                                                ) = createReusableLocalInferenceEngine(
+                                                                    context = context,
+                                                                    modelPath = modelPath,
+                                                                    appendTrace = { message ->
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context,
+                                                                            message = message,
+                                                                        )
+                                                                    },
+                                                                )
+
+                                                                var heldEngine = runCatching {
+                                                                    acquireHeldEngine(
                                                                         modelPath = resolvedModelPath,
-                                                                        appendTrace = { message ->
-                                                                            appendLocalReflectionTrace(
-                                                                                context = context.applicationContext,
-                                                                                message = message,
-                                                                            )
-                                                                        },
                                                                     )
                                                                 }.getOrElse {
                                                                     val errorMessageHead = (it.message ?: "")
@@ -1850,6 +1869,18 @@ fun Home(
                                                                     }
                                                                     Log.e("ChatScreen", "Failed to acquire local held engine", it)
                                                                     null
+                                                                }
+                                                                if (heldEngine == null) {
+                                                                    val created = runCatching {
+                                                                        createHeldEngine(
+                                                                            context = context.applicationContext,
+                                                                            modelPath = resolvedModelPath,
+                                                                        )
+                                                                    }.getOrNull()
+
+                                                                    if (created != null) {
+                                                                        heldEngine = created
+                                                                    }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
                                                                     devDebugText = buildString {
