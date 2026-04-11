@@ -1938,6 +1938,10 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run success responseLength=${heldRunResult.responseText.length} partialCount=${heldRunResult.partialCount} officialFlowUsed=${heldRunResult.officialFlowUsed} namespace=${heldRunResult.namespace}",
                                                                         )
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM held-run final source=${if (heldRunResult.officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${heldRunResult.closeLifecycleSummary?.path ?: "none"}",
+                                                                        )
                                                                         heldRunResult.toLocalInferenceRunResult()
                                                                     } else {
                                                                         appendLocalReflectionTrace(
@@ -2064,14 +2068,9 @@ fun Home(
                                                                     realPartialChunkCount = realLocalPartialChunkCount,
                                                                 ),
                                                             )
-                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
-                                                                devCloseLifecycleText = when (runResultWithUiTrace?.state) {
-                                                                    LocalInferenceEngineState.READY -> {
-                                                                        buildCloseLifecycleText(runResultWithUiTrace.closeLifecycleSummary)
-                                                                            ?: "CLOSE LIFECYCLE\nsummary=none"
-                                                                    }
-                                                                    else -> "CLOSE LIFECYCLE\nsummary=none"
-                                                                }
+                                                            if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && runResultWithUiTrace != null) {
+                                                                devCloseLifecycleText = buildCloseLifecycleText(runResultWithUiTrace.closeLifecycleSummary)
+                                                                    ?: "CLOSE LIFECYCLE\nsummary=none"
                                                             }
                                                             val inventoryState = runResultWithUiTrace?.state ?: LocalInferenceEngineState.ERROR
                                                             val inventoryResponseChars = runResultWithUiTrace?.response?.length ?: -1
@@ -3667,6 +3666,10 @@ private fun generateLiteRtResponseViaReflection(
     appendLocalReflectionTrace(
         context = context,
         message = "UPSTREAM close-summary path=legacy-reflection successReturned=${closeSummary.successReturned}",
+    )
+    appendLocalReflectionTrace(
+        context = context,
+        message = "UPSTREAM legacy final source=legacy-reflection closePath=${closeSummary.path}",
     )
     val generatedResult = generatedResponse ?: LocalLiteRtGeneratedResponse(trace = trace)
     return generatedResult.copy(closeLifecycleSummary = closeSummary)
