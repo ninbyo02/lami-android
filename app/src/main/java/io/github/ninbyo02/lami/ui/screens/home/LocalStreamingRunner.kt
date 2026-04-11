@@ -64,12 +64,20 @@ internal class DefaultLocalStreamingRunner<T>(
     }
 }
 
+internal data class HeldEngineRunResult(
+    val responseText: String,
+    val firstPartialElapsedRealtimeMs: Long?,
+    val partialCount: Int,
+    val namespace: String,
+    val officialFlowUsed: Boolean,
+)
+
 internal suspend fun runWithHeldEngine(
     heldEngine: HeldLocalEngine,
     prompt: String,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
-): LocalInferenceRunResult? {
+): HeldEngineRunResult? {
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
     val engine = heldEngine.engineInstance
@@ -92,6 +100,8 @@ internal suspend fun runWithHeldEngine(
         val flow = flowValue as? Flow<*> ?: return@runWithConversation null
         val builder = StringBuilder()
         var lastPartial: String? = null
+        var partialCount = 0
+        var firstPartialElapsedRealtimeMs: Long? = null
         flow.collect { message ->
             val extracted = extractOfficialMessageTextWithTrace(
                 path = "held-engine-flow",
@@ -100,14 +110,20 @@ internal suspend fun runWithHeldEngine(
             )?.trim().orEmpty()
             if (extracted.isBlank() || extracted == lastPartial) return@collect
             lastPartial = extracted
+            partialCount += 1
+            if (firstPartialElapsedRealtimeMs == null) {
+                firstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+            }
             builder.append(extracted)
             onPartial(builder.toString())
         }
-        builder.toString().trim().takeIf { it.isNotBlank() }
-    }?.let { response ->
-        return LocalInferenceRunResult(
-            state = LocalInferenceEngineState.READY,
-            response = response,
+        val response = builder.toString().trim().takeIf { it.isNotBlank() } ?: return@runWithConversation null
+        HeldEngineRunResult(
+            responseText = response,
+            firstPartialElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
+            partialCount = partialCount,
+            namespace = namespace,
+            officialFlowUsed = true,
         )
     }
 
@@ -133,9 +149,12 @@ internal suspend fun runWithHeldEngine(
         )?.trim()?.takeIf { it.isNotBlank() }
     }?.let { response ->
         onPartial(response)
-        return LocalInferenceRunResult(
-            state = LocalInferenceEngineState.READY,
-            response = response,
+        return HeldEngineRunResult(
+            responseText = response,
+            firstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            partialCount = 1,
+            namespace = namespace,
+            officialFlowUsed = false,
         )
     }
 
