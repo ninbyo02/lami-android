@@ -219,6 +219,7 @@ private const val DEV_LLM_SESSION_ASYNC_POC_TIMEOUT_MS = 10_000L
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
+private const val DEV_USE_HELD_PATH_ONLY = true
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -1790,12 +1791,28 @@ fun Home(
                                                                 settingsPreferences = settingsPreferences,
                                                                 localBaseModelFilePath = localBaseModelFilePath,
                                                             )
+                                                            val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
+                                                            appendLocalReflectionTrace(
+                                                                context = context.applicationContext,
+                                                                message = "UPSTREAM held-only mode enabled=$useHeldPathOnlyForDev",
+                                                            )
                                                             val runResult = if (resolvedModelPath == null) {
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-skip reason=model-path-unresolved",
                                                                 )
-                                                                LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+                                                                if (useHeldPathOnlyForDev) {
+                                                                    appendLocalReflectionTrace(
+                                                                        context = context.applicationContext,
+                                                                        message = "UPSTREAM held-only fail reason=resolved-model-path-null",
+                                                                    )
+                                                                    LocalInferenceRunResult(
+                                                                        state = LocalInferenceEngineState.ERROR,
+                                                                        response = "DEV held path failure: model path unresolved",
+                                                                    )
+                                                                } else {
+                                                                    LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
+                                                                }
                                                             } else {
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
@@ -1819,20 +1836,22 @@ fun Home(
                                                                         .take(120)
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
-                                                                        message = "UPSTREAM held-acquire failed error=${it::class.java.simpleName}:$errorMessageHead",
+                                                                        message = "UPSTREAM held-acquire failed errorClass=${it::class.java.simpleName} error=$errorMessageHead",
                                                                     )
-                                                                    legacyFallbackReason = "held-acquire-failed"
-                                                                    appendLocalReflectionTrace(
-                                                                        context = context.applicationContext,
-                                                                        message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
-                                                                    )
+                                                                    if (!useHeldPathOnlyForDev) {
+                                                                        legacyFallbackReason = "held-acquire-failed"
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                        )
+                                                                    }
                                                                     Log.e("ChatScreen", "Failed to acquire local held engine", it)
                                                                     null
                                                                 }
                                                                 heldEngine?.let { held ->
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
-                                                                        message = "UPSTREAM held-acquire success modelPathTail=$modelPathTail engineClass=${held::class.java.name} namespace=${held.namespace}",
+                                                                        message = "UPSTREAM held-acquire success namespace=${held.namespace} modelPathTail=$modelPathTail engineClass=${held::class.java.name}",
                                                                     )
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
@@ -1875,43 +1894,64 @@ fun Home(
                                                                             context = context.applicationContext,
                                                                             message = "UPSTREAM held-run null",
                                                                         )
-                                                                        legacyFallbackReason = "held-run-null"
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
-                                                                        )
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "UPSTREAM legacy-run start reason=$legacyFallbackReason",
-                                                                        )
-                                                                        val legacyRunResult = localStreamingRunner.run(
-                                                                            prompt = requestPrompt,
-                                                                            localBaseModelFilePath = localBaseModelFilePath,
-                                                                            localBaseModelDisplayName = localBaseModelDisplayName,
-                                                                            onPartial = legacyPartial@{ partial ->
-                                                                                if (localStopRequested) return@legacyPartial
-                                                                                val normalizedPartial = partial.trim()
-                                                                                if (normalizedPartial.isBlank()) return@legacyPartial
-                                                                                didReceiveRealLocalPartial = true
-                                                                                realLocalPartialChunkCount += 1
-                                                                                localStreamingResponseText = normalizedPartial
-                                                                                coroutineScope.launch {
-                                                                                    if (localRunGuardEpoch != streamingGuardEpoch) return@launch
-                                                                                    if (localStopRequested) return@launch
-                                                                                    upsertStreamingAssistantPlaceholderSerialized(
-                                                                                        chatId = currentChatId,
-                                                                                        response = normalizedPartial,
-                                                                                    )
-                                                                                }
-                                                                            },
-                                                                        )
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = "UPSTREAM legacy-run finish state=${legacyRunResult?.state ?: "null"} responseLength=${legacyRunResult?.response?.length ?: -1}",
-                                                                        )
-                                                                        legacyRunResult
+                                                                        if (useHeldPathOnlyForDev) {
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "UPSTREAM held-only fail reason=held-run-null",
+                                                                            )
+                                                                            LocalInferenceRunResult(
+                                                                                state = LocalInferenceEngineState.ERROR,
+                                                                                response = "DEV held path failure: held run returned null",
+                                                                            )
+                                                                        } else {
+                                                                            legacyFallbackReason = "held-run-null"
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
+                                                                            )
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "UPSTREAM legacy-run start reason=$legacyFallbackReason",
+                                                                            )
+                                                                            val legacyRunResult = localStreamingRunner.run(
+                                                                                prompt = requestPrompt,
+                                                                                localBaseModelFilePath = localBaseModelFilePath,
+                                                                                localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                                onPartial = legacyPartial@{ partial ->
+                                                                                    if (localStopRequested) return@legacyPartial
+                                                                                    val normalizedPartial = partial.trim()
+                                                                                    if (normalizedPartial.isBlank()) return@legacyPartial
+                                                                                    didReceiveRealLocalPartial = true
+                                                                                    realLocalPartialChunkCount += 1
+                                                                                    localStreamingResponseText = normalizedPartial
+                                                                                    coroutineScope.launch {
+                                                                                        if (localRunGuardEpoch != streamingGuardEpoch) return@launch
+                                                                                        if (localStopRequested) return@launch
+                                                                                        upsertStreamingAssistantPlaceholderSerialized(
+                                                                                            chatId = currentChatId,
+                                                                                            response = normalizedPartial,
+                                                                                        )
+                                                                                    }
+                                                                                },
+                                                                            )
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = "UPSTREAM legacy-run finish state=${legacyRunResult?.state ?: "null"} responseLength=${legacyRunResult?.response?.length ?: -1}",
+                                                                            )
+                                                                            legacyRunResult
+                                                                        }
                                                                     }
                                                                 } ?: run {
+                                                                    if (useHeldPathOnlyForDev) {
+                                                                        appendLocalReflectionTrace(
+                                                                            context = context.applicationContext,
+                                                                            message = "UPSTREAM held-only fail reason=acquire-failed",
+                                                                        )
+                                                                        return@run LocalInferenceRunResult(
+                                                                            state = LocalInferenceEngineState.ERROR,
+                                                                            response = "DEV held path failure: acquire failed",
+                                                                        )
+                                                                    }
                                                                     if (legacyFallbackReason == null) {
                                                                         legacyFallbackReason = "held-not-attempted"
                                                                         appendLocalReflectionTrace(
