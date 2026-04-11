@@ -289,6 +289,17 @@ internal data class LocalOfficialBlockingResult(
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
+private fun ensureCloseLifecycleSummary(
+    summary: RunCloseLifecycleSummary?,
+    path: String,
+    successReturned: Boolean,
+): RunCloseLifecycleSummary {
+    return summary ?: RunCloseLifecycleSummary(
+        path = path,
+        successReturned = successReturned,
+    )
+}
+
 private val OFFICIAL_TEXT_CANDIDATES = listOf(
     "text",
     "getText",
@@ -351,7 +362,15 @@ internal suspend fun tryRunOfficialLiteRtFlowStreaming(
                 message = "UPSTREAM official-flow fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
             )
         }.getOrNull()
-        if (result != null) return result
+        if (result != null) {
+            return result.copy(
+                closeLifecycleSummary = ensureCloseLifecycleSummary(
+                    summary = result.closeLifecycleSummary,
+                    path = "fallback-official-flow",
+                    successReturned = true,
+                ),
+            )
+        }
     }
     if (!fallbackReasonReported) {
         runCatching { onFallbackReason("no_partial_emitted") }
@@ -401,7 +420,15 @@ internal fun tryRunOfficialLiteRtBlockingConversation(
                 message = "UPSTREAM official-blocking fallback reason=$reasonCode namespace=${spec.namespace}, error=${throwable.javaClass.simpleName}:${throwable.message}",
             )
         }.getOrNull()
-        if (!response?.response.isNullOrBlank()) return response
+        if (!response?.response.isNullOrBlank()) {
+            return response.copy(
+                closeLifecycleSummary = ensureCloseLifecycleSummary(
+                    summary = response.closeLifecycleSummary,
+                    path = "fallback-official-blocking",
+                    successReturned = true,
+                ),
+            )
+        }
     }
     return null
 }
@@ -901,7 +928,14 @@ private fun runOfficialBlockingConversationSingleNamespace(
             cacheDirPath = cacheDirPath,
             appendTrace = appendTrace,
         )
-        return LocalOfficialBlockingResult(response = response)
+        return LocalOfficialBlockingResult(
+            response = response,
+            closeLifecycleSummary = ensureCloseLifecycleSummary(
+                summary = null,
+                path = "fallback-official-blocking",
+                successReturned = !response.isNullOrBlank(),
+            ),
+        )
     }
     safeAppendTrace(appendTrace, "UPSTREAM official-blocking start namespace=${spec.namespace}")
     val engineClass = runCatching { Class.forName(spec.engineClassName) }.getOrNull() ?: return null
@@ -1066,6 +1100,11 @@ private suspend fun runOfficialLiteRtLmDirect(
             response = response,
             partialCount = partialCount,
             firstNonEmptyPartialElapsedRealtimeMs = firstPartialMs,
+            closeLifecycleSummary = ensureCloseLifecycleSummary(
+                summary = null,
+                path = "fallback-official-flow",
+                successReturned = true,
+            ),
         )
     }.getOrElse { throwable ->
         safeAppendTrace(
