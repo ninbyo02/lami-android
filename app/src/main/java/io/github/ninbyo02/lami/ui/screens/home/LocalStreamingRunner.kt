@@ -417,9 +417,17 @@ private suspend fun <T> runWithConversation(
     return try {
         conversation = createConversationForHeldEngine(engine = engine, namespace = namespace, appendTrace = appendTrace)
         if (conversation == null) return null
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-conversation acquired class=${conversation.javaClass.name}",
+        )
         block(conversation)
     } finally {
-        closeQuietly(conversation)
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-conversation close-start class=${conversation?.javaClass?.name ?: "null"}",
+        )
+        closeQuietly(conversation, appendTrace)
     }
 }
 
@@ -428,19 +436,43 @@ private fun createConversationForHeldEngine(
     namespace: String?,
     appendTrace: (String) -> Unit,
 ): Any? {
-    if (namespace == "com.google.ai.edge.litertlm") {
-        return createOfficialLiteRtLmConversation(
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM held-conversation create-start namespace=${namespace ?: "null"} engineClass=${engine.javaClass.name}",
+    )
+    val conversation = if (namespace == "com.google.ai.edge.litertlm") {
+        createOfficialLiteRtLmConversation(
             engine = engine,
             engineClass = engine.javaClass,
             appendTrace = appendTrace,
         )
+    } else {
+        val method = engine.javaClass.methods.firstOrNull { it.name == "createConversation" }
+        if (method == null) {
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM held-conversation create-failed namespace=${namespace ?: "null"}",
+            )
+            return null
+        }
+        createOfficialConversation(
+            engine = engine,
+            createConversationMethod = method,
+            appendTrace = appendTrace,
+        )
     }
-    val method = engine.javaClass.methods.firstOrNull { it.name == "createConversation" } ?: return null
-    return createOfficialConversation(
-        engine = engine,
-        createConversationMethod = method,
-        appendTrace = appendTrace,
-    )
+    if (conversation == null) {
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-conversation create-failed namespace=${namespace ?: "null"}",
+        )
+    } else {
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM held-conversation create-success class=${conversation.javaClass.name}",
+        )
+    }
+    return conversation
 }
 
 private fun findSendMessageAsyncMethod(
@@ -1087,16 +1119,52 @@ private fun safeAppendTrace(
     runCatching { appendTrace(message) }
 }
 
-private fun closeQuietly(target: Any?) {
+private fun closeQuietly(
+    target: Any?,
+    appendTrace: ((String) -> Unit)? = null,
+) {
     if (target == null) return
-    runCatching {
-        when (target) {
-            is AutoCloseable -> target.close()
-            else -> target.javaClass.methods.firstOrNull {
-                it.name == "close" && it.parameterTypes.isEmpty()
-            }?.invoke(target)
-        }
+    val targetClass = target.javaClass.name
+    if (target is AutoCloseable) {
+        runCatching { target.close() }
+            .onSuccess {
+                runCatching {
+                    appendTrace?.invoke("UPSTREAM closeQuietly targetClass=$targetClass strategy=AutoCloseable.close success")
+                }
+            }
+            .onFailure { throwable ->
+                runCatching {
+                    appendTrace?.invoke(
+                        "UPSTREAM closeQuietly targetClass=$targetClass strategy=AutoCloseable.close failed ${throwable.javaClass.simpleName}",
+                    )
+                }
+            }
+        return
     }
+    val releaseMethodNames = listOf("close", "release", "destroy", "shutdown", "cancel")
+    val selectedMethod = releaseMethodNames.firstNotNullOfOrNull { methodName ->
+        target.javaClass.methods.firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }?.let { methodName to it }
+    }
+    if (selectedMethod == null) {
+        runCatching {
+            appendTrace?.invoke("UPSTREAM closeQuietly targetClass=$targetClass strategy=none")
+        }
+        return
+    }
+    val (strategyName, method) = selectedMethod
+    runCatching { method.invoke(target) }
+        .onSuccess {
+            runCatching {
+                appendTrace?.invoke("UPSTREAM closeQuietly targetClass=$targetClass strategy=$strategyName success")
+            }
+        }
+        .onFailure { throwable ->
+            runCatching {
+                appendTrace?.invoke(
+                    "UPSTREAM closeQuietly targetClass=$targetClass strategy=$strategyName failed ${throwable.javaClass.simpleName}",
+                )
+            }
+        }
 }
 
 internal data class LocalRealPartialHookSnapshot(
