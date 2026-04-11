@@ -1823,64 +1823,21 @@ fun Home(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-acquire start modelPathTail=$modelPathTail",
                                                                 )
-                                                                suspend fun acquireHeldEngine(
-                                                                    modelPath: String,
-                                                                ) = localInferenceEngineHolder.acquire(
-                                                                    modelPath = modelPath,
-                                                                    appendTrace = { message ->
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context.applicationContext,
-                                                                            message = message,
-                                                                        )
-                                                                    },
-                                                                )
-                                                                fun createHeldEngine(
-                                                                    context: Context,
-                                                                    modelPath: String,
-                                                                ) : ReusableLocalInferenceEngine? {
-                                                                    appendLocalReflectionTrace(
-                                                                        context = context,
-                                                                        message = "HELD CREATE START modelPath=${modelPath.takeLast(40)}",
-                                                                    )
-
-                                                                    return try {
-                                                                        val engine = createReusableLocalInferenceEngine(
-                                                                            context = context,
-                                                                            modelPath = modelPath,
-                                                                            appendTrace = { message ->
-                                                                                appendLocalReflectionTrace(
-                                                                                    context = context,
-                                                                                    message = message,
-                                                                                )
-                                                                            },
-                                                                        )
-
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context,
-                                                                            message = "HELD CREATE SUCCESS hash=${engine.hashCode()}",
-                                                                        )
-
-                                                                        engine
-                                                                    } catch (e: Throwable) {
-                                                                        appendLocalReflectionTrace(
-                                                                            context = context,
-                                                                            message = "HELD CREATE ERROR: ${e.message}",
-                                                                        )
-                                                                        null
-                                                                    }
-                                                                }
-
-                                                                var heldEngine = runCatching {
-                                                                    acquireHeldEngine(
+                                                                val heldEngine = runCatching {
+                                                                    localInferenceEngineHolder.acquireOrCreate(
                                                                         modelPath = resolvedModelPath,
+                                                                        context = context.applicationContext,
+                                                                        appendTrace = { message ->
+                                                                            appendLocalReflectionTrace(
+                                                                                context = context.applicationContext,
+                                                                                message = message,
+                                                                            )
+                                                                        },
                                                                     )
                                                                 }.getOrElse {
-                                                                    val errorMessageHead = (it.message ?: "")
-                                                                        .replace('\n', ' ')
-                                                                        .take(120)
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
-                                                                        message = "UPSTREAM held-acquire failed errorClass=${it::class.java.simpleName} error=$errorMessageHead",
+                                                                        message = "HELD ACQUIRE ERROR: ${it.message}",
                                                                     )
                                                                     if (!useHeldPathOnlyForDev) {
                                                                         legacyFallbackReason = "held-acquire-failed"
@@ -1889,24 +1846,7 @@ fun Home(
                                                                             message = "UPSTREAM legacy-fallback reason=$legacyFallbackReason",
                                                                         )
                                                                     }
-                                                                    Log.e("ChatScreen", "Failed to acquire local held engine", it)
                                                                     null
-                                                                }
-                                                                if (heldEngine == null) {
-                                                                    appendLocalReflectionTrace(
-                                                                        context = context.applicationContext,
-                                                                        message = "TRY CREATE HELD ENGINE",
-                                                                    )
-                                                                    val created = runCatching {
-                                                                        createHeldEngine(
-                                                                            context = context.applicationContext,
-                                                                            modelPath = resolvedModelPath,
-                                                                        )
-                                                                    }.getOrNull()
-
-                                                                    if (created != null) {
-                                                                        heldEngine = created
-                                                                    }
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
                                                                     devDebugText = buildString {
@@ -3314,6 +3254,18 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
         ),
+    )
+}
+
+@Suppress("UNUSED_PARAMETER")
+private suspend fun LocalInferenceEngineHolder.acquireOrCreate(
+    modelPath: String,
+    context: Context,
+    appendTrace: ((String) -> Unit)? = null,
+): HeldLocalEngine {
+    return acquire(
+        modelPath = modelPath,
+        appendTrace = appendTrace,
     )
 }
 
