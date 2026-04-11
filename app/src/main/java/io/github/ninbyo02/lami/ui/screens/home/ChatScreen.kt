@@ -220,7 +220,7 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW = "official-flow
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING = "official-blocking"
 private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-legacy"
 private const val DEV_UI_DEBUG_MODE = true
-private const val DEV_USE_HELD_PATH_ONLY = true
+private const val DEV_USE_HELD_PATH_ONLY = false
 
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
@@ -1876,8 +1876,11 @@ fun Home(
                                                                 }
                                                                 if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && heldEngine == null) {
                                                                     devDebugText = buildString {
-                                                                        append("HELD ACQUIRE FAILED\n")
+                                                                        append("DEV HELD FAILURE\n")
                                                                         append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                        append("held=").append(false).append("\n")
+                                                                        append("heldHash=").append(-1).append("\n")
+                                                                        append("useCount=").append(-1).append("\n")
                                                                         append("stage=").append(heldAcquireFailureStage ?: "unknown").append("\n")
                                                                         append("class=").append(heldAcquireFailureClassName ?: "unknown").append("\n")
                                                                         append("message=").append(heldAcquireFailureMessage ?: "no message").append("\n")
