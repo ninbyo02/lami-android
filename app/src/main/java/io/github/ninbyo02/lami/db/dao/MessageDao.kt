@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import io.github.ninbyo02.lami.db.entity.Message
 import kotlinx.coroutines.flow.Flow
 
@@ -13,8 +14,17 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: Message)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessageAndReturnId(message: Message): Long
+
     @Query("SELECT * FROM chat_table WHERE chatId = :chatId ")
     fun getAllMessages(chatId: Int): Flow<List<Message>>
+
+    @Query("SELECT * FROM chat_table WHERE messageID = :messageId LIMIT 1")
+    suspend fun getMessageById(messageId: Int): Message?
+
+    @Update
+    suspend fun updateMessage(message: Message)
 
 
     @Query("SELECT COUNT(*) FROM chat_table WHERE chatId = :chatId")

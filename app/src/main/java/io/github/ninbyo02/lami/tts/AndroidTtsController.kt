@@ -6,6 +6,9 @@ import android.os.Looper
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import java.util.UUID
 
@@ -36,6 +39,8 @@ class AndroidTtsController(context: Context) {
     private var currentSpeechRate: Float = DEFAULT_TTS_SPEECH_RATE
     private var currentPitch: Float = DEFAULT_TTS_PITCH
     private var lastPlaybackEndedAtMs: Long = 0L
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
     init {
         tts = TextToSpeech(appContext) { status ->
@@ -71,7 +76,7 @@ class AndroidTtsController(context: Context) {
                 val pendingText = pendingSpeakText
                 pendingSpeakText = null
                 if (!pendingText.isNullOrEmpty()) {
-                    speakInternal(pendingText)
+                    speakInternal(pendingText, TextToSpeech.QUEUE_FLUSH)
                 }
             } else {
                 isReady = false
@@ -86,20 +91,11 @@ class AndroidTtsController(context: Context) {
     }
 
     fun speak(text: String) {
-        val cleanedSpeechText = SpeechTextBuilder.build(text)
-        val finalSpeechText = TtsSummaryBuilder.build(
-            rawDisplayText = text,
-            speechText = cleanedSpeechText,
-            isError = false
-        ).trim()
-        if (finalSpeechText.isEmpty()) {
-            return
-        }
-        if (!isReady) {
-            pendingSpeakText = finalSpeechText
-            return
-        }
-        speakInternal(finalSpeechText)
+        speakWithQueueMode(text, TextToSpeech.QUEUE_FLUSH)
+    }
+
+    fun speakQueued(text: String) {
+        speakWithQueueMode(text, TextToSpeech.QUEUE_ADD)
     }
 
     fun speakReferencePhrase() {
@@ -131,11 +127,32 @@ class AndroidTtsController(context: Context) {
         currentPitch = pitch.coerceIn(MIN_PITCH, MAX_PITCH)
     }
 
-    private fun speakInternal(text: String) {
+    private fun speakWithQueueMode(text: String, queueMode: Int) {
+        val cleanedSpeechText = SpeechTextBuilder.build(text)
+        val finalSpeechText = TtsSummaryBuilder.build(
+            rawDisplayText = text,
+            speechText = cleanedSpeechText,
+            isError = false
+        ).trim()
+        if (finalSpeechText.isEmpty()) {
+            return
+        }
+        if (!isReady) {
+            pendingSpeakText = if (queueMode == TextToSpeech.QUEUE_ADD && !pendingSpeakText.isNullOrBlank()) {
+                "${pendingSpeakText.orEmpty()} $finalSpeechText".trim()
+            } else {
+                finalSpeechText
+            }
+            return
+        }
+        speakInternal(finalSpeechText, queueMode)
+    }
+
+    private fun speakInternal(text: String, queueMode: Int) {
         runCatching {
             tts?.setSpeechRate(currentSpeechRate)
             tts?.setPitch(currentPitch)
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, nextUtteranceId())
+            tts?.speak(text, queueMode, null, nextUtteranceId())
         }.onFailure {
             notifyPlaybackState(false)
         }
@@ -169,6 +186,7 @@ class AndroidTtsController(context: Context) {
     }
 
     private fun notifyPlaybackState(isPlaying: Boolean) {
+        _isSpeaking.value = isPlaying
         mainHandler.post {
             onPlaybackStateChanged?.invoke(isPlaying)
         }

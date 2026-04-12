@@ -5,6 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +40,7 @@ fun LamiHeaderStatus(
     onSelectModel: (String) -> Unit,
     onNavigateSettings: () -> Unit,
     selectedInferenceTarget: InferenceTarget = InferenceTarget.SERVER,
+    localBaseModelDisplayName: String? = null,
     onSelectInferenceTarget: (InferenceTarget) -> Unit = {},
     localInferenceEngineState: LocalInferenceEngineState = LocalInferenceEngineState.UNINITIALIZED,
     debugOverlayEnabled: Boolean = true,
@@ -76,6 +82,8 @@ fun LamiHeaderStatus(
         }
         HeaderStatusText(
             selectedModel = selectedModel,
+            selectedInferenceTarget = selectedInferenceTarget,
+            localBaseModelDisplayName = localBaseModelDisplayName,
             lamiStatus = lamiStatus,
             lamiState = lamiState,
             onOpenControl = onOpenControl,
@@ -139,6 +147,8 @@ fun HeaderAvatar(
 @Composable
 fun HeaderStatusText(
     selectedModel: String?,
+    selectedInferenceTarget: InferenceTarget,
+    localBaseModelDisplayName: String?,
     lamiStatus: LamiStatus,
     lamiState: LamiState,
     onOpenControl: () -> Unit,
@@ -148,26 +158,36 @@ fun HeaderStatusText(
         status = lamiStatus,
         lamiState = lamiState
     )
-    val modelLabel = remember(selectedModel) {
-        selectedModel
-            ?.takeIf { it.isNotBlank() }
-            ?.let { modelName -> "Model: $modelName" }
+    val modelDisplayName = remember(selectedModel, selectedInferenceTarget, localBaseModelDisplayName) {
+        when (selectedInferenceTarget) {
+            InferenceTarget.LOCAL -> compactHeaderModelName(localBaseModelDisplayName)
+            InferenceTarget.SERVER -> compactHeaderModelName(selectedModel)
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Text(
-            text = modelLabel ?: "Model",
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+        Row(
             modifier = Modifier
                 .semantics {
-                    contentDescription = "${modelLabel ?: "Model"}。Lami コントロールを開く"
+                    contentDescription = "$modelDisplayName。Lami コントロールを開く"
                 }
-                .clickable(role = Role.Button, onClick = onOpenControl)
-        )
-        val subtitleText = statusUi.subtitle.orEmpty()
-        val subtitleAlpha = if (statusUi.subtitle == null) 0f else 1f
+                .clickable(role = Role.Button, onClick = onOpenControl),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = if (selectedInferenceTarget == InferenceTarget.LOCAL) Icons.Outlined.Memory else Icons.Outlined.Cloud,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = modelDisplayName,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -180,6 +200,8 @@ fun HeaderStatusText(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        val subtitleText = statusUi.subtitle.orEmpty()
+        val subtitleAlpha = if (statusUi.subtitle == null) 0f else 1f
         Text(
             text = subtitleText,
             style = MaterialTheme.typography.bodySmall.copy(
@@ -192,3 +214,10 @@ fun HeaderStatusText(
         )
     }
 }
+
+private fun compactHeaderModelName(raw: String?): String = raw
+    ?.trim()
+    ?.takeIf { it.isNotBlank() }
+    ?.removeSuffix(".litertlm")
+    ?.replace("-it-int4", "")
+    ?: "—"

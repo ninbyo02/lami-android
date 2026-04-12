@@ -634,9 +634,6 @@ fun PlainAssistantMessage(
     onInferenceStatsClick: (() -> Unit)? = null,
 ) {
     val segments = remember(message) { parseFencedCodeSegments(message) }
-    val replayIcon = if (isReplaying) Icons.Filled.Stop else Icons.AutoMirrored.Filled.VolumeUp
-    val replayDescription = if (isReplaying) "再生を停止" else "回答を再生"
-    val replayAction = if (isReplaying) onStopReplayClick else onReplayClick
     val inferenceSummary = remember(inferenceStats) { inferenceStats?.let(::buildInferenceSummary) }
 
     Column(
@@ -657,15 +654,28 @@ fun PlainAssistantMessage(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = { replayAction?.invoke() },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = replayIcon,
-                        contentDescription = replayDescription,
-                        modifier = Modifier.size(16.dp)
-                    )
+                if (isReplaying && onStopReplayClick != null) {
+                    IconButton(
+                        onClick = { onStopReplayClick?.invoke() },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Stop,
+                            contentDescription = "再生を停止",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                } else if (onReplayClick != null) {
+                    IconButton(
+                        onClick = { onReplayClick?.invoke() },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "回答を再生",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
                 IconButton(
                     onClick = { onCopyAllClick?.invoke() },

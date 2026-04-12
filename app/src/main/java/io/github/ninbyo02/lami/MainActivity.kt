@@ -42,6 +42,7 @@ import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.ui.screens.chats.Chats
 import io.github.ninbyo02.lami.ui.screens.home.Home
+import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.settings.About
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsData
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -63,6 +64,9 @@ import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: OllamaViewModel
+    private val heldEngineLifecycleBridge by lazy {
+        HeldEngineLifecycleBridge(holder = LocalInferenceEngineHolder.getInstance(applicationContext))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -221,6 +225,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        heldEngineLifecycleBridge.onStart(scope = lifecycleScope)
+    }
+
+    override fun onStop() {
+        heldEngineLifecycleBridge.onStop(scope = lifecycleScope)
+        super.onStop()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        heldEngineLifecycleBridge.onTrimMemory(scope = lifecycleScope, level = level)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        heldEngineLifecycleBridge.onLowMemory(scope = lifecycleScope)
     }
 }
 

@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.data.SpriteSheetConfig
 import io.github.ninbyo02.lami.data.normalize
+import io.github.ninbyo02.lami.ui.components.InferenceTarget
 import io.github.ninbyo02.lami.tts.AndroidTtsController
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -296,9 +297,12 @@ class SettingsPreferences(private val context: Context) {
     private val lastRouteKey = stringPreferencesKey("last_route")
     private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
     private val ttsPitchKey = floatPreferencesKey("tts_pitch")
+    private val ttsEnabledKey = booleanPreferencesKey("tts_enabled")
+    private val devEnableStreamingSentenceTtsKey = booleanPreferencesKey("dev_enable_streaming_sentence_tts")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
     private val localBaseModelDisplayNameKey = stringPreferencesKey("local_base_model_display_name")
     private val localBaseModelFilePathKey = stringPreferencesKey("local_base_model_file_path")
+    private val inferenceTargetKey = stringPreferencesKey("inference_target")
     // 旧: 全アニメーション設定の一括保存用キー（読み取り専用の移行/フォールバック）
     // state別JSONが正の保存形式のため、新規保存では書き込まない（PR24で完全削除可能）
     // JSON形式（全体）: { "version": 1, "animations": { "<statusKey>": { "base": {...}, "insertion": {...} } } }
@@ -418,6 +422,14 @@ class SettingsPreferences(private val context: Context) {
             .coerceIn(AndroidTtsController.MIN_PITCH, AndroidTtsController.MAX_PITCH)
     }
 
+    val ttsEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[ttsEnabledKey] ?: true
+    }
+
+    val devEnableStreamingSentenceTtsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[devEnableStreamingSentenceTtsKey] ?: false
+    }
+
     val chatLamiAvatarSizeDpFlow: Flow<Int> = context.dataStore.data.map { preferences ->
         (preferences[chatLamiAvatarSizeDpKey] ?: DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
             .coerceIn(MIN_CHAT_LAMI_AVATAR_SIZE_DP, MAX_CHAT_LAMI_AVATAR_SIZE_DP)
@@ -429,6 +441,13 @@ class SettingsPreferences(private val context: Context) {
 
     val localBaseModelFilePathFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[localBaseModelFilePathKey]
+    }
+
+    val inferenceTargetFlow: Flow<InferenceTarget> = context.dataStore.data.map { preferences ->
+        val stored = preferences[inferenceTargetKey]
+        runCatching {
+            InferenceTarget.valueOf(stored.orEmpty())
+        }.getOrDefault(InferenceTarget.LOCAL)
     }
 
     val characterAnimationEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -632,6 +651,12 @@ class SettingsPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences.remove(localBaseModelDisplayNameKey)
             preferences.remove(localBaseModelFilePathKey)
+        }
+    }
+
+    suspend fun saveInferenceTarget(target: InferenceTarget) {
+        context.dataStore.edit { preferences ->
+            preferences[inferenceTargetKey] = target.name
         }
     }
 
@@ -1131,6 +1156,18 @@ class SettingsPreferences(private val context: Context) {
         }
     }
 
+    suspend fun setDevEnableStreamingSentenceTts(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[devEnableStreamingSentenceTtsKey] = value
+        }
+    }
+
+    suspend fun setTtsEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[ttsEnabledKey] = value
+        }
+    }
+
     suspend fun setChatLamiAvatarSizeDp(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[chatLamiAvatarSizeDpKey] = value
@@ -1545,7 +1582,6 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
             SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
-            else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
 
     private fun insertionDefaultsForState(

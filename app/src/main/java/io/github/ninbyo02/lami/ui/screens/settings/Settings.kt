@@ -46,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -83,6 +84,7 @@ import androidx.compose.ui.zIndex
 import androidx.annotation.VisibleForTesting
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import io.github.ninbyo02.lami.BuildConfig
 import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.R
@@ -163,6 +165,10 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
         .collectAsState(initial = DEFAULT_CHAT_LAMI_AVATAR_SIZE_DP)
     val localBaseModelDisplayName by settingsPreferences.localBaseModelDisplayNameFlow
         .collectAsState(initial = null)
+    val ttsEnabled by settingsPreferences.ttsEnabledFlow.collectAsState(initial = true)
+    val devEnableStreamingSentenceTts by settingsPreferences.devEnableStreamingSentenceTtsFlow
+        .collectAsState(initial = false)
+    val effectiveSentenceStreamingTtsChecked = ttsEnabled && devEnableStreamingSentenceTts
     val maxServers = 5
     val serverInputIds = serverInputs.map { it.localId }
 
@@ -505,10 +511,55 @@ fun Settings(navgationController: NavController, onSaved: () -> Unit = {}) {
                         supporting = "システムカラーに合わせて配色を自動調整します",
                         leadingIcon = null,
                         checked = settingsData.useDynamicColor,
+                        enabled = true,
                         onCheckedChange = { enabled ->
                             scope.launch { settingsPreferences.updateDynamicColor(enabled) }
                         }
                     )
+                }
+            }
+            item {
+                CardSectionHeader(
+                    title = "音声",
+                    description = "回答の読み上げ設定を変更できます",
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+                Card {
+                    SettingsToggleRowItem(
+                        headline = "音声読み上げ",
+                        supporting = "OFFにすると回答の読み上げを行いません",
+                        leadingIcon = null,
+                        checked = ttsEnabled,
+                        enabled = true,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsPreferences.setTtsEnabled(enabled) }
+                        }
+                    )
+                }
+                if (BuildConfig.DEBUG) {
+                    // 開発者向け実験機能のため、DEBUGビルドのみ表示する
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Card {
+                        SettingsToggleRowItem(
+                            headline = "文区切りストリーミングTTS",
+                            supporting = if (ttsEnabled) {
+                                "応答生成中に、文の区切りごとに順次読み上げます（開発者向け）"
+                            } else {
+                                "音声読み上げがOFFのため変更できません"
+                            },
+                            leadingIcon = null,
+                            checked = effectiveSentenceStreamingTtsChecked,
+                            enabled = ttsEnabled,
+                            switchColors = SwitchDefaults.colors(
+                                disabledUncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                disabledUncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledUncheckedBorderColor = MaterialTheme.colorScheme.outline
+                            ),
+                            onCheckedChange = { enabled ->
+                                scope.launch { settingsPreferences.setDevEnableStreamingSentenceTts(enabled) }
+                            }
+                        )
+                    }
                 }
             }
             item {

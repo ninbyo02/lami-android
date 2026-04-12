@@ -1,0 +1,537 @@
+package io.github.ninbyo02.lami.ui.screens.home
+
+import android.content.Context
+import android.os.SystemClock
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
+private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
+private const val HELD_ENGINE_BACKGROUND_TIMEOUT_MS = 5 * 60 * 1000L
+private const val HELD_ENGINE_IDLE_TIMEOUT_MS = 10 * 60 * 1000L
+
+internal data class HeldLocalEngine(
+    val engineKey: HeldEngineKey,
+    val modelPath: String,
+    val engineInstance: Any,
+    val namespace: String?,
+    val createdAtElapsedMs: Long,
+    var lastUsedAtElapsedMs: Long,
+    var useCount: Int,
+    val closeEngine: (((String) -> Unit)?) -> Unit,
+)
+
+internal data class HeldEngineKey(
+    val modelPath: String,
+    val backendKey: String,
+    val cacheDirPath: String,
+)
+
+internal data class HeldEngineAcquireDiagnosticResult(
+    val engine: HeldLocalEngine?,
+    val failureStage: String?,
+    val failureClassName: String?,
+    val failureMessage: String?,
+)
+
+internal class LocalInferenceEngineHolder(
+    private val appContext: Context,
+) {
+    private enum class HeldEngineLifecycleReason {
+        MODEL_CHANGED,
+        BACKEND_CHANGED,
+        EXPLICIT_RESET,
+        FATAL_ERROR,
+        LOW_MEMORY,
+        BACKGROUND_TIMEOUT,
+        IDLE_TIMEOUT,
+        KEEP_HELD,
+    }
+
+    private enum class HeldEngineLifecycleAction {
+        KEEP_HELD,
+        CLOSE_AND_RECREATE,
+        CLEAR_ONLY,
+        NO_OP,
+    }
+
+    private data class HeldEngineLifecycleDecision(
+        val reason: HeldEngineLifecycleReason,
+        val action: HeldEngineLifecycleAction,
+        val clearReason: String,
+    )
+
+    private data class HeldConversation(
+        val chatId: Int,
+        val engineModelPath: String,
+        val engineGeneration: Long,
+        val conversation: Any,
+        val namespace: String?,
+    )
+
+    companion object {
+        @Volatile
+        private var instance: LocalInferenceEngineHolder? = null
+
+        fun getInstance(appContext: Context): LocalInferenceEngineHolder {
+            return instance ?: synchronized(this) {
+                instance ?: LocalInferenceEngineHolder(appContext.applicationContext).also { created ->
+                    instance = created
+                }
+            }
+        }
+    }
+
+    private val mutex = Mutex()
+    private var held: HeldLocalEngine? = null
+    private val heldConversationsByChatId = mutableMapOf<Int, HeldConversation>()
+    private var heldEngineGeneration: Long = 0L
+    private var appBackgroundedAtElapsedMs: Long? = null
+
+    suspend fun acquire(
+        engineKey: HeldEngineKey,
+        appendTrace: ((String) -> Unit)? = null,
+    ): HeldLocalEngine = mutex.withLock {
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        val modelPath = engineKey.modelPath
+        val current = held
+        val decision = decideAcquireLifecycle(current = current, requested = engineKey)
+        applyLifecycleDecisionLocked(
+            current = current,
+            decision = decision,
+            appendTrace = appendTrace,
+        )
+        if (decision.action == HeldEngineLifecycleAction.KEEP_HELD && current != null) {
+            current.useCount += 1
+            current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+            appendTrace?.invoke(
+                "UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')} useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
+            )
+            return@withLock current
+        }
+
+        val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
+            context = appContext,
+            engineKey = engineKey,
+            appendTrace = appendTrace,
+        )
+        val created = createdDiagnostic.engine
+            ?: throw IllegalStateException(
+                "Failed to create local inference engine. modelPath=$modelPath stage=${createdDiagnostic.stage} class=${createdDiagnostic.className} message=${createdDiagnostic.message}",
+            )
+        created.useCount += 1
+        created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+        appendTrace?.invoke(
+            "UPSTREAM held-engine create-success modelPathTail=${modelPath.substringAfterLast('/')} useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
+        )
+        heldEngineGeneration += 1
+        clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
+        held = created
+        created
+    }
+
+    suspend fun acquireWithDiagnostic(
+        engineKey: HeldEngineKey,
+        appendTrace: ((String) -> Unit)? = null,
+    ): HeldEngineAcquireDiagnosticResult = mutex.withLock {
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        val modelPath = engineKey.modelPath
+        val modelPathTail = modelPath.substringAfterLast('/')
+        appendTrace?.invoke("UPSTREAM held-acquire-diagnostic start modelPathTail=$modelPathTail")
+        var failureStage: String? = null
+        try {
+            val current = held
+            val decision = decideAcquireLifecycle(current = current, requested = engineKey)
+            if (decision.action == HeldEngineLifecycleAction.CLOSE_AND_RECREATE) {
+                failureStage = "recycle-close"
+            }
+            applyLifecycleDecisionLocked(
+                current = current,
+                decision = decision,
+                appendTrace = appendTrace,
+            )
+            if (decision.action == HeldEngineLifecycleAction.KEEP_HELD && current != null) {
+                current.useCount += 1
+                current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+                appendTrace?.invoke(
+                    "UPSTREAM held-engine reuse-hit modelPathTail=$modelPathTail useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
+                )
+                appendTrace?.invoke(
+                    "UPSTREAM held-acquire-diagnostic success heldHash=${current.hashCode()} useCount=${current.useCount}",
+                )
+                return@withLock HeldEngineAcquireDiagnosticResult(
+                    engine = current,
+                    failureStage = null,
+                    failureClassName = null,
+                    failureMessage = null,
+                )
+            }
+
+            failureStage = "create-reusable-engine"
+            val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
+                context = appContext,
+                engineKey = engineKey,
+                appendTrace = appendTrace,
+            )
+            appendTrace?.invoke(
+                "UPSTREAM held-create-diagnostic stage=${createdDiagnostic.stage ?: "unknown"} class=${createdDiagnostic.className ?: "none"} message=${createdDiagnostic.message ?: "none"}",
+            )
+            val created = createdDiagnostic.engine
+            if (created == null) {
+                val failStage = createdDiagnostic.stage ?: "create-reusable-engine"
+                val failClass = createdDiagnostic.className ?: "ReturnedNull"
+                val failMessage = (createdDiagnostic.message ?: "createReusableLocalInferenceEngine returned null").take(200)
+                appendTrace?.invoke(
+                    "UPSTREAM held-acquire-diagnostic fail stage=$failStage class=$failClass message=$failMessage",
+                )
+                return@withLock HeldEngineAcquireDiagnosticResult(
+                    engine = null,
+                    failureStage = failStage,
+                    failureClassName = failClass,
+                    failureMessage = failMessage,
+                )
+            }
+            created.useCount += 1
+            created.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
+            appendTrace?.invoke(
+                "UPSTREAM held-engine create-success modelPathTail=$modelPathTail useCount=${created.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
+            )
+            failureStage = "store-held"
+            heldEngineGeneration += 1
+            clearAllConversationsLocked(reason = "engine-recreated", appendTrace = appendTrace)
+            held = created
+            appendTrace?.invoke(
+                "UPSTREAM held-acquire-diagnostic success heldHash=${created.hashCode()} useCount=${created.useCount}",
+            )
+            HeldEngineAcquireDiagnosticResult(
+                engine = created,
+                failureStage = null,
+                failureClassName = null,
+                failureMessage = null,
+            )
+        } catch (e: Exception) {
+            val resolvedStage = failureStage ?: "unknown"
+            val failureClassName = e::class.java.simpleName.ifBlank { e::class.java.name }
+            val failureMessage = (e.message ?: "no message").take(200)
+            appendTrace?.invoke(
+                "UPSTREAM held-acquire-diagnostic fail stage=$resolvedStage class=$failureClassName message=$failureMessage",
+            )
+            HeldEngineAcquireDiagnosticResult(
+                engine = null,
+                failureStage = resolvedStage,
+                failureClassName = failureClassName,
+                failureMessage = failureMessage,
+            )
+        }
+    }
+
+    suspend fun clear(appendTrace: ((String) -> Unit)? = null) {
+        mutex.withLock {
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "clear",
+                ),
+                appendTrace = appendTrace,
+            )
+        }
+    }
+
+    suspend fun clearIfModelChanged(
+        newModelPath: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            val current = held
+            val decision = if (current != null && current.modelPath != newModelPath) {
+                HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.MODEL_CHANGED,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "clear-model-changed",
+                )
+            } else {
+                HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.KEEP_HELD,
+                    action = HeldEngineLifecycleAction.NO_OP,
+                    clearReason = "keep-held",
+                )
+            }
+            applyLifecycleDecisionLocked(
+                current = current,
+                decision = decision,
+                appendTrace = appendTrace,
+            )
+        }
+    }
+
+    suspend fun notifyLifecycleEvent(
+        reason: String,
+        chatId: Int? = null,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            val decision = resolveLifecycleDecision(reason = reason)
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = decision,
+                chatId = chatId,
+                appendTrace = appendTrace,
+            )
+        }
+    }
+
+    suspend fun acquireConversation(
+        chatId: Int,
+        heldEngine: HeldLocalEngine,
+        appendTrace: ((String) -> Unit)? = null,
+        createConversation: (engine: Any, namespace: String?) -> Any?,
+    ): Any? = mutex.withLock {
+        val existing = heldConversationsByChatId[chatId]
+        if (existing != null) {
+            closeConversationLocked(chatId = chatId, reason = "per-send-recreate", appendTrace = appendTrace)
+        }
+        val created = createConversation(heldEngine.engineInstance, heldEngine.namespace)
+        if (created != null) {
+            appendTrace?.invoke("UPSTREAM held-conversation create-ephemeral chatId=$chatId")
+        }
+        created
+    }
+
+    suspend fun resetConversation(
+        chatId: Int,
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        notifyLifecycleEvent(reason = reason, chatId = chatId, appendTrace = appendTrace)
+    }
+
+    suspend fun notifyAppBackgrounded(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ) {
+        mutex.withLock {
+            appBackgroundedAtElapsedMs = nowElapsedMs
+        }
+    }
+
+    suspend fun notifyAppForegrounded(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            appBackgroundedAtElapsedMs = null
+            maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        }
+    }
+
+    suspend fun maybeReleaseIdleEngine(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        }
+    }
+
+    suspend fun maybeReleaseBackgroundTimedOutEngine(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        }
+    }
+
+    private fun decideAcquireLifecycle(
+        current: HeldLocalEngine?,
+        requested: HeldEngineKey,
+    ): HeldEngineLifecycleDecision {
+        if (current == null) {
+            return HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.KEEP_HELD,
+                action = HeldEngineLifecycleAction.NO_OP,
+                clearReason = "keep-held",
+            )
+        }
+        if (current.engineKey == requested) {
+            if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
+                return HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "reuse-limit",
+                )
+            }
+            return HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.KEEP_HELD,
+                action = HeldEngineLifecycleAction.KEEP_HELD,
+                clearReason = "keep-held",
+            )
+        }
+        val reason = if (current.modelPath != requested.modelPath) {
+            HeldEngineLifecycleReason.MODEL_CHANGED
+        } else {
+            HeldEngineLifecycleReason.BACKEND_CHANGED
+        }
+        val clearReason = if (reason == HeldEngineLifecycleReason.MODEL_CHANGED) "model-changed" else "backend-changed"
+        return HeldEngineLifecycleDecision(
+            reason = reason,
+            action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+            clearReason = clearReason,
+        )
+    }
+
+    private fun resolveLifecycleDecision(reason: String): HeldEngineLifecycleDecision {
+        return when (reason) {
+            "backend-changed" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.BACKEND_CHANGED,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "explicit-reset" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "fatal-error" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.FATAL_ERROR,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "low-memory" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.LOW_MEMORY,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "background-timeout" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.BACKGROUND_TIMEOUT,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "idle-timeout" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.IDLE_TIMEOUT,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            else -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.KEEP_HELD,
+                action = HeldEngineLifecycleAction.CLEAR_ONLY,
+                clearReason = reason,
+            )
+        }
+    }
+
+    private fun maybeReleaseIdleEngineLocked(
+        nowElapsedMs: Long,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val current = held ?: return
+        if (nowElapsedMs - current.lastUsedAtElapsedMs < HELD_ENGINE_IDLE_TIMEOUT_MS) return
+        applyLifecycleDecisionLocked(
+            current = current,
+            decision = resolveLifecycleDecision(reason = "idle-timeout"),
+            appendTrace = appendTrace,
+        )
+    }
+
+    private fun maybeReleaseBackgroundTimedOutEngineLocked(
+        nowElapsedMs: Long,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val backgroundedAt = appBackgroundedAtElapsedMs ?: return
+        if (nowElapsedMs - backgroundedAt < HELD_ENGINE_BACKGROUND_TIMEOUT_MS) return
+        applyLifecycleDecisionLocked(
+            current = held,
+            decision = resolveLifecycleDecision(reason = "background-timeout"),
+            appendTrace = appendTrace,
+        )
+        appBackgroundedAtElapsedMs = null
+    }
+
+    private fun applyLifecycleDecisionLocked(
+        current: HeldLocalEngine?,
+        decision: HeldEngineLifecycleDecision,
+        chatId: Int? = null,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        when (decision.action) {
+            HeldEngineLifecycleAction.KEEP_HELD -> Unit
+            HeldEngineLifecycleAction.CLOSE_AND_RECREATE -> {
+                val target = current ?: return
+                val engineClassName = target.engineInstance.javaClass.name
+                appendTrace?.invoke(
+                    "UPSTREAM held-engine close-start reason=${decision.clearReason} class=$engineClassName modelPathTail=${target.modelPath.substringAfterLast('/')}",
+                )
+                runCatching { target.closeEngine(appendTrace) }
+                held = null
+                appBackgroundedAtElapsedMs = null
+                clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
+                if (decision.reason == HeldEngineLifecycleReason.MODEL_CHANGED) {
+                    appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
+                }
+                if (decision.clearReason == "reuse-limit") {
+                    appendTrace?.invoke(
+                        "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${target.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${target.modelPath.substringAfterLast('/')}",
+                    )
+                }
+            }
+
+            HeldEngineLifecycleAction.CLEAR_ONLY -> {
+                if (chatId != null) {
+                    closeConversationLocked(chatId = chatId, reason = decision.clearReason, appendTrace = appendTrace)
+                } else {
+                    clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
+                }
+            }
+
+            HeldEngineLifecycleAction.NO_OP -> Unit
+        }
+    }
+
+    private fun clearAllConversationsLocked(
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val chatIds = heldConversationsByChatId.keys.toList()
+        chatIds.forEach { chatId ->
+            closeConversationLocked(chatId = chatId, reason = reason, appendTrace = appendTrace)
+        }
+    }
+
+    private fun closeConversationLocked(
+        chatId: Int,
+        reason: String,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val session = heldConversationsByChatId.remove(chatId) ?: return
+        appendTrace?.invoke("UPSTREAM held-conversation close-start chatId=$chatId reason=$reason class=${session.conversation.javaClass.name}")
+        closeTargetQuietly(session.conversation)
+        appendTrace?.invoke("UPSTREAM held-conversation cleared chatId=$chatId reason=$reason")
+    }
+
+    private fun closeTargetQuietly(target: Any?) {
+        if (target == null) return
+        runCatching {
+            val closeMethod = target.javaClass.methods.firstOrNull { method ->
+                method.name == "close" && method.parameterTypes.isEmpty()
+            } ?: target.javaClass.methods.firstOrNull { method ->
+                method.name == "shutdown" && method.parameterTypes.isEmpty()
+            }
+            closeMethod?.invoke(target)
+        }
+    }
+}
