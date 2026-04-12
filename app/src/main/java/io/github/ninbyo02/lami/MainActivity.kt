@@ -1,8 +1,6 @@
 package io.github.ninbyo02.lami
 
-import android.content.ComponentCallbacks2
 import android.os.Bundle
-import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.SideEffect
@@ -44,6 +42,7 @@ import io.github.ninbyo02.lami.navigation.Routes
 import io.github.ninbyo02.lami.navigation.SettingsRoute
 import io.github.ninbyo02.lami.ui.screens.chats.Chats
 import io.github.ninbyo02.lami.ui.screens.home.Home
+import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.screens.settings.About
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsData
 import io.github.ninbyo02.lami.ui.screens.settings.SettingsPreferences
@@ -55,7 +54,6 @@ import io.github.ninbyo02.lami.ui.screens.spriteeditor.SpriteEditorScreen
 import io.github.ninbyo02.lami.ui.common.LocalAppSnackbarHostState
 import io.github.ninbyo02.lami.ui.common.ProjectSnackbar
 import io.github.ninbyo02.lami.ui.common.TopAppBarHeight
-import io.github.ninbyo02.lami.ui.screens.home.LocalInferenceEngineHolder
 import io.github.ninbyo02.lami.ui.theme.OllamaTheme
 import io.github.ninbyo02.lami.util.RuntimeFlags
 import io.github.ninbyo02.lami.viewmodels.OllamaViewModel
@@ -66,8 +64,8 @@ import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModel: OllamaViewModel
-    private val localInferenceEngineHolder by lazy {
-        LocalInferenceEngineHolder.getInstance(applicationContext)
+    private val heldEngineLifecycleBridge by lazy {
+        HeldEngineLifecycleBridge(holder = LocalInferenceEngineHolder.getInstance(applicationContext))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -231,32 +229,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        lifecycleScope.launch {
-            localInferenceEngineHolder.notifyAppForegrounded(nowElapsedMs = SystemClock.elapsedRealtime())
-        }
+        heldEngineLifecycleBridge.onStart(scope = lifecycleScope)
     }
 
     override fun onStop() {
-        lifecycleScope.launch {
-            localInferenceEngineHolder.notifyAppBackgrounded(nowElapsedMs = SystemClock.elapsedRealtime())
-        }
+        heldEngineLifecycleBridge.onStop(scope = lifecycleScope)
         super.onStop()
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL || level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE) {
-            lifecycleScope.launch {
-                localInferenceEngineHolder.notifyLifecycleEvent(reason = "low-memory")
-            }
-        }
+        heldEngineLifecycleBridge.onTrimMemory(scope = lifecycleScope, level = level)
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        lifecycleScope.launch {
-            localInferenceEngineHolder.notifyLifecycleEvent(reason = "low-memory")
-        }
+        heldEngineLifecycleBridge.onLowMemory(scope = lifecycleScope)
     }
 }
 
