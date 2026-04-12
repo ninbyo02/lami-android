@@ -63,6 +63,7 @@ internal fun buildInferenceSummarySections(
 internal fun buildInferenceDetailSections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
+    assistantText: String? = null,
     devHeldStateText: String? = null,
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
@@ -70,7 +71,9 @@ internal fun buildInferenceDetailSections(
     enableDevLlmSessionAsyncPoc: Boolean = false,
 ): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
-    val localStatsUiModel = localTraceForDev?.let { createLocalInferenceStatsUiModel(trace = it, stats = stats) }
+    val localStatsUiModel = localTraceForDev?.let {
+        createLocalInferenceStatsUiModel(trace = it, stats = stats, assistantText = assistantText)
+    }
     val devDiagnosticsUiModel = buildLocalInferenceDevDiagnosticsUiModel(
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
