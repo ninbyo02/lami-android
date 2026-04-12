@@ -559,10 +559,10 @@ private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackV
     if (statValue == null) return fallbackValue ?: "—"
     val valueText = statValue.valueText.takeIf { it.isNotBlank() } ?: return "—"
     return when (statValue.source) {
-        StatsUiValueSource.MEASURED -> valueText
+        StatsUiValueSource.MEASURED,
         StatsUiValueSource.DERIVED,
-        StatsUiValueSource.ESTIMATED,
-        -> "${valueText}（推定）"
+        -> valueText
+        StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "—"
