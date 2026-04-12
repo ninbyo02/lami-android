@@ -18,6 +18,9 @@ internal fun buildInferenceSummarySections(
     enableDevLlmSessionAsyncPoc: Boolean = false,
 ): List<InferenceStatsSectionUi> {
     val isLocalMinimal = isLocalMinimalInferenceStats(stats)
+    val localStatsUiModel = localTraceForDev?.let {
+        createLocalInferenceStatsUiModel(trace = it, stats = stats)
+    }
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
         ?: localTraceForDev?.let { buildLocalSourceSummaryText(trace = it, stats = stats) }
@@ -36,7 +39,10 @@ internal fun buildInferenceSummarySections(
             add(
                 InferenceStatItemUi(
                     label = "生成速度",
-                    value = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—",
+                    value = formatRegularTokensPerSecondValue(
+                        statValue = localStatsUiModel?.tokensPerSecond,
+                        fallbackValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim(),
+                    ),
                     emphasizeValue = true,
                 )
             )
@@ -543,6 +549,20 @@ private fun formatRegularTokenValue(statValue: UiStatValue?, fallbackValue: Stri
         StatsUiValueSource.DERIVED,
         StatsUiValueSource.ESTIMATED,
         -> "${numericValue}（推定）"
+        StatsUiValueSource.API_CANDIDATE_ONLY,
+        StatsUiValueSource.UNAVAILABLE,
+        -> "—"
+    }
+}
+
+private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackValue: String?): String {
+    if (statValue == null) return fallbackValue ?: "—"
+    val valueText = statValue.valueText.takeIf { it.isNotBlank() } ?: return "—"
+    return when (statValue.source) {
+        StatsUiValueSource.MEASURED -> valueText
+        StatsUiValueSource.DERIVED,
+        StatsUiValueSource.ESTIMATED,
+        -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "—"
