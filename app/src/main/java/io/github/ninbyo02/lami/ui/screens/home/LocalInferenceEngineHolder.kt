@@ -35,6 +35,27 @@ internal data class HeldEngineAcquireDiagnosticResult(
 internal class LocalInferenceEngineHolder(
     private val appContext: Context,
 ) {
+    private enum class HeldEngineLifecycleReason {
+        MODEL_CHANGED,
+        BACKEND_CHANGED,
+        EXPLICIT_RESET,
+        FATAL_ERROR,
+        KEEP_HELD,
+    }
+
+    private enum class HeldEngineLifecycleAction {
+        KEEP_HELD,
+        CLOSE_AND_RECREATE,
+        CLEAR_ONLY,
+        NO_OP,
+    }
+
+    private data class HeldEngineLifecycleDecision(
+        val reason: HeldEngineLifecycleReason,
+        val action: HeldEngineLifecycleAction,
+        val clearReason: String,
+    )
+
     private data class HeldConversation(
         val chatId: Int,
         val engineModelPath: String,
@@ -67,37 +88,19 @@ internal class LocalInferenceEngineHolder(
     ): HeldLocalEngine = mutex.withLock {
         val modelPath = engineKey.modelPath
         val current = held
-        if (current != null && current.engineKey == engineKey) {
-            if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
-                val engineClassName = current.engineInstance.javaClass.name
-                appendTrace?.invoke(
-                    "UPSTREAM held-engine close-start reason=reuse-limit class=$engineClassName useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${current.modelPath.substringAfterLast('/')}",
-                )
-                runCatching { current.closeEngine(appendTrace) }
-                held = null
-                clearAllConversationsLocked(reason = "reuse-limit", appendTrace = appendTrace)
-                appendTrace?.invoke(
-                    "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${modelPath.substringAfterLast('/')}",
-                )
-            } else {
-                current.useCount += 1
-                current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
-                appendTrace?.invoke(
-                    "UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')} useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
-                )
-                return@withLock current
-            }
-        }
-
-        if (current != null && current.engineKey != engineKey) {
-            val engineClassName = current.engineInstance.javaClass.name
+        val decision = decideAcquireLifecycle(current = current, requested = engineKey)
+        applyLifecycleDecisionLocked(
+            current = current,
+            decision = decision,
+            appendTrace = appendTrace,
+        )
+        if (decision.action == HeldEngineLifecycleAction.KEEP_HELD && current != null) {
+            current.useCount += 1
+            current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
             appendTrace?.invoke(
-                "UPSTREAM held-engine close-start reason=model-changed class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+                "UPSTREAM held-engine reuse-hit modelPathTail=${modelPath.substringAfterLast('/')} useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
             )
-            runCatching { current.closeEngine(appendTrace) }
-            held = null
-            clearAllConversationsLocked(reason = "model-changed", appendTrace = appendTrace)
-            appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
+            return@withLock current
         }
 
         val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
@@ -130,47 +133,30 @@ internal class LocalInferenceEngineHolder(
         var failureStage: String? = null
         try {
             val current = held
-            if (current != null && current.engineKey == engineKey) {
-                if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
-                    failureStage = "recycle-close"
-                    val engineClassName = current.engineInstance.javaClass.name
-                    appendTrace?.invoke(
-                        "UPSTREAM held-engine close-start reason=reuse-limit class=$engineClassName useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${current.modelPath.substringAfterLast('/')}",
-                    )
-                    current.closeEngine(appendTrace)
-                    held = null
-                    clearAllConversationsLocked(reason = "recycle-close", appendTrace = appendTrace)
-                    appendTrace?.invoke(
-                        "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=$modelPathTail",
-                    )
-                } else {
-                    current.useCount += 1
-                    current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
-                    appendTrace?.invoke(
-                        "UPSTREAM held-engine reuse-hit modelPathTail=$modelPathTail useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
-                    )
-                    appendTrace?.invoke(
-                        "UPSTREAM held-acquire-diagnostic success heldHash=${current.hashCode()} useCount=${current.useCount}",
-                    )
-                    return@withLock HeldEngineAcquireDiagnosticResult(
-                        engine = current,
-                        failureStage = null,
-                        failureClassName = null,
-                        failureMessage = null,
-                    )
-                }
-            }
-
-            if (current != null && current.engineKey != engineKey) {
+            val decision = decideAcquireLifecycle(current = current, requested = engineKey)
+            if (decision.action == HeldEngineLifecycleAction.CLOSE_AND_RECREATE) {
                 failureStage = "recycle-close"
-                val engineClassName = current.engineInstance.javaClass.name
+            }
+            applyLifecycleDecisionLocked(
+                current = current,
+                decision = decision,
+                appendTrace = appendTrace,
+            )
+            if (decision.action == HeldEngineLifecycleAction.KEEP_HELD && current != null) {
+                current.useCount += 1
+                current.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
                 appendTrace?.invoke(
-                    "UPSTREAM held-engine close-start reason=model-changed class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+                    "UPSTREAM held-engine reuse-hit modelPathTail=$modelPathTail useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT",
                 )
-                current.closeEngine(appendTrace)
-                held = null
-                clearAllConversationsLocked(reason = "model-changed", appendTrace = appendTrace)
-                appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
+                appendTrace?.invoke(
+                    "UPSTREAM held-acquire-diagnostic success heldHash=${current.hashCode()} useCount=${current.useCount}",
+                )
+                return@withLock HeldEngineAcquireDiagnosticResult(
+                    engine = current,
+                    failureStage = null,
+                    failureClassName = null,
+                    failureMessage = null,
+                )
             }
 
             failureStage = "create-reusable-engine"
@@ -233,14 +219,15 @@ internal class LocalInferenceEngineHolder(
 
     suspend fun clear(appendTrace: ((String) -> Unit)? = null) {
         mutex.withLock {
-            val current = held ?: return@withLock
-            val engineClassName = current.engineInstance.javaClass.name
-            appendTrace?.invoke(
-                "UPSTREAM held-engine close-start reason=clear class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "clear",
+                ),
+                appendTrace = appendTrace,
             )
-            runCatching { current.closeEngine(appendTrace) }
-            held = null
-            clearAllConversationsLocked(reason = "clear", appendTrace = appendTrace)
         }
     }
 
@@ -249,15 +236,65 @@ internal class LocalInferenceEngineHolder(
         appendTrace: ((String) -> Unit)? = null,
     ) {
         mutex.withLock {
-            val current = held ?: return@withLock
-            if (current.modelPath == newModelPath) return@withLock
-            val engineClassName = current.engineInstance.javaClass.name
-            appendTrace?.invoke(
-                "UPSTREAM held-engine close-start reason=clear-model-changed class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
+            val current = held
+            val decision = if (current != null && current.modelPath != newModelPath) {
+                HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.MODEL_CHANGED,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "clear-model-changed",
+                )
+            } else {
+                HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.KEEP_HELD,
+                    action = HeldEngineLifecycleAction.NO_OP,
+                    clearReason = "keep-held",
+                )
+            }
+            applyLifecycleDecisionLocked(
+                current = current,
+                decision = decision,
+                appendTrace = appendTrace,
             )
-            runCatching { current.closeEngine(appendTrace) }
-            held = null
-            clearAllConversationsLocked(reason = "clear-model-changed", appendTrace = appendTrace)
+        }
+    }
+
+    suspend fun notifyLifecycleEvent(
+        reason: String,
+        chatId: Int? = null,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            val decision = when (reason) {
+                "backend-changed" -> HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.BACKEND_CHANGED,
+                    action = HeldEngineLifecycleAction.CLEAR_ONLY,
+                    clearReason = reason,
+                )
+
+                "explicit-reset" -> HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = reason,
+                )
+
+                "fatal-error" -> HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.FATAL_ERROR,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = reason,
+                )
+
+                else -> HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.KEEP_HELD,
+                    action = HeldEngineLifecycleAction.CLEAR_ONLY,
+                    clearReason = reason,
+                )
+            }
+            applyLifecycleDecisionLocked(
+                current = held,
+                decision = decision,
+                chatId = chatId,
+                appendTrace = appendTrace,
+            )
         }
     }
 
@@ -283,8 +320,83 @@ internal class LocalInferenceEngineHolder(
         reason: String,
         appendTrace: ((String) -> Unit)? = null,
     ) {
-        mutex.withLock {
-            closeConversationLocked(chatId = chatId, reason = reason, appendTrace = appendTrace)
+        notifyLifecycleEvent(reason = reason, chatId = chatId, appendTrace = appendTrace)
+    }
+
+    private fun decideAcquireLifecycle(
+        current: HeldLocalEngine?,
+        requested: HeldEngineKey,
+    ): HeldEngineLifecycleDecision {
+        if (current == null) {
+            return HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.KEEP_HELD,
+                action = HeldEngineLifecycleAction.NO_OP,
+                clearReason = "keep-held",
+            )
+        }
+        if (current.engineKey == requested) {
+            if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
+                return HeldEngineLifecycleDecision(
+                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                    clearReason = "reuse-limit",
+                )
+            }
+            return HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.KEEP_HELD,
+                action = HeldEngineLifecycleAction.KEEP_HELD,
+                clearReason = "keep-held",
+            )
+        }
+        val reason = if (current.modelPath != requested.modelPath) {
+            HeldEngineLifecycleReason.MODEL_CHANGED
+        } else {
+            HeldEngineLifecycleReason.BACKEND_CHANGED
+        }
+        val clearReason = if (reason == HeldEngineLifecycleReason.MODEL_CHANGED) "model-changed" else "backend-changed"
+        return HeldEngineLifecycleDecision(
+            reason = reason,
+            action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+            clearReason = clearReason,
+        )
+    }
+
+    private fun applyLifecycleDecisionLocked(
+        current: HeldLocalEngine?,
+        decision: HeldEngineLifecycleDecision,
+        chatId: Int? = null,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        when (decision.action) {
+            HeldEngineLifecycleAction.KEEP_HELD -> Unit
+            HeldEngineLifecycleAction.CLOSE_AND_RECREATE -> {
+                val target = current ?: return
+                val engineClassName = target.engineInstance.javaClass.name
+                appendTrace?.invoke(
+                    "UPSTREAM held-engine close-start reason=${decision.clearReason} class=$engineClassName modelPathTail=${target.modelPath.substringAfterLast('/')}",
+                )
+                runCatching { target.closeEngine(appendTrace) }
+                held = null
+                clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
+                if (decision.reason == HeldEngineLifecycleReason.MODEL_CHANGED) {
+                    appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
+                }
+                if (decision.clearReason == "reuse-limit") {
+                    appendTrace?.invoke(
+                        "UPSTREAM held-engine recycle reason=reuse-limit reached useCount=${target.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${target.modelPath.substringAfterLast('/')}",
+                    )
+                }
+            }
+
+            HeldEngineLifecycleAction.CLEAR_ONLY -> {
+                if (chatId != null) {
+                    closeConversationLocked(chatId = chatId, reason = decision.clearReason, appendTrace = appendTrace)
+                } else {
+                    clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
+                }
+            }
+
+            HeldEngineLifecycleAction.NO_OP -> Unit
         }
     }
 
