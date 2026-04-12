@@ -6,6 +6,7 @@ import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
+import io.github.ninbyo02.lami.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Dispatchers
@@ -385,7 +386,7 @@ private fun readMeasuredTokenSnapshotFromConversation(
         } else {
             null
         }
-        if (inputTokens == null && outputTokens == null && totalTokens == null) {
+        val snapshot = if (inputTokens == null && outputTokens == null && totalTokens == null) {
             null
         } else {
             LocalInferenceMeasuredTokenSnapshot(
@@ -394,6 +395,13 @@ private fun readMeasuredTokenSnapshotFromConversation(
                 totalTokens = totalTokens,
             )
         }
+        if (BuildConfig.DEBUG) {
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM measured-tokens input=${snapshot?.inputTokens} output=${snapshot?.outputTokens} total=${snapshot?.totalTokens} path=$path",
+            )
+        }
+        snapshot
     }.onFailure { throwable ->
         safeAppendTrace(
             appendTrace,
