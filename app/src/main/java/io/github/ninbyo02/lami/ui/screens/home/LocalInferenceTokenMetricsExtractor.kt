@@ -34,6 +34,7 @@ internal fun extractLocalInferenceTokenMetrics(
     stats: InferenceStats,
     measuredSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     assistantText: String? = null,
+    promptText: String? = null,
 ): LocalInferenceTokenMetrics {
     val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
     val hasEstimatedTokenProbe = trace.estimatedTokenProbe.availability != LocalStatsAvailability.NOT_FOUND
@@ -47,6 +48,9 @@ internal fun extractLocalInferenceTokenMetrics(
         ?: trace.sessionPromptTokens
             ?.takeIf { it >= 0 }
             ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.DERIVED) }
+        ?: estimateInputTokensFromPromptText(promptText)?.let {
+            LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.ESTIMATED)
+        }
         ?: LocalInferenceTokenMetric(
             value = null,
             source = resolveMissingTokenMetricSource(usesOfficialApi = usesOfficialApi),
@@ -105,6 +109,13 @@ internal fun extractLocalInferenceTokenMetrics(
 private fun estimateOutputTokensFromAssistantText(assistantText: String?): Int? {
     if (assistantText.isNullOrBlank()) return null
     val nonBlankCharCount = assistantText.count { !it.isWhitespace() }
+    if (nonBlankCharCount <= 0) return null
+    return ceil(nonBlankCharCount / 2.8).toInt().coerceAtLeast(1)
+}
+
+private fun estimateInputTokensFromPromptText(promptText: String?): Int? {
+    if (promptText.isNullOrBlank()) return null
+    val nonBlankCharCount = promptText.count { !it.isWhitespace() }
     if (nonBlankCharCount <= 0) return null
     return ceil(nonBlankCharCount / 2.8).toInt().coerceAtLeast(1)
 }
