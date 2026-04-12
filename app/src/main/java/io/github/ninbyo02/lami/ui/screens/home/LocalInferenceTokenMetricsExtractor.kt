@@ -44,6 +44,9 @@ internal fun extractLocalInferenceTokenMetrics(
         ?: stats.inputTokens
             ?.takeIf { it >= 0 }
             ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.DERIVED) }
+        ?: trace.sessionPromptTokens
+            ?.takeIf { it >= 0 }
+            ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.DERIVED) }
         ?: LocalInferenceTokenMetric(
             value = null,
             source = resolveMissingTokenMetricSource(usesOfficialApi = usesOfficialApi),
@@ -64,58 +67,32 @@ internal fun extractLocalInferenceTokenMetrics(
     val totalTokens = measuredSnapshot?.totalTokens
         ?.takeIf { it >= 0 }
         ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.MEASURED) }
-        ?: run {
-            val measuredInput = measuredSnapshot?.inputTokens?.takeIf { it >= 0 }
-            val measuredOutput = measuredSnapshot?.outputTokens?.takeIf { it >= 0 }
-            val measuredTotalFromParts = if (measuredInput != null && measuredOutput != null) {
-                LocalInferenceTokenMetric(
-                    value = measuredInput + measuredOutput,
-                    source = LocalInferenceTokenMetricSource.MEASURED,
-                )
-            } else {
-                null
-            }
-            val estimatedTotalFromInputAndOutput = if (
-                inputTokens.value != null &&
-                outputTokens.value != null &&
-                inputTokens.source in setOf(
-                    LocalInferenceTokenMetricSource.MEASURED,
-                    LocalInferenceTokenMetricSource.DERIVED,
-                ) &&
-                outputTokens.source in setOf(
-                    LocalInferenceTokenMetricSource.MEASURED,
-                    LocalInferenceTokenMetricSource.ESTIMATED,
-                )
-            ) {
-                LocalInferenceTokenMetric(
-                    value = inputTokens.value + outputTokens.value,
-                    source = if (
-                        inputTokens.source == LocalInferenceTokenMetricSource.MEASURED &&
-                        outputTokens.source == LocalInferenceTokenMetricSource.MEASURED
-                    ) {
-                        LocalInferenceTokenMetricSource.MEASURED
-                    } else {
-                        LocalInferenceTokenMetricSource.ESTIMATED
-                    },
-                )
-            } else {
-                null
-            }
-            measuredTotalFromParts ?: estimatedTotalFromInputAndOutput ?: if (resolved.totalTokens.value != null) {
-                LocalInferenceTokenMetric(
-                    value = resolved.totalTokens.value,
-                    source = if (hasEstimatedTokenProbe) {
-                        LocalInferenceTokenMetricSource.ESTIMATED
-                    } else {
-                        resolved.totalTokens.source.toTokenMetricSource()
-                    },
-                )
-            } else {
-                LocalInferenceTokenMetric(
-                    value = null,
-                    source = resolveMissingTokenMetricSource(usesOfficialApi = usesOfficialApi),
-                )
-            }
+        ?: if (inputTokens.value != null && outputTokens.value != null) {
+            LocalInferenceTokenMetric(
+                value = inputTokens.value + outputTokens.value,
+                source = if (
+                    inputTokens.source == LocalInferenceTokenMetricSource.MEASURED &&
+                    outputTokens.source == LocalInferenceTokenMetricSource.MEASURED
+                ) {
+                    LocalInferenceTokenMetricSource.MEASURED
+                } else {
+                    LocalInferenceTokenMetricSource.ESTIMATED
+                },
+            )
+        } else if (resolved.totalTokens.value != null) {
+            LocalInferenceTokenMetric(
+                value = resolved.totalTokens.value,
+                source = if (hasEstimatedTokenProbe) {
+                    LocalInferenceTokenMetricSource.ESTIMATED
+                } else {
+                    resolved.totalTokens.source.toTokenMetricSource()
+                },
+            )
+        } else {
+            LocalInferenceTokenMetric(
+                value = null,
+                source = resolveMissingTokenMetricSource(usesOfficialApi = usesOfficialApi),
+            )
         }
 
     return LocalInferenceTokenMetrics(
