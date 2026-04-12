@@ -170,11 +170,22 @@ internal suspend fun runWithHeldEngine(
             if (flowResponse != null) {
                 officialFlowUsed = true
                 closeSummaryPath = "held-official-flow"
-                measuredTokenSnapshot = readMeasuredTokenSnapshotFromConversation(
-                    conversation = conversation,
+                val measuredCollector = MeasuredTokenTimingCollector(
                     path = "held-official-flow",
                     appendTrace = appendTrace,
                 )
+                measuredCollector.observe(
+                    timing = "after-response",
+                    conversation = conversation,
+                )
+                if (BuildConfig.DEBUG) {
+                    measuredCollector.observe(
+                        timing = "before-close",
+                        conversation = conversation,
+                    )
+                }
+                measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredCollector.emitAdoptedTrace()
                 return@runWithConversation flowResponse
             }
 
@@ -204,11 +215,22 @@ internal suspend fun runWithHeldEngine(
             if (blockingResponse != null) {
                 officialFlowUsed = false
                 closeSummaryPath = "held-official-blocking"
-                measuredTokenSnapshot = readMeasuredTokenSnapshotFromConversation(
-                    conversation = conversation,
+                val measuredCollector = MeasuredTokenTimingCollector(
                     path = "held-official-blocking",
                     appendTrace = appendTrace,
                 )
+                measuredCollector.observe(
+                    timing = "after-response",
+                    conversation = conversation,
+                )
+                if (BuildConfig.DEBUG) {
+                    measuredCollector.observe(
+                        timing = "before-close",
+                        conversation = conversation,
+                    )
+                }
+                measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredCollector.emitAdoptedTrace()
                 onPartial(blockingResponse)
             }
             blockingResponse
@@ -368,6 +390,47 @@ private fun ensureCloseLifecycleSummary(
         path = path,
         successReturned = successReturned,
     )
+}
+
+private class MeasuredTokenTimingCollector(
+    private val path: String,
+    private val appendTrace: (String) -> Unit,
+) {
+    // 比較観測のため複数時点を読む。最終採用は「最後に non-null を返した snapshot」。
+    private var adoptedTiming: String? = null
+    private var adoptedSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
+
+    fun observe(
+        timing: String,
+        conversation: Any?,
+    ): LocalInferenceMeasuredTokenSnapshot? {
+        val snapshot = readMeasuredTokenSnapshotFromConversation(
+            conversation = conversation,
+            path = path,
+            appendTrace = appendTrace,
+        )
+        if (BuildConfig.DEBUG) {
+            safeAppendTrace(
+                appendTrace,
+                "UPSTREAM measured-tokens-check timing=$timing input=${snapshot?.inputTokens} output=${snapshot?.outputTokens} total=${snapshot?.totalTokens} path=$path",
+            )
+        }
+        if (snapshot != null) {
+            adoptedTiming = timing
+            adoptedSnapshot = snapshot
+        }
+        return snapshot
+    }
+
+    fun adoptedSnapshot(): LocalInferenceMeasuredTokenSnapshot? = adoptedSnapshot
+
+    fun emitAdoptedTrace() {
+        if (!BuildConfig.DEBUG) return
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM measured-tokens-adopted policy=last-non-null timing=${adoptedTiming ?: "none"} input=${adoptedSnapshot?.inputTokens} output=${adoptedSnapshot?.outputTokens} total=${adoptedSnapshot?.totalTokens} path=$path",
+        )
+    }
 }
 
 @OptIn(ExperimentalApi::class)
@@ -856,6 +919,10 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
     var engineCloseOutcome: RunCloseTargetOutcome? = null
     var finalResult: LocalOfficialFlowStreamingResult? = null
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
+    val measuredCollector = MeasuredTokenTimingCollector(
+        path = "official-flow",
+        appendTrace = appendTrace,
+    )
     try {
         conversation = runCatching {
             if (spec.namespace == "com.google.ai.edge.litertlm") {
@@ -936,13 +1003,20 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         }
         val response = builder.toString().trim()
         if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
-        measuredTokenSnapshot = readMeasuredTokenSnapshotFromConversation(
+        measuredCollector.observe(
+            timing = "after-response",
             conversation = conversation,
-            path = "official-flow",
-            appendTrace = appendTrace,
         )
         safeAppendTrace(appendTrace, "UPSTREAM official-flow extracted length=${response.length} partialCount=$partialCount namespace=${spec.namespace}")
+        if (BuildConfig.DEBUG) {
+            measuredCollector.observe(
+                timing = "around-success-reached",
+                conversation = conversation,
+            )
+        }
         successReached = true
+        measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+        measuredCollector.emitAdoptedTrace()
         finalResult = LocalOfficialFlowStreamingResult(
             response = response,
             partialCount = partialCount,
@@ -950,6 +1024,14 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             measuredTokenSnapshot = measuredTokenSnapshot,
         )
     } finally {
+        if (BuildConfig.DEBUG) {
+            measuredCollector.observe(
+                timing = "before-close",
+                conversation = conversation,
+            )
+            measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+            measuredCollector.emitAdoptedTrace()
+        }
         conversationCloseOutcome = tryCloseWithOutcome(
             label = "conversation",
             target = conversation,
@@ -981,7 +1063,10 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             "UPSTREAM close-summary path=${summary.path} successReturned=${summary.successReturned}",
         )
         summary.sessionOutcome?.let { emitCloseSummaryTrace(appendTrace, summary.path, it) }
-        finalResult = finalResult?.copy(closeLifecycleSummary = summary)
+        finalResult = finalResult?.copy(
+            measuredTokenSnapshot = measuredTokenSnapshot,
+            closeLifecycleSummary = summary,
+        )
     }
     return finalResult
 }
@@ -1047,6 +1132,10 @@ private fun runOfficialBlockingConversationSingleNamespace(
     var finalResponse: String? = null
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
     var closeSummary: RunCloseLifecycleSummary? = null
+    val measuredCollector = MeasuredTokenTimingCollector(
+        path = "official-blocking",
+        appendTrace = appendTrace,
+    )
     try {
         conversation = if (spec.namespace == "com.google.ai.edge.litertlm") {
             createOfficialLiteRtLmConversation(
@@ -1087,15 +1176,30 @@ private fun runOfficialBlockingConversationSingleNamespace(
             value = responseValue,
             appendTrace = appendTrace,
         )?.trim()?.takeIf { it.isNotBlank() } ?: throw OfficialFlowFallbackException("message_extract_failed")
-        measuredTokenSnapshot = readMeasuredTokenSnapshotFromConversation(
+        measuredCollector.observe(
+            timing = "after-response",
             conversation = conversation,
-            path = "official-blocking",
-            appendTrace = appendTrace,
         )
         safeAppendTrace(appendTrace, "UPSTREAM official-blocking success responseLength=${responseText.length}")
+        if (BuildConfig.DEBUG) {
+            measuredCollector.observe(
+                timing = "around-success-reached",
+                conversation = conversation,
+            )
+        }
         successReached = true
+        measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+        measuredCollector.emitAdoptedTrace()
         finalResponse = responseText
     } finally {
+        if (BuildConfig.DEBUG) {
+            measuredCollector.observe(
+                timing = "before-close",
+                conversation = conversation,
+            )
+            measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+            measuredCollector.emitAdoptedTrace()
+        }
         conversationCloseOutcome = tryCloseWithOutcome(
             label = "conversation",
             target = conversation,
@@ -1156,6 +1260,10 @@ private suspend fun runOfficialLiteRtLmDirect(
         var successReached = false
         var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
         var result: LocalOfficialFlowStreamingResult? = null
+        val measuredCollector = MeasuredTokenTimingCollector(
+            path = "official-direct-flow",
+            appendTrace = appendTrace,
+        )
         try {
             engine = Engine(engineConfig)
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-created")
@@ -1192,12 +1300,19 @@ private suspend fun runOfficialLiteRtLmDirect(
             val response = builder.toString().trim()
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             if (response.isBlank()) throw OfficialFlowFallbackException("blank_response")
-            measuredTokenSnapshot = readMeasuredTokenSnapshotFromConversation(
+            measuredCollector.observe(
+                timing = "after-response",
                 conversation = conversation,
-                path = "official-direct-flow",
-                appendTrace = appendTrace,
             )
+            if (BuildConfig.DEBUG) {
+                measuredCollector.observe(
+                    timing = "around-success-reached",
+                    conversation = conversation,
+                )
+            }
             successReached = true
+            measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+            measuredCollector.emitAdoptedTrace()
             result = LocalOfficialFlowStreamingResult(
                 response = response,
                 partialCount = partialCount,
@@ -1205,6 +1320,14 @@ private suspend fun runOfficialLiteRtLmDirect(
                 measuredTokenSnapshot = measuredTokenSnapshot,
             )
         } finally {
+            if (BuildConfig.DEBUG) {
+                measuredCollector.observe(
+                    timing = "before-close",
+                    conversation = conversation,
+                )
+                measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredCollector.emitAdoptedTrace()
+            }
             val conversationCloseOutcome = tryCloseWithOutcome(
                 label = "conversation",
                 target = conversation,
@@ -1236,7 +1359,10 @@ private suspend fun runOfficialLiteRtLmDirect(
                 "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
             )
             closeSummary.sessionOutcome?.let { emitCloseSummaryTrace(appendTrace, closeSummary.path, it) }
-            result = result?.copy(closeLifecycleSummary = closeSummary)
+            result = result?.copy(
+                measuredTokenSnapshot = measuredTokenSnapshot,
+                closeLifecycleSummary = closeSummary,
+            )
         }
         result
     }.getOrElse { throwable ->
@@ -1267,6 +1393,10 @@ private fun runOfficialLiteRtLmBlocking(
         var responseText: String? = null
         var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
         var closeSummary: RunCloseLifecycleSummary? = null
+        val measuredCollector = MeasuredTokenTimingCollector(
+            path = "official-direct-blocking",
+            appendTrace = appendTrace,
+        )
         try {
             engine = Engine(engineConfig)
             safeAppendTrace(appendTrace, "UPSTREAM official-direct engine-created")
@@ -1288,14 +1418,29 @@ private fun runOfficialLiteRtLmBlocking(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             responseText = response.takeIf { it.isNotBlank() }
             if (!responseText.isNullOrBlank()) {
-                measuredTokenSnapshot = readMeasuredTokenSnapshotFromConversation(
+                measuredCollector.observe(
+                    timing = "after-response",
                     conversation = conversation,
-                    path = "official-direct-blocking",
-                    appendTrace = appendTrace,
                 )
+                if (BuildConfig.DEBUG) {
+                    measuredCollector.observe(
+                        timing = "around-success-reached",
+                        conversation = conversation,
+                    )
+                }
+                measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredCollector.emitAdoptedTrace()
             }
             successReached = !responseText.isNullOrBlank()
         } finally {
+            if (BuildConfig.DEBUG && !responseText.isNullOrBlank()) {
+                measuredCollector.observe(
+                    timing = "before-close",
+                    conversation = conversation,
+                )
+                measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredCollector.emitAdoptedTrace()
+            }
             val conversationCloseOutcome = tryCloseWithOutcome(
                 label = "conversation",
                 target = conversation,
