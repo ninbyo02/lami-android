@@ -46,6 +46,14 @@ internal fun StatsValueSource.toUiSource(): StatsUiValueSource = when (this) {
     StatsValueSource.UNAVAILABLE -> StatsUiValueSource.UNAVAILABLE
 }
 
+internal fun LocalInferenceTokenMetricSource.toUiSource(): StatsUiValueSource = when (this) {
+    LocalInferenceTokenMetricSource.MEASURED -> StatsUiValueSource.MEASURED
+    LocalInferenceTokenMetricSource.DERIVED -> StatsUiValueSource.DERIVED
+    LocalInferenceTokenMetricSource.ESTIMATED -> StatsUiValueSource.ESTIMATED
+    LocalInferenceTokenMetricSource.API_CANDIDATE_ONLY -> StatsUiValueSource.API_CANDIDATE_ONLY
+    LocalInferenceTokenMetricSource.UNAVAILABLE -> StatsUiValueSource.UNAVAILABLE
+}
+
 internal fun StatsUiValueSource.toDevLabel(): String = when (this) {
     StatsUiValueSource.MEASURED -> "MEASURED"
     StatsUiValueSource.DERIVED -> "DERIVED"
@@ -66,8 +74,7 @@ internal fun StatsUiValueSource.toUiStateLabel(): String = when (this) {
 internal fun buildLocalInferenceStatsUiModel(
     resolved: LocalInferenceResolvedStats,
     stats: InferenceStats,
-    usesOfficialApi: Boolean,
-    hasEstimatedTokenProbe: Boolean,
+    trace: LocalInferenceTrace,
     selectedAssistantResponseSource: String?,
 ): LocalInferenceStatsUiModel {
     fun buildUiStatValueFromResolvedLong(valueNs: Long?, source: StatsUiValueSource): UiStatValue = UiStatValue(
@@ -81,43 +88,23 @@ internal fun buildLocalInferenceStatsUiModel(
         rawValueInt = value,
     )
 
-    val inputTokens = stats.inputTokens?.takeIf { it >= 0 }?.let {
-        buildUiStatValueFromResolvedInt(it, StatsUiValueSource.DERIVED)
-    } ?: buildUiStatValueFromResolvedInt(
-        value = null,
-        source = if (usesOfficialApi) StatsUiValueSource.API_CANDIDATE_ONLY else StatsUiValueSource.UNAVAILABLE,
+    val tokenMetrics = extractLocalInferenceTokenMetrics(
+        trace = trace,
+        resolved = resolved,
+        stats = stats,
     )
-
+    val inputTokens = buildUiStatValueFromResolvedInt(
+        value = tokenMetrics.inputTokens.value,
+        source = tokenMetrics.inputTokens.source.toUiSource(),
+    )
     val outputTokens = buildUiStatValueFromResolvedInt(
-        value = resolved.outputTokens.value,
-        source = resolved.outputTokens.source.toUiSource(),
+        value = tokenMetrics.outputTokens.value,
+        source = tokenMetrics.outputTokens.source.toUiSource(),
     )
-
-    val totalTokens = when {
-        inputTokens.rawValueInt != null &&
-            outputTokens.rawValueInt != null &&
-            inputTokens.source == StatsUiValueSource.MEASURED &&
-            outputTokens.source == StatsUiValueSource.MEASURED -> {
-            buildUiStatValueFromResolvedInt(
-                value = inputTokens.rawValueInt + outputTokens.rawValueInt,
-                source = StatsUiValueSource.MEASURED,
-            )
-        }
-
-        resolved.totalTokens.value != null -> {
-            val totalSource = if (hasEstimatedTokenProbe) {
-                StatsUiValueSource.ESTIMATED
-            } else {
-                resolved.totalTokens.source.toUiSource()
-            }
-            buildUiStatValueFromResolvedInt(value = resolved.totalTokens.value, source = totalSource)
-        }
-
-        else -> buildUiStatValueFromResolvedInt(
-            value = null,
-            source = if (usesOfficialApi) StatsUiValueSource.API_CANDIDATE_ONLY else StatsUiValueSource.UNAVAILABLE,
-        )
-    }
+    val totalTokens = buildUiStatValueFromResolvedInt(
+        value = tokenMetrics.totalTokens.value,
+        source = tokenMetrics.totalTokens.source.toUiSource(),
+    )
 
     val generationTime = buildUiStatValueFromResolvedLong(
         valueNs = resolved.generationDurationNs.value ?: stats.generationDurationNs,

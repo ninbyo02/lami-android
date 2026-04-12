@@ -5259,12 +5259,10 @@ internal fun createLocalInferenceStatsUiModel(
     trace: LocalInferenceTrace,
     stats: InferenceStats,
 ): LocalInferenceStatsUiModel {
-    val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
     return buildLocalInferenceStatsUiModel(
+        trace = trace,
         resolved = resolveLocalInferenceStats(trace),
         stats = stats,
-        usesOfficialApi = usesOfficialApi,
-        hasEstimatedTokenProbe = trace.estimatedTokenProbe.availability != LocalStatsAvailability.NOT_FOUND,
         selectedAssistantResponseSource = trace.selectedAssistantResponseSource,
     )
 }
