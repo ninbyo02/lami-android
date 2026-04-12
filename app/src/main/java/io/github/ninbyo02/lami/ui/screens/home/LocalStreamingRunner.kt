@@ -98,187 +98,141 @@ internal suspend fun runWithHeldEngine(
 ): HeldEngineRunResult? {
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
-    val conversation = engineHolder.acquireConversation(
-        chatId = chatId,
-        heldEngine = heldEngine,
-        appendTrace = appendTrace,
-    ) { engine, resolvedNamespace ->
-        createConversationForHeldEngine(
-            engine = engine,
-            namespace = resolvedNamespace,
-            appendTrace = appendTrace,
-        )
-    } ?: return null
-
-    var heldFlowResponse: String? = null
+    var conversationOutcome: RunCloseTargetOutcome? = null
     var heldFlowPartialCount = 0
     var heldFlowFirstPartialElapsedRealtimeMs: Long? = null
-    runCatching {
-        val sendMessageAsyncMethod = findSendMessageAsyncMethod(
-            conversationClass = conversation.javaClass,
+    var officialFlowUsed = false
+    var closeSummaryPath = "held-official-flow"
+
+    val response = runCatching {
+        runWithConversation(
+            engine = heldEngine.engineInstance,
             namespace = namespace,
-        ) ?: return@runCatching null
-        val flowValue = invokeSendMessageAsync(
-            conversation = conversation,
-            method = sendMessageAsyncMethod,
-            namespace = namespace,
-            prompt = prompt,
-        ) ?: return@runCatching null
-        val flow = flowValue as? Flow<*> ?: return@runCatching null
-        val builder = StringBuilder()
-        var lastPartial: String? = null
-        flow.collect { message ->
-            if (!currentCoroutineContext().isActive) return@collect
-            val extracted = extractOfficialMessageTextWithTrace(
-                path = "held-engine-flow",
-                value = message,
-                appendTrace = appendTrace,
-            )?.trim().orEmpty()
-            if (extracted.isBlank() || extracted == lastPartial) return@collect
-            lastPartial = extracted
-            heldFlowPartialCount += 1
-            if (heldFlowFirstPartialElapsedRealtimeMs == null) {
-                heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+            appendTrace = appendTrace,
+            onConversationClosed = { outcome -> conversationOutcome = outcome },
+        ) { conversation ->
+            val flowResponse = runCatching {
+                val sendMessageAsyncMethod = findSendMessageAsyncMethod(
+                    conversationClass = conversation.javaClass,
+                    namespace = namespace,
+                ) ?: return@runCatching null
+                val flowValue = invokeSendMessageAsync(
+                    conversation = conversation,
+                    method = sendMessageAsyncMethod,
+                    namespace = namespace,
+                    prompt = prompt,
+                ) ?: return@runCatching null
+                val flow = flowValue as? Flow<*> ?: return@runCatching null
+                val builder = StringBuilder()
+                var lastPartial: String? = null
+                flow.collect { message ->
+                    if (!currentCoroutineContext().isActive) return@collect
+                    val extracted = extractOfficialMessageTextWithTrace(
+                        path = "held-engine-flow",
+                        value = message,
+                        appendTrace = appendTrace,
+                    )?.trim().orEmpty()
+                    if (extracted.isBlank() || extracted == lastPartial) return@collect
+                    lastPartial = extracted
+                    heldFlowPartialCount += 1
+                    if (heldFlowFirstPartialElapsedRealtimeMs == null) {
+                        heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                    }
+                    builder.append(extracted)
+                    onPartial(builder.toString())
+                }
+                builder.toString().trim().takeIf { it.isNotBlank() }
+            }.getOrElse { throwable ->
+                safeAppendTrace(
+                    appendTrace,
+                    "UPSTREAM held-run flow-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
+                )
+                null
             }
-            builder.append(extracted)
-            onPartial(builder.toString())
+            if (flowResponse != null) {
+                officialFlowUsed = true
+                closeSummaryPath = "held-official-flow"
+                return@runWithConversation flowResponse
+            }
+
+            val blockingResponse = runCatching {
+                val sendMethod = findBlockingSendMethod(
+                    conversationClass = conversation.javaClass,
+                    namespace = namespace,
+                ) ?: return@runCatching null
+                val value = invokeBlockingSend(
+                    conversation = conversation,
+                    method = sendMethod,
+                    namespace = namespace,
+                    prompt = prompt,
+                ) ?: return@runCatching null
+                extractOfficialMessageTextWithTrace(
+                    path = "held-engine-blocking",
+                    value = value,
+                    appendTrace = appendTrace,
+                )?.trim()?.takeIf { it.isNotBlank() }
+            }.getOrElse { throwable ->
+                safeAppendTrace(
+                    appendTrace,
+                    "UPSTREAM held-run blocking-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
+                )
+                null
+            }
+            if (blockingResponse != null) {
+                officialFlowUsed = false
+                closeSummaryPath = "held-official-blocking"
+                onPartial(blockingResponse)
+            }
+            blockingResponse
         }
-        heldFlowResponse = builder.toString().trim().takeIf { it.isNotBlank() }
-        heldFlowResponse
     }.getOrElse { throwable ->
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM held-run flow-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
-        )
-        engineHolder.resetConversation(
-            chatId = chatId,
-            reason = "run-error",
-            appendTrace = appendTrace,
+            "UPSTREAM held-run error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
         )
         null
-    }
-    heldFlowResponse?.let { response ->
-        val closeSummary = RunCloseLifecycleSummary(
-            path = "held-official-flow",
-            successReturned = true,
-            // official flow 準拠で Conversation は chatId ごとに保持し、stop/error 時のみ破棄する。
-            conversationOutcome = RunCloseTargetOutcome("conversation", conversation.javaClass.name, "held", "retained", null, null),
-            sessionOutcome = RunCloseTargetOutcome(
-                label = "session",
-                targetClassName = null,
-                strategy = null,
-                status = "none",
-                errorClassName = null,
-                message = null,
-            ),
-            engineOutcome = RunCloseTargetOutcome(
-                label = "engine",
-                targetClassName = null,
-                strategy = null,
-                status = "none",
-                errorClassName = null,
-                message = null,
-            ),
-        )
-        safeAppendTrace(
-            appendTrace,
-            "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
-        )
-        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.conversationOutcome ?: RunCloseTargetOutcome("conversation", null, null, "none", null, null))
-        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.sessionOutcome ?: RunCloseTargetOutcome("session", null, null, "none", null, null))
-        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.engineOutcome ?: RunCloseTargetOutcome("engine", null, null, "none", null, null))
-        safeAppendTrace(
-            appendTrace,
-            "UPSTREAM held-run final source=held-official-flow closePath=${closeSummary.path}",
-        )
-        return HeldEngineRunResult(
-            responseText = response,
-            firstPartialElapsedRealtimeMs = heldFlowFirstPartialElapsedRealtimeMs,
-            partialCount = heldFlowPartialCount,
-            namespace = namespace ?: "unknown",
-            officialFlowUsed = true,
-            closeLifecycleSummary = closeSummary,
-        )
-    }
+    } ?: return null
 
-    val heldBlockingResponse = runCatching {
-        val sendMethod = findBlockingSendMethod(
-            conversationClass = conversation.javaClass,
-            namespace = namespace,
-        ) ?: return@runCatching null
-        val value = invokeBlockingSend(
-            conversation = conversation,
-            method = sendMethod,
-            namespace = namespace,
-            prompt = prompt,
-        ) ?: return@runCatching null
-        extractOfficialMessageTextWithTrace(
-            path = "held-engine-blocking",
-            value = value,
-            appendTrace = appendTrace,
-        )?.trim()?.takeIf { it.isNotBlank() }
-    }.getOrElse { throwable ->
-        safeAppendTrace(
-            appendTrace,
-            "UPSTREAM held-run blocking-error chatId=$chatId class=${throwable.javaClass.simpleName} message=${throwable.message}",
-        )
-        engineHolder.resetConversation(
-            chatId = chatId,
-            reason = "run-error",
-            appendTrace = appendTrace,
-        )
-        null
-    }
-    heldBlockingResponse?.let { response ->
-        onPartial(response)
-        val closeSummary = RunCloseLifecycleSummary(
-            path = "held-official-blocking",
-            successReturned = true,
-            conversationOutcome = RunCloseTargetOutcome("conversation", conversation.javaClass.name, "held", "retained", null, null),
-            sessionOutcome = RunCloseTargetOutcome(
-                label = "session",
-                targetClassName = null,
-                strategy = null,
-                status = "none",
-                errorClassName = null,
-                message = null,
-            ),
-            engineOutcome = RunCloseTargetOutcome(
-                label = "engine",
-                targetClassName = null,
-                strategy = null,
-                status = "none",
-                errorClassName = null,
-                message = null,
-            ),
-        )
-        safeAppendTrace(
-            appendTrace,
-            "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
-        )
-        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.conversationOutcome ?: RunCloseTargetOutcome("conversation", null, null, "none", null, null))
-        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.sessionOutcome ?: RunCloseTargetOutcome("session", null, null, "none", null, null))
-        emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.engineOutcome ?: RunCloseTargetOutcome("engine", null, null, "none", null, null))
-        safeAppendTrace(
-            appendTrace,
-            "UPSTREAM held-run final source=held-official-blocking closePath=${closeSummary.path}",
-        )
-        return HeldEngineRunResult(
-            responseText = response,
-            firstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime(),
-            partialCount = 1,
-            namespace = namespace ?: "unknown",
-            officialFlowUsed = false,
-            closeLifecycleSummary = closeSummary,
-        )
-    }
-
-    engineHolder.resetConversation(
-        chatId = chatId,
-        reason = "empty-response",
-        appendTrace = appendTrace,
+    val closeSummary = RunCloseLifecycleSummary(
+        path = closeSummaryPath,
+        successReturned = true,
+        conversationOutcome = conversationOutcome ?: RunCloseTargetOutcome("conversation", null, "per-send", "none", null, null),
+        sessionOutcome = RunCloseTargetOutcome(
+            label = "session",
+            targetClassName = null,
+            strategy = null,
+            status = "none",
+            errorClassName = null,
+            message = null,
+        ),
+        engineOutcome = RunCloseTargetOutcome(
+            label = "engine",
+            targetClassName = null,
+            strategy = null,
+            status = "none",
+            errorClassName = null,
+            message = null,
+        ),
     )
-    return null
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM close-summary path=${closeSummary.path} successReturned=${closeSummary.successReturned}",
+    )
+    emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.conversationOutcome ?: RunCloseTargetOutcome("conversation", null, null, "none", null, null))
+    emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.sessionOutcome ?: RunCloseTargetOutcome("session", null, null, "none", null, null))
+    emitCloseSummaryTrace(appendTrace, closeSummary.path, closeSummary.engineOutcome ?: RunCloseTargetOutcome("engine", null, null, "none", null, null))
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM held-run final source=${if (officialFlowUsed) "held-official-flow" else "held-official-blocking"} closePath=${closeSummary.path}",
+    )
+    return HeldEngineRunResult(
+        responseText = response,
+        firstPartialElapsedRealtimeMs = if (officialFlowUsed) heldFlowFirstPartialElapsedRealtimeMs else SystemClock.elapsedRealtime(),
+        partialCount = if (officialFlowUsed) heldFlowPartialCount else 1,
+        namespace = namespace ?: "unknown",
+        officialFlowUsed = officialFlowUsed,
+        closeLifecycleSummary = closeSummary,
+    )
 }
 internal data class LocalOfficialConversationApiProbeResult(
     val namespace: String?,
