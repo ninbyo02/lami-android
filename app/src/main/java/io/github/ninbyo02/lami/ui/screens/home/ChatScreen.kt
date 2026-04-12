@@ -684,6 +684,7 @@ fun Home(
     var streamingGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
+    var selectedAssistantMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
@@ -2962,6 +2963,7 @@ fun Home(
                                                     {
                                                         selectedInferenceStats = it
                                                         selectedLocalTraceForDevSheet = latestLocalTraceForDev
+                                                        selectedAssistantMessageTextForStatsSheet = message.message
                                                         showInferenceStatsSheet = true
                                                     }
                                                 },
@@ -3083,12 +3085,14 @@ fun Home(
                 showInferenceStatsSheet = false
                 selectedInferenceStats = null
                 selectedLocalTraceForDevSheet = null
+                selectedAssistantMessageTextForStatsSheet = null
             },
         ) {
             stats?.let {
                 InferenceStatsSheetContent(
                     stats = it,
                     localTraceForDev = selectedLocalTraceForDevSheet,
+                    assistantText = selectedAssistantMessageTextForStatsSheet,
                     devHeldStateText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
@@ -5263,12 +5267,14 @@ internal fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
 internal fun createLocalInferenceStatsUiModel(
     trace: LocalInferenceTrace,
     stats: InferenceStats,
+    assistantText: String? = null,
 ): LocalInferenceStatsUiModel {
     return buildLocalInferenceStatsUiModel(
         trace = trace,
         resolved = resolveLocalInferenceStats(trace),
         stats = stats,
         measuredSnapshot = trace.measuredTokenSnapshot,
+        assistantText = assistantText,
         selectedAssistantResponseSource = trace.selectedAssistantResponseSource,
     )
 }
@@ -5415,6 +5421,7 @@ internal fun createAssistantMessage(
 private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
+    assistantText: String? = null,
     devHeldStateText: String? = null,
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
@@ -5438,6 +5445,7 @@ private fun InferenceStatsSheetContent(
     val detailSections = buildInferenceDetailSections(
         stats = stats,
         localTraceForDev = localTraceForDev,
+        assistantText = assistantText,
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,

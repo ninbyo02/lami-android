@@ -1,6 +1,7 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import kotlin.math.ceil
 
 internal enum class LocalInferenceTokenMetricSource {
     MEASURED,
@@ -32,6 +33,7 @@ internal fun extractLocalInferenceTokenMetrics(
     resolved: LocalInferenceResolvedStats,
     stats: InferenceStats,
     measuredSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
+    assistantText: String? = null,
 ): LocalInferenceTokenMetrics {
     val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
     val hasEstimatedTokenProbe = trace.estimatedTokenProbe.availability != LocalStatsAvailability.NOT_FOUND
@@ -47,9 +49,13 @@ internal fun extractLocalInferenceTokenMetrics(
             source = resolveMissingTokenMetricSource(usesOfficialApi = usesOfficialApi),
         )
 
+    val estimatedOutputTokens = estimateOutputTokensFromAssistantText(assistantText)
     val outputTokens = measuredSnapshot?.outputTokens
         ?.takeIf { it >= 0 }
         ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.MEASURED) }
+        ?: estimatedOutputTokens?.let {
+            LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.ESTIMATED)
+        }
         ?: LocalInferenceTokenMetric(
             value = resolved.outputTokens.value,
             source = resolved.outputTokens.source.toTokenMetricSource(),
@@ -59,17 +65,43 @@ internal fun extractLocalInferenceTokenMetrics(
         ?.takeIf { it >= 0 }
         ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.MEASURED) }
         ?: run {
-            if (
+            val measuredInput = measuredSnapshot?.inputTokens?.takeIf { it >= 0 }
+            val measuredOutput = measuredSnapshot?.outputTokens?.takeIf { it >= 0 }
+            val measuredTotalFromParts = if (measuredInput != null && measuredOutput != null) {
+                LocalInferenceTokenMetric(
+                    value = measuredInput + measuredOutput,
+                    source = LocalInferenceTokenMetricSource.MEASURED,
+                )
+            } else {
+                null
+            }
+            val estimatedTotalFromInputAndOutput = if (
                 inputTokens.value != null &&
                 outputTokens.value != null &&
-                inputTokens.source == LocalInferenceTokenMetricSource.MEASURED &&
-                outputTokens.source == LocalInferenceTokenMetricSource.MEASURED
+                inputTokens.source in setOf(
+                    LocalInferenceTokenMetricSource.MEASURED,
+                    LocalInferenceTokenMetricSource.DERIVED,
+                ) &&
+                outputTokens.source in setOf(
+                    LocalInferenceTokenMetricSource.MEASURED,
+                    LocalInferenceTokenMetricSource.ESTIMATED,
+                )
             ) {
                 LocalInferenceTokenMetric(
                     value = inputTokens.value + outputTokens.value,
-                    source = LocalInferenceTokenMetricSource.MEASURED,
+                    source = if (
+                        inputTokens.source == LocalInferenceTokenMetricSource.MEASURED &&
+                        outputTokens.source == LocalInferenceTokenMetricSource.MEASURED
+                    ) {
+                        LocalInferenceTokenMetricSource.MEASURED
+                    } else {
+                        LocalInferenceTokenMetricSource.ESTIMATED
+                    },
                 )
-            } else if (resolved.totalTokens.value != null) {
+            } else {
+                null
+            }
+            measuredTotalFromParts ?: estimatedTotalFromInputAndOutput ?: if (resolved.totalTokens.value != null) {
                 LocalInferenceTokenMetric(
                     value = resolved.totalTokens.value,
                     source = if (hasEstimatedTokenProbe) {
@@ -91,6 +123,13 @@ internal fun extractLocalInferenceTokenMetrics(
         outputTokens = outputTokens,
         totalTokens = totalTokens,
     )
+}
+
+private fun estimateOutputTokensFromAssistantText(assistantText: String?): Int? {
+    if (assistantText.isNullOrBlank()) return null
+    val nonBlankCharCount = assistantText.count { !it.isWhitespace() }
+    if (nonBlankCharCount <= 0) return null
+    return ceil(nonBlankCharCount / 2.8).toInt().coerceAtLeast(1)
 }
 
 private fun StatsValueSource.toTokenMetricSource(): LocalInferenceTokenMetricSource = when (this) {
