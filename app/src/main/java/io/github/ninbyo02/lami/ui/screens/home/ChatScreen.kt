@@ -346,6 +346,33 @@ private data class LocalStatsCandidateProbe(
     val valueSummary: String? = null,
 )
 
+private enum class StatsValueSource {
+    MEASURED,
+    DERIVED,
+    API_CANDIDATE_ONLY,
+    UNAVAILABLE,
+}
+
+private data class ResolvedLongStat(
+    val value: Long?,
+    val source: StatsValueSource,
+)
+
+private data class ResolvedIntStat(
+    val value: Int?,
+    val source: StatsValueSource,
+)
+
+private data class LocalInferenceResolvedStats(
+    val firstTokenMs: ResolvedLongStat,
+    val generationDurationNs: ResolvedLongStat,
+    val totalDurationNs: ResolvedLongStat,
+    val evalDurationNs: ResolvedLongStat,
+    val promptEvalDurationNs: ResolvedLongStat,
+    val outputTokens: ResolvedIntStat,
+    val totalTokens: ResolvedIntStat,
+)
+
 private data class LocalInferenceTrace(
     val createMethodSignature: String? = null,
     val optionsBuildPath: String? = null,
@@ -5275,6 +5302,117 @@ private fun LocalStatsCandidateProbe.stringValueOrNull(): String? {
     return valueSummary
 }
 
+private fun resolveMissingValueSource(
+    availability: LocalStatsAvailability,
+    usesOfficialApi: Boolean,
+): StatsValueSource {
+    return when {
+        availability == LocalStatsAvailability.API_CANDIDATE_ONLY || usesOfficialApi -> StatsValueSource.API_CANDIDATE_ONLY
+        else -> StatsValueSource.UNAVAILABLE
+    }
+}
+
+private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferenceResolvedStats {
+    val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
+
+    val firstTokenMs = trace.firstTokenProbe.longValueOrNull()?.takeIf { it >= 0L }?.let {
+        ResolvedLongStat(value = it, source = StatsValueSource.MEASURED)
+    } ?: run {
+        val start = trace.localTraceStartElapsedRealtimeMs
+        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
+        if (start != null && firstResponse != null && firstResponse >= start) {
+            ResolvedLongStat(value = firstResponse - start, source = StatsValueSource.DERIVED)
+        } else {
+            ResolvedLongStat(
+                value = null,
+                source = resolveMissingValueSource(trace.firstTokenProbe.availability, usesOfficialApi),
+            )
+        }
+    }
+
+    val generationDurationNs = trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }?.let {
+        ResolvedLongStat(value = it, source = StatsValueSource.MEASURED)
+    } ?: run {
+        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
+        val completed = trace.localTraceCompletedElapsedRealtimeMs
+        if (firstResponse != null && completed != null && completed >= firstResponse) {
+            ResolvedLongStat(value = (completed - firstResponse) * 1_000_000L, source = StatsValueSource.DERIVED)
+        } else {
+            ResolvedLongStat(
+                value = null,
+                source = resolveMissingValueSource(trace.evalTimeProbe.availability, usesOfficialApi),
+            )
+        }
+    }
+
+    val totalDurationNs = run {
+        val start = trace.localTraceStartElapsedRealtimeMs
+        val completed = trace.localTraceCompletedElapsedRealtimeMs
+        if (start != null && completed != null && completed >= start) {
+            ResolvedLongStat(value = (completed - start) * 1_000_000L, source = StatsValueSource.DERIVED)
+        } else {
+            trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }?.let {
+                ResolvedLongStat(value = it, source = StatsValueSource.DERIVED)
+            } ?: ResolvedLongStat(value = null, source = StatsValueSource.UNAVAILABLE)
+        }
+    }
+
+    val evalDurationNs = if (trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L } != null) {
+        val measuredEvalNs = trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }
+        ResolvedLongStat(value = measuredEvalNs, source = StatsValueSource.MEASURED)
+    } else if (totalDurationNs.value != null) {
+        ResolvedLongStat(value = totalDurationNs.value, source = StatsValueSource.DERIVED)
+    } else {
+        ResolvedLongStat(
+            value = null,
+            source = resolveMissingValueSource(trace.evalTimeProbe.availability, usesOfficialApi),
+        )
+    }
+
+    val promptEvalDurationNs = trace.promptEvalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }?.let {
+        ResolvedLongStat(value = it, source = StatsValueSource.MEASURED)
+    } ?: run {
+        val totalNs = totalDurationNs.value
+        val generationNs = generationDurationNs.value
+        if (totalNs != null && generationNs != null) {
+            ResolvedLongStat(value = (totalNs - generationNs).coerceAtLeast(0L), source = StatsValueSource.DERIVED)
+        } else {
+            ResolvedLongStat(
+                value = null,
+                source = resolveMissingValueSource(trace.promptEvalTimeProbe.availability, usesOfficialApi),
+            )
+        }
+    }
+
+    val outputTokens = trace.outputTokenProbe.intValueOrNull()?.takeIf { it >= 0 }?.let {
+        ResolvedIntStat(value = it, source = StatsValueSource.MEASURED)
+    } ?: trace.sessionResponseTokens?.takeIf { it >= 0 }?.let {
+        ResolvedIntStat(value = it, source = StatsValueSource.DERIVED)
+    } ?: ResolvedIntStat(
+        value = null,
+        source = resolveMissingValueSource(trace.outputTokenProbe.availability, usesOfficialApi),
+    )
+
+    val totalTokens = trace.estimatedTokenProbe.intValueOrNull()?.takeIf { it >= 0 }?.let {
+        ResolvedIntStat(value = it, source = StatsValueSource.MEASURED)
+    } ?: trace.sessionTotalTokens?.takeIf { it >= 0 }?.let {
+        ResolvedIntStat(value = it, source = StatsValueSource.DERIVED)
+    } ?: ResolvedIntStat(
+        value = null,
+        source = resolveMissingValueSource(trace.estimatedTokenProbe.availability, usesOfficialApi),
+    )
+
+    return LocalInferenceResolvedStats(
+        firstTokenMs = firstTokenMs,
+        generationDurationNs = generationDurationNs,
+        totalDurationNs = totalDurationNs,
+        evalDurationNs = evalDurationNs,
+        promptEvalDurationNs = promptEvalDurationNs,
+        outputTokens = outputTokens,
+        totalTokens = totalTokens,
+    )
+}
+
 private fun buildLocalTokensPerSecondOrNull(
     outputTokens: Int?,
     generationTimeMs: Long,
@@ -5300,49 +5438,24 @@ private fun buildLocalInferenceStatsFromTrace(
     responseText: String? = null,
     fallbackTimeToFirstTokenMs: Long? = null,
 ): InferenceStats? {
+    val resolvedStats = resolveLocalInferenceStats(trace)
     val existingInputTokens: Int? = null
-    val existingOutputTokens = trace.outputTokenProbe.intValueOrNull()
-    val existingTotalTokens = trace.estimatedTokenProbe.intValueOrNull()
-    val existingTimeToFirstTokenMs = trace.firstTokenProbe.longValueOrNull()
-    val existingGenerationDurationNs = trace.evalTimeProbe.durationNsOrNull()
-    val localTraceTimeToFirstTokenMs = run {
-        val start = trace.localTraceStartElapsedRealtimeMs
-        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
-        if (start != null && firstResponse != null && firstResponse >= start) firstResponse - start else null
-    }
-    val localTraceGenerationDurationNs = run {
-        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
-        val completed = trace.localTraceCompletedElapsedRealtimeMs
-        if (firstResponse != null && completed != null && completed >= firstResponse) {
-            (completed - firstResponse) * 1_000_000L
-        } else {
-            null
-        }
-    }
-    val localTraceTotalInferenceDurationNs = run {
-        val start = trace.localTraceStartElapsedRealtimeMs
-        val completed = trace.localTraceCompletedElapsedRealtimeMs
-        if (start != null && completed != null && completed >= start) {
-            (completed - start) * 1_000_000L
-        } else {
-            null
-        }
-    }
-    val wallClockTotalInferenceDurationNs = trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }
-    val totalInferenceDurationNs =
-        localTraceTotalInferenceDurationNs ?: wallClockTotalInferenceDurationNs ?: existingGenerationDurationNs
-    val existingPromptEvalNs = trace.promptEvalTimeProbe.durationNsOrNull()
+    val existingOutputTokens = resolvedStats.outputTokens.value
+    val existingTotalTokens = resolvedStats.totalTokens.value
+    val existingTimeToFirstTokenMs = resolvedStats.firstTokenMs.value
+    val existingGenerationDurationNs = resolvedStats.generationDurationNs.value
+    val totalInferenceDurationNs = resolvedStats.evalDurationNs.value
     val wallClockLoadDurationNs = trace.wallClockLoadDurationNs?.takeIf { it >= 0L }
     val existingLoadDurationNs =
         wallClockLoadDurationNs ?: trace.loadTimeProbe.longValueOrNull()?.takeIf { it >= 0L }
-    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: localTraceTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
+    val timeToFirstTokenMs = existingTimeToFirstTokenMs ?: fallbackTimeToFirstTokenMs
     val fallbackGenerationDurationNs = buildLocalGenerationOnlyMsOrNull(
         generationTimeMs = generationTimeMs,
         timeToFirstTokenMs = timeToFirstTokenMs,
     )?.times(1_000_000L)
     val fallbackPromptEvalNs =
-        if (existingPromptEvalNs != null && existingPromptEvalNs >= 0L) {
-            existingPromptEvalNs
+        if (resolvedStats.promptEvalDurationNs.value != null) {
+            resolvedStats.promptEvalDurationNs.value
         } else {
             val evalNs = totalInferenceDurationNs
             val genNs = fallbackGenerationDurationNs
@@ -5382,7 +5495,7 @@ private fun buildLocalInferenceStatsFromTrace(
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
-        generationDurationNs = existingGenerationDurationNs ?: localTraceGenerationDurationNs ?: fallbackGenerationDurationNs,
+        generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
         evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
@@ -5836,6 +5949,23 @@ private fun resolveLocalSourceItemsForDev(
     trace: LocalInferenceTrace,
     stats: InferenceStats,
 ): List<InferenceStatItemUi> {
+    val resolved = resolveLocalInferenceStats(trace)
+    fun formatResolvedSource(
+        source: StatsValueSource,
+        detail: String,
+    ): String {
+        val base = when (source) {
+            StatsValueSource.MEASURED -> "measured"
+            StatsValueSource.DERIVED -> "derived"
+            StatsValueSource.API_CANDIDATE_ONLY -> LocalStatsAvailability.API_CANDIDATE_ONLY.name
+            StatsValueSource.UNAVAILABLE -> "unavailable"
+        }
+        return if (source == StatsValueSource.MEASURED || source == StatsValueSource.DERIVED) {
+            "$base:$detail"
+        } else {
+            base
+        }
+    }
     val modelNameSource = when {
         trace.modelNameProbe.stringValueOrNull() != null -> "probe"
         !trace.localModelDisplayName.isNullOrBlank() -> "trace-local-display-name"
@@ -5846,38 +5976,43 @@ private fun resolveLocalSourceItemsForDev(
         !stats.finishReason.isNullOrBlank() -> "trace-finishReason-fallback"
         else -> "unavailable"
     }
-    val outputTokenSource = when {
-        trace.outputTokenProbe.intValueOrNull() != null -> "probe-output"
-        trace.sessionResponseTokens != null -> "session-output"
-        else -> "unavailable"
+    val outputTokenSource = when (resolved.outputTokens.source) {
+        StatsValueSource.MEASURED -> formatResolvedSource(resolved.outputTokens.source, "probe-output")
+        StatsValueSource.DERIVED -> formatResolvedSource(resolved.outputTokens.source, "session-output")
+        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.outputTokens.source, "")
+        StatsValueSource.UNAVAILABLE -> "unavailable"
     }
-    val totalTokenSource = when {
-        trace.estimatedTokenProbe.intValueOrNull() != null -> "probe-total"
-        trace.sessionTotalTokens != null -> "session-total"
-        else -> "unavailable"
+    val totalTokenSource = when (resolved.totalTokens.source) {
+        StatsValueSource.MEASURED -> formatResolvedSource(resolved.totalTokens.source, "probe-total")
+        StatsValueSource.DERIVED -> formatResolvedSource(resolved.totalTokens.source, "session-total")
+        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.totalTokens.source, "")
+        StatsValueSource.UNAVAILABLE -> "unavailable"
     }
-    val firstTokenSource = when {
-        trace.firstTokenProbe.longValueOrNull() != null -> "probe-first-token"
-        trace.localTraceStartElapsedRealtimeMs != null && trace.localTraceFirstResponseElapsedRealtimeMs != null -> "self-trace-first-response"
-        stats.timeToFirstTokenMs != null -> "fallback-generationTimeMs"
-        else -> "unavailable"
+    val firstTokenSource = when (resolved.firstTokenMs.source) {
+        StatsValueSource.MEASURED -> formatResolvedSource(resolved.firstTokenMs.source, "probe-first-token")
+        StatsValueSource.DERIVED -> formatResolvedSource(resolved.firstTokenMs.source, "self-trace-first-response")
+        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.firstTokenMs.source, "")
+        StatsValueSource.UNAVAILABLE ->
+            if (stats.timeToFirstTokenMs != null) "fallback-generationTimeMs" else "unavailable"
     }
-    val generationDurationSource = when {
-        trace.evalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-eval"
-        trace.localTraceFirstResponseElapsedRealtimeMs != null && trace.localTraceCompletedElapsedRealtimeMs != null -> "self-trace-completed-minus-first"
-        stats.generationDurationNs != null -> "fallback-generationTimeMs-minus-ttft"
-        else -> "unavailable"
+    val generationDurationSource = when (resolved.generationDurationNs.source) {
+        StatsValueSource.MEASURED -> formatResolvedSource(resolved.generationDurationNs.source, "probe-eval")
+        StatsValueSource.DERIVED -> formatResolvedSource(resolved.generationDurationNs.source, "self-trace-completed-minus-first")
+        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.generationDurationNs.source, "")
+        StatsValueSource.UNAVAILABLE ->
+            if (stats.generationDurationNs != null) "fallback-generationTimeMs-minus-ttft" else "unavailable"
     }
-    val evalDurationSource = when {
-        trace.localTraceStartElapsedRealtimeMs != null && trace.localTraceCompletedElapsedRealtimeMs != null -> "self-trace-completed-minus-start"
-        trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L } != null -> "wall-clock-total-inference"
-        stats.evalDurationNs != null -> "probe-eval-as-total-fallback"
-        else -> "unavailable"
+    val evalDurationSource = when (resolved.evalDurationNs.source) {
+        StatsValueSource.MEASURED -> formatResolvedSource(resolved.evalDurationNs.source, "probe-eval")
+        StatsValueSource.DERIVED -> formatResolvedSource(resolved.evalDurationNs.source, "self-trace-completed-minus-start")
+        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.evalDurationNs.source, "")
+        StatsValueSource.UNAVAILABLE -> "unavailable"
     }
-    val promptEvalDurationSource = when {
-        trace.promptEvalTimeProbe.longValueOrNull()?.takeIf { it >= 0L } != null -> "probe-prompt-eval"
-        stats.promptEvalDurationNs != null -> "derived-from-total-minus-generation"
-        else -> "unavailable"
+    val promptEvalDurationSource = when (resolved.promptEvalDurationNs.source) {
+        StatsValueSource.MEASURED -> formatResolvedSource(resolved.promptEvalDurationNs.source, "probe-prompt-eval")
+        StatsValueSource.DERIVED -> formatResolvedSource(resolved.promptEvalDurationNs.source, "derived-from-total-minus-generation")
+        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.promptEvalDurationNs.source, "")
+        StatsValueSource.UNAVAILABLE -> "unavailable"
     }
     val tokensPerSecondSource = if (buildLocalTokensPerSecondOrNull(
             outputTokens = stats.outputTokens,
@@ -5907,6 +6042,7 @@ private fun buildLocalInventorySectionForDev(
     stats: InferenceStats,
 ): InferenceStatsSectionUi? {
     if (!isLocalMinimal || trace == null) return null
+    val resolved = resolveLocalInferenceStats(trace)
     val rawProbeComparisonItems = listOf(
         InferenceStatItemUi(label = "rawOutputTokens", value = trace.outputTokenProbe.valueSummary ?: "—"),
         InferenceStatItemUi(label = "rawEstimatedTokens", value = trace.estimatedTokenProbe.valueSummary ?: "—"),
@@ -5948,17 +6084,17 @@ private fun buildLocalInventorySectionForDev(
         items = listOf(
             InferenceStatItemUi(label = "modelName", value = trace.modelNameProbe.availability.name),
             InferenceStatItemUi(label = "finishReason", value = trace.finishReasonProbe.availability.name),
-            InferenceStatItemUi(label = "outputTokens", value = trace.outputTokenProbe.availability.name),
+            InferenceStatItemUi(label = "outputTokens", value = resolved.outputTokens.source.name),
             InferenceStatItemUi(label = "outputTokensSignature", value = trace.outputTokenProbe.signature ?: "—"),
-            InferenceStatItemUi(label = "estimatedTokens", value = trace.estimatedTokenProbe.availability.name),
+            InferenceStatItemUi(label = "estimatedTokens", value = resolved.totalTokens.source.name),
             InferenceStatItemUi(label = "estimatedTokensSignature", value = trace.estimatedTokenProbe.signature ?: "—"),
             InferenceStatItemUi(label = "loadTime", value = trace.loadTimeProbe.availability.name),
             InferenceStatItemUi(label = "loadTimeSignature", value = trace.loadTimeProbe.signature ?: "—"),
             InferenceStatItemUi(label = "promptEvalTime", value = trace.promptEvalTimeProbe.availability.name),
             InferenceStatItemUi(label = "promptEvalTimeSignature", value = trace.promptEvalTimeProbe.signature ?: "—"),
-            InferenceStatItemUi(label = "evalTime", value = trace.evalTimeProbe.availability.name),
+            InferenceStatItemUi(label = "evalTime", value = resolved.evalDurationNs.source.name),
             InferenceStatItemUi(label = "evalTimeSignature", value = trace.evalTimeProbe.signature ?: "—"),
-            InferenceStatItemUi(label = "firstToken", value = trace.firstTokenProbe.availability.name),
+            InferenceStatItemUi(label = "firstToken", value = resolved.firstTokenMs.source.name),
             InferenceStatItemUi(label = "firstTokenSignature", value = trace.firstTokenProbe.signature ?: "—"),
             InferenceStatItemUi(
                 label = "streamingCandidate",
