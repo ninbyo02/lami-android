@@ -727,12 +727,12 @@ private suspend fun measureConnectionLatency(
                 useCaches = false
             }
             val startMs = SystemClock.elapsedRealtime()
-            connection?.connect()
-            val responseCode = connection?.responseCode ?: return@runCatching null
+            connection.connect()
+            val responseCode = connection.responseCode
             if (responseCode !in 200..299) {
                 return@runCatching null
             }
-            val stream = connection?.inputStream ?: return@runCatching null
+            val stream = connection.inputStream
             stream.close()
             (SystemClock.elapsedRealtime() - startMs).coerceAtLeast(0L)
         }.getOrNull().also {

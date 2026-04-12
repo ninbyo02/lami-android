@@ -806,7 +806,7 @@ fun LamiStatusSprite(
                     lastInsertionLoop = lastInsertionLoop,
                     random = random,
                 ) == true
-                if (shouldInsert && settings?.patterns?.isNotEmpty() == true) {
+                if (shouldInsert && settings.patterns.isNotEmpty()) {
                     val activeSettings = requireNotNull(settings)
                     val defaultIntervalMs = effectiveInsertionIntervalMs(
                         activeSettings,

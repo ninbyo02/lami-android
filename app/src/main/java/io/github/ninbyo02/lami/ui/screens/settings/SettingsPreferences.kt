@@ -1582,7 +1582,6 @@ class SettingsPreferences(private val context: Context) {
             SpriteState.THINKING -> ReadyAnimationSettings.THINKING_DEFAULT to InsertionAnimationSettings.THINKING_DEFAULT
             SpriteState.OFFLINE -> ReadyAnimationSettings.OFFLINE_DEFAULT to InsertionAnimationSettings.OFFLINE_DEFAULT
             SpriteState.ERROR -> ReadyAnimationSettings.ERROR_DEFAULT to InsertionAnimationSettings.ERROR_DEFAULT
-            else -> ReadyAnimationSettings.DEFAULT to InsertionAnimationSettings.DEFAULT
         }
 
     private fun insertionDefaultsForState(
