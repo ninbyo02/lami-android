@@ -559,6 +559,7 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     val officialEngine = runCatching {
         createOfficialLiteRtLmEngineInstance(
             modelPath = modelPath,
+            cacheDirPath = context.cacheDir.absolutePath,
             appendTrace = safeTrace,
         )
     }.getOrElse { throwable ->
@@ -810,7 +811,11 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         engineClass.methods.firstOrNull { it.name == "createConversation" }
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
     val engine = if (spec.namespace == "com.google.ai.edge.litertlm") {
-        createOfficialLiteRtLmEngineInstance(modelPath = modelPath, appendTrace = appendTrace)
+        createOfficialLiteRtLmEngineInstance(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            appendTrace = appendTrace,
+        )
     } else {
         createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
     }
@@ -988,7 +993,11 @@ private fun runOfficialBlockingConversationSingleNamespace(
         engineClass.methods.firstOrNull { it.name == "createConversation" }
             ?: throw OfficialFlowFallbackException("conversation_create_failed")
     val engine = if (spec.namespace == "com.google.ai.edge.litertlm") {
-        createOfficialLiteRtLmEngineInstance(modelPath = modelPath, appendTrace = appendTrace)
+        createOfficialLiteRtLmEngineInstance(
+            modelPath = modelPath,
+            cacheDirPath = cacheDirPath,
+            appendTrace = appendTrace,
+        )
     } else {
         createOfficialEngineInstance(engineClass, spec.optionsCandidates, modelPath)
     }
@@ -1300,56 +1309,24 @@ private fun createOfficialEngineInstance(
 
 private fun createOfficialLiteRtLmEngineInstance(
     modelPath: String,
+    cacheDirPath: String? = null,
     appendTrace: (String) -> Unit,
 ): Any? {
     safeAppendTrace(appendTrace, "UPSTREAM official-helper start helper=createOfficialLiteRtLmEngineInstance")
-    val engineConfig = runCatching {
-        val engineConfigClass = Class.forName("com.google.ai.edge.litertlm.EngineConfig")
-        safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-class-load success class=${engineConfigClass.name}")
-        val backendClass = Class.forName("com.google.ai.edge.litertlm.Backend")
-        val backendValues = backendClass.enumConstants.orEmpty()
-        val backend = backendValues.firstOrNull {
-            (it as? Enum<*>)?.name == "CPU"
-        } ?: backendValues.firstOrNull {
-            (it as? Enum<*>)?.name == "CPU_BACKEND"
-        } ?: backendValues.firstOrNull() ?: return@runCatching null
-        safeAppendTrace(appendTrace, "UPSTREAM official-helper backend resolved name=${(backend as? Enum<*>)?.name ?: "unknown"}")
-        val constructor = engineConfigClass.constructors.firstOrNull { ctor ->
-            ctor.parameterTypes.size == 6 &&
-                ctor.parameterTypes[0] == String::class.java &&
-                ctor.parameterTypes[1] == backendClass &&
-                ctor.parameterTypes[2] == backendClass &&
-                ctor.parameterTypes[3] == backendClass
-        } ?: run {
-            safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-ctor not-found")
-            return@runCatching null
-        }
-        safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-ctor found")
-        constructor.newInstance(modelPath, backend, backend, backend, null, null)
-    }.getOrElse { throwable ->
-        safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-class-load fail class=${throwable.javaClass.simpleName} message=${throwable.message}")
-        safeAppendTrace(appendTrace, "UPSTREAM official-engine-config create failed ${throwable.javaClass.simpleName}:${throwable.message}")
-        null
-    } ?: run {
-        safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created null")
-        return null
-    }
-    safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
+    safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
+    safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
     return runCatching {
-        val engineClass = Class.forName("com.google.ai.edge.litertlm.Engine")
-        val constructor = engineClass.constructors.firstOrNull { ctor ->
-            ctor.parameterTypes.size == 1 &&
-                ctor.parameterTypes[0].name == "com.google.ai.edge.litertlm.EngineConfig"
-        } ?: run {
-            safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-ctor not-found")
-            return@runCatching null
-        }
-        safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-ctor found")
-        constructor.newInstance(engineConfig).also {
-            safeAppendTrace(
-                appendTrace,
-                "UPSTREAM official-helper engine-new-instance-result ${if (it == null) "null" else "non-null"}",
-            )
+        val engineConfig = EngineConfig(
+            modelPath = modelPath,
+            backend = Backend.GPU(),
+            visionBackend = Backend.GPU(),
+            audioBackend = Backend.CPU(),
+            maxNumTokens = null,
+            cacheDir = cacheDirPath,
+        )
+        safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
+        Engine(engineConfig).also {
+            safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-new-instance-result non-null")
         }
     }.getOrElse { throwable ->
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-create fail class=${throwable.javaClass.simpleName} message=${throwable.message}")
