@@ -378,6 +378,7 @@ internal data class LocalInferenceTrace(
     val sessionPromptTokens: Int? = null,
     val sessionResponseTokens: Int? = null,
     val sessionTotalTokens: Int? = null,
+    val measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     val sessionTokenProbeErrorStage: String? = null,
     val sessionTokenProbeErrorClassName: String? = null,
     val sessionListenerSignature: String? = null,
@@ -3319,6 +3320,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = officialFlowFallbackReason,
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
+                    measuredTokenSnapshot = officialResult?.measuredTokenSnapshot,
                 ),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = officialResult?.closeLifecycleSummary,
@@ -3363,6 +3365,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     officialFlowFallbackReason = officialFlowFallbackReason,
                     officialConversationApiAvailable = officialConversationApiProbe.isAvailable,
                     officialFlowChunkCount = officialFlowChunkCount,
+                    measuredTokenSnapshot = blockingResult?.measuredTokenSnapshot,
                 ),
                 closeLifecycleSummary = ensureSuccessCloseLifecycleSummary(
                     summary = blockingResult?.closeLifecycleSummary,
@@ -3461,6 +3464,7 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             officialFlowFallbackReason = null,
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
+            measuredTokenSnapshot = measuredTokenSnapshot,
         ),
         closeLifecycleSummary = if (resolvedState == LocalInferenceEngineState.READY) {
             ensureSuccessCloseLifecycleSummary(
@@ -4964,6 +4968,7 @@ private fun LocalInferenceTrace.merge(probe: LocalInferenceTrace): LocalInferenc
         officialFlowFallbackReason = officialFlowFallbackReason ?: probe.officialFlowFallbackReason,
         officialConversationApiAvailable = officialConversationApiAvailable ?: probe.officialConversationApiAvailable,
         officialFlowChunkCount = if (officialFlowChunkCount > 0) officialFlowChunkCount else probe.officialFlowChunkCount,
+        measuredTokenSnapshot = measuredTokenSnapshot ?: probe.measuredTokenSnapshot,
     )
 }
 
@@ -5263,6 +5268,7 @@ internal fun createLocalInferenceStatsUiModel(
         trace = trace,
         resolved = resolveLocalInferenceStats(trace),
         stats = stats,
+        measuredSnapshot = trace.measuredTokenSnapshot,
         selectedAssistantResponseSource = trace.selectedAssistantResponseSource,
     )
 }

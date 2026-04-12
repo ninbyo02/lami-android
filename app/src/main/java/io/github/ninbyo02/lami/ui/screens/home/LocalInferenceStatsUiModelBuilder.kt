@@ -75,6 +75,7 @@ internal fun buildLocalInferenceStatsUiModel(
     resolved: LocalInferenceResolvedStats,
     stats: InferenceStats,
     trace: LocalInferenceTrace,
+    measuredSnapshot: LocalInferenceMeasuredTokenSnapshot? = null,
     selectedAssistantResponseSource: String?,
 ): LocalInferenceStatsUiModel {
     fun buildUiStatValueFromResolvedLong(valueNs: Long?, source: StatsUiValueSource): UiStatValue = UiStatValue(
@@ -92,6 +93,7 @@ internal fun buildLocalInferenceStatsUiModel(
         trace = trace,
         resolved = resolved,
         stats = stats,
+        measuredSnapshot = measuredSnapshot,
     )
     val inputTokens = buildUiStatValueFromResolvedInt(
         value = tokenMetrics.inputTokens.value,
