@@ -335,6 +335,39 @@ private fun buildLocalInventorySectionForDev(
     if (!isLocalMinimal || trace == null) return null
     val statsUiModel = createLocalInferenceStatsUiModel(trace = trace, stats = stats)
     val rawProbeComparisonItems = listOf(
+        InferenceStatItemUi(
+            label = "inputTokens(raw probe)",
+            value = trace.sessionPromptTokens?.toString() ?: "—",
+        ),
+        InferenceStatItemUi(
+            label = "outputTokens(raw probe)",
+            value = trace.outputTokenProbe.valueSummary ?: "—",
+        ),
+        InferenceStatItemUi(
+            label = "totalTokens(raw probe / estimated probe)",
+            value = trace.estimatedTokenProbe.valueSummary ?: "—",
+        ),
+        InferenceStatItemUi(
+            label = "inputTokens(adopted UI)",
+            value = withProbeStateLabel(
+                value = statsUiModel.tokens.inputTokens.valueText,
+                state = statsUiModel.tokens.inputTokens.source.toDevLabel(),
+            ),
+        ),
+        InferenceStatItemUi(
+            label = "outputTokens(adopted UI)",
+            value = withProbeStateLabel(
+                value = statsUiModel.tokens.outputTokens.valueText,
+                state = statsUiModel.tokens.outputTokens.source.toDevLabel(),
+            ),
+        ),
+        InferenceStatItemUi(
+            label = "totalTokens(adopted UI)",
+            value = withProbeStateLabel(
+                value = statsUiModel.tokens.totalTokens.valueText,
+                state = statsUiModel.tokens.totalTokens.source.toDevLabel(),
+            ),
+        ),
         InferenceStatItemUi(label = "rawOutputTokens", value = trace.outputTokenProbe.valueSummary ?: "—"),
         InferenceStatItemUi(label = "rawEstimatedTokens", value = trace.estimatedTokenProbe.valueSummary ?: "—"),
         InferenceStatItemUi(label = "rawLoadTime", value = trace.loadTimeProbe.valueSummary ?: "—"),
