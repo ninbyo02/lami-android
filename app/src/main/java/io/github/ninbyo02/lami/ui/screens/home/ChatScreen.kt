@@ -5445,6 +5445,8 @@ private fun InferenceStatsSheetContent(
     val sections = buildInferenceSummarySections(
         stats = stats,
         localTraceForDev = localTraceForDev,
+        assistantText = assistantText,
+        promptText = promptText,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
     val measuredTokenSnapshotSummary = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {

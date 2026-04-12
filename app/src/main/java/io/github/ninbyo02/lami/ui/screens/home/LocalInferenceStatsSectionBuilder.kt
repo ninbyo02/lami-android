@@ -15,11 +15,18 @@ import java.util.Locale
 internal fun buildInferenceSummarySections(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
+    assistantText: String? = null,
+    promptText: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
 ): List<InferenceStatsSectionUi> {
     val isLocalMinimal = isLocalMinimalInferenceStats(stats)
     val localStatsUiModel = localTraceForDev?.let {
-        createLocalInferenceStatsUiModel(trace = it, stats = stats)
+        createLocalInferenceStatsUiModel(
+            trace = it,
+            stats = stats,
+            assistantText = assistantText,
+            promptText = promptText,
+        )
     }
     val localSourceSummaryText = stats.localSourceSummary
         ?.takeIf { it.isNotBlank() }
