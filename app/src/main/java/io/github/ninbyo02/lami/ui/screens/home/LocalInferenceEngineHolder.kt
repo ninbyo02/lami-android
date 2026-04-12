@@ -7,6 +7,8 @@ import kotlinx.coroutines.sync.withLock
 
 private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
 private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
+private const val HELD_ENGINE_BACKGROUND_TIMEOUT_MS = 5 * 60 * 1000L
+private const val HELD_ENGINE_IDLE_TIMEOUT_MS = 10 * 60 * 1000L
 
 internal data class HeldLocalEngine(
     val engineKey: HeldEngineKey,
@@ -40,6 +42,9 @@ internal class LocalInferenceEngineHolder(
         BACKEND_CHANGED,
         EXPLICIT_RESET,
         FATAL_ERROR,
+        LOW_MEMORY,
+        BACKGROUND_TIMEOUT,
+        IDLE_TIMEOUT,
         KEEP_HELD,
     }
 
@@ -81,11 +86,15 @@ internal class LocalInferenceEngineHolder(
     private var held: HeldLocalEngine? = null
     private val heldConversationsByChatId = mutableMapOf<Int, HeldConversation>()
     private var heldEngineGeneration: Long = 0L
+    private var appBackgroundedAtElapsedMs: Long? = null
 
     suspend fun acquire(
         engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
     ): HeldLocalEngine = mutex.withLock {
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
         val modelPath = engineKey.modelPath
         val current = held
         val decision = decideAcquireLifecycle(current = current, requested = engineKey)
@@ -127,6 +136,9 @@ internal class LocalInferenceEngineHolder(
         engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
     ): HeldEngineAcquireDiagnosticResult = mutex.withLock {
+        val nowElapsedMs = SystemClock.elapsedRealtime()
+        maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
         val modelPath = engineKey.modelPath
         val modelPathTail = modelPath.substringAfterLast('/')
         appendTrace?.invoke("UPSTREAM held-acquire-diagnostic start modelPathTail=$modelPathTail")
@@ -264,31 +276,10 @@ internal class LocalInferenceEngineHolder(
         appendTrace: ((String) -> Unit)? = null,
     ) {
         mutex.withLock {
-            val decision = when (reason) {
-                "backend-changed" -> HeldEngineLifecycleDecision(
-                    reason = HeldEngineLifecycleReason.BACKEND_CHANGED,
-                    action = HeldEngineLifecycleAction.CLEAR_ONLY,
-                    clearReason = reason,
-                )
-
-                "explicit-reset" -> HeldEngineLifecycleDecision(
-                    reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
-                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                    clearReason = reason,
-                )
-
-                "fatal-error" -> HeldEngineLifecycleDecision(
-                    reason = HeldEngineLifecycleReason.FATAL_ERROR,
-                    action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
-                    clearReason = reason,
-                )
-
-                else -> HeldEngineLifecycleDecision(
-                    reason = HeldEngineLifecycleReason.KEEP_HELD,
-                    action = HeldEngineLifecycleAction.CLEAR_ONLY,
-                    clearReason = reason,
-                )
-            }
+            val nowElapsedMs = SystemClock.elapsedRealtime()
+            maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            val decision = resolveLifecycleDecision(reason = reason)
             applyLifecycleDecisionLocked(
                 current = held,
                 decision = decision,
@@ -321,6 +312,43 @@ internal class LocalInferenceEngineHolder(
         appendTrace: ((String) -> Unit)? = null,
     ) {
         notifyLifecycleEvent(reason = reason, chatId = chatId, appendTrace = appendTrace)
+    }
+
+    suspend fun notifyAppBackgrounded(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+    ) {
+        mutex.withLock {
+            appBackgroundedAtElapsedMs = nowElapsedMs
+        }
+    }
+
+    suspend fun notifyAppForegrounded(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+            appBackgroundedAtElapsedMs = null
+            maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        }
+    }
+
+    suspend fun maybeReleaseIdleEngine(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            maybeReleaseIdleEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        }
+    }
+
+    suspend fun maybeReleaseBackgroundTimedOutEngine(
+        nowElapsedMs: Long = SystemClock.elapsedRealtime(),
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        mutex.withLock {
+            maybeReleaseBackgroundTimedOutEngineLocked(nowElapsedMs = nowElapsedMs, appendTrace = appendTrace)
+        }
     }
 
     private fun decideAcquireLifecycle(
@@ -361,6 +389,79 @@ internal class LocalInferenceEngineHolder(
         )
     }
 
+    private fun resolveLifecycleDecision(reason: String): HeldEngineLifecycleDecision {
+        return when (reason) {
+            "backend-changed" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.BACKEND_CHANGED,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "explicit-reset" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.EXPLICIT_RESET,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "fatal-error" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.FATAL_ERROR,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "low-memory" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.LOW_MEMORY,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "background-timeout" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.BACKGROUND_TIMEOUT,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            "idle-timeout" -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.IDLE_TIMEOUT,
+                action = HeldEngineLifecycleAction.CLOSE_AND_RECREATE,
+                clearReason = reason,
+            )
+
+            else -> HeldEngineLifecycleDecision(
+                reason = HeldEngineLifecycleReason.KEEP_HELD,
+                action = HeldEngineLifecycleAction.CLEAR_ONLY,
+                clearReason = reason,
+            )
+        }
+    }
+
+    private fun maybeReleaseIdleEngineLocked(
+        nowElapsedMs: Long,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val current = held ?: return
+        if (nowElapsedMs - current.lastUsedAtElapsedMs < HELD_ENGINE_IDLE_TIMEOUT_MS) return
+        applyLifecycleDecisionLocked(
+            current = current,
+            decision = resolveLifecycleDecision(reason = "idle-timeout"),
+            appendTrace = appendTrace,
+        )
+    }
+
+    private fun maybeReleaseBackgroundTimedOutEngineLocked(
+        nowElapsedMs: Long,
+        appendTrace: ((String) -> Unit)? = null,
+    ) {
+        val backgroundedAt = appBackgroundedAtElapsedMs ?: return
+        if (nowElapsedMs - backgroundedAt < HELD_ENGINE_BACKGROUND_TIMEOUT_MS) return
+        applyLifecycleDecisionLocked(
+            current = held,
+            decision = resolveLifecycleDecision(reason = "background-timeout"),
+            appendTrace = appendTrace,
+        )
+        appBackgroundedAtElapsedMs = null
+    }
+
     private fun applyLifecycleDecisionLocked(
         current: HeldLocalEngine?,
         decision: HeldEngineLifecycleDecision,
@@ -377,6 +478,7 @@ internal class LocalInferenceEngineHolder(
                 )
                 runCatching { target.closeEngine(appendTrace) }
                 held = null
+                appBackgroundedAtElapsedMs = null
                 clearAllConversationsLocked(reason = decision.clearReason, appendTrace = appendTrace)
                 if (decision.reason == HeldEngineLifecycleReason.MODEL_CHANGED) {
                     appendTrace?.invoke("UPSTREAM held-engine cleared reason=model-changed")
