@@ -115,23 +115,23 @@ internal fun buildInferenceDetailSections(
             items = listOf(
                 InferenceStatItemUi(
                     label = "入力トークン",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.tokens?.inputTokens?.valueText ?: stats.inputTokens?.toString(),
-                        state = localStatsUiModel?.tokens?.inputTokens?.source?.toUiStateLabel() ?: "未取得",
+                    value = formatRegularTokenValue(
+                        statValue = localStatsUiModel?.tokens?.inputTokens,
+                        fallbackValue = stats.inputTokens?.toString(),
                     ),
                 ),
                 InferenceStatItemUi(
                     label = "生成トークン",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.tokens?.outputTokens?.valueText ?: formatOutputTokens(stats),
-                        state = localStatsUiModel?.tokens?.outputTokens?.source?.toUiStateLabel() ?: "未取得",
+                    value = formatRegularTokenValue(
+                        statValue = localStatsUiModel?.tokens?.outputTokens,
+                        fallbackValue = formatOutputTokens(stats),
                     ),
                 ),
                 InferenceStatItemUi(
                     label = "合計トークン",
-                    value = withProbeStateLabel(
-                        value = localStatsUiModel?.tokens?.totalTokens?.valueText ?: formatTotalTokens(stats),
-                        state = localStatsUiModel?.tokens?.totalTokens?.source?.toUiStateLabel() ?: "未取得",
+                    value = formatRegularTokenValue(
+                        statValue = localStatsUiModel?.tokens?.totalTokens,
+                        fallbackValue = formatTotalTokens(stats),
                     ),
                 ),
             ),
@@ -532,6 +532,21 @@ private fun buildLocalInventorySectionForDev(
             InferenceStatItemUi(label = "optionsBuildPath", value = trace.optionsBuildPath ?: "—"),
         ),
     )
+}
+
+
+private fun formatRegularTokenValue(statValue: UiStatValue?, fallbackValue: String?): String {
+    if (statValue == null) return fallbackValue ?: "—"
+    val numericValue = statValue.rawValueInt?.toString() ?: return "—"
+    return when (statValue.source) {
+        StatsUiValueSource.MEASURED -> numericValue
+        StatsUiValueSource.DERIVED,
+        StatsUiValueSource.ESTIMATED,
+        -> "${numericValue}（推定）"
+        StatsUiValueSource.API_CANDIDATE_ONLY,
+        StatsUiValueSource.UNAVAILABLE,
+        -> "—"
+    }
 }
 
 private fun buildDevDiagnosticSummarySection(
