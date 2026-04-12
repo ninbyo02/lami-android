@@ -57,15 +57,28 @@ internal fun extractLocalInferenceTokenMetrics(
         )
 
     val estimatedOutputTokens = estimateOutputTokensFromAssistantText(assistantText)
+    val assistantUpdateCountAsOutputTokens = trace.assistantUpdateCount.takeIf { it > 0 }
     val outputTokens = measuredSnapshot?.outputTokens
         ?.takeIf { it >= 0 }
         ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.MEASURED) }
+        ?: resolved.outputTokens.value?.let {
+            LocalInferenceTokenMetric(
+                value = it,
+                source = resolved.outputTokens.source.toTokenMetricSource(),
+            )
+        }
+        ?: trace.sessionResponseTokens
+            ?.takeIf { it >= 0 }
+            ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.DERIVED) }
+        ?: assistantUpdateCountAsOutputTokens?.let {
+            LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.ESTIMATED)
+        }
         ?: estimatedOutputTokens?.let {
             LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.ESTIMATED)
         }
         ?: LocalInferenceTokenMetric(
-            value = resolved.outputTokens.value,
-            source = resolved.outputTokens.source.toTokenMetricSource(),
+            value = null,
+            source = resolveMissingTokenMetricSource(usesOfficialApi = usesOfficialApi),
         )
 
     val totalTokens = measuredSnapshot?.totalTokens
