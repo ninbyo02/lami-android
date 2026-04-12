@@ -222,6 +222,69 @@ private const val LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY = "session-lega
 private const val DEV_UI_DEBUG_MODE = true
 private const val DEV_USE_HELD_PATH_ONLY = false
 
+private enum class LocalExecutionPath(
+    val sourceLabel: String,
+    val officialFlowAttempted: Boolean,
+    val officialFlowUsed: Boolean,
+    val usesOfficialConversationApi: Boolean,
+) {
+    HELD_OFFICIAL_FLOW(
+        sourceLabel = "held-official-flow",
+        officialFlowAttempted = true,
+        officialFlowUsed = true,
+        usesOfficialConversationApi = true,
+    ),
+    HELD_OFFICIAL_BLOCKING(
+        sourceLabel = "held-official-blocking",
+        officialFlowAttempted = true,
+        officialFlowUsed = false,
+        usesOfficialConversationApi = true,
+    ),
+    OFFICIAL_FLOW(
+        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_FLOW,
+        officialFlowAttempted = true,
+        officialFlowUsed = true,
+        usesOfficialConversationApi = true,
+    ),
+    OFFICIAL_BLOCKING(
+        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_OFFICIAL_BLOCKING,
+        officialFlowAttempted = true,
+        officialFlowUsed = false,
+        usesOfficialConversationApi = true,
+    ),
+    ONE_SHOT(
+        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_ONE_SHOT,
+        officialFlowAttempted = false,
+        officialFlowUsed = false,
+        usesOfficialConversationApi = false,
+    ),
+    SESSION_LEGACY(
+        sourceLabel = LOCAL_ASSISTANT_RESPONSE_SOURCE_SESSION_LEGACY,
+        officialFlowAttempted = false,
+        officialFlowUsed = false,
+        usesOfficialConversationApi = false,
+    );
+
+    companion object {
+        fun fromSourceLabel(raw: String?): LocalExecutionPath? {
+            val normalized = raw?.trim().orEmpty()
+            return values().firstOrNull { it.sourceLabel == normalized }
+        }
+
+        fun fromClosePath(raw: String?): LocalExecutionPath? {
+            val normalized = raw?.trim().orEmpty()
+            return when {
+                normalized.contains("held-official-flow") -> HELD_OFFICIAL_FLOW
+                normalized.contains("held-official-blocking") -> HELD_OFFICIAL_BLOCKING
+                normalized.contains("official-flow") -> OFFICIAL_FLOW
+                normalized.contains("official-blocking") -> OFFICIAL_BLOCKING
+                normalized.contains("legacy") -> SESSION_LEGACY
+                else -> null
+            }
+        }
+    }
+}
+
 private enum class LocalLiteRtProbeResult {
     SUCCESS,
     API_NOT_CONNECTED,
@@ -2131,14 +2194,16 @@ fun Home(
                                                                 ?: LocalInferenceEngineState.ERROR
                                                             val localGenerationTimeMs =
                                                                 (SystemClock.elapsedRealtime() - localRunStartedAtMs).coerceAtLeast(0L)
-                                                            val runResultWithUiTrace = runResult?.copy(
-                                                                trace = runResult.trace.copy(
-                                                                    assistantUpdateCount = assistantUpdateCountForDev,
-                                                                    firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
-                                                                    assistantStreamedToUi = assistantUpdateCountForDev >= 2,
-                                                                    realPartialReceived = didReceiveRealLocalPartial,
-                                                                    realPartialChunkCount = realLocalPartialChunkCount,
-                                                                ),
+                                                            val runResultWithUiTrace = normalizeLocalInferenceRunResult(
+                                                                runResult?.copy(
+                                                                    trace = runResult.trace.copy(
+                                                                        assistantUpdateCount = assistantUpdateCountForDev,
+                                                                        firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
+                                                                        assistantStreamedToUi = assistantUpdateCountForDev >= 2,
+                                                                        realPartialReceived = didReceiveRealLocalPartial,
+                                                                        realPartialChunkCount = realLocalPartialChunkCount,
+                                                                    ),
+                                                                )
                                                             )
                                                             if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE && runResultWithUiTrace != null) {
                                                                 devCloseLifecycleText = buildCloseLifecycleText(runResultWithUiTrace.closeLifecycleSummary)
@@ -2241,11 +2306,9 @@ fun Home(
                                                                             null
                                                                         }
                                                                     val localSourceSummary =
-                                                                        if (resolvedTrace?.officialFlowUsed == true) {
-                                                                            "official-flow"
-                                                                        } else {
-                                                                            rawSourceSummary
-                                                                        }
+                                                                        resolvedTrace?.selectedAssistantResponseSource
+                                                                            ?.takeIf { it.isNotBlank() }
+                                                                            ?: rawSourceSummary
                                                                     Log.i(
                                                                         "ChatScreen",
                                                                         "LOCAL compare success: successState=$resolvedState, successResponseLength=${resolvedAssistantResponse.length}, tracePresent=${resolvedTrace != null}, localStatsPresent=${localStats != null}, localSourceSummaryPresent=${localSourceSummary != null}, effectiveChatId=$effectiveChatId",
@@ -3374,6 +3437,11 @@ private suspend fun runLocalInferenceOnceEntry(
 }
 
 private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunResult {
+    val executionPath = if (officialFlowUsed) {
+        LocalExecutionPath.HELD_OFFICIAL_FLOW
+    } else {
+        LocalExecutionPath.HELD_OFFICIAL_BLOCKING
+    }
     val resolvedState = if (responseText.isNotBlank()) {
         LocalInferenceEngineState.READY
     } else {
@@ -3385,12 +3453,10 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
         trace = LocalInferenceTrace(
             localModelDisplayName = localModelDisplayName,
             localTraceFirstResponseElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
-            selectedAssistantResponseSource = if (officialFlowUsed) {
-                "held-official-flow"
-            } else {
-                "held-official-blocking"
-            },
-            officialFlowUsed = officialFlowUsed,
+            selectedAssistantResponseSource = executionPath.sourceLabel,
+            officialFlowAttempted = executionPath.officialFlowAttempted,
+            officialFlowUsed = executionPath.officialFlowUsed,
+            officialFlowFallbackReason = null,
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
         ),
@@ -3403,6 +3469,67 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
             closeLifecycleSummary
         },
     )
+}
+
+private fun normalizeLocalInferenceRunResult(result: LocalInferenceRunResult?): LocalInferenceRunResult? {
+    if (result == null) return null
+    val executionPath = LocalExecutionPath.fromSourceLabel(result.trace.selectedAssistantResponseSource)
+        ?: LocalExecutionPath.fromClosePath(result.closeLifecycleSummary?.path)
+    val usesOfficialApi = executionPath?.usesOfficialConversationApi == true
+    val officialFlowUsed = executionPath?.officialFlowUsed ?: result.trace.officialFlowUsed
+    val officialFlowAttempted = when {
+        executionPath != null -> executionPath.officialFlowAttempted
+        officialFlowUsed -> true
+        else -> result.trace.officialFlowAttempted
+    }
+    val officialFlowFallbackReason = if (officialFlowUsed) {
+        null
+    } else {
+        result.trace.officialFlowFallbackReason
+    }
+    val normalizedTrace = result.trace.copy(
+        selectedAssistantResponseSource = executionPath?.sourceLabel
+            ?: result.trace.selectedAssistantResponseSource,
+        officialFlowAttempted = officialFlowAttempted,
+        officialFlowUsed = officialFlowUsed,
+        officialFlowFallbackReason = officialFlowFallbackReason,
+        officialConversationApiAvailable = when {
+            result.trace.officialConversationApiAvailable != null -> result.trace.officialConversationApiAvailable
+            usesOfficialApi -> true
+            else -> null
+        },
+        outputTokenProbe = normalizeStatsProbeAvailability(
+            probe = result.trace.outputTokenProbe,
+            derivableNow = result.trace.sessionResponseTokens != null,
+            usesOfficialApi = usesOfficialApi,
+        ),
+        evalTimeProbe = normalizeStatsProbeAvailability(
+            probe = result.trace.evalTimeProbe,
+            derivableNow = result.trace.localTraceStartElapsedRealtimeMs != null &&
+                result.trace.localTraceCompletedElapsedRealtimeMs != null,
+            usesOfficialApi = usesOfficialApi,
+        ),
+        firstTokenProbe = normalizeStatsProbeAvailability(
+            probe = result.trace.firstTokenProbe,
+            derivableNow = result.trace.localTraceStartElapsedRealtimeMs != null &&
+                result.trace.localTraceFirstResponseElapsedRealtimeMs != null,
+            usesOfficialApi = usesOfficialApi,
+        ),
+    )
+    return result.copy(trace = normalizedTrace)
+}
+
+private fun normalizeStatsProbeAvailability(
+    probe: LocalStatsCandidateProbe,
+    derivableNow: Boolean,
+    usesOfficialApi: Boolean,
+): LocalStatsCandidateProbe {
+    if (probe.availability != LocalStatsAvailability.NOT_FOUND) return probe
+    return when {
+        derivableNow -> probe.copy(availability = LocalStatsAvailability.DERIVABLE_NOW)
+        usesOfficialApi -> probe.copy(availability = LocalStatsAvailability.API_CANDIDATE_ONLY)
+        else -> probe
+    }
 }
 
 private fun ensureSuccessCloseLifecycleSummary(
