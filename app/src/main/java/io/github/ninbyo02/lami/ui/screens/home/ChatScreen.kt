@@ -373,6 +373,40 @@ private data class LocalInferenceResolvedStats(
     val totalTokens: ResolvedIntStat,
 )
 
+private enum class StatsUiValueSource {
+    MEASURED,
+    DERIVED,
+    ESTIMATED,
+    API_CANDIDATE_ONLY,
+    UNAVAILABLE,
+}
+
+private data class UiStatValue(
+    val valueText: String,
+    val source: StatsUiValueSource,
+    val rawValueLong: Long? = null,
+    val rawValueInt: Int? = null,
+)
+
+private data class UiTokenStats(
+    val inputTokens: UiStatValue,
+    val outputTokens: UiStatValue,
+    val totalTokens: UiStatValue,
+)
+
+private data class LocalInferenceStatsUiModel(
+    val firstToken: UiStatValue,
+    val promptEvalTime: UiStatValue,
+    val generationTime: UiStatValue,
+    val totalTime: UiStatValue,
+    val tokens: UiTokenStats,
+    val tokensPerSecond: UiStatValue,
+    val modelLoadTime: UiStatValue,
+    val imageInput: UiStatValue,
+    val finishReasonText: String,
+    val sourceLabel: String,
+)
+
 private data class LocalInferenceTrace(
     val createMethodSignature: String? = null,
     val optionsBuildPath: String? = null,
@@ -5421,6 +5455,138 @@ private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferen
     )
 }
 
+private fun StatsValueSource.toUiSource(): StatsUiValueSource = when (this) {
+    StatsValueSource.MEASURED -> StatsUiValueSource.MEASURED
+    StatsValueSource.DERIVED -> StatsUiValueSource.DERIVED
+    StatsValueSource.API_CANDIDATE_ONLY -> StatsUiValueSource.API_CANDIDATE_ONLY
+    StatsValueSource.UNAVAILABLE -> StatsUiValueSource.UNAVAILABLE
+}
+
+private fun StatsUiValueSource.toDevLabel(): String = when (this) {
+    StatsUiValueSource.MEASURED -> "MEASURED"
+    StatsUiValueSource.DERIVED -> "DERIVED"
+    StatsUiValueSource.ESTIMATED -> "ESTIMATED"
+    StatsUiValueSource.API_CANDIDATE_ONLY -> "API_CANDIDATE_ONLY"
+    StatsUiValueSource.UNAVAILABLE -> "UNAVAILABLE"
+}
+
+private fun StatsUiValueSource.toUiStateLabel(): String = when (this) {
+    StatsUiValueSource.MEASURED,
+    StatsUiValueSource.DERIVED,
+    -> "取得済み"
+    StatsUiValueSource.ESTIMATED -> "推定"
+    StatsUiValueSource.API_CANDIDATE_ONLY -> "候補のみ"
+    StatsUiValueSource.UNAVAILABLE -> "未取得"
+}
+
+private fun buildLocalInferenceStatsUiModel(
+    trace: LocalInferenceTrace,
+    stats: InferenceStats,
+): LocalInferenceStatsUiModel {
+    val resolved = resolveLocalInferenceStats(trace)
+    val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
+    fun buildDurationStat(valueNs: Long?, source: StatsUiValueSource): UiStatValue = UiStatValue(
+        valueText = formatProbeDurationForUi(valueNs),
+        source = source,
+        rawValueLong = valueNs,
+    )
+    fun buildIntStat(value: Int?, source: StatsUiValueSource): UiStatValue = UiStatValue(
+        valueText = value?.toString() ?: "—",
+        source = source,
+        rawValueInt = value,
+    )
+
+    val inputTokens = stats.inputTokens?.takeIf { it >= 0 }?.let {
+        buildIntStat(it, StatsUiValueSource.DERIVED)
+    } ?: buildIntStat(
+        value = null,
+        source = if (usesOfficialApi) StatsUiValueSource.API_CANDIDATE_ONLY else StatsUiValueSource.UNAVAILABLE,
+    )
+
+    val outputTokens = buildIntStat(
+        value = resolved.outputTokens.value,
+        source = resolved.outputTokens.source.toUiSource(),
+    )
+
+    val totalTokens = when {
+        inputTokens.rawValueInt != null &&
+            outputTokens.rawValueInt != null &&
+            inputTokens.source == StatsUiValueSource.MEASURED &&
+            outputTokens.source == StatsUiValueSource.MEASURED -> {
+            buildIntStat(
+                value = inputTokens.rawValueInt + outputTokens.rawValueInt,
+                source = StatsUiValueSource.MEASURED,
+            )
+        }
+        resolved.totalTokens.value != null -> {
+            val totalSource = if (trace.estimatedTokenProbe.availability != LocalStatsAvailability.NOT_FOUND) {
+                StatsUiValueSource.ESTIMATED
+            } else {
+                resolved.totalTokens.source.toUiSource()
+            }
+            buildIntStat(value = resolved.totalTokens.value, source = totalSource)
+        }
+        else -> buildIntStat(
+            value = null,
+            source = if (usesOfficialApi) StatsUiValueSource.API_CANDIDATE_ONLY else StatsUiValueSource.UNAVAILABLE,
+        )
+    }
+
+    val generationTime = buildDurationStat(
+        valueNs = resolved.generationDurationNs.value ?: stats.generationDurationNs,
+        source = resolved.generationDurationNs.source.toUiSource(),
+    )
+
+    val outputTokensForTps = outputTokens.rawValueInt
+    val generationMsForTps = generationTime.rawValueLong?.div(1_000_000L)
+    val tokensPerSecondValue = generationMsForTps?.let {
+        buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
+    }
+    val tokensPerSecondSource = when {
+        tokensPerSecondValue == null -> StatsUiValueSource.UNAVAILABLE
+        outputTokens.source == StatsUiValueSource.MEASURED -> StatsUiValueSource.DERIVED
+        outputTokens.source == StatsUiValueSource.ESTIMATED -> StatsUiValueSource.ESTIMATED
+        else -> StatsUiValueSource.UNAVAILABLE
+    }
+    val tokensPerSecond = UiStatValue(
+        valueText = tokensPerSecondValue?.let { String.format(Locale.US, "%.1f token/s", it) } ?: "—",
+        source = tokensPerSecondSource,
+    )
+
+    return LocalInferenceStatsUiModel(
+        firstToken = UiStatValue(
+            valueText = resolved.firstTokenMs.value?.let { "${it} ms" } ?: "—",
+            source = resolved.firstTokenMs.source.toUiSource(),
+            rawValueLong = resolved.firstTokenMs.value,
+        ),
+        promptEvalTime = buildDurationStat(
+            valueNs = resolved.promptEvalDurationNs.value ?: stats.promptEvalDurationNs,
+            source = resolved.promptEvalDurationNs.source.toUiSource(),
+        ),
+        generationTime = generationTime,
+        totalTime = buildDurationStat(
+            valueNs = resolved.evalDurationNs.value ?: stats.evalDurationNs,
+            source = resolved.evalDurationNs.source.toUiSource(),
+        ),
+        tokens = UiTokenStats(
+            inputTokens = inputTokens,
+            outputTokens = outputTokens,
+            totalTokens = totalTokens,
+        ),
+        tokensPerSecond = tokensPerSecond,
+        modelLoadTime = buildDurationStat(
+            valueNs = stats.modelLoadDurationNs,
+            source = if (stats.modelLoadDurationNs != null) StatsUiValueSource.MEASURED else StatsUiValueSource.UNAVAILABLE,
+        ),
+        imageInput = UiStatValue(
+            valueText = formatImageInputCount(stats) ?: "—",
+            source = if (formatImageInputCount(stats) != null) StatsUiValueSource.DERIVED else StatsUiValueSource.UNAVAILABLE,
+        ),
+        finishReasonText = formatFinishReason(stats) ?: "—",
+        sourceLabel = trace.selectedAssistantResponseSource ?: "—",
+    )
+}
+
 private fun deriveElapsedDurationMsOrNull(
     startElapsedRealtimeMs: Long?,
     endElapsedRealtimeMs: Long?,
@@ -5967,6 +6133,7 @@ private fun resolveLocalSourceItemsForDev(
     stats: InferenceStats,
 ): List<InferenceStatItemUi> {
     val resolved = resolveLocalInferenceStats(trace)
+    val statsUiModel = buildLocalInferenceStatsUiModel(trace = trace, stats = stats)
     fun formatResolvedSource(
         source: StatsValueSource,
         detail: String,
@@ -5993,18 +6160,8 @@ private fun resolveLocalSourceItemsForDev(
         !stats.finishReason.isNullOrBlank() -> "trace-finishReason-fallback"
         else -> "unavailable"
     }
-    val outputTokenSource = when (resolved.outputTokens.source) {
-        StatsValueSource.MEASURED -> formatResolvedSource(resolved.outputTokens.source, "probe-output")
-        StatsValueSource.DERIVED -> formatResolvedSource(resolved.outputTokens.source, "session-output")
-        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.outputTokens.source, "")
-        StatsValueSource.UNAVAILABLE -> "unavailable"
-    }
-    val totalTokenSource = when (resolved.totalTokens.source) {
-        StatsValueSource.MEASURED -> formatResolvedSource(resolved.totalTokens.source, "probe-total")
-        StatsValueSource.DERIVED -> formatResolvedSource(resolved.totalTokens.source, "session-total")
-        StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.totalTokens.source, "")
-        StatsValueSource.UNAVAILABLE -> "unavailable"
-    }
+    val outputTokenSource = statsUiModel.tokens.outputTokens.source.toDevLabel().lowercase(Locale.ROOT)
+    val totalTokenSource = statsUiModel.tokens.totalTokens.source.toDevLabel().lowercase(Locale.ROOT)
     val firstTokenSource = when (resolved.firstTokenMs.source) {
         StatsValueSource.MEASURED -> formatResolvedSource(resolved.firstTokenMs.source, "probe-first-token")
         StatsValueSource.DERIVED -> formatResolvedSource(resolved.firstTokenMs.source, "self-trace-first-response")
@@ -6031,15 +6188,7 @@ private fun resolveLocalSourceItemsForDev(
         StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.promptEvalDurationNs.source, "")
         StatsValueSource.UNAVAILABLE -> "unavailable"
     }
-    val tokensPerSecondSource = if (buildLocalTokensPerSecondOrNull(
-            outputTokens = stats.outputTokens,
-            generationTimeMs = stats.generationTimeMs ?: 0L,
-        ) != null
-    ) {
-        "derived-from-output-and-generationTimeMs"
-    } else {
-        "unavailable"
-    }
+    val tokensPerSecondSource = statsUiModel.tokensPerSecond.source.toDevLabel().lowercase(Locale.ROOT)
     return listOf(
         InferenceStatItemUi(label = "modelNameSource", value = modelNameSource),
         InferenceStatItemUi(label = "finishReasonSource", value = finishReasonSource),
@@ -6059,7 +6208,7 @@ private fun buildLocalInventorySectionForDev(
     stats: InferenceStats,
 ): InferenceStatsSectionUi? {
     if (!isLocalMinimal || trace == null) return null
-    val resolved = resolveLocalInferenceStats(trace)
+    val statsUiModel = buildLocalInferenceStatsUiModel(trace = trace, stats = stats)
     val rawProbeComparisonItems = listOf(
         InferenceStatItemUi(label = "rawOutputTokens", value = trace.outputTokenProbe.valueSummary ?: "—"),
         InferenceStatItemUi(label = "rawEstimatedTokens", value = trace.estimatedTokenProbe.valueSummary ?: "—"),
@@ -6101,17 +6250,17 @@ private fun buildLocalInventorySectionForDev(
         items = listOf(
             InferenceStatItemUi(label = "modelName", value = trace.modelNameProbe.availability.name),
             InferenceStatItemUi(label = "finishReason", value = trace.finishReasonProbe.availability.name),
-            InferenceStatItemUi(label = "outputTokens", value = resolved.outputTokens.source.name),
+            InferenceStatItemUi(label = "outputTokens", value = statsUiModel.tokens.outputTokens.source.toDevLabel()),
             InferenceStatItemUi(label = "outputTokensSignature", value = trace.outputTokenProbe.signature ?: "—"),
-            InferenceStatItemUi(label = "estimatedTokens", value = resolved.totalTokens.source.name),
+            InferenceStatItemUi(label = "estimatedTokens", value = statsUiModel.tokens.totalTokens.source.toDevLabel()),
             InferenceStatItemUi(label = "estimatedTokensSignature", value = trace.estimatedTokenProbe.signature ?: "—"),
             InferenceStatItemUi(label = "loadTime", value = trace.loadTimeProbe.availability.name),
             InferenceStatItemUi(label = "loadTimeSignature", value = trace.loadTimeProbe.signature ?: "—"),
             InferenceStatItemUi(label = "promptEvalTime", value = trace.promptEvalTimeProbe.availability.name),
             InferenceStatItemUi(label = "promptEvalTimeSignature", value = trace.promptEvalTimeProbe.signature ?: "—"),
-            InferenceStatItemUi(label = "evalTime", value = resolved.evalDurationNs.source.name),
+            InferenceStatItemUi(label = "evalTime", value = statsUiModel.totalTime.source.toDevLabel()),
             InferenceStatItemUi(label = "evalTimeSignature", value = trace.evalTimeProbe.signature ?: "—"),
-            InferenceStatItemUi(label = "firstToken", value = resolved.firstTokenMs.source.name),
+            InferenceStatItemUi(label = "firstToken", value = statsUiModel.firstToken.source.toDevLabel()),
             InferenceStatItemUi(label = "firstTokenSignature", value = trace.firstTokenProbe.signature ?: "—"),
             InferenceStatItemUi(
                 label = "streamingCandidate",
@@ -6306,6 +6455,7 @@ private fun buildInferenceDetailSections(
     devDebugText: String? = null,
 ): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
+    val localStatsUiModel = localTraceForDev?.let { buildLocalInferenceStatsUiModel(trace = it, stats = stats) }
     val devSectionItems = buildList {
         devHeldStateText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Held Engine State", value = it))
@@ -6330,9 +6480,27 @@ private fun buildInferenceDetailSections(
         InferenceStatsSectionUi(
             title = "トークン",
             items = listOf(
-                InferenceStatItemUi(label = "入力トークン", value = stats.inputTokens?.toString() ?: "—"),
-                InferenceStatItemUi(label = "生成トークン", value = formatOutputTokens(stats) ?: "—"),
-                InferenceStatItemUi(label = "合計トークン", value = formatTotalTokens(stats) ?: "—"),
+                InferenceStatItemUi(
+                    label = "入力トークン",
+                    value = withProbeStateLabel(
+                        value = localStatsUiModel?.tokens?.inputTokens?.valueText ?: stats.inputTokens?.toString(),
+                        state = localStatsUiModel?.tokens?.inputTokens?.source?.toUiStateLabel() ?: "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "生成トークン",
+                    value = withProbeStateLabel(
+                        value = localStatsUiModel?.tokens?.outputTokens?.valueText ?: formatOutputTokens(stats),
+                        state = localStatsUiModel?.tokens?.outputTokens?.source?.toUiStateLabel() ?: "未取得",
+                    ),
+                ),
+                InferenceStatItemUi(
+                    label = "合計トークン",
+                    value = withProbeStateLabel(
+                        value = localStatsUiModel?.tokens?.totalTokens?.valueText ?: formatTotalTokens(stats),
+                        state = localStatsUiModel?.tokens?.totalTokens?.source?.toUiStateLabel() ?: "未取得",
+                    ),
+                ),
             ),
         ),
         InferenceStatsSectionUi(
@@ -6341,29 +6509,34 @@ private fun buildInferenceDetailSections(
                 InferenceStatItemUi(
                     label = "モデルロード時間",
                     value = withProbeStateLabel(
-                        value = formatModelLoadDuration(stats),
-                        state = if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
+                        value = localStatsUiModel?.modelLoadTime?.valueText ?: formatModelLoadDuration(stats),
+                        state = localStatsUiModel?.modelLoadTime?.source?.toUiStateLabel()
+                            ?: if (stats.modelLoadDurationNs != null) "取得済み" else "未取得",
                     ),
                 ),
                 InferenceStatItemUi(
                     label = "入力評価時間",
                     value = withProbeStateLabel(
-                        value = formatPromptEvalDuration(stats),
-                        state = if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
+                        value = localStatsUiModel?.promptEvalTime?.valueText ?: formatPromptEvalDuration(stats),
+                        state = localStatsUiModel?.promptEvalTime?.source?.toUiStateLabel()
+                            ?: if (stats.promptEvalDurationNs != null) "取得済み" else "未取得",
                     ),
                 ),
                 InferenceStatItemUi(
                     label = "生成時間",
                     value = withProbeStateLabel(
-                        value = if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
-                        state = if (hasRealGenerationDuration) "取得済み" else "未取得",
+                        value = localStatsUiModel?.generationTime?.valueText
+                            ?: if (hasRealGenerationDuration) formatProbeDurationForUi(stats.generationDurationNs) else null,
+                        state = localStatsUiModel?.generationTime?.source?.toUiStateLabel()
+                            ?: if (hasRealGenerationDuration) "取得済み" else "未取得",
                     ),
                 ),
                 InferenceStatItemUi(
                     label = "推論時間",
                     value = withProbeStateLabel(
-                        value = formatProbeDurationForUi(stats.evalDurationNs),
-                        state = if (stats.evalDurationNs != null) "取得済み" else "未取得",
+                        value = localStatsUiModel?.totalTime?.valueText ?: formatProbeDurationForUi(stats.evalDurationNs),
+                        state = localStatsUiModel?.totalTime?.source?.toUiStateLabel()
+                            ?: if (stats.evalDurationNs != null) "取得済み" else "未取得",
                     ),
                 ),
             ),
