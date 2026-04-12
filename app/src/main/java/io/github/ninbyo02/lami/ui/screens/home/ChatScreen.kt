@@ -551,9 +551,9 @@ fun Home(
     LaunchedEffect(selectedInferenceTarget, effectiveChatId) {
         if (selectedInferenceTarget != InferenceTarget.LOCAL) {
             effectiveChatId?.let { currentChatId ->
-                localInferenceEngineHolder.resetConversation(
-                    chatId = currentChatId,
+                localInferenceEngineHolder.notifyLifecycleEvent(
                     reason = "backend-changed",
+                    chatId = currentChatId,
                 )
             }
         }
@@ -574,7 +574,7 @@ fun Home(
         if (path != null) {
             localInferenceEngineHolder.clearIfModelChanged(path)
         } else {
-            localInferenceEngineHolder.clear()
+            localInferenceEngineHolder.notifyLifecycleEvent(reason = "explicit-reset")
         }
     }
     val pickImageLauncher = rememberLauncherForActivityResult(
