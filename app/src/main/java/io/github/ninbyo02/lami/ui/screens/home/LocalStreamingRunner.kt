@@ -70,7 +70,9 @@ internal data class ReusableLocalEngineCreateDiagnostic(
 
 internal data class HeldEngineRunResult(
     val responseText: String,
+    val startElapsedRealtimeMs: Long,
     val firstPartialElapsedRealtimeMs: Long?,
+    val completedElapsedRealtimeMs: Long,
     val partialCount: Int,
     val namespace: String,
     val officialFlowUsed: Boolean,
@@ -106,6 +108,7 @@ internal suspend fun runWithHeldEngine(
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
+    val startElapsedRealtimeMs = SystemClock.elapsedRealtime()
     heldEngine.lastUsedAtElapsedMs = SystemClock.elapsedRealtime()
     val namespace = heldEngine.namespace
     var conversationOutcome: RunCloseTargetOutcome? = null
@@ -237,7 +240,9 @@ internal suspend fun runWithHeldEngine(
     )
     return HeldEngineRunResult(
         responseText = response,
+        startElapsedRealtimeMs = startElapsedRealtimeMs,
         firstPartialElapsedRealtimeMs = if (officialFlowUsed) heldFlowFirstPartialElapsedRealtimeMs else SystemClock.elapsedRealtime(),
+        completedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
         partialCount = if (officialFlowUsed) heldFlowPartialCount else 1,
         namespace = namespace ?: "unknown",
         officialFlowUsed = officialFlowUsed,
