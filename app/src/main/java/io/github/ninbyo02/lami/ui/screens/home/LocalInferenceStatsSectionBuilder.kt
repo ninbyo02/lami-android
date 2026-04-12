@@ -66,6 +66,7 @@ internal fun buildInferenceDetailSections(
     devHeldStateText: String? = null,
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
+    measuredTokenSnapshotSummary: String? = null,
     enableDevLlmSessionAsyncPoc: Boolean = false,
 ): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
@@ -84,6 +85,9 @@ internal fun buildInferenceDetailSections(
         }
         devDebugText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Failure / Debug", value = it))
+        }
+        measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
+            add(InferenceStatItemUi(label = "measuredTokens", value = it))
         }
     }
     val devDiagnosticSummarySection = buildDevDiagnosticSummarySection(

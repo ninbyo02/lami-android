@@ -5273,6 +5273,15 @@ internal fun createLocalInferenceStatsUiModel(
     )
 }
 
+private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): String? {
+    if (trace == null) return null
+    val measuredSnapshot = trace.measuredTokenSnapshot
+    val inputTokens = measuredSnapshot?.inputTokens
+    val outputTokens = measuredSnapshot?.outputTokens
+    val totalTokens = measuredSnapshot?.totalTokens
+    return "in=$inputTokens / out=$outputTokens / total=$totalTokens"
+}
+
 
 private fun buildLocalGenerationOnlyMsOrNull(
     generationTimeMs: Long,
@@ -5421,12 +5430,18 @@ private fun InferenceStatsSheetContent(
         localTraceForDev = localTraceForDev,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
+    val measuredTokenSnapshotSummary = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
+        buildMeasuredTokenSnapshotSummary(localTraceForDev)
+    } else {
+        null
+    }
     val detailSections = buildInferenceDetailSections(
         stats = stats,
         localTraceForDev = localTraceForDev,
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
+        measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
         enableDevLlmSessionAsyncPoc = ENABLE_DEV_LLM_SESSION_ASYNC_POC,
     )
 
