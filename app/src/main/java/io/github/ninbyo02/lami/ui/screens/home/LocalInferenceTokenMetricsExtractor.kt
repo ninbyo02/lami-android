@@ -3,6 +3,8 @@ package io.github.ninbyo02.lami.ui.screens.home
 import io.github.ninbyo02.lami.ui.model.InferenceStats
 import kotlin.math.ceil
 
+private const val ASSISTANT_UPDATE_COUNT_TOKEN_FACTOR = 0.65
+
 internal enum class LocalInferenceTokenMetricSource {
     MEASURED,
     DERIVED,
@@ -57,7 +59,8 @@ internal fun extractLocalInferenceTokenMetrics(
         )
 
     val estimatedOutputTokens = estimateOutputTokensFromAssistantText(assistantText)
-    val assistantUpdateCountAsOutputTokens = trace.assistantUpdateCount.takeIf { it > 0 }
+    val estimatedOutputTokensFromAssistantUpdateCount =
+        estimateOutputTokensFromAssistantUpdateCount(trace.assistantUpdateCount)
     val outputTokens = measuredSnapshot?.outputTokens
         ?.takeIf { it >= 0 }
         ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.MEASURED) }
@@ -70,7 +73,7 @@ internal fun extractLocalInferenceTokenMetrics(
         ?: trace.sessionResponseTokens
             ?.takeIf { it >= 0 }
             ?.let { LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.DERIVED) }
-        ?: assistantUpdateCountAsOutputTokens?.let {
+        ?: estimatedOutputTokensFromAssistantUpdateCount?.let {
             LocalInferenceTokenMetric(value = it, source = LocalInferenceTokenMetricSource.ESTIMATED)
         }
         ?: estimatedOutputTokens?.let {
@@ -124,6 +127,11 @@ private fun estimateOutputTokensFromAssistantText(assistantText: String?): Int? 
     val nonBlankCharCount = assistantText.count { !it.isWhitespace() }
     if (nonBlankCharCount <= 0) return null
     return ceil(nonBlankCharCount / 2.8).toInt().coerceAtLeast(1)
+}
+
+private fun estimateOutputTokensFromAssistantUpdateCount(updateCount: Int?): Int? {
+    if (updateCount == null || updateCount <= 0) return null
+    return ceil(updateCount * ASSISTANT_UPDATE_COUNT_TOKEN_FACTOR).toInt().coerceAtLeast(1)
 }
 
 private fun estimateInputTokensFromPromptText(promptText: String?): Int? {
