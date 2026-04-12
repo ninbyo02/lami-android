@@ -2734,9 +2734,9 @@ fun Home(
                                 }
                         }
 
-                        LaunchedEffect(effectiveChatId, allChatsOrNull?.size) {
+                        LaunchedEffect(effectiveChatId, allChatsOrNull.size) {
                             val currentChatId = effectiveChatId ?: return@LaunchedEffect
-                            val allChats = allChatsOrNull ?: return@LaunchedEffect
+                            val allChats = allChatsOrNull
                             val isListForCurrentChat =
                                 allChats.isEmpty() ||
                                     allChats.all { it.chatId == currentChatId }
@@ -3916,7 +3916,7 @@ private fun generateLiteRtResponseViaReflection(
         context = context,
         message = "UPSTREAM legacy final source=legacy-reflection closePath=${closeSummary.path}",
     )
-    val generatedResult = generatedResponse ?: LocalLiteRtGeneratedResponse(trace = trace)
+    val generatedResult = generatedResponse
     return generatedResult.copy(closeLifecycleSummary = closeSummary)
 }
 

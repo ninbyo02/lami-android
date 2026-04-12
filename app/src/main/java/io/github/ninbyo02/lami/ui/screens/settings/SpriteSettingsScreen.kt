@@ -2963,8 +2963,8 @@ fun SpriteSettingsScreen(navController: NavController) {
         val baseIntervalResult = parseIntervalMsInput(baseIntervalInput)
         val baseSettings = if (baseFramesResult.value != null && baseIntervalResult.value != null) {
             ReadyAnimationSettings(
-                baseFramesResult.value!!,
-                intervalMs = baseIntervalResult.value!!,
+                baseFramesResult.value,
+                intervalMs = baseIntervalResult.value,
             )
         } else {
             applied.base
@@ -3185,7 +3185,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                         .defaultAnimationSettingsForState(SpriteState.ERROR)
                         .second
                         .intervalMs ?: 0
-                    else -> InsertionAnimationSettings.DEFAULT.intervalMs ?: 0
                 }
                 val insertionIntervalMs = validatedInsertion?.intervalMs
                 val resolvedInsertionIntervalMs = if (validatedInsertion == null) {
@@ -3195,10 +3194,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                 }
                 val hasMissingPatternInterval = insertionEnabled &&
                     (validatedInsertion
-                        ?.patterns
-                        ?.take(2)
-                        ?.any { pattern -> pattern.intervalMs == null }
-                        ?: false)
+                        .patterns
+                        .take(2)
+                        .any { pattern -> pattern.intervalMs == null })
                 if (hasMissingPatternInterval && BuildConfig.DEBUG) {
                     Log.d(
                         "LamiSprite",
