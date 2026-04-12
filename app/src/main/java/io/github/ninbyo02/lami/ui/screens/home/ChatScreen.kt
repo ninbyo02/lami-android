@@ -3479,7 +3479,9 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
         response = responseText,
         trace = LocalInferenceTrace(
             localModelDisplayName = localModelDisplayName,
+            localTraceStartElapsedRealtimeMs = startElapsedRealtimeMs,
             localTraceFirstResponseElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
+            localTraceCompletedElapsedRealtimeMs = completedElapsedRealtimeMs,
             selectedAssistantResponseSource = executionPath.sourceLabel,
             officialFlowAttempted = executionPath.officialFlowAttempted,
             officialFlowUsed = executionPath.officialFlowUsed,
@@ -5314,14 +5316,18 @@ private fun resolveMissingValueSource(
 
 private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferenceResolvedStats {
     val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
+    val startElapsedMs = trace.localTraceStartElapsedRealtimeMs
+    val firstResponseElapsedMs = trace.localTraceFirstResponseElapsedRealtimeMs
+    val completedElapsedMs = trace.localTraceCompletedElapsedRealtimeMs
+    val derivedFirstTokenMs = deriveElapsedDurationMsOrNull(startElapsedMs, firstResponseElapsedMs)
+    val derivedGenerationMs = deriveElapsedDurationMsOrNull(firstResponseElapsedMs, completedElapsedMs)
+    val derivedTotalMs = deriveElapsedDurationMsOrNull(startElapsedMs, completedElapsedMs)
 
     val firstTokenMs = trace.firstTokenProbe.longValueOrNull()?.takeIf { it >= 0L }?.let {
         ResolvedLongStat(value = it, source = StatsValueSource.MEASURED)
     } ?: run {
-        val start = trace.localTraceStartElapsedRealtimeMs
-        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
-        if (start != null && firstResponse != null && firstResponse >= start) {
-            ResolvedLongStat(value = firstResponse - start, source = StatsValueSource.DERIVED)
+        if (derivedFirstTokenMs != null) {
+            ResolvedLongStat(value = derivedFirstTokenMs, source = StatsValueSource.DERIVED)
         } else {
             ResolvedLongStat(
                 value = null,
@@ -5330,13 +5336,14 @@ private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferen
         }
     }
 
+    val measuredEvalDurationNs = trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }
+    val measuredPromptEvalDurationNs = trace.promptEvalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }
+
     val generationDurationNs = trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }?.let {
         ResolvedLongStat(value = it, source = StatsValueSource.MEASURED)
     } ?: run {
-        val firstResponse = trace.localTraceFirstResponseElapsedRealtimeMs
-        val completed = trace.localTraceCompletedElapsedRealtimeMs
-        if (firstResponse != null && completed != null && completed >= firstResponse) {
-            ResolvedLongStat(value = (completed - firstResponse) * 1_000_000L, source = StatsValueSource.DERIVED)
+        if (derivedGenerationMs != null) {
+            ResolvedLongStat(value = derivedGenerationMs * 1_000_000L, source = StatsValueSource.DERIVED)
         } else {
             ResolvedLongStat(
                 value = null,
@@ -5346,10 +5353,9 @@ private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferen
     }
 
     val totalDurationNs = run {
-        val start = trace.localTraceStartElapsedRealtimeMs
-        val completed = trace.localTraceCompletedElapsedRealtimeMs
-        if (start != null && completed != null && completed >= start) {
-            ResolvedLongStat(value = (completed - start) * 1_000_000L, source = StatsValueSource.DERIVED)
+        if (derivedTotalMs != null) {
+            // total = completed - start
+            ResolvedLongStat(value = derivedTotalMs * 1_000_000L, source = StatsValueSource.DERIVED)
         } else {
             trace.wallClockTotalInferenceDurationNs?.takeIf { it >= 0L }?.let {
                 ResolvedLongStat(value = it, source = StatsValueSource.DERIVED)
@@ -5357,10 +5363,11 @@ private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferen
         }
     }
 
-    val evalDurationNs = if (trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L } != null) {
-        val measuredEvalNs = trace.evalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }
-        ResolvedLongStat(value = measuredEvalNs, source = StatsValueSource.MEASURED)
+    val evalDurationNs = if (measuredEvalDurationNs != null) {
+        // eval は API/probe が返す純粋な generation 相当時間として扱う。
+        ResolvedLongStat(value = measuredEvalDurationNs, source = StatsValueSource.MEASURED)
     } else if (totalDurationNs.value != null) {
+        // eval 取得不可時のみ total を代替値に固定する。
         ResolvedLongStat(value = totalDurationNs.value, source = StatsValueSource.DERIVED)
     } else {
         ResolvedLongStat(
@@ -5369,7 +5376,8 @@ private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferen
         )
     }
 
-    val promptEvalDurationNs = trace.promptEvalTimeProbe.durationNsOrNull()?.takeIf { it >= 0L }?.let {
+    val promptEvalDurationNs = measuredPromptEvalDurationNs?.let {
+        // promptEval は API/probe の取得値を優先し、未取得時は total - generation を使う。
         ResolvedLongStat(value = it, source = StatsValueSource.MEASURED)
     } ?: run {
         val totalNs = totalDurationNs.value
@@ -5411,6 +5419,15 @@ private fun resolveLocalInferenceStats(trace: LocalInferenceTrace): LocalInferen
         outputTokens = outputTokens,
         totalTokens = totalTokens,
     )
+}
+
+private fun deriveElapsedDurationMsOrNull(
+    startElapsedRealtimeMs: Long?,
+    endElapsedRealtimeMs: Long?,
+): Long? {
+    if (startElapsedRealtimeMs == null || endElapsedRealtimeMs == null) return null
+    if (endElapsedRealtimeMs < startElapsedRealtimeMs) return null
+    return endElapsedRealtimeMs - startElapsedRealtimeMs
 }
 
 private fun buildLocalTokensPerSecondOrNull(
