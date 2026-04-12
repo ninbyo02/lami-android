@@ -243,6 +243,20 @@ private data class LocalInferenceRunResult(
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
+private data class LocalModelResolution(
+    val modelPath: String,
+    val displayName: String,
+    val backendKey: String,
+    val cacheDirPath: String,
+) {
+    val engineKey: HeldEngineKey
+        get() = HeldEngineKey(
+            modelPath = modelPath,
+            backendKey = backendKey,
+            cacheDirPath = cacheDirPath,
+        )
+}
+
 private enum class LocalStatsAvailability {
     AVAILABLE_NOW,
     DERIVABLE_NOW,
@@ -405,7 +419,7 @@ fun Home(
     val localStreamingRunner = remember(context.applicationContext, settingsPreferences) {
         DefaultLocalStreamingRunner<LocalInferenceRunResult>(
             timeoutMs = LOCAL_GENERATE_TIMEOUT_MS,
-        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, onPartial ->
+        ) { runPrompt, runLocalBaseModelFilePath, runLocalBaseModelDisplayName, runResolvedModelPath, runCacheDirPath, onPartial ->
             appendLocalReflectionTrace(
                 context = context.applicationContext,
                 message = "UPSTREAM before-runLocalInferenceOnceEntry",
@@ -415,6 +429,8 @@ fun Home(
                 settingsPreferences = settingsPreferences,
                 localBaseModelFilePath = runLocalBaseModelFilePath,
                 localBaseModelDisplayName = runLocalBaseModelDisplayName,
+                resolvedModelPath = runResolvedModelPath,
+                resolvedCacheDirPath = runCacheDirPath,
                 prompt = runPrompt,
                 onPartial = onPartial,
             )
@@ -1830,16 +1846,18 @@ fun Home(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
-                                                            val resolvedModelPath = resolveLocalBaseModelPathOrNull(
+                                                            val modelResolution = resolveLocalModelResolutionOrNull(
+                                                                context = context.applicationContext,
                                                                 settingsPreferences = settingsPreferences,
                                                                 localBaseModelFilePath = localBaseModelFilePath,
+                                                                localBaseModelDisplayName = localBaseModelDisplayName,
                                                             )
                                                             val useHeldPathOnlyForDev = BuildConfig.DEBUG && DEV_USE_HELD_PATH_ONLY
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM held-only mode enabled=$useHeldPathOnlyForDev",
                                                             )
-                                                            val runResult = if (resolvedModelPath == null) {
+                                                            val runResult = if (modelResolution == null) {
                                                                 appendLocalReflectionTrace(
                                                                     context = context.applicationContext,
                                                                     message = "UPSTREAM held-skip reason=model-path-unresolved",
@@ -1857,6 +1875,7 @@ fun Home(
                                                                     LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
                                                                 }
                                                             } else {
+                                                                val resolvedModelPath = modelResolution.modelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
                                                                 var heldAcquireFailureStage: String? = null
@@ -1869,7 +1888,7 @@ fun Home(
                                                                 )
                                                                 val heldEngine = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) {
                                                                     val diagnosticResult = localInferenceEngineHolder.acquireWithDiagnostic(
-                                                                        modelPath = resolvedModelPath,
+                                                                        engineKey = modelResolution.engineKey,
                                                                         appendTrace = { message ->
                                                                             if (message.startsWith("UPSTREAM official-helper") || message.startsWith("UPSTREAM held-create")) {
                                                                                 heldOfficialHelperProgress = message
@@ -1894,7 +1913,7 @@ fun Home(
                                                                 } else {
                                                                     runCatching {
                                                                         localInferenceEngineHolder.acquireOrCreate(
-                                                                            modelPath = resolvedModelPath,
+                                                                            engineKey = modelResolution.engineKey,
                                                                             context = context.applicationContext,
                                                                             appendTrace = { message ->
                                                                                 appendLocalReflectionTrace(
@@ -1935,6 +1954,8 @@ fun Home(
                                                                     devHeldStateText = buildString {
                                                                         append("HELD ENGINE STATE\n")
                                                                         append("modelPath=").append(resolvedModelPath).append("\n")
+                                                                        append("backendKey=").append(modelResolution.backendKey).append("\n")
+                                                                        append("cacheDirPath=").append(modelResolution.cacheDirPath).append("\n")
                                                                         append("heldExists=").append(heldEngine != null).append("\n")
                                                                         append("useCount=").append(heldEngine?.useCount ?: -1).append("\n")
                                                                         append("heldHash=").append(heldEngine?.hashCode() ?: -1).append("\n")
@@ -1955,6 +1976,7 @@ fun Home(
                                                                         engineHolder = localInferenceEngineHolder,
                                                                         chatId = currentChatId,
                                                                         prompt = requestPrompt,
+                                                                        localModelDisplayName = modelResolution.displayName,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
@@ -2015,8 +2037,10 @@ fun Home(
                                                                             )
                                                                             val legacyRunResult = localStreamingRunner.run(
                                                                                 prompt = requestPrompt,
-                                                                                localBaseModelFilePath = localBaseModelFilePath,
-                                                                                localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                                localBaseModelFilePath = modelResolution.modelPath,
+                                                                                localBaseModelDisplayName = modelResolution.displayName,
+                                                                                resolvedModelPath = modelResolution.modelPath,
+                                                                                cacheDirPath = modelResolution.cacheDirPath,
                                                                                 onPartial = legacyPartial@{ partial ->
                                                                                     if (localStopRequested) return@legacyPartial
                                                                                     val normalizedPartial = partial.trim()
@@ -2075,8 +2099,10 @@ fun Home(
                                                                     )
                                                                     val legacyRunResult = localStreamingRunner.run(
                                                                         prompt = requestPrompt,
-                                                                        localBaseModelFilePath = localBaseModelFilePath,
-                                                                        localBaseModelDisplayName = localBaseModelDisplayName,
+                                                                        localBaseModelFilePath = modelResolution.modelPath,
+                                                                        localBaseModelDisplayName = modelResolution.displayName,
+                                                                        resolvedModelPath = modelResolution.modelPath,
+                                                                        cacheDirPath = modelResolution.cacheDirPath,
                                                                         onPartial = legacyPartial@{ partial ->
                                                                             if (localStopRequested) return@legacyPartial
                                                                             val normalizedPartial = partial.trim()
@@ -3057,15 +3083,17 @@ private suspend fun initializeLocalInferenceEngineEntry(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
 ): LocalInferenceInitializationResult {
-    val modelPath = resolveLocalBaseModelPathOrNull(
+    val modelResolution = resolveLocalModelResolutionOrNull(
+        context = context,
         settingsPreferences = settingsPreferences,
         localBaseModelFilePath = localBaseModelFilePath,
+        localBaseModelDisplayName = null,
     ) ?: return LocalInferenceInitializationResult(
         state = LocalInferenceEngineState.UNINITIALIZED,
         probeResult = null,
     )
 
-    val probeResult = loadLocalInferenceEngine(context = context, modelPath = modelPath)
+    val probeResult = loadLocalInferenceEngine(context = context, modelPath = modelResolution.modelPath)
     val state = if (probeResult == LocalLiteRtProbeResult.SUCCESS) {
         LocalInferenceEngineState.READY
     } else {
@@ -3079,6 +3107,8 @@ private suspend fun runLocalInferenceOnceEntry(
     settingsPreferences: SettingsPreferences,
     localBaseModelFilePath: String?,
     localBaseModelDisplayName: String?,
+    resolvedModelPath: String? = null,
+    resolvedCacheDirPath: String? = null,
     prompt: String,
     onPartial: (String) -> Unit = {},
 ): LocalInferenceRunResult {
@@ -3087,16 +3117,28 @@ private suspend fun runLocalInferenceOnceEntry(
         context = context,
         message = "UPSTREAM runLocalInferenceOnceEntry-entry promptLength=${prompt.length} localBaseModelFilePathPresent=${!localBaseModelFilePath.isNullOrBlank()} localBaseModelDisplayName=${localBaseModelDisplayName ?: "null"}",
     )
-    val modelPath = resolveLocalBaseModelPathOrNull(
-        settingsPreferences = settingsPreferences,
-        localBaseModelFilePath = localBaseModelFilePath,
-    ) ?: run {
+    val modelResolution = if (!resolvedModelPath.isNullOrBlank()) {
+        LocalModelResolution(
+            modelPath = resolvedModelPath,
+            displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, resolvedModelPath),
+            backendKey = LOCAL_LITERT_BACKEND_KEY,
+            cacheDirPath = resolvedCacheDirPath ?: buildLiteRtCacheDirPath(context),
+        )
+    } else {
+        resolveLocalModelResolutionOrNull(
+            context = context,
+            settingsPreferences = settingsPreferences,
+            localBaseModelFilePath = localBaseModelFilePath,
+            localBaseModelDisplayName = localBaseModelDisplayName,
+        )
+    } ?: run {
         appendLocalReflectionTrace(
             context = context,
             message = "UPSTREAM resolved-local-model-path success=false",
         )
         return LocalInferenceRunResult(state = LocalInferenceEngineState.UNINITIALIZED)
     }
+    val modelPath = modelResolution.modelPath
     appendLocalReflectionTrace(
         context = context,
         message = "UPSTREAM resolved-local-model-path success=true modelPathTail=${modelPath.substringAfterLast('/')}",
@@ -3126,7 +3168,7 @@ private suspend fun runLocalInferenceOnceEntry(
         val officialResult = tryRunOfficialLiteRtFlowStreaming(
             prompt = prompt,
             modelPath = modelPath,
-            cacheDirPath = context.cacheDir.absolutePath,
+            cacheDirPath = modelResolution.cacheDirPath,
             onPartial = { partial ->
                 officialFlowObservedPartialCount += 1
                 onPartial(partial)
@@ -3155,7 +3197,7 @@ private suspend fun runLocalInferenceOnceEntry(
             val fallbackGenerated = generateLiteRtResponseViaReflection(
                 context = context,
                 modelPath = modelPath,
-                localModelDisplayName = localBaseModelDisplayName,
+                localModelDisplayName = modelResolution.displayName,
                 prompt = prompt,
                 onPartial = onPartial,
             )
@@ -3170,7 +3212,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     state = LocalInferenceEngineState.READY,
                     response = fallback,
                     trace = LocalInferenceTrace(
-                        localModelDisplayName = localBaseModelDisplayName,
+                        localModelDisplayName = modelResolution.displayName,
                         localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
                         localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                         localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
@@ -3202,7 +3244,7 @@ private suspend fun runLocalInferenceOnceEntry(
                     state = LocalInferenceEngineState.READY,
                     response = officialResponse,
                 trace = LocalInferenceTrace(
-                    localModelDisplayName = localBaseModelDisplayName,
+                    localModelDisplayName = modelResolution.displayName,
                     localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
                     localTraceFirstResponseElapsedRealtimeMs = officialResult?.firstNonEmptyPartialElapsedRealtimeMs?.let {
                         localTraceStartElapsedRealtimeMs + it
@@ -3232,7 +3274,7 @@ private suspend fun runLocalInferenceOnceEntry(
         val blockingResult = tryRunOfficialLiteRtBlockingConversation(
             prompt = prompt,
             modelPath = modelPath,
-            cacheDirPath = context.cacheDir.absolutePath,
+            cacheDirPath = modelResolution.cacheDirPath,
             appendTrace = { traceMessage ->
                 appendLocalReflectionTrace(context = context, message = traceMessage)
             },
@@ -3248,7 +3290,7 @@ private suspend fun runLocalInferenceOnceEntry(
                 state = LocalInferenceEngineState.READY,
                 response = blockingResponse,
                 trace = LocalInferenceTrace(
-                    localModelDisplayName = localBaseModelDisplayName,
+                    localModelDisplayName = modelResolution.displayName,
                     localTraceStartElapsedRealtimeMs = localTraceStartElapsedRealtimeMs,
                     localTraceFirstResponseElapsedRealtimeMs = SystemClock.elapsedRealtime(),
                     localTraceCompletedElapsedRealtimeMs = SystemClock.elapsedRealtime(),
@@ -3282,7 +3324,7 @@ private suspend fun runLocalInferenceOnceEntry(
     val generated = generateLiteRtResponseViaReflection(
         context = context,
         modelPath = modelPath,
-        localModelDisplayName = localBaseModelDisplayName,
+        localModelDisplayName = modelResolution.displayName,
         prompt = prompt,
         onPartial = onPartial,
     )
@@ -3341,7 +3383,13 @@ private fun HeldEngineRunResult.toLocalInferenceRunResult(): LocalInferenceRunRe
         state = resolvedState,
         response = responseText,
         trace = LocalInferenceTrace(
+            localModelDisplayName = localModelDisplayName,
             localTraceFirstResponseElapsedRealtimeMs = firstPartialElapsedRealtimeMs,
+            selectedAssistantResponseSource = if (officialFlowUsed) {
+                "held-official-flow"
+            } else {
+                "held-official-blocking"
+            },
             officialFlowUsed = officialFlowUsed,
             officialConversationApiAvailable = namespace.isNotBlank(),
             officialFlowChunkCount = partialCount,
@@ -3399,12 +3447,12 @@ private fun buildCloseLifecycleText(summary: RunCloseLifecycleSummary?): String?
 
 @Suppress("UNUSED_PARAMETER")
 private suspend fun LocalInferenceEngineHolder.acquireOrCreate(
-    modelPath: String,
+    engineKey: HeldEngineKey,
     context: Context,
     appendTrace: ((String) -> Unit)? = null,
 ): HeldLocalEngine {
     return acquire(
-        modelPath = modelPath,
+        engineKey = engineKey,
         appendTrace = appendTrace,
     )
 }
@@ -3430,6 +3478,37 @@ private suspend fun resolveLocalBaseModelPathOrNull(
             fallbackFile.canRead() &&
             fallbackFile.name.endsWith(".litertlm", ignoreCase = true)
     }
+}
+
+private const val LOCAL_LITERT_BACKEND_KEY = "text=GPU/vision=GPU/audio=CPU"
+
+private fun buildLiteRtCacheDirPath(context: Context): String = context.cacheDir.absolutePath
+
+private fun resolveLocalModelDisplayName(
+    localBaseModelDisplayName: String?,
+    modelPath: String,
+): String {
+    val normalizedDisplayName = localBaseModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
+    if (normalizedDisplayName != null) return normalizedDisplayName
+    return File(modelPath).name.removeSuffix(".litertlm")
+}
+
+private suspend fun resolveLocalModelResolutionOrNull(
+    context: Context,
+    settingsPreferences: SettingsPreferences,
+    localBaseModelFilePath: String?,
+    localBaseModelDisplayName: String?,
+): LocalModelResolution? {
+    val modelPath = resolveLocalBaseModelPathOrNull(
+        settingsPreferences = settingsPreferences,
+        localBaseModelFilePath = localBaseModelFilePath,
+    ) ?: return null
+    return LocalModelResolution(
+        modelPath = modelPath,
+        displayName = resolveLocalModelDisplayName(localBaseModelDisplayName, modelPath),
+        backendKey = LOCAL_LITERT_BACKEND_KEY,
+        cacheDirPath = buildLiteRtCacheDirPath(context),
+    )
 }
 
 private fun loadLocalInferenceEngine(
@@ -6106,6 +6185,7 @@ private fun resolveDevSummaryModelResolution(
     val traceModel = trace?.localModelDisplayName?.trim()?.takeIf { it.isNotBlank() }
     return when {
         modelName != null && (traceModel == null || modelName == traceModel) -> "設定モデル使用"
+        modelName == null && traceModel != null -> "設定モデル使用"
         else -> "不明"
     }
 }

@@ -22,6 +22,8 @@ internal interface LocalStreamingRunner<T> {
         prompt: String,
         localBaseModelFilePath: String?,
         localBaseModelDisplayName: String?,
+        resolvedModelPath: String? = null,
+        cacheDirPath: String? = null,
         onPartial: (String) -> Unit = {},
     ): T?
 }
@@ -32,6 +34,8 @@ internal class DefaultLocalStreamingRunner<T>(
         prompt: String,
         localBaseModelFilePath: String?,
         localBaseModelDisplayName: String?,
+        resolvedModelPath: String?,
+        cacheDirPath: String?,
         onPartial: (String) -> Unit,
     ) -> T,
 ) : LocalStreamingRunner<T> {
@@ -39,6 +43,8 @@ internal class DefaultLocalStreamingRunner<T>(
         prompt: String,
         localBaseModelFilePath: String?,
         localBaseModelDisplayName: String?,
+        resolvedModelPath: String?,
+        cacheDirPath: String?,
         onPartial: (String) -> Unit,
     ): T? = withContext(Dispatchers.IO) {
         withTimeoutOrNull(timeoutMs) {
@@ -46,6 +52,8 @@ internal class DefaultLocalStreamingRunner<T>(
                 prompt,
                 localBaseModelFilePath,
                 localBaseModelDisplayName,
+                resolvedModelPath,
+                cacheDirPath,
                 onPartial,
             )
         }
@@ -66,6 +74,7 @@ internal data class HeldEngineRunResult(
     val partialCount: Int,
     val namespace: String,
     val officialFlowUsed: Boolean,
+    val localModelDisplayName: String?,
     val closeLifecycleSummary: RunCloseLifecycleSummary? = null,
 )
 
@@ -93,6 +102,7 @@ internal suspend fun runWithHeldEngine(
     engineHolder: LocalInferenceEngineHolder,
     chatId: Int,
     prompt: String,
+    localModelDisplayName: String?,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
@@ -231,6 +241,7 @@ internal suspend fun runWithHeldEngine(
         partialCount = if (officialFlowUsed) heldFlowPartialCount else 1,
         namespace = namespace ?: "unknown",
         officialFlowUsed = officialFlowUsed,
+        localModelDisplayName = localModelDisplayName,
         closeLifecycleSummary = closeSummary,
     )
 }
@@ -491,17 +502,17 @@ private data class LocalOfficialNamespaceSpec(
 
 internal fun createReusableLocalInferenceEngine(
     context: android.content.Context,
-    modelPath: String,
+    engineKey: HeldEngineKey,
     appendTrace: ((String) -> Unit)? = null,
 ): HeldLocalEngine? = createReusableLocalInferenceEngineWithDiagnostic(
     context = context,
-    modelPath = modelPath,
+    engineKey = engineKey,
     appendTrace = appendTrace,
 ).engine
 
 internal fun createReusableLocalInferenceEngineWithDiagnostic(
     context: android.content.Context,
-    modelPath: String,
+    engineKey: HeldEngineKey,
     appendTrace: ((String) -> Unit)? = null,
 ): ReusableLocalEngineCreateDiagnostic {
     val safeTrace: (String) -> Unit = { message ->
@@ -512,8 +523,8 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
     safeAppendTrace(safeTrace, "UPSTREAM held-create engine-config-create-start")
     val officialEngine = runCatching {
         createOfficialLiteRtLmEngineInstance(
-            modelPath = modelPath,
-            cacheDirPath = context.cacheDir.absolutePath,
+            modelPath = engineKey.modelPath,
+            cacheDirPath = engineKey.cacheDirPath,
             appendTrace = safeTrace,
         )
     }.getOrElse { throwable ->
@@ -547,7 +558,8 @@ internal fun createReusableLocalInferenceEngineWithDiagnostic(
             safeAppendTrace(safeTrace, "UPSTREAM held-create engine-initialize-fail class=InitializeUnavailable message=initialize method missing or failed")
         }
         val held = HeldLocalEngine(
-            modelPath = modelPath,
+            engineKey = engineKey,
+            modelPath = engineKey.modelPath,
             engineInstance = officialEngine,
             namespace = "com.google.ai.edge.litertlm",
             createdAtElapsedMs = createdAt,
@@ -1058,14 +1070,7 @@ private suspend fun runOfficialLiteRtLmDirect(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
-        val engineConfig = EngineConfig(
-            modelPath = modelPath,
-            backend = Backend.GPU(),
-            visionBackend = Backend.GPU(),
-            audioBackend = Backend.CPU(),
-            maxNumTokens = null,
-            cacheDir = cacheDirPath,
-        )
+        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
         var conversation: Any? = null
@@ -1168,14 +1173,7 @@ private fun runOfficialLiteRtLmBlocking(
     safeAppendTrace(appendTrace, "UPSTREAM official-direct cacheDirPresent=${cacheDirPath.isNotBlank()}")
 
     return runCatching {
-        val engineConfig = EngineConfig(
-            modelPath = modelPath,
-            backend = Backend.GPU(),
-            visionBackend = Backend.GPU(),
-            audioBackend = Backend.CPU(),
-            maxNumTokens = null,
-            cacheDir = cacheDirPath,
-        )
+        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
         safeAppendTrace(appendTrace, "UPSTREAM official-direct engineConfig-created")
         var engine: Engine? = null
         var conversation: Any? = null
@@ -1270,14 +1268,7 @@ private fun createOfficialLiteRtLmEngineInstance(
     safeAppendTrace(appendTrace, "UPSTREAM official-helper backend=text=GPU vision=GPU audio=CPU")
     safeAppendTrace(appendTrace, "UPSTREAM official-helper cacheDirPresent=${!cacheDirPath.isNullOrBlank()}")
     return runCatching {
-        val engineConfig = EngineConfig(
-            modelPath = modelPath,
-            backend = Backend.GPU(),
-            visionBackend = Backend.GPU(),
-            audioBackend = Backend.CPU(),
-            maxNumTokens = null,
-            cacheDir = cacheDirPath,
-        )
+        val engineConfig = buildLiteRtEngineConfig(modelPath = modelPath, cacheDirPath = cacheDirPath)
         safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-config-created non-null")
         Engine(engineConfig).also {
             safeAppendTrace(appendTrace, "UPSTREAM official-helper engine-new-instance-result non-null")
@@ -1288,6 +1279,18 @@ private fun createOfficialLiteRtLmEngineInstance(
         null
     }
 }
+
+private fun buildLiteRtEngineConfig(
+    modelPath: String,
+    cacheDirPath: String?,
+): EngineConfig = EngineConfig(
+    modelPath = modelPath,
+    backend = Backend.GPU(),
+    visionBackend = Backend.GPU(),
+    audioBackend = Backend.CPU(),
+    maxNumTokens = null,
+    cacheDir = cacheDirPath,
+)
 
 private fun buildOptionsObject(optionClass: Class<*>, modelPath: String): Any? {
     val builderFactory = optionClass.methods.firstOrNull { method ->

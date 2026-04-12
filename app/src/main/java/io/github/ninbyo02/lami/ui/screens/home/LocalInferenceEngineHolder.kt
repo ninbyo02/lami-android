@@ -9,6 +9,7 @@ private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
 private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
 
 internal data class HeldLocalEngine(
+    val engineKey: HeldEngineKey,
     val modelPath: String,
     val engineInstance: Any,
     val namespace: String?,
@@ -16,6 +17,12 @@ internal data class HeldLocalEngine(
     var lastUsedAtElapsedMs: Long,
     var useCount: Int,
     val closeEngine: (((String) -> Unit)?) -> Unit,
+)
+
+internal data class HeldEngineKey(
+    val modelPath: String,
+    val backendKey: String,
+    val cacheDirPath: String,
 )
 
 internal data class HeldEngineAcquireDiagnosticResult(
@@ -55,11 +62,12 @@ internal class LocalInferenceEngineHolder(
     private var heldEngineGeneration: Long = 0L
 
     suspend fun acquire(
-        modelPath: String,
+        engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
     ): HeldLocalEngine = mutex.withLock {
+        val modelPath = engineKey.modelPath
         val current = held
-        if (current != null && current.modelPath == modelPath) {
+        if (current != null && current.engineKey == engineKey) {
             if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
                 val engineClassName = current.engineInstance.javaClass.name
                 appendTrace?.invoke(
@@ -81,7 +89,7 @@ internal class LocalInferenceEngineHolder(
             }
         }
 
-        if (current != null && current.modelPath != modelPath) {
+        if (current != null && current.engineKey != engineKey) {
             val engineClassName = current.engineInstance.javaClass.name
             appendTrace?.invoke(
                 "UPSTREAM held-engine close-start reason=model-changed class=$engineClassName modelPathTail=${current.modelPath.substringAfterLast('/')}",
@@ -94,7 +102,7 @@ internal class LocalInferenceEngineHolder(
 
         val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
             context = appContext,
-            modelPath = modelPath,
+            engineKey = engineKey,
             appendTrace = appendTrace,
         )
         val created = createdDiagnostic.engine
@@ -113,15 +121,16 @@ internal class LocalInferenceEngineHolder(
     }
 
     suspend fun acquireWithDiagnostic(
-        modelPath: String,
+        engineKey: HeldEngineKey,
         appendTrace: ((String) -> Unit)? = null,
     ): HeldEngineAcquireDiagnosticResult = mutex.withLock {
+        val modelPath = engineKey.modelPath
         val modelPathTail = modelPath.substringAfterLast('/')
         appendTrace?.invoke("UPSTREAM held-acquire-diagnostic start modelPathTail=$modelPathTail")
         var failureStage: String? = null
         try {
             val current = held
-            if (current != null && current.modelPath == modelPath) {
+            if (current != null && current.engineKey == engineKey) {
                 if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
                     failureStage = "recycle-close"
                     val engineClassName = current.engineInstance.javaClass.name
@@ -152,7 +161,7 @@ internal class LocalInferenceEngineHolder(
                 }
             }
 
-            if (current != null && current.modelPath != modelPath) {
+            if (current != null && current.engineKey != engineKey) {
                 failureStage = "recycle-close"
                 val engineClassName = current.engineInstance.javaClass.name
                 appendTrace?.invoke(
@@ -167,7 +176,7 @@ internal class LocalInferenceEngineHolder(
             failureStage = "create-reusable-engine"
             val createdDiagnostic = createReusableLocalInferenceEngineWithDiagnostic(
                 context = appContext,
-                modelPath = modelPath,
+                engineKey = engineKey,
                 appendTrace = appendTrace,
             )
             appendTrace?.invoke(
