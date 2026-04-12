@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 private const val MAX_HELD_ENGINE_REUSE_COUNT = 3
+private const val ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT = false
 
 internal data class HeldLocalEngine(
     val modelPath: String,
@@ -59,7 +60,7 @@ internal class LocalInferenceEngineHolder(
     ): HeldLocalEngine = mutex.withLock {
         val current = held
         if (current != null && current.modelPath == modelPath) {
-            if (current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
+            if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
                 val engineClassName = current.engineInstance.javaClass.name
                 appendTrace?.invoke(
                     "UPSTREAM held-engine close-start reason=reuse-limit class=$engineClassName useCount=${current.useCount}/$MAX_HELD_ENGINE_REUSE_COUNT modelPathTail=${current.modelPath.substringAfterLast('/')}",
@@ -121,7 +122,7 @@ internal class LocalInferenceEngineHolder(
         try {
             val current = held
             if (current != null && current.modelPath == modelPath) {
-                if (current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
+                if (ENABLE_HELD_ENGINE_RELOAD_BY_REUSE_LIMIT && current.useCount >= MAX_HELD_ENGINE_REUSE_COUNT) {
                     failureStage = "recycle-close"
                     val engineClassName = current.engineInstance.javaClass.name
                     appendTrace?.invoke(
@@ -258,27 +259,12 @@ internal class LocalInferenceEngineHolder(
         createConversation: (engine: Any, namespace: String?) -> Any?,
     ): Any? = mutex.withLock {
         val existing = heldConversationsByChatId[chatId]
-        if (
-            existing != null &&
-            existing.engineGeneration == heldEngineGeneration &&
-            existing.engineModelPath == heldEngine.modelPath
-        ) {
-            appendTrace?.invoke("UPSTREAM held-conversation reuse-hit chatId=$chatId")
-            return@withLock existing.conversation
-        }
         if (existing != null) {
-            closeConversationLocked(chatId = chatId, reason = "chat-recreate", appendTrace = appendTrace)
+            closeConversationLocked(chatId = chatId, reason = "per-send-recreate", appendTrace = appendTrace)
         }
         val created = createConversation(heldEngine.engineInstance, heldEngine.namespace)
         if (created != null) {
-            heldConversationsByChatId[chatId] = HeldConversation(
-                chatId = chatId,
-                engineModelPath = heldEngine.modelPath,
-                engineGeneration = heldEngineGeneration,
-                conversation = created,
-                namespace = heldEngine.namespace,
-            )
-            appendTrace?.invoke("UPSTREAM held-conversation create-store chatId=$chatId")
+            appendTrace?.invoke("UPSTREAM held-conversation create-ephemeral chatId=$chatId")
         }
         created
     }
