@@ -3257,9 +3257,9 @@ fun SpriteSettingsScreen(navController: NavController) {
                         JSONArray().apply {
                             if (insertionEnabled) {
                                 validatedInsertion
-                                    ?.patterns
-                                    ?.take(2)
-                                    ?.forEach { pattern ->
+                                    .patterns
+                                    .take(2)
+                                    .forEach { pattern ->
                                         put(
                                             JSONObject().apply {
                                                 put(JSON_FRAMES_KEY, JSONArray(pattern.frames()))
@@ -4195,8 +4195,6 @@ fun SpriteSettingsScreen(navController: NavController) {
                                                         SpriteState.ERROR,
                                                         "ErrorHeavy",
                                                     )
-
-                                                    else -> Unit
                                                 }
                                                 // 旧キー sprite_last_selected_animation は段階廃止済み（読み書き停止）
                                             }
@@ -5749,7 +5747,7 @@ private fun rememberReadyAnimationState(
                     lastInsertionResolvedIntervalMs = resolvedIntervalMs
                     lastInsertionFrames = pattern.frames().toList()
                     lastInsertionLoop = loopCount
-                    if (insertionSettings?.exclusive == true) {
+                    if (insertionSettings.exclusive) {
                         insertionSteps
                     } else {
                         insertionSteps + baseSteps
