@@ -70,6 +70,11 @@ internal fun buildInferenceDetailSections(
 ): List<InferenceStatsSectionUi> {
     val hasRealGenerationDuration = stats.generationDurationNs?.let { it > 0L } == true
     val localStatsUiModel = localTraceForDev?.let { createLocalInferenceStatsUiModel(trace = it, stats = stats) }
+    val devDiagnosticsUiModel = buildLocalInferenceDevDiagnosticsUiModel(
+        devHeldStateText = devHeldStateText,
+        devCloseLifecycleText = devCloseLifecycleText,
+        devDebugText = devDebugText,
+    )
     val devSectionItems = buildList {
         devHeldStateText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Held Engine State", value = it))
@@ -87,6 +92,7 @@ internal fun buildInferenceDetailSections(
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
+        devDiagnosticsUiModel = devDiagnosticsUiModel,
     )
 
     return listOfNotNull(
@@ -488,6 +494,7 @@ private fun buildDevDiagnosticSummarySection(
     devHeldStateText: String?,
     devCloseLifecycleText: String?,
     devDebugText: String?,
+    devDiagnosticsUiModel: LocalInferenceDevDiagnosticsUiModel,
 ): InferenceStatsSectionUi? {
     if (
         trace == null &&
@@ -502,10 +509,10 @@ private fun buildDevDiagnosticSummarySection(
         InferenceStatItemUi(label = "実行経路", value = resolveDevSummaryExecutionPath(stats, trace)),
         InferenceStatItemUi(label = "使用モデル", value = resolveDevSummaryModelName(stats, trace)),
         InferenceStatItemUi(label = "モデル解決", value = resolveDevSummaryModelResolution(stats, trace)),
-        InferenceStatItemUi(label = "held engine再利用", value = resolveDevSummaryEngineReuse(devHeldStateText)),
-        InferenceStatItemUi(label = "held engine状態", value = resolveDevSummaryHeldState(devHeldStateText)),
-        InferenceStatItemUi(label = "close結果", value = resolveDevSummaryCloseStatus(devCloseLifecycleText)),
-        InferenceStatItemUi(label = "失敗要約", value = resolveDevSummaryFailure(devDebugText)),
+        InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary),
+        InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary),
+        InferenceStatItemUi(label = "close結果", value = devDiagnosticsUiModel.closeStatusSummary),
+        InferenceStatItemUi(label = "失敗要約", value = devDiagnosticsUiModel.failureSummary),
     )
     if (items.all { it.value == "—" || it.value == "不明" }) return null
     return InferenceStatsSectionUi(
@@ -546,64 +553,3 @@ private fun resolveDevSummaryModelResolution(
         else -> "不明"
     }
 }
-
-private fun resolveDevSummaryEngineReuse(devHeldStateText: String?): String {
-    val heldExists = devHeldStateText.devLineValue("heldExists")?.toBooleanStrictOrNull()
-    val useCount = devHeldStateText.devLineValue("useCount")?.toIntOrNull()
-    val heldHash = devHeldStateText.devLineValue("heldHash")
-    return when {
-        heldExists == true && useCount != null && useCount >= 1 -> "再利用あり"
-        heldExists == true && !heldHash.isNullOrBlank() && heldHash != "null" -> "再利用あり"
-        heldExists == false -> "再利用なし"
-        heldExists == true && useCount == 0 -> "再利用なし"
-        heldExists == true -> "再利用あり"
-        else -> "不明"
-    }
-}
-
-private fun resolveDevSummaryHeldState(devHeldStateText: String?): String {
-    val heldExists = devHeldStateText.devLineValue("heldExists")?.toBooleanStrictOrNull()
-    return when (heldExists) {
-        true -> "存在"
-        false -> "未保持"
-        null -> "不明"
-    }
-}
-
-private fun resolveDevSummaryCloseStatus(devCloseLifecycleText: String?): String {
-    if (devCloseLifecycleText.isNullOrBlank()) return "—"
-    val conversation = devCloseLifecycleText.devLineValue("conversation")?.substringAfter("status=")?.substringBefore(" ")
-    val engine = devCloseLifecycleText.devLineValue("engine")?.substringAfter("status=")?.substringBefore(" ")
-    return listOfNotNull(
-        conversation?.let { "conversation:$it" },
-        engine?.let { "engine:$it" },
-    ).takeIf { it.isNotEmpty() }?.joinToString(" / ") ?: "—"
-}
-
-private fun resolveDevSummaryFailure(devDebugText: String?): String {
-    if (devDebugText.isNullOrBlank()) return "—"
-    val stage = devDebugText.devLineValue("stage")
-    val errorClass = devDebugText.devLineValue("class")
-    val message = devDebugText.devLineValue("message")
-    val primary = listOfNotNull(stage, errorClass)
-        .filter { it.isNotBlank() }
-    if (primary.isNotEmpty()) return primary.take(2).joinToString(" / ")
-    return message
-        ?.takeIf { it.isNotBlank() }
-        ?.take(40)
-        ?.let { if (it.length < (message.length)) "$it…" else it }
-        ?: "—"
-}
-
-private fun String?.devLineValue(key: String): String? {
-    if (this.isNullOrBlank()) return null
-    return lineSequence()
-        .map { it.trim() }
-        .firstOrNull { it.startsWith("$key=") }
-        ?.substringAfter("=")
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-}
-
-private fun withProbeStateLabel(value: String?, state: String): String =
-    "${value ?: "—"}（$state）"
