@@ -685,6 +685,7 @@ fun Home(
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var selectedAssistantMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
+    var selectedPromptMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
     var latestLocalTraceForDev by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var showInferenceStatsSheet by remember { mutableStateOf(false) }
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
@@ -2964,6 +2965,10 @@ fun Home(
                                                         selectedInferenceStats = it
                                                         selectedLocalTraceForDevSheet = latestLocalTraceForDev
                                                         selectedAssistantMessageTextForStatsSheet = message.message
+                                                        selectedPromptMessageTextForStatsSheet =
+                                                            messagesForList.getOrNull(index - 1)
+                                                                ?.takeIf { it.isSendbyMe }
+                                                                ?.message
                                                         showInferenceStatsSheet = true
                                                     }
                                                 },
@@ -3086,6 +3091,7 @@ fun Home(
                 selectedInferenceStats = null
                 selectedLocalTraceForDevSheet = null
                 selectedAssistantMessageTextForStatsSheet = null
+                selectedPromptMessageTextForStatsSheet = null
             },
         ) {
             stats?.let {
@@ -3093,6 +3099,7 @@ fun Home(
                     stats = it,
                     localTraceForDev = selectedLocalTraceForDevSheet,
                     assistantText = selectedAssistantMessageTextForStatsSheet,
+                    promptText = selectedPromptMessageTextForStatsSheet,
                     devHeldStateText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devHeldStateText else null,
                     devCloseLifecycleText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devCloseLifecycleText else null,
                     devDebugText = if (BuildConfig.DEBUG && DEV_UI_DEBUG_MODE) devDebugText else null,
@@ -5268,6 +5275,7 @@ internal fun createLocalInferenceStatsUiModel(
     trace: LocalInferenceTrace,
     stats: InferenceStats,
     assistantText: String? = null,
+    promptText: String? = null,
 ): LocalInferenceStatsUiModel {
     return buildLocalInferenceStatsUiModel(
         trace = trace,
@@ -5275,6 +5283,7 @@ internal fun createLocalInferenceStatsUiModel(
         stats = stats,
         measuredSnapshot = trace.measuredTokenSnapshot,
         assistantText = assistantText,
+        promptText = promptText,
         selectedAssistantResponseSource = trace.selectedAssistantResponseSource,
     )
 }
@@ -5422,6 +5431,7 @@ private fun InferenceStatsSheetContent(
     stats: InferenceStats,
     localTraceForDev: LocalInferenceTrace? = null,
     assistantText: String? = null,
+    promptText: String? = null,
     devHeldStateText: String? = null,
     devCloseLifecycleText: String? = null,
     devDebugText: String? = null,
@@ -5446,6 +5456,7 @@ private fun InferenceStatsSheetContent(
         stats = stats,
         localTraceForDev = localTraceForDev,
         assistantText = assistantText,
+        promptText = promptText,
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
         devDebugText = devDebugText,
