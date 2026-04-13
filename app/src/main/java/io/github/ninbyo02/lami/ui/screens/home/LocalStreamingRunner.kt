@@ -442,20 +442,30 @@ private fun readMeasuredTokenSnapshotFromConversation(
     val liteRtConversation = conversation as? Conversation ?: return null
     return runCatching {
         val benchmarkInfo = liteRtConversation.getBenchmarkInfo()
-        val inputTokens = benchmarkInfo.lastPrefillTokenCount.takeIf { it >= 0 }
-        val outputTokens = benchmarkInfo.lastDecodeTokenCount.takeIf { it >= 0 }
+        val lastPrefillTokenCount = benchmarkInfo.lastPrefillTokenCount.takeIf { it >= 0 }
+        val lastDecodeTokenCount = benchmarkInfo.lastDecodeTokenCount.takeIf { it >= 0 }
+        val inputTokens = lastPrefillTokenCount
+        val outputTokens = lastDecodeTokenCount
         val totalTokens = if (inputTokens != null && outputTokens != null) {
             inputTokens + outputTokens
         } else {
             null
         }
-        val snapshot = if (inputTokens == null && outputTokens == null && totalTokens == null) {
+        val snapshot = if (
+            inputTokens == null &&
+            outputTokens == null &&
+            totalTokens == null &&
+            lastPrefillTokenCount == null &&
+            lastDecodeTokenCount == null
+        ) {
             null
         } else {
             LocalInferenceMeasuredTokenSnapshot(
                 inputTokens = inputTokens,
                 outputTokens = outputTokens,
                 totalTokens = totalTokens,
+                lastPrefillTokenCount = lastPrefillTokenCount,
+                lastDecodeTokenCount = lastDecodeTokenCount,
             )
         }
         if (BuildConfig.DEBUG) {

@@ -125,29 +125,51 @@ internal fun buildInferenceDetailSections(
         devDiagnosticSummarySection,
         InferenceStatsSectionUi(
             title = "トークン",
-            items = listOf(
-                InferenceStatItemUi(
-                    label = "入力トークン",
-                    value = formatRegularTokenValue(
-                        statValue = localStatsUiModel?.tokens?.inputTokens,
-                        fallbackValue = stats.inputTokens?.toString(),
+            items = buildList {
+                add(
+                    InferenceStatItemUi(
+                        label = "入力トークン",
+                        value = formatRegularTokenValue(
+                            statValue = localStatsUiModel?.tokens?.inputTokens,
+                            fallbackValue = stats.inputTokens?.toString(),
+                        ),
                     ),
-                ),
-                InferenceStatItemUi(
-                    label = "生成トークン",
-                    value = formatRegularTokenValue(
-                        statValue = localStatsUiModel?.tokens?.outputTokens,
-                        fallbackValue = formatOutputTokens(stats),
+                )
+                add(
+                    InferenceStatItemUi(
+                        label = "生成トークン",
+                        value = formatRegularTokenValue(
+                            statValue = localStatsUiModel?.tokens?.outputTokens,
+                            fallbackValue = formatOutputTokens(stats),
+                        ),
                     ),
-                ),
-                InferenceStatItemUi(
-                    label = "合計トークン",
-                    value = formatRegularTokenValue(
-                        statValue = localStatsUiModel?.tokens?.totalTokens,
-                        fallbackValue = formatTotalTokens(stats),
+                )
+                add(
+                    InferenceStatItemUi(
+                        label = "合計トークン",
+                        value = formatRegularTokenValue(
+                            statValue = localStatsUiModel?.tokens?.totalTokens,
+                            fallbackValue = formatTotalTokens(stats),
+                        ),
                     ),
-                ),
-            ),
+                )
+                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
+                    add(
+                        InferenceStatItemUi(
+                            label = "直近 Prefill Token",
+                            value = it.toString(),
+                        ),
+                    )
+                }
+                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
+                    add(
+                        InferenceStatItemUi(
+                            label = "直近 Decode Token",
+                            value = it.toString(),
+                        ),
+                    )
+                }
+            },
         ),
         InferenceStatsSectionUi(
             title = "バックエンド時間詳細",

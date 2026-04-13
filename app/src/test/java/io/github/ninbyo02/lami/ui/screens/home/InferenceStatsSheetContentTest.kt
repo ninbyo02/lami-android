@@ -148,6 +148,27 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceDetailSections adds LiteRT-LM benchmark last token rows when available`() {
+        val trace = LocalInferenceTrace(
+            measuredTokenSnapshot = LocalInferenceMeasuredTokenSnapshot(
+                lastPrefillTokenCount = 0,
+                lastDecodeTokenCount = 42,
+            ),
+        )
+
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            localTraceForDev = trace,
+        )
+
+        assertEquals(
+            listOf("入力トークン", "生成トークン", "合計トークン", "直近 Prefill Token", "直近 Decode Token"),
+            sections[0].items.map { it.label },
+        )
+        assertEquals(listOf("—", "—", "—", "0", "42"), sections[0].items.map { it.value })
+    }
+
+    @Test
     fun `buildInferenceDetailSections marks generation fallback when using evalDurationNs`() {
         val sections = buildInferenceDetailSections(
             InferenceStats(
