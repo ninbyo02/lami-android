@@ -353,7 +353,10 @@ private fun resolveLocalSourceItemsForDev(
         StatsValueSource.API_CANDIDATE_ONLY -> formatResolvedSource(resolved.promptEvalDurationNs.source, "")
         StatsValueSource.UNAVAILABLE -> "unavailable"
     }
-    val tokensPerSecondSource = statsUiModel.tokensPerSecond.source.toDevLabel().lowercase(Locale.ROOT)
+    val tokensPerSecondSource = when (statsUiModel.tokensPerSecond.source) {
+        StatsUiValueSource.SEMI_MEASURED -> "semi-measured:assistantUpdateCount / generationTimeMs"
+        else -> statsUiModel.tokensPerSecond.source.toDevLabel().lowercase(Locale.ROOT)
+    }
     return listOf(
         InferenceStatItemUi(label = "modelNameSource", value = modelNameSource),
         InferenceStatItemUi(label = "finishReasonSource", value = finishReasonSource),
@@ -574,7 +577,9 @@ private fun formatRegularTokenValue(statValue: UiStatValue?, fallbackValue: Stri
     if (statValue == null) return fallbackValue ?: "—"
     val numericValue = statValue.rawValueInt?.toString() ?: return "—"
     return when (statValue.source) {
-        StatsUiValueSource.MEASURED -> numericValue
+        StatsUiValueSource.MEASURED,
+        StatsUiValueSource.SEMI_MEASURED,
+        -> numericValue
         StatsUiValueSource.DERIVED,
         StatsUiValueSource.ESTIMATED,
         -> "${numericValue}（推定）"
@@ -591,6 +596,7 @@ private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackV
         StatsUiValueSource.MEASURED,
         StatsUiValueSource.DERIVED,
         -> valueText
+        StatsUiValueSource.SEMI_MEASURED -> "${valueText}（準実測）"
         StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
