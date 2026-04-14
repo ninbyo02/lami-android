@@ -46,10 +46,15 @@ internal fun buildInferenceSummarySections(
             add(
                 InferenceStatItemUi(
                     label = "生成速度",
-                    value = formatRegularTokensPerSecondValue(
-                        statValue = localStatsUiModel?.tokensPerSecond,
-                        fallbackValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim(),
-                    ),
+                    value = if (localTraceForDev == null) {
+                        // Ollama 主表示は実測 token/sec を優先して表示する。
+                        formatTokenPerSec(stats)?.removePrefix("⚡")?.trim() ?: "—"
+                    } else {
+                        formatRegularTokensPerSecondValue(
+                            statValue = localStatsUiModel?.tokensPerSecond,
+                            fallbackValue = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim(),
+                        )
+                    },
                     emphasizeValue = true,
                 )
             )
