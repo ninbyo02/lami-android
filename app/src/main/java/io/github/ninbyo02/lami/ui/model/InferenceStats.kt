@@ -41,4 +41,6 @@ data class InferenceStats(
     val completionTokens: Int? = null,
     val deviceLabel: String? = null,
     val responseCharCount: Int? = null,
+    // ストリーミング時に UI へ反映した assistant 部分更新回数（端末側計測）。
+    val assistantUpdateCount: Int? = null,
 )
