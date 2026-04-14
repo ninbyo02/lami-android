@@ -166,8 +166,10 @@ class InferenceStatsSheetContentTest {
         val stats = InferenceStats(
             outputTokens = 240,
             tokensPerSecond = 32.4,
-            generationTimeMs = 5_000L,
-            assistantUpdateCount = 109,
+            uiAppliedAssistantUpdateCount = 109,
+            firstVisibleAssistantAtMs = 10_000L,
+            lastVisibleAssistantAtMs = 15_000L,
+            perceivedGenerationTimeMs = 5_000L,
         )
 
         val sections = buildInferenceDetailSections(stats)
@@ -180,7 +182,7 @@ class InferenceStatsSheetContentTest {
         assertEquals("21.8 token/s", sections[0].items[4].value)
         val devSection = sections.first { it.title == "DEV診断" }
         assertEquals(
-            "semi-measured:assistantUpdateCount / generationTimeMs",
+            "ui-applied:uiAppliedAssistantUpdateCount / perceivedGenerationTimeMs",
             devSection.items.first { it.label == "体感生成速度source" }.value,
         )
     }
@@ -189,8 +191,8 @@ class InferenceStatsSheetContentTest {
     fun `buildInferenceDetailSections hides Ollama perceived tokens per second when streaming updates are unavailable`() {
         val stats = InferenceStats(
             tokensPerSecond = 32.4,
-            generationTimeMs = 5_000L,
-            assistantUpdateCount = 0,
+            uiAppliedAssistantUpdateCount = 0,
+            perceivedGenerationTimeMs = 5_000L,
         )
 
         val sections = buildInferenceDetailSections(stats)
