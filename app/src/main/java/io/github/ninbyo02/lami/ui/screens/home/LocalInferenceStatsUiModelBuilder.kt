@@ -121,7 +121,7 @@ internal fun buildLocalInferenceStatsUiModel(
     val generationMsForTps = (
         generationTime.rawValueLong
             ?: stats.generationDurationNs
-            ?: trace?.evalTimeProbe?.durationNsOrNull()
+            ?: trace.evalTimeProbe?.durationNsOrNull()
     )?.div(1_000_000L)
     val tokensPerSecondValue = generationMsForTps?.let {
         buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)

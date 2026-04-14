@@ -454,9 +454,7 @@ private fun readMeasuredTokenSnapshotFromConversation(
         val snapshot = if (
             inputTokens == null &&
             outputTokens == null &&
-            totalTokens == null &&
-            lastPrefillTokenCount == null &&
-            lastDecodeTokenCount == null
+            totalTokens == null
         ) {
             null
         } else {
