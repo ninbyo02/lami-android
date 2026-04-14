@@ -138,6 +138,47 @@ class InferenceStatsSheetContentTest {
         assertEquals(listOf("2枚"), sections[2].items.map { it.value })
     }
 
+
+    @Test
+    fun `buildInferenceDetailSections adds Ollama perceived tokens per second when streaming updates are available`() {
+        val stats = InferenceStats(
+            outputTokens = 240,
+            tokensPerSecond = 32.4,
+            generationTimeMs = 5_000L,
+            assistantUpdateCount = 109,
+        )
+
+        val sections = buildInferenceDetailSections(stats)
+
+        assertEquals(
+            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度", "体感生成速度"),
+            sections[0].items.map { it.label },
+        )
+        assertEquals("32.4 token/s", sections[0].items[3].value)
+        assertEquals("21.8 token/s", sections[0].items[4].value)
+        val devSection = sections.first { it.title == "DEV診断" }
+        assertEquals(
+            "semi-measured:assistantUpdateCount / generationTimeMs",
+            devSection.items.first { it.label == "体感生成速度source" }.value,
+        )
+    }
+
+    @Test
+    fun `buildInferenceDetailSections hides Ollama perceived tokens per second when streaming updates are unavailable`() {
+        val stats = InferenceStats(
+            tokensPerSecond = 32.4,
+            generationTimeMs = 5_000L,
+            assistantUpdateCount = 0,
+        )
+
+        val sections = buildInferenceDetailSections(stats)
+
+        assertEquals(
+            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度"),
+            sections[0].items.map { it.label },
+        )
+    }
+
     @Test
     fun `buildInferenceDetailSections keeps placeholder when values are missing`() {
         val sections = buildInferenceDetailSections(InferenceStats())

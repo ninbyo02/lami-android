@@ -93,6 +93,15 @@ internal fun buildInferenceDetailSections(
             promptText = promptText,
         )
     }
+    val measuredTokensPerSecondText = formatTokenPerSec(stats)?.removePrefix("⚡")?.trim()
+    val perceivedTokensPerSecondText = buildPerceivedTokensPerSecondText(stats)
+    val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
+    val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
+        "semi-measured:assistantUpdateCount / generationTimeMs"
+    } else {
+        null
+    }
+
     val devDiagnosticsUiModel = buildLocalInferenceDevDiagnosticsUiModel(
         devHeldStateText = devHeldStateText,
         devCloseLifecycleText = devCloseLifecycleText,
@@ -110,6 +119,9 @@ internal fun buildInferenceDetailSections(
         }
         measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "measuredTokens", value = it))
+        }
+        perceivedTokensPerSecondSourceText?.let {
+            add(InferenceStatItemUi(label = "体感生成速度source", value = it))
         }
     }
     val devDiagnosticSummarySection = buildDevDiagnosticSummarySection(
@@ -153,6 +165,14 @@ internal fun buildInferenceDetailSections(
                         ),
                     ),
                 )
+                if (showOllamaPerceivedTokensPerSecond) {
+                    measuredTokensPerSecondText?.let {
+                        add(InferenceStatItemUi(label = "実測生成速度", value = it))
+                    }
+                    perceivedTokensPerSecondText?.let {
+                        add(InferenceStatItemUi(label = "体感生成速度", value = it))
+                    }
+                }
                 localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
                     add(
                         InferenceStatItemUi(
@@ -572,6 +592,13 @@ private fun buildLocalInventorySectionForDev(
     )
 }
 
+
+private fun buildPerceivedTokensPerSecondText(stats: InferenceStats): String? {
+    val assistantUpdateCount = stats.assistantUpdateCount?.takeIf { it > 0 } ?: return null
+    val generationTimeMs = stats.generationTimeMs?.takeIf { it > 0L } ?: return null
+    val perceivedTokensPerSecond = assistantUpdateCount * 1000.0 / generationTimeMs
+    return String.format(Locale.US, "%.1f token/s", perceivedTokensPerSecond)
+}
 
 private fun formatRegularTokenValue(statValue: UiStatValue?, fallbackValue: String?): String {
     if (statValue == null) return fallbackValue ?: "—"
