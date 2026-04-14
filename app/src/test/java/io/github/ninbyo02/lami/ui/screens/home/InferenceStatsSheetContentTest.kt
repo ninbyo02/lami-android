@@ -53,6 +53,28 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceSummarySections keeps local semi measured generation speed label`() {
+        val trace = LocalInferenceTrace(
+            assistantUpdateCount = 93,
+            evalTimeProbe = LocalStatsCandidateProbe(
+                availability = LocalStatsAvailability.AVAILABLE_NOW,
+                valueSummary = "5000000000",
+            ),
+        )
+        val stats = InferenceStats(
+            outputTokens = 240,
+            generationDurationNs = 5_000_000_000L,
+        )
+
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            localTraceForDev = trace,
+        )
+
+        assertEquals("18.6 token/s（準実測）", sections[0].items[2].value)
+    }
+
+    @Test
     fun `buildInferenceTimeBreakdown returns null when total duration is not positive`() {
         assertEquals(null, buildInferenceTimeBreakdown(InferenceStats()))
         assertEquals(null, buildInferenceTimeBreakdown(InferenceStats(modelLoadDurationNs = -1L)))
