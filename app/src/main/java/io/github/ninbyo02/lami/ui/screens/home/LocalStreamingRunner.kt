@@ -444,6 +444,24 @@ private fun readMeasuredTokenSnapshotFromConversation(
         val benchmarkInfo = liteRtConversation.getBenchmarkInfo()
         val lastPrefillTokenCount = benchmarkInfo.lastPrefillTokenCount.takeIf { it >= 0 }
         val lastDecodeTokenCount = benchmarkInfo.lastDecodeTokenCount.takeIf { it >= 0 }
+        val benchmarkPrefillTokenCount = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("prefillTokenCount", "lastPrefillTokenCount"),
+        )
+        val benchmarkDecodeTokenCount = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("decodeTokenCount", "lastDecodeTokenCount"),
+        )
+        val benchmarkPrefillTokensPerSecond = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("prefillTokensPerSecond", "lastPrefillTokensPerSecond"),
+        )
+        val benchmarkDecodeTokensPerSecond = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("decodeTokensPerSecond", "lastDecodeTokensPerSecond"),
+        )
+        val benchmarkTimeToFirstTokenMs = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("timeToFirstTokenMs", "lastTimeToFirstTokenMs"),
+        )
+        val benchmarkModelInitMs = benchmarkInfo.readBenchmarkInfoRawValue(
+            candidates = listOf("modelInitMs", "lastModelInitMs"),
+        )
         val inputTokens = lastPrefillTokenCount
         val outputTokens = lastDecodeTokenCount
         val totalTokens = if (inputTokens != null && outputTokens != null) {
@@ -454,7 +472,13 @@ private fun readMeasuredTokenSnapshotFromConversation(
         val snapshot = if (
             inputTokens == null &&
             outputTokens == null &&
-            totalTokens == null
+            totalTokens == null &&
+            benchmarkPrefillTokenCount == null &&
+            benchmarkDecodeTokenCount == null &&
+            benchmarkPrefillTokensPerSecond == null &&
+            benchmarkDecodeTokensPerSecond == null &&
+            benchmarkTimeToFirstTokenMs == null &&
+            benchmarkModelInitMs == null
         ) {
             null
         } else {
@@ -464,6 +488,12 @@ private fun readMeasuredTokenSnapshotFromConversation(
                 totalTokens = totalTokens,
                 lastPrefillTokenCount = lastPrefillTokenCount,
                 lastDecodeTokenCount = lastDecodeTokenCount,
+                rawPrefillTokenCount = benchmarkPrefillTokenCount,
+                rawDecodeTokenCount = benchmarkDecodeTokenCount,
+                rawPrefillTokensPerSecond = benchmarkPrefillTokensPerSecond,
+                rawDecodeTokensPerSecond = benchmarkDecodeTokensPerSecond,
+                rawTimeToFirstTokenMs = benchmarkTimeToFirstTokenMs,
+                rawModelInitMs = benchmarkModelInitMs,
             )
         }
         if (BuildConfig.DEBUG) {
@@ -478,6 +508,25 @@ private fun readMeasuredTokenSnapshotFromConversation(
             appendTrace,
             "UPSTREAM $path benchmarkInfo failed ${throwable.javaClass.simpleName}:${throwable.message}",
         )
+    }.getOrNull()
+}
+
+private fun Any.readBenchmarkInfoRawValue(candidates: List<String>): String? {
+    for (name in candidates) {
+        readBenchmarkInfoRawValue(name)?.let { return it }
+    }
+    return null
+}
+
+private fun Any.readBenchmarkInfoRawValue(name: String): String? {
+    val methodSuffix = name.replaceFirstChar { char ->
+        if (char.isLowerCase()) char.titlecase() else char.toString()
+    }
+    return runCatching {
+        javaClass.methods.firstOrNull { method ->
+            method.parameterCount == 0 &&
+                (method.name == name || method.name == "get$methodSuffix")
+        }?.invoke(this)?.toString()
     }.getOrNull()
 }
 

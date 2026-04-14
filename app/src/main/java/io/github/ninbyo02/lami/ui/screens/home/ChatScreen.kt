@@ -5294,7 +5294,24 @@ private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): Stri
     val inputTokens = measuredSnapshot?.inputTokens
     val outputTokens = measuredSnapshot?.outputTokens
     val totalTokens = measuredSnapshot?.totalTokens
-    return "in=$inputTokens / out=$outputTokens / total=$totalTokens"
+    fun rawValueOrUnavailable(rawValue: String?): String = rawValue?.takeIf { it.isNotBlank() } ?: "unavailable"
+    return buildString {
+        append("in=$inputTokens / out=$outputTokens / total=$totalTokens")
+        appendLine()
+        append("[BenchmarkInfo raw]")
+        appendLine()
+        append("prefillTokenCount: ${rawValueOrUnavailable(measuredSnapshot?.rawPrefillTokenCount)}")
+        appendLine()
+        append("decodeTokenCount: ${rawValueOrUnavailable(measuredSnapshot?.rawDecodeTokenCount)}")
+        appendLine()
+        append("prefillTokensPerSecond: ${rawValueOrUnavailable(measuredSnapshot?.rawPrefillTokensPerSecond)}")
+        appendLine()
+        append("decodeTokensPerSecond: ${rawValueOrUnavailable(measuredSnapshot?.rawDecodeTokensPerSecond)}")
+        appendLine()
+        append("timeToFirstTokenMs: ${rawValueOrUnavailable(measuredSnapshot?.rawTimeToFirstTokenMs)}")
+        appendLine()
+        append("modelInitMs: ${rawValueOrUnavailable(measuredSnapshot?.rawModelInitMs)}")
+    }
 }
 
 
