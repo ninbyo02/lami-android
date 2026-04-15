@@ -121,6 +121,7 @@ internal suspend fun runWithHeldEngine(
     var conversationOutcome: RunCloseTargetOutcome? = null
     var heldFlowPartialCount = 0
     var heldFlowFirstPartialElapsedRealtimeMs: Long? = null
+    var heldFlowLastChunkElapsedRealtimeMs: Long? = null
     var officialFlowUsed = false
     var closeSummaryPath = "held-official-flow"
     var measuredTokenSnapshot: LocalInferenceMeasuredTokenSnapshot? = null
@@ -146,7 +147,6 @@ internal suspend fun runWithHeldEngine(
                 val flow = flowValue as? Flow<*> ?: return@runCatching null
                 val builder = StringBuilder()
                 var lastPartial: String? = null
-                var lastChunkAtMs: Long? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
                     val extracted = extractOfficialMessageTextWithTrace(
@@ -160,7 +160,7 @@ internal suspend fun runWithHeldEngine(
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
-                    lastChunkAtMs = SystemClock.elapsedRealtime()
+                    heldFlowLastChunkElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     builder.append(extracted)
                     onPartial(builder.toString())
                 }
@@ -198,7 +198,7 @@ internal suspend fun runWithHeldEngine(
                     timing = LocalLiteRtTimingSnapshot(
                         startedAtMs = startElapsedRealtimeMs,
                         firstNonEmptyChunkAtMs = heldFlowFirstPartialElapsedRealtimeMs,
-                        lastChunkAtMs = lastChunkAtMs,
+                        lastChunkAtMs = heldFlowLastChunkElapsedRealtimeMs,
                         endedAtMs = SystemClock.elapsedRealtime(),
                     ),
                     appendTrace = appendTrace,
