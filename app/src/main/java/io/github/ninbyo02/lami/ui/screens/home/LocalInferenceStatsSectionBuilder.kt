@@ -650,6 +650,7 @@ private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackV
         StatsUiValueSource.MEASURED,
         StatsUiValueSource.DERIVED,
         -> valueText
+        StatsUiValueSource.TOKENIZER_BASED -> "${valueText}（Tokenizer基準）"
         StatsUiValueSource.SEMI_MEASURED -> "${valueText}（準実測）"
         StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
