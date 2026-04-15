@@ -633,6 +633,7 @@ private fun formatRegularTokenValue(statValue: UiStatValue?, fallbackValue: Stri
     return when (statValue.source) {
         StatsUiValueSource.MEASURED,
         StatsUiValueSource.SEMI_MEASURED,
+        StatsUiValueSource.TOKENIZER_BASED,
         -> numericValue
         StatsUiValueSource.DERIVED,
         StatsUiValueSource.ESTIMATED,
