@@ -20,6 +20,10 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
+private const val TOKEN_COUNT_MODE_TOKENIZER_RECOUNT = "tokenizer_recount"
+private const val TOKENIZER_COUNT_NOTE =
+    "出力トークン数は tokenizer 基準です。Ollama の raw eval_count と完全一致を保証するものではありません。"
+
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
         prompt: String,
@@ -143,6 +147,7 @@ internal suspend fun runWithHeldEngine(
                 val flow = flowValue as? Flow<*> ?: return@runCatching null
                 val builder = StringBuilder()
                 var lastPartial: String? = null
+                var lastNonEmptyChunkAtMs: Long? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
                     val extracted = extractOfficialMessageTextWithTrace(
@@ -156,6 +161,7 @@ internal suspend fun runWithHeldEngine(
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
+                    lastNonEmptyChunkAtMs = SystemClock.elapsedRealtime()
                     builder.append(extracted)
                     onPartial(builder.toString())
                 }
@@ -185,6 +191,19 @@ internal suspend fun runWithHeldEngine(
                     )
                 }
                 measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                    base = measuredTokenSnapshot,
+                    conversation = conversation,
+                    promptText = prompt,
+                    fullResponseText = flowResponse,
+                    timing = LocalLiteRtTimingSnapshot(
+                        startedAtMs = startElapsedRealtimeMs,
+                        firstNonEmptyChunkAtMs = heldFlowFirstPartialElapsedRealtimeMs,
+                        lastChunkAtMs = lastNonEmptyChunkAtMs,
+                        endedAtMs = SystemClock.elapsedRealtime(),
+                    ),
+                    appendTrace = appendTrace,
+                )
                 measuredCollector.emitAdoptedTrace()
                 return@runWithConversation flowResponse
             }
@@ -230,6 +249,20 @@ internal suspend fun runWithHeldEngine(
                     )
                 }
                 measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                val completedAtMs = SystemClock.elapsedRealtime()
+                measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                    base = measuredTokenSnapshot,
+                    conversation = conversation,
+                    promptText = prompt,
+                    fullResponseText = blockingResponse,
+                    timing = LocalLiteRtTimingSnapshot(
+                        startedAtMs = startElapsedRealtimeMs,
+                        firstNonEmptyChunkAtMs = completedAtMs,
+                        lastChunkAtMs = completedAtMs,
+                        endedAtMs = completedAtMs,
+                    ),
+                    appendTrace = appendTrace,
+                )
                 measuredCollector.emitAdoptedTrace()
                 onPartial(blockingResponse)
             }
@@ -431,6 +464,102 @@ private class MeasuredTokenTimingCollector(
             "UPSTREAM measured-tokens-adopted policy=last-non-null timing=${adoptedTiming ?: "none"} input=${adoptedSnapshot?.inputTokens} output=${adoptedSnapshot?.outputTokens} total=${adoptedSnapshot?.totalTokens} path=$path",
         )
     }
+}
+
+private data class LocalLiteRtTimingSnapshot(
+    val startedAtMs: Long,
+    val firstNonEmptyChunkAtMs: Long?,
+    val lastChunkAtMs: Long?,
+    val endedAtMs: Long,
+)
+
+private fun mergeTokenizerRecountSnapshot(
+    base: LocalInferenceMeasuredTokenSnapshot?,
+    conversation: Any?,
+    promptText: String,
+    fullResponseText: String?,
+    timing: LocalLiteRtTimingSnapshot,
+    appendTrace: (String) -> Unit,
+): LocalInferenceMeasuredTokenSnapshot? {
+    val sanitizedPrompt = promptText
+    val sanitizedResponse = fullResponseText.orEmpty()
+    val tokenizerSnapshot = readTokenizerRecountSnapshotFromConversation(
+        conversation = conversation,
+        promptText = sanitizedPrompt,
+        fullResponseText = sanitizedResponse,
+        timing = timing,
+        appendTrace = appendTrace,
+    ) ?: return base
+    return if (base == null) {
+        tokenizerSnapshot
+    } else {
+        base.copy(
+            inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
+            outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
+            totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
+            tokenCountMode = tokenizerSnapshot.tokenCountMode ?: base.tokenCountMode,
+            notes = tokenizerSnapshot.notes ?: base.notes,
+            tokensPerSecond = tokenizerSnapshot.tokensPerSecond ?: base.tokensPerSecond,
+            charsPerSecond = tokenizerSnapshot.charsPerSecond ?: base.charsPerSecond,
+            ttftMs = tokenizerSnapshot.ttftMs ?: base.ttftMs,
+            decodeDurationMs = tokenizerSnapshot.decodeDurationMs ?: base.decodeDurationMs,
+            totalDurationMs = tokenizerSnapshot.totalDurationMs ?: base.totalDurationMs,
+        )
+    }
+}
+
+private fun readTokenizerRecountSnapshotFromConversation(
+    conversation: Any?,
+    promptText: String,
+    fullResponseText: String,
+    timing: LocalLiteRtTimingSnapshot,
+    appendTrace: (String) -> Unit,
+): LocalInferenceMeasuredTokenSnapshot? {
+    val liteRtConversation = conversation as? Conversation ?: return null
+    return runCatching {
+        val inputTokenCount = liteRtConversation.sizeInTokens(promptText).takeIf { it >= 0 }
+        val outputTokenCount = liteRtConversation.sizeInTokens(fullResponseText).takeIf { it >= 0 }
+        val totalTokenCount = if (inputTokenCount != null && outputTokenCount != null) {
+            inputTokenCount + outputTokenCount
+        } else {
+            null
+        }
+        val ttftMs = timing.firstNonEmptyChunkAtMs?.let { (it - timing.startedAtMs).coerceAtLeast(0L) }
+        val decodeDurationMs = if (timing.firstNonEmptyChunkAtMs != null && timing.lastChunkAtMs != null) {
+            (timing.lastChunkAtMs - timing.firstNonEmptyChunkAtMs).coerceAtLeast(0L)
+        } else {
+            null
+        }
+        val totalDurationMs = (timing.endedAtMs - timing.startedAtMs).coerceAtLeast(0L)
+        val tokensPerSecond = if (decodeDurationMs != null && decodeDurationMs > 0L && outputTokenCount != null) {
+            outputTokenCount / (decodeDurationMs / 1000.0)
+        } else {
+            null
+        }?.takeIf { it.isFinite() }
+        val charsPerSecond = if (decodeDurationMs != null && decodeDurationMs > 0L) {
+            val responseChars = fullResponseText.length
+            responseChars / (decodeDurationMs / 1000.0)
+        } else {
+            null
+        }?.takeIf { it.isFinite() }
+        LocalInferenceMeasuredTokenSnapshot(
+            inputTokens = inputTokenCount,
+            outputTokens = outputTokenCount,
+            totalTokens = totalTokenCount,
+            tokenCountMode = TOKEN_COUNT_MODE_TOKENIZER_RECOUNT,
+            notes = TOKENIZER_COUNT_NOTE,
+            tokensPerSecond = tokensPerSecond,
+            charsPerSecond = charsPerSecond,
+            ttftMs = ttftMs,
+            decodeDurationMs = decodeDurationMs,
+            totalDurationMs = totalDurationMs,
+        )
+    }.onFailure { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount failed ${throwable.javaClass.simpleName}:${throwable.message}",
+        )
+    }.getOrNull()
 }
 
 @OptIn(ExperimentalApi::class)
@@ -1024,6 +1153,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         var partialCount = 0
         var extractFailureCount = 0
         var firstPartialMs: Long? = null
+        var lastNonEmptyChunkAtMs: Long? = null
         var lastPartial: String? = null
         runCatching {
             flow.collect { message ->
@@ -1049,6 +1179,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
                 if (firstPartialMs == null) {
                     firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                 }
+                lastNonEmptyChunkAtMs = SystemClock.elapsedRealtime()
                 onPartial(builder.toString())
             }
         }.getOrElse { throwable ->
@@ -1073,6 +1204,19 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         }
         successReached = true
         measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+        measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+            base = measuredTokenSnapshot,
+            conversation = conversation,
+            promptText = prompt,
+            fullResponseText = response,
+            timing = LocalLiteRtTimingSnapshot(
+                startedAtMs = startElapsedMs,
+                firstNonEmptyChunkAtMs = firstPartialMs?.let { startElapsedMs + it },
+                lastChunkAtMs = lastNonEmptyChunkAtMs,
+                endedAtMs = SystemClock.elapsedRealtime(),
+            ),
+            appendTrace = appendTrace,
+        )
         measuredCollector.emitAdoptedTrace()
         finalResult = LocalOfficialFlowStreamingResult(
             response = response,
@@ -1339,6 +1483,7 @@ private suspend fun runOfficialLiteRtLmDirect(
             var lastChunk: String? = null
             var partialCount = 0
             var firstPartialMs: Long? = null
+            var lastNonEmptyChunkAtMs: Long? = null
             conversation.sendMessageAsync(prompt).collect { message ->
                 val extractedText = message.contents.toString().trim()
                     .ifBlank { message.toString().trim() }
@@ -1349,6 +1494,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                     if (firstPartialMs == null) {
                         firstPartialMs = (SystemClock.elapsedRealtime() - startElapsedMs).coerceAtLeast(0L)
                     }
+                    lastNonEmptyChunkAtMs = SystemClock.elapsedRealtime()
                     partialCount += 1
                     onPartial(builder.toString())
                 }
@@ -1369,6 +1515,19 @@ private suspend fun runOfficialLiteRtLmDirect(
             }
             successReached = true
             measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+            measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                base = measuredTokenSnapshot,
+                conversation = conversation,
+                promptText = prompt,
+                fullResponseText = response,
+                timing = LocalLiteRtTimingSnapshot(
+                    startedAtMs = startElapsedMs,
+                    firstNonEmptyChunkAtMs = firstPartialMs?.let { startElapsedMs + it },
+                    lastChunkAtMs = lastNonEmptyChunkAtMs,
+                    endedAtMs = SystemClock.elapsedRealtime(),
+                ),
+                appendTrace = appendTrace,
+            )
             measuredCollector.emitAdoptedTrace()
             result = LocalOfficialFlowStreamingResult(
                 response = response,
@@ -1468,6 +1627,7 @@ private fun runOfficialLiteRtLmBlocking(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversation-create-success")
             safeAppendTrace(appendTrace, "UPSTREAM official-direct conversationCreated")
 
+            val startedAtMs = SystemClock.elapsedRealtime()
             val message = conversation.sendMessage(prompt)
             val response = message.contents.toString().trim()
                 .ifBlank { message.toString().trim() }
@@ -1475,6 +1635,7 @@ private fun runOfficialLiteRtLmBlocking(
             safeAppendTrace(appendTrace, "UPSTREAM official-direct resultLength=${response.length}")
             responseText = response.takeIf { it.isNotBlank() }
             if (!responseText.isNullOrBlank()) {
+                val completedAtMs = SystemClock.elapsedRealtime()
                 measuredCollector.observe(
                     timing = "after-response",
                     conversation = conversation,
@@ -1486,6 +1647,19 @@ private fun runOfficialLiteRtLmBlocking(
                     )
                 }
                 measuredTokenSnapshot = measuredCollector.adoptedSnapshot()
+                measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
+                    base = measuredTokenSnapshot,
+                    conversation = conversation,
+                    promptText = prompt,
+                    fullResponseText = responseText,
+                    timing = LocalLiteRtTimingSnapshot(
+                        startedAtMs = startedAtMs,
+                        firstNonEmptyChunkAtMs = completedAtMs,
+                        lastChunkAtMs = completedAtMs,
+                        endedAtMs = completedAtMs,
+                    ),
+                    appendTrace = appendTrace,
+                )
                 measuredCollector.emitAdoptedTrace()
             }
             successReached = !responseText.isNullOrBlank()

@@ -12,7 +12,7 @@ import io.github.ninbyo02.lami.db.entity.Chat
 import io.github.ninbyo02.lami.db.entity.Message
 import io.github.ninbyo02.lami.db.entity.TitleSource
 
-@Database(entities = [Chat::class, Message::class], version = 11, exportSchema = false)
+@Database(entities = [Chat::class, Message::class], version = 12, exportSchema = false)
 abstract class ChatDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun chatDao(): ChatDao
@@ -97,6 +97,16 @@ abstract class ChatDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN charsPerSecond REAL")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN tokenCountMode TEXT")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN inferenceNotes TEXT")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN decodeDurationMs INTEGER")
+                database.execSQL("ALTER TABLE chat_table ADD COLUMN totalDurationMs INTEGER")
+            }
+        }
+
         fun getDatabase(context: Context): ChatDatabase {
             return INSTANCE ?: synchronized(this) {
                 val db = Room.databaseBuilder(
@@ -114,7 +124,8 @@ abstract class ChatDatabase : RoomDatabase() {
                         MIGRATION_7_8,
                         MIGRATION_8_9,
                         MIGRATION_9_10,
-                        MIGRATION_10_11
+                        MIGRATION_10_11,
+                        MIGRATION_11_12
                     )
                     .build()
                 INSTANCE = db

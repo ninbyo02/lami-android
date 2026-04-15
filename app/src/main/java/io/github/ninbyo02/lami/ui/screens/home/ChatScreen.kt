@@ -5332,6 +5332,7 @@ private fun buildLocalInferenceStatsFromTrace(
     fallbackTimeToFirstTokenMs: Long? = null,
 ): InferenceStats? {
     val resolvedStats = resolveLocalInferenceStats(trace)
+    val measuredSnapshot = trace.measuredTokenSnapshot
     val existingInputTokens: Int? = null
     val existingOutputTokens = resolvedStats.outputTokens.value
     val existingTotalTokens = resolvedStats.totalTokens.value
@@ -5358,11 +5359,12 @@ private fun buildLocalInferenceStatsFromTrace(
                 null
             }
         }
-    val inputTokens = existingInputTokens ?: trace.sessionPromptTokens
-    val outputTokens = existingOutputTokens ?: trace.sessionResponseTokens
-    val totalTokens = existingTotalTokens ?: trace.sessionTotalTokens
+    val inputTokens = measuredSnapshot?.inputTokens ?: existingInputTokens ?: trace.sessionPromptTokens
+    val outputTokens = measuredSnapshot?.outputTokens ?: existingOutputTokens ?: trace.sessionResponseTokens
+    val totalTokens = measuredSnapshot?.totalTokens ?: existingTotalTokens ?: trace.sessionTotalTokens
     val existingTokensPerSecond: Double? = null
-    val tokensPerSecond = existingTokensPerSecond
+    val tokensPerSecond = measuredSnapshot?.tokensPerSecond
+        ?: existingTokensPerSecond
         ?: buildLocalTokensPerSecondOrNull(
             outputTokens = outputTokens,
             generationTimeMs = generationTimeMs,
@@ -5385,14 +5387,19 @@ private fun buildLocalInferenceStatsFromTrace(
         outputTokens = outputTokens,
         totalTokens = totalTokens,
         tokensPerSecond = tokensPerSecond,
+        charsPerSecond = measuredSnapshot?.charsPerSecond,
+        tokenCountMode = measuredSnapshot?.tokenCountMode,
+        notes = measuredSnapshot?.notes,
         completionTokens = outputTokens,
         finishReason = finishReason,
         generationTimeMs = generationTimeMs,
+        decodeDurationMs = measuredSnapshot?.decodeDurationMs,
+        totalDurationMs = measuredSnapshot?.totalDurationMs,
         generationDurationNs = existingGenerationDurationNs ?: fallbackGenerationDurationNs,
         evalDurationNs = totalInferenceDurationNs,
         modelLoadDurationNs = existingLoadDurationNs,
         promptEvalDurationNs = fallbackPromptEvalNs,
-        timeToFirstTokenMs = timeToFirstTokenMs,
+        timeToFirstTokenMs = measuredSnapshot?.ttftMs ?: timeToFirstTokenMs,
         responseCharCount = responseCharCount,
     )
 }
@@ -5434,7 +5441,12 @@ internal fun createAssistantMessage(
         inputTokens = inputTokens,
         totalTokens = persistedTotalTokens,
         tokensPerSecond = latestInferenceStats?.tokensPerSecond,
+        charsPerSecond = latestInferenceStats?.charsPerSecond,
+        tokenCountMode = latestInferenceStats?.tokenCountMode,
+        inferenceNotes = latestInferenceStats?.notes,
         inferenceTimeSec = latestInferenceStats?.inferenceTimeSec,
+        decodeDurationMs = latestInferenceStats?.decodeDurationMs,
+        totalDurationMs = latestInferenceStats?.totalDurationMs,
         finishReason = latestInferenceStats?.finishReason,
         localSourceSummary = localSourceSummary,
         timeToFirstTokenMs = latestInferenceStats?.timeToFirstTokenMs,

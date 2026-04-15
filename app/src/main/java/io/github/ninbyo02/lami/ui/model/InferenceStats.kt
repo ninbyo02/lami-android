@@ -14,10 +14,15 @@ data class InferenceStats(
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
     val tokensPerSecond: Double? = null,
+    val charsPerSecond: Double? = null,
+    val tokenCountMode: String? = null,
+    val notes: String? = null,
     // 秒単位の表示向け導出値（DB 保存値を優先）。
     val inferenceTimeSec: Double? = null,
     // 生値（ミリ秒）。表示は formatter 側で秒に整形する。
     val generationTimeMs: Long? = null,
+    val decodeDurationMs: Long? = null,
+    val totalDurationMs: Long? = null,
     // Ollama usage の load_duration (ns)。
     val modelLoadDurationNs: Long? = null,
     // Ollama usage の prompt_eval_duration (ns)。
