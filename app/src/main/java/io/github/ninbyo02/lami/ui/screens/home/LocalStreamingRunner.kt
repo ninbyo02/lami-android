@@ -20,9 +20,8 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
-private const val TOKEN_COUNT_MODE_TOKENIZER_RECOUNT = "tokenizer_recount"
-private const val TOKENIZER_COUNT_NOTE =
-    "出力トークン数は tokenizer 基準です。Ollama の raw eval_count と完全一致を保証するものではありません。"
+private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
+    "このビルドの LiteRT API では tokenizer-based token count を取得できませんでした。"
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -147,7 +146,7 @@ internal suspend fun runWithHeldEngine(
                 val flow = flowValue as? Flow<*> ?: return@runCatching null
                 val builder = StringBuilder()
                 var lastPartial: String? = null
-                var lastNonEmptyChunkAtMs: Long? = null
+                var lastChunkAtMs: Long? = null
                 flow.collect { message ->
                     if (!currentCoroutineContext().isActive) return@collect
                     val extracted = extractOfficialMessageTextWithTrace(
@@ -161,7 +160,7 @@ internal suspend fun runWithHeldEngine(
                     if (heldFlowFirstPartialElapsedRealtimeMs == null) {
                         heldFlowFirstPartialElapsedRealtimeMs = SystemClock.elapsedRealtime()
                     }
-                    lastNonEmptyChunkAtMs = SystemClock.elapsedRealtime()
+                    lastChunkAtMs = SystemClock.elapsedRealtime()
                     builder.append(extracted)
                     onPartial(builder.toString())
                 }
@@ -199,7 +198,7 @@ internal suspend fun runWithHeldEngine(
                     timing = LocalLiteRtTimingSnapshot(
                         startedAtMs = startElapsedRealtimeMs,
                         firstNonEmptyChunkAtMs = heldFlowFirstPartialElapsedRealtimeMs,
-                        lastChunkAtMs = lastNonEmptyChunkAtMs,
+                        lastChunkAtMs = lastChunkAtMs,
                         endedAtMs = SystemClock.elapsedRealtime(),
                     ),
                     appendTrace = appendTrace,
@@ -515,15 +514,17 @@ private fun readTokenizerRecountSnapshotFromConversation(
     timing: LocalLiteRtTimingSnapshot,
     appendTrace: (String) -> Unit,
 ): LocalInferenceMeasuredTokenSnapshot? {
-    val liteRtConversation = conversation as? Conversation ?: return null
+    if (conversation !is Conversation) return null
     return runCatching {
-        val inputTokenCount = liteRtConversation.sizeInTokens(promptText).takeIf { it >= 0 }
-        val outputTokenCount = liteRtConversation.sizeInTokens(fullResponseText).takeIf { it >= 0 }
-        val totalTokenCount = if (inputTokenCount != null && outputTokenCount != null) {
-            inputTokenCount + outputTokenCount
-        } else {
-            null
+        // NOTE:
+        // 現在の litertlm-android 依存で sizeInTokens(String) を公開 API として直接利用できないため、
+        // tokenizer ベースの token count は安全に無効化する。
+        if (BuildConfig.DEBUG && promptText.isBlank()) {
+            safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped-empty-prompt")
         }
+        val inputTokenCount: Int? = null
+        val outputTokenCount: Int? = null
+        val totalTokenCount: Int? = null
         val ttftMs = timing.firstNonEmptyChunkAtMs?.let { (it - timing.startedAtMs).coerceAtLeast(0L) }
         val decodeDurationMs = if (timing.firstNonEmptyChunkAtMs != null && timing.lastChunkAtMs != null) {
             (timing.lastChunkAtMs - timing.firstNonEmptyChunkAtMs).coerceAtLeast(0L)
@@ -531,11 +532,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
             null
         }
         val totalDurationMs = (timing.endedAtMs - timing.startedAtMs).coerceAtLeast(0L)
-        val tokensPerSecond = if (decodeDurationMs != null && decodeDurationMs > 0L && outputTokenCount != null) {
-            outputTokenCount / (decodeDurationMs / 1000.0)
-        } else {
-            null
-        }?.takeIf { it.isFinite() }
+        val tokensPerSecond: Double? = null
         val charsPerSecond = if (decodeDurationMs != null && decodeDurationMs > 0L) {
             val responseChars = fullResponseText.length
             responseChars / (decodeDurationMs / 1000.0)
@@ -546,8 +543,8 @@ private fun readTokenizerRecountSnapshotFromConversation(
             inputTokens = inputTokenCount,
             outputTokens = outputTokenCount,
             totalTokens = totalTokenCount,
-            tokenCountMode = TOKEN_COUNT_MODE_TOKENIZER_RECOUNT,
-            notes = TOKENIZER_COUNT_NOTE,
+            tokenCountMode = null,
+            notes = TOKENIZER_COUNT_UNAVAILABLE_NOTE,
             tokensPerSecond = tokensPerSecond,
             charsPerSecond = charsPerSecond,
             ttftMs = ttftMs,
