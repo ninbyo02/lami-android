@@ -75,6 +75,30 @@ class InferenceStatsSheetContentTest {
     }
 
     @Test
+    fun `buildInferenceSummarySections prioritizes tokenizer based generation speed on LiteRT`() {
+        val trace = LocalInferenceTrace(
+            assistantUpdateCount = 66,
+            evalTimeProbe = LocalStatsCandidateProbe(
+                availability = LocalStatsAvailability.AVAILABLE_NOW,
+                valueSummary = "5000000000",
+            ),
+        )
+        val stats = InferenceStats(
+            outputTokens = 44,
+            decodeDurationMs = 3_700L,
+            tokensPerSecond = 17.9,
+            generationDurationNs = 5_000_000_000L,
+        )
+
+        val sections = buildInferenceSummarySections(
+            stats = stats,
+            localTraceForDev = trace,
+        )
+
+        assertEquals("11.9 token/s（Tokenizer基準）", sections[0].items[2].value)
+    }
+
+    @Test
     fun `buildInferenceTimeBreakdown returns null when total duration is not positive`() {
         assertEquals(null, buildInferenceTimeBreakdown(InferenceStats()))
         assertEquals(null, buildInferenceTimeBreakdown(InferenceStats(modelLoadDurationNs = -1L)))

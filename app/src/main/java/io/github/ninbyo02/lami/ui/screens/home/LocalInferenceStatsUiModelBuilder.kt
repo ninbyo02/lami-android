@@ -8,6 +8,7 @@ import java.util.Locale
 internal enum class StatsUiValueSource {
     MEASURED,
     SEMI_MEASURED,
+    TOKENIZER_BASED,
     DERIVED,
     ESTIMATED,
     API_CANDIDATE_ONLY,
@@ -58,6 +59,7 @@ internal fun LocalInferenceTokenMetricSource.toUiSource(): StatsUiValueSource = 
 internal fun StatsUiValueSource.toDevLabel(): String = when (this) {
     StatsUiValueSource.MEASURED -> "MEASURED"
     StatsUiValueSource.SEMI_MEASURED -> "SEMI_MEASURED"
+    StatsUiValueSource.TOKENIZER_BASED -> "TOKENIZER_BASED"
     StatsUiValueSource.DERIVED -> "DERIVED"
     StatsUiValueSource.ESTIMATED -> "ESTIMATED"
     StatsUiValueSource.API_CANDIDATE_ONLY -> "API_CANDIDATE_ONLY"
@@ -67,6 +69,7 @@ internal fun StatsUiValueSource.toDevLabel(): String = when (this) {
 internal fun StatsUiValueSource.toUiStateLabel(): String = when (this) {
     StatsUiValueSource.MEASURED,
     StatsUiValueSource.SEMI_MEASURED,
+    StatsUiValueSource.TOKENIZER_BASED,
     StatsUiValueSource.DERIVED,
     -> "取得済み"
     StatsUiValueSource.ESTIMATED -> "推定"
@@ -125,6 +128,16 @@ internal fun buildLocalInferenceStatsUiModel(
             ?: stats.generationDurationNs
             ?: trace.evalTimeProbe.durationNsOrNull()
     )?.div(1_000_000L)
+    val tokenizerOutputTokensForTps = outputTokens.rawValueInt
+        ?.takeIf { outputTokens.source == StatsUiValueSource.MEASURED || outputTokens.source == StatsUiValueSource.DERIVED }
+    val tokenizerTokensPerSecond = stats.decodeDurationMs
+        ?.takeIf { it > 0L }
+        ?.let { decodeDurationMs ->
+            buildLocalTokensPerSecondOrNull(
+                outputTokens = tokenizerOutputTokensForTps,
+                generationTimeMs = decodeDurationMs,
+            )
+        }
     val useTokenizerRecount = stats.tokenCountMode == "tokenizer_recount"
     val assistantUpdateCountForTps = trace.assistantUpdateCount.takeIf { it > 0 }
     val assistantUpdateBasedTokensPerSecond = if (useTokenizerRecount) {
@@ -141,10 +154,12 @@ internal fun buildLocalInferenceStatsUiModel(
     val fallbackTokensPerSecond = generationMsForTps?.let {
         buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
     }
-    val tokensPerSecondValue = stats.tokensPerSecond ?: assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
+    val tokensPerSecondValue = tokenizerTokensPerSecond ?: stats.tokensPerSecond ?: assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
     val usedAssistantUpdateBasedTps = assistantUpdateBasedTokensPerSecond != null
+    val usedTokenizerBasedTps = tokenizerTokensPerSecond != null
     val tokensPerSecondSource = when {
         tokensPerSecondValue == null -> StatsUiValueSource.UNAVAILABLE
+        usedTokenizerBasedTps -> StatsUiValueSource.TOKENIZER_BASED
         usedAssistantUpdateBasedTps -> StatsUiValueSource.SEMI_MEASURED
         outputTokens.source == StatsUiValueSource.MEASURED -> StatsUiValueSource.DERIVED
         outputTokens.source == StatsUiValueSource.DERIVED -> StatsUiValueSource.DERIVED
