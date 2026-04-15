@@ -16,7 +16,12 @@ fun Message.isInferenceStatsMissing(): Boolean {
         inputTokens == null &&
         totalTokens == null &&
         tokensPerSecond == null &&
+        charsPerSecond == null &&
+        tokenCountMode == null &&
+        inferenceNotes == null &&
         inferenceTimeSec == null &&
+        decodeDurationMs == null &&
+        totalDurationMs == null &&
         finishReason == null &&
         timeToFirstTokenMs == null &&
         imageInputCount == null
@@ -42,8 +47,13 @@ fun Message.toInferenceStats(): InferenceStats? {
         outputTokens = completionTokens,
         totalTokens = totalTokens,
         tokensPerSecond = tokensPerSecond,
+        charsPerSecond = charsPerSecond,
+        tokenCountMode = tokenCountMode,
+        notes = inferenceNotes,
         inferenceTimeSec = inferenceTimeSec ?: generationTimeMs?.div(1000.0),
         generationTimeMs = generationTimeMs,
+        decodeDurationMs = decodeDurationMs,
+        totalDurationMs = totalDurationMs,
         modelLoadDurationNs = loadDurationNs,
         promptEvalDurationNs = promptEvalDurationNs,
         generationDurationNs = generationDurationNs ?: evalDurationNs,

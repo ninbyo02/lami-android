@@ -225,10 +225,39 @@ class InferenceStatsSheetContentTest {
         )
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "直近 Prefill Token", "直近 Decode Token"),
+            listOf("入力トークン数（Tokenizer基準）", "出力トークン数（Tokenizer基準）", "合計トークン", "直近 Prefill Token", "直近 Decode Token"),
             sections[0].items.map { it.label },
         )
         assertEquals(listOf("—", "—", "—", "0", "42"), sections[0].items.map { it.value })
+    }
+
+    @Test
+    fun `buildInferenceDetailSections adds LiteRT tokenizer timing rows and note when available`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(
+                tokensPerSecond = 21.5,
+                timeToFirstTokenMs = 420L,
+                decodeDurationMs = 2_800L,
+                totalDurationMs = 3_400L,
+                notes = "tokenizer note",
+            ),
+            localTraceForDev = LocalInferenceTrace(),
+        )
+
+        assertEquals(
+            listOf(
+                "入力トークン数（Tokenizer基準）",
+                "出力トークン数（Tokenizer基準）",
+                "合計トークン",
+                "実測生成速度",
+                "TTFT",
+                "Decode時間",
+                "総応答時間",
+            ),
+            sections[0].items.map { it.label },
+        )
+        assertEquals(listOf("21.5 token/s", "0.4 s", "2.8 s", "3.4 s"), sections[0].items.takeLast(4).map { it.value })
+        assertEquals("tokenizer note", sections[2].items.first { it.label == "注記" }.value)
     }
 
     @Test

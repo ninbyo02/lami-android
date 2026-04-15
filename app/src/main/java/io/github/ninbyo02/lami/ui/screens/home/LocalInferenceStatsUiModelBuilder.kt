@@ -125,18 +125,23 @@ internal fun buildLocalInferenceStatsUiModel(
             ?: stats.generationDurationNs
             ?: trace.evalTimeProbe.durationNsOrNull()
     )?.div(1_000_000L)
+    val useTokenizerRecount = stats.tokenCountMode == "tokenizer_recount"
     val assistantUpdateCountForTps = trace.assistantUpdateCount.takeIf { it > 0 }
-    val assistantUpdateBasedTokensPerSecond = generationMsForTps?.let { generationTimeMs ->
-        buildLocalAssistantUpdateBasedTokensPerSecondOrNull(
-            assistantUpdateCount = assistantUpdateCountForTps,
-            generationTimeMs = generationTimeMs,
-        )
+    val assistantUpdateBasedTokensPerSecond = if (useTokenizerRecount) {
+        null
+    } else {
+        generationMsForTps?.let { generationTimeMs ->
+            buildLocalAssistantUpdateBasedTokensPerSecondOrNull(
+                assistantUpdateCount = assistantUpdateCountForTps,
+                generationTimeMs = generationTimeMs,
+            )
+        }
     }
     val outputTokensForTps = outputTokens.rawValueInt
     val fallbackTokensPerSecond = generationMsForTps?.let {
         buildLocalTokensPerSecondOrNull(outputTokens = outputTokensForTps, generationTimeMs = it)
     }
-    val tokensPerSecondValue = assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
+    val tokensPerSecondValue = stats.tokensPerSecond ?: assistantUpdateBasedTokensPerSecond ?: fallbackTokensPerSecond
     val usedAssistantUpdateBasedTps = assistantUpdateBasedTokensPerSecond != null
     val tokensPerSecondSource = when {
         tokensPerSecondValue == null -> StatsUiValueSource.UNAVAILABLE

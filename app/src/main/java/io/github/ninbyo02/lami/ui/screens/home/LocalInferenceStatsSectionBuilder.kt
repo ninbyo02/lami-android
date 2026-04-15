@@ -145,7 +145,7 @@ internal fun buildInferenceDetailSections(
             items = buildList {
                 add(
                     InferenceStatItemUi(
-                        label = "入力トークン",
+                        label = if (localTraceForDev != null) "入力トークン数（Tokenizer基準）" else "入力トークン",
                         value = formatRegularTokenValue(
                             statValue = localStatsUiModel?.tokens?.inputTokens,
                             fallbackValue = stats.inputTokens?.toString(),
@@ -154,7 +154,7 @@ internal fun buildInferenceDetailSections(
                 )
                 add(
                     InferenceStatItemUi(
-                        label = "生成トークン",
+                        label = if (localTraceForDev != null) "出力トークン数（Tokenizer基準）" else "生成トークン",
                         value = formatRegularTokenValue(
                             statValue = localStatsUiModel?.tokens?.outputTokens,
                             fallbackValue = formatOutputTokens(stats),
@@ -170,6 +170,25 @@ internal fun buildInferenceDetailSections(
                         ),
                     ),
                 )
+                if (localTraceForDev != null) {
+                    stats.tokensPerSecond?.let {
+                        add(
+                            InferenceStatItemUi(
+                                label = "実測生成速度",
+                                value = String.format(Locale.US, "%.1f token/s", it),
+                            ),
+                        )
+                    }
+                    stats.timeToFirstTokenMs?.let {
+                        add(InferenceStatItemUi(label = "TTFT", value = formatMillisToCompactText(it)))
+                    }
+                    stats.decodeDurationMs?.let {
+                        add(InferenceStatItemUi(label = "Decode時間", value = formatMillisToCompactText(it)))
+                    }
+                    stats.totalDurationMs?.let {
+                        add(InferenceStatItemUi(label = "総応答時間", value = formatMillisToCompactText(it)))
+                    }
+                }
                 if (showOllamaPerceivedTokensPerSecond) {
                     measuredTokensPerSecondText?.let {
                         add(InferenceStatItemUi(label = "実測生成速度", value = it))
@@ -238,6 +257,9 @@ internal fun buildInferenceDetailSections(
             title = "補足",
             items = buildList {
                 add(InferenceStatItemUi(label = "画像入力", value = formatImageInputCount(stats) ?: "—"))
+                if (localTraceForDev != null && !stats.notes.isNullOrBlank()) {
+                    add(InferenceStatItemUi(label = "注記", value = stats.notes))
+                }
                 if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
@@ -699,5 +721,14 @@ private fun resolveDevSummaryModelResolution(
         modelName != null && (traceModel == null || modelName == traceModel) -> "設定モデル使用"
         modelName == null && traceModel != null -> "設定モデル使用"
         else -> "不明"
+    }
+}
+
+private fun formatMillisToCompactText(valueMs: Long): String {
+    val safeMs = valueMs.coerceAtLeast(0L)
+    return if (safeMs >= 1000L) {
+        String.format(Locale.US, "%.1f s", safeMs / 1000.0)
+    } else {
+        "$safeMs ms"
     }
 }
