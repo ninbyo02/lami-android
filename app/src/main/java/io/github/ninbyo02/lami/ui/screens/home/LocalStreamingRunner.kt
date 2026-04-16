@@ -516,15 +516,9 @@ private fun readTokenizerRecountSnapshotFromConversation(
 ): LocalInferenceMeasuredTokenSnapshot? {
     if (conversation !is Conversation) return null
     return runCatching {
-        // NOTE:
-        // 現在の litertlm-android 依存で sizeInTokens(String) を公開 API として直接利用できないため、
-        // tokenizer ベースの token count は安全に無効化する。
         if (BuildConfig.DEBUG && promptText.isBlank()) {
             safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped-empty-prompt")
         }
-        val inputTokenCount: Int? = null
-        val outputTokenCount: Int? = null
-        val totalTokenCount: Int? = null
         val ttftMs = timing.firstNonEmptyChunkAtMs?.let { (it - timing.startedAtMs).coerceAtLeast(0L) }
         val decodeDurationMs = if (timing.firstNonEmptyChunkAtMs != null && timing.lastChunkAtMs != null) {
             (timing.lastChunkAtMs - timing.firstNonEmptyChunkAtMs).coerceAtLeast(0L)
@@ -532,19 +526,39 @@ private fun readTokenizerRecountSnapshotFromConversation(
             null
         }
         val totalDurationMs = (timing.endedAtMs - timing.startedAtMs).coerceAtLeast(0L)
-        val tokensPerSecond: Double? = null
         val charsPerSecond = if (decodeDurationMs != null && decodeDurationMs > 0L) {
             val responseChars = fullResponseText.length
             responseChars / (decodeDurationMs / 1000.0)
         } else {
             null
         }?.takeIf { it.isFinite() }
+
+        val tokenizerRecount = tryReadTokenizerRecountViaReflection(
+            conversation = conversation,
+            promptText = promptText,
+            fullResponseText = fullResponseText,
+            appendTrace = appendTrace,
+        )
+
+        val inputTokenCount = tokenizerRecount?.promptTokens
+        val outputTokenCount = tokenizerRecount?.responseTokens
+        val totalTokenCount = tokenizerRecount?.totalTokens
+        val tokenCountMode = if (tokenizerRecount != null) "tokenizer_recount" else null
+        val notes = if (tokenizerRecount == null) TOKENIZER_COUNT_UNAVAILABLE_NOTE else null
+        val tokensPerSecond = if (
+            outputTokenCount != null && decodeDurationMs != null && decodeDurationMs > 0L
+        ) {
+            outputTokenCount / (decodeDurationMs / 1000.0)
+        } else {
+            null
+        }?.takeIf { it.isFinite() }
+
         LocalInferenceMeasuredTokenSnapshot(
             inputTokens = inputTokenCount,
             outputTokens = outputTokenCount,
             totalTokens = totalTokenCount,
-            tokenCountMode = null,
-            notes = TOKENIZER_COUNT_UNAVAILABLE_NOTE,
+            tokenCountMode = tokenCountMode,
+            notes = notes,
             tokensPerSecond = tokensPerSecond,
             charsPerSecond = charsPerSecond,
             ttftMs = ttftMs,
@@ -557,6 +571,164 @@ private fun readTokenizerRecountSnapshotFromConversation(
             "UPSTREAM tokenizer-recount failed ${throwable.javaClass.simpleName}:${throwable.message}",
         )
     }.getOrNull()
+}
+
+private data class TokenizerRecountResult(
+    val promptTokens: Int,
+    val responseTokens: Int,
+) {
+    val totalTokens: Int = promptTokens + responseTokens
+}
+
+private fun tryReadTokenizerRecountViaReflection(
+    conversation: Conversation,
+    promptText: String,
+    fullResponseText: String,
+    appendTrace: (String) -> Unit,
+): TokenizerRecountResult? {
+    val inferenceInstance = tryResolveInferenceInstanceForTokenizerSession(conversation)
+        ?: return null.also {
+            safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=inference-instance-not-found")
+        }
+    var sessionInstance: Any? = null
+    return try {
+        sessionInstance = tryCreateTokenizerSessionViaReflection(inferenceInstance)
+            ?: return null.also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=session-create-failed")
+            }
+        val sizeMethod = findSizeInTokensMethod(sessionInstance)
+            ?: return null.also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=size-method-not-found")
+            }
+        val promptTokens = invokeSizeInTokens(sessionInstance, sizeMethod, promptText)
+            ?: return null.also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=prompt-token-failed")
+            }
+        val responseTokens = invokeSizeInTokens(sessionInstance, sizeMethod, fullResponseText)
+            ?: return null.also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=response-token-failed")
+            }
+        TokenizerRecountResult(promptTokens = promptTokens, responseTokens = responseTokens)
+    } catch (throwable: Throwable) {
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount reflection-failed ${throwable.javaClass.simpleName}:${throwable.message}",
+        )
+        null
+    } finally {
+        tryCloseTokenizerSession(sessionInstance, appendTrace)
+    }
+}
+
+private fun tryResolveInferenceInstanceForTokenizerSession(conversation: Conversation): Any? {
+    val methodCandidates = conversation.javaClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() && (
+            method.name == "getInference" ||
+                method.name == "inference" ||
+                method.name == "getLlmInference" ||
+                method.name == "llmInference"
+            )
+    }
+    methodCandidates.forEach { method ->
+        runCatching { method.invoke(conversation) }
+            .getOrNull()
+            ?.let { return it }
+    }
+    val fieldCandidates = conversation.javaClass.declaredFields.filter { field ->
+        val lowerName = field.name.lowercase(Locale.ROOT)
+        lowerName.contains("inference")
+    }
+    fieldCandidates.forEach { field ->
+        runCatching {
+            field.isAccessible = true
+            field.get(conversation)
+        }.getOrNull()?.let { return it }
+    }
+    return null
+}
+
+private fun tryCreateTokenizerSessionViaReflection(inferenceInstance: Any): Any? {
+    val sessionClass = runCatching {
+        Class.forName("com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession")
+    }.getOrNull() ?: return null
+    val createMethods = sessionClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val createMethod = createMethods.firstOrNull { method ->
+        method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].isAssignableFrom(inferenceInstance.javaClass)
+    } ?: createMethods.firstOrNull { method ->
+        method.parameterTypes.size == 2 &&
+            method.parameterTypes[0].isAssignableFrom(inferenceInstance.javaClass)
+    } ?: return null
+
+    return when (createMethod.parameterTypes.size) {
+        1 -> runCatching { createMethod.invoke(null, inferenceInstance) }.getOrNull()
+        2 -> {
+            val optionsClass = createMethod.parameterTypes[1]
+            val options = buildTokenizerSessionOptionsViaReflection(optionsClass) ?: return null
+            runCatching { createMethod.invoke(null, inferenceInstance, options) }.getOrNull()
+        }
+        else -> null
+    }
+}
+
+private fun buildTokenizerSessionOptionsViaReflection(optionsClass: Class<*>): Any? {
+    val builderFactory = optionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val builder = if (builderFactory != null) {
+        runCatching { builderFactory.invoke(null) }.getOrNull()
+    } else {
+        val builderClass = optionsClass.declaredClasses.firstOrNull { it.simpleName == "Builder" } ?: return null
+        val constructor = builderClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+        runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull()
+    } ?: return null
+
+    val buildMethod = builder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: return null
+    return runCatching { buildMethod.invoke(builder) }.getOrNull()
+}
+
+private fun findSizeInTokensMethod(sessionInstance: Any): Method? {
+    return sessionInstance.javaClass.methods.firstOrNull { method ->
+        method.name == "sizeInTokens" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0] == String::class.java
+    }
+}
+
+private fun invokeSizeInTokens(
+    sessionInstance: Any,
+    sizeMethod: Method,
+    input: String,
+): Int? {
+    val result = runCatching { sizeMethod.invoke(sessionInstance, input) }.getOrNull() ?: return null
+    return (result as? Number)?.toInt()
+}
+
+private fun tryCloseTokenizerSession(
+    sessionInstance: Any?,
+    appendTrace: (String) -> Unit,
+) {
+    if (sessionInstance == null) return
+    val closeMethod = sessionInstance.javaClass.methods.firstOrNull { method ->
+        method.name == "close" && method.parameterTypes.isEmpty()
+    } ?: return
+    runCatching {
+        closeMethod.invoke(sessionInstance)
+    }.onFailure { throwable ->
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount close-failed ${throwable.javaClass.simpleName}:${throwable.message}",
+        )
+    }
 }
 
 @OptIn(ExperimentalApi::class)
