@@ -5297,6 +5297,14 @@ private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): Stri
     fun rawValueOrUnavailable(rawValue: String?): String = rawValue?.takeIf { it.isNotBlank() } ?: "unavailable"
     return buildString {
         append("in=$inputTokens / out=$outputTokens / total=$totalTokens")
+        measuredSnapshot?.tokenizerRecountStatus?.takeIf { it.isNotBlank() }?.let { status ->
+            appendLine()
+            append("tokenizer-recount status: $status")
+            if (status == "success") {
+                appendLine()
+                append("tokenizer-recount tokens: in=$inputTokens / out=$outputTokens / total=$totalTokens")
+            }
+        }
         appendLine()
         append("[BenchmarkInfo raw]")
         appendLine()

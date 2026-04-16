@@ -533,12 +533,13 @@ private fun readTokenizerRecountSnapshotFromConversation(
             null
         }?.takeIf { it.isFinite() }
 
-        val tokenizerRecount = tryReadTokenizerRecountViaReflection(
+        val tokenizerRecountOutcome = tryReadTokenizerRecountViaReflection(
             conversation = conversation,
             promptText = promptText,
             fullResponseText = fullResponseText,
             appendTrace = appendTrace,
         )
+        val tokenizerRecount = tokenizerRecountOutcome.result
 
         val inputTokenCount = tokenizerRecount?.promptTokens
         val outputTokenCount = tokenizerRecount?.responseTokens
@@ -557,6 +558,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
             inputTokens = inputTokenCount,
             outputTokens = outputTokenCount,
             totalTokens = totalTokenCount,
+            tokenizerRecountStatus = tokenizerRecountOutcome.status,
             tokenCountMode = tokenCountMode,
             notes = notes,
             tokensPerSecond = tokensPerSecond,
@@ -580,41 +582,60 @@ private data class TokenizerRecountResult(
     val totalTokens: Int = promptTokens + responseTokens
 }
 
+private data class TokenizerRecountOutcome(
+    val result: TokenizerRecountResult? = null,
+    val status: String,
+)
+
 private fun tryReadTokenizerRecountViaReflection(
     conversation: Conversation,
     promptText: String,
     fullResponseText: String,
     appendTrace: (String) -> Unit,
-): TokenizerRecountResult? {
+) : TokenizerRecountOutcome {
     val inferenceInstance = tryResolveInferenceInstanceForTokenizerSession(conversation)
-        ?: return null.also {
+        ?: return TokenizerRecountOutcome(
+            status = "skipped reason=inference-instance-not-found",
+        ).also {
             safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=inference-instance-not-found")
         }
     var sessionInstance: Any? = null
     return try {
         sessionInstance = tryCreateTokenizerSessionViaReflection(inferenceInstance)
-            ?: return null.also {
+            ?: return TokenizerRecountOutcome(
+                status = "skipped reason=session-create-failed",
+            ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=session-create-failed")
             }
         val sizeMethod = findSizeInTokensMethod(sessionInstance)
-            ?: return null.also {
+            ?: return TokenizerRecountOutcome(
+                status = "skipped reason=size-method-not-found",
+            ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=size-method-not-found")
             }
         val promptTokens = invokeSizeInTokens(sessionInstance, sizeMethod, promptText)
-            ?: return null.also {
+            ?: return TokenizerRecountOutcome(
+                status = "skipped reason=prompt-token-failed",
+            ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=prompt-token-failed")
             }
         val responseTokens = invokeSizeInTokens(sessionInstance, sizeMethod, fullResponseText)
-            ?: return null.also {
+            ?: return TokenizerRecountOutcome(
+                status = "skipped reason=response-token-failed",
+            ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=response-token-failed")
             }
-        TokenizerRecountResult(promptTokens = promptTokens, responseTokens = responseTokens)
+        TokenizerRecountOutcome(
+            result = TokenizerRecountResult(promptTokens = promptTokens, responseTokens = responseTokens),
+            status = "success",
+        )
     } catch (throwable: Throwable) {
+        val status = "reflection-failed ${throwable.javaClass.simpleName}:${throwable.message}"
         safeAppendTrace(
             appendTrace,
-            "UPSTREAM tokenizer-recount reflection-failed ${throwable.javaClass.simpleName}:${throwable.message}",
+            "UPSTREAM tokenizer-recount $status",
         )
-        null
+        TokenizerRecountOutcome(status = status)
     } finally {
         tryCloseTokenizerSession(sessionInstance, appendTrace)
     }
