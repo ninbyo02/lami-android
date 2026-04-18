@@ -691,6 +691,10 @@ fun Home(
     var assistantUpdateCountForDev by remember { mutableStateOf(0) }
     var firstNonEmptyAssistantChunkSeenForDev by remember { mutableStateOf(false) }
     var lastStreamingAssistantChunkForDev by remember { mutableStateOf<String?>(null) }
+    var ollamaUiAppliedAssistantUpdateCount by remember { mutableStateOf(0) }
+    var ollamaFirstVisibleAssistantAtMs by remember { mutableStateOf<Long?>(null) }
+    var ollamaLastVisibleAssistantAtMs by remember { mutableStateOf<Long?>(null) }
+    var lastOllamaAppliedStreamingText by remember { mutableStateOf<String?>(null) }
     var lastPersistedStreamingAssistantText by remember(effectiveChatId) { mutableStateOf<String?>(null) }
     val streamingAssistantPersistMutex = remember(effectiveChatId) { Mutex() }
 
@@ -702,6 +706,19 @@ fun Home(
             firstNonEmptyAssistantChunkSeenForDev = true
             lastStreamingAssistantChunkForDev = currentChunk
         }
+    }
+
+    LaunchedEffect(toggle, uiState) {
+        if (!toggle || isLocalInferenceRunning) return@LaunchedEffect
+        val partialText = (uiState as? UiState.Streaming)?.partialText?.trim().orEmpty()
+        if (partialText.isBlank() || partialText == lastOllamaAppliedStreamingText) return@LaunchedEffect
+        val nowMs = SystemClock.elapsedRealtime()
+        if (ollamaFirstVisibleAssistantAtMs == null) {
+            ollamaFirstVisibleAssistantAtMs = nowMs
+        }
+        ollamaLastVisibleAssistantAtMs = nowMs
+        ollamaUiAppliedAssistantUpdateCount += 1
+        lastOllamaAppliedStreamingText = partialText
     }
 
     fun logStreamTrace(message: String) {
@@ -1140,7 +1157,11 @@ fun Home(
                         assistantId = finalizeStreamingAssistantMessageSerialized(
                             chatId = currentChatId,
                             response = response,
-                            latestInferenceStats = latestInferenceStats,
+                            latestInferenceStats = latestInferenceStats?.withOllamaUiPerceivedStats(
+                                uiAppliedAssistantUpdateCount = ollamaUiAppliedAssistantUpdateCount,
+                                firstVisibleAssistantAtMs = ollamaFirstVisibleAssistantAtMs,
+                                lastVisibleAssistantAtMs = ollamaLastVisibleAssistantAtMs,
+                            ),
                             imageInputCount = pendingAssistantImageInputCount,
                         )
                         if (assistantId != null) {
@@ -1814,6 +1835,10 @@ fun Home(
                                                                 ?: streamingSpeechStartedForMessageId,
                                                             armTapGuards = false,
                                                         )
+                                                        ollamaUiAppliedAssistantUpdateCount = 0
+                                                        ollamaFirstVisibleAssistantAtMs = null
+                                                        ollamaLastVisibleAssistantAtMs = null
+                                                        lastOllamaAppliedStreamingText = null
                                                         prompt = requestPrompt
                                                         remoteStopRequested = false
                                                         remoteRequestJob = coroutineScope.launch {
@@ -5419,6 +5444,34 @@ private fun buildLocalFinishReasonOrNull(
     val normalizedExisting = existingFinishReason?.trim()?.takeIf { it.isNotBlank() }
     if (normalizedExisting != null) return normalizedExisting
     return if (responseText.isNullOrBlank()) null else "stop"
+}
+
+private fun InferenceStats.withOllamaUiPerceivedStats(
+    uiAppliedAssistantUpdateCount: Int,
+    firstVisibleAssistantAtMs: Long?,
+    lastVisibleAssistantAtMs: Long?,
+): InferenceStats {
+    val normalizedUiAppliedUpdateCount = uiAppliedAssistantUpdateCount.takeIf { it > 0 }
+    val normalizedFirstVisibleAtMs = firstVisibleAssistantAtMs
+    val normalizedLastVisibleAtMs = lastVisibleAssistantAtMs
+    val normalizedPerceivedGenerationTimeMs =
+        if (
+            normalizedUiAppliedUpdateCount != null &&
+            normalizedFirstVisibleAtMs != null &&
+            normalizedLastVisibleAtMs != null &&
+            normalizedLastVisibleAtMs >= normalizedFirstVisibleAtMs
+        ) {
+            (normalizedLastVisibleAtMs - normalizedFirstVisibleAtMs).takeIf { it > 0L }
+        } else {
+            null
+        }
+    return copy(
+        assistantUpdateCount = normalizedUiAppliedUpdateCount,
+        uiAppliedAssistantUpdateCount = normalizedUiAppliedUpdateCount,
+        firstVisibleAssistantAtMs = normalizedFirstVisibleAtMs,
+        lastVisibleAssistantAtMs = normalizedLastVisibleAtMs,
+        perceivedGenerationTimeMs = normalizedPerceivedGenerationTimeMs,
+    )
 }
 
 internal fun createAssistantMessage(

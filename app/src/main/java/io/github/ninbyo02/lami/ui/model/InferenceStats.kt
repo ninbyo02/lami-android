@@ -48,4 +48,12 @@ data class InferenceStats(
     val responseCharCount: Int? = null,
     // ストリーミング時に UI へ反映した assistant 部分更新回数（端末側計測）。
     val assistantUpdateCount: Int? = null,
+    // Ollama 向け: ChatScreen で実際に反映した assistant 更新回数。
+    val uiAppliedAssistantUpdateCount: Int? = null,
+    // Ollama 向け: 最初の非空 assistant 文字が UI に見えた時刻（elapsedRealtime）。
+    val firstVisibleAssistantAtMs: Long? = null,
+    // Ollama 向け: 最後の非空 assistant 更新が UI に反映された時刻（elapsedRealtime）。
+    val lastVisibleAssistantAtMs: Long? = null,
+    // Ollama 向け: UI 体感生成時間（lastVisibleAssistantAtMs - firstVisibleAssistantAtMs）。
+    val perceivedGenerationTimeMs: Long? = null,
 )

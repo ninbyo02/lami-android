@@ -102,7 +102,7 @@ internal fun buildInferenceDetailSections(
     val perceivedTokensPerSecondText = buildPerceivedTokensPerSecondText(stats)
     val showOllamaPerceivedTokensPerSecond = localTraceForDev == null
     val perceivedTokensPerSecondSourceText = if (showOllamaPerceivedTokensPerSecond && perceivedTokensPerSecondText != null) {
-        "semi-measured:assistantUpdateCount / generationTimeMs"
+        "ui-applied:uiAppliedAssistantUpdateCount / perceivedGenerationTimeMs"
     } else {
         null
     }
@@ -124,6 +124,20 @@ internal fun buildInferenceDetailSections(
         }
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))
+        }
+        if (showOllamaPerceivedTokensPerSecond) {
+            stats.uiAppliedAssistantUpdateCount?.let {
+                add(InferenceStatItemUi(label = "uiAppliedAssistantUpdateCount", value = it.toString()))
+            }
+            stats.firstVisibleAssistantAtMs?.let {
+                add(InferenceStatItemUi(label = "firstVisibleAssistantAtMs", value = it.toString()))
+            }
+            stats.lastVisibleAssistantAtMs?.let {
+                add(InferenceStatItemUi(label = "lastVisibleAssistantAtMs", value = it.toString()))
+            }
+            stats.perceivedGenerationTimeMs?.let {
+                add(InferenceStatItemUi(label = "perceivedGenerationTimeMs", value = it.toString()))
+            }
         }
     }
     val devDiagnosticSummarySection = buildDevDiagnosticSummarySection(
@@ -668,9 +682,17 @@ private fun buildLocalInventorySectionForDev(
 
 
 private fun buildPerceivedTokensPerSecondText(stats: InferenceStats): String? {
-    val assistantUpdateCount = stats.assistantUpdateCount?.takeIf { it > 0 } ?: return null
-    val generationTimeMs = stats.generationTimeMs?.takeIf { it > 0L } ?: return null
-    val perceivedTokensPerSecond = assistantUpdateCount * 1000.0 / generationTimeMs
+    val uiAppliedAssistantUpdateCount = stats.uiAppliedAssistantUpdateCount?.takeIf { it > 0 } ?: return null
+    val firstVisibleAssistantAtMs = stats.firstVisibleAssistantAtMs
+    val lastVisibleAssistantAtMs = stats.lastVisibleAssistantAtMs
+    val perceivedGenerationTimeMs = stats.perceivedGenerationTimeMs?.takeIf { it > 0L }
+        ?: if (firstVisibleAssistantAtMs != null && lastVisibleAssistantAtMs != null && lastVisibleAssistantAtMs >= firstVisibleAssistantAtMs) {
+            (lastVisibleAssistantAtMs - firstVisibleAssistantAtMs).takeIf { it > 0L }
+        } else {
+            null
+        }
+        ?: return null
+    val perceivedTokensPerSecond = uiAppliedAssistantUpdateCount * 1000.0 / perceivedGenerationTimeMs
     return String.format(Locale.US, "%.1f token/s", perceivedTokensPerSecond)
 }
 
