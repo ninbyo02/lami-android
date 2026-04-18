@@ -29,6 +29,7 @@ internal data class LocalInferenceMeasuredTokenSnapshot(
     val outputTokens: Int? = null,
     val totalTokens: Int? = null,
     val tokenizerRecountStatus: String? = null,
+    val tokenizerSourceTraceSummary: String? = null,
     val tokenCountMode: String? = null,
     val notes: String? = null,
     val tokensPerSecond: Double? = null,
