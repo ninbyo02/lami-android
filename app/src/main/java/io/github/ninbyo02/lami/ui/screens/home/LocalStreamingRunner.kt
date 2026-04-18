@@ -936,6 +936,9 @@ private fun emitTokenizerSessionSourceTrace(
         appendTrace,
         "UPSTREAM tokenizer-source fields: ${summarizeTokenizerSourceCandidates(fieldCandidates)}",
     )
+    buildCreateSessionMethodSignatures(resolvedSourceObject).forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source createSession signature: $signature")
+    }
     return TokenizerSourceTraceSummary(
         kind = sourceKind,
         className = sourceClassName,
@@ -943,6 +946,31 @@ private fun emitTokenizerSessionSourceTrace(
         fieldsSummary = summarizeTokenizerSourceCandidates(fieldCandidates),
         engineCreateSessionStatus = engineCreateSessionStatus,
     )
+}
+
+private fun buildCreateSessionMethodSignatures(source: Any?): List<String> {
+    val methods = source
+        ?.javaClass
+        ?.methods
+        ?.filter { method ->
+            method.name == "createSession" || method.name.startsWith("createSession$")
+        }
+        .orEmpty()
+        .sortedWith(
+            compareBy<java.lang.reflect.Method>({ it.name }, { it.parameterTypes.size }, { it.toGenericString() }),
+        )
+    if (methods.isEmpty()) return listOf("none")
+    return methods.map { method ->
+        val parameterTypes = method.parameterTypes
+            .joinToString(",") { parameterType ->
+                parameterType.name
+            }
+            .ifBlank { "none" }
+        val returnType = method.returnType.name
+        val staticOrInstance =
+            if (java.lang.reflect.Modifier.isStatic(method.modifiers)) "static" else "instance"
+        "${method.name}(params=$parameterTypes) : $returnType [$staticOrInstance, paramCount=${method.parameterTypes.size}]"
+    }
 }
 
 private fun summarizeTokenizerSourceCandidates(names: List<String>): String {
