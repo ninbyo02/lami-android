@@ -193,6 +193,7 @@ internal suspend fun runWithHeldEngine(
                 measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
                     base = measuredTokenSnapshot,
                     conversation = conversation,
+                    tokenizerSessionSource = heldEngine.engineInstance,
                     promptText = prompt,
                     fullResponseText = flowResponse,
                     timing = LocalLiteRtTimingSnapshot(
@@ -252,6 +253,7 @@ internal suspend fun runWithHeldEngine(
                 measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
                     base = measuredTokenSnapshot,
                     conversation = conversation,
+                    tokenizerSessionSource = heldEngine.engineInstance,
                     promptText = prompt,
                     fullResponseText = blockingResponse,
                     timing = LocalLiteRtTimingSnapshot(
@@ -475,6 +477,7 @@ private data class LocalLiteRtTimingSnapshot(
 private fun mergeTokenizerRecountSnapshot(
     base: LocalInferenceMeasuredTokenSnapshot?,
     conversation: Any?,
+    tokenizerSessionSource: Any? = null,
     promptText: String,
     fullResponseText: String?,
     timing: LocalLiteRtTimingSnapshot,
@@ -484,6 +487,7 @@ private fun mergeTokenizerRecountSnapshot(
     val sanitizedResponse = fullResponseText.orEmpty()
     val tokenizerSnapshot = readTokenizerRecountSnapshotFromConversation(
         conversation = conversation,
+        tokenizerSessionSource = tokenizerSessionSource,
         promptText = sanitizedPrompt,
         fullResponseText = sanitizedResponse,
         timing = timing,
@@ -509,6 +513,7 @@ private fun mergeTokenizerRecountSnapshot(
 
 private fun readTokenizerRecountSnapshotFromConversation(
     conversation: Any?,
+    tokenizerSessionSource: Any?,
     promptText: String,
     fullResponseText: String,
     timing: LocalLiteRtTimingSnapshot,
@@ -535,6 +540,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
 
         val tokenizerRecountOutcome = tryReadTokenizerRecountViaReflection(
             conversation = conversation,
+            tokenizerSessionSource = tokenizerSessionSource,
             promptText = promptText,
             fullResponseText = fullResponseText,
             appendTrace = appendTrace,
@@ -597,11 +603,15 @@ private data class TokenizerRecountOutcome(
 
 private fun tryReadTokenizerRecountViaReflection(
     conversation: Conversation,
+    tokenizerSessionSource: Any?,
     promptText: String,
     fullResponseText: String,
     appendTrace: (String) -> Unit,
 ) : TokenizerRecountOutcome {
-    val inferenceInstance = tryResolveInferenceInstanceForTokenizerSession(conversation)
+    val inferenceInstance = tryResolveInferenceInstanceForTokenizerSession(
+        tokenizerSessionSource = tokenizerSessionSource,
+        conversation = conversation,
+    )
         ?: return TokenizerRecountOutcome(
             status = "skipped reason=inference-instance-not-found",
         ).also {
@@ -649,8 +659,22 @@ private fun tryReadTokenizerRecountViaReflection(
     }
 }
 
-private fun tryResolveInferenceInstanceForTokenizerSession(conversation: Conversation): Any? {
-    val methodCandidates = conversation.javaClass.methods.filter { method ->
+private fun tryResolveInferenceInstanceForTokenizerSession(
+    tokenizerSessionSource: Any?,
+    conversation: Conversation,
+): Any? {
+    resolveInferenceInstanceFromSource(tokenizerSessionSource)?.let { return it }
+    resolveInferenceInstanceFromSource(conversation)?.let { return it }
+    return null
+}
+
+private fun resolveInferenceInstanceFromSource(source: Any?): Any? {
+    if (source == null) return null
+    val sourceClass = source.javaClass
+    if (sourceClass.name.contains("llminference", ignoreCase = true)) {
+        return source
+    }
+    val methodCandidates = sourceClass.methods.filter { method ->
         method.parameterTypes.isEmpty() && (
             method.name == "getInference" ||
                 method.name == "inference" ||
@@ -659,18 +683,18 @@ private fun tryResolveInferenceInstanceForTokenizerSession(conversation: Convers
             )
     }
     methodCandidates.forEach { method ->
-        runCatching { method.invoke(conversation) }
+        runCatching { method.invoke(source) }
             .getOrNull()
             ?.let { return it }
     }
-    val fieldCandidates = conversation.javaClass.declaredFields.filter { field ->
+    val fieldCandidates = sourceClass.declaredFields.filter { field ->
         val lowerName = field.name.lowercase(Locale.ROOT)
         lowerName.contains("inference")
     }
     fieldCandidates.forEach { field ->
         runCatching {
             field.isAccessible = true
-            field.get(conversation)
+            field.get(source)
         }.getOrNull()?.let { return it }
     }
     return null
@@ -1405,6 +1429,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
         measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
             base = measuredTokenSnapshot,
             conversation = conversation,
+            tokenizerSessionSource = engine,
             promptText = prompt,
             fullResponseText = response,
             timing = LocalLiteRtTimingSnapshot(
@@ -1716,6 +1741,7 @@ private suspend fun runOfficialLiteRtLmDirect(
             measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
                 base = measuredTokenSnapshot,
                 conversation = conversation,
+                tokenizerSessionSource = engine,
                 promptText = prompt,
                 fullResponseText = response,
                 timing = LocalLiteRtTimingSnapshot(
@@ -1848,6 +1874,7 @@ private fun runOfficialLiteRtLmBlocking(
                 measuredTokenSnapshot = mergeTokenizerRecountSnapshot(
                     base = measuredTokenSnapshot,
                     conversation = conversation,
+                    tokenizerSessionSource = engine,
                     promptText = prompt,
                     fullResponseText = responseText,
                     timing = LocalLiteRtTimingSnapshot(
