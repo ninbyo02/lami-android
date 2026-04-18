@@ -763,7 +763,7 @@ private fun tryInvokeEngineCreateSessionNullableArgs(engine: Any): Any? {
     createMethods.forEach { method ->
         val parameterTypes = method.parameterTypes
         if (parameterTypes.any { it.isPrimitive }) return@forEach
-        val args = Array(parameterTypes.size) { null }
+        val args: Array<Any?> = arrayOfNulls(parameterTypes.size)
         runCatching { method.invoke(engine, *args) }.getOrNull()?.let { return it }
     }
     return null
