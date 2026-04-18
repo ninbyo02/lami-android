@@ -352,6 +352,7 @@ internal data class LocalInferenceTrace(
     val generateMethodSignature: String? = null,
     val streamingCandidateDetected: Boolean? = null,
     val localModelDisplayName: String? = null,
+    val mediaPipeProbeModelPath: String? = null,
     val modelNameProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val finishReasonProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
     val outputTokenProbe: LocalStatsCandidateProbe = LocalStatsCandidateProbe(LocalStatsAvailability.NOT_FOUND),
@@ -1912,6 +1913,7 @@ fun Home(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
                                                             )
+                                                            var mediaPipeProbeModelPathForRun: String? = null
                                                             val modelResolution = resolveLocalModelResolutionOrNull(
                                                                 context = context.applicationContext,
                                                                 settingsPreferences = settingsPreferences,
@@ -1942,6 +1944,7 @@ fun Home(
                                                                 }
                                                             } else {
                                                                 val resolvedModelPath = modelResolution.modelPath
+                                                                mediaPipeProbeModelPathForRun = resolvedModelPath
                                                                 val modelPathTail = resolvedModelPath.substringAfterLast('/')
                                                                 var legacyFallbackReason: String? = null
                                                                 var heldAcquireFailureStage: String? = null
@@ -2043,6 +2046,7 @@ fun Home(
                                                                         chatId = currentChatId,
                                                                         prompt = requestPrompt,
                                                                         localModelDisplayName = modelResolution.displayName,
+                                                                        mediaPipeProbeModelPath = mediaPipeProbeModelPathForRun,
                                                                         onPartial = { partial ->
                                                                             if (localStopRequested) return@runWithHeldEngine
                                                                             val normalizedPartial = partial.trim()
@@ -2200,6 +2204,8 @@ fun Home(
                                                             val runResultWithUiTrace = normalizeLocalInferenceRunResult(
                                                                 runResult?.copy(
                                                                     trace = runResult.trace.copy(
+                                                                        mediaPipeProbeModelPath = runResult.trace.mediaPipeProbeModelPath
+                                                                            ?: mediaPipeProbeModelPathForRun,
                                                                         assistantUpdateCount = assistantUpdateCountForDev,
                                                                         firstNonEmptyAssistantChunkSeen = firstNonEmptyAssistantChunkSeenForDev,
                                                                         assistantStreamedToUi = assistantUpdateCountForDev >= 2,

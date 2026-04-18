@@ -746,6 +746,12 @@ private fun buildTokenizerDiagnosticsItems(
     val mediaPipeSessionCreateStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe session create")
         ?.toUiStatusForMediaPipeSessionCreate()
         ?: "未取得"
+    val mediaPipeModelPathSource = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path source") ?: "未取得"
+    val mediaPipeModelPath = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path") ?: "未取得"
+    val mediaPipeModelPathExists = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path exists") ?: "未取得"
+    val mediaPipeModelPathIsFile = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path isFile") ?: "未取得"
+    val mediaPipeModelPathReadable = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path readable") ?: "未取得"
+    val mediaPipeModelPathStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe model path status") ?: "未取得"
     val mediaPipeSizeInTokensStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe sizeInTokens")
         ?.toUiStatusForFoundOrNotFound()
         ?: "未取得"
@@ -764,6 +770,12 @@ private fun buildTokenizerDiagnosticsItems(
     return listOf(
         InferenceStatItemUi(label = "Tokenizer再計数", value = tokenizerRecountStatus),
         InferenceStatItemUi(label = "MediaPipe tokenizer", value = mediaPipeStatus),
+        InferenceStatItemUi(label = "MediaPipe model path source", value = mediaPipeModelPathSource),
+        InferenceStatItemUi(label = "MediaPipe model path", value = mediaPipeModelPath),
+        InferenceStatItemUi(label = "MediaPipe model path exists", value = mediaPipeModelPathExists),
+        InferenceStatItemUi(label = "MediaPipe model path isFile", value = mediaPipeModelPathIsFile),
+        InferenceStatItemUi(label = "MediaPipe model path readable", value = mediaPipeModelPathReadable),
+        InferenceStatItemUi(label = "MediaPipe model path status", value = mediaPipeModelPathStatus),
         InferenceStatItemUi(label = "MediaPipe session create", value = mediaPipeSessionCreateStatus),
         InferenceStatItemUi(label = "MediaPipe sizeInTokens", value = mediaPipeSizeInTokensStatus),
         InferenceStatItemUi(label = "MediaPipe prompt tokens", value = mediaPipePromptTokens),

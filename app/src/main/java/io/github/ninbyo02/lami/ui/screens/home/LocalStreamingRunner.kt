@@ -14,6 +14,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.Locale
@@ -114,6 +115,7 @@ internal suspend fun runWithHeldEngine(
     chatId: Int,
     prompt: String,
     localModelDisplayName: String?,
+    mediaPipeProbeModelPath: String? = null,
     onPartial: (String) -> Unit,
     appendTrace: (String) -> Unit = {},
 ): HeldEngineRunResult? {
@@ -196,6 +198,7 @@ internal suspend fun runWithHeldEngine(
                     base = measuredTokenSnapshot,
                     conversation = conversation,
                     tokenizerSessionSource = heldEngine.engineInstance,
+                    mediaPipeProbeModelPath = mediaPipeProbeModelPath,
                     promptText = prompt,
                     fullResponseText = flowResponse,
                     timing = LocalLiteRtTimingSnapshot(
@@ -256,6 +259,7 @@ internal suspend fun runWithHeldEngine(
                     base = measuredTokenSnapshot,
                     conversation = conversation,
                     tokenizerSessionSource = heldEngine.engineInstance,
+                    mediaPipeProbeModelPath = mediaPipeProbeModelPath,
                     promptText = prompt,
                     fullResponseText = blockingResponse,
                     timing = LocalLiteRtTimingSnapshot(
@@ -480,6 +484,7 @@ private fun mergeTokenizerRecountSnapshot(
     base: LocalInferenceMeasuredTokenSnapshot?,
     conversation: Any?,
     tokenizerSessionSource: Any? = null,
+    mediaPipeProbeModelPath: String? = null,
     promptText: String,
     fullResponseText: String?,
     timing: LocalLiteRtTimingSnapshot,
@@ -490,6 +495,7 @@ private fun mergeTokenizerRecountSnapshot(
     val tokenizerSnapshot = readTokenizerRecountSnapshotFromConversation(
         conversation = conversation,
         tokenizerSessionSource = tokenizerSessionSource,
+        mediaPipeProbeModelPath = mediaPipeProbeModelPath,
         promptText = sanitizedPrompt,
         fullResponseText = sanitizedResponse,
         timing = timing,
@@ -522,6 +528,7 @@ private fun mergeTokenizerRecountSnapshot(
 private fun readTokenizerRecountSnapshotFromConversation(
     conversation: Any?,
     tokenizerSessionSource: Any?,
+    mediaPipeProbeModelPath: String?,
     promptText: String,
     fullResponseText: String,
     timing: LocalLiteRtTimingSnapshot,
@@ -555,6 +562,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
         )
         val mediaPipeProbeOutcome = tryReadMediaPipeTokenizerProbeViaReflection(
             tokenizerSessionSource = tokenizerSessionSource,
+            preferredModelPath = mediaPipeProbeModelPath,
             promptText = promptText,
             fullResponseText = fullResponseText,
         )
@@ -639,6 +647,16 @@ private data class MediaPipeTokenizerProbeOutcome(
     val totalTokens: Int? = null,
     val status: String,
     val summary: String,
+)
+
+private data class MediaPipeTokenizerModelPathResolution(
+    val rawCandidate: String?,
+    val adoptedPath: String?,
+    val source: String,
+    val exists: Boolean,
+    val isFile: Boolean,
+    val readable: Boolean,
+    val status: String,
 )
 
 private data class ExistingTokenizerSessionResolution(
@@ -924,6 +942,7 @@ private fun tryReadTokenizerRecountViaReflection(
 
 private fun tryReadMediaPipeTokenizerProbeViaReflection(
     tokenizerSessionSource: Any?,
+    preferredModelPath: String?,
     promptText: String,
     fullResponseText: String,
 ): MediaPipeTokenizerProbeOutcome {
@@ -952,21 +971,48 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         )
     }
 
-    val modelPath = resolveModelPathForMediaPipeTokenizerProbe(tokenizerSessionSource)
-    if (modelPath.isNullOrBlank()) {
+    val modelPathResolution = resolveMediaPipeTokenizerModelPath(
+        preferredModelPath = preferredModelPath,
+        tokenizerSessionSource = tokenizerSessionSource,
+    )
+
+    val baseSummary = buildString {
+        appendLine("MediaPipe tokenizer: failed")
+        appendLine("MediaPipe class availability: $classAvailability")
+        appendLine("MediaPipe model path source: ${modelPathResolution.source}")
+        appendLine("MediaPipe model path: ${modelPathResolution.adoptedPath ?: "null"}")
+        appendLine("MediaPipe model path exists: ${modelPathResolution.exists}")
+        appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
+        appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
+    }
+
+    if (modelPathResolution.status != "model-path-resolved") {
         return MediaPipeTokenizerProbeOutcome(
             attempted = true,
             succeeded = false,
-            status = "failed(model-path-unavailable)",
+            status = "failed(${modelPathResolution.status})",
             summary = buildString {
-                appendLine("MediaPipe tokenizer: failed")
-                appendLine("MediaPipe class availability: $classAvailability")
-                appendLine("MediaPipe session create: failed")
+                append(baseSummary)
+                appendLine("MediaPipe model path status: ${modelPathResolution.status}")
+                appendLine("MediaPipe session create: skipped")
                 appendLine("MediaPipe sizeInTokens: not-found")
-                append("MediaPipe failure: model-path-unavailable")
+                append("MediaPipe failure: ${modelPathResolution.status}")
             }.trimEnd(),
         )
     }
+    val modelPath = modelPathResolution.adoptedPath ?: return MediaPipeTokenizerProbeOutcome(
+        attempted = true,
+        succeeded = false,
+        status = "failed(model-path-missing)",
+        summary = buildString {
+            append(baseSummary)
+            appendLine("MediaPipe model path status: model-path-missing")
+            appendLine("MediaPipe session create: skipped")
+            appendLine("MediaPipe sizeInTokens: not-found")
+            append("MediaPipe failure: model-path-missing")
+        }.trimEnd(),
+    )
+
     return runCatching {
         val inferenceOutcome = createMediaPipeLlmInferenceInstance(
             llmInferenceClass = llmInferenceClass,
@@ -978,8 +1024,8 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                 succeeded = false,
                 status = "failed(createFromOptions)",
                 summary = buildString {
-                    appendLine("MediaPipe tokenizer: failed")
-                    appendLine("MediaPipe class availability: $classAvailability")
+                    append(baseSummary)
+                    appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
                     appendLine("MediaPipe session create: failed")
                     appendLine("MediaPipe sizeInTokens: not-found")
                     append("MediaPipe failure: ${inferenceOutcome.failureSummary ?: "createFromOptions-failed"}")
@@ -1001,8 +1047,8 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     succeeded = false,
                     status = if (session == null) "failed(session-create)" else "failed(sizeInTokens-not-found)",
                     summary = buildString {
-                        appendLine("MediaPipe tokenizer: failed")
-                        appendLine("MediaPipe class availability: $classAvailability")
+                        append(baseSummary)
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
                         appendLine("MediaPipe session create: ${if (session != null) "success" else "failed"}")
                         appendLine("MediaPipe sizeInTokens: ${if (sizeMethod != null) "found" else "not-found"}")
                         append(
@@ -1016,11 +1062,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             }
             val promptTokens = invokeSizeInTokens(session, sizeMethod, promptText)
             val responseTokens = invokeSizeInTokens(session, sizeMethod, fullResponseText)
-            val totalTokens = if (promptTokens != null && responseTokens != null) {
-                promptTokens + responseTokens
-            } else {
-                null
-            }
+            val totalTokens = if (promptTokens != null && responseTokens != null) promptTokens + responseTokens else null
             if (promptTokens != null && responseTokens != null && totalTokens != null) {
                 MediaPipeTokenizerProbeOutcome(
                     attempted = true,
@@ -1032,6 +1074,12 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     summary = buildString {
                         appendLine("MediaPipe tokenizer: success")
                         appendLine("MediaPipe class availability: $classAvailability")
+                        appendLine("MediaPipe model path source: ${modelPathResolution.source}")
+                        appendLine("MediaPipe model path: $modelPath")
+                        appendLine("MediaPipe model path exists: ${modelPathResolution.exists}")
+                        appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
+                        appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
                         appendLine("MediaPipe session create: success")
                         appendLine("MediaPipe sizeInTokens: found")
                         appendLine("MediaPipe prompt tokens: $promptTokens")
@@ -1045,8 +1093,8 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     succeeded = false,
                     status = "failed(sizeInTokens-invoke)",
                     summary = buildString {
-                        appendLine("MediaPipe tokenizer: failed")
-                        appendLine("MediaPipe class availability: $classAvailability")
+                        append(baseSummary)
+                        appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
                         appendLine("MediaPipe session create: success")
                         appendLine("MediaPipe sizeInTokens: found")
                         append("MediaPipe failure: invoke-sizeInTokens-failed")
@@ -1063,8 +1111,8 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             succeeded = false,
             status = "failed(${throwable.javaClass.simpleName})",
             summary = buildString {
-                appendLine("MediaPipe tokenizer: failed")
-                appendLine("MediaPipe class availability: $classAvailability")
+                append(baseSummary)
+                appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
                 appendLine("MediaPipe session create: failed")
                 appendLine("MediaPipe sizeInTokens: not-found")
                 append("MediaPipe failure: ${throwable.javaClass.simpleName}:${throwable.message}")
@@ -1158,18 +1206,78 @@ private fun createMediaPipeLlmSessionOptions(
     return runCatching { buildMethod.invoke(builder) }.getOrNull()
 }
 
-private fun resolveModelPathForMediaPipeTokenizerProbe(
+private fun resolveMediaPipeTokenizerModelPath(
+    preferredModelPath: String?,
     tokenizerSessionSource: Any?,
-): String? {
-    val source = tokenizerSessionSource ?: return null
-    val directModelPath = readNamedMemberValue(source, "modelPath") as? String
-    if (!directModelPath.isNullOrBlank()) return directModelPath
-    val engineKey = readNamedMemberValue(source, "engineKey")
-    val modelPathFromEngineKey = (engineKey?.let { readNamedMemberValue(it, "modelPath") }) as? String
-    if (!modelPathFromEngineKey.isNullOrBlank()) return modelPathFromEngineKey
-    val heldEngine = readNamedMemberValue(source, "heldEngine")
-    val modelPathFromHeldEngine = (heldEngine?.let { readNamedMemberValue(it, "modelPath") }) as? String
-    return modelPathFromHeldEngine?.takeIf { it.isNotBlank() }
+): MediaPipeTokenizerModelPathResolution {
+    fun buildResolution(source: String, candidate: String?): MediaPipeTokenizerModelPathResolution {
+        val normalizedCandidate = candidate?.trim()?.takeIf { it.isNotEmpty() }
+        if (normalizedCandidate == null) {
+            return MediaPipeTokenizerModelPathResolution(
+                rawCandidate = candidate,
+                adoptedPath = null,
+                source = source,
+                exists = false,
+                isFile = false,
+                readable = false,
+                status = "model-path-missing",
+            )
+        }
+        val modelFile = runCatching { File(normalizedCandidate) }.getOrNull()
+        val exists = runCatching { modelFile?.exists() == true }.getOrDefault(false)
+        val isFile = runCatching { modelFile?.isFile == true }.getOrDefault(false)
+        val readable = runCatching { modelFile?.canRead() == true }.getOrDefault(false)
+        val status = when {
+            !exists -> "model-path-not-found"
+            !isFile -> "model-path-not-file"
+            !readable -> "model-path-not-readable"
+            else -> "model-path-resolved"
+        }
+        return MediaPipeTokenizerModelPathResolution(
+            rawCandidate = candidate,
+            adoptedPath = normalizedCandidate,
+            source = source,
+            exists = exists,
+            isFile = isFile,
+            readable = readable,
+            status = status,
+        )
+    }
+
+    val candidates = buildList<Pair<String, String?>>() {
+        add("trace-resolved-model" to preferredModelPath)
+        val source = tokenizerSessionSource
+        if (source != null) {
+            val heldEngine = readNamedMemberValue(source, "heldEngine")
+            val modelPathFromHeldEngine = (heldEngine?.let { readNamedMemberValue(it, "modelPath") }) as? String
+            add("held-engine" to modelPathFromHeldEngine)
+            val engineKey = readNamedMemberValue(source, "engineKey")
+            val modelPathFromEngineKey = (engineKey?.let { readNamedMemberValue(it, "modelPath") }) as? String
+            add("engine-key" to modelPathFromEngineKey)
+            val modelPathFromSource = readNamedMemberValue(source, "modelPath") as? String
+            add("source-model-path" to modelPathFromSource)
+            val directModelPath = readNamedMemberValue(source, "getModelPath") as? String
+            add("direct-model-path-getter" to directModelPath)
+        }
+    }
+
+    var lastResolution = MediaPipeTokenizerModelPathResolution(
+        rawCandidate = null,
+        adoptedPath = null,
+        source = "none",
+        exists = false,
+        isFile = false,
+        readable = false,
+        status = "model-path-missing",
+    )
+    for ((source, candidate) in candidates) {
+        val resolution = buildResolution(source = source, candidate = candidate)
+        lastResolution = resolution
+        if (resolution.status == "model-path-resolved") {
+            return resolution
+        }
+    }
+    return lastResolution
 }
 
 private fun isAndroidContextClass(clazz: Class<*>): Boolean {
@@ -2837,6 +2945,7 @@ private suspend fun runOfficialFlowStreamingSingleNamespace(
             base = measuredTokenSnapshot,
             conversation = conversation,
             tokenizerSessionSource = engine,
+            mediaPipeProbeModelPath = modelPath,
             promptText = prompt,
             fullResponseText = response,
             timing = LocalLiteRtTimingSnapshot(
@@ -3149,6 +3258,7 @@ private suspend fun runOfficialLiteRtLmDirect(
                 base = measuredTokenSnapshot,
                 conversation = conversation,
                 tokenizerSessionSource = engine,
+                mediaPipeProbeModelPath = modelPath,
                 promptText = prompt,
                 fullResponseText = response,
                 timing = LocalLiteRtTimingSnapshot(
@@ -3282,6 +3392,7 @@ private fun runOfficialLiteRtLmBlocking(
                     base = measuredTokenSnapshot,
                     conversation = conversation,
                     tokenizerSessionSource = engine,
+                    mediaPipeProbeModelPath = modelPath,
                     promptText = prompt,
                     fullResponseText = responseText,
                     timing = LocalLiteRtTimingSnapshot(
