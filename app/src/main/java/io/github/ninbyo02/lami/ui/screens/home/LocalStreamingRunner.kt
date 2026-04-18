@@ -544,7 +544,15 @@ private fun readTokenizerRecountSnapshotFromConversation(
         val inputTokenCount = tokenizerRecount?.promptTokens
         val outputTokenCount = tokenizerRecount?.responseTokens
         val totalTokenCount = tokenizerRecount?.totalTokens
-        val tokenCountMode = if (tokenizerRecount != null) "tokenizer_recount" else null
+        val tokenCountMode = if (
+            tokenizerRecount != null &&
+            inputTokenCount != null &&
+            outputTokenCount != null
+        ) {
+            "tokenizer_recount"
+        } else {
+            null
+        }
         val notes = if (tokenizerRecount == null) TOKENIZER_COUNT_UNAVAILABLE_NOTE else null
         val tokensPerSecond = if (
             outputTokenCount != null && decodeDurationMs != null && decodeDurationMs > 0L

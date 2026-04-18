@@ -96,7 +96,7 @@ class InferenceStatsSheetContentTest {
             localTraceForDev = trace,
         )
 
-        assertEquals("11.9 token/s（Tokenizer基準）", sections[0].items[2].value)
+        assertEquals("11.9 token/s（Tokenizer）", sections[0].items[2].value)
     }
 
     @Test
@@ -172,10 +172,10 @@ class InferenceStatsSheetContentTest {
 
         assertEquals(listOf("トークン", "バックエンド時間詳細", "補足"), sections.map { it.title })
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("100", "240", "340"), sections[0].items.map { it.value })
+        assertEquals(listOf("100（推定）", "240（推定）", "340（推定）", "未実行"), sections[0].items.map { it.value })
         assertEquals(listOf("モデルロード時間", "入力評価時間", "生成時間", "推論時間"), sections[1].items.map { it.label })
         assertEquals(
             listOf("2.0 s（取得済み）", "1.5 s（取得済み）", "3.0 s（取得済み）", "—（未取得）"),
@@ -198,7 +198,7 @@ class InferenceStatsSheetContentTest {
         val sections = buildInferenceDetailSections(stats)
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度", "体感生成速度"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度", "体感生成速度", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
         assertEquals("32.4 token/s", sections[0].items[3].value)
@@ -221,7 +221,7 @@ class InferenceStatsSheetContentTest {
         val sections = buildInferenceDetailSections(stats)
 
         assertEquals(
-            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度"),
+            listOf("入力トークン", "生成トークン", "合計トークン", "実測生成速度", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
     }
@@ -230,7 +230,8 @@ class InferenceStatsSheetContentTest {
     fun `buildInferenceDetailSections keeps placeholder when values are missing`() {
         val sections = buildInferenceDetailSections(InferenceStats())
 
-        assertEquals(listOf("—", "—", "—"), sections[0].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）"), sections[0].items.take(3).map { it.value })
+        assertEquals("未実行", sections[0].items.last { it.label == "Tokenizer状態" }.value)
         assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "—（未取得）"), sections[1].items.map { it.value })
         assertEquals("—", sections[2].items.first().value)
     }
@@ -250,10 +251,10 @@ class InferenceStatsSheetContentTest {
         )
 
         assertEquals(
-            listOf("入力トークン数（Tokenizer基準）", "出力トークン数（Tokenizer基準）", "合計トークン", "直近 Prefill Token", "直近 Decode Token"),
+            listOf("入力トークン数（未取得）", "出力トークン数（未取得）", "合計トークン（未取得）", "直近 Prefill Token", "直近 Decode Token", "Tokenizer状態"),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("—", "—", "—", "0", "42"), sections[0].items.map { it.value })
+        assertEquals(listOf("—（未取得）", "—（未取得）", "—（未取得）", "0", "42", "未実行"), sections[0].items.map { it.value })
     }
 
     @Test
@@ -271,18 +272,62 @@ class InferenceStatsSheetContentTest {
 
         assertEquals(
             listOf(
-                "入力トークン数（Tokenizer基準）",
-                "出力トークン数（Tokenizer基準）",
-                "合計トークン",
+                "入力トークン数（未取得）",
+                "出力トークン数（未取得）",
+                "合計トークン（未取得）",
                 "実測生成速度",
                 "TTFT",
                 "Decode時間",
                 "総応答時間",
+                "Tokenizer状態",
             ),
             sections[0].items.map { it.label },
         )
-        assertEquals(listOf("21.5 token/s", "0.4 s", "2.8 s", "3.4 s"), sections[0].items.takeLast(4).map { it.value })
+        assertEquals(listOf("21.5 token/s（fallback）", "0.4 s", "2.8 s", "3.4 s", "未実行"), sections[0].items.takeLast(5).map { it.value })
         assertEquals("tokenizer note", sections[2].items.first { it.label == "注記" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections marks tokenizer based labels only when recount succeeded`() {
+        val trace = LocalInferenceTrace(
+            measuredTokenSnapshot = LocalInferenceMeasuredTokenSnapshot(
+                inputTokens = 12,
+                outputTokens = 34,
+                totalTokens = 46,
+                tokenCountMode = "tokenizer_recount",
+                tokenizerRecountStatus = "success",
+            ),
+        )
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(tokenCountMode = "tokenizer_recount"),
+            localTraceForDev = trace,
+        )
+
+        assertEquals(
+            listOf("入力トークン数（Tokenizer基準）", "出力トークン数（Tokenizer基準）", "合計トークン（Tokenizer基準）"),
+            sections[0].items.take(3).map { it.label },
+        )
+        assertEquals(listOf("12（Tokenizer）", "34（Tokenizer）", "46（Tokenizer）"), sections[0].items.take(3).map { it.value })
+        assertEquals("成功", sections[0].items.last { it.label == "Tokenizer状態" }.value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections marks tokenizer failure reason and avoids tokenizer label`() {
+        val trace = LocalInferenceTrace(
+            measuredTokenSnapshot = LocalInferenceMeasuredTokenSnapshot(
+                tokenizerRecountStatus = "skipped reason=inference-instance-not-found",
+            ),
+        )
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(inputTokens = 8, outputTokens = 13, totalTokens = 21),
+            localTraceForDev = trace,
+        )
+
+        assertEquals(
+            listOf("入力トークン数（推定）", "出力トークン数（推定）", "合計トークン（推定）"),
+            sections[0].items.take(3).map { it.label },
+        )
+        assertEquals("失敗（inference-instance-not-found）", sections[0].items.last { it.label == "Tokenizer状態" }.value)
     }
 
     @Test
@@ -295,6 +340,18 @@ class InferenceStatsSheetContentTest {
 
         assertEquals("1.2 s（fallback）", sections[1].items[2].value)
         assertEquals("1.2 s（取得済み）", sections[1].items[3].value)
+    }
+
+    @Test
+    fun `buildInferenceDetailSections does not duplicate measuredTokens in DEV diagnostics`() {
+        val sections = buildInferenceDetailSections(
+            stats = InferenceStats(),
+            measuredTokenSnapshotSummary = "in=1 / out=2 / total=3",
+        )
+        val devSection = sections.firstOrNull { it.title == "DEV診断" }
+        if (devSection != null) {
+            assertEquals(null, devSection.items.firstOrNull { it.label == "measuredTokens" })
+        }
     }
 
     @Test
