@@ -624,6 +624,7 @@ private data class EngineCreateSessionAttempt(
     val session: Any? = null,
     val attempted: Boolean = false,
     val status: String = "engine-createSession-not-attempted",
+    val createdSessionPath: String? = null,
     val sessionConfigProbe: SessionConfigProbeSummary? = null,
     val samplerConfigProbe: SamplerConfigProbeSummary? = null,
     val failureSummary: EngineCreateSessionFailureSummary? = null,
@@ -672,6 +673,9 @@ private data class TokenizerSourceTraceSummary(
     val existingSessionPath: String? = null,
     val existingSessionClass: String? = null,
     val existingSessionSizeInTokensStatus: String = "not-found",
+    val createdSessionPath: String? = null,
+    val createdSessionClass: String? = null,
+    val createdSessionSizeInTokensStatus: String = "not-found",
     val conversationTokenizerPath: String? = null,
     val conversationTokenizerClass: String? = null,
 ) {
@@ -731,11 +735,20 @@ private data class TokenizerSourceTraceSummary(
             appendLine("existing-session path: ${existingSessionPath ?: "none"}")
             appendLine("existing-session class: ${existingSessionClass ?: "none"}")
             appendLine("existing-session sizeInTokens: $existingSessionSizeInTokensStatus")
+            appendLine("created-session path: ${createdSessionPath ?: "none"}")
+            appendLine("created-session class: ${createdSessionClass ?: "none"}")
+            appendLine("created-session sizeInTokens: $createdSessionSizeInTokensStatus")
             appendLine("conversation-tokenizer path: ${conversationTokenizerPath ?: "none"}")
             appendLine("conversation-tokenizer class: ${conversationTokenizerClass ?: "none"}")
         }.trimEnd()
     }
 }
+
+private data class CreatedTokenizerSessionResolution(
+    val path: String,
+    val sessionClassName: String,
+    val sizeInTokensMethod: Method?,
+)
 
 private fun tryReadTokenizerRecountViaReflection(
     conversation: Conversation,
@@ -789,6 +802,10 @@ private fun tryReadTokenizerRecountViaReflection(
         tokenizerSessionSource = tokenizerSessionSource,
         appendTrace = appendTrace,
     )
+    val createdSessionResolution = inspectCreatedSessionForTokenizer(
+        createdSession = engineSessionAttempt.session,
+        createdSessionPath = engineSessionAttempt.createdSessionPath,
+    )
     if (engineSessionAttempt.session != null) {
         safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount session-created-but-not-used path=engine-createSession")
         tryCloseTokenizerSession(engineSessionAttempt.session, appendTrace)
@@ -808,6 +825,7 @@ private fun tryReadTokenizerRecountViaReflection(
             samplerConfigProbe = engineSessionAttempt.samplerConfigProbe,
             engineCreateSessionFailureSummary = engineSessionAttempt.failureSummary,
             existingSessionResolution = existingSessionResolution,
+            createdSessionResolution = createdSessionResolution,
         )
     } else {
         null
@@ -896,6 +914,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
             sessionConfigProbe = sessionConfigProbe,
             samplerConfigProbe = samplerConfigProbe,
         )
@@ -918,6 +937,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
             sessionConfigProbe = sessionConfigProbe,
             samplerConfigProbe = samplerConfigProbe,
         )
@@ -929,6 +949,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
             sessionConfigProbe = sessionConfigProbe,
             samplerConfigProbe = samplerConfigProbe,
         )
@@ -950,6 +971,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            createdSessionPath = "engine-createSession",
             sessionConfigProbe = sessionConfigProbe,
             samplerConfigProbe = samplerConfigProbe,
         )
@@ -1546,6 +1568,7 @@ private fun emitTokenizerSessionSourceTrace(
     sessionConfigProbe: SessionConfigProbeSummary? = null,
     samplerConfigProbe: SamplerConfigProbeSummary? = null,
     existingSessionResolution: ExistingTokenizerSessionResolution? = null,
+    createdSessionResolution: CreatedTokenizerSessionResolution? = null,
     conversationTokenizerResolution: ConversationTokenizerResolution? = null,
 ): TokenizerSourceTraceSummary {
     val resolvedSourceObject = tokenizerSessionSource ?: conversation
@@ -1592,9 +1615,26 @@ private fun emitTokenizerSessionSourceTrace(
         existingSessionPath = existingSessionResolution?.path,
         existingSessionClass = existingSessionResolution?.sessionClassName,
         existingSessionSizeInTokensStatus = if (existingSessionResolution?.sizeInTokensMethod != null) "found" else "not-found",
+        createdSessionPath = createdSessionResolution?.path,
+        createdSessionClass = createdSessionResolution?.sessionClassName,
+        createdSessionSizeInTokensStatus = if (createdSessionResolution?.sizeInTokensMethod != null) "found" else "not-found",
         conversationTokenizerPath = conversationTokenizerResolution?.path,
         conversationTokenizerClass = conversationTokenizerResolution?.className,
     )
+}
+
+private fun inspectCreatedSessionForTokenizer(
+    createdSession: Any?,
+    createdSessionPath: String?,
+): CreatedTokenizerSessionResolution? {
+    if (createdSession == null || createdSessionPath.isNullOrBlank()) return null
+    return runCatching {
+        CreatedTokenizerSessionResolution(
+            path = createdSessionPath,
+            sessionClassName = createdSession.javaClass.name,
+            sizeInTokensMethod = findSizeInTokensMethod(createdSession),
+        )
+    }.getOrNull()
 }
 
 private fun buildCreateSessionMethodSignatures(source: Any?): List<String> {
