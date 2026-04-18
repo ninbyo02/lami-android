@@ -614,6 +614,15 @@ private data class EngineCreateSessionAttempt(
     val session: Any? = null,
     val attempted: Boolean = false,
     val status: String = "engine-createSession-not-attempted",
+    val sessionConfigProbe: SessionConfigProbeSummary? = null,
+)
+
+private data class SessionConfigProbeSummary(
+    val classStatus: String,
+    val factorySignatures: List<String> = emptyList(),
+    val constructorSignatures: List<String> = emptyList(),
+    val triedPaths: List<String> = emptyList(),
+    val selectedPath: String? = null,
 )
 
 private enum class TokenizerSessionOrigin {
@@ -628,6 +637,7 @@ private data class TokenizerSourceTraceSummary(
     val fieldsSummary: String,
     val createSessionSignatures: List<String> = emptyList(),
     val engineCreateSessionStatus: String? = null,
+    val sessionConfigProbe: SessionConfigProbeSummary? = null,
 ) {
     fun toMeasuredTokenSummary(): String {
         return buildString {
@@ -641,6 +651,22 @@ private data class TokenizerSourceTraceSummary(
             appendLine("createSession signatures:")
             createSessionSignatures.ifEmpty { listOf("none") }.forEach { signature ->
                 appendLine("- $signature")
+            }
+            sessionConfigProbe?.let { probe ->
+                appendLine("SessionConfig class: ${probe.classStatus}")
+                appendLine("SessionConfig factories:")
+                probe.factorySignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SessionConfig constructors:")
+                probe.constructorSignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SessionConfig tried-paths:")
+                probe.triedPaths.ifEmpty { listOf("none") }.forEach { path ->
+                    appendLine("- $path")
+                }
+                appendLine("SessionConfig selected-path: ${probe.selectedPath ?: "none"}")
             }
         }.trimEnd()
     }
@@ -680,6 +706,7 @@ private fun tryReadTokenizerRecountViaReflection(
             conversation = conversation,
             inferenceResolution = inferenceResolution,
             engineCreateSessionStatus = engineSessionAttempt.status,
+            sessionConfigProbe = engineSessionAttempt.sessionConfigProbe,
         )
     } else {
         null
@@ -788,6 +815,13 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
     val engine = tokenizerSessionSource ?: return EngineCreateSessionAttempt()
     if (!isLiteRtEngineInstance(engine)) return EngineCreateSessionAttempt()
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount try=engine-createSession")
+    val sessionConfigProbe = probeSessionConfigCreationPaths()
+    sessionConfigProbe.factorySignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SessionConfig factory signature: $signature")
+    }
+    sessionConfigProbe.constructorSignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SessionConfig constructor signature: $signature")
+    }
     var methodFound = false
     tryInvokeEngineCreateSessionNoArgs(engine)?.let {
         methodFound = true
@@ -795,31 +829,203 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            sessionConfigProbe = sessionConfigProbe,
         )
     }
     if (hasEngineCreateSessionNoArgsMethod(engine)) methodFound = true
+    tryInvokeEngineCreateSessionWithSessionConfig(engine, sessionConfigProbe)?.let {
+        methodFound = true
+        return EngineCreateSessionAttempt(
+            session = it,
+            attempted = true,
+            status = "engine-createSession-success",
+            sessionConfigProbe = sessionConfigProbe,
+        )
+    }
+    if (hasEngineCreateSessionSessionConfigMethod(engine)) methodFound = true
     tryInvokeEngineCreateSessionNullableArgs(engine)?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            sessionConfigProbe = sessionConfigProbe,
         )
     }
     if (hasEngineCreateSessionNullableArgsMethod(engine)) methodFound = true
-    tryInvokeEngineCreateSessionDefaultBridge(engine)?.let {
+    tryInvokeEngineCreateSessionDefaultBridge(engine, sessionConfigProbe)?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
+            sessionConfigProbe = sessionConfigProbe,
         )
     }
     if (hasEngineCreateSessionDefaultBridgeMethod(engine)) methodFound = true
     val status = if (methodFound) "engine-createSession-failed" else "engine-createSession-method-not-found"
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount $status")
-    return EngineCreateSessionAttempt(attempted = true, status = status)
+    return EngineCreateSessionAttempt(attempted = true, status = status, sessionConfigProbe = sessionConfigProbe)
 }
+
+private fun probeSessionConfigCreationPaths(): SessionConfigProbeSummary {
+    val sessionConfigClass = runCatching {
+        Class.forName("com.google.ai.edge.litertlm.SessionConfig")
+    }.getOrNull()
+    if (sessionConfigClass == null) {
+        return SessionConfigProbeSummary(classStatus = "not-found")
+    }
+    val factoryMethods = sessionConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    val companionOrObject = sessionConfigClass.declaredFields.firstOrNull { field ->
+        field.name == "Companion" || field.name == "INSTANCE"
+    }?.let { field ->
+        runCatching {
+            field.isAccessible = true
+            field.get(null)
+        }.getOrNull()
+    }
+    val companionMethods = companionOrObject
+        ?.javaClass
+        ?.methods
+        ?.filter { method ->
+            method.parameterTypes.isEmpty() &&
+                (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+        }
+        .orEmpty()
+    val constructors = sessionConfigClass.declaredConstructors.sortedBy { it.parameterTypes.size }
+
+    val triedPaths = mutableListOf<String>()
+    val candidates = mutableListOf<Pair<String, Any>>()
+
+    fun addCandidate(path: String, value: Any?) {
+        if (value == null) return
+        candidates += path to value
+        val buildMethod = value.javaClass.methods.firstOrNull { method ->
+            method.name == "build" && method.parameterTypes.isEmpty()
+        }
+        if (buildMethod != null) {
+            triedPaths += "$path.build()"
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                candidates += "$path.build()" to built
+            }
+        }
+    }
+
+    factoryMethods.forEach { method ->
+        val path = "SessionConfig.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(null) }.getOrNull())
+    }
+    companionMethods.forEach { method ->
+        val receiver = companionOrObject ?: return@forEach
+        val path = "SessionConfig.${receiver.javaClass.simpleName}.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(receiver) }.getOrNull())
+    }
+    constructors.firstOrNull { it.parameterTypes.isEmpty() }?.let { constructor ->
+        triedPaths += "SessionConfig.<init>()"
+        addCandidate(
+            "SessionConfig.<init>()",
+            runCatching {
+                constructor.isAccessible = true
+                constructor.newInstance()
+            }.getOrNull(),
+        )
+    }
+
+    val selected = candidates.firstOrNull { (_, value) -> sessionConfigClass.isInstance(value) }
+    return SessionConfigProbeSummary(
+        classStatus = "found:${sessionConfigClass.name}",
+        factorySignatures = (factoryMethods + companionMethods)
+            .distinctBy { it.toGenericString() }
+            .sortedBy { it.toGenericString() }
+            .map { it.toGenericString() },
+        constructorSignatures = constructors.map { constructor ->
+            val params = constructor.parameterTypes.joinToString(",") { it.name }.ifBlank { "none" }
+            "${constructor.name}(params=$params)"
+        },
+        triedPaths = triedPaths,
+        selectedPath = selected?.first,
+    )
+}
+
+private fun tryInvokeEngineCreateSessionWithSessionConfig(
+    engine: Any,
+    sessionConfigProbe: SessionConfigProbeSummary,
+): Any? {
+    val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
+    if (!sessionConfigProbe.classStatus.startsWith("found:")) return null
+    val sessionConfigClass = runCatching { Class.forName(sessionConfigClassName) }.getOrNull() ?: return null
+    val sessionConfigInstance = sessionConfigProbe.selectedPath?.let {
+        // 生成経路の優先順を維持するため、再度同じルールで生成する。
+        createSessionConfigFromPath(sessionConfigClass, it)
+    } ?: createDefaultSessionConfig(sessionConfigClass)
+    val createMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createSession" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].isAssignableFrom(sessionConfigClass)
+    } ?: return null
+    return runCatching { createMethod.invoke(engine, sessionConfigInstance) }.getOrNull()
+}
+
+private fun createDefaultSessionConfig(sessionConfigClass: Class<*>): Any? {
+    val factoryMethods = sessionConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    factoryMethods.forEach { method ->
+        val value = runCatching { method.invoke(null) }.getOrNull() ?: return@forEach
+        if (sessionConfigClass.isInstance(value)) return value
+        val buildMethod = value.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() }
+        if (buildMethod != null) {
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                if (sessionConfigClass.isInstance(built)) return built
+            }
+        }
+    }
+    return null
+}
+
+private fun createSessionConfigFromPath(sessionConfigClass: Class<*>, path: String): Any? {
+    if (path == "SessionConfig.<init>()") {
+        val constructor = sessionConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull()
+    }
+    if (!path.startsWith("SessionConfig.")) return null
+    val needsBuild = path.endsWith(".build()")
+    val methodPath = path.removeSuffix(".build()")
+    val methodName = methodPath.removePrefix("SessionConfig.").substringBefore("(").substringAfterLast('.')
+    val staticMethod = sessionConfigClass.methods.firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }
+    val baseValue = if (staticMethod != null) {
+        runCatching { staticMethod.invoke(null) }.getOrNull()
+    } else {
+        val receiverField = sessionConfigClass.declaredFields.firstOrNull { it.name == "Companion" || it.name == "INSTANCE" }
+        val receiver = receiverField?.let {
+            runCatching {
+                it.isAccessible = true
+                it.get(null)
+            }.getOrNull()
+        }
+        val receiverMethod = receiver?.javaClass?.methods?.firstOrNull {
+            it.name == methodName && it.parameterTypes.isEmpty()
+        }
+        if (receiver != null && receiverMethod != null) {
+            runCatching { receiverMethod.invoke(receiver) }.getOrNull()
+        } else {
+            null
+        }
+    } ?: return null
+    if (!needsBuild) return baseValue
+    val buildMethod = baseValue.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() } ?: return null
+    return runCatching { buildMethod.invoke(baseValue) }.getOrNull()
+}
+
 
 private fun isLiteRtEngineInstance(instance: Any): Boolean {
     val className = instance.javaClass.name
@@ -859,15 +1065,31 @@ private fun hasEngineCreateSessionNullableArgsMethod(engine: Any): Boolean {
     }
 }
 
-private fun tryInvokeEngineCreateSessionDefaultBridge(engine: Any): Any? {
+private fun hasEngineCreateSessionSessionConfigMethod(engine: Any): Boolean {
+    return engine.javaClass.methods.any { method ->
+        method.name == "createSession" &&
+            method.parameterTypes.size == 1 &&
+            method.parameterTypes[0].name == "com.google.ai.edge.litertlm.SessionConfig"
+    }
+}
+
+private fun tryInvokeEngineCreateSessionDefaultBridge(engine: Any, sessionConfigProbe: SessionConfigProbeSummary): Any? {
     val defaultMethod = engine.javaClass.methods.firstOrNull { method ->
         method.name == "createSession\$default" && java.lang.reflect.Modifier.isStatic(method.modifiers)
     } ?: return null
     val parameterTypes = defaultMethod.parameterTypes
+    val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
+    val sessionConfigClass = if (sessionConfigProbe.classStatus.startsWith("found:")) {
+        runCatching { Class.forName(sessionConfigClassName) }.getOrNull()
+    } else {
+        null
+    }
+    val sessionConfigInstance = sessionConfigClass?.let { createDefaultSessionConfig(it) }
     val args = Array<Any?>(parameterTypes.size) { index ->
         val type = parameterTypes[index]
         when {
             index == 0 && type.isAssignableFrom(engine.javaClass) -> engine
+            sessionConfigClass != null && sessionConfigInstance != null && type.isAssignableFrom(sessionConfigClass) -> sessionConfigInstance
             type == Int::class.javaPrimitiveType -> 0
             type == Boolean::class.javaPrimitiveType -> false
             else -> null
@@ -913,6 +1135,7 @@ private fun emitTokenizerSessionSourceTrace(
     conversation: Conversation,
     inferenceResolution: TokenizerInferenceResolution?,
     engineCreateSessionStatus: String? = null,
+    sessionConfigProbe: SessionConfigProbeSummary? = null,
 ): TokenizerSourceTraceSummary {
     val resolvedSourceObject = inferenceResolution?.sourceObject ?: tokenizerSessionSource ?: conversation
     val sourceClassName = resolvedSourceObject?.javaClass?.name ?: "null"
@@ -952,6 +1175,7 @@ private fun emitTokenizerSessionSourceTrace(
         fieldsSummary = summarizeTokenizerSourceCandidates(fieldCandidates),
         createSessionSignatures = createSessionSignatures,
         engineCreateSessionStatus = engineCreateSessionStatus,
+        sessionConfigProbe = sessionConfigProbe,
     )
 }
 
