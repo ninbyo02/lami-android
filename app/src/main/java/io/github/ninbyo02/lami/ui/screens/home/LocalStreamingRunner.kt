@@ -1026,6 +1026,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                 summary = buildString {
                     append(baseSummary)
                     appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                    inferenceOutcome.debugSummaryLines.forEach { appendLine(it) }
                     appendLine("MediaPipe session create: failed")
                     appendLine("MediaPipe sizeInTokens: not-found")
                     append("MediaPipe failure: ${inferenceOutcome.failureSummary ?: "createFromOptions-failed"}")
@@ -1049,6 +1050,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     summary = buildString {
                         append(baseSummary)
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        sessionCreationOutcome.debugSummaryLines.forEach { appendLine(it) }
                         appendLine("MediaPipe session create: ${if (session != null) "success" else "failed"}")
                         appendLine("MediaPipe sizeInTokens: ${if (sizeMethod != null) "found" else "not-found"}")
                         append(
@@ -1113,6 +1115,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             summary = buildString {
                 append(baseSummary)
                 appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                buildMediaPipeThrowableSummaryLines(throwable).forEach { appendLine(it) }
                 appendLine("MediaPipe session create: failed")
                 appendLine("MediaPipe sizeInTokens: not-found")
                 append("MediaPipe failure: ${throwable.javaClass.simpleName}:${throwable.message}")
@@ -1124,18 +1127,27 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
 private data class MediaPipeInferenceCreateOutcome(
     val instance: Any? = null,
     val failureSummary: String? = null,
+    val debugSummaryLines: List<String> = emptyList(),
 )
 
 private data class MediaPipeSessionCreateOutcome(
     val session: Any? = null,
     val sizeInTokensMethod: Method? = null,
     val failureSummary: String? = null,
+    val debugSummaryLines: List<String> = emptyList(),
+)
+
+private data class MediaPipeSessionOptionsCreateOutcome(
+    val options: Any? = null,
+    val buildStatus: String,
+    val debugSummaryLines: List<String> = emptyList(),
 )
 
 private fun createMediaPipeLlmInferenceInstance(
     llmInferenceClass: Class<*>,
     modelPath: String,
 ): MediaPipeInferenceCreateOutcome {
+    val debugLines = mutableListOf<String>()
     val candidateMethods = llmInferenceClass.methods.filter { method ->
         method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
     }
@@ -1143,20 +1155,35 @@ private fun createMediaPipeLlmInferenceInstance(
         return MediaPipeInferenceCreateOutcome(failureSummary = "createFromOptions-not-found")
     }
     candidateMethods.forEach { method ->
+        debugLines += "MediaPipe createFromOptions signature: ${method.toGenericString()}"
         val params = method.parameterTypes
         val optionsClass = params.lastOrNull() ?: return@forEach
-        val options = buildOptionsObject(optionClass = optionsClass, modelPath = modelPath) ?: return@forEach
+        debugLines += "MediaPipe options class: ${optionsClass.name}"
+        val options = buildOptionsObject(optionClass = optionsClass, modelPath = modelPath)
+        if (options == null) {
+            debugLines += "MediaPipe options build: failed"
+            return@forEach
+        }
+        debugLines += "MediaPipe options build: success"
         val args = when {
             params.size == 1 -> arrayOf(options)
             params.size == 2 && isAndroidContextClass(params[0]) -> arrayOf<Any?>(null, options)
             else -> return@forEach
         }
-        val instance = runCatching { method.invoke(null, *args) }.getOrNull()
+        val instance = runCatching { method.invoke(null, *args) }
+            .onFailure { throwable -> debugLines += buildMediaPipeThrowableSummaryLines(throwable) }
+            .getOrNull()
         if (instance != null) {
-            return MediaPipeInferenceCreateOutcome(instance = instance)
+            return MediaPipeInferenceCreateOutcome(
+                instance = instance,
+                debugSummaryLines = debugLines.toList(),
+            )
         }
     }
-    return MediaPipeInferenceCreateOutcome(failureSummary = "createFromOptions-invoke-failed")
+    return MediaPipeInferenceCreateOutcome(
+        failureSummary = "createFromOptions-invoke-failed",
+        debugSummaryLines = debugLines.toList(),
+    )
 }
 
 private fun createMediaPipeLlmSession(
@@ -1164,46 +1191,105 @@ private fun createMediaPipeLlmSession(
     llmSessionOptionsClass: Class<*>,
     llmInferenceInstance: Any,
 ): MediaPipeSessionCreateOutcome {
-    val options = createMediaPipeLlmSessionOptions(llmSessionOptionsClass)
-        ?: return MediaPipeSessionCreateOutcome(failureSummary = "session-options-build-failed")
+    val debugLines = mutableListOf<String>()
+    debugLines += "MediaPipe sessionOptions class: ${llmSessionOptionsClass.name}"
+    val sessionOptionsOutcome = createMediaPipeLlmSessionOptions(llmSessionOptionsClass)
+    debugLines += "MediaPipe sessionOptions build: ${sessionOptionsOutcome.buildStatus}"
+    debugLines += sessionOptionsOutcome.debugSummaryLines
+    val options = sessionOptionsOutcome.options
+        ?: return MediaPipeSessionCreateOutcome(
+            failureSummary = "session-options-build-failed",
+            debugSummaryLines = debugLines.toList(),
+        )
     val createMethods = llmSessionClass.methods.filter { method ->
         method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
     }
     for (method in createMethods) {
+        debugLines += "MediaPipe session createFromOptions signature: ${method.toGenericString()}"
         val params = method.parameterTypes
         if (params.size != 2) continue
         val supportsInference = params[0].isAssignableFrom(llmInferenceInstance.javaClass)
         if (!supportsInference) continue
         val supportsOptions = params[1].isAssignableFrom(options.javaClass)
         if (!supportsOptions) continue
-        val session = runCatching { method.invoke(null, llmInferenceInstance, options) }.getOrNull()
+        val session = runCatching { method.invoke(null, llmInferenceInstance, options) }
+            .onFailure { throwable -> debugLines += buildMediaPipeThrowableSummaryLines(throwable) }
+            .getOrNull()
         if (session != null) {
             return MediaPipeSessionCreateOutcome(
                 session = session,
                 sizeInTokensMethod = findSizeInTokensMethod(session),
+                debugSummaryLines = debugLines.toList(),
             )
         }
     }
-    return MediaPipeSessionCreateOutcome(failureSummary = "session-createFromOptions-not-found-or-failed")
+    return MediaPipeSessionCreateOutcome(
+        failureSummary = "session-createFromOptions-not-found-or-failed",
+        debugSummaryLines = debugLines.toList(),
+    )
 }
 
 private fun createMediaPipeLlmSessionOptions(
     llmSessionOptionsClass: Class<*>,
-): Any? {
+): MediaPipeSessionOptionsCreateOutcome {
     val builderFactory = llmSessionOptionsClass.methods.firstOrNull { method ->
         method.name == "builder" &&
             method.parameterTypes.isEmpty() &&
             java.lang.reflect.Modifier.isStatic(method.modifiers)
     }
-    val builder = if (builderFactory != null) {
-        runCatching { builderFactory.invoke(null) }.getOrNull()
+    val builderResult = if (builderFactory != null) {
+        runCatching { builderFactory.invoke(null) }
     } else {
-        null
-    } ?: return null
+        Result.failure(NoSuchMethodException("SessionOptions.builder() not found"))
+    }
+    val builder = builderResult
+        .onFailure { throwable ->
+            return MediaPipeSessionOptionsCreateOutcome(
+                buildStatus = "failed",
+                debugSummaryLines = buildMediaPipeThrowableSummaryLines(throwable),
+            )
+        }
+        .getOrNull()
+        ?: return MediaPipeSessionOptionsCreateOutcome(buildStatus = "failed")
     val buildMethod = builder.javaClass.methods.firstOrNull { method ->
         method.name == "build" && method.parameterTypes.isEmpty()
-    } ?: return null
-    return runCatching { buildMethod.invoke(builder) }.getOrNull()
+    } ?: return MediaPipeSessionOptionsCreateOutcome(
+        buildStatus = "failed",
+        debugSummaryLines = listOf("MediaPipe sessionOptions build method: not-found"),
+    )
+    val optionsResult = runCatching { buildMethod.invoke(builder) }
+    return optionsResult
+        .map { options ->
+            MediaPipeSessionOptionsCreateOutcome(
+                options = options,
+                buildStatus = if (options != null) "success" else "failed",
+            )
+        }
+        .getOrElse { throwable ->
+            MediaPipeSessionOptionsCreateOutcome(
+                buildStatus = "failed",
+                debugSummaryLines = buildMediaPipeThrowableSummaryLines(throwable),
+            )
+        }
+}
+
+private fun buildMediaPipeThrowableSummaryLines(throwable: Throwable): List<String> {
+    val rootCause = throwable.cause?.cause
+    val targetThrowable = (throwable as? java.lang.reflect.InvocationTargetException)?.targetException
+    return buildList {
+        add("MediaPipe exception: ${throwable.javaClass.name}")
+        add("MediaPipe exception-message: ${throwable.message ?: "none"}")
+        add("MediaPipe cause: ${throwable.cause?.javaClass?.name ?: "none"}")
+        add("MediaPipe cause-message: ${throwable.cause?.message ?: "none"}")
+        if (targetThrowable != null) {
+            add("MediaPipe target-exception: ${targetThrowable.javaClass.name}")
+            add("MediaPipe target-exception-message: ${targetThrowable.message ?: "none"}")
+        }
+        if (rootCause != null) {
+            add("MediaPipe root-cause: ${rootCause.javaClass.name}")
+            add("MediaPipe root-cause-message: ${rootCause.message ?: "none"}")
+        }
+    }
 }
 
 private fun resolveMediaPipeTokenizerModelPath(
