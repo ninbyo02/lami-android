@@ -1556,6 +1556,7 @@ private fun emitTokenizerSessionSourceTrace(
     conversation: Conversation,
     inferenceResolution: TokenizerInferenceResolution?,
     engineCreateSessionStatus: String? = null,
+    engineCreateSessionFailureSummary: EngineCreateSessionFailureSummary? = null,
     sessionConfigProbe: SessionConfigProbeSummary? = null,
     samplerConfigProbe: SamplerConfigProbeSummary? = null,
 ): TokenizerSourceTraceSummary {
@@ -1597,6 +1598,7 @@ private fun emitTokenizerSessionSourceTrace(
         fieldsSummary = summarizeTokenizerSourceCandidates(fieldCandidates),
         createSessionSignatures = createSessionSignatures,
         engineCreateSessionStatus = engineCreateSessionStatus,
+        engineCreateSessionFailureSummary = engineCreateSessionFailureSummary,
         sessionConfigProbe = sessionConfigProbe,
         samplerConfigProbe = samplerConfigProbe,
     )
