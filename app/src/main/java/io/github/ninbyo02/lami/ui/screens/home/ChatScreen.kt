@@ -5528,8 +5528,17 @@ private fun InferenceStatsSheetContent(
 
             InferenceModelInfoRow(
                 stats = stats,
-                onCopyModelName = { modelName ->
-                    clipboardManager.setText(AnnotatedString(modelName))
+                onCopyInferenceStats = {
+                    clipboardManager.setText(
+                        AnnotatedString(
+                            buildInferenceStatsFullCopyText(
+                                stats = stats,
+                                sections = sections,
+                                detailSections = detailSections,
+                                measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
+                            ),
+                        ),
+                    )
                 },
             )
 
@@ -5582,7 +5591,7 @@ private fun InferenceStatsSheetContent(
 @Composable
 private fun InferenceModelInfoRow(
     stats: InferenceStats,
-    onCopyModelName: (String) -> Unit,
+    onCopyInferenceStats: () -> Unit,
 ) {
     val modelName = formatModelName(stats)
     InferenceStatsSection(title = "モデル情報") {
@@ -5607,19 +5616,114 @@ private fun InferenceModelInfoRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            if (!modelName.isNullOrBlank()) {
-                IconButton(
-                    onClick = { onCopyModelName(modelName) },
-                    modifier = Modifier.semantics { contentDescription = "モデル名をコピー" },
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "モデル名をコピー",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            IconButton(
+                onClick = onCopyInferenceStats,
+                modifier = Modifier.semantics { contentDescription = "推論統計をコピー" },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = "推論統計をコピー",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
+    }
+}
+
+internal fun buildInferenceStatsFullCopyText(
+    stats: InferenceStats,
+    sections: List<InferenceStatsSectionUi>,
+    detailSections: List<InferenceStatsSectionUi>,
+    measuredTokenSnapshotSummary: String?,
+): String {
+    return buildString {
+        appendLine("推論統計")
+        appendLine()
+        appendLine("[モデル情報]")
+        appendLine("使用モデル: ${formatModelName(stats) ?: "—"}")
+        appendLine()
+
+        sections.forEachIndexed { index, section ->
+            appendSectionAsPlainText(
+                sectionTitle = section.title,
+                items = section.items,
+            )
+            if (index != sections.lastIndex) appendLine()
+        }
+
+        appendLine()
+        appendLine("[推論時間内訳]")
+        val breakdown = buildInferenceTimeBreakdown(stats)
+        if (breakdown == null) {
+            appendLine("—")
+        } else {
+            breakdown.segments.forEach { segment ->
+                appendLine("${segment.label}: ${segment.durationText} / ${segment.percent}%")
+            }
+        }
+
+        appendLine()
+        appendLine("[コンテキスト使用量]")
+        when (val usage = buildContextUsageUi(stats)) {
+            null -> appendLine("—")
+            is ContextUsageUi.WithMax -> appendLine("${usage.used} / ${usage.max} tokens (${usage.percent}%)")
+            is ContextUsageUi.Loading -> {
+                appendLine("使用トークン ${usage.used}")
+                appendLine("上限取得中…")
+            }
+
+            is ContextUsageUi.WithoutMax -> {
+                appendLine("使用トークン ${usage.used}")
+                appendLine("上限未取得")
+            }
+        }
+
+        appendLine()
+        appendLine("[詳細]")
+        if (detailSections.isEmpty()) {
+            appendLine("—")
+        } else {
+            detailSections.forEachIndexed { index, section ->
+                appendSectionAsPlainText(
+                    sectionTitle = section.title,
+                    items = section.items,
+                )
+                if (index != detailSections.lastIndex) appendLine()
+            }
+        }
+
+        appendLine()
+        appendLine("[measuredTokens]")
+        appendLine(buildMeasuredTokensCopyText(measuredTokenSnapshotSummary))
+    }.trimEnd()
+}
+
+private fun buildMeasuredTokensCopyText(
+    measuredTokenSnapshotSummary: String?,
+): String {
+    return measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() } ?: buildString {
+        appendLine("unavailable")
+        appendLine("[BenchmarkInfo raw]")
+        appendLine("prefillTokenCount: unavailable")
+        appendLine("decodeTokenCount: unavailable")
+        appendLine("prefillTokensPerSecond: unavailable")
+        appendLine("decodeTokensPerSecond: unavailable")
+        appendLine("timeToFirstTokenMs: unavailable")
+        append("modelInitMs: unavailable")
+    }
+}
+
+private fun StringBuilder.appendSectionAsPlainText(
+    sectionTitle: String,
+    items: List<InferenceStatItemUi>,
+) {
+    appendLine("[$sectionTitle]")
+    if (items.isEmpty()) {
+        appendLine("—")
+        return
+    }
+    items.forEach { item ->
+        appendLine("${item.label}: ${item.value}")
     }
 }
 
