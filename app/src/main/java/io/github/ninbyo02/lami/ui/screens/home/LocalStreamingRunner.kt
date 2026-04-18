@@ -613,6 +613,13 @@ private data class ExistingTokenizerSessionResolution(
     val sizeInTokensMethod: Method?,
 )
 
+private data class ConversationTokenizerResolution(
+    val path: String,
+    val sourceObject: Any,
+    val className: String,
+    val sizeInTokensMethod: Method?,
+)
+
 private data class EngineCreateSessionAttempt(
     val session: Any? = null,
     val attempted: Boolean = false,
@@ -665,6 +672,8 @@ private data class TokenizerSourceTraceSummary(
     val existingSessionPath: String? = null,
     val existingSessionClass: String? = null,
     val existingSessionSizeInTokensStatus: String = "not-found",
+    val conversationTokenizerPath: String? = null,
+    val conversationTokenizerClass: String? = null,
 ) {
     fun toMeasuredTokenSummary(): String {
         return buildString {
@@ -722,6 +731,8 @@ private data class TokenizerSourceTraceSummary(
             appendLine("existing-session path: ${existingSessionPath ?: "none"}")
             appendLine("existing-session class: ${existingSessionClass ?: "none"}")
             appendLine("existing-session sizeInTokens: $existingSessionSizeInTokensStatus")
+            appendLine("conversation-tokenizer path: ${conversationTokenizerPath ?: "none"}")
+            appendLine("conversation-tokenizer class: ${conversationTokenizerClass ?: "none"}")
         }.trimEnd()
     }
 }
@@ -733,6 +744,47 @@ private fun tryReadTokenizerRecountViaReflection(
     fullResponseText: String,
     appendTrace: (String) -> Unit,
 ): TokenizerRecountOutcome {
+    val conversationResolution = tryResolveTokenizerFromConversation(
+        conversation = conversation,
+        appendTrace = appendTrace,
+    )
+    if (conversationResolution != null) {
+        val sizeMethod = conversationResolution.sizeInTokensMethod
+            ?: return TokenizerRecountOutcome(
+                status = "conversation-tokenizer-size-method-not-found",
+            )
+        val promptTokens = invokeSizeInTokens(
+            sessionInstance = conversationResolution.sourceObject,
+            sizeMethod = sizeMethod,
+            input = promptText,
+        )
+        val responseTokens = invokeSizeInTokens(
+            sessionInstance = conversationResolution.sourceObject,
+            sizeMethod = sizeMethod,
+            input = fullResponseText,
+        )
+        if (promptTokens != null && responseTokens != null) {
+            val sourceTraceSummary = if (BuildConfig.DEBUG) {
+                emitTokenizerSessionSourceTrace(
+                    appendTrace = appendTrace,
+                    tokenizerSessionSource = tokenizerSessionSource,
+                    conversation = conversation,
+                    existingSessionResolution = null,
+                    conversationTokenizerResolution = conversationResolution,
+                ).toMeasuredTokenSummary()
+            } else {
+                null
+            }
+            return TokenizerRecountOutcome(
+                result = TokenizerRecountResult(
+                    promptTokens = promptTokens,
+                    responseTokens = responseTokens,
+                ),
+                status = "success(conversation-tokenizer)",
+                sourceTraceSummary = sourceTraceSummary,
+            )
+        }
+    }
     val engineSessionAttempt = tryCreateTokenizerSessionFromEngineViaReflection(
         tokenizerSessionSource = tokenizerSessionSource,
         appendTrace = appendTrace,
@@ -1494,6 +1546,7 @@ private fun emitTokenizerSessionSourceTrace(
     sessionConfigProbe: SessionConfigProbeSummary? = null,
     samplerConfigProbe: SamplerConfigProbeSummary? = null,
     existingSessionResolution: ExistingTokenizerSessionResolution? = null,
+    conversationTokenizerResolution: ConversationTokenizerResolution? = null,
 ): TokenizerSourceTraceSummary {
     val resolvedSourceObject = tokenizerSessionSource ?: conversation
     val sourceClassName = resolvedSourceObject?.javaClass?.name ?: "null"
@@ -1539,6 +1592,8 @@ private fun emitTokenizerSessionSourceTrace(
         existingSessionPath = existingSessionResolution?.path,
         existingSessionClass = existingSessionResolution?.sessionClassName,
         existingSessionSizeInTokensStatus = if (existingSessionResolution?.sizeInTokensMethod != null) "found" else "not-found",
+        conversationTokenizerPath = conversationTokenizerResolution?.path,
+        conversationTokenizerClass = conversationTokenizerResolution?.className,
     )
 }
 
@@ -1627,6 +1682,50 @@ private fun tryResolveExistingSessionForTokenizer(
         }
     }
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount existing-session path=none")
+    return null
+}
+
+private fun tryResolveTokenizerFromConversation(
+    conversation: Any,
+    appendTrace: (String) -> Unit,
+): ConversationTokenizerResolution? {
+    val visited = mutableSetOf<Any>()
+    val queue = ArrayDeque<Pair<String, Any>>()
+    queue.add("conversation" to conversation)
+    while (queue.isNotEmpty()) {
+        val (path, obj) = queue.removeFirst()
+        if (obj in visited) continue
+        visited.add(obj)
+        val clazz = obj.javaClass
+        val sizeMethod = findSizeInTokensMethod(obj)
+        if (sizeMethod != null) {
+            safeAppendTrace(appendTrace, "UPSTREAM tokenizer found at $path class=${clazz.name}")
+            return ConversationTokenizerResolution(
+                path = path,
+                sourceObject = obj,
+                className = clazz.name,
+                sizeInTokensMethod = sizeMethod,
+            )
+        }
+        clazz.methods
+            .filter { it.parameterTypes.isEmpty() }
+            .forEach { method ->
+                runCatching {
+                    val result = method.invoke(obj) ?: return@forEach
+                    if (result.javaClass.name.startsWith("java")) return@forEach
+                    queue.add("$path.${method.name}()" to result)
+                }
+            }
+        clazz.declaredFields.forEach { field ->
+            runCatching {
+                field.isAccessible = true
+                val value = field.get(obj) ?: return@forEach
+                if (value.javaClass.name.startsWith("java")) return@forEach
+                queue.add("$path.${field.name}" to value)
+            }
+        }
+    }
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer not found from conversation")
     return null
 }
 
