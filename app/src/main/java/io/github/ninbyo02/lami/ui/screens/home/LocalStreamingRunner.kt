@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 private const val TOKENIZER_COUNT_UNAVAILABLE_NOTE =
     "このビルドの LiteRT API では tokenizer-based token count を取得できませんでした。"
+private const val MEDIAPIPE_TOKEN_COUNT_MODE = "mediapipe_tokenizer_recount"
+private const val LITERT_TOKEN_COUNT_MODE = "tokenizer_recount"
 
 internal interface LocalStreamingRunner<T> {
     suspend fun run(
@@ -501,6 +503,11 @@ private fun mergeTokenizerRecountSnapshot(
             outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
             totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
             tokenizerSourceTraceSummary = tokenizerSnapshot.tokenizerSourceTraceSummary ?: base.tokenizerSourceTraceSummary,
+            mediaPipeTokenizerStatus = tokenizerSnapshot.mediaPipeTokenizerStatus ?: base.mediaPipeTokenizerStatus,
+            mediaPipeTokenizerSummary = tokenizerSnapshot.mediaPipeTokenizerSummary ?: base.mediaPipeTokenizerSummary,
+            mediaPipeInputTokens = tokenizerSnapshot.mediaPipeInputTokens ?: base.mediaPipeInputTokens,
+            mediaPipeOutputTokens = tokenizerSnapshot.mediaPipeOutputTokens ?: base.mediaPipeOutputTokens,
+            mediaPipeTotalTokens = tokenizerSnapshot.mediaPipeTotalTokens ?: base.mediaPipeTotalTokens,
             tokenCountMode = tokenizerSnapshot.tokenCountMode ?: base.tokenCountMode,
             notes = tokenizerSnapshot.notes ?: base.notes,
             tokensPerSecond = tokenizerSnapshot.tokensPerSecond ?: base.tokensPerSecond,
@@ -546,21 +553,36 @@ private fun readTokenizerRecountSnapshotFromConversation(
             fullResponseText = fullResponseText,
             appendTrace = appendTrace,
         )
+        val mediaPipeProbeOutcome = tryReadMediaPipeTokenizerProbeViaReflection(
+            tokenizerSessionSource = tokenizerSessionSource,
+            promptText = promptText,
+            fullResponseText = fullResponseText,
+        )
         val tokenizerRecount = tokenizerRecountOutcome.result
 
-        val inputTokenCount = tokenizerRecount?.promptTokens
-        val outputTokenCount = tokenizerRecount?.responseTokens
-        val totalTokenCount = tokenizerRecount?.totalTokens
+        val inputTokenCount = mediaPipeProbeOutcome.promptTokens ?: tokenizerRecount?.promptTokens
+        val outputTokenCount = mediaPipeProbeOutcome.responseTokens ?: tokenizerRecount?.responseTokens
+        val totalTokenCount = mediaPipeProbeOutcome.totalTokens ?: tokenizerRecount?.totalTokens
         val tokenCountMode = if (
+            mediaPipeProbeOutcome.succeeded &&
+            inputTokenCount != null &&
+            outputTokenCount != null
+        ) {
+            MEDIAPIPE_TOKEN_COUNT_MODE
+        } else if (
             tokenizerRecount != null &&
             inputTokenCount != null &&
             outputTokenCount != null
         ) {
-            "tokenizer_recount"
+            LITERT_TOKEN_COUNT_MODE
         } else {
             null
         }
-        val notes = if (tokenizerRecount == null) TOKENIZER_COUNT_UNAVAILABLE_NOTE else null
+        val notes = if (tokenizerRecount == null && !mediaPipeProbeOutcome.succeeded) {
+            TOKENIZER_COUNT_UNAVAILABLE_NOTE
+        } else {
+            null
+        }
         val tokensPerSecond = if (
             outputTokenCount != null && decodeDurationMs != null && decodeDurationMs > 0L
         ) {
@@ -575,6 +597,11 @@ private fun readTokenizerRecountSnapshotFromConversation(
             totalTokens = totalTokenCount,
             tokenizerRecountStatus = tokenizerRecountOutcome.status,
             tokenizerSourceTraceSummary = tokenizerRecountOutcome.sourceTraceSummary,
+            mediaPipeTokenizerStatus = mediaPipeProbeOutcome.status,
+            mediaPipeTokenizerSummary = mediaPipeProbeOutcome.summary,
+            mediaPipeInputTokens = mediaPipeProbeOutcome.promptTokens,
+            mediaPipeOutputTokens = mediaPipeProbeOutcome.responseTokens,
+            mediaPipeTotalTokens = mediaPipeProbeOutcome.totalTokens,
             tokenCountMode = tokenCountMode,
             notes = notes,
             tokensPerSecond = tokensPerSecond,
@@ -602,6 +629,16 @@ private data class TokenizerRecountOutcome(
     val result: TokenizerRecountResult? = null,
     val status: String,
     val sourceTraceSummary: String? = null,
+)
+
+private data class MediaPipeTokenizerProbeOutcome(
+    val attempted: Boolean,
+    val succeeded: Boolean,
+    val promptTokens: Int? = null,
+    val responseTokens: Int? = null,
+    val totalTokens: Int? = null,
+    val status: String,
+    val summary: String,
 )
 
 private data class ExistingTokenizerSessionResolution(
@@ -883,6 +920,260 @@ private fun tryReadTokenizerRecountViaReflection(
             sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
         )
     }
+}
+
+private fun tryReadMediaPipeTokenizerProbeViaReflection(
+    tokenizerSessionSource: Any?,
+    promptText: String,
+    fullResponseText: String,
+): MediaPipeTokenizerProbeOutcome {
+    val llmInferenceClassName = "com.google.mediapipe.tasks.genai.llminference.LlmInference"
+    val llmSessionClassName = "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession"
+    val llmSessionOptionsClassName =
+        "com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession\$LlmInferenceSessionOptions"
+
+    val llmInferenceClass = runCatching { Class.forName(llmInferenceClassName) }.getOrNull()
+    val llmSessionClass = runCatching { Class.forName(llmSessionClassName) }.getOrNull()
+    val llmSessionOptionsClass = runCatching { Class.forName(llmSessionOptionsClassName) }.getOrNull()
+    val classAvailability = listOf(
+        "LlmInference=${if (llmInferenceClass != null) "available" else "missing"}",
+        "LlmInferenceSession=${if (llmSessionClass != null) "available" else "missing"}",
+        "SessionOptions=${if (llmSessionOptionsClass != null) "available" else "missing"}",
+    ).joinToString(", ")
+    if (llmInferenceClass == null || llmSessionClass == null || llmSessionOptionsClass == null) {
+        return MediaPipeTokenizerProbeOutcome(
+            attempted = false,
+            succeeded = false,
+            status = "unavailable(class-not-found)",
+            summary = buildString {
+                appendLine("MediaPipe tokenizer: unavailable")
+                appendLine("MediaPipe class availability: $classAvailability")
+            }.trimEnd(),
+        )
+    }
+
+    val modelPath = resolveModelPathForMediaPipeTokenizerProbe(tokenizerSessionSource)
+    if (modelPath.isNullOrBlank()) {
+        return MediaPipeTokenizerProbeOutcome(
+            attempted = true,
+            succeeded = false,
+            status = "failed(model-path-unavailable)",
+            summary = buildString {
+                appendLine("MediaPipe tokenizer: failed")
+                appendLine("MediaPipe class availability: $classAvailability")
+                appendLine("MediaPipe session create: failed")
+                appendLine("MediaPipe sizeInTokens: not-found")
+                append("MediaPipe failure: model-path-unavailable")
+            }.trimEnd(),
+        )
+    }
+    return runCatching {
+        val inferenceOutcome = createMediaPipeLlmInferenceInstance(
+            llmInferenceClass = llmInferenceClass,
+            modelPath = modelPath,
+        )
+        if (inferenceOutcome.instance == null) {
+            return@runCatching MediaPipeTokenizerProbeOutcome(
+                attempted = true,
+                succeeded = false,
+                status = "failed(createFromOptions)",
+                summary = buildString {
+                    appendLine("MediaPipe tokenizer: failed")
+                    appendLine("MediaPipe class availability: $classAvailability")
+                    appendLine("MediaPipe session create: failed")
+                    appendLine("MediaPipe sizeInTokens: not-found")
+                    append("MediaPipe failure: ${inferenceOutcome.failureSummary ?: "createFromOptions-failed"}")
+                }.trimEnd(),
+            )
+        }
+        var session: Any? = null
+        try {
+            val sessionCreationOutcome = createMediaPipeLlmSession(
+                llmSessionClass = llmSessionClass,
+                llmSessionOptionsClass = llmSessionOptionsClass,
+                llmInferenceInstance = inferenceOutcome.instance,
+            )
+            session = sessionCreationOutcome.session
+            val sizeMethod = sessionCreationOutcome.sizeInTokensMethod
+            if (session == null || sizeMethod == null) {
+                return@runCatching MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = false,
+                    status = if (session == null) "failed(session-create)" else "failed(sizeInTokens-not-found)",
+                    summary = buildString {
+                        appendLine("MediaPipe tokenizer: failed")
+                        appendLine("MediaPipe class availability: $classAvailability")
+                        appendLine("MediaPipe session create: ${if (session != null) "success" else "failed"}")
+                        appendLine("MediaPipe sizeInTokens: ${if (sizeMethod != null) "found" else "not-found"}")
+                        append(
+                            "MediaPipe failure: ${
+                                sessionCreationOutcome.failureSummary
+                                    ?: if (session == null) "session-create-failed" else "sizeInTokens-not-found"
+                            }",
+                        )
+                    }.trimEnd(),
+                )
+            }
+            val promptTokens = invokeSizeInTokens(session, sizeMethod, promptText)
+            val responseTokens = invokeSizeInTokens(session, sizeMethod, fullResponseText)
+            val totalTokens = if (promptTokens != null && responseTokens != null) {
+                promptTokens + responseTokens
+            } else {
+                null
+            }
+            if (promptTokens != null && responseTokens != null && totalTokens != null) {
+                MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = true,
+                    promptTokens = promptTokens,
+                    responseTokens = responseTokens,
+                    totalTokens = totalTokens,
+                    status = "success",
+                    summary = buildString {
+                        appendLine("MediaPipe tokenizer: success")
+                        appendLine("MediaPipe class availability: $classAvailability")
+                        appendLine("MediaPipe session create: success")
+                        appendLine("MediaPipe sizeInTokens: found")
+                        appendLine("MediaPipe prompt tokens: $promptTokens")
+                        appendLine("MediaPipe response tokens: $responseTokens")
+                        append("MediaPipe total tokens: $totalTokens")
+                    }.trimEnd(),
+                )
+            } else {
+                MediaPipeTokenizerProbeOutcome(
+                    attempted = true,
+                    succeeded = false,
+                    status = "failed(sizeInTokens-invoke)",
+                    summary = buildString {
+                        appendLine("MediaPipe tokenizer: failed")
+                        appendLine("MediaPipe class availability: $classAvailability")
+                        appendLine("MediaPipe session create: success")
+                        appendLine("MediaPipe sizeInTokens: found")
+                        append("MediaPipe failure: invoke-sizeInTokens-failed")
+                    }.trimEnd(),
+                )
+            }
+        } finally {
+            runCatching { tryCloseTokenizerSession(session, appendTrace = {}) }
+            runCatching { tryCloseTokenizerSession(inferenceOutcome.instance, appendTrace = {}) }
+        }
+    }.getOrElse { throwable ->
+        MediaPipeTokenizerProbeOutcome(
+            attempted = true,
+            succeeded = false,
+            status = "failed(${throwable.javaClass.simpleName})",
+            summary = buildString {
+                appendLine("MediaPipe tokenizer: failed")
+                appendLine("MediaPipe class availability: $classAvailability")
+                appendLine("MediaPipe session create: failed")
+                appendLine("MediaPipe sizeInTokens: not-found")
+                append("MediaPipe failure: ${throwable.javaClass.simpleName}:${throwable.message}")
+            }.trimEnd(),
+        )
+    }
+}
+
+private data class MediaPipeInferenceCreateOutcome(
+    val instance: Any? = null,
+    val failureSummary: String? = null,
+)
+
+private data class MediaPipeSessionCreateOutcome(
+    val session: Any? = null,
+    val sizeInTokensMethod: Method? = null,
+    val failureSummary: String? = null,
+)
+
+private fun createMediaPipeLlmInferenceInstance(
+    llmInferenceClass: Class<*>,
+    modelPath: String,
+): MediaPipeInferenceCreateOutcome {
+    val candidateMethods = llmInferenceClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    if (candidateMethods.isEmpty()) {
+        return MediaPipeInferenceCreateOutcome(failureSummary = "createFromOptions-not-found")
+    }
+    candidateMethods.forEach { method ->
+        val params = method.parameterTypes
+        val optionsClass = params.lastOrNull() ?: return@forEach
+        val options = buildOptionsObject(optionClass = optionsClass, modelPath = modelPath) ?: return@forEach
+        val args = when {
+            params.size == 1 -> arrayOf(options)
+            params.size == 2 && isAndroidContextClass(params[0]) -> arrayOf<Any?>(null, options)
+            else -> return@forEach
+        }
+        val instance = runCatching { method.invoke(null, *args) }.getOrNull()
+        if (instance != null) {
+            return MediaPipeInferenceCreateOutcome(instance = instance)
+        }
+    }
+    return MediaPipeInferenceCreateOutcome(failureSummary = "createFromOptions-invoke-failed")
+}
+
+private fun createMediaPipeLlmSession(
+    llmSessionClass: Class<*>,
+    llmSessionOptionsClass: Class<*>,
+    llmInferenceInstance: Any,
+): MediaPipeSessionCreateOutcome {
+    val options = createMediaPipeLlmSessionOptions(llmSessionOptionsClass)
+        ?: return MediaPipeSessionCreateOutcome(failureSummary = "session-options-build-failed")
+    val createMethods = llmSessionClass.methods.filter { method ->
+        method.name == "createFromOptions" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    for (method in createMethods) {
+        val params = method.parameterTypes
+        if (params.size != 2) continue
+        val supportsInference = params[0].isAssignableFrom(llmInferenceInstance.javaClass)
+        if (!supportsInference) continue
+        val supportsOptions = params[1].isAssignableFrom(options.javaClass)
+        if (!supportsOptions) continue
+        val session = runCatching { method.invoke(null, llmInferenceInstance, options) }.getOrNull()
+        if (session != null) {
+            return MediaPipeSessionCreateOutcome(
+                session = session,
+                sizeInTokensMethod = findSizeInTokensMethod(session),
+            )
+        }
+    }
+    return MediaPipeSessionCreateOutcome(failureSummary = "session-createFromOptions-not-found-or-failed")
+}
+
+private fun createMediaPipeLlmSessionOptions(
+    llmSessionOptionsClass: Class<*>,
+): Any? {
+    val builderFactory = llmSessionOptionsClass.methods.firstOrNull { method ->
+        method.name == "builder" &&
+            method.parameterTypes.isEmpty() &&
+            java.lang.reflect.Modifier.isStatic(method.modifiers)
+    }
+    val builder = if (builderFactory != null) {
+        runCatching { builderFactory.invoke(null) }.getOrNull()
+    } else {
+        null
+    } ?: return null
+    val buildMethod = builder.javaClass.methods.firstOrNull { method ->
+        method.name == "build" && method.parameterTypes.isEmpty()
+    } ?: return null
+    return runCatching { buildMethod.invoke(builder) }.getOrNull()
+}
+
+private fun resolveModelPathForMediaPipeTokenizerProbe(
+    tokenizerSessionSource: Any?,
+): String? {
+    val source = tokenizerSessionSource ?: return null
+    val directModelPath = readNamedMemberValue(source, "modelPath") as? String
+    if (!directModelPath.isNullOrBlank()) return directModelPath
+    val engineKey = readNamedMemberValue(source, "engineKey")
+    val modelPathFromEngineKey = (engineKey?.let { readNamedMemberValue(it, "modelPath") }) as? String
+    if (!modelPathFromEngineKey.isNullOrBlank()) return modelPathFromEngineKey
+    val heldEngine = readNamedMemberValue(source, "heldEngine")
+    val modelPathFromHeldEngine = (heldEngine?.let { readNamedMemberValue(it, "modelPath") }) as? String
+    return modelPathFromHeldEngine?.takeIf { it.isNotBlank() }
+}
+
+private fun isAndroidContextClass(clazz: Class<*>): Boolean {
+    return clazz.name == "android.content.Context"
 }
 
 private fun tryCreateTokenizerSessionFromEngineViaReflection(
@@ -1572,7 +1863,7 @@ private fun emitTokenizerSessionSourceTrace(
     conversationTokenizerResolution: ConversationTokenizerResolution? = null,
 ): TokenizerSourceTraceSummary {
     val resolvedSourceObject = tokenizerSessionSource ?: conversation
-    val sourceClassName = resolvedSourceObject?.javaClass?.name ?: "null"
+    val sourceClassName = resolvedSourceObject.javaClass.name
     val sourceKind = if (tokenizerSessionSource != null) {
         "engine-backed(unresolved)"
     } else {
@@ -1581,14 +1872,14 @@ private fun emitTokenizerSessionSourceTrace(
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source kind: $sourceKind")
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source class: $sourceClassName")
     val methodCandidates = resolvedSourceObject
-        ?.javaClass
-        ?.methods
-        ?.map { it.name }
+        .javaClass
+        .methods
+        .map { it.name }
         .orEmpty()
     val fieldCandidates = resolvedSourceObject
-        ?.javaClass
-        ?.declaredFields
-        ?.map { it.name }
+        .javaClass
+        .declaredFields
+        .map { it.name }
         .orEmpty()
     safeAppendTrace(
         appendTrace,

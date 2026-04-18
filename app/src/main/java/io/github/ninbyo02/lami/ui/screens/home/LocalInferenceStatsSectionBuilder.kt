@@ -137,7 +137,8 @@ internal fun buildInferenceDetailSections(
 
     val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
     val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
-        snapshot.tokenCountMode == "tokenizer_recount" &&
+        (snapshot.tokenCountMode == "tokenizer_recount" ||
+            snapshot.tokenCountMode == "mediapipe_tokenizer_recount") &&
             snapshot.inputTokens != null &&
             snapshot.outputTokens != null
     } == true
@@ -737,6 +738,20 @@ private fun buildTokenizerDiagnosticsItems(
     val measuredSnapshot = trace.measuredTokenSnapshot
     val sourceTraceSummary = measuredSnapshot?.tokenizerSourceTraceSummary.orEmpty()
     val tokenizerRecountStatus = if (tokenizerSucceeded) "成功" else "未取得"
+    val mediaPipeStatus = measuredSnapshot?.mediaPipeTokenizerStatus
+        ?.takeIf { it.isNotBlank() }
+        ?.toUiStatusForMediaPipeTokenizer()
+        ?: "未実行"
+    val mediaPipeSummary = measuredSnapshot?.mediaPipeTokenizerSummary.orEmpty()
+    val mediaPipeSessionCreateStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe session create")
+        ?.toUiStatusForMediaPipeSessionCreate()
+        ?: "未取得"
+    val mediaPipeSizeInTokensStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe sizeInTokens")
+        ?.toUiStatusForFoundOrNotFound()
+        ?: "未取得"
+    val mediaPipePromptTokens = measuredSnapshot?.mediaPipeInputTokens?.toString() ?: "—"
+    val mediaPipeResponseTokens = measuredSnapshot?.mediaPipeOutputTokens?.toString() ?: "—"
+    val mediaPipeTotalTokens = measuredSnapshot?.mediaPipeTotalTokens?.toString() ?: "—"
     val createSessionStatus = sourceTraceSummary.extractTokenizerSourceValue("engine-createSession status")
         ?.toUiStatusForCreateSession()
         ?: "未実行"
@@ -748,6 +763,12 @@ private fun buildTokenizerDiagnosticsItems(
         .toUiStatusForConversationTokenizerPath()
     return listOf(
         InferenceStatItemUi(label = "Tokenizer再計数", value = tokenizerRecountStatus),
+        InferenceStatItemUi(label = "MediaPipe tokenizer", value = mediaPipeStatus),
+        InferenceStatItemUi(label = "MediaPipe session create", value = mediaPipeSessionCreateStatus),
+        InferenceStatItemUi(label = "MediaPipe sizeInTokens", value = mediaPipeSizeInTokensStatus),
+        InferenceStatItemUi(label = "MediaPipe prompt tokens", value = mediaPipePromptTokens),
+        InferenceStatItemUi(label = "MediaPipe response tokens", value = mediaPipeResponseTokens),
+        InferenceStatItemUi(label = "MediaPipe total tokens", value = mediaPipeTotalTokens),
         InferenceStatItemUi(label = "createSession", value = createSessionStatus),
         InferenceStatItemUi(label = "created-session sizeInTokens", value = createdSessionSizeInTokensStatus),
         InferenceStatItemUi(label = "existing-session sizeInTokens", value = existingSessionSizeInTokensStatus),
@@ -793,6 +814,27 @@ private fun String?.toUiStatusForConversationTokenizerPath(): String {
         normalized.isBlank() -> "未取得"
         normalized == "none" -> "未発見"
         else -> "成功"
+    }
+}
+
+private fun String.toUiStatusForMediaPipeTokenizer(): String {
+    val normalized = trim()
+    return when {
+        normalized == "success" -> "成功"
+        normalized.startsWith("failed") -> "失敗"
+        normalized.startsWith("unavailable") -> "未対応"
+        normalized.isBlank() -> "未実行"
+        else -> normalized
+    }
+}
+
+private fun String.toUiStatusForMediaPipeSessionCreate(): String {
+    val normalized = trim()
+    return when (normalized) {
+        "success" -> "成功"
+        "failed" -> "失敗"
+        "unavailable" -> "未対応"
+        else -> normalized
     }
 }
 
