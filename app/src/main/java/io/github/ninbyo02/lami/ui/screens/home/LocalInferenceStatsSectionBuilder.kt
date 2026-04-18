@@ -171,9 +171,10 @@ internal fun buildInferenceDetailSections(
     } else {
         "合計トークン"
     }
-    val tokenizerStateText = buildTokenizerStateText(
+    val tokenizerDiagnosticsItems = buildTokenizerDiagnosticsItems(
         stats = stats,
         trace = localTraceForDev,
+        tokenizerSucceeded = tokenizerSucceeded,
     )
 
     return listOfNotNull(
@@ -259,7 +260,7 @@ internal fun buildInferenceDetailSections(
                         ),
                     )
                 }
-                add(InferenceStatItemUi(label = "Tokenizer状態", value = tokenizerStateText))
+                addAll(tokenizerDiagnosticsItems)
             },
         ),
         InferenceStatsSectionUi(
@@ -727,22 +728,72 @@ private fun buildTokenizerTokenLabel(
     }
 }
 
-private fun buildTokenizerStateText(
+private fun buildTokenizerDiagnosticsItems(
     stats: InferenceStats,
     trace: LocalInferenceTrace?,
-): String {
-    if (stats.tokenCountMode == "tokenizer_recount") return "成功"
-    val status = trace?.measuredTokenSnapshot?.tokenizerRecountStatus
+    tokenizerSucceeded: Boolean,
+): List<InferenceStatItemUi> {
+    if (trace == null) return emptyList()
+    val measuredSnapshot = trace.measuredTokenSnapshot
+    val sourceTraceSummary = measuredSnapshot?.tokenizerSourceTraceSummary.orEmpty()
+    val tokenizerRecountStatus = if (tokenizerSucceeded) "成功" else "未取得"
+    val createSessionStatus = sourceTraceSummary.extractTokenizerSourceValue("engine-createSession status")
+        ?.toUiStatusForCreateSession()
+        ?: "未実行"
+    val createdSessionSizeInTokensStatus = sourceTraceSummary.extractTokenizerSourceValue("created-session sizeInTokens")
+        .toUiStatusForFoundOrNotFound()
+    val existingSessionSizeInTokensStatus = sourceTraceSummary.extractTokenizerSourceValue("existing-session sizeInTokens")
+        .toUiStatusForFoundOrNotFound()
+    val conversationTokenizerStatus = sourceTraceSummary.extractTokenizerSourceValue("conversation-tokenizer path")
+        .toUiStatusForConversationTokenizerPath()
+    return listOf(
+        InferenceStatItemUi(label = "Tokenizer再計数", value = tokenizerRecountStatus),
+        InferenceStatItemUi(label = "createSession", value = createSessionStatus),
+        InferenceStatItemUi(label = "created-session sizeInTokens", value = createdSessionSizeInTokensStatus),
+        InferenceStatItemUi(label = "existing-session sizeInTokens", value = existingSessionSizeInTokensStatus),
+        InferenceStatItemUi(label = "conversation tokenizer", value = conversationTokenizerStatus),
+    )
+}
+
+private fun String.extractTokenizerSourceValue(key: String): String? {
+    if (isBlank()) return null
+    return lineSequence()
+        .map { it.trim() }
+        .firstOrNull { it.startsWith("$key:") }
+        ?.substringAfter(':')
         ?.trim()
         ?.takeIf { it.isNotBlank() }
-        ?: return "未実行"
-    if (status == "success") return "成功"
-    val reason = when {
-        status.startsWith("skipped reason=") -> status.removePrefix("skipped reason=").trim()
-        status.startsWith("reflection-failed ") -> status.removePrefix("reflection-failed ").trim()
-        else -> status
+}
+
+private fun String?.toUiStatusForCreateSession(): String {
+    val normalized = this?.trim().orEmpty()
+    return when {
+        normalized == "engine-createSession-success" -> "成功"
+        normalized.endsWith("method-not-found") -> "未発見"
+        normalized.endsWith("not-attempted") -> "未実行"
+        normalized.endsWith("failed") -> "失敗"
+        normalized.isBlank() -> "未実行"
+        else -> normalized
     }
-    return "失敗（$reason）"
+}
+
+private fun String?.toUiStatusForFoundOrNotFound(): String {
+    val normalized = this?.trim().orEmpty()
+    return when (normalized) {
+        "found" -> "成功"
+        "not-found" -> "未発見"
+        "" -> "未取得"
+        else -> normalized
+    }
+}
+
+private fun String?.toUiStatusForConversationTokenizerPath(): String {
+    val normalized = this?.trim().orEmpty()
+    return when {
+        normalized.isBlank() -> "未取得"
+        normalized == "none" -> "未発見"
+        else -> "成功"
+    }
 }
 
 private fun buildDevDiagnosticSummarySection(
