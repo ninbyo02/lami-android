@@ -626,6 +626,7 @@ private data class TokenizerSourceTraceSummary(
     val className: String,
     val methodsSummary: String,
     val fieldsSummary: String,
+    val createSessionSignatures: List<String> = emptyList(),
     val engineCreateSessionStatus: String? = null,
 ) {
     fun toMeasuredTokenSummary(): String {
@@ -636,8 +637,12 @@ private data class TokenizerSourceTraceSummary(
             appendLine("tokenizer-source kind: $kind")
             appendLine("tokenizer-source class: $className")
             appendLine("tokenizer-source methods: $methodsSummary")
-            append("tokenizer-source fields: $fieldsSummary")
-        }
+            appendLine("tokenizer-source fields: $fieldsSummary")
+            appendLine("createSession signatures:")
+            createSessionSignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                appendLine("- $signature")
+            }
+        }.trimEnd()
     }
 }
 
@@ -936,7 +941,8 @@ private fun emitTokenizerSessionSourceTrace(
         appendTrace,
         "UPSTREAM tokenizer-source fields: ${summarizeTokenizerSourceCandidates(fieldCandidates)}",
     )
-    buildCreateSessionMethodSignatures(resolvedSourceObject).forEach { signature ->
+    val createSessionSignatures = buildCreateSessionMethodSignatures(resolvedSourceObject)
+    createSessionSignatures.forEach { signature ->
         safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source createSession signature: $signature")
     }
     return TokenizerSourceTraceSummary(
@@ -944,6 +950,7 @@ private fun emitTokenizerSessionSourceTrace(
         className = sourceClassName,
         methodsSummary = summarizeTokenizerSourceCandidates(methodCandidates),
         fieldsSummary = summarizeTokenizerSourceCandidates(fieldCandidates),
+        createSessionSignatures = createSessionSignatures,
         engineCreateSessionStatus = engineCreateSessionStatus,
     )
 }
