@@ -633,10 +633,23 @@ private fun tryReadTokenizerRecountViaReflection(
     fullResponseText: String,
     appendTrace: (String) -> Unit,
 ) : TokenizerRecountOutcome {
-    val inferenceResolution = tryResolveInferenceInstanceForTokenizerSession(
+    var sessionInstance: Any? = null
+    val engineSession = tryCreateTokenizerSessionFromEngineViaReflection(
         tokenizerSessionSource = tokenizerSessionSource,
-        conversation = conversation,
+        appendTrace = appendTrace,
     )
+    if (engineSession != null) {
+        sessionInstance = engineSession
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount path=engine-createSession")
+    }
+    val inferenceResolution = if (sessionInstance == null) {
+        tryResolveInferenceInstanceForTokenizerSession(
+            tokenizerSessionSource = tokenizerSessionSource,
+            conversation = conversation,
+        )
+    } else {
+        null
+    }
     val sourceTraceSummary = if (BuildConfig.DEBUG) {
         emitTokenizerSessionSourceTrace(
             appendTrace = appendTrace,
@@ -647,15 +660,14 @@ private fun tryReadTokenizerRecountViaReflection(
     } else {
         null
     }
-    val inferenceInstance = inferenceResolution?.inferenceInstance
-        ?: return TokenizerRecountOutcome(
-            status = "skipped reason=inference-instance-not-found",
-            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
-        ).also {
-            safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=inference-instance-not-found")
-        }
-    var sessionInstance: Any? = null
-    return try {
+    if (sessionInstance == null) {
+        val inferenceInstance = inferenceResolution?.inferenceInstance
+            ?: return TokenizerRecountOutcome(
+                status = "skipped reason=inference-instance-not-found",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+            ).also {
+                safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=inference-instance-not-found")
+            }
         sessionInstance = tryCreateTokenizerSessionViaReflection(inferenceInstance)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=session-create-failed",
@@ -663,21 +675,34 @@ private fun tryReadTokenizerRecountViaReflection(
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=session-create-failed")
             }
-        val sizeMethod = findSizeInTokensMethod(sessionInstance)
+    } else {
+        safeAppendTrace(
+            appendTrace,
+            "UPSTREAM tokenizer-recount session-created class=${sessionInstance.javaClass.name}",
+        )
+    }
+    val activeSession = sessionInstance
+        ?: return TokenizerRecountOutcome(
+            status = "skipped reason=session-create-failed",
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+        )
+    return try {
+        val sizeMethod = findSizeInTokensMethod(activeSession)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=size-method-not-found",
                 sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=size-method-not-found")
             }
-        val promptTokens = invokeSizeInTokens(sessionInstance, sizeMethod, promptText)
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount size-method-found")
+        val promptTokens = invokeSizeInTokens(activeSession, sizeMethod, promptText)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=prompt-token-failed",
                 sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=prompt-token-failed")
             }
-        val responseTokens = invokeSizeInTokens(sessionInstance, sizeMethod, fullResponseText)
+        val responseTokens = invokeSizeInTokens(activeSession, sizeMethod, fullResponseText)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=response-token-failed",
                 sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
@@ -702,6 +727,63 @@ private fun tryReadTokenizerRecountViaReflection(
     } finally {
         tryCloseTokenizerSession(sessionInstance, appendTrace)
     }
+}
+
+private fun tryCreateTokenizerSessionFromEngineViaReflection(
+    tokenizerSessionSource: Any?,
+    appendTrace: (String) -> Unit,
+): Any? {
+    val engine = tokenizerSessionSource ?: return null
+    if (!isLiteRtEngineInstance(engine)) return null
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount try=engine-createSession")
+    tryInvokeEngineCreateSessionNoArgs(engine)?.let { return it }
+    tryInvokeEngineCreateSessionNullableArgs(engine)?.let { return it }
+    tryInvokeEngineCreateSessionDefaultBridge(engine)?.let { return it }
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount engine-createSession-failed")
+    return null
+}
+
+private fun isLiteRtEngineInstance(instance: Any): Boolean {
+    val className = instance.javaClass.name
+    return className == "com.google.ai.edge.litertlm.Engine" ||
+        className.endsWith(".Engine") && className.contains("litertlm", ignoreCase = true)
+}
+
+private fun tryInvokeEngineCreateSessionNoArgs(engine: Any): Any? {
+    val createMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createSession" && method.parameterTypes.isEmpty()
+    } ?: return null
+    return runCatching { createMethod.invoke(engine) }.getOrNull()
+}
+
+private fun tryInvokeEngineCreateSessionNullableArgs(engine: Any): Any? {
+    val createMethods = engine.javaClass.methods.filter { method ->
+        method.name == "createSession" && method.parameterTypes.isNotEmpty()
+    }
+    createMethods.forEach { method ->
+        val parameterTypes = method.parameterTypes
+        if (parameterTypes.any { it.isPrimitive }) return@forEach
+        val args = Array(parameterTypes.size) { null }
+        runCatching { method.invoke(engine, *args) }.getOrNull()?.let { return it }
+    }
+    return null
+}
+
+private fun tryInvokeEngineCreateSessionDefaultBridge(engine: Any): Any? {
+    val defaultMethod = engine.javaClass.methods.firstOrNull { method ->
+        method.name == "createSession\$default" && java.lang.reflect.Modifier.isStatic(method.modifiers)
+    } ?: return null
+    val parameterTypes = defaultMethod.parameterTypes
+    val args = Array<Any?>(parameterTypes.size) { index ->
+        val type = parameterTypes[index]
+        when {
+            index == 0 && type.isAssignableFrom(engine.javaClass) -> engine
+            type == Int::class.javaPrimitiveType -> 0
+            type == Boolean::class.javaPrimitiveType -> false
+            else -> null
+        }
+    }
+    return runCatching { defaultMethod.invoke(null, *args) }.getOrNull()
 }
 
 private fun tryResolveInferenceInstanceForTokenizerSession(
