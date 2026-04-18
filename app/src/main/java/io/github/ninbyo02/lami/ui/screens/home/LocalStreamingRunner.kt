@@ -631,6 +631,7 @@ private data class SamplerConfigProbeSummary(
     val factorySignatures: List<String> = emptyList(),
     val constructorSignatures: List<String> = emptyList(),
     val triedPaths: List<String> = emptyList(),
+    val defaultAttempt: String = "not-attempted",
     val selectedPath: String? = null,
 )
 
@@ -692,6 +693,7 @@ private data class TokenizerSourceTraceSummary(
                 probe.triedPaths.ifEmpty { listOf("none") }.forEach { path ->
                     appendLine("- $path")
                 }
+                appendLine("SamplerConfig default-attempt: ${probe.defaultAttempt}")
                 appendLine("SamplerConfig selected-path: ${probe.selectedPath ?: "none"}")
             }
         }.trimEnd()
@@ -868,7 +870,12 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
         )
     }
     if (hasEngineCreateSessionNoArgsMethod(engine)) methodFound = true
-    tryInvokeEngineCreateSessionWithSessionConfig(engine, sessionConfigProbe, samplerConfigProbe)?.let {
+    tryInvokeEngineCreateSessionWithSessionConfig(
+        engine = engine,
+        sessionConfigProbe = sessionConfigProbe,
+        samplerConfigProbe = samplerConfigProbe,
+        appendTrace = appendTrace,
+    )?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
             session = it,
@@ -967,6 +974,25 @@ private fun probeSamplerConfigCreationPaths(): SamplerConfigProbeSummary {
         triedPaths += path
         addCandidate(path, runCatching { method.invoke(receiver) }.getOrNull())
     }
+    val intDoubleDoubleIntConstructor = constructors.firstOrNull { constructor ->
+        val parameterTypes = constructor.parameterTypes
+        parameterTypes.size == 4 &&
+            parameterTypes[0] == Int::class.javaPrimitiveType &&
+            parameterTypes[1] == Double::class.javaPrimitiveType &&
+            parameterTypes[2] == Double::class.javaPrimitiveType &&
+            parameterTypes[3] == Int::class.javaPrimitiveType
+    }
+    var defaultAttempt = "not-attempted"
+    intDoubleDoubleIntConstructor?.let { constructor ->
+        val path = "SamplerConfig.<init>(int,double,double,int)"
+        triedPaths += path
+        val value = runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance(10, 0.95, 0.8, 1)
+        }.getOrNull()
+        defaultAttempt = if (value != null) "success" else "failed"
+        addCandidate(path, value)
+    }
     constructors.firstOrNull { it.parameterTypes.isEmpty() }?.let { constructor ->
         val path = "SamplerConfig.<init>()"
         triedPaths += path
@@ -988,6 +1014,7 @@ private fun probeSamplerConfigCreationPaths(): SamplerConfigProbeSummary {
             "${constructor.name}(params=$params)"
         },
         triedPaths = triedPaths,
+        defaultAttempt = defaultAttempt,
         selectedPath = selected?.first,
     )
 }
@@ -1099,6 +1126,7 @@ private fun tryInvokeEngineCreateSessionWithSessionConfig(
     engine: Any,
     sessionConfigProbe: SessionConfigProbeSummary,
     samplerConfigProbe: SamplerConfigProbeSummary,
+    appendTrace: (String) -> Unit = {},
 ): Any? {
     val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
     if (!sessionConfigProbe.classStatus.startsWith("found:")) return null
@@ -1106,7 +1134,11 @@ private fun tryInvokeEngineCreateSessionWithSessionConfig(
     val sessionConfigInstance = sessionConfigProbe.selectedPath?.let {
         // 生成経路の優先順を維持するため、再度同じルールで生成する。
         createSessionConfigFromPath(sessionConfigClass, samplerConfigProbe, it)
-    } ?: createDefaultSessionConfig(sessionConfigClass, samplerConfigProbe)
+    } ?: createDefaultSessionConfig(
+        sessionConfigClass = sessionConfigClass,
+        samplerConfigProbe = samplerConfigProbe,
+        appendTrace = appendTrace,
+    )
     val createMethod = engine.javaClass.methods.firstOrNull { method ->
         method.name == "createSession" &&
             method.parameterTypes.size == 1 &&
@@ -1116,6 +1148,7 @@ private fun tryInvokeEngineCreateSessionWithSessionConfig(
 }
 
 private fun createDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
+    tryCreateDefaultSamplerConfig(samplerConfigClass)?.let { return it }
     val factoryMethods = samplerConfigClass.methods.filter { method ->
         method.parameterTypes.isEmpty() &&
             (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
@@ -1137,7 +1170,36 @@ private fun createDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
     }.getOrNull()
 }
 
+private fun tryCreateDefaultSamplerConfig(): Any? {
+    val clazz = runCatching {
+        Class.forName("com.google.ai.edge.litertlm.SamplerConfig")
+    }.getOrNull() ?: return null
+    return tryCreateDefaultSamplerConfig(clazz)
+}
+
+private fun tryCreateDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
+    val constructor = samplerConfigClass.declaredConstructors.firstOrNull { target ->
+        val parameterTypes = target.parameterTypes
+        parameterTypes.size == 4 &&
+            parameterTypes[0] == Int::class.javaPrimitiveType &&
+            parameterTypes[1] == Double::class.javaPrimitiveType &&
+            parameterTypes[2] == Double::class.javaPrimitiveType &&
+            parameterTypes[3] == Int::class.javaPrimitiveType
+    } ?: return null
+    return runCatching {
+        constructor.isAccessible = true
+        val topK = 10
+        val topP = 0.95
+        val temperature = 0.8
+        val extra = 1
+        constructor.newInstance(topK, topP, temperature, extra)
+    }.getOrNull()
+}
+
 private fun createSamplerConfigFromPath(samplerConfigClass: Class<*>, path: String): Any? {
+    if (path == "SamplerConfig.<init>(int,double,double,int)") {
+        return tryCreateDefaultSamplerConfig(samplerConfigClass)
+    }
     if (path == "SamplerConfig.<init>()") {
         val constructor = samplerConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
         return runCatching {
@@ -1177,6 +1239,7 @@ private fun createSamplerConfigFromPath(samplerConfigClass: Class<*>, path: Stri
 private fun createDefaultSessionConfig(
     sessionConfigClass: Class<*>,
     samplerConfigProbe: SamplerConfigProbeSummary,
+    appendTrace: (String) -> Unit = {},
 ): Any? {
     val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
         runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
@@ -1184,19 +1247,30 @@ private fun createDefaultSessionConfig(
         null
     }
     val samplerConfigInstance = samplerConfigClass?.let { samplerClass ->
-        samplerConfigProbe.selectedPath?.let { createSamplerConfigFromPath(samplerClass, it) }
-            ?: createDefaultSamplerConfig(samplerClass)
+        val defaultSamplerConfig = tryCreateDefaultSamplerConfig(samplerClass)
+        if (defaultSamplerConfig != null) {
+            defaultSamplerConfig
+        } else {
+            samplerConfigProbe.selectedPath?.let { createSamplerConfigFromPath(samplerClass, it) }
+                ?: createDefaultSamplerConfig(samplerClass)
+        }
     }
     if (samplerConfigClass != null && samplerConfigInstance != null) {
         val samplerConstructor = sessionConfigClass.declaredConstructors.firstOrNull { constructor ->
             constructor.parameterTypes.size == 1 &&
-                constructor.parameterTypes[0].isAssignableFrom(samplerConfigClass)
+                constructor.parameterTypes[0].name == "com.google.ai.edge.litertlm.SamplerConfig"
         }
         if (samplerConstructor != null) {
-            runCatching {
+            val instance = runCatching {
                 samplerConstructor.isAccessible = true
                 samplerConstructor.newInstance(samplerConfigInstance)
-            }.getOrNull()?.let { return it }
+            }.getOrNull()
+            if (instance != null) {
+                safeAppendTrace(appendTrace, "UPSTREAM SessionConfig path=SamplerConfig constructor success")
+                return instance
+            } else {
+                safeAppendTrace(appendTrace, "UPSTREAM SessionConfig path=SamplerConfig constructor failed")
+            }
         }
     }
     val factoryMethods = sessionConfigClass.methods.filter { method ->
@@ -1214,6 +1288,7 @@ private fun createDefaultSessionConfig(
         }
     }
     val constructor = sessionConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+    safeAppendTrace(appendTrace, "UPSTREAM SessionConfig path=SessionConfig.<init>() fallback")
     return runCatching {
         constructor.isAccessible = true
         constructor.newInstance()
