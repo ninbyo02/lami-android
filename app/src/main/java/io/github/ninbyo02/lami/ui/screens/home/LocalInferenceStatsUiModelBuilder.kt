@@ -138,7 +138,8 @@ internal fun buildLocalInferenceStatsUiModel(
                 generationTimeMs = decodeDurationMs,
             )
         }
-    val useTokenizerRecount = stats.tokenCountMode == "tokenizer_recount"
+    val useTokenizerRecount = stats.tokenCountMode == "tokenizer_recount" ||
+        stats.tokenCountMode == "mediapipe_tokenizer_recount"
     val assistantUpdateCountForTps = trace.assistantUpdateCount.takeIf { it > 0 }
     val assistantUpdateBasedTokensPerSecond = if (useTokenizerRecount) {
         null
