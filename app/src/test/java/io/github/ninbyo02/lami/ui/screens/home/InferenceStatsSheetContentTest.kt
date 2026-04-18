@@ -2,6 +2,7 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import io.github.ninbyo02.lami.ui.model.ContextWindowFetchState
 import io.github.ninbyo02.lami.ui.model.InferenceStats
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -309,5 +310,57 @@ class InferenceStatsSheetContentTest {
             "初回受信までは端末側の受信タイミング、全体完了までは推論統計の完了タイミングを示します。",
             inferenceTimingNoteText(),
         )
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText includes summary detail and measured token blocks`() {
+        val stats = InferenceStats(
+            modelName = "qwen2.5",
+            modelLoadDurationNs = 500_000_000L,
+            promptEvalDurationNs = 400_000_000L,
+            generationDurationNs = 600_000_000L,
+            totalTokens = 120,
+            contextWindow = 4096,
+        )
+        val text = buildInferenceStatsFullCopyText(
+            stats = stats,
+            sections = listOf(
+                InferenceStatsSectionUi(
+                    title = "概要",
+                    items = listOf(InferenceStatItemUi(label = "完了理由", value = "通常終了 (stop)")),
+                ),
+            ),
+            detailSections = listOf(
+                InferenceStatsSectionUi(
+                    title = "DEV診断サマリー",
+                    items = listOf(InferenceStatItemUi(label = "診断", value = "ok")),
+                ),
+            ),
+            measuredTokenSnapshotSummary = "in=1 / out=2 / total=3\n[BenchmarkInfo raw]\nprefillTokenCount: 1",
+        )
+
+        assertTrue(text.contains("推論統計"))
+        assertTrue(text.contains("[モデル情報]"))
+        assertTrue(text.contains("[概要]"))
+        assertTrue(text.contains("[推論時間内訳]"))
+        assertTrue(text.contains("[コンテキスト使用量]"))
+        assertTrue(text.contains("[詳細]"))
+        assertTrue(text.contains("[DEV診断サマリー]"))
+        assertTrue(text.contains("[measuredTokens]"))
+        assertTrue(text.contains("[BenchmarkInfo raw]"))
+    }
+
+    @Test
+    fun `buildInferenceStatsFullCopyText keeps benchmark placeholder when measured tokens are unavailable`() {
+        val text = buildInferenceStatsFullCopyText(
+            stats = InferenceStats(),
+            sections = emptyList(),
+            detailSections = emptyList(),
+            measuredTokenSnapshotSummary = null,
+        )
+
+        assertTrue(text.contains("[measuredTokens]"))
+        assertTrue(text.contains("unavailable"))
+        assertTrue(text.contains("[BenchmarkInfo raw]"))
     }
 }
