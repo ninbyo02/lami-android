@@ -615,9 +615,18 @@ private data class EngineCreateSessionAttempt(
     val attempted: Boolean = false,
     val status: String = "engine-createSession-not-attempted",
     val sessionConfigProbe: SessionConfigProbeSummary? = null,
+    val samplerConfigProbe: SamplerConfigProbeSummary? = null,
 )
 
 private data class SessionConfigProbeSummary(
+    val classStatus: String,
+    val factorySignatures: List<String> = emptyList(),
+    val constructorSignatures: List<String> = emptyList(),
+    val triedPaths: List<String> = emptyList(),
+    val selectedPath: String? = null,
+)
+
+private data class SamplerConfigProbeSummary(
     val classStatus: String,
     val factorySignatures: List<String> = emptyList(),
     val constructorSignatures: List<String> = emptyList(),
@@ -638,6 +647,7 @@ private data class TokenizerSourceTraceSummary(
     val createSessionSignatures: List<String> = emptyList(),
     val engineCreateSessionStatus: String? = null,
     val sessionConfigProbe: SessionConfigProbeSummary? = null,
+    val samplerConfigProbe: SamplerConfigProbeSummary? = null,
 ) {
     fun toMeasuredTokenSummary(): String {
         return buildString {
@@ -667,6 +677,22 @@ private data class TokenizerSourceTraceSummary(
                     appendLine("- $path")
                 }
                 appendLine("SessionConfig selected-path: ${probe.selectedPath ?: "none"}")
+            }
+            samplerConfigProbe?.let { probe ->
+                appendLine("SamplerConfig class: ${probe.classStatus}")
+                appendLine("SamplerConfig factories:")
+                probe.factorySignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SamplerConfig constructors:")
+                probe.constructorSignatures.ifEmpty { listOf("none") }.forEach { signature ->
+                    appendLine("- $signature")
+                }
+                appendLine("SamplerConfig tried-paths:")
+                probe.triedPaths.ifEmpty { listOf("none") }.forEach { path ->
+                    appendLine("- $path")
+                }
+                appendLine("SamplerConfig selected-path: ${probe.selectedPath ?: "none"}")
             }
         }.trimEnd()
     }
@@ -707,6 +733,7 @@ private fun tryReadTokenizerRecountViaReflection(
             inferenceResolution = inferenceResolution,
             engineCreateSessionStatus = engineSessionAttempt.status,
             sessionConfigProbe = engineSessionAttempt.sessionConfigProbe,
+            samplerConfigProbe = engineSessionAttempt.samplerConfigProbe,
         )
     } else {
         null
@@ -815,7 +842,14 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
     val engine = tokenizerSessionSource ?: return EngineCreateSessionAttempt()
     if (!isLiteRtEngineInstance(engine)) return EngineCreateSessionAttempt()
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount try=engine-createSession")
-    val sessionConfigProbe = probeSessionConfigCreationPaths()
+    val samplerConfigProbe = probeSamplerConfigCreationPaths()
+    samplerConfigProbe.factorySignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SamplerConfig factory signature: $signature")
+    }
+    samplerConfigProbe.constructorSignatures.forEach { signature ->
+        safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SamplerConfig constructor signature: $signature")
+    }
+    val sessionConfigProbe = probeSessionConfigCreationPaths(samplerConfigProbe)
     sessionConfigProbe.factorySignatures.forEach { signature ->
         safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SessionConfig factory signature: $signature")
     }
@@ -830,16 +864,18 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             attempted = true,
             status = "engine-createSession-success",
             sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
         )
     }
     if (hasEngineCreateSessionNoArgsMethod(engine)) methodFound = true
-    tryInvokeEngineCreateSessionWithSessionConfig(engine, sessionConfigProbe)?.let {
+    tryInvokeEngineCreateSessionWithSessionConfig(engine, sessionConfigProbe, samplerConfigProbe)?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
             session = it,
             attempted = true,
             status = "engine-createSession-success",
             sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
         )
     }
     if (hasEngineCreateSessionSessionConfigMethod(engine)) methodFound = true
@@ -850,6 +886,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             attempted = true,
             status = "engine-createSession-success",
             sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
         )
     }
     if (hasEngineCreateSessionNullableArgsMethod(engine)) methodFound = true
@@ -860,15 +897,102 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
             attempted = true,
             status = "engine-createSession-success",
             sessionConfigProbe = sessionConfigProbe,
+            samplerConfigProbe = samplerConfigProbe,
         )
     }
     if (hasEngineCreateSessionDefaultBridgeMethod(engine)) methodFound = true
     val status = if (methodFound) "engine-createSession-failed" else "engine-createSession-method-not-found"
     safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount $status")
-    return EngineCreateSessionAttempt(attempted = true, status = status, sessionConfigProbe = sessionConfigProbe)
+    return EngineCreateSessionAttempt(
+        attempted = true,
+        status = status,
+        sessionConfigProbe = sessionConfigProbe,
+        samplerConfigProbe = samplerConfigProbe,
+    )
 }
 
-private fun probeSessionConfigCreationPaths(): SessionConfigProbeSummary {
+private fun probeSamplerConfigCreationPaths(): SamplerConfigProbeSummary {
+    val samplerConfigClass = runCatching {
+        Class.forName("com.google.ai.edge.litertlm.SamplerConfig")
+    }.getOrNull()
+    if (samplerConfigClass == null) {
+        return SamplerConfigProbeSummary(classStatus = "not-found")
+    }
+    val factoryMethods = samplerConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    val companionOrObject = samplerConfigClass.declaredFields.firstOrNull { field ->
+        field.name == "Companion" || field.name == "INSTANCE"
+    }?.let { field ->
+        runCatching {
+            field.isAccessible = true
+            field.get(null)
+        }.getOrNull()
+    }
+    val companionMethods = companionOrObject
+        ?.javaClass
+        ?.methods
+        ?.filter { method ->
+            method.parameterTypes.isEmpty() &&
+                (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+        }
+        .orEmpty()
+    val constructors = samplerConfigClass.declaredConstructors.sortedBy { it.parameterTypes.size }
+    val triedPaths = mutableListOf<String>()
+    val candidates = mutableListOf<Pair<String, Any>>()
+
+    fun addCandidate(path: String, value: Any?) {
+        if (value == null) return
+        candidates += path to value
+        val buildMethod = value.javaClass.methods.firstOrNull { method ->
+            method.name == "build" && method.parameterTypes.isEmpty()
+        }
+        if (buildMethod != null) {
+            triedPaths += "$path.build()"
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                candidates += "$path.build()" to built
+            }
+        }
+    }
+
+    factoryMethods.forEach { method ->
+        val path = "SamplerConfig.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(null) }.getOrNull())
+    }
+    companionMethods.forEach { method ->
+        val receiver = companionOrObject ?: return@forEach
+        val path = "SamplerConfig.${receiver.javaClass.simpleName}.${method.name}()"
+        triedPaths += path
+        addCandidate(path, runCatching { method.invoke(receiver) }.getOrNull())
+    }
+    constructors.firstOrNull { it.parameterTypes.isEmpty() }?.let { constructor ->
+        val path = "SamplerConfig.<init>()"
+        triedPaths += path
+        addCandidate(path, runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull())
+    }
+
+    val selected = candidates.firstOrNull { (_, value) -> samplerConfigClass.isInstance(value) }
+    return SamplerConfigProbeSummary(
+        classStatus = "found:${samplerConfigClass.name}",
+        factorySignatures = (factoryMethods + companionMethods)
+            .distinctBy { it.toGenericString() }
+            .sortedBy { it.toGenericString() }
+            .map { it.toGenericString() },
+        constructorSignatures = constructors.map { constructor ->
+            val params = constructor.parameterTypes.joinToString(",") { it.name }.ifBlank { "none" }
+            "${constructor.name}(params=$params)"
+        },
+        triedPaths = triedPaths,
+        selectedPath = selected?.first,
+    )
+}
+
+private fun probeSessionConfigCreationPaths(samplerConfigProbe: SamplerConfigProbeSummary): SessionConfigProbeSummary {
     val sessionConfigClass = runCatching {
         Class.forName("com.google.ai.edge.litertlm.SessionConfig")
     }.getOrNull()
@@ -925,15 +1049,34 @@ private fun probeSessionConfigCreationPaths(): SessionConfigProbeSummary {
         triedPaths += path
         addCandidate(path, runCatching { method.invoke(receiver) }.getOrNull())
     }
+    val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
+        runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
+    } else {
+        null
+    }
+    val samplerConfigInstance = samplerConfigClass?.let { samplerClass ->
+        samplerConfigProbe.selectedPath?.let { createSamplerConfigFromPath(samplerClass, it) }
+            ?: createDefaultSamplerConfig(samplerClass)
+    }
+    constructors.filter { it.parameterTypes.size == 1 }.forEach { constructor ->
+        if (samplerConfigClass == null || samplerConfigInstance == null) return@forEach
+        val parameterClass = constructor.parameterTypes.first()
+        if (!parameterClass.isAssignableFrom(samplerConfigClass)) return@forEach
+        val parameterLabel = parameterClass.simpleName.ifBlank { parameterClass.name.substringAfterLast('.') }
+        val path = "SessionConfig.<init>($parameterLabel via ${samplerConfigProbe.selectedPath ?: "SamplerConfig.default"})"
+        triedPaths += path
+        addCandidate(path, runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance(samplerConfigInstance)
+        }.getOrNull())
+    }
     constructors.firstOrNull { it.parameterTypes.isEmpty() }?.let { constructor ->
-        triedPaths += "SessionConfig.<init>()"
-        addCandidate(
-            "SessionConfig.<init>()",
-            runCatching {
-                constructor.isAccessible = true
-                constructor.newInstance()
-            }.getOrNull(),
-        )
+        val path = "SessionConfig.<init>()"
+        triedPaths += path
+        addCandidate(path, runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull())
     }
 
     val selected = candidates.firstOrNull { (_, value) -> sessionConfigClass.isInstance(value) }
@@ -955,14 +1098,15 @@ private fun probeSessionConfigCreationPaths(): SessionConfigProbeSummary {
 private fun tryInvokeEngineCreateSessionWithSessionConfig(
     engine: Any,
     sessionConfigProbe: SessionConfigProbeSummary,
+    samplerConfigProbe: SamplerConfigProbeSummary,
 ): Any? {
     val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
     if (!sessionConfigProbe.classStatus.startsWith("found:")) return null
     val sessionConfigClass = runCatching { Class.forName(sessionConfigClassName) }.getOrNull() ?: return null
     val sessionConfigInstance = sessionConfigProbe.selectedPath?.let {
         // 生成経路の優先順を維持するため、再度同じルールで生成する。
-        createSessionConfigFromPath(sessionConfigClass, it)
-    } ?: createDefaultSessionConfig(sessionConfigClass)
+        createSessionConfigFromPath(sessionConfigClass, samplerConfigProbe, it)
+    } ?: createDefaultSessionConfig(sessionConfigClass, samplerConfigProbe)
     val createMethod = engine.javaClass.methods.firstOrNull { method ->
         method.name == "createSession" &&
             method.parameterTypes.size == 1 &&
@@ -971,7 +1115,90 @@ private fun tryInvokeEngineCreateSessionWithSessionConfig(
     return runCatching { createMethod.invoke(engine, sessionConfigInstance) }.getOrNull()
 }
 
-private fun createDefaultSessionConfig(sessionConfigClass: Class<*>): Any? {
+private fun createDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
+    val factoryMethods = samplerConfigClass.methods.filter { method ->
+        method.parameterTypes.isEmpty() &&
+            (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
+    }
+    factoryMethods.forEach { method ->
+        val value = runCatching { method.invoke(null) }.getOrNull() ?: return@forEach
+        if (samplerConfigClass.isInstance(value)) return value
+        val buildMethod = value.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() }
+        if (buildMethod != null) {
+            runCatching { buildMethod.invoke(value) }.getOrNull()?.let { built ->
+                if (samplerConfigClass.isInstance(built)) return built
+            }
+        }
+    }
+    val constructor = samplerConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+    return runCatching {
+        constructor.isAccessible = true
+        constructor.newInstance()
+    }.getOrNull()
+}
+
+private fun createSamplerConfigFromPath(samplerConfigClass: Class<*>, path: String): Any? {
+    if (path == "SamplerConfig.<init>()") {
+        val constructor = samplerConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance()
+        }.getOrNull()
+    }
+    if (!path.startsWith("SamplerConfig.")) return null
+    val needsBuild = path.endsWith(".build()")
+    val methodPath = path.removeSuffix(".build()")
+    val methodName = methodPath.removePrefix("SamplerConfig.").substringBefore("(").substringAfterLast('.')
+    val staticMethod = samplerConfigClass.methods.firstOrNull { it.name == methodName && it.parameterTypes.isEmpty() }
+    val baseValue = if (staticMethod != null) {
+        runCatching { staticMethod.invoke(null) }.getOrNull()
+    } else {
+        val receiverField = samplerConfigClass.declaredFields.firstOrNull { it.name == "Companion" || it.name == "INSTANCE" }
+        val receiver = receiverField?.let {
+            runCatching {
+                it.isAccessible = true
+                it.get(null)
+            }.getOrNull()
+        }
+        val receiverMethod = receiver?.javaClass?.methods?.firstOrNull {
+            it.name == methodName && it.parameterTypes.isEmpty()
+        }
+        if (receiver != null && receiverMethod != null) {
+            runCatching { receiverMethod.invoke(receiver) }.getOrNull()
+        } else {
+            null
+        }
+    } ?: return null
+    if (!needsBuild) return baseValue
+    val buildMethod = baseValue.javaClass.methods.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() } ?: return null
+    return runCatching { buildMethod.invoke(baseValue) }.getOrNull()
+}
+
+private fun createDefaultSessionConfig(
+    sessionConfigClass: Class<*>,
+    samplerConfigProbe: SamplerConfigProbeSummary,
+): Any? {
+    val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
+        runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
+    } else {
+        null
+    }
+    val samplerConfigInstance = samplerConfigClass?.let { samplerClass ->
+        samplerConfigProbe.selectedPath?.let { createSamplerConfigFromPath(samplerClass, it) }
+            ?: createDefaultSamplerConfig(samplerClass)
+    }
+    if (samplerConfigClass != null && samplerConfigInstance != null) {
+        val samplerConstructor = sessionConfigClass.declaredConstructors.firstOrNull { constructor ->
+            constructor.parameterTypes.size == 1 &&
+                constructor.parameterTypes[0].isAssignableFrom(samplerConfigClass)
+        }
+        if (samplerConstructor != null) {
+            runCatching {
+                samplerConstructor.isAccessible = true
+                samplerConstructor.newInstance(samplerConfigInstance)
+            }.getOrNull()?.let { return it }
+        }
+    }
     val factoryMethods = sessionConfigClass.methods.filter { method ->
         method.parameterTypes.isEmpty() &&
             (method.name == "CreateDefault" || method.name == "createDefault" || method.name == "builder")
@@ -986,15 +1213,41 @@ private fun createDefaultSessionConfig(sessionConfigClass: Class<*>): Any? {
             }
         }
     }
-    return null
+    val constructor = sessionConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
+    return runCatching {
+        constructor.isAccessible = true
+        constructor.newInstance()
+    }.getOrNull()
 }
 
-private fun createSessionConfigFromPath(sessionConfigClass: Class<*>, path: String): Any? {
+private fun createSessionConfigFromPath(
+    sessionConfigClass: Class<*>,
+    samplerConfigProbe: SamplerConfigProbeSummary,
+    path: String,
+): Any? {
     if (path == "SessionConfig.<init>()") {
         val constructor = sessionConfigClass.declaredConstructors.firstOrNull { it.parameterTypes.isEmpty() } ?: return null
         return runCatching {
             constructor.isAccessible = true
             constructor.newInstance()
+        }.getOrNull()
+    }
+    if (path.startsWith("SessionConfig.<init>(")) {
+        val samplerConfigClass = if (samplerConfigProbe.classStatus.startsWith("found:")) {
+            runCatching { Class.forName(samplerConfigProbe.classStatus.removePrefix("found:")) }.getOrNull()
+        } else {
+            null
+        } ?: return null
+        val samplerConfigInstance = samplerConfigProbe.selectedPath?.let {
+            createSamplerConfigFromPath(samplerConfigClass, it)
+        } ?: createDefaultSamplerConfig(samplerConfigClass) ?: return null
+        val constructor = sessionConfigClass.declaredConstructors.firstOrNull { target ->
+            target.parameterTypes.size == 1 &&
+                target.parameterTypes[0].isAssignableFrom(samplerConfigClass)
+        } ?: return null
+        return runCatching {
+            constructor.isAccessible = true
+            constructor.newInstance(samplerConfigInstance)
         }.getOrNull()
     }
     if (!path.startsWith("SessionConfig.")) return null
@@ -1084,7 +1337,8 @@ private fun tryInvokeEngineCreateSessionDefaultBridge(engine: Any, sessionConfig
     } else {
         null
     }
-    val sessionConfigInstance = sessionConfigClass?.let { createDefaultSessionConfig(it) }
+    val samplerConfigProbe = probeSamplerConfigCreationPaths()
+    val sessionConfigInstance = sessionConfigClass?.let { createDefaultSessionConfig(it, samplerConfigProbe) }
     val args = Array<Any?>(parameterTypes.size) { index ->
         val type = parameterTypes[index]
         when {
@@ -1136,6 +1390,7 @@ private fun emitTokenizerSessionSourceTrace(
     inferenceResolution: TokenizerInferenceResolution?,
     engineCreateSessionStatus: String? = null,
     sessionConfigProbe: SessionConfigProbeSummary? = null,
+    samplerConfigProbe: SamplerConfigProbeSummary? = null,
 ): TokenizerSourceTraceSummary {
     val resolvedSourceObject = inferenceResolution?.sourceObject ?: tokenizerSessionSource ?: conversation
     val sourceClassName = resolvedSourceObject?.javaClass?.name ?: "null"
@@ -1176,6 +1431,7 @@ private fun emitTokenizerSessionSourceTrace(
         createSessionSignatures = createSessionSignatures,
         engineCreateSessionStatus = engineCreateSessionStatus,
         sessionConfigProbe = sessionConfigProbe,
+        samplerConfigProbe = samplerConfigProbe,
     )
 }
 
