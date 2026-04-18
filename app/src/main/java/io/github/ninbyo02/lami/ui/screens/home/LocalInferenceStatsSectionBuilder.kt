@@ -122,9 +122,6 @@ internal fun buildInferenceDetailSections(
         devDebugText?.takeIf { it.isNotBlank() }?.let {
             add(InferenceStatItemUi(label = "Failure / Debug", value = it))
         }
-        measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
-            add(InferenceStatItemUi(label = "measuredTokens", value = it))
-        }
         perceivedTokensPerSecondSourceText?.let {
             add(InferenceStatItemUi(label = "体感生成速度source", value = it))
         }
@@ -138,6 +135,47 @@ internal fun buildInferenceDetailSections(
         devDiagnosticsUiModel = devDiagnosticsUiModel,
     )
 
+    val tokenizerRecountSnapshot = localTraceForDev?.measuredTokenSnapshot
+    val tokenizerSucceeded = tokenizerRecountSnapshot?.let { snapshot ->
+        snapshot.tokenCountMode == "tokenizer_recount" &&
+            snapshot.inputTokens != null &&
+            snapshot.outputTokens != null
+    } == true
+    val inputTokenLabel = if (localTraceForDev != null) {
+        buildTokenizerTokenLabel(
+            baseLabel = "入力トークン数",
+            tokenizerSucceeded = tokenizerSucceeded,
+            statValue = localStatsUiModel?.tokens?.inputTokens,
+            fallbackValue = stats.inputTokens?.toString(),
+        )
+    } else {
+        "入力トークン"
+    }
+    val outputTokenLabel = if (localTraceForDev != null) {
+        buildTokenizerTokenLabel(
+            baseLabel = "出力トークン数",
+            tokenizerSucceeded = tokenizerSucceeded,
+            statValue = localStatsUiModel?.tokens?.outputTokens,
+            fallbackValue = formatOutputTokens(stats),
+        )
+    } else {
+        "生成トークン"
+    }
+    val totalTokenLabel = if (localTraceForDev != null) {
+        buildTokenizerTokenLabel(
+            baseLabel = "合計トークン",
+            tokenizerSucceeded = tokenizerSucceeded,
+            statValue = localStatsUiModel?.tokens?.totalTokens,
+            fallbackValue = formatTotalTokens(stats),
+        )
+    } else {
+        "合計トークン"
+    }
+    val tokenizerStateText = buildTokenizerStateText(
+        stats = stats,
+        trace = localTraceForDev,
+    )
+
     return listOfNotNull(
         devDiagnosticSummarySection,
         InferenceStatsSectionUi(
@@ -145,37 +183,45 @@ internal fun buildInferenceDetailSections(
             items = buildList {
                 add(
                     InferenceStatItemUi(
-                        label = if (localTraceForDev != null) "入力トークン数（Tokenizer基準）" else "入力トークン",
+                        label = inputTokenLabel,
                         value = formatRegularTokenValue(
                             statValue = localStatsUiModel?.tokens?.inputTokens,
                             fallbackValue = stats.inputTokens?.toString(),
+                            tokenizerSucceeded = tokenizerSucceeded,
                         ),
                     ),
                 )
                 add(
                     InferenceStatItemUi(
-                        label = if (localTraceForDev != null) "出力トークン数（Tokenizer基準）" else "生成トークン",
+                        label = outputTokenLabel,
                         value = formatRegularTokenValue(
                             statValue = localStatsUiModel?.tokens?.outputTokens,
                             fallbackValue = formatOutputTokens(stats),
+                            tokenizerSucceeded = tokenizerSucceeded,
                         ),
                     ),
                 )
                 add(
                     InferenceStatItemUi(
-                        label = "合計トークン",
+                        label = totalTokenLabel,
                         value = formatRegularTokenValue(
                             statValue = localStatsUiModel?.tokens?.totalTokens,
                             fallbackValue = formatTotalTokens(stats),
+                            tokenizerSucceeded = tokenizerSucceeded,
                         ),
                     ),
                 )
                 if (localTraceForDev != null) {
-                    stats.tokensPerSecond?.let {
+                    localStatsUiModel?.tokensPerSecond?.let {
                         add(
                             InferenceStatItemUi(
                                 label = "実測生成速度",
-                                value = String.format(Locale.US, "%.1f token/s", it),
+                                value = formatRegularTokensPerSecondValue(
+                                    statValue = it,
+                                    fallbackValue = stats.tokensPerSecond?.let { tokenPerSec ->
+                                        String.format(Locale.US, "%.1f token/s", tokenPerSec)
+                                    },
+                                ),
                             ),
                         )
                     }
@@ -213,6 +259,7 @@ internal fun buildInferenceDetailSections(
                         ),
                     )
                 }
+                add(InferenceStatItemUi(label = "Tokenizer状態", value = tokenizerStateText))
             },
         ),
         InferenceStatsSectionUi(
@@ -627,37 +674,75 @@ private fun buildPerceivedTokensPerSecondText(stats: InferenceStats): String? {
     return String.format(Locale.US, "%.1f token/s", perceivedTokensPerSecond)
 }
 
-private fun formatRegularTokenValue(statValue: UiStatValue?, fallbackValue: String?): String {
-    if (statValue == null) return fallbackValue ?: "—"
-    val numericValue = statValue.rawValueInt?.toString() ?: return "—"
+private fun formatRegularTokenValue(
+    statValue: UiStatValue?,
+    fallbackValue: String?,
+    tokenizerSucceeded: Boolean,
+): String {
+    if (statValue == null) {
+        return fallbackValue?.let { "${it}（推定）" } ?: "—（未取得）"
+    }
+    val numericValue = statValue.rawValueInt?.toString() ?: return "—（未取得）"
     return when (statValue.source) {
         StatsUiValueSource.MEASURED,
-        StatsUiValueSource.SEMI_MEASURED,
         StatsUiValueSource.TOKENIZER_BASED,
-        -> numericValue
-        StatsUiValueSource.DERIVED,
-        StatsUiValueSource.ESTIMATED,
-        -> "${numericValue}（推定）"
+        -> if (tokenizerSucceeded) "${numericValue}（Tokenizer）" else "${numericValue}（算出）"
+        StatsUiValueSource.SEMI_MEASURED -> "${numericValue}（準実測）"
+        StatsUiValueSource.DERIVED -> "${numericValue}（算出）"
+        StatsUiValueSource.ESTIMATED -> "${numericValue}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
-        -> "—"
+        -> "—（未取得）"
     }
 }
 
 private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackValue: String?): String {
-    if (statValue == null) return fallbackValue ?: "—"
+    if (statValue == null) return fallbackValue?.let { "${it}（fallback）" } ?: "—"
     val valueText = statValue.valueText.takeIf { it.isNotBlank() } ?: return "—"
     return when (statValue.source) {
-        StatsUiValueSource.MEASURED,
         StatsUiValueSource.DERIVED,
-        -> valueText
-        StatsUiValueSource.TOKENIZER_BASED -> "${valueText}（Tokenizer基準）"
+        StatsUiValueSource.MEASURED,
+        -> "${valueText}（算出）"
+        StatsUiValueSource.TOKENIZER_BASED -> "${valueText}（Tokenizer）"
         StatsUiValueSource.SEMI_MEASURED -> "${valueText}（準実測）"
         StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "—"
     }
+}
+
+private fun buildTokenizerTokenLabel(
+    baseLabel: String,
+    tokenizerSucceeded: Boolean,
+    statValue: UiStatValue?,
+    fallbackValue: String?,
+): String {
+    if (tokenizerSucceeded) return "${baseLabel}（Tokenizer基準）"
+    val hasValue = statValue?.rawValueInt != null || !fallbackValue.isNullOrBlank()
+    return if (hasValue) {
+        "${baseLabel}（推定）"
+    } else {
+        "${baseLabel}（未取得）"
+    }
+}
+
+private fun buildTokenizerStateText(
+    stats: InferenceStats,
+    trace: LocalInferenceTrace?,
+): String {
+    if (stats.tokenCountMode == "tokenizer_recount") return "成功"
+    val status = trace?.measuredTokenSnapshot?.tokenizerRecountStatus
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: return "未実行"
+    if (status == "success") return "成功"
+    val reason = when {
+        status.startsWith("skipped reason=") -> status.removePrefix("skipped reason=").trim()
+        status.startsWith("reflection-failed ") -> status.removePrefix("reflection-failed ").trim()
+        else -> status
+    }
+    return "失敗（$reason）"
 }
 
 private fun buildDevDiagnosticSummarySection(
