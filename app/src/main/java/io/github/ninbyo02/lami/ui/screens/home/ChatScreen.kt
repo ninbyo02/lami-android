@@ -5300,6 +5300,12 @@ private fun buildMeasuredTokenSnapshotSummary(trace: LocalInferenceTrace?): Stri
         measuredSnapshot?.tokenizerRecountStatus?.takeIf { it.isNotBlank() }?.let { status ->
             appendLine()
             append("tokenizer-recount status: $status")
+            measuredSnapshot.tokenizerSourceTraceSummary
+                ?.takeIf { it.isNotBlank() }
+                ?.let { sourceTraceSummary ->
+                    appendLine()
+                    append(sourceTraceSummary)
+                }
             if (status == "success") {
                 appendLine()
                 append("tokenizer-recount tokens: in=$inputTokens / out=$outputTokens / total=$totalTokens")

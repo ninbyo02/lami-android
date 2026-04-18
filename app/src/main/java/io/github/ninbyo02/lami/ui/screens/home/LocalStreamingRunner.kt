@@ -500,6 +500,7 @@ private fun mergeTokenizerRecountSnapshot(
             inputTokens = tokenizerSnapshot.inputTokens ?: base.inputTokens,
             outputTokens = tokenizerSnapshot.outputTokens ?: base.outputTokens,
             totalTokens = tokenizerSnapshot.totalTokens ?: base.totalTokens,
+            tokenizerSourceTraceSummary = tokenizerSnapshot.tokenizerSourceTraceSummary ?: base.tokenizerSourceTraceSummary,
             tokenCountMode = tokenizerSnapshot.tokenCountMode ?: base.tokenCountMode,
             notes = tokenizerSnapshot.notes ?: base.notes,
             tokensPerSecond = tokenizerSnapshot.tokensPerSecond ?: base.tokensPerSecond,
@@ -573,6 +574,7 @@ private fun readTokenizerRecountSnapshotFromConversation(
             outputTokens = outputTokenCount,
             totalTokens = totalTokenCount,
             tokenizerRecountStatus = tokenizerRecountOutcome.status,
+            tokenizerSourceTraceSummary = tokenizerRecountOutcome.sourceTraceSummary,
             tokenCountMode = tokenCountMode,
             notes = notes,
             tokensPerSecond = tokensPerSecond,
@@ -599,6 +601,7 @@ private data class TokenizerRecountResult(
 private data class TokenizerRecountOutcome(
     val result: TokenizerRecountResult? = null,
     val status: String,
+    val sourceTraceSummary: String? = null,
 )
 
 private data class TokenizerInferenceResolution(
@@ -606,6 +609,22 @@ private data class TokenizerInferenceResolution(
     val sourceKind: String,
     val sourceObject: Any?,
 )
+
+private data class TokenizerSourceTraceSummary(
+    val kind: String,
+    val className: String,
+    val methodsSummary: String,
+    val fieldsSummary: String,
+) {
+    fun toMeasuredTokenSummary(): String {
+        return buildString {
+            appendLine("tokenizer-source kind: $kind")
+            appendLine("tokenizer-source class: $className")
+            appendLine("tokenizer-source methods: $methodsSummary")
+            append("tokenizer-source fields: $fieldsSummary")
+        }
+    }
+}
 
 private fun tryReadTokenizerRecountViaReflection(
     conversation: Conversation,
@@ -618,17 +637,20 @@ private fun tryReadTokenizerRecountViaReflection(
         tokenizerSessionSource = tokenizerSessionSource,
         conversation = conversation,
     )
-    if (BuildConfig.DEBUG) {
+    val sourceTraceSummary = if (BuildConfig.DEBUG) {
         emitTokenizerSessionSourceTrace(
             appendTrace = appendTrace,
             tokenizerSessionSource = tokenizerSessionSource,
             conversation = conversation,
             inferenceResolution = inferenceResolution,
         )
+    } else {
+        null
     }
     val inferenceInstance = inferenceResolution?.inferenceInstance
         ?: return TokenizerRecountOutcome(
             status = "skipped reason=inference-instance-not-found",
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
         ).also {
             safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=inference-instance-not-found")
         }
@@ -637,30 +659,35 @@ private fun tryReadTokenizerRecountViaReflection(
         sessionInstance = tryCreateTokenizerSessionViaReflection(inferenceInstance)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=session-create-failed",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=session-create-failed")
             }
         val sizeMethod = findSizeInTokensMethod(sessionInstance)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=size-method-not-found",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=size-method-not-found")
             }
         val promptTokens = invokeSizeInTokens(sessionInstance, sizeMethod, promptText)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=prompt-token-failed",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=prompt-token-failed")
             }
         val responseTokens = invokeSizeInTokens(sessionInstance, sizeMethod, fullResponseText)
             ?: return TokenizerRecountOutcome(
                 status = "skipped reason=response-token-failed",
+                sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
             ).also {
                 safeAppendTrace(appendTrace, "UPSTREAM tokenizer-recount skipped reason=response-token-failed")
             }
         TokenizerRecountOutcome(
             result = TokenizerRecountResult(promptTokens = promptTokens, responseTokens = responseTokens),
             status = "success",
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
         )
     } catch (throwable: Throwable) {
         val status = "reflection-failed ${throwable.javaClass.simpleName}:${throwable.message}"
@@ -668,7 +695,10 @@ private fun tryReadTokenizerRecountViaReflection(
             appendTrace,
             "UPSTREAM tokenizer-recount $status",
         )
-        TokenizerRecountOutcome(status = status)
+        TokenizerRecountOutcome(
+            status = status,
+            sourceTraceSummary = sourceTraceSummary?.toMeasuredTokenSummary(),
+        )
     } finally {
         tryCloseTokenizerSession(sessionInstance, appendTrace)
     }
@@ -704,7 +734,7 @@ private fun emitTokenizerSessionSourceTrace(
     tokenizerSessionSource: Any?,
     conversation: Conversation,
     inferenceResolution: TokenizerInferenceResolution?,
-) {
+): TokenizerSourceTraceSummary {
     val resolvedSourceObject = inferenceResolution?.sourceObject ?: tokenizerSessionSource ?: conversation
     val sourceClassName = resolvedSourceObject?.javaClass?.name ?: "null"
     val sourceKind = inferenceResolution?.sourceKind ?: if (tokenizerSessionSource != null) {
@@ -731,6 +761,12 @@ private fun emitTokenizerSessionSourceTrace(
     safeAppendTrace(
         appendTrace,
         "UPSTREAM tokenizer-source fields: ${summarizeTokenizerSourceCandidates(fieldCandidates)}",
+    )
+    return TokenizerSourceTraceSummary(
+        kind = sourceKind,
+        className = sourceClassName,
+        methodsSummary = summarizeTokenizerSourceCandidates(methodCandidates),
+        fieldsSummary = summarizeTokenizerSourceCandidates(fieldCandidates),
     )
 }
 
