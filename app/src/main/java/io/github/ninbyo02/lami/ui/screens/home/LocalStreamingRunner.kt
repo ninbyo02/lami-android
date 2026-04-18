@@ -616,6 +616,20 @@ private data class EngineCreateSessionAttempt(
     val status: String = "engine-createSession-not-attempted",
     val sessionConfigProbe: SessionConfigProbeSummary? = null,
     val samplerConfigProbe: SamplerConfigProbeSummary? = null,
+    val failureSummary: EngineCreateSessionFailureSummary? = null,
+)
+
+private data class EngineCreateSessionFailureSummary(
+    val path: String,
+    val exceptionClass: String,
+    val exceptionMessage: String?,
+    val causeClass: String?,
+    val causeMessage: String?,
+)
+
+private data class EngineCreateSessionInvokeResult(
+    val session: Any? = null,
+    val failureSummary: EngineCreateSessionFailureSummary? = null,
 )
 
 private data class SessionConfigProbeSummary(
@@ -647,6 +661,7 @@ private data class TokenizerSourceTraceSummary(
     val fieldsSummary: String,
     val createSessionSignatures: List<String> = emptyList(),
     val engineCreateSessionStatus: String? = null,
+    val engineCreateSessionFailureSummary: EngineCreateSessionFailureSummary? = null,
     val sessionConfigProbe: SessionConfigProbeSummary? = null,
     val samplerConfigProbe: SamplerConfigProbeSummary? = null,
 ) {
@@ -654,6 +669,13 @@ private data class TokenizerSourceTraceSummary(
         return buildString {
             engineCreateSessionStatus?.takeIf { it.isNotBlank() }?.let {
                 appendLine("engine-createSession status: $it")
+            }
+            engineCreateSessionFailureSummary?.let { failure ->
+                appendLine("engine-createSession failure-path: ${failure.path}")
+                appendLine("engine-createSession exception: ${failure.exceptionClass}")
+                appendLine("engine-createSession exception-message: ${failure.exceptionMessage ?: "none"}")
+                appendLine("engine-createSession cause: ${failure.causeClass ?: "none"}")
+                appendLine("engine-createSession cause-message: ${failure.causeMessage ?: "none"}")
             }
             appendLine("tokenizer-source kind: $kind")
             appendLine("tokenizer-source class: $className")
@@ -736,6 +758,7 @@ private fun tryReadTokenizerRecountViaReflection(
             engineCreateSessionStatus = engineSessionAttempt.status,
             sessionConfigProbe = engineSessionAttempt.sessionConfigProbe,
             samplerConfigProbe = engineSessionAttempt.samplerConfigProbe,
+            engineCreateSessionFailureSummary = engineSessionAttempt.failureSummary,
         )
     } else {
         null
@@ -859,6 +882,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
         safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source SessionConfig constructor signature: $signature")
     }
     var methodFound = false
+    var lastFailureSummary: EngineCreateSessionFailureSummary? = null
     tryInvokeEngineCreateSessionNoArgs(engine)?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
@@ -870,12 +894,18 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
         )
     }
     if (hasEngineCreateSessionNoArgsMethod(engine)) methodFound = true
-    tryInvokeEngineCreateSessionWithSessionConfig(
+    val sessionConfigInvokeResult = tryInvokeEngineCreateSessionWithSessionConfig(
         engine = engine,
         sessionConfigProbe = sessionConfigProbe,
         samplerConfigProbe = samplerConfigProbe,
         appendTrace = appendTrace,
-    )?.let {
+    )
+    sessionConfigInvokeResult.failureSummary?.let {
+        if (lastFailureSummary == null) {
+            lastFailureSummary = it
+        }
+    }
+    sessionConfigInvokeResult.session?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
             session = it,
@@ -897,7 +927,17 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
         )
     }
     if (hasEngineCreateSessionNullableArgsMethod(engine)) methodFound = true
-    tryInvokeEngineCreateSessionDefaultBridge(engine, sessionConfigProbe)?.let {
+    val defaultBridgeInvokeResult = tryInvokeEngineCreateSessionDefaultBridge(
+        engine = engine,
+        sessionConfigProbe = sessionConfigProbe,
+        appendTrace = appendTrace,
+    )
+    defaultBridgeInvokeResult.failureSummary?.let {
+        if (lastFailureSummary == null) {
+            lastFailureSummary = it
+        }
+    }
+    defaultBridgeInvokeResult.session?.let {
         methodFound = true
         return EngineCreateSessionAttempt(
             session = it,
@@ -915,6 +955,7 @@ private fun tryCreateTokenizerSessionFromEngineViaReflection(
         status = status,
         sessionConfigProbe = sessionConfigProbe,
         samplerConfigProbe = samplerConfigProbe,
+        failureSummary = lastFailureSummary,
     )
 }
 
@@ -1127,10 +1168,12 @@ private fun tryInvokeEngineCreateSessionWithSessionConfig(
     sessionConfigProbe: SessionConfigProbeSummary,
     samplerConfigProbe: SamplerConfigProbeSummary,
     appendTrace: (String) -> Unit = {},
-): Any? {
+): EngineCreateSessionInvokeResult {
+    val invokePath = "createSession(SessionConfig)"
     val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
-    if (!sessionConfigProbe.classStatus.startsWith("found:")) return null
-    val sessionConfigClass = runCatching { Class.forName(sessionConfigClassName) }.getOrNull() ?: return null
+    if (!sessionConfigProbe.classStatus.startsWith("found:")) return EngineCreateSessionInvokeResult()
+    val sessionConfigClass = runCatching { Class.forName(sessionConfigClassName) }.getOrNull()
+        ?: return EngineCreateSessionInvokeResult()
     val sessionConfigInstance = sessionConfigProbe.selectedPath?.let {
         // 生成経路の優先順を維持するため、再度同じルールで生成する。
         createSessionConfigFromPath(sessionConfigClass, samplerConfigProbe, it)
@@ -1143,8 +1186,23 @@ private fun tryInvokeEngineCreateSessionWithSessionConfig(
         method.name == "createSession" &&
             method.parameterTypes.size == 1 &&
             method.parameterTypes[0].isAssignableFrom(sessionConfigClass)
-    } ?: return null
-    return runCatching { createMethod.invoke(engine, sessionConfigInstance) }.getOrNull()
+    } ?: return EngineCreateSessionInvokeResult()
+    return runCatching { createMethod.invoke(engine, sessionConfigInstance) }
+        .fold(
+            onSuccess = { session -> EngineCreateSessionInvokeResult(session = session) },
+            onFailure = { throwable ->
+                safeAppendTrace(
+                    appendTrace,
+                    "UPSTREAM tokenizer-recount $invokePath invoke-failed ${throwable.javaClass.name}:${throwable.message}",
+                )
+                EngineCreateSessionInvokeResult(
+                    failureSummary = buildEngineCreateSessionFailureSummary(
+                        path = invokePath,
+                        throwable = throwable,
+                    ),
+                )
+            },
+        )
 }
 
 private fun createDefaultSamplerConfig(samplerConfigClass: Class<*>): Any? {
@@ -1401,10 +1459,15 @@ private fun hasEngineCreateSessionSessionConfigMethod(engine: Any): Boolean {
     }
 }
 
-private fun tryInvokeEngineCreateSessionDefaultBridge(engine: Any, sessionConfigProbe: SessionConfigProbeSummary): Any? {
+private fun tryInvokeEngineCreateSessionDefaultBridge(
+    engine: Any,
+    sessionConfigProbe: SessionConfigProbeSummary,
+    appendTrace: (String) -> Unit = {},
+): EngineCreateSessionInvokeResult {
+    val invokePath = "createSession\$default(...)"
     val defaultMethod = engine.javaClass.methods.firstOrNull { method ->
         method.name == "createSession\$default" && java.lang.reflect.Modifier.isStatic(method.modifiers)
-    } ?: return null
+    } ?: return EngineCreateSessionInvokeResult()
     val parameterTypes = defaultMethod.parameterTypes
     val sessionConfigClassName = sessionConfigProbe.classStatus.removePrefix("found:")
     val sessionConfigClass = if (sessionConfigProbe.classStatus.startsWith("found:")) {
@@ -1424,7 +1487,36 @@ private fun tryInvokeEngineCreateSessionDefaultBridge(engine: Any, sessionConfig
             else -> null
         }
     }
-    return runCatching { defaultMethod.invoke(null, *args) }.getOrNull()
+    return runCatching { defaultMethod.invoke(null, *args) }
+        .fold(
+            onSuccess = { session -> EngineCreateSessionInvokeResult(session = session) },
+            onFailure = { throwable ->
+                safeAppendTrace(
+                    appendTrace,
+                    "UPSTREAM tokenizer-recount $invokePath invoke-failed ${throwable.javaClass.name}:${throwable.message}",
+                )
+                EngineCreateSessionInvokeResult(
+                    failureSummary = buildEngineCreateSessionFailureSummary(
+                        path = invokePath,
+                        throwable = throwable,
+                    ),
+                )
+            },
+        )
+}
+
+private fun buildEngineCreateSessionFailureSummary(
+    path: String,
+    throwable: Throwable,
+): EngineCreateSessionFailureSummary {
+    val cause = throwable.cause
+    return EngineCreateSessionFailureSummary(
+        path = path,
+        exceptionClass = throwable.javaClass.name,
+        exceptionMessage = throwable.message,
+        causeClass = cause?.javaClass?.name,
+        causeMessage = cause?.message,
+    )
 }
 
 private fun hasEngineCreateSessionDefaultBridgeMethod(engine: Any): Boolean {
