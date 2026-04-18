@@ -601,6 +601,12 @@ private data class TokenizerRecountOutcome(
     val status: String,
 )
 
+private data class TokenizerInferenceResolution(
+    val inferenceInstance: Any,
+    val sourceKind: String,
+    val sourceObject: Any?,
+)
+
 private fun tryReadTokenizerRecountViaReflection(
     conversation: Conversation,
     tokenizerSessionSource: Any?,
@@ -608,10 +614,19 @@ private fun tryReadTokenizerRecountViaReflection(
     fullResponseText: String,
     appendTrace: (String) -> Unit,
 ) : TokenizerRecountOutcome {
-    val inferenceInstance = tryResolveInferenceInstanceForTokenizerSession(
+    val inferenceResolution = tryResolveInferenceInstanceForTokenizerSession(
         tokenizerSessionSource = tokenizerSessionSource,
         conversation = conversation,
     )
+    if (BuildConfig.DEBUG) {
+        emitTokenizerSessionSourceTrace(
+            appendTrace = appendTrace,
+            tokenizerSessionSource = tokenizerSessionSource,
+            conversation = conversation,
+            inferenceResolution = inferenceResolution,
+        )
+    }
+    val inferenceInstance = inferenceResolution?.inferenceInstance
         ?: return TokenizerRecountOutcome(
             status = "skipped reason=inference-instance-not-found",
         ).also {
@@ -662,10 +677,86 @@ private fun tryReadTokenizerRecountViaReflection(
 private fun tryResolveInferenceInstanceForTokenizerSession(
     tokenizerSessionSource: Any?,
     conversation: Conversation,
-): Any? {
-    resolveInferenceInstanceFromSource(tokenizerSessionSource)?.let { return it }
-    resolveInferenceInstanceFromSource(conversation)?.let { return it }
+): TokenizerInferenceResolution? {
+    resolveInferenceInstanceFromSource(tokenizerSessionSource)?.let { inference ->
+        return TokenizerInferenceResolution(
+            inferenceInstance = inference,
+            sourceKind = "engine-backed",
+            sourceObject = tokenizerSessionSource,
+        )
+    }
+    resolveInferenceInstanceFromSource(conversation)?.let { inference ->
+        return TokenizerInferenceResolution(
+            inferenceInstance = inference,
+            sourceKind = "conversation-fallback",
+            sourceObject = conversation,
+        )
+    }
     return null
+}
+
+
+private val TOKENIZER_SOURCE_CANDIDATE_KEYWORDS =
+    listOf("inference", "llm", "session", "token", "size", "engine")
+
+private fun emitTokenizerSessionSourceTrace(
+    appendTrace: (String) -> Unit,
+    tokenizerSessionSource: Any?,
+    conversation: Conversation,
+    inferenceResolution: TokenizerInferenceResolution?,
+) {
+    val resolvedSourceObject = inferenceResolution?.sourceObject ?: tokenizerSessionSource ?: conversation
+    val sourceClassName = resolvedSourceObject?.javaClass?.name ?: "null"
+    val sourceKind = inferenceResolution?.sourceKind ?: if (tokenizerSessionSource != null) {
+        "engine-backed(unresolved)"
+    } else {
+        "conversation-fallback(unresolved)"
+    }
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source kind: $sourceKind")
+    safeAppendTrace(appendTrace, "UPSTREAM tokenizer-source class: $sourceClassName")
+    val methodCandidates = resolvedSourceObject
+        ?.javaClass
+        ?.methods
+        ?.map { it.name }
+        .orEmpty()
+    val fieldCandidates = resolvedSourceObject
+        ?.javaClass
+        ?.declaredFields
+        ?.map { it.name }
+        .orEmpty()
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM tokenizer-source methods: ${summarizeTokenizerSourceCandidates(methodCandidates)}",
+    )
+    safeAppendTrace(
+        appendTrace,
+        "UPSTREAM tokenizer-source fields: ${summarizeTokenizerSourceCandidates(fieldCandidates)}",
+    )
+}
+
+private fun summarizeTokenizerSourceCandidates(names: List<String>): String {
+    val candidates = names
+        .filter { name ->
+            val lower = name.lowercase(Locale.ROOT)
+            TOKENIZER_SOURCE_CANDIDATE_KEYWORDS.any { keyword -> lower.contains(keyword) }
+        }
+        .distinct()
+        .sorted()
+    if (candidates.isEmpty()) return "none"
+    val maxItems = 12
+    val visible = candidates.take(maxItems)
+    val moreCount = (candidates.size - visible.size).coerceAtLeast(0)
+    return buildString {
+        append(visible.joinToString(","))
+        if (moreCount > 0) {
+            append(",...(+")
+            append(moreCount)
+            append(")")
+        }
+        append(" [count=")
+        append(candidates.size)
+        append("]")
+    }
 }
 
 private fun resolveInferenceInstanceFromSource(source: Any?): Any? {
