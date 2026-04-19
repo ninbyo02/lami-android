@@ -5566,7 +5566,6 @@ private fun InferenceStatsSheetContent(
                                 stats = stats,
                                 sections = sections,
                                 detailSections = detailSections,
-                                measuredTokenSnapshotSummary = measuredTokenSnapshotSummary,
                             ),
                         ),
                     )
@@ -5684,7 +5683,6 @@ internal fun buildInferenceStatsFullCopyText(
     stats: InferenceStats,
     sections: List<InferenceStatsSectionUi>,
     detailSections: List<InferenceStatsSectionUi>,
-    measuredTokenSnapshotSummary: String?,
 ): String {
     return buildString {
         appendLine("推論統計")
@@ -5742,25 +5740,7 @@ internal fun buildInferenceStatsFullCopyText(
             }
         }
 
-        appendLine()
-        appendLine("[measuredTokens]")
-        appendLine(buildMeasuredTokensCopyText(measuredTokenSnapshotSummary))
     }.trimEnd()
-}
-
-private fun buildMeasuredTokensCopyText(
-    measuredTokenSnapshotSummary: String?,
-): String {
-    return measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() } ?: buildString {
-        appendLine("unavailable")
-        appendLine("[BenchmarkInfo raw]")
-        appendLine("prefillTokenCount: unavailable")
-        appendLine("decodeTokenCount: unavailable")
-        appendLine("prefillTokensPerSecond: unavailable")
-        appendLine("decodeTokensPerSecond: unavailable")
-        appendLine("timeToFirstTokenMs: unavailable")
-        append("modelInitMs: unavailable")
-    }
 }
 
 private fun StringBuilder.appendSectionAsPlainText(

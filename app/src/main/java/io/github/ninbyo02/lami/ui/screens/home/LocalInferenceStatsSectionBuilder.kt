@@ -346,6 +346,13 @@ internal fun buildInferenceDetailSections(
                 if (localTraceForDev != null && !stats.notes.isNullOrBlank()) {
                     add(InferenceStatItemUi(label = "注記", value = stats.notes))
                 }
+            },
+        ),
+        devDiagnosticSummarySection,
+        InferenceStatsSectionUi(
+            title = "DEV診断",
+            items = buildList {
+                addAll(devSectionItems)
                 if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
@@ -370,12 +377,6 @@ internal fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = localTraceForDev.officialConversationApiAvailable?.toString() ?: "—"))
                     add(InferenceStatItemUi(label = "officialFlowChunkCount", value = localTraceForDev.officialFlowChunkCount.toString()))
                 }
-            },
-        ),
-        InferenceStatsSectionUi(
-            title = "DEV診断",
-            items = buildList {
-                addAll(devSectionItems)
                 localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
                     add(
                         InferenceStatItemUi(
@@ -398,7 +399,6 @@ internal fun buildInferenceDetailSections(
                 }
             },
         ).takeIf { it.items.isNotEmpty() },
-        devDiagnosticSummarySection,
     )
 }
 
@@ -984,6 +984,8 @@ private fun buildDevDiagnosticSummarySection(
         InferenceStatItemUi(label = "held engine再利用", value = devDiagnosticsUiModel.heldEngineReuseSummary),
         InferenceStatItemUi(label = "held engine状態", value = devDiagnosticsUiModel.heldEngineStateSummary),
         InferenceStatItemUi(label = "close結果", value = devDiagnosticsUiModel.closeStatusSummary),
+        InferenceStatItemUi(label = "Tokenizer再計数", value = resolveDevSummaryTokenizerRecountStatus(trace)),
+        InferenceStatItemUi(label = "MediaPipe tokenizer", value = resolveDevSummaryMediaPipeTokenizerStatus(trace)),
         InferenceStatItemUi(label = "失敗要約", value = devDiagnosticsUiModel.failureSummary),
     )
     if (items.all { it.value == "—" || it.value == "不明" }) return null
@@ -991,6 +993,21 @@ private fun buildDevDiagnosticSummarySection(
         title = "DEV診断サマリー",
         items = items,
     )
+}
+
+private fun resolveDevSummaryTokenizerRecountStatus(trace: LocalInferenceTrace?): String {
+    val snapshot = trace?.measuredTokenSnapshot ?: return "未取得"
+    val succeeded = (snapshot.tokenCountMode == "tokenizer_recount" ||
+        snapshot.tokenCountMode == "mediapipe_tokenizer_recount") &&
+        snapshot.inputTokens != null &&
+        snapshot.outputTokens != null
+    return if (succeeded) "成功" else "未取得"
+}
+
+private fun resolveDevSummaryMediaPipeTokenizerStatus(trace: LocalInferenceTrace?): String {
+    val status = trace?.measuredTokenSnapshot?.mediaPipeTokenizerStatus?.trim().orEmpty()
+    if (status.isBlank()) return "未実行"
+    return status.toUiStatusForMediaPipeTokenizer()
 }
 
 private fun resolveDevSummaryExecutionPath(
