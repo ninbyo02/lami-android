@@ -621,6 +621,14 @@ fun Home(
         else -> null
     }
     val showLocalRespondingAssistantRow = isLocalRunningUi && streamingAssistantMessageId == null
+    val localRespondingAssistantRowMessage = if (
+        localInferenceEngineState == LocalInferenceEngineState.PREPARING &&
+        localStreamingResponseText.isNullOrBlank()
+    ) {
+        "モデルを読み込み中…"
+    } else {
+        "応答中..."
+    }
     val lamiStatusForChatUi = if (isHeaderRunningUi) lamiAnimationStatus else LamiStatus.READY
     val lamiUiState by viewModel.lamiUiState.collectAsState()
     val lamiHeaderStateForChatUi = if (isHeaderRunningUi) lamiUiState.state else LamiState.Idle
@@ -1864,6 +1872,41 @@ fun Home(
                                                 }
 
                                                 InferenceTarget.LOCAL -> {
+                                                    if (isLocalInferenceRunning) return@IconButton
+                                                    val currentChatId = effectiveChatId
+                                                    if (currentChatId == null) {
+                                                        placeholder = "Setting up a new chat ..."
+                                                        return@IconButton
+                                                    }
+                                                    if (selectedImageUriStrings.isNotEmpty()) {
+                                                        coroutineScope.launch {
+                                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                                            snackbarHostState.showSnackbar(
+                                                                message = "ローカル推論では画像入力はまだ未対応です",
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                        }
+                                                        return@IconButton
+                                                    }
+                                                    val requestPrompt = userPrompt
+                                                    if (requestPrompt.isBlank()) return@IconButton
+                                                    viewModel.insert(
+                                                        Message(
+                                                            chatId = currentChatId,
+                                                            message = requestPrompt,
+                                                            isSendbyMe = true,
+                                                        )
+                                                    )
+                                                    prompt = ""
+                                                    userPrompt = ""
+                                                    selectedImageUriStrings = emptyList()
+                                                    stopTtsWithCleanup(
+                                                        suppressedMessageId = stopButtonOwnerAssistantMessageId
+                                                            ?: currentSpeakingAssistantMessageId
+                                                            ?: streamingSpeechStartedForMessageId,
+                                                        armTapGuards = false,
+                                                    )
+                                                    localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                     localStopRequested = false
                                                     localInferenceJob = coroutineScope.launch {
                                                         appendLocalReflectionTrace(
@@ -1877,39 +1920,6 @@ fun Home(
                                                         localStreamingResponseText = null
                                                         isLocalInferenceRunning = true
                                                         try {
-                                                            val currentChatId = effectiveChatId
-                                                            if (currentChatId == null) {
-                                                                placeholder = "Setting up a new chat ..."
-                                                                return@launch
-                                                            }
-                                                            if (selectedImageUriStrings.isNotEmpty()) {
-                                                                snackbarHostState.currentSnackbarData?.dismiss()
-                                                                snackbarHostState.showSnackbar(
-                                                                    message = "ローカル推論では画像入力はまだ未対応です",
-                                                                    duration = SnackbarDuration.Short,
-                                                                )
-                                                                return@launch
-                                                            }
-                                                            val requestPrompt = userPrompt
-                                                            if (requestPrompt.isBlank()) {
-                                                                return@launch
-                                                            }
-                                                            viewModel.insert(
-                                                                Message(
-                                                                    chatId = currentChatId,
-                                                                    message = requestPrompt,
-                                                                    isSendbyMe = true,
-                                                                )
-                                                            )
-                                                            prompt = ""
-                                                            userPrompt = ""
-                                                            selectedImageUriStrings = emptyList()
-                                                            stopTtsWithCleanup(
-                                                                suppressedMessageId = stopButtonOwnerAssistantMessageId
-                                                                    ?: currentSpeakingAssistantMessageId
-                                                                    ?: streamingSpeechStartedForMessageId,
-                                                                armTapGuards = false,
-                                                            )
                                                             localInferenceEngineState = LocalInferenceEngineState.PREPARING
                                                             localStreamingResponseText = null
                                                             didReceiveRealLocalPartial = false
@@ -1919,6 +1929,8 @@ fun Home(
                                                             lastStreamingAssistantChunkForDev = null
                                                             val localRunGuardEpoch = streamingGuardEpoch
                                                             val localRunStartedAtMs = SystemClock.elapsedRealtime()
+                                                            val localRunStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                                                            var measuredModelLoadDurationNs: Long? = null
                                                             appendLocalReflectionTrace(
                                                                 context = context.applicationContext,
                                                                 message = "UPSTREAM local-exec-start inferenceTarget=LOCAL promptLength=${requestPrompt.length} hasLocalModelPath=${!localBaseModelFilePath.isNullOrBlank()}",
@@ -2041,6 +2053,9 @@ fun Home(
                                                                     }
                                                                 }
                                                                 heldEngine?.let { held ->
+                                                                    measuredModelLoadDurationNs =
+                                                                        (SystemClock.elapsedRealtimeNanos() - localRunStartedAtNs)
+                                                                            .coerceAtLeast(0L)
                                                                     appendLocalReflectionTrace(
                                                                         context = context.applicationContext,
                                                                         message = "UPSTREAM held-acquire success namespace=${held.namespace} modelPathTail=$modelPathTail engineClass=${held::class.java.name}",
@@ -2217,6 +2232,8 @@ fun Home(
                                                             val runResultWithUiTrace = normalizeLocalInferenceRunResult(
                                                                 runResult?.copy(
                                                                     trace = runResult.trace.copy(
+                                                                        wallClockLoadDurationNs = runResult.trace.wallClockLoadDurationNs
+                                                                            ?: measuredModelLoadDurationNs,
                                                                         mediaPipeProbeModelPath = runResult.trace.mediaPipeProbeModelPath
                                                                             ?: mediaPipeProbeModelPathForRun,
                                                                         assistantUpdateCount = assistantUpdateCountForDev,
@@ -2998,7 +3015,7 @@ fun Home(
                                 if (showLocalRespondingAssistantRow) {
                                     item(key = "local_responding_indicator") {
                                         PlainAssistantMessage(
-                                            message = "応答中...",
+                                            message = localRespondingAssistantRowMessage,
                                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 10.dp)
                                         )
                                     }
