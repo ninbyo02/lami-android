@@ -213,6 +213,12 @@ internal fun buildInferenceDetailSections(
                         ),
                     ),
                 )
+                add(
+                    InferenceStatItemUi(
+                        label = "トークン取得元",
+                        value = localStatsUiModel?.resolvedTokenSourceLabel ?: resolveOllamaTokenSourceLabel(stats),
+                    ),
+                )
                 if (localTraceForDev != null) {
                     localStatsUiModel?.tokensPerSecond?.let {
                         add(
@@ -227,6 +233,12 @@ internal fun buildInferenceDetailSections(
                             ),
                         )
                     }
+                    add(
+                        InferenceStatItemUi(
+                            label = "速度取得元",
+                            value = localStatsUiModel.resolvedSpeedSourceLabel,
+                        ),
+                    )
                     stats.timeToFirstTokenMs?.let {
                         add(InferenceStatItemUi(label = "TTFT", value = formatMillisToCompactText(it)))
                     }
@@ -244,6 +256,12 @@ internal fun buildInferenceDetailSections(
                     perceivedTokensPerSecondText?.let {
                         add(InferenceStatItemUi(label = "体感生成速度", value = it))
                     }
+                    add(
+                        InferenceStatItemUi(
+                            label = "速度取得元",
+                            value = resolveOllamaSpeedSourceLabel(stats = stats, hasPerceived = perceivedTokensPerSecondText != null),
+                        ),
+                    )
                 }
                 localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
                     add(
@@ -688,9 +706,9 @@ private fun formatRegularTokenValue(
     return when (statValue.source) {
         StatsUiValueSource.MEASURED,
         StatsUiValueSource.TOKENIZER_BASED,
-        -> if (tokenizerSucceeded) "${numericValue}（Tokenizer）" else "${numericValue}（算出）"
+        -> if (tokenizerSucceeded) "${numericValue}（Tokenizer）" else "${numericValue}（推定）"
         StatsUiValueSource.SEMI_MEASURED -> "${numericValue}（準実測）"
-        StatsUiValueSource.DERIVED -> "${numericValue}（算出）"
+        StatsUiValueSource.DERIVED -> "${numericValue}（推定）"
         StatsUiValueSource.ESTIMATED -> "${numericValue}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
@@ -699,18 +717,36 @@ private fun formatRegularTokenValue(
 }
 
 private fun formatRegularTokensPerSecondValue(statValue: UiStatValue?, fallbackValue: String?): String {
-    if (statValue == null) return fallbackValue?.let { "${it}（fallback）" } ?: "—"
+    if (statValue == null) return fallbackValue?.let { "${it}（推定）" } ?: "—"
     val valueText = statValue.valueText.takeIf { it.isNotBlank() } ?: return "—"
     return when (statValue.source) {
         StatsUiValueSource.DERIVED,
         StatsUiValueSource.MEASURED,
-        -> "${valueText}（算出）"
+        -> "${valueText}（推定）"
         StatsUiValueSource.TOKENIZER_BASED -> "${valueText}（Tokenizer）"
         StatsUiValueSource.SEMI_MEASURED -> "${valueText}（準実測）"
         StatsUiValueSource.ESTIMATED -> "${valueText}（推定）"
         StatsUiValueSource.API_CANDIDATE_ONLY,
         StatsUiValueSource.UNAVAILABLE,
         -> "—"
+    }
+}
+
+private fun resolveOllamaTokenSourceLabel(stats: InferenceStats): String {
+    return if (stats.inputTokens != null || stats.outputTokens != null || stats.completionTokens != null || stats.totalTokens != null) {
+        "Ollama"
+    } else {
+        "未取得"
+    }
+}
+
+private fun resolveOllamaSpeedSourceLabel(stats: InferenceStats, hasPerceived: Boolean): String {
+    return when {
+        stats.tokensPerSecond != null -> "Ollama"
+        hasPerceived -> "準実測"
+        (stats.outputTokens ?: stats.completionTokens) != null &&
+            (stats.generationDurationNs ?: stats.generationTimeMs) != null -> "推定"
+        else -> "未取得"
     }
 }
 

@@ -39,6 +39,12 @@ internal data class LocalInferenceStatsUiModel(
     val imageInput: UiStatValue,
     val finishReasonText: String,
     val sourceLabel: String,
+    val resolvedInputTokens: Int? = null,
+    val resolvedOutputTokens: Int? = null,
+    val resolvedTotalTokens: Int? = null,
+    val resolvedTokensPerSecond: Double? = null,
+    val resolvedTokenSourceLabel: String = "未取得",
+    val resolvedSpeedSourceLabel: String = "未取得",
 )
 
 internal fun StatsValueSource.toUiSource(): StatsUiValueSource = when (this) {
@@ -86,6 +92,10 @@ internal fun buildLocalInferenceStatsUiModel(
     promptText: String? = null,
     selectedAssistantResponseSource: String?,
 ): LocalInferenceStatsUiModel {
+    // canonical definition（LiteRT）:
+    // 1) 入力/出力/合計トークンは tokenizer 実測を最優先
+    // 2) 合計は input + output を再構成できる場合は再構成値を優先
+    // 3) 生成速度は outputTokens / generationDuration を優先し、導出不能時のみ準実測・fallback へ
     fun buildUiStatValueFromResolvedLong(valueNs: Long?, source: StatsUiValueSource): UiStatValue = UiStatValue(
         valueText = formatProbeDurationForUi(valueNs),
         source = source,
@@ -171,6 +181,22 @@ internal fun buildLocalInferenceStatsUiModel(
         valueText = tokensPerSecondValue?.let { String.format(Locale.US, "%.1f token/s", it) } ?: "—",
         source = tokensPerSecondSource,
     )
+    val resolvedTokenSourceLabel = when {
+        listOf(inputTokens, outputTokens, totalTokens).any { it.source == StatsUiValueSource.MEASURED || it.source == StatsUiValueSource.TOKENIZER_BASED } -> "Tokenizer"
+        listOf(inputTokens, outputTokens, totalTokens).any { it.source == StatsUiValueSource.ESTIMATED || it.source == StatsUiValueSource.DERIVED } -> "推定"
+        else -> "未取得"
+    }
+    val resolvedSpeedSourceLabel = when (tokensPerSecondSource) {
+        StatsUiValueSource.TOKENIZER_BASED -> "Tokenizer"
+        StatsUiValueSource.SEMI_MEASURED -> "準実測"
+        StatsUiValueSource.ESTIMATED,
+        StatsUiValueSource.DERIVED,
+        StatsUiValueSource.MEASURED,
+        -> "推定"
+        StatsUiValueSource.API_CANDIDATE_ONLY,
+        StatsUiValueSource.UNAVAILABLE,
+        -> "未取得"
+    }
 
     return LocalInferenceStatsUiModel(
         firstToken = UiStatValue(
@@ -203,6 +229,12 @@ internal fun buildLocalInferenceStatsUiModel(
         ),
         finishReasonText = formatFinishReason(stats) ?: "—",
         sourceLabel = selectedAssistantResponseSource ?: "—",
+        resolvedInputTokens = inputTokens.rawValueInt,
+        resolvedOutputTokens = outputTokens.rawValueInt,
+        resolvedTotalTokens = totalTokens.rawValueInt,
+        resolvedTokensPerSecond = tokensPerSecondValue,
+        resolvedTokenSourceLabel = resolvedTokenSourceLabel,
+        resolvedSpeedSourceLabel = resolvedSpeedSourceLabel,
     )
 }
 

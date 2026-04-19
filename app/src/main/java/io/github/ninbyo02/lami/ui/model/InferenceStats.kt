@@ -9,10 +9,13 @@ enum class ContextWindowFetchState {
 data class InferenceStats(
     // UI で扱う正規のモデル名。
     val modelName: String? = null,
+    // canonical: プロンプト入力 token count。
     val inputTokens: Int? = null,
     // UI/表示責務としての正規出力トークン。
     val outputTokens: Int? = null,
+    // canonical: 入力 + 出力（個別欠損時は total のみ保持される場合あり）。
     val totalTokens: Int? = null,
+    // canonical: 原則 outputTokens / generation時間。取得できない場合は provider 値を保持。
     val tokensPerSecond: Double? = null,
     val charsPerSecond: Double? = null,
     val tokenCountMode: String? = null,
@@ -33,6 +36,7 @@ data class InferenceStats(
     // finalChunk の doneReason / finishReason を保存して表示する。
     val finishReason: String? = null,
     val localSourceSummary: String? = null,
+    // canonical: first token / first visible token までの TTFT。
     val timeToFirstTokenMs: Long? = null,
     // 添付画像の枚数。入力トークンとは別指標として扱う。
     val imageInputCount: Int? = null,

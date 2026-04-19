@@ -60,6 +60,15 @@ internal fun extractLocalInferenceTokenMetrics(
     assistantText: String? = null,
     promptText: String? = null,
 ): LocalInferenceTokenMetrics {
+    // canonical priority（LiteRT token count）:
+    // 1. measuredSnapshot(MediaPipe sizeInTokens を含む tokenizer 実測)
+    // 2. 既存の resolved/probe/session 値
+    // 3. 推定値
+    //
+    // canonical priority（Ollama token count / legacy fields）:
+    // 1. explicit persisted fields(inputTokens/outputTokens/completionTokens/totalTokens)
+    // 2. legacy probe/session fallback
+    // 3. null
     val usesOfficialApi = trace.officialFlowUsed || trace.officialConversationApiAvailable == true
     val hasEstimatedTokenProbe = trace.estimatedTokenProbe.availability != LocalStatsAvailability.NOT_FOUND
 
