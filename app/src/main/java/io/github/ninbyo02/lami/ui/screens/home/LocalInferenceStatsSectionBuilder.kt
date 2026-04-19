@@ -353,6 +353,26 @@ internal fun buildInferenceDetailSections(
             title = "DEV診断",
             items = buildList {
                 addAll(devSectionItems)
+                measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
+                    add(InferenceStatItemUi(label = "measuredTokens", value = it))
+                }
+                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
+                    add(
+                        InferenceStatItemUi(
+                            label = "直近 Prefill Token",
+                            value = it.toString(),
+                        ),
+                    )
+                }
+                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
+                    add(
+                        InferenceStatItemUi(
+                            label = "直近 Decode Token",
+                            value = it.toString(),
+                        ),
+                    )
+                }
+                addAll(tokenizerDiagnosticsItems)
                 if (localTraceForDev != null && enableDevLlmSessionAsyncPoc) {
                     add(InferenceStatItemUi(label = "evalTime", value = localTraceForDev.evalTimeProbe.availability.name))
                     add(InferenceStatItemUi(label = "evalTimeSignature", value = localTraceForDev.evalTimeProbe.signature ?: "—"))
@@ -376,26 +396,6 @@ internal fun buildInferenceDetailSections(
                     add(InferenceStatItemUi(label = "officialFlowFallbackReason", value = localTraceForDev.officialFlowFallbackReason ?: "—"))
                     add(InferenceStatItemUi(label = "officialConversationApiAvailable", value = localTraceForDev.officialConversationApiAvailable?.toString() ?: "—"))
                     add(InferenceStatItemUi(label = "officialFlowChunkCount", value = localTraceForDev.officialFlowChunkCount.toString()))
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastPrefillTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Prefill Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                localTraceForDev?.measuredTokenSnapshot?.lastDecodeTokenCount?.takeIf { it >= 0 }?.let {
-                    add(
-                        InferenceStatItemUi(
-                            label = "直近 Decode Token",
-                            value = it.toString(),
-                        ),
-                    )
-                }
-                addAll(tokenizerDiagnosticsItems)
-                measuredTokenSnapshotSummary?.takeIf { it.isNotBlank() }?.let {
-                    add(InferenceStatItemUi(label = "measuredTokens", value = it))
                 }
             },
         ).takeIf { it.items.isNotEmpty() },
@@ -847,11 +847,6 @@ private fun buildTokenizerDiagnosticsItems(
     if (trace == null) return emptyList()
     val measuredSnapshot = trace.measuredTokenSnapshot
     val sourceTraceSummary = measuredSnapshot?.tokenizerSourceTraceSummary.orEmpty()
-    val tokenizerRecountStatus = if (tokenizerSucceeded) "成功" else "未取得"
-    val mediaPipeStatus = measuredSnapshot?.mediaPipeTokenizerStatus
-        ?.takeIf { it.isNotBlank() }
-        ?.toUiStatusForMediaPipeTokenizer()
-        ?: "未実行"
     val mediaPipeSummary = measuredSnapshot?.mediaPipeTokenizerSummary.orEmpty()
     val mediaPipeSessionCreateStatus = mediaPipeSummary.extractTokenizerSourceValue("MediaPipe session create")
         ?.toUiStatusForMediaPipeSessionCreate()
@@ -878,8 +873,6 @@ private fun buildTokenizerDiagnosticsItems(
     val conversationTokenizerStatus = sourceTraceSummary.extractTokenizerSourceValue("conversation-tokenizer path")
         .toUiStatusForConversationTokenizerPath()
     return listOf(
-        InferenceStatItemUi(label = "Tokenizer再計数", value = tokenizerRecountStatus),
-        InferenceStatItemUi(label = "MediaPipe tokenizer", value = mediaPipeStatus),
         InferenceStatItemUi(label = "MediaPipe model path source", value = mediaPipeModelPathSource),
         InferenceStatItemUi(label = "MediaPipe model path", value = mediaPipeModelPath),
         InferenceStatItemUi(label = "MediaPipe model path exists", value = mediaPipeModelPathExists),
