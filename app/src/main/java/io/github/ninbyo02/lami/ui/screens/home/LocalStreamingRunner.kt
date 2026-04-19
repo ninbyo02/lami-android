@@ -975,6 +975,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         preferredModelPath = preferredModelPath,
         tokenizerSessionSource = tokenizerSessionSource,
     )
+    val mediaPipeContext = resolveMediaPipeContext(tokenizerSessionSource)
 
     val baseSummary = buildString {
         appendLine("MediaPipe tokenizer: failed")
@@ -994,6 +995,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             summary = buildString {
                 append(baseSummary)
                 appendLine("MediaPipe model path status: ${modelPathResolution.status}")
+                appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                appendLine(
+                    "MediaPipe context hasCacheDir: ${
+                        runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                    }",
+                )
                 appendLine("MediaPipe session create: skipped")
                 appendLine("MediaPipe sizeInTokens: not-found")
                 append("MediaPipe failure: ${modelPathResolution.status}")
@@ -1007,6 +1015,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         summary = buildString {
             append(baseSummary)
             appendLine("MediaPipe model path status: model-path-missing")
+            appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+            appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+            appendLine(
+                "MediaPipe context hasCacheDir: ${
+                    runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                }",
+            )
             appendLine("MediaPipe session create: skipped")
             appendLine("MediaPipe sizeInTokens: not-found")
             append("MediaPipe failure: model-path-missing")
@@ -1017,6 +1032,7 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
         val inferenceOutcome = createMediaPipeLlmInferenceInstance(
             llmInferenceClass = llmInferenceClass,
             modelPath = modelPath,
+            context = mediaPipeContext,
         )
         if (inferenceOutcome.instance == null) {
             return@runCatching MediaPipeTokenizerProbeOutcome(
@@ -1026,6 +1042,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                 summary = buildString {
                     append(baseSummary)
                     appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                    appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                    appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                    appendLine(
+                        "MediaPipe context hasCacheDir: ${
+                            runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                        }",
+                    )
                     inferenceOutcome.debugSummaryLines.forEach { appendLine(it) }
                     appendLine("MediaPipe session create: failed")
                     appendLine("MediaPipe sizeInTokens: not-found")
@@ -1050,6 +1073,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     summary = buildString {
                         append(baseSummary)
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
                         sessionCreationOutcome.debugSummaryLines.forEach { appendLine(it) }
                         appendLine("MediaPipe session create: ${if (session != null) "success" else "failed"}")
                         appendLine("MediaPipe sizeInTokens: ${if (sizeMethod != null) "found" else "not-found"}")
@@ -1082,6 +1112,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                         appendLine("MediaPipe model path isFile: ${modelPathResolution.isFile}")
                         appendLine("MediaPipe model path readable: ${modelPathResolution.readable}")
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
                         appendLine("MediaPipe session create: success")
                         appendLine("MediaPipe sizeInTokens: found")
                         appendLine("MediaPipe prompt tokens: $promptTokens")
@@ -1097,6 +1134,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
                     summary = buildString {
                         append(baseSummary)
                         appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                        appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                        appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                        appendLine(
+                            "MediaPipe context hasCacheDir: ${
+                                runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                            }",
+                        )
                         appendLine("MediaPipe session create: success")
                         appendLine("MediaPipe sizeInTokens: found")
                         append("MediaPipe failure: invoke-sizeInTokens-failed")
@@ -1115,6 +1159,13 @@ private fun tryReadMediaPipeTokenizerProbeViaReflection(
             summary = buildString {
                 append(baseSummary)
                 appendLine("MediaPipe model path status: model-path-passed-to-mediapipe")
+                appendLine("MediaPipe context class: ${mediaPipeContext?.javaClass?.name ?: "null"}")
+                appendLine("MediaPipe context isNull: ${mediaPipeContext == null}")
+                appendLine(
+                    "MediaPipe context hasCacheDir: ${
+                        runCatching { mediaPipeContext?.cacheDir != null }.getOrElse { false }
+                    }",
+                )
                 buildMediaPipeThrowableSummaryLines(throwable).forEach { appendLine(it) }
                 appendLine("MediaPipe session create: failed")
                 appendLine("MediaPipe sizeInTokens: not-found")
@@ -1146,6 +1197,7 @@ private data class MediaPipeSessionOptionsCreateOutcome(
 private fun createMediaPipeLlmInferenceInstance(
     llmInferenceClass: Class<*>,
     modelPath: String,
+    context: android.content.Context?,
 ): MediaPipeInferenceCreateOutcome {
     val debugLines = mutableListOf<String>()
     val candidateMethods = llmInferenceClass.methods.filter { method ->
@@ -1167,7 +1219,19 @@ private fun createMediaPipeLlmInferenceInstance(
         debugLines += "MediaPipe options build: success"
         val args = when {
             params.size == 1 -> arrayOf(options)
-            params.size == 2 && isAndroidContextClass(params[0]) -> arrayOf<Any?>(null, options)
+            params.size == 2 && isAndroidContextClass(params[0]) -> {
+                val safeContext = context?.applicationContext ?: context
+                debugLines += "MediaPipe context prepared: ${safeContext != null}"
+                debugLines += "MediaPipe context type: applicationContext"
+                if (safeContext == null) {
+                    debugLines += "MediaPipe failure: context-null"
+                    return MediaPipeInferenceCreateOutcome(
+                        failureSummary = "context-null",
+                        debugSummaryLines = debugLines.toList(),
+                    )
+                }
+                arrayOf<Any?>(safeContext, options)
+            }
             else -> return@forEach
         }
         val instance = runCatching { method.invoke(null, *args) }
@@ -1368,6 +1432,30 @@ private fun resolveMediaPipeTokenizerModelPath(
 
 private fun isAndroidContextClass(clazz: Class<*>): Boolean {
     return clazz.name == "android.content.Context"
+}
+
+private fun resolveMediaPipeContext(tokenizerSessionSource: Any?): android.content.Context? {
+    if (tokenizerSessionSource == null) return null
+    val candidates = buildList {
+        add(tokenizerSessionSource)
+        add(readNamedMemberValue(tokenizerSessionSource, "context"))
+        add(readNamedMemberValue(tokenizerSessionSource, "appContext"))
+        val heldEngine = readNamedMemberValue(tokenizerSessionSource, "heldEngine")
+        add(heldEngine)
+        if (heldEngine != null) {
+            add(readNamedMemberValue(heldEngine, "context"))
+            add(readNamedMemberValue(heldEngine, "appContext"))
+            val engineInstance = readNamedMemberValue(heldEngine, "engineInstance")
+            add(engineInstance)
+            if (engineInstance != null) {
+                add(readNamedMemberValue(engineInstance, "context"))
+                add(readNamedMemberValue(engineInstance, "appContext"))
+            }
+        }
+    }
+    return candidates.firstNotNullOfOrNull { candidate ->
+        (candidate as? android.content.Context)?.applicationContext ?: (candidate as? android.content.Context)
+    }
 }
 
 private fun tryCreateTokenizerSessionFromEngineViaReflection(
