@@ -740,10 +740,10 @@ fun Home(
         appendLocalReflectionTrace(context.applicationContext, message)
     }
 
-    fun clearPendingLocalUserMessage() {
+    fun clearPendingLocalUserMessage(reason: String) {
         debugLocalUiTrace(
             label = "LOCAL_UI_PENDING_CLEAR",
-            extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} isCreatingChat=$isCreatingChat",
+            extra = "reason=$reason effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} isCreatingChat=$isCreatingChat",
         )
         pendingLocalUserMessageVisible = false
         pendingLocalUserMessageText = null
@@ -1101,16 +1101,9 @@ fun Home(
             suppressAutoNewChat = false
             suppressChatContentWhileClosingDrawer = false
         }
-        val shouldKeepPendingLocalUserMessage =
-            pendingLocalUserMessageVisible &&
-                pendingNavigateChatId != null &&
-                (chatId == null || chatId == pendingLocalUserMessageChatId)
-        if (!shouldKeepPendingLocalUserMessage) {
-            clearPendingLocalUserMessage()
-        }
         debugLocalUiTrace(
             label = "LOCAL_UI_EFFECT_CHATID",
-            extra = "chatId=$chatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId shouldKeepPendingLocalUserMessage=$shouldKeepPendingLocalUserMessage",
+            extra = "chatId=$chatId effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId",
         )
     }
 
@@ -1818,7 +1811,7 @@ fun Home(
                                                 if (isInferenceRunningUi) {
                                                     if (isLocalRunningRaw) {
                                                         localStopRequested = true
-                                                        clearPendingLocalUserMessage()
+                                                        clearPendingLocalUserMessage(reason = "stop")
                                                         localInferenceJob?.cancel()
                                                         localInferenceJob = null
                                                         effectiveChatId?.let { currentChatId ->
@@ -1943,23 +1936,21 @@ fun Home(
                                                     val requestPrompt = userPrompt
                                                     if (requestPrompt.isBlank()) return@IconButton
                                                     debugLocalUiTrace(
-                                                        label = "LOCAL_UI_SEND_TAP",
-                                                        extra = "requestPromptLength=${requestPrompt.length} effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId isCreatingChat=$isCreatingChat userPromptLength=${userPrompt.length} selectedImageUriStringsSize=${selectedImageUriStrings.size}",
+                                                        label = "LOCAL_UI_SEND_TAPPED",
+                                                        extra = "selectedInferenceTarget=$selectedInferenceTarget effectiveChatId=$effectiveChatId userPromptLength=${userPrompt.length} pendingVisibleBefore=$pendingLocalUserMessageVisible",
                                                     )
                                                     pendingLocalUserMessageText = requestPrompt
                                                     pendingLocalUserMessageCreatedAtMs = System.currentTimeMillis()
                                                     pendingLocalUserMessageChatId = effectiveChatId
                                                     pendingLocalUserMessageVisible = true
-                                                    debugLocalUiTrace(
-                                                        label = "LOCAL_UI_PENDING_SET",
-                                                        extra = "pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} userPromptLength=${userPrompt.length}",
-                                                    )
                                                     prompt = ""
                                                     userPrompt = ""
                                                     selectedImageUriStrings = emptyList()
+                                                    localInferenceEngineState = LocalInferenceEngineState.PREPARING
+                                                    localStopRequested = false
                                                     debugLocalUiTrace(
-                                                        label = "LOCAL_UI_INPUT_CLEARED",
-                                                        extra = "userPromptLength=${userPrompt.length} promptLength=${prompt.length}",
+                                                        label = "LOCAL_UI_PENDING_ARMED",
+                                                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} userPromptLengthAfterClear=${userPrompt.length}",
                                                     )
                                                     stopTtsWithCleanup(
                                                         suppressedMessageId = stopButtonOwnerAssistantMessageId
@@ -1967,8 +1958,6 @@ fun Home(
                                                             ?: streamingSpeechStartedForMessageId,
                                                         armTapGuards = false,
                                                     )
-                                                    localInferenceEngineState = LocalInferenceEngineState.PREPARING
-                                                    localStopRequested = false
                                                     localInferenceJob = coroutineScope.launch {
                                                         debugLocalUiTrace(
                                                             label = "LOCAL_UI_LAUNCH_ENTER",
@@ -2539,7 +2528,7 @@ fun Home(
                                                             }
                                                             localStreamingResponseText = null
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalUserMessage()
+                                                            clearPendingLocalUserMessage(reason = "error")
                                                             isLocalInferenceRunning = false
                                                             localInferenceEngineHolder.resetConversation(
                                                                 chatId = currentChatId,
@@ -2569,7 +2558,7 @@ fun Home(
                                                             localStreamingResponseText = null
                                                             resetStreamingSpeechState()
                                                             resetStreamingAssistantPlaceholderId(reason = "error")
-                                                            clearPendingLocalUserMessage()
+                                                            clearPendingLocalUserMessage(reason = "error")
                                                             effectiveChatId?.let { chatId ->
                                                                 localInferenceEngineHolder.resetConversation(
                                                                     chatId = chatId,
@@ -2723,109 +2712,60 @@ fun Home(
         ) {
             val contentModifier = Modifier
                 .fillMaxSize()
+            val pendingLocalUserMessageTextValue = pendingLocalUserMessageText.orEmpty()
+            val shouldShowPendingLocalUserOverlay =
+                pendingLocalUserMessageVisible && pendingLocalUserMessageTextValue.isNotBlank()
+            val isPendingLocalUserMessageMatchedInDb = run {
+                val pendingText = pendingLocalUserMessageText?.takeIf { it.isNotBlank() } ?: return@run false
+                val pendingChatId = pendingLocalUserMessageChatId ?: return@run false
+                allChatsOrNull?.any { message ->
+                    message.chatId == pendingChatId &&
+                        message.isSendbyMe &&
+                        message.message == pendingText
+                } == true
+            }
+            LaunchedEffect(
+                shouldShowPendingLocalUserOverlay,
+                pendingLocalUserMessageTextValue,
+                pendingLocalUserMessageVisible,
+                pendingNavigateChatId,
+                effectiveChatId,
+                allChatsOrNull == null,
+                isCreatingChat,
+                isPendingLocalUserMessageMatchedInDb,
+            ) {
+                debugLocalUiTrace(
+                    label = "LOCAL_UI_OVERLAY_RENDER",
+                    extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingVisible=$pendingLocalUserMessageVisible pendingTextLength=${pendingLocalUserMessageTextValue.length} allChatsNull=${allChatsOrNull == null} isCreatingChat=$isCreatingChat matchedInDb=$isPendingLocalUserMessageMatchedInDb",
+                )
+            }
 
             if (effectiveChatId == null) {
-                LaunchedEffect(
-                    effectiveChatId,
-                    pendingNavigateChatId,
-                    pendingLocalUserMessageVisible,
-                    pendingLocalUserMessageChatId,
-                    pendingLocalUserMessageText,
-                    isCreatingChat,
-                ) {
-                    debugLocalUiTrace(
-                        label = "LOCAL_UI_RENDER_PREPARING",
-                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} shouldShowPendingLocalUserBubble=${pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()}",
-                    )
-                }
                 Column(
                     modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()) {
-                        ChatBubble(
-                            message = pendingLocalUserMessageText.orEmpty(),
-                            isSentByMe = true,
-                        )
-                    }
                     Text(if (isCreatingChat) "Creating new chat..." else "Preparing chat...")
                 }
             } else if (allChatsOrNull == null) {
-                val shouldShowPendingLocalUserBubble =
-                    pendingLocalUserMessageVisible && !pendingLocalUserMessageText.isNullOrBlank()
-                LaunchedEffect(
-                    effectiveChatId,
-                    pendingNavigateChatId,
-                    pendingLocalUserMessageVisible,
-                    pendingLocalUserMessageChatId,
-                    pendingLocalUserMessageText,
-                    shouldShowPendingLocalUserBubble,
+                Column(
+                    modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    debugLocalUiTrace(
-                        label = "LOCAL_UI_RENDER_LOADING",
-                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} shouldShowPendingLocalUserBubble=$shouldShowPendingLocalUserBubble",
-                    )
-                }
-                if (shouldShowPendingLocalUserBubble) {
-                    Log.i("ChatScreen", "LOCAL pending bubble bridge visible while chat list is loading")
-                    Column(
-                        modifier = contentModifier.padding(top = effectiveTopGradientBottomDp),
-                        verticalArrangement = Arrangement.Top,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        ChatBubble(
-                            message = pendingLocalUserMessageText.orEmpty(),
-                            isSentByMe = true,
-                        )
-                        Text("Loading messages...")
-                    }
-                } else {
-                    Box(modifier = contentModifier)
+                    Text("Loading messages...")
                 }
             } else {
                 val currentChatId = effectiveChatId
                 val messagesForListBase: List<Message> = allChatsOrNull
-                val shouldMergePendingLocalUserMessage =
-                    pendingLocalUserMessageVisible &&
-                        !pendingLocalUserMessageText.isNullOrBlank() &&
-                        currentChatId != null &&
-                        pendingLocalUserMessageChatId == currentChatId &&
-                        messagesForListBase.none { message ->
-                            message.chatId == currentChatId &&
-                                message.isSendbyMe &&
-                                message.message == pendingLocalUserMessageText
-                        }
-                LaunchedEffect(
-                    effectiveChatId,
-                    pendingNavigateChatId,
-                    pendingLocalUserMessageVisible,
-                    pendingLocalUserMessageChatId,
-                    pendingLocalUserMessageText,
-                    shouldMergePendingLocalUserMessage,
-                    messagesForListBase.size,
-                ) {
-                    debugLocalUiTrace(
-                        label = "LOCAL_UI_RENDER_LIST",
-                        extra = "effectiveChatId=$effectiveChatId pendingNavigateChatId=$pendingNavigateChatId pendingLocalUserMessageVisible=$pendingLocalUserMessageVisible pendingLocalUserMessageChatId=$pendingLocalUserMessageChatId pendingLocalUserMessageTextLength=${pendingLocalUserMessageText?.length ?: 0} shouldMergePendingLocalUserMessage=$shouldMergePendingLocalUserMessage messagesForListBaseSize=${messagesForListBase.size}",
-                    )
-                }
-                val messagesForListWithPendingBase: List<Message> = if (shouldMergePendingLocalUserMessage) {
-                    messagesForListBase + Message(
-                        chatId = requireNotNull(currentChatId),
-                        message = pendingLocalUserMessageText.orEmpty(),
-                        isSendbyMe = true,
-                    )
-                } else {
-                    messagesForListBase
-                }
                 val messagesForList: List<Message> = if (
                     currentChatId != null &&
                     streamingAssistantMessageId == null &&
                     !streamingResponseText.isNullOrBlank()
                 ) {
                     logStreamTrace("STREAM ui transient row enabled")
-                    messagesForListWithPendingBase + Message(
+                    messagesForListBase + Message(
                         chatId = currentChatId,
                         message = streamingResponseText,
                         isSendbyMe = false,
@@ -2837,7 +2777,7 @@ fun Home(
                             "STREAM ui transient row suppressed placeholderId=$streamingAssistantMessageId",
                         )
                     }
-                    messagesForListWithPendingBase
+                    messagesForListBase
                 }
                 LaunchedEffect(
                     effectiveChatId,
@@ -2855,7 +2795,11 @@ fun Home(
                             message.message == pendingText
                     }
                     if (isMatched) {
-                        clearPendingLocalUserMessage()
+                        debugLocalUiTrace(
+                            label = "LOCAL_UI_PENDING_MATCHED_IN_DB",
+                            extra = "pendingChatId=$pendingChatId pendingTextLength=${pendingText.length} messagesForListBaseSize=${messagesForListBase.size}",
+                        )
+                        clearPendingLocalUserMessage(reason = "db-matched")
                     }
                 }
                 LaunchedEffect(effectiveChatId, messagesForList.size, messagesForList.lastOrNull()?.messageID) {
@@ -3261,6 +3205,19 @@ fun Home(
                             }
                         }
                     }
+                }
+            }
+            if (shouldShowPendingLocalUserOverlay && !isPendingLocalUserMessageMatchedInDb) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = effectiveTopGradientBottomDp),
+                ) {
+                    ChatBubble(
+                        message = pendingLocalUserMessageTextValue,
+                        isSentByMe = true,
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    )
                 }
             }
         }
