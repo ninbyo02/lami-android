@@ -61,8 +61,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Analytics
-import androidx.compose.material.icons.outlined.Summarize
+import androidx.compose.material.icons.outlined.Filter2
+import androidx.compose.material.icons.outlined.Filter1
 import androidx.compose.material3.Card
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.ElevatedButton
@@ -5813,12 +5813,12 @@ private fun InferenceStatsModeSelector(
     val modeButtons = listOf(
         Triple(
             InferenceStatsDisplayMode.SIMPLE,
-            Icons.Outlined.Summarize,
+            Icons.Outlined.Filter1,
             "シンプル表示",
         ),
         Triple(
             InferenceStatsDisplayMode.DETAILED,
-            Icons.Outlined.Analytics,
+            Icons.Outlined.Filter2,
             "詳細表示",
         ),
         Triple(
