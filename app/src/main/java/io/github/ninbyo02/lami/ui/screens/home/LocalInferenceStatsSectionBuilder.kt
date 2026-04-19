@@ -236,7 +236,7 @@ internal fun buildInferenceDetailSections(
                     add(
                         InferenceStatItemUi(
                             label = "速度取得元",
-                            value = localStatsUiModel.resolvedSpeedSourceLabel,
+                            value = localStatsUiModel?.resolvedSpeedSourceLabel ?: "—",
                         ),
                     )
                     stats.timeToFirstTokenMs?.let {
